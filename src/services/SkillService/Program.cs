@@ -82,10 +82,15 @@ app.MapGet("/skills", async (SkillDbContext db) =>
     return await db.Skills.ToListAsync();
 });
 
-app.MapGet("/skills/:{userId}", async (string userId, SkillDbContext db) =>
+app.MapGet("/skills/user", async (HttpContext context, SkillDbContext db) =>
 {
-    return await db.Skills.Where(x => x.UserId == userId).ToListAsync();
+    var userId = ExtractUserIdFromContext(context);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var userSkills = await db.Skills.Where(x => x.UserId == userId).ToListAsync();
+    return Results.Ok(userSkills);
 }).RequireAuthorization();
+
 
 app.MapPost("/skills", async (HttpContext context, SkillDbContext dbContext, IPublishEndpoint publisher, CreateSkillRequest request) =>
 {
@@ -102,9 +107,9 @@ app.MapPost("/skills", async (HttpContext context, SkillDbContext dbContext, IPu
 
     dbContext.Skills.Add(skill);
     await dbContext.SaveChangesAsync();
-    await publisher.Publish(new SkillCreatedEvent(skill.SkillId, skill.Name, skill.Description, skill.IsOffering));
+    await publisher.Publish(new SkillCreatedEvent(skill.Id, skill.Name, skill.Description, skill.IsOffering, userId));
 
-    return Results.Created($"/skills/{skill.SkillId}", new CreateSkillResponse(skill.SkillId, skill.Name, skill.Description, skill.IsOffering));
+    return Results.Created($"/skills/{skill.Id}", new CreateSkillResponse(skill.Id, skill.Name, skill.Description, skill.IsOffering));
 }).RequireAuthorization();
 
 app.Run();
