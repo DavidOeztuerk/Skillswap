@@ -1,5 +1,7 @@
 namespace Events;
 
 public record MatchFoundEvent(
-    Guid MatchSessionId,
-    string SkillName);
+    string MatchSessionId,
+    string SkillName,
+    string SkillSearcherId,
+    string SkillCreatorId);

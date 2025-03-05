@@ -4,4 +4,5 @@ public record SkillCreatedEvent(
     string SkillId,
     string Name,
     string Description,
-    bool IsOffering);
+    bool IsOffering,
+    string SkillCreatorId);
