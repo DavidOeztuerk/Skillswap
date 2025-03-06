@@ -31,8 +31,6 @@ var expireString = Environment.GetEnvironmentVariable("JWT_EXPIRE")
     ?? "60";
 var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
 
-Console.WriteLine($"ExpireMinutes: {expireMinutes}");
-
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
     options.UseInMemoryDatabase("AppointmentDb"));
 
@@ -42,7 +40,11 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<MatchFoundConsumer>();
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host(rabbitHost, "/");
+        cfg.Host(rabbitHost, "/", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
         cfg.ReceiveEndpoint("appointment-match-queue", e =>
         {
             e.ConfigureConsumer<MatchFoundConsumer>(context);

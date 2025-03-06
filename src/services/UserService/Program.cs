@@ -39,8 +39,6 @@ var expireString = Environment.GetEnvironmentVariable("JWT_EXPIRE")
     ?? "60";
 var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
 
-Console.WriteLine($"ExpireMinutes: {expireMinutes}");
-
 builder.Services.AddDbContext<UserDbContext>(opt =>
     opt.UseInMemoryDatabase("InMemoryDb"));
 
