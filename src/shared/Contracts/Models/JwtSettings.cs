@@ -1,4 +1,4 @@
-namespace SkillService.Models;
+namespace Contracts.Models;
 
 public class JwtSettings
 {

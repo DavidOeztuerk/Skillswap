@@ -15,8 +15,8 @@ public class SkillCreatedConsumer(
         var newSkill = new Match
         {
             SkillName = context.Message.Name,
-            SkillCreatorId = context.Message.SkillCreatorId, // User des Skill-Erstellers speichern
-            IsMatched = false
+            IsMatched = false,
+            SkillCreatorId = context.Message.SkillCreatorId // User des Skill-Erstellers speichern
         };
         
         _dbContext.Matches.Add(newSkill);
