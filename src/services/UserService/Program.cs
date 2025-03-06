@@ -12,6 +12,7 @@ using Contracts.Requests;
 using Microsoft.Extensions.Options;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Contracts.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -136,7 +137,7 @@ app.Run();
 
 static string? ExtractUserIdFromContext(HttpContext context)
 {
-  Console.WriteLine("Authentication Type: " + context.User.Identity?.AuthenticationType);
+    Console.WriteLine("Authentication Type: " + context.User.Identity?.AuthenticationType);
     Console.WriteLine("Is Authenticated: " + context.User.Identity?.IsAuthenticated);
 
     Console.WriteLine("\nAll Claims:");
@@ -146,7 +147,7 @@ static string? ExtractUserIdFromContext(HttpContext context)
     }
 
     // Erweiterte Claim-Suche
-    var userId = 
+    var userId =
         context.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ??
         context.User.FindFirst("sub")?.Value ??
         context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

@@ -1,14 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using AppointmentService;
+using AppointmentService.Consumer;
+using AppointmentService.Models;
 using Contracts.Models;
 using Contracts.Requests;
-using Contracts.Responses;
 using Events;
 using MassTransit;
-using MatchmakingService;
-using MatchmakingService.Consumer;
-using MatchmakingService.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -34,19 +33,19 @@ var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
 
 Console.WriteLine($"ExpireMinutes: {expireMinutes}");
 
-builder.Services.AddDbContext<MatchmakingDbContext>(options =>
-    options.UseInMemoryDatabase("MatchmakingDb"));
+builder.Services.AddDbContext<AppointmentDbContext>(options =>
+    options.UseInMemoryDatabase("AppointmentDb"));
 
 // MassTransit + RabbitMQ konfigurieren
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<SkillCreatedConsumer>();
+    x.AddConsumer<MatchFoundConsumer>();
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(rabbitHost, "/");
-        cfg.ReceiveEndpoint("matchmaking-skill-queue", e =>
+        cfg.ReceiveEndpoint("appointment-match-queue", e =>
         {
-            e.ConfigureConsumer<SkillCreatedConsumer>(context);
+            e.ConfigureConsumer<MatchFoundConsumer>(context);
         });
     });
 });
@@ -84,68 +83,54 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Endpunkte
-app.MapPost("/matches/find", async (HttpContext context, MatchmakingDbContext dbContext, IPublishEndpoint publisher, FindMatchRequest request) =>
+app.MapPost("/appointments/create", async (HttpContext context, AppointmentDbContext dbContext, IPublishEndpoint publisher, CreateAppointmentRequest request) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    // Suche nach einem passenden Match
-    var potentialMatch = await dbContext.Matches
-        .FirstOrDefaultAsync(m => m.SkillName == request.SkillName && !m.IsMatched);
-
-    if (potentialMatch != null)
+    var appointment = new Appointment
     {
-        potentialMatch.IsMatched = true;
-        potentialMatch.SkillSearcherId = userId;
-        await dbContext.SaveChangesAsync();
+        Title = request.Title,
+        Description = request.Description,
+        Date = request.Date,
+        CreatedBy = userId,
+        ParticipantId = request.SkillCreatorId,
+        Status = "Pending"
+    };
 
-        await publisher.Publish(new MatchFoundEvent(potentialMatch.Id, potentialMatch.SkillName, potentialMatch.SkillSearcherId, potentialMatch.SkillCreatorId));
-        return Results.Ok(new FindMatchResponse(potentialMatch.Id, potentialMatch.SkillName));
-    }
-
-    // Falls kein Match existiert, neue Anfrage speichern
-    var newMatch = new Match { SkillName = request.SkillName, IsMatched = false, SkillSearcherId = userId };
-    dbContext.Matches.Add(newMatch);
+    dbContext.Appointments.Add(appointment);
     await dbContext.SaveChangesAsync();
 
-    return Results.Accepted();
+    await publisher.Publish(new AppointmentCreatedEvent(appointment.Id, appointment.Title, appointment.Description, appointment.Date, appointment.CreatedBy, appointment.ParticipantId));
+
+    return Results.Created($"/appointments/{appointment.Id}", appointment);
 }).RequireAuthorization();
 
-app.MapGet("/matches/{matchSessionId}", async (HttpContext context, MatchmakingDbContext dbContext, string matchSessionId) =>
+// Eigene Termine abrufen
+app.MapGet("/appointments", async (HttpContext context, AppointmentDbContext dbContext) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var match = await dbContext.Matches.FindAsync(matchSessionId);
-    if (match == null || (match.SkillSearcherId != userId && match.SkillCreatorId != userId)) return Results.Forbid();
+    var appointments = await dbContext.Appointments
+        .Where(a => a.CreatedBy == userId || a.ParticipantId == userId)
+        .ToListAsync();
 
-    return Results.Ok(match);
+    return Results.Ok(appointments);
 }).RequireAuthorization();
 
-app.MapPost("/matches/accept/{matchSessionId}", async (HttpContext context, MatchmakingDbContext dbContext, Guid matchSessionId) =>
+// Termin annehmen oder ablehnen
+app.MapPost("/appointments/respond", async (HttpContext context, AppointmentDbContext dbContext, RespondToAppointmentRequest request) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var match = await dbContext.Matches.FindAsync(matchSessionId);
-    if (match == null || (match.SkillSearcherId != userId && match.SkillCreatorId != userId)) return Results.Forbid();
+    var appointment = await dbContext.Appointments.FindAsync(request.AppointmentId);
+    if (appointment == null) return Results.NotFound();
 
-    match.IsConfirmed = true;
-    await dbContext.SaveChangesAsync();
+    if (appointment.ParticipantId != userId) return Results.Forbid();
 
-    return Results.Ok();
-}).RequireAuthorization();
-
-app.MapPost("/matches/reject/{matchSessionId}", async (HttpContext context, MatchmakingDbContext dbContext, Guid matchSessionId) =>
-{
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-    var match = await dbContext.Matches.FindAsync(matchSessionId);
-    if (match == null || (match.SkillSearcherId != userId && match.SkillCreatorId != userId)) return Results.Forbid();
-
-    dbContext.Matches.Remove(match);
+    appointment.Status = request.Accepted ? "Accepted" : "Rejected";
     await dbContext.SaveChangesAsync();
 
     return Results.Ok();

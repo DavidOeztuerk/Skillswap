@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Contracts.Models;
 using Contracts.Requests;
 using Contracts.Responses;
 using Events;
