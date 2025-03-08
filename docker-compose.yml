@@ -1,0 +1,147 @@
+services:
+  frontend:
+    build:
+      context: ./src
+      dockerfile: client/Dockerfile
+      args:
+        # API-URL für das Frontend auf das Gateway setzen
+        - VITE_API_BASE_URL=http://localhost:8080
+    container_name: 'frontend'
+    ports:
+      - '3000:3000'
+    depends_on:
+      - gateway
+
+  rabbitmq:
+    image: 'rabbitmq:3-management'
+    container_name: 'rabbitmq'
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ['CMD', 'rabbitmqctl', 'status']
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 5s
+
+  gateway:
+    build:
+      context: ./src
+      dockerfile: services/Gateway/Dockerfile
+    container_name: 'gateway'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      userservice:
+        condition: service_started
+      skillservice:
+        condition: service_started
+      matchmakingservice:
+        condition: service_started
+      appointmentservice:
+        condition: service_started
+      videocallservice:
+        condition: service_started
+    ports:
+      - '8080:8080'
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - USERSERVICE_URL=http://userservice:5001
+      - SKILLSERVICE_URL=http://skillservice:5002
+      - MATCHMAKINGSERVICE_URL=http://matchmakingservice:5003
+      - APPOINTMENTSERVICE_URL=http://appointmentservice:5004
+      - VIDEOCALLSERVICE_URL=http://videocallservice:5005
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+        # CORS-Konfiguration für das Frontend
+      - ALLOWED_ORIGINS=http://localhost:3000
+
+  userservice:
+    build:
+      context: ./src
+      dockerfile: services/UserService/Dockerfile
+    container_name: 'userservice'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - '5001:5001'
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_EXPIRE=${JWT_EXPIRE}
+
+  skillservice:
+    build:
+      context: ./src
+      dockerfile: services/SkillService/Dockerfile
+    container_name: 'skillservice'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - '5002:5002'
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_EXPIRE=${JWT_EXPIRE}
+
+  matchmakingservice:
+    build:
+      context: ./src
+      dockerfile: services/matchmakingservice/Dockerfile
+    container_name: 'matchmakingservice'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - '5003:5003'
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_EXPIRE=${JWT_EXPIRE}
+
+  appointmentservice:
+    build:
+      context: ./src
+      dockerfile: services/Appointmentservice/Dockerfile
+    container_name: 'appointmentservice'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - '5004:5004'
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_EXPIRE=${JWT_EXPIRE}
+
+  videocallservice:
+    build:
+      context: ./src
+      dockerfile: services/VideoCallService/Dockerfile
+    container_name: 'videocallservice'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - '5005:5005'
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_EXPIRE=${JWT_EXPIRE}

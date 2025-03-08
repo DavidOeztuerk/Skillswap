@@ -1,0 +1,112 @@
+// src/components/ui/ConfirmDialog.tsx
+import React from 'react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
+  IconButton,
+  Typography,
+  Box,
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+
+interface ConfirmDialogProps {
+  open: boolean;
+  title: string;
+  message: string | React.ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmColor?:
+    | 'inherit'
+    | 'primary'
+    | 'secondary'
+    | 'success'
+    | 'error'
+    | 'info'
+    | 'warning';
+  fullWidth?: boolean;
+  maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  disableBackdropClick?: boolean;
+  disableEscapeKeyDown?: boolean;
+  showCloseButton?: boolean;
+}
+
+/**
+ * Standardisierter Bestätigungsdialog mit anpassbaren Texten und Aktionen
+ */
+const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+  open,
+  title,
+  message,
+  confirmLabel = 'Bestätigen',
+  cancelLabel = 'Abbrechen',
+  onConfirm,
+  onCancel,
+  confirmColor = 'primary',
+  fullWidth = true,
+  maxWidth = 'sm',
+  disableBackdropClick = false,
+  disableEscapeKeyDown = false,
+  showCloseButton = true,
+}) => {
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (disableBackdropClick) {
+      event.stopPropagation();
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={disableBackdropClick ? undefined : onCancel}
+      aria-labelledby="confirm-dialog-title"
+      aria-describedby="confirm-dialog-description"
+      fullWidth={fullWidth}
+      maxWidth={maxWidth}
+      onBackdropClick={handleBackdropClick}
+      disableEscapeKeyDown={disableEscapeKeyDown}
+    >
+      <DialogTitle id="confirm-dialog-title">
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Typography variant="h6" component="div">
+            {title}
+          </Typography>
+          {showCloseButton && (
+            <IconButton aria-label="close" onClick={onCancel} size="small">
+              <CloseIcon />
+            </IconButton>
+          )}
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        {typeof message === 'string' ? (
+          <DialogContentText id="confirm-dialog-description">
+            {message}
+          </DialogContentText>
+        ) : (
+          message
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel} color="inherit">
+          {cancelLabel}
+        </Button>
+        <Button
+          onClick={onConfirm}
+          color={confirmColor}
+          variant="contained"
+          autoFocus
+        >
+          {confirmLabel}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+export default ConfirmDialog;

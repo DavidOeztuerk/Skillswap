@@ -21,6 +21,16 @@ var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
 var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "";
 var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "";
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowOrigins", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -44,6 +54,7 @@ var app = builder.Build();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseCors("AllowOrigins");
 
 // Ocelot Middleware
 await app.UseOcelot();
