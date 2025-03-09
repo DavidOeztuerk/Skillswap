@@ -96,8 +96,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         )}
 
         {/* Vorname + Nachname */}
-        <Grid container columns={12} spacing={0}>
-          <Grid size={{ xs: 12, sm: 6 }} sx={{ pr: 0.5 }}>
+        <Grid container columns={12} spacing={1}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="firstName"
               control={control}
@@ -115,7 +115,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               )}
             />
           </Grid>
-          <Grid size={{ xs: 12, sm: 6 }} sx={{ pl: 0.5 }}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Controller
               name="lastName"
               control={control}
