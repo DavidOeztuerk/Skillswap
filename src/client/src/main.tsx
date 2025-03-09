@@ -5,7 +5,6 @@ import { store } from './store/store.ts';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './routes/Router.tsx';
 
-// Globale Styles
 import './styles/global.css';
 
 import '@fontsource/roboto/300.css';

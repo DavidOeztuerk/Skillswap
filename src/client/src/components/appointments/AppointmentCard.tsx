@@ -1,4 +1,3 @@
-// src/components/appointments/AppointmentCard.tsx
 import React from 'react';
 import {
   Card,
@@ -48,9 +47,9 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   onComplete,
 }) => {
   const theme = useTheme();
-//   const currentUserId = isTeacher
-//     ? appointment.teacherId
-//     : appointment.studentId;
+  //   const currentUserId = isTeacher
+  //     ? appointment.teacherId
+  //     : appointment.studentId;
   const otherUser = isTeacher
     ? appointment.studentDetails
     : appointment.teacherDetails;

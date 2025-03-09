@@ -1,23 +1,15 @@
-// src/components/auth/RegisterForm.tsx
 import React, { useState } from 'react';
-import {
-  Box,
-  TextField,
-  Typography,
-  Link,
-  InputAdornment,
-  IconButton,
-  Alert,
-  Stack,
-  Grid,
-} from '@mui/material';
+import { Box, Typography, Link, IconButton, Alert, Stack } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import { Link as RouterLink } from 'react-router-dom';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+
 import { useAuth } from '../../hooks/useAuth';
 import LoadingButton from '../ui/LoadingButton';
+import { InputAdornment, TextField } from '@mui/material';
 
 // Validierungsschema mit Zod
 const registerSchema = z
@@ -66,7 +58,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // React Hook Form mit Zod-Resolver
   const {
     control,
     handleSubmit,
@@ -85,16 +76,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
   const onSubmit: SubmitHandler<RegisterFormValues> = async (data) => {
     try {
-      // confirmPassword wird nicht an die API gesendet
       const { ...userData } = data;
-
       const success = await registerUser(userData, redirectPath);
       if (success && onSuccess) {
         onSuccess();
       }
-    } catch (error) {
-      // Fehler wird bereits vom useAuth-Hook erfasst
-      console.error('Registration failed:', error);
+    } catch (err) {
+      console.error('Registration failed:', err);
     }
   };
 
@@ -107,8 +95,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           </Alert>
         )}
 
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+        {/* Vorname + Nachname */}
+        <Grid container columns={12} spacing={0}>
+          <Grid size={{ xs: 12, sm: 6 }} sx={{ pr: 0.5 }}>
             <Controller
               name="firstName"
               control={control}
@@ -126,7 +115,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               )}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }} sx={{ pl: 0.5 }}>
             <Controller
               name="lastName"
               control={control}
@@ -146,6 +135,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           </Grid>
         </Grid>
 
+        {/* Benutzername */}
         <Controller
           name="username"
           control={control}
@@ -163,6 +153,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           )}
         />
 
+        {/* E-Mail */}
         <Controller
           name="email"
           control={control}
@@ -176,13 +167,16 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               error={!!errors.email}
               helperText={errors.email?.message}
               disabled={isLoading}
-              InputProps={{
-                type: 'email',
+              slotProps={{
+                input: {
+                  type: 'email',
+                },
               }}
             />
           )}
         />
 
+        {/* Passwort */}
         <Controller
           name="password"
           control={control}
@@ -196,24 +190,27 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               error={!!errors.password}
               helperText={errors.password?.message}
               disabled={isLoading}
-              InputProps={{
-                type: showPassword ? 'text' : 'password',
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="Passwort-Sichtbarkeit umschalten"
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  type: showPassword ? 'text' : 'password',
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="Passwort-Sichtbarkeit umschalten"
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           )}
         />
 
+        {/* Passwort bestätigen */}
         <Controller
           name="confirmPassword"
           control={control}
@@ -227,21 +224,27 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               error={!!errors.confirmPassword}
               helperText={errors.confirmPassword?.message}
               disabled={isLoading}
-              InputProps={{
-                type: showConfirmPassword ? 'text' : 'password',
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="Passwort-Bestätigung-Sichtbarkeit umschalten"
-                      onClick={() =>
-                        setShowConfirmPassword(!showConfirmPassword)
-                      }
-                      edge="end"
-                    >
-                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  type: showConfirmPassword ? 'text' : 'password',
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="Passwort-Bestätigung-Sichtbarkeit umschalten"
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        edge="end"
+                      >
+                        {showConfirmPassword ? (
+                          <VisibilityOff />
+                        ) : (
+                          <Visibility />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           )}

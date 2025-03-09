@@ -3,7 +3,7 @@
 /**
  * Anwendungskonstanten
  */
-export const APP_NAME = 'SkillShare Platform';
+export const APP_NAME = 'SkillSwap Platform';
 export const APP_VERSION = '1.0.0';
 
 /**
@@ -15,8 +15,8 @@ export const DEFAULT_PAGE_NUMBER = 1;
 /**
  * Auth-bezogene Konstanten
  */
-export const AUTH_TOKEN_STORAGE_KEY = 'skillshare_token';
-export const AUTH_USER_STORAGE_KEY = 'skillshare_user';
+export const AUTH_TOKEN_STORAGE_KEY = 'skillswap_token';
+export const AUTH_USER_STORAGE_KEY = 'skillswap_user';
 export const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 Minuten in Millisekunden
 
 /**

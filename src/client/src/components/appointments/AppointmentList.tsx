@@ -1,7 +1,5 @@
-// src/components/appointments/AppointmentList.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  Grid,
   Box,
   Typography,
   Tabs,
@@ -17,22 +15,26 @@ import {
   Pagination,
   SelectChangeEvent,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Search as SearchIcon,
-  FilterList as FilterListIcon,
   RestartAlt as ResetIcon,
   CalendarMonth as CalendarIcon,
 } from '@mui/icons-material';
-import AppointmentCard from './AppointmentCard';
-import LoadingSpinner from '../ui/LoadingSpinner';
-import EmptyState from '../ui/EmptyState';
 import { DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { de } from 'date-fns/locale';
 import { startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
+
+import AppointmentCard from './AppointmentCard';
+import LoadingSpinner from '../ui/LoadingSpinner';
+import EmptyState from '../ui/EmptyState';
 import { Appointment } from '../../types/models/Appointment';
 
+/**
+ * Props für die Terminliste
+ */
 interface AppointmentListProps {
   appointments: Appointment[];
   isLoading?: boolean;
@@ -57,37 +59,38 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
 }) => {
   // State
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [tabValue, setTabValue] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const appointmentsPerPage = 8;
 
-  // Tab-Optionen
+  const appointmentsPerPage = 8;
   const tabs = ['Alle Termine', 'Ausstehend', 'Bestätigt', 'Vergangen'];
 
-  // Terminfilterung basierend auf Tabs, Suche und Status
-  const filteredAppointments = React.useMemo(() => {
+  // Filterlogik
+  const filteredAppointments = useMemo(() => {
     return appointments.filter((appointment) => {
-      // Suche nach Skill oder Benutzernamen
+      // Welcher Nutzer ist "der andere"?
       const otherUser =
         userRole === 'teacher'
           ? appointment.studentDetails
           : appointment.teacherDetails;
+
       const otherUserName =
         `${otherUser.firstName} ${otherUser.lastName}`.toLowerCase();
       const skillName = appointment.skill.name.toLowerCase();
 
+      // Suche (Skill oder Personenname)
       const matchesSearch =
-        searchTerm === '' ||
+        !searchTerm ||
         skillName.includes(searchTerm.toLowerCase()) ||
         otherUserName.includes(searchTerm.toLowerCase());
 
-      // Status-Filter
+      // Status
       const matchesStatus =
-        selectedStatus === '' || appointment.status === selectedStatus;
+        !selectedStatus || appointment.status === selectedStatus;
 
-      // Datum-Filter
+      // Datum
       let matchesDate = true;
       if (selectedDate) {
         const appointmentDate = new Date(appointment.startTime);
@@ -105,12 +108,12 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         // Ausstehend
         matchesTab = appointment.status === 'Pending';
       } else if (tabValue === 2) {
-        // Bestätigt
+        // Bestätigt (noch in Zukunft)
         matchesTab =
           appointment.status === 'Confirmed' &&
           isAfter(new Date(appointment.startTime), new Date());
       } else if (tabValue === 3) {
-        // Vergangen (vergangene oder abgesagte Termine)
+        // Vergangen: endTime < now ODER Cancelled/Completed
         matchesTab =
           isBefore(new Date(appointment.endTime), new Date()) ||
           appointment.status === 'Cancelled' ||
@@ -128,7 +131,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
     userRole,
   ]);
 
-  // Paginierung
+  // Pagination
   const pageCount = Math.ceil(
     filteredAppointments.length / appointmentsPerPage
   );
@@ -137,7 +140,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
     currentPage * appointmentsPerPage
   );
 
-  // Handler
+  // Handlers
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
     setCurrentPage(1);
@@ -173,11 +176,10 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
     setCurrentPage(1);
   };
 
-  // Rendering für Ladezustand, Fehler oder leere Liste
+  // Loading/Fehler
   if (isLoading) {
     return <LoadingSpinner message="Termine werden geladen..." />;
   }
-
   if (error) {
     return (
       <EmptyState
@@ -188,7 +190,6 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
       />
     );
   }
-
   if (!appointments.length) {
     return (
       <EmptyState
@@ -203,7 +204,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={de}>
       <Box>
-        {/* Tabs für schnelle Filter */}
+        {/* Tabs */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs
             value={tabValue}
@@ -224,25 +225,29 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         </Box>
 
         {/* Filter-Bereich */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={4}>
+        <Grid container columns={12} spacing={2} sx={{ mb: 3 }}>
+          {/* Suchfeld */}
+          <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
               label="Suche nach Skill oder Person"
               variant="outlined"
               value={searchTerm}
               onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          {/* Status-Auswahl */}
+          <Grid size={{ xs: 12, md: 3 }}>
             <FormControl fullWidth variant="outlined">
               <InputLabel id="status-select-label">Status</InputLabel>
               <Select
@@ -250,10 +255,11 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
                 value={selectedStatus}
                 onChange={handleStatusChange}
                 label="Status"
-                startAdornment={
-                  <InputAdornment position="start">
-                    <FilterListIcon />
-                  </InputAdornment>
+                slotProps={
+                  {
+                    // Falls du ein Icon vornedran willst, müsstest du
+                    // stattdessen in der `renderValue` oder so arbeiten.
+                  }
                 }
               >
                 <MenuItem value="">Alle Status</MenuItem>
@@ -266,7 +272,8 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          {/* Datum */}
+          <Grid size={{ xs: 12, md: 3 }}>
             <DatePicker
               label="Datum"
               value={selectedDate}
@@ -275,6 +282,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
               slotProps={{
                 textField: {
                   fullWidth: true,
+                  // InputProps -> slotProps für Deprecation
                   InputProps: {
                     startAdornment: (
                       <InputAdornment position="start">
@@ -287,7 +295,8 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
             />
           </Grid>
 
-          <Grid item xs={12} md={2}>
+          {/* Reset-Button */}
+          <Grid size={{ xs: 12, md: 2 }}>
             <Button
               fullWidth
               variant="outlined"
@@ -301,7 +310,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
           </Grid>
         </Grid>
 
-        {/* Ergebnisanzahl */}
+        {/* Ergebnisanzahl + Seite */}
         <Box
           mb={2}
           display="flex"
@@ -312,7 +321,6 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
             {filteredAppointments.length}{' '}
             {filteredAppointments.length === 1 ? 'Termin' : 'Termine'} gefunden
           </Typography>
-
           {pageCount > 1 && (
             <Typography variant="body2" color="text.secondary">
               Seite {currentPage} von {pageCount}
@@ -320,11 +328,11 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
           )}
         </Box>
 
-        {/* Termine-Grid */}
+        {/* Termine-Liste */}
         {displayedAppointments.length > 0 ? (
-          <Grid container spacing={3}>
+          <Grid container columns={12} spacing={3}>
             {displayedAppointments.map((appointment) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={appointment.id}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={appointment.id}>
                 <AppointmentCard
                   appointment={appointment}
                   isTeacher={userRole === 'teacher'}

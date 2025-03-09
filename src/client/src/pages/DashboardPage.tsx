@@ -1,8 +1,8 @@
 // src/pages/DashboardPage.tsx
+
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Grid,
   Box,
   Paper,
   Typography,
@@ -17,6 +17,7 @@ import {
   Divider,
   Chip,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2'; // <-- Grid2 statt altem Grid
 import {
   Person as PersonIcon,
   EmojiObjects as SkillsIcon,
@@ -87,7 +88,6 @@ const DashboardPage: React.FC = () => {
 
   // Aktuelle Lehrskills
   const teachingSkills = userSkills.filter((skill) => skill.isTeachable);
-
   // Aktuelle Lernwünsche
   const learningSkills = userSkills.filter((skill) => skill.isLearnable);
 
@@ -115,12 +115,12 @@ const DashboardPage: React.FC = () => {
       {isLoading ? (
         <LoadingSpinner message="Dashboard wird geladen..." />
       ) : (
-        <Grid container spacing={3}>
+        <Grid container columns={12} spacing={3}>
           {/* Übersichtskarten */}
-          <Grid item xs={12}>
-            <Grid container spacing={3}>
+          <Grid size={{ xs: 12 }}>
+            <Grid container columns={12} spacing={3}>
               {dashboardCards.map((card, index) => (
-                <Grid item xs={12} sm={6} md={3} key={index}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
                   <Card
                     elevation={2}
                     sx={{
@@ -185,7 +185,7 @@ const DashboardPage: React.FC = () => {
           </Grid>
 
           {/* Anstehende Termine */}
-          <Grid item xs={12} lg={6}>
+          <Grid size={{ xs: 12, lg: 6 }}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography variant="h6" gutterBottom>
                 Anstehende Termine
@@ -275,7 +275,7 @@ const DashboardPage: React.FC = () => {
           </Grid>
 
           {/* Skills-Übersicht */}
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid size={{ xs: 12, md: 6, lg: 3 }}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography variant="h6" gutterBottom>
                 Ich kann lehren
@@ -319,7 +319,7 @@ const DashboardPage: React.FC = () => {
           </Grid>
 
           {/* Lernwünsche */}
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid size={{ xs: 12, md: 6, lg: 3 }}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography variant="h6" gutterBottom>
                 Ich möchte lernen

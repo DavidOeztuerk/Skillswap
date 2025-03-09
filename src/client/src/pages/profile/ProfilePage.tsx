@@ -3,15 +3,14 @@ import React, { useState } from 'react';
 import {
   Box,
   Paper,
-  Grid,
   Typography,
-  // Avatar,
   TextField,
   Button,
   Divider,
   IconButton,
   InputAdornment,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2'; // <-- NEUES Grid2
 import {
   Edit as EditIcon,
   Save as SaveIcon,
@@ -75,6 +74,7 @@ const ProfilePage: React.FC = () => {
     text: string;
     type: 'success' | 'error' | 'info';
   } | null>(null);
+
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -142,7 +142,7 @@ const ProfilePage: React.FC = () => {
       }
     } catch (error) {
       setStatusMessage({
-        text: 'Fehler beim Ändern des Passworts' + ' ' + error,
+        text: 'Fehler beim Ändern des Passworts' + ' ' + String(error),
         type: 'error',
       });
     } finally {
@@ -169,7 +169,7 @@ const ProfilePage: React.FC = () => {
       }, 1000);
     } catch (error) {
       setStatusMessage({
-        text: 'Fehler beim Ändern des Passworts' + ' ' + error,
+        text: 'Fehler beim Ändern des Passworts' + ' ' + String(error),
         type: 'error',
       });
       setIsSubmitting(false);
@@ -195,9 +195,9 @@ const ProfilePage: React.FC = () => {
         />
       )}
 
-      <Grid container spacing={3}>
+      <Grid container columns={12} spacing={3}>
         {/* Profil-Informationen */}
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: 3, mb: 3 }}>
             <Box
               sx={{
@@ -221,8 +221,8 @@ const ProfilePage: React.FC = () => {
             </Box>
 
             <form onSubmit={handleProfileSubmit(onProfileSubmit)}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+              <Grid container columns={12} spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Controller
                     name="firstName"
                     control={profileControl}
@@ -240,7 +240,7 @@ const ProfilePage: React.FC = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Controller
                     name="lastName"
                     control={profileControl}
@@ -258,7 +258,7 @@ const ProfilePage: React.FC = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Controller
                     name="email"
                     control={profileControl}
@@ -268,7 +268,7 @@ const ProfilePage: React.FC = () => {
                         label="E-Mail"
                         variant="outlined"
                         fullWidth
-                        disabled={true} // E-Mail sollte nicht änderbar sein
+                        disabled // E-Mail sollte nicht änderbar sein
                         error={!!profileErrors.email}
                         helperText={profileErrors.email?.message}
                       />
@@ -276,7 +276,7 @@ const ProfilePage: React.FC = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Controller
                     name="bio"
                     control={profileControl}
@@ -298,8 +298,7 @@ const ProfilePage: React.FC = () => {
 
                 {isEditMode && (
                   <Grid
-                    item
-                    xs={12}
+                    size={{ xs: 12 }}
                     sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}
                   >
                     <LoadingButton
@@ -324,8 +323,8 @@ const ProfilePage: React.FC = () => {
             </Typography>
 
             <form onSubmit={handlePasswordSubmit(onPasswordSubmit)}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
+              <Grid container columns={12} spacing={2}>
+                <Grid size={{ xs: 12 }}>
                   <Controller
                     name="currentPassword"
                     control={passwordControl}
@@ -339,31 +338,33 @@ const ProfilePage: React.FC = () => {
                         disabled={isSubmitting}
                         error={!!passwordErrors.currentPassword}
                         helperText={passwordErrors.currentPassword?.message}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                aria-label="Passwort-Sichtbarkeit umschalten"
-                                onClick={() =>
-                                  setShowCurrentPassword(!showCurrentPassword)
-                                }
-                                edge="end"
-                              >
-                                {showCurrentPassword ? (
-                                  <VisibilityOffIcon />
-                                ) : (
-                                  <VisibilityIcon />
-                                )}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  aria-label="Passwort-Sichtbarkeit umschalten"
+                                  onClick={() =>
+                                    setShowCurrentPassword(!showCurrentPassword)
+                                  }
+                                  edge="end"
+                                >
+                                  {showCurrentPassword ? (
+                                    <VisibilityOffIcon />
+                                  ) : (
+                                    <VisibilityIcon />
+                                  )}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          },
                         }}
                       />
                     )}
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Controller
                     name="newPassword"
                     control={passwordControl}
@@ -377,31 +378,33 @@ const ProfilePage: React.FC = () => {
                         disabled={isSubmitting}
                         error={!!passwordErrors.newPassword}
                         helperText={passwordErrors.newPassword?.message}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                aria-label="Passwort-Sichtbarkeit umschalten"
-                                onClick={() =>
-                                  setShowNewPassword(!showNewPassword)
-                                }
-                                edge="end"
-                              >
-                                {showNewPassword ? (
-                                  <VisibilityOffIcon />
-                                ) : (
-                                  <VisibilityIcon />
-                                )}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  aria-label="Passwort-Sichtbarkeit umschalten"
+                                  onClick={() =>
+                                    setShowNewPassword(!showNewPassword)
+                                  }
+                                  edge="end"
+                                >
+                                  {showNewPassword ? (
+                                    <VisibilityOffIcon />
+                                  ) : (
+                                    <VisibilityIcon />
+                                  )}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          },
                         }}
                       />
                     )}
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Controller
                     name="confirmPassword"
                     control={passwordControl}
@@ -415,24 +418,26 @@ const ProfilePage: React.FC = () => {
                         disabled={isSubmitting}
                         error={!!passwordErrors.confirmPassword}
                         helperText={passwordErrors.confirmPassword?.message}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                aria-label="Passwort-Sichtbarkeit umschalten"
-                                onClick={() =>
-                                  setShowConfirmPassword(!showConfirmPassword)
-                                }
-                                edge="end"
-                              >
-                                {showConfirmPassword ? (
-                                  <VisibilityOffIcon />
-                                ) : (
-                                  <VisibilityIcon />
-                                )}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  aria-label="Passwort-Sichtbarkeit umschalten"
+                                  onClick={() =>
+                                    setShowConfirmPassword(!showConfirmPassword)
+                                  }
+                                  edge="end"
+                                >
+                                  {showConfirmPassword ? (
+                                    <VisibilityOffIcon />
+                                  ) : (
+                                    <VisibilityIcon />
+                                  )}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          },
                         }}
                       />
                     )}
@@ -440,8 +445,7 @@ const ProfilePage: React.FC = () => {
                 </Grid>
 
                 <Grid
-                  item
-                  xs={12}
+                  size={{ xs: 12 }}
                   sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}
                 >
                   <LoadingButton
@@ -459,7 +463,7 @@ const ProfilePage: React.FC = () => {
         </Grid>
 
         {/* Profil-Bild und Statistik */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper
             sx={{
               p: 3,

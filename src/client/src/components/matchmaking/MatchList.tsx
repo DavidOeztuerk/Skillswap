@@ -1,11 +1,7 @@
-// src/components/matchmaking/MatchList.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  Grid,
   Box,
   Typography,
-  Tabs,
-  Tab,
   TextField,
   InputAdornment,
   MenuItem,
@@ -16,12 +12,17 @@ import {
   Button,
   Pagination,
   SelectChangeEvent,
+  Tabs,
+  Tab,
+  OutlinedInput,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import {
   Search as SearchIcon,
   FilterList as FilterListIcon,
   RestartAlt as ResetIcon,
 } from '@mui/icons-material';
+
 import MatchCard from './MatchCard';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import EmptyState from '../ui/EmptyState';
@@ -49,11 +50,11 @@ const MatchList: React.FC<MatchListProps> = ({
   onReject,
   onSchedule,
 }) => {
-  // State
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [tabValue, setTabValue] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+
   const matchesPerPage = 8;
 
   // Tab-Optionen
@@ -64,10 +65,10 @@ const MatchList: React.FC<MatchListProps> = ({
     'Akzeptiert',
   ];
 
-  // Match-Filterung basierend auf Tabs, Suche und Status
-  const filteredMatches = React.useMemo(() => {
+  // Match-Filterung
+  const filteredMatches = useMemo(() => {
     return matches.filter((match) => {
-      // Suche nach Skill oder Benutzernamen
+      // Suche
       const otherUser = isRequesterView
         ? match.requesterId === 'current-user'
           ? match.responderDetails
@@ -79,30 +80,28 @@ const MatchList: React.FC<MatchListProps> = ({
       const otherUserName =
         `${otherUser.firstName} ${otherUser.lastName}`.toLowerCase();
       const skillName = match.skill.name.toLowerCase();
-
       const matchesSearch =
-        searchTerm === '' ||
+        !searchTerm ||
         skillName.includes(searchTerm.toLowerCase()) ||
         otherUserName.includes(searchTerm.toLowerCase());
 
-      // Status-Filter
-      const matchesStatus =
-        selectedStatus === '' || match.status === selectedStatus;
+      // Status
+      const matchesStatus = !selectedStatus || match.status === selectedStatus;
 
-      // Tab-Filter
+      // Tab
       let matchesTab = true;
       if (tabValue === 1) {
-        // Von mir erstellt / Anfragen
+        // "Von mir erstellt" / "Anfragen"
         matchesTab = isRequesterView
           ? match.requesterId === 'current-user'
           : match.responderId === 'current-user' && match.status === 'Pending';
       } else if (tabValue === 2) {
-        // An mich gerichtet / Meine Anfragen
+        // "An mich gerichtet" / "Meine Anfragen"
         matchesTab = isRequesterView
           ? match.responderId === 'current-user'
           : match.requesterId === 'current-user';
       } else if (tabValue === 3) {
-        // Akzeptiert
+        // "Akzeptiert"
         matchesTab = match.status === 'Accepted';
       }
 
@@ -110,7 +109,7 @@ const MatchList: React.FC<MatchListProps> = ({
     });
   }, [matches, searchTerm, selectedStatus, tabValue, isRequesterView]);
 
-  // Paginierung
+  // Pagination
   const pageCount = Math.ceil(filteredMatches.length / matchesPerPage);
   const displayedMatches = filteredMatches.slice(
     (currentPage - 1) * matchesPerPage,
@@ -147,11 +146,10 @@ const MatchList: React.FC<MatchListProps> = ({
     setCurrentPage(1);
   };
 
-  // Rendering für Ladezustand, Fehler oder leere Liste
+  // Zustand: Laden / Fehler / Keine Daten
   if (isLoading) {
     return <LoadingSpinner message="Matches werden geladen..." />;
   }
-
   if (error) {
     return (
       <EmptyState
@@ -162,7 +160,6 @@ const MatchList: React.FC<MatchListProps> = ({
       />
     );
   }
-
   if (!matches.length) {
     return (
       <EmptyState
@@ -176,7 +173,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
   return (
     <Box>
-      {/* Tabs für schnelle Filter */}
+      {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs
           value={tabValue}
@@ -197,8 +194,8 @@ const MatchList: React.FC<MatchListProps> = ({
       </Box>
 
       {/* Filter-Bereich */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={8}>
+      <Grid container columns={12} spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <TextField
             fullWidth
             label="Suche nach Skill oder Person"
@@ -215,7 +212,7 @@ const MatchList: React.FC<MatchListProps> = ({
           />
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Box sx={{ display: 'flex', gap: 2, height: '100%' }}>
             <FormControl fullWidth variant="outlined">
               <InputLabel id="status-select-label">Status</InputLabel>
@@ -224,10 +221,14 @@ const MatchList: React.FC<MatchListProps> = ({
                 value={selectedStatus}
                 onChange={handleStatusChange}
                 label="Status"
-                startAdornment={
-                  <InputAdornment position="start">
-                    <FilterListIcon />
-                  </InputAdornment>
+                input={
+                  <OutlinedInput
+                    startAdornment={
+                      <InputAdornment position="start">
+                        <FilterListIcon />
+                      </InputAdornment>
+                    }
+                  />
                 }
               >
                 <MenuItem value="">Alle Status</MenuItem>
@@ -263,7 +264,6 @@ const MatchList: React.FC<MatchListProps> = ({
           {filteredMatches.length}{' '}
           {filteredMatches.length === 1 ? 'Match' : 'Matches'} gefunden
         </Typography>
-
         {pageCount > 1 && (
           <Typography variant="body2" color="text.secondary">
             Seite {currentPage} von {pageCount}
@@ -273,9 +273,9 @@ const MatchList: React.FC<MatchListProps> = ({
 
       {/* Matches-Grid */}
       {displayedMatches.length > 0 ? (
-        <Grid container spacing={3}>
+        <Grid container columns={12} spacing={3}>
           {displayedMatches.map((match) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={match.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={match.id}>
               <MatchCard
                 match={match}
                 isRequester={match.requesterId === 'current-user'}

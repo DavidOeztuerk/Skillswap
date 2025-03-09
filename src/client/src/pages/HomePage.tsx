@@ -1,4 +1,5 @@
 // src/pages/HomePage.tsx
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,7 +7,6 @@ import {
   Container,
   Typography,
   Button,
-  Grid,
   Card,
   CardContent,
   CardActions,
@@ -14,6 +14,7 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2'; // <-- Grid2-Import!
 import {
   School as SchoolIcon,
   EmojiObjects as SkillsIcon,
@@ -65,7 +66,7 @@ const HomePage: React.FC = () => {
   ];
 
   return (
-    <Box>
+    <div>
       {/* Hero-Bereich */}
       <Box
         sx={{
@@ -77,8 +78,8 @@ const HomePage: React.FC = () => {
         }}
       >
         <Container maxWidth="lg">
-          <Grid container spacing={4} alignItems="center">
-            <Grid item xs={12} md={7}>
+          <Grid container columns={12} spacing={4} alignItems="center">
+            <Grid size={{ xs: 12, md: 7 }}>
               <Typography
                 variant="h2"
                 component="h1"
@@ -89,7 +90,7 @@ const HomePage: React.FC = () => {
               </Typography>
 
               <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>
-                SkillShare ist eine Plattform, die Menschen verbindet, die
+                SkillSwap ist eine Plattform, die Menschen verbindet, die
                 Fähigkeiten lehren und lernen möchten
               </Typography>
 
@@ -146,7 +147,7 @@ const HomePage: React.FC = () => {
             </Grid>
 
             {!isMobile && (
-              <Grid item xs={12} md={5}>
+              <Grid size={{ xs: 12, md: 5 }}>
                 <Box
                   sx={{
                     position: 'relative',
@@ -171,7 +172,7 @@ const HomePage: React.FC = () => {
                     }}
                   >
                     <Typography variant="h4" fontWeight="bold">
-                      SkillShare
+                      SkillSwap
                     </Typography>
                   </Box>
                 </Box>
@@ -199,13 +200,13 @@ const HomePage: React.FC = () => {
           color="text.secondary"
           sx={{ mb: 8, maxWidth: 800, mx: 'auto' }}
         >
-          Entdecke, wie SkillShare dir dabei helfen kann, neue Fähigkeiten zu
+          Entdecke, wie SkillSwap dir dabei helfen kann, neue Fähigkeiten zu
           erlernen oder dein Wissen mit anderen zu teilen.
         </Typography>
 
-        <Grid container spacing={4}>
+        <Grid container columns={12} spacing={4}>
           {features.map((feature, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
               <Card
                 elevation={2}
                 sx={{
@@ -303,7 +304,7 @@ const HomePage: React.FC = () => {
             textAlign="center"
             sx={{ mb: 4, opacity: 0.9 }}
           >
-            Tritt noch heute der SkillShare-Community bei und beginne deine
+            Tritt noch heute der SkillSwap-Community bei und beginne deine
             Lernreise.
           </Typography>
 
@@ -328,17 +329,17 @@ const HomePage: React.FC = () => {
         <Container maxWidth="lg">
           <Divider sx={{ mb: 4 }} />
 
-          <Grid container spacing={4}>
-            <Grid item xs={12} sm={4}>
+          <Grid container columns={12} spacing={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Typography variant="h6" gutterBottom fontWeight="bold">
-                SkillShare
+                SkillSwap
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Entdecke, lerne und teile Fähigkeiten in unserer Community.
               </Typography>
             </Grid>
 
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Typography variant="h6" gutterBottom fontWeight="bold">
                 Links
               </Typography>
@@ -358,12 +359,12 @@ const HomePage: React.FC = () => {
               </Box>
             </Grid>
 
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Typography variant="h6" gutterBottom fontWeight="bold">
                 Kontakt
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                info@skillshare-plattform.de
+                info@skillswap-plattform.de
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 +49 123 456789
@@ -373,12 +374,12 @@ const HomePage: React.FC = () => {
 
           <Box sx={{ mt: 4, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              © {new Date().getFullYear()} SkillShare. Alle Rechte vorbehalten.
+              © {new Date().getFullYear()} SkillSwap. Alle Rechte vorbehalten.
             </Typography>
           </Box>
         </Container>
       </Box>
-    </Box>
+    </div>
   );
 };
 

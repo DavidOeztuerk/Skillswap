@@ -3,7 +3,7 @@
 /**
  * Name des Cookies/LocalStorage Keys für das Auth-Token
  */
-const TOKEN_KEY = import.meta.env.VITE_AUTH_COOKIE_NAME || 'skillshare_token';
+const TOKEN_KEY = import.meta.env.VITE_AUTH_COOKIE_NAME || 'skillswap_token';
 
 /**
  * Speichert das Token im LocalStorage
