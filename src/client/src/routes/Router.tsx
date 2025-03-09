@@ -5,90 +5,17 @@ import App from '../App';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import PrivateRoute from './PrivateRoute';
 
-// Lazy-loaded Komponentenimports
 const HomePage = lazy(() => import('../pages/HomePage'));
 const DashboardPage = lazy(() => import('../pages/DashboardPage'));
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'));
 const SkillsPage = lazy(() => import('../pages/skills/SkillsPage'));
-const MatchmakingPage = lazy(
-  () => import('../pages/matchmaking/MatchmakingPage')
-);
-const AppointmentsPage = lazy(
-  () => import('../pages/appointments/AppointmentsPage')
-);
+const MatchmakingPage = lazy(() => import('../pages/matchmaking/MatchmakingPage'));
+const AppointmentsPage = lazy(() => import('../pages/appointments/AppointmentsPage'));
 const VideoCallPage = lazy(() => import('../pages/videocall/VideoCallPage'));
 const ProfilePage = lazy(() => import('../pages/profile/ProfilePage'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
 
-// Fallback für Lazy-loaded Komponenten
-const SuspenseFallback = () => (
-  <LoadingSpinner fullPage message="Seite wird geladen..." />
-);
-
-// Wrapper-Komponente für Suspense
-// Suspense-Komponenten in separate Dateien exportieren
-const LazyHomePage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <HomePage />
-  </Suspense>
-);
-
-const LazyDashboardPage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <DashboardPage />
-  </Suspense>
-);
-
-const LazyLoginPage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <LoginPage />
-  </Suspense>
-);
-
-const LazyRegisterPage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <RegisterPage />
-  </Suspense>
-);
-
-const LazySkillsPage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <SkillsPage />
-  </Suspense>
-);
-
-const LazyMatchmakingPage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <MatchmakingPage />
-  </Suspense>
-);
-
-const LazyAppointmentsPage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <AppointmentsPage />
-  </Suspense>
-);
-
-const LazyVideoCallPage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <VideoCallPage />
-  </Suspense>
-);
-
-const LazyProfilePage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <ProfilePage />
-  </Suspense>
-);
-
-const LazyNotFoundPage = () => (
-  <Suspense fallback={<SuspenseFallback />}>
-    <NotFoundPage />
-  </Suspense>
-);
-
-// Definition aller Routen der Anwendung
 const routes: RouteObject[] = [
   {
     path: '/',
@@ -96,21 +23,51 @@ const routes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: <LazyHomePage />,
+        element: (
+          <Suspense
+            fallback={
+              <LoadingSpinner fullPage message="Seite wird geladen..." />
+            }
+          >
+            <HomePage />
+          </Suspense>
+        ),
       },
       {
         path: 'login',
-        element: <LazyLoginPage />,
+        element: (
+          <Suspense
+            fallback={
+              <LoadingSpinner fullPage message="Seite wird geladen..." />
+            }
+          >
+            <LoginPage />
+          </Suspense>
+        ),
       },
       {
         path: 'register',
-        element: <LazyRegisterPage />,
+        element: (
+          <Suspense
+            fallback={
+              <LoadingSpinner fullPage message="Seite wird geladen..." />
+            }
+          >
+            <RegisterPage />
+          </Suspense>
+        ),
       },
       {
         path: 'dashboard',
         element: (
           <PrivateRoute>
-            <LazyDashboardPage />
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Seite wird geladen..." />
+              }
+            >
+              <DashboardPage />
+            </Suspense>
           </PrivateRoute>
         ),
       },
@@ -118,7 +75,13 @@ const routes: RouteObject[] = [
         path: 'skills',
         element: (
           <PrivateRoute>
-            <LazySkillsPage />
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Seite wird geladen..." />
+              }
+            >
+              <SkillsPage />
+            </Suspense>
           </PrivateRoute>
         ),
       },
@@ -126,7 +89,13 @@ const routes: RouteObject[] = [
         path: 'matchmaking',
         element: (
           <PrivateRoute>
-            <LazyMatchmakingPage />
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Seite wird geladen..." />
+              }
+            >
+              <MatchmakingPage />
+            </Suspense>
           </PrivateRoute>
         ),
       },
@@ -134,7 +103,13 @@ const routes: RouteObject[] = [
         path: 'appointments',
         element: (
           <PrivateRoute>
-            <LazyAppointmentsPage />
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Seite wird geladen..." />
+              }
+            >
+              <AppointmentsPage />
+            </Suspense>
           </PrivateRoute>
         ),
       },
@@ -142,7 +117,13 @@ const routes: RouteObject[] = [
         path: 'videocall/:appointmentId',
         element: (
           <PrivateRoute>
-            <LazyVideoCallPage />
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Seite wird geladen..." />
+              }
+            >
+              <VideoCallPage />
+            </Suspense>
           </PrivateRoute>
         ),
       },
@@ -150,13 +131,27 @@ const routes: RouteObject[] = [
         path: 'profile',
         element: (
           <PrivateRoute>
-            <LazyProfilePage />
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Seite wird geladen..." />
+              }
+            >
+              <ProfilePage />
+            </Suspense>
           </PrivateRoute>
         ),
       },
       {
         path: '*',
-        element: <LazyNotFoundPage />,
+        element: (
+          <Suspense
+            fallback={
+              <LoadingSpinner fullPage message="Seite wird geladen..." />
+            }
+          >
+            <NotFoundPage />
+          </Suspense>
+        ),
       },
     ],
   },
