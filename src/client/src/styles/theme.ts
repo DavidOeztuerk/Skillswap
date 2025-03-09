@@ -1,7 +1,5 @@
-// src/styles/theme.ts
 import { PaletteMode } from '@mui/material';
 
-// MUI Theme-Konfiguration - wird in useTheme.ts verwendet
 export const getThemeOptions = (mode: PaletteMode) => ({
   palette: {
     mode,

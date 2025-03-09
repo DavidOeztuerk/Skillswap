@@ -13,6 +13,8 @@ import {
   // Avatar,
   Tooltip,
   Badge,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -37,6 +39,8 @@ const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
 }) => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { isAuthenticated, logout } = useAuth();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -99,9 +103,11 @@ const Header: React.FC<HeaderProps> = ({
             textDecoration: 'none',
             color: 'inherit',
             fontWeight: 'bold',
+            // Bei mobilen Geräten den Namen kürzen oder anpassen
+            fontSize: { xs: '1.1rem', sm: '1.25rem' },
           }}
         >
-          SkillShare Platform
+          {isMobile ? 'SkillSwap' : 'SkillSwap Platform'}
         </Typography>
 
         <IconButton
@@ -119,16 +125,20 @@ const Header: React.FC<HeaderProps> = ({
 
         {isAuthenticated ? (
           <>
-            <IconButton
-              color="inherit"
-              onClick={handleNotificationMenuOpen}
-              sx={{ ml: 1 }}
-              aria-label="Benachrichtigungen"
-            >
-              <Badge badgeContent={3} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
+            {/* Auf Mobil verstecken wir die Benachrichtigungen im Header, 
+                da diese in der Tabbar angezeigt werden */}
+            {!isMobile && (
+              <IconButton
+                color="inherit"
+                onClick={handleNotificationMenuOpen}
+                sx={{ ml: 1 }}
+                aria-label="Benachrichtigungen"
+              >
+                <Badge badgeContent={3} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+            )}
 
             <Tooltip title="Einstellungen öffnen">
               <IconButton
@@ -136,15 +146,7 @@ const Header: React.FC<HeaderProps> = ({
                 sx={{ ml: 1 }}
                 aria-label="Benutzerprofil"
               >
-                {/* {user?.profilePicture ? (
-                  <Avatar
-                    alt={user.username}
-                    src={user.profilePicture}
-                    sx={{ width: 32, height: 32 }}
-                  /> */}
-                {/* ) : ( */}
-                  <AccountCircle />
-                {/* )} */}
+                <AccountCircle />
               </IconButton>
             </Tooltip>
 
@@ -239,23 +241,39 @@ const Header: React.FC<HeaderProps> = ({
           </>
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Button
-              color="inherit"
-              component={Link}
-              to="/login"
-              sx={{ textTransform: 'none' }}
-            >
-              Anmelden
-            </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              component={Link}
-              to="/register"
-              sx={{ textTransform: 'none' }}
-            >
-              Registrieren
-            </Button>
+            {/* Auf mobilen Geräten nur den Login-Button anzeigen */}
+            {isMobile ? (
+              <Button
+                variant="contained"
+                color="secondary"
+                component={Link}
+                to="/login"
+                size="small"
+                sx={{ textTransform: 'none' }}
+              >
+                Login
+              </Button>
+            ) : (
+              <>
+                <Button
+                  color="inherit"
+                  component={Link}
+                  to="/login"
+                  sx={{ textTransform: 'none' }}
+                >
+                  Anmelden
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  component={Link}
+                  to="/register"
+                  sx={{ textTransform: 'none' }}
+                >
+                  Registrieren
+                </Button>
+              </>
+            )}
           </Box>
         )}
       </Toolbar>

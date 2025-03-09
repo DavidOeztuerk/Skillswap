@@ -14,6 +14,7 @@ import {
   Typography,
   Collapse,
   useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Home as HomeIcon,
@@ -50,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { isAuthenticated } = useAuth();
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
 
@@ -149,7 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           }}
         >
           <MenuIcon sx={{ mr: 1 }} />
-          SkillShare
+          SkillSwap
         </Typography>
       </Toolbar>
       <Divider />
@@ -169,7 +171,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onClick={
                     hasChildren
                       ? () => handleSubmenuToggle(item.text)
-                      : undefined
+                      : onDrawerToggle
                   }
                   sx={{
                     pl: 2,
@@ -217,6 +219,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         component={RouterLink}
                         to={child.path}
                         selected={location.pathname === child.path}
+                        onClick={onDrawerToggle}
                         sx={{
                           pl: 5,
                           py: 0.75,
@@ -270,10 +273,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     </div>
   );
 
+  // Auf Mobile werden wir den Drawer nur als temporary anzeigen
+  // Die permanente Navigation erfolgt über die MobileTabbar
   return (
     <Box
       component="nav"
-      sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+      sx={{
+        width: { sm: drawerWidth },
+        flexShrink: { sm: 0 },
+        // Auf mobilen Geräten zeigen wir nur den temporary Drawer
+        display: isMobile && !mobileOpen ? 'none' : 'block',
+      }}
       aria-label="Hauptnavigation"
     >
       {/* Mobile-Drawer (temporär) */}

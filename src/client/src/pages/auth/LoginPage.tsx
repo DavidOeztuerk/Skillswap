@@ -1,7 +1,6 @@
-// src/pages/auth/LoginPage.tsx
 import React from 'react';
-import { Container, Paper, Box, Typography, Link } from '@mui/material';
-import { Link as RouterLink, Navigate } from 'react-router-dom';
+import { Container, Paper, Box, Typography } from '@mui/material';
+import { Navigate } from 'react-router-dom';
 import LoginForm from '../../components/auth/LoginForm';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -24,20 +23,11 @@ const LoginPage: React.FC = () => {
             Willkommen zurück
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Melde dich bei deinem SkillShare-Konto an
+            Melde dich bei deinem SkillSwap-Konto an
           </Typography>
         </Box>
 
         <LoginForm />
-
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography variant="body2">
-            Noch kein Konto?{' '}
-            <Link component={RouterLink} to="/register">
-              Jetzt registrieren
-            </Link>
-          </Typography>
-        </Box>
       </Paper>
     </Container>
   );

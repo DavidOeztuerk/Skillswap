@@ -1,4 +1,3 @@
-// src/components/matchmaking/MatchForm.tsx
 import React, { useMemo } from 'react';
 import {
   Dialog,
@@ -11,11 +10,9 @@ import {
   FormLabel,
   Checkbox,
   TextField,
-  Grid,
   Box,
   Typography,
   IconButton,
-  InputAdornment,
   Divider,
   FormHelperText,
   Select,
@@ -23,7 +20,9 @@ import {
   Chip,
   OutlinedInput,
   ListItemText,
+  InputAdornment,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import CloseIcon from '@mui/icons-material/Close';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
@@ -33,16 +32,11 @@ import LoadingButton from '../ui/LoadingButton';
 import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 import { UserSkill } from '../../types/models/UserSkill';
 
-// Validierungsschema mit Zod
 const matchFormSchema = z.object({
   skillId: z.string().nonempty('Skill muss ausgewählt werden'),
   isLearningMode: z.boolean(),
-  preferredDays: z
-    .array(z.string())
-    .min(1, 'Wähle mindestens einen bevorzugten Tag'),
-  preferredTimes: z
-    .array(z.string())
-    .min(1, 'Wähle mindestens eine bevorzugte Zeit'),
+  preferredDays: z.array(z.string()).min(1, 'Wähle mindestens einen Tag'),
+  preferredTimes: z.array(z.string()).min(1, 'Wähle mindestens eine Zeit'),
   additionalNotes: z
     .string()
     .max(500, 'Notizen dürfen maximal 500 Zeichen enthalten')
@@ -80,19 +74,17 @@ const MatchForm: React.FC<MatchFormProps> = ({
   userSkill,
   isLoading = false,
 }) => {
-  // Standard-Werte für das Formular
-  const defaultValues = useMemo(
-    () => ({
+  // Default-Werte
+  const defaultValues = useMemo(() => {
+    return {
       skillId: userSkill.skillId,
-      isLearningMode: !userSkill.isTeachable, // Standardmäßig Lernmodus, wenn der Skill nicht lehrbar ist
-      preferredDays: ['Montag', 'Dienstag', 'Mittwoch'], // Standardtage
-      preferredTimes: ['18:00', '19:00'], // Standardzeiten
+      isLearningMode: !userSkill.isTeachable,
+      preferredDays: ['Montag', 'Dienstag', 'Mittwoch'],
+      preferredTimes: ['18:00', '19:00'],
       additionalNotes: '',
-    }),
-    [userSkill]
-  );
+    };
+  }, [userSkill]);
 
-  // React Hook Form mit Zod-Resolver
   const {
     control,
     handleSubmit,
@@ -104,16 +96,15 @@ const MatchForm: React.FC<MatchFormProps> = ({
     defaultValues,
   });
 
-  // Überwachte Formularwerte
-  const isLearningMode = watch('isLearningMode');
-  const additionalNotes = watch('additionalNotes');
+  // const isLearningMode = watch('isLearningMode');
+  // const additionalNotes = watch('additionalNotes');
 
-  // Formular zurücksetzen, wenn sich der Dialog öffnet oder schließt
+  // Reset beim Öffnen
   React.useEffect(() => {
     if (open) {
       reset({
         ...defaultValues,
-        isLearningMode: userSkill.isLearnable && !userSkill.isTeachable, // Lernmodus als Standard, wenn nur lernbar
+        isLearningMode: userSkill.isLearnable && !userSkill.isTeachable,
       });
     }
   }, [defaultValues, open, reset, userSkill]);
@@ -146,8 +137,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
 
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <DialogContent dividers>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
+          <Grid container columns={12} spacing={3}>
+            <Grid size={{ xs: 12 }}>
               <Box bgcolor="action.hover" p={2} borderRadius={1} mb={2}>
                 <Typography variant="subtitle1" gutterBottom>
                   Skill: {userSkill.skill.name}
@@ -192,7 +183,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
               )}
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            {/* PreferredDays */}
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="preferredDays"
                 control={control}
@@ -233,7 +225,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            {/* PreferredTimes */}
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="preferredTimes"
                 control={control}
@@ -274,7 +267,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
               />
             </Grid>
 
-            <Grid item xs={12}>
+            {/* AdditionalNotes */}
+            <Grid size={{ xs: 12 }}>
               <Controller
                 name="additionalNotes"
                 control={control}
@@ -289,18 +283,23 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     helperText={errors.additionalNotes?.message}
                     disabled={isLoading}
                     placeholder={
-                      isLearningMode
-                        ? 'Beschreibe, was du gerne lernen möchtest und welche Vorkenntnisse du bereits hast...'
-                        : 'Beschreibe, was du unterrichten kannst und welche Erfahrungen du hast...'
+                      watch('isLearningMode')
+                        ? 'Beschreibe, was du gerne lernen möchtest...'
+                        : 'Beschreibe, was du unterrichten kannst...'
                     }
-                    InputProps={{
-                      endAdornment: additionalNotes ? (
-                        <InputAdornment position="end">
-                          <Typography variant="caption" color="text.secondary">
-                            {additionalNotes.length}/500
-                          </Typography>
-                        </InputAdornment>
-                      ) : null,
+                    slotProps={{
+                      input: {
+                        endAdornment: field.value ? (
+                          <InputAdornment position="end">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {field.value.length}/500
+                            </Typography>
+                          </InputAdornment>
+                        ) : null,
+                      },
                     }}
                   />
                 )}

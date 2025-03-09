@@ -1,7 +1,5 @@
-// src/components/skills/SkillList.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  Grid,
   Box,
   Typography,
   TextField,
@@ -16,7 +14,9 @@ import {
   Button,
   Pagination,
   SelectChangeEvent,
+  OutlinedInput,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -57,6 +57,7 @@ const SkillList: React.FC<SkillListProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [tabValue, setTabValue] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+
   const skillsPerPage = 12;
 
   // Tab-Werte
@@ -64,8 +65,8 @@ const SkillList: React.FC<SkillListProps> = ({
     ? ['Alle', 'Lehrbare Skills', 'Lernbare Skills']
     : ['Alle Skills'];
 
-  // Filtern der Skills basierend auf Suche, Kategorie und Tab
-  const filteredSkills = React.useMemo(() => {
+  // Filtern der Skills
+  const filteredSkills = useMemo(() => {
     return skills.filter((skillItem) => {
       const skill = isUserSkillList
         ? (skillItem as UserSkill).skill
@@ -73,13 +74,13 @@ const SkillList: React.FC<SkillListProps> = ({
 
       // Suchfilter
       const matchesSearch =
-        searchTerm === '' ||
+        !searchTerm ||
         skill.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         skill.description.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Kategoriefilter
       const matchesCategory =
-        selectedCategory === '' || skill.category === selectedCategory;
+        !selectedCategory || skill.category === selectedCategory;
 
       // Tab-Filter (nur für UserSkill-Liste)
       let matchesTab = true;
@@ -96,7 +97,7 @@ const SkillList: React.FC<SkillListProps> = ({
     });
   }, [skills, searchTerm, selectedCategory, tabValue, isUserSkillList]);
 
-  // Paginierung
+  // Pagination
   const pageCount = Math.ceil(filteredSkills.length / skillsPerPage);
   const displayedSkills = filteredSkills.slice(
     (currentPage - 1) * skillsPerPage,
@@ -106,17 +107,17 @@ const SkillList: React.FC<SkillListProps> = ({
   // Handler
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
-    setCurrentPage(1); // Zurück zur ersten Seite bei Suchanfragen
+    setCurrentPage(1);
   };
 
   const handleCategoryChange = (event: SelectChangeEvent<string>) => {
     setSelectedCategory(event.target.value);
-    setCurrentPage(1); // Zurück zur ersten Seite bei Kategorieänderungen
+    setCurrentPage(1);
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    setCurrentPage(1); // Zurück zur ersten Seite bei Tab-Wechsel
+    setCurrentPage(1);
   };
 
   const handlePageChange = (
@@ -124,7 +125,6 @@ const SkillList: React.FC<SkillListProps> = ({
     value: number
   ) => {
     setCurrentPage(value);
-    // Scrolle nach oben, wenn die Seite gewechselt wird
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -135,11 +135,10 @@ const SkillList: React.FC<SkillListProps> = ({
     setCurrentPage(1);
   };
 
-  // Rendering für Ladezustand, Fehler oder leere Liste
+  // Zustand: Laden / Fehler / Keine Daten
   if (isLoading) {
     return <LoadingSpinner message="Skills werden geladen..." />;
   }
-
   if (error) {
     return (
       <EmptyState
@@ -150,7 +149,6 @@ const SkillList: React.FC<SkillListProps> = ({
       />
     );
   }
-
   if (!skills.length) {
     return (
       <EmptyState
@@ -175,36 +173,42 @@ const SkillList: React.FC<SkillListProps> = ({
     <Box>
       {/* Filter-Bereich */}
       <Box mb={3}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={5}>
+        <Grid container columns={12} spacing={2}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <TextField
               fullWidth
               label="Skills durchsuchen"
               variant="outlined"
               value={searchTerm}
               onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           </Grid>
 
-          <Grid item xs={12} md={5}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <FormControl fullWidth variant="outlined">
-              <InputLabel id="category-select-label">Kategorie</InputLabel>
+              <InputLabel id="category-label">Kategorie</InputLabel>
               <Select
-                labelId="category-select-label"
+                labelId="category-label"
+                label="Kategorie"
                 value={selectedCategory}
                 onChange={handleCategoryChange}
-                label="Kategorie"
-                startAdornment={
-                  <InputAdornment position="start">
-                    <FilterListIcon />
-                  </InputAdornment>
+                input={
+                  <OutlinedInput
+                    startAdornment={
+                      <InputAdornment position="start">
+                        <FilterListIcon />
+                      </InputAdornment>
+                    }
+                  />
                 }
               >
                 <MenuItem value="">Alle Kategorien</MenuItem>
@@ -218,7 +222,7 @@ const SkillList: React.FC<SkillListProps> = ({
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={2}>
+          <Grid size={{ xs: 12, md: 2 }}>
             <Button
               fullWidth
               variant="outlined"
@@ -273,14 +277,10 @@ const SkillList: React.FC<SkillListProps> = ({
 
       {/* Skills-Grid */}
       {displayedSkills.length > 0 ? (
-        <Grid container spacing={3}>
+        <Grid container columns={12} spacing={3}>
           {displayedSkills.map((skillItem) => (
             <Grid
-              item
-              xs={12}
-              sm={6}
-              md={4}
-              lg={3}
+              size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
               key={
                 isUserSkillList
                   ? (skillItem as UserSkill).id

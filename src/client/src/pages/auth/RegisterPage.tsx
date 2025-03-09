@@ -1,7 +1,6 @@
-// src/pages/auth/RegisterPage.tsx
 import React from 'react';
-import { Container, Paper, Box, Typography, Link } from '@mui/material';
-import { Link as RouterLink, Navigate } from 'react-router-dom';
+import { Container, Paper, Box, Typography } from '@mui/material';
+import { Navigate } from 'react-router-dom';
 import RegisterForm from '../../components/auth/RegisterForm';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -24,21 +23,12 @@ const RegisterPage: React.FC = () => {
             Neues Konto erstellen
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Tritt der SkillShare-Community bei und beginne zu lernen und zu
+            Tritt der SkillSwap-Community bei und beginne zu lernen und zu
             lehren
           </Typography>
         </Box>
 
         <RegisterForm />
-
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography variant="body2">
-            Bereits ein Konto?{' '}
-            <Link component={RouterLink} to="/login">
-              Anmelden
-            </Link>
-          </Typography>
-        </Box>
       </Paper>
     </Container>
   );

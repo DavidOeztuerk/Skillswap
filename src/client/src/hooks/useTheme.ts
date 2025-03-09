@@ -17,7 +17,7 @@ import { getThemeOptions } from '../styles/theme';
 export const useTheme = () => {
   // Prüfen, ob der Benutzer Dark Mode bevorzugt
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-  const THEME_STORAGE_KEY = 'skillshare_theme_mode';
+  const THEME_STORAGE_KEY = 'skillswap_theme_mode';
 
   // Gespeicherten Modus aus dem LocalStorage laden oder Systemeinstellung verwenden
   const getSavedMode = (): PaletteMode => {

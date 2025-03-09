@@ -1,4 +1,3 @@
-// src/components/skills/SkillForm.tsx
 import React from 'react';
 import {
   Dialog,
@@ -14,11 +13,11 @@ import {
   FormControlLabel,
   Checkbox,
   FormHelperText,
-  Grid,
   Typography,
   IconButton,
   Box,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import CloseIcon from '@mui/icons-material/Close';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
@@ -38,7 +37,7 @@ const skillFormSchema = z
       'Intermediate',
       'Advanced',
       'Expert',
-    ] as const),
+    ]),
     isTeachable: z.boolean(),
     isLearnable: z.boolean(),
     description: z
@@ -79,16 +78,19 @@ const SkillForm: React.FC<SkillFormProps> = ({
 }) => {
   const isEditMode = !!userSkill;
 
-  // Standard-Werte für das Formular
-  const defaultValues: SkillFormValues = React.useMemo(() => ({
-    skillId,
-    proficiencyLevel: userSkill?.proficiencyLevel || 'Beginner',
-    isTeachable: userSkill?.isTeachable || false,
-    isLearnable: userSkill?.isLearnable || true,
-    description: userSkill?.description || '',
-  }), [skillId, userSkill]);
+  // Default-Werte
+  const defaultValues: SkillFormValues = React.useMemo(
+    () => ({
+      skillId,
+      proficiencyLevel: userSkill?.proficiencyLevel || 'Beginner',
+      isTeachable: userSkill?.isTeachable || false,
+      isLearnable: userSkill?.isLearnable || true,
+      description: userSkill?.description || '',
+    }),
+    [skillId, userSkill]
+  );
 
-  // React Hook Form mit Zod-Resolver
+  // Hook Form
   const {
     control,
     handleSubmit,
@@ -99,7 +101,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
     defaultValues,
   });
 
-  // Formular zurücksetzen, wenn sich der Dialog öffnet oder schließt
+  // Reset bei Öffnen
   React.useEffect(() => {
     if (open) {
       reset(defaultValues);
@@ -110,7 +112,8 @@ const SkillForm: React.FC<SkillFormProps> = ({
     try {
       const requestData: AddUserSkillRequest = {
         ...data,
-        proficiencyLevel: data.proficiencyLevel as AddUserSkillRequest['proficiencyLevel'],
+        proficiencyLevel:
+          data.proficiencyLevel as AddUserSkillRequest['proficiencyLevel'],
       };
       await onSubmit(requestData);
       onClose();
@@ -140,32 +143,36 @@ const SkillForm: React.FC<SkillFormProps> = ({
 
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <DialogContent dividers>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
+          <Grid container columns={12} spacing={3}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 label="Skill"
                 value={skillName}
                 fullWidth
                 disabled
-                InputProps={{
-                  readOnly: true,
+                slotProps={{
+                  input: {
+                    readOnly: true,
+                  },
                 }}
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 label="Kategorie"
                 value={skillCategory}
                 fullWidth
                 disabled
-                InputProps={{
-                  readOnly: true,
+                slotProps={{
+                  input: {
+                    readOnly: true,
+                  },
                 }}
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Controller
                 name="proficiencyLevel"
                 control={control}
@@ -199,7 +206,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Controller
                 name="description"
                 control={control}
@@ -219,7 +226,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Wie möchtest du diesen Skill nutzen?
               </Typography>

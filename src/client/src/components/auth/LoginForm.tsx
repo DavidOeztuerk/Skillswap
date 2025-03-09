@@ -87,8 +87,10 @@ const LoginForm: React.FC<LoginFormProps> = ({
               error={!!errors.email}
               helperText={errors.email?.message}
               disabled={isLoading}
-              InputProps={{
-                type: 'email',
+              slotProps={{
+                input: {
+                  type: 'email',
+                },
               }}
             />
           )}
@@ -107,19 +109,21 @@ const LoginForm: React.FC<LoginFormProps> = ({
               error={!!errors.password}
               helperText={errors.password?.message}
               disabled={isLoading}
-              InputProps={{
-                type: showPassword ? 'text' : 'password',
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="Passwort-Sichtbarkeit umschalten"
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  type: showPassword ? 'text' : 'password',
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="Passwort-Sichtbarkeit umschalten"
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           )}

@@ -7,12 +7,11 @@ import { getProfile } from './features/auth/authSlice';
 import { useAppDispatch, useAppSelector } from './store/store.hooks';
 
 const App = () => {
-  const { theme } = useTheme();
+  const { mode, theme, toggleTheme } = useTheme();
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
-    // Fetch user profile if authenticated
     if (isAuthenticated) {
       dispatch(getProfile());
     }
@@ -20,8 +19,8 @@ const App = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <MainLayout>
+      <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
+        <CssBaseline />
         <Outlet />
       </MainLayout>
     </ThemeProvider>
