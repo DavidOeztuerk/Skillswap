@@ -41,7 +41,7 @@ import { formatDateTimeRange } from '../utils/dateUtils';
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { userSkills, loadUserSkills, isLoading: skillsLoading } = useSkills();
+  const { userSkills, getUserSkills, isLoading: skillsLoading } = useSkills();
   const {
     appointments,
     loadAppointments,
@@ -50,9 +50,9 @@ const DashboardPage: React.FC = () => {
 
   // Daten laden
   useEffect(() => {
-    loadUserSkills();
+    getUserSkills();
     loadAppointments();
-  }, [loadUserSkills, loadAppointments]);
+  }, [getUserSkills, loadAppointments]);
 
   // Dashboard-Karten
   const dashboardCards = [
@@ -87,9 +87,9 @@ const DashboardPage: React.FC = () => {
   ];
 
   // Aktuelle Lehrskills
-  const teachingSkills = userSkills.filter((skill) => skill.isTeachable);
+  const teachingSkills = userSkills.filter((skill) => skill.isOffering);
   // Aktuelle Lernwünsche
-  const learningSkills = userSkills.filter((skill) => skill.isLearnable);
+  // const learningSkills = userSkills.filter((skill) => skill.isLearnable);
 
   // Anstehende Termine (max. 3)
   const upcomingAppointments = appointments
@@ -291,8 +291,8 @@ const DashboardPage: React.FC = () => {
                           <SkillsIcon color="primary" />
                         </ListItemIcon>
                         <ListItemText
-                          primary={userSkill.skill.name}
-                          secondary={`Level: ${userSkill.proficiencyLevel}`}
+                          primary={userSkill.name}
+                          // secondary={`Level: ${userSkill.proficiencyLevel}`}
                         />
                       </ListItem>
                       <Divider variant="inset" component="li" />
@@ -326,17 +326,17 @@ const DashboardPage: React.FC = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {learningSkills.length > 0 ? (
+              {userSkills.length > 0 ? (
                 <List disablePadding>
-                  {learningSkills.slice(0, 5).map((userSkill) => (
+                  {userSkills.slice(0, 5).map((userSkill) => (
                     <React.Fragment key={userSkill.id}>
                       <ListItem sx={{ px: 0 }}>
                         <ListItemIcon>
                           <SkillsIcon color="secondary" />
                         </ListItemIcon>
                         <ListItemText
-                          primary={userSkill.skill.name}
-                          secondary={`Level: ${userSkill.proficiencyLevel}`}
+                          primary={userSkill.name}
+                          // secondary={`Level: ${userSkill.proficiencyLevel}`}
                         />
                       </ListItem>
                       <Divider variant="inset" component="li" />

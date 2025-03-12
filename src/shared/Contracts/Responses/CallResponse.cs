@@ -1,5 +1,5 @@
 namespace Contracts.Responses;
 
 public record CallResponse(
-    Guid CallId,
+    string CallId,
     string CallStatus);

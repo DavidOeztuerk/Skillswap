@@ -6,17 +6,17 @@ import { Box } from '@mui/material';
 import PageHeader from '../../components/layout/PageHeader';
 import PageContainer from '../../components/layout/PageContainer';
 import MatchList from '../../components/matchmaking/MatchList';
-import MatchForm from '../../components/matchmaking/MatchForm';
+// import MatchForm from '../../components/matchmaking/MatchForm';
 import AppointmentForm from '../../components/appointments/AppointmentForm';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { useSkills } from '../../hooks/useSkills';
+// import { useSkills } from '../../hooks/useSkills';
 import { useAppointments } from '../../hooks/useAppointments';
 import { Match } from '../../types/models/Match';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
-import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
-import { UserSkill } from '../../types/models/UserSkill';
+// import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
+// import { Skill } from '../../types/models/Skill';
 
 /**
  * Seite für das Matchmaking zwischen Lehrern und Schülern
@@ -28,19 +28,19 @@ const MatchmakingPage: React.FC = () => {
     isLoading,
     error,
     loadMatches,
-    searchMatches,
+    // searchMatches,
     approveMatch,
     declineMatch,
   } = useMatchmaking();
 
-  const { userSkills, loadUserSkills } = useSkills();
+  // const { userSkills, loadUserSkills } = useSkills();
   const { scheduleAppointment } = useAppointments();
 
   // State für Dialoge
-  const [matchFormOpen, setMatchFormOpen] = useState(false);
-  const [selectedUserSkill, setSelectedUserSkill] = useState<UserSkill | null>(
-    null
-  );
+  // const [matchFormOpen, setMatchFormOpen] = useState(false);
+  // const [selectedUserSkill, setSelectedUserSkill] = useState<Skill | null>(
+  //   null
+  // );
   const [appointmentFormOpen, setAppointmentFormOpen] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
@@ -67,42 +67,42 @@ const MatchmakingPage: React.FC = () => {
   // Daten laden
   useEffect(() => {
     loadMatches();
-    loadUserSkills();
-  }, [loadMatches, loadUserSkills]);
+    // loadUserSkills();
+  }, [loadMatches]);
 
   // Handler für das Öffnen des Match-Formulars
-  const handleOpenMatchForm = (userSkill: UserSkill) => {
-    setSelectedUserSkill(userSkill);
-    setMatchFormOpen(true);
-  };
+  // const handleOpenMatchForm = (userSkill: Skill) => {
+  //   setSelectedUserSkill(userSkill);
+  //   setMatchFormOpen(true);
+  // };
 
-  // Handler für das Schließen des Match-Formulars
-  const handleCloseMatchForm = () => {
-    setMatchFormOpen(false);
-    setSelectedUserSkill(null);
-  };
+  // // Handler für das Schließen des Match-Formulars
+  // const handleCloseMatchForm = () => {
+  //   setMatchFormOpen(false);
+  //   setSelectedUserSkill(null);
+  // };
 
   // Handler für das Absenden des Match-Formulars
-  const handleSubmitMatchForm = async (data: MatchRequest) => {
-    try {
-      const success = await searchMatches(data);
+  // const handleSubmitMatchForm = async (data: MatchRequest) => {
+  //   try {
+  //     const success = await searchMatches(data);
 
-      if (success) {
-        setStatusMessage({
-          text: 'Match-Anfrage erfolgreich gesendet',
-          type: 'success',
-        });
-        handleCloseMatchForm();
-      } else {
-        throw new Error('Fehler beim Erstellen der Match-Anfrage');
-      }
-    } catch (error) {
-      setStatusMessage({
-        text: 'Fehler beim Erstellen der Match-Anfrage' + '' + error,
-        type: 'error',
-      });
-    }
-  };
+  //     if (success) {
+  //       setStatusMessage({
+  //         text: 'Match-Anfrage erfolgreich gesendet',
+  //         type: 'success',
+  //       });
+  //       handleCloseMatchForm();
+  //     } else {
+  //       throw new Error('Fehler beim Erstellen der Match-Anfrage');
+  //     }
+  //   } catch (error) {
+  //     setStatusMessage({
+  //       text: 'Fehler beim Erstellen der Match-Anfrage' + '' + error,
+  //       type: 'error',
+  //     });
+  //   }
+  // };
 
   // Handler für das Öffnen des Bestätigungsdialogs
   const handleConfirmDialogOpen = (
@@ -215,36 +215,36 @@ const MatchmakingPage: React.FC = () => {
   // Lehrbare oder lernbare Skills des Benutzers finden
   const renderMatchButton = () => {
     // Skills, die der Benutzer lehren oder lernen kann
-    const teachableSkills = userSkills.filter((skill) => skill.isTeachable);
-    const learnableSkills = userSkills.filter((skill) => skill.isLearnable);
+    // const teachableSkills = userSkills.filter((skill) => skill.isTeachable);
+    // const learnableSkills = userSkills.filter((skill) => skill.isLearnable);
 
     // Wenn Benutzer sowohl lehrbare als auch lernbare Skills hat, zeige beide Optionen
-    if (teachableSkills.length > 0 && learnableSkills.length > 0) {
-      return {
-        label: 'Match erstellen',
-        onClick: () => {
-          // Hier könnte ein Dialog angezeigt werden, um zu fragen, ob der Benutzer lehren oder lernen möchte
-          // Für dieses Beispiel nehmen wir einfach den ersten lehrbaren Skill
-          handleOpenMatchForm(teachableSkills[0]);
-        },
-      };
-    }
+    // if (teachableSkills.length > 0 && learnableSkills.length > 0) {
+    //   return {
+    //     label: 'Match erstellen',
+    //     onClick: () => {
+    //       // Hier könnte ein Dialog angezeigt werden, um zu fragen, ob der Benutzer lehren oder lernen möchte
+    //       // Für dieses Beispiel nehmen wir einfach den ersten lehrbaren Skill
+    //       handleOpenMatchForm(teachableSkills[0]);
+    //     },
+    //   };
+    // }
 
     // Wenn Benutzer nur lehrbare Skills hat
-    if (teachableSkills.length > 0) {
-      return {
-        label: 'Als Lehrer:in anbieten',
-        onClick: () => handleOpenMatchForm(teachableSkills[0]),
-      };
-    }
+    // if (teachableSkills.length > 0) {
+    //   return {
+    //     label: 'Als Lehrer:in anbieten',
+    //     onClick: () => handleOpenMatchForm(teachableSkills[0]),
+    //   };
+    // }
 
-    // Wenn Benutzer nur lernbare Skills hat
-    if (learnableSkills.length > 0) {
-      return {
-        label: 'Lehrer:in finden',
-        onClick: () => handleOpenMatchForm(learnableSkills[0]),
-      };
-    }
+    // // Wenn Benutzer nur lernbare Skills hat
+    // if (learnableSkills.length > 0) {
+    //   return {
+    //     label: 'Lehrer:in finden',
+    //     onClick: () => handleOpenMatchForm(learnableSkills[0]),
+    //   };
+    // }
 
     // Wenn Benutzer keine Skills hat, zeige einen Link zur Skills-Seite
     return {
@@ -291,7 +291,7 @@ const MatchmakingPage: React.FC = () => {
       </Box>
 
       {/* Match-Formular */}
-      {selectedUserSkill && (
+      {/* {selectedUserSkill && (
         <MatchForm
           open={matchFormOpen}
           onClose={handleCloseMatchForm}
@@ -299,7 +299,7 @@ const MatchmakingPage: React.FC = () => {
           userSkill={selectedUserSkill}
           isLoading={isLoading}
         />
-      )}
+      )} */}
 
       {/* Termin-Formular */}
       {selectedMatch && (

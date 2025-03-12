@@ -1,6 +1,6 @@
 export interface MatchRequest {
   skillId: string;
-  isLearningMode: boolean;
+  isOffering: boolean;
   preferredDays: string[];
   preferredTimes: string[];
   additionalNotes?: string;

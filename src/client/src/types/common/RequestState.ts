@@ -1,4 +1,4 @@
 export interface RequestState {
   isLoading: boolean;
-  error: string | null;
+  error: string | undefined;
 }

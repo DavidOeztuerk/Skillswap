@@ -1,6 +1,6 @@
 // src/components/layout/Header.tsx
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Box,
@@ -15,6 +15,7 @@ import {
   Badge,
   useTheme,
   useMediaQuery,
+  Divider,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -22,8 +23,12 @@ import {
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
   AccountCircle,
+  Search as SearchIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
+import SearchBar from './Searchbar';
+import MobileSearchBar from './MobileSearchbar';
 
 interface HeaderProps {
   drawerWidth: number;
@@ -39,20 +44,36 @@ const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
   const theme = useTheme();
+
+  // Responsive Breakpoints
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
   const { isAuthenticated, logout } = useAuth();
 
+  // States für Menüs
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationAnchorEl, setNotificationAnchorEl] =
     useState<null | HTMLElement>(null);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [moreMenuAnchorEl, setMoreMenuAnchorEl] = useState<null | HTMLElement>(
+    null
+  );
 
+  // Handler für Menüaktionen
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
   const handleNotificationMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setNotificationAnchorEl(event.currentTarget);
+  };
+
+  const handleMoreMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMoreMenuAnchorEl(event.currentTarget);
   };
 
   const handleMenuClose = () => {
@@ -63,71 +84,128 @@ const Header: React.FC<HeaderProps> = ({
     setNotificationAnchorEl(null);
   };
 
+  const handleMoreMenuClose = () => {
+    setMoreMenuAnchorEl(null);
+  };
+
   const handleLogout = async () => {
     handleMenuClose();
+    handleMoreMenuClose();
     await logout();
     navigate('/login');
   };
 
   const handleProfile = () => {
     handleMenuClose();
+    handleMoreMenuClose();
     navigate('/profile');
   };
 
-  return (
-    <AppBar
-      position="fixed"
-      sx={{
-        width: { sm: `calc(100% - ${drawerWidth}px)` },
-        ml: { sm: `${drawerWidth}px` },
-        boxShadow: 1,
-      }}
-    >
-      <Toolbar>
-        <IconButton
-          color="inherit"
-          aria-label="Navigation öffnen"
-          edge="start"
-          onClick={onDrawerToggle}
-          sx={{ mr: 2, display: { sm: 'none' } }}
-        >
-          <MenuIcon />
-        </IconButton>
+  const handleOpenMobileSearch = () => {
+    setMobileSearchOpen(true);
+  };
 
-        <Typography
-          variant="h6"
-          component={Link}
-          to="/"
-          sx={{
-            flexGrow: 1,
-            textDecoration: 'none',
-            color: 'inherit',
-            fontWeight: 'bold',
-            // Bei mobilen Geräten den Namen kürzen oder anpassen
-            fontSize: { xs: '1.1rem', sm: '1.25rem' },
-          }}
-        >
-          {isMobile ? 'SkillSwap' : 'SkillSwap Platform'}
-        </Typography>
+  const handleCloseMobileSearch = () => {
+    setMobileSearchOpen(false);
+  };
 
-        <IconButton
-          color="inherit"
-          onClick={onToggleTheme}
-          sx={{ ml: 1 }}
-          aria-label={
-            darkMode
-              ? 'Zum hellen Modus wechseln'
-              : 'Zum dunklen Modus wechseln'
-          }
-        >
-          {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
-        </IconButton>
+  const handleThemeToggleFromMenu = () => {
+    onToggleTheme();
+    handleMoreMenuClose();
+  };
 
-        {isAuthenticated ? (
-          <>
-            {/* Auf Mobil verstecken wir die Benachrichtigungen im Header, 
-                da diese in der Tabbar angezeigt werden */}
-            {!isMobile && (
+  // Render der rechten Seite der Toolbar (Buttons und Icons)
+  const renderRightSideItems = () => {
+    if (isMobile) {
+      // Mobile: nur Icons für Notifikationen und Mehr-Menü
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton
+            color="inherit"
+            onClick={handleOpenMobileSearch}
+            aria-label="Suche öffnen"
+          >
+            <SearchIcon />
+          </IconButton>
+
+          {isAuthenticated && (
+            <IconButton
+              color="inherit"
+              onClick={handleNotificationMenuOpen}
+              aria-label="Benachrichtigungen"
+            >
+              <Badge badgeContent={3} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+          )}
+
+          <IconButton
+            color="inherit"
+            aria-label="Mehr Optionen"
+            onClick={handleMoreMenuOpen}
+          >
+            <MoreVertIcon />
+          </IconButton>
+        </Box>
+      );
+    } else if (isTablet) {
+      // Tablet: Theme-Icon, Notifikation, Mehr-Button
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton
+            color="inherit"
+            onClick={onToggleTheme}
+            aria-label={
+              darkMode
+                ? 'Zum hellen Modus wechseln'
+                : 'Zum dunklen Modus wechseln'
+            }
+          >
+            {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+          </IconButton>
+
+          {isAuthenticated && (
+            <IconButton
+              color="inherit"
+              onClick={handleNotificationMenuOpen}
+              aria-label="Benachrichtigungen"
+              sx={{ ml: 1 }}
+            >
+              <Badge badgeContent={3} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+          )}
+
+          <IconButton
+            color="inherit"
+            aria-label="Mehr Optionen"
+            onClick={handleMoreMenuOpen}
+            sx={{ ml: 1 }}
+          >
+            <MoreVertIcon />
+          </IconButton>
+        </Box>
+      );
+    } else {
+      // Desktop: Alle Buttons sichtbar
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton
+            color="inherit"
+            onClick={onToggleTheme}
+            aria-label={
+              darkMode
+                ? 'Zum hellen Modus wechseln'
+                : 'Zum dunklen Modus wechseln'
+            }
+          >
+            {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+          </IconButton>
+
+          {isAuthenticated ? (
+            <>
               <IconButton
                 color="inherit"
                 onClick={handleNotificationMenuOpen}
@@ -138,146 +216,260 @@ const Header: React.FC<HeaderProps> = ({
                   <NotificationsIcon />
                 </Badge>
               </IconButton>
-            )}
 
-            <Tooltip title="Einstellungen öffnen">
-              <IconButton
-                onClick={handleProfileMenuOpen}
-                sx={{ ml: 1 }}
-                aria-label="Benutzerprofil"
+              <Tooltip title="Profil öffnen">
+                <IconButton
+                  onClick={handleProfileMenuOpen}
+                  sx={{ ml: 1 }}
+                  aria-label="Benutzerprofil"
+                >
+                  <AccountCircle />
+                </IconButton>
+              </Tooltip>
+            </>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
+              <Button
+                color="inherit"
+                component={Link}
+                to="/login"
+                sx={{ textTransform: 'none' }}
               >
-                <AccountCircle />
-              </IconButton>
-            </Tooltip>
-
-            <Menu
-              id="notification-menu"
-              anchorEl={notificationAnchorEl}
-              open={Boolean(notificationAnchorEl)}
-              onClose={handleNotificationMenuClose}
-              PaperProps={{
-                elevation: 0,
-                sx: {
-                  overflow: 'visible',
-                  filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
-                  mt: 1.5,
-                  '& .MuiAvatar-root': {
-                    width: 32,
-                    height: 32,
-                    ml: -0.5,
-                    mr: 1,
-                  },
-                  '&::before': {
-                    content: '""',
-                    display: 'block',
-                    position: 'absolute',
-                    top: 0,
-                    right: 14,
-                    width: 10,
-                    height: 10,
-                    bgcolor: 'background.paper',
-                    transform: 'translateY(-50%) rotate(45deg)',
-                    zIndex: 0,
-                  },
-                },
-              }}
-              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            >
-              <MenuItem onClick={handleNotificationMenuClose}>
-                <Typography variant="subtitle2">
-                  Neue Match-Anfrage von Thomas
-                </Typography>
-              </MenuItem>
-              <MenuItem onClick={handleNotificationMenuClose}>
-                <Typography variant="subtitle2">
-                  Termin bestätigt für morgen
-                </Typography>
-              </MenuItem>
-              <MenuItem onClick={handleNotificationMenuClose}>
-                <Typography variant="subtitle2">
-                  Dein Skill wurde bestätigt
-                </Typography>
-              </MenuItem>
-            </Menu>
-
-            <Menu
-              id="profile-menu"
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleMenuClose}
-              PaperProps={{
-                elevation: 0,
-                sx: {
-                  overflow: 'visible',
-                  filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
-                  mt: 1.5,
-                  '& .MuiAvatar-root': {
-                    width: 32,
-                    height: 32,
-                    ml: -0.5,
-                    mr: 1,
-                  },
-                  '&::before': {
-                    content: '""',
-                    display: 'block',
-                    position: 'absolute',
-                    top: 0,
-                    right: 14,
-                    width: 10,
-                    height: 10,
-                    bgcolor: 'background.paper',
-                    transform: 'translateY(-50%) rotate(45deg)',
-                    zIndex: 0,
-                  },
-                },
-              }}
-              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            >
-              <MenuItem onClick={handleProfile}>Profil</MenuItem>
-              <MenuItem onClick={handleLogout}>Abmelden</MenuItem>
-            </Menu>
-          </>
-        ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* Auf mobilen Geräten nur den Login-Button anzeigen */}
-            {isMobile ? (
+                Anmelden
+              </Button>
               <Button
                 variant="contained"
                 color="secondary"
                 component={Link}
-                to="/login"
-                size="small"
+                to="/register"
                 sx={{ textTransform: 'none' }}
               >
-                Login
+                Registrieren
               </Button>
-            ) : (
-              <>
-                <Button
-                  color="inherit"
-                  component={Link}
-                  to="/login"
-                  sx={{ textTransform: 'none' }}
-                >
-                  Anmelden
-                </Button>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  component={Link}
-                  to="/register"
-                  sx={{ textTransform: 'none' }}
-                >
-                  Registrieren
-                </Button>
-              </>
+            </Box>
+          )}
+        </Box>
+      );
+    }
+  };
+
+  return (
+    <>
+      <AppBar
+        position="fixed"
+        sx={{
+          width: isHomePage ? '100%' : { sm: `calc(100% - ${drawerWidth}px)` },
+          ml: isHomePage ? 0 : { sm: `${drawerWidth}px` },
+          boxShadow: 1,
+          zIndex: theme.zIndex.drawer + 1,
+        }}
+      >
+        <Toolbar sx={{ px: { xs: 1, sm: 2 } }}>
+          {/* Linke Seite - Logo und Navigations-Toggle */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              minWidth: isMobile ? 'auto' : '150px',
+            }}
+          >
+            {!isHomePage && (
+              <IconButton
+                color="inherit"
+                aria-label="Navigation öffnen"
+                edge="start"
+                onClick={onDrawerToggle}
+                sx={{ mr: 1, display: { sm: 'none' } }}
+              >
+                <MenuIcon />
+              </IconButton>
             )}
+
+            <Typography
+              variant="h6"
+              component={Link}
+              to="/"
+              sx={{
+                textDecoration: 'none',
+                color: 'inherit',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '1.1rem' : '1.25rem',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isMobile ? 'SkillSwap' : 'SkillShare'}
+            </Typography>
           </Box>
+
+          {/* Mittlere Seite - Suchleiste (maximale Breite) */}
+          {!isMobile && (
+            <Box
+              sx={{
+                flexGrow: 1,
+                mx: 2,
+                maxWidth: { sm: '100%', md: '800px', lg: '1200px' },
+                width: '100%',
+              }}
+            >
+              <SearchBar />
+            </Box>
+          )}
+
+          {/* Flexible Spacer zwischen Suchleiste und Buttons */}
+          <Box sx={{ flexGrow: isMobile ? 1 : 0 }} />
+
+          {/* Rechte Seite - Icons und Buttons */}
+          {renderRightSideItems()}
+        </Toolbar>
+      </AppBar>
+
+      {/* Mobile Suchleiste als Overlay */}
+      <MobileSearchBar
+        open={mobileSearchOpen}
+        onClose={handleCloseMobileSearch}
+      />
+
+      {/* Mehr-Menü für Optionen auf kleinen Bildschirmen */}
+      <Menu
+        id="more-menu"
+        anchorEl={moreMenuAnchorEl}
+        open={Boolean(moreMenuAnchorEl)}
+        onClose={handleMoreMenuClose}
+        PaperProps={{
+          elevation: 0,
+          sx: {
+            overflow: 'visible',
+            filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+            mt: 1.5,
+            '&::before': {
+              content: '""',
+              display: 'block',
+              position: 'absolute',
+              top: 0,
+              right: 14,
+              width: 10,
+              height: 10,
+              bgcolor: 'background.paper',
+              transform: 'translateY(-50%) rotate(45deg)',
+              zIndex: 0,
+            },
+          },
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleThemeToggleFromMenu}>
+          {darkMode ? 'Zum hellen Modus' : 'Zum dunklen Modus'}
+        </MenuItem>
+
+        {isAuthenticated ? (
+          <MenuItem onClick={handleProfile}>Profil</MenuItem>
+        ) : (
+          <>
+            <MenuItem
+              component={Link}
+              to="/login"
+              onClick={handleMoreMenuClose}
+            >
+              Anmelden
+            </MenuItem>
+            <MenuItem
+              component={Link}
+              to="/register"
+              onClick={handleMoreMenuClose}
+            >
+              Registrieren
+            </MenuItem>
+          </>
         )}
-      </Toolbar>
-    </AppBar>
+
+        {isAuthenticated && (
+          <>
+            <Divider />
+            <MenuItem onClick={handleLogout}>Abmelden</MenuItem>
+          </>
+        )}
+      </Menu>
+
+      {/* Notification-Menü */}
+      <Menu
+        id="notification-menu"
+        anchorEl={notificationAnchorEl}
+        open={Boolean(notificationAnchorEl)}
+        onClose={handleNotificationMenuClose}
+        PaperProps={{
+          elevation: 0,
+          sx: {
+            overflow: 'visible',
+            filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+            mt: 1.5,
+            '&::before': {
+              content: '""',
+              display: 'block',
+              position: 'absolute',
+              top: 0,
+              right: 14,
+              width: 10,
+              height: 10,
+              bgcolor: 'background.paper',
+              transform: 'translateY(-50%) rotate(45deg)',
+              zIndex: 0,
+            },
+          },
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleNotificationMenuClose}>
+          <Typography variant="subtitle2">
+            Neue Match-Anfrage von Thomas
+          </Typography>
+        </MenuItem>
+        <MenuItem onClick={handleNotificationMenuClose}>
+          <Typography variant="subtitle2">
+            Termin bestätigt für morgen
+          </Typography>
+        </MenuItem>
+        <MenuItem onClick={handleNotificationMenuClose}>
+          <Typography variant="subtitle2">
+            Dein Skill wurde bestätigt
+          </Typography>
+        </MenuItem>
+      </Menu>
+
+      {/* Profil-Menü */}
+      <Menu
+        id="profile-menu"
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        PaperProps={{
+          elevation: 0,
+          sx: {
+            overflow: 'visible',
+            filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+            mt: 1.5,
+            '&::before': {
+              content: '""',
+              display: 'block',
+              position: 'absolute',
+              top: 0,
+              right: 14,
+              width: 10,
+              height: 10,
+              bgcolor: 'background.paper',
+              transform: 'translateY(-50%) rotate(45deg)',
+              zIndex: 0,
+            },
+          },
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleProfile}>Profil</MenuItem>
+        <MenuItem onClick={handleLogout}>Abmelden</MenuItem>
+      </Menu>
+    </>
   );
 };
 

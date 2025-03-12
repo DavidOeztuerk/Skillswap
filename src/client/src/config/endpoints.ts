@@ -22,11 +22,15 @@ export const AUTH_ENDPOINTS = {
  * Skill-Endpunkte
  */
 export const SKILL_ENDPOINTS = {
-  GET_ALL: '/api/skills',
-  GET_USER_SKILLS: '/api/skills/user',
-  ADD_USER_SKILL: '/api/skills',
-  REMOVE_USER_SKILL: '/api/skills', // DELETE mit skillId als Query-Parameter
+  GET_SKILLS: '/api/skills',
+  GET_USER_SKILLS: '/api/user/skills',
   SEARCH_SKILLS: '/api/skills/search',
+  SEARCH_USER_SKILLS: '/api/user/skills/search',
+  CREATE_SKILL: '/api/skills',
+  UPDATE_SKILL: '/api/skills',
+  DELETE_SKILL: '/api/skills',
+  CATEGORIES: '/api/categories',
+  PROFICIENCY_LEVELS: '/api/proficiencylevels',
 };
 
 /**
