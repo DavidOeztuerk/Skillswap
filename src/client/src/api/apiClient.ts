@@ -1,4 +1,3 @@
-// src/api/apiClient.ts
 import axios, {
   AxiosInstance,
   AxiosResponse,
@@ -8,6 +7,8 @@ import axios, {
 import { API_TIMEOUT } from '../config/constants';
 import { getToken, removeToken } from '../utils/authHelpers';
 import { API_BASE_URL } from '../config/endpoints';
+import { router } from '../routes/Router';
+import { ApiError } from '../types/common/ApiResponse';
 
 /**
  * Konfiguriert den Axios-Client mit Standard-Einstellungen
@@ -25,6 +26,9 @@ const apiClient: AxiosInstance = axios.create({
  */
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+    if (import.meta.env.DEV) {
+      console.log('Request:', config);
+    }
     const token = getToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -39,7 +43,7 @@ apiClient.interceptors.request.use(
  */
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error: AxiosError) => {
+  (error: AxiosError<ApiError>) => {
     if (error.response) {
       // Handle spezifische Fehler
       const status = error.response.status;
@@ -47,7 +51,7 @@ apiClient.interceptors.response.use(
       if (status === 401) {
         // Nicht autorisiert - Token abgelaufen oder ungültig
         removeToken();
-        window.location.href = '/login';
+        router.navigate('/login');
       }
 
       if (status === 403) {
@@ -56,8 +60,8 @@ apiClient.interceptors.response.use(
       }
 
       // Fehlermeldung aus API-Antwort extrahieren, wenn vorhanden
-      const data = error.response.data as { message?: string };
-      const errorMessage = data?.message || error.response.statusText;
+      const apiError = error.response?.data;
+      const errorMessage = apiError?.message || 'Ein Fehler ist aufgetreten';
       return Promise.reject(new Error(errorMessage));
     }
 

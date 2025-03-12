@@ -1,17 +1,19 @@
 export interface Skill {
   id: string;
   name: string;
-  category: SkillCategory;
   description: string;
+  isOffering: boolean;
+  skillCategoryId: string;
+  proficiencyLevelId: string;
 }
 
-export enum SkillCategory {
-  Programming = 'Programming',
-  Language = 'Language',
-  Music = 'Music',
-  Art = 'Art',
-  Science = 'Science',
-  Math = 'Math',
-  Business = 'Business',
-  Other = 'Other',
+export interface SkillCategory {
+  id: string;
+  name: string;
+}
+
+export interface ProficiencyLevel {
+  id: string;
+  level: string;
+  rank: number;
 }

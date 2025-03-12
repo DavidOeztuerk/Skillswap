@@ -9,7 +9,7 @@ const HomePage = lazy(() => import('../pages/HomePage'));
 const DashboardPage = lazy(() => import('../pages/DashboardPage'));
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'));
-const SkillsPage = lazy(() => import('../pages/skills/SkillsPage'));
+// const SkillsPage = lazy(() => import('../pages/skills/SkillsPage'));
 const MatchmakingPage = lazy(() => import('../pages/matchmaking/MatchmakingPage'));
 const AppointmentsPage = lazy(() => import('../pages/appointments/AppointmentsPage'));
 const VideoCallPage = lazy(() => import('../pages/videocall/VideoCallPage'));
@@ -80,7 +80,7 @@ const routes: RouteObject[] = [
                 <LoadingSpinner fullPage message="Seite wird geladen..." />
               }
             >
-              <SkillsPage />
+              {/* <SkillsPage /> */}
             </Suspense>
           </PrivateRoute>
         ),

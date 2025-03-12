@@ -1,5 +1,5 @@
 namespace Contracts.Requests;
 
 public record ScheduleMeetingRequest(
-    Guid MatchSessionId,
+    string MatchSessionId,
     DateTime ScheduledAt);

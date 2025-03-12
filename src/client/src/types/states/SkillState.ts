@@ -1,11 +1,12 @@
 import { RequestState } from '../common/RequestState';
-import { Skill, SkillCategory } from '../models/Skill';
-import { UserSkill } from '../models/UserSkill';
+import { ProficiencyLevel, Skill, SkillCategory } from '../models/Skill';
 
 export interface SkillState extends RequestState {
-  skills: Skill[];
-  userSkills: UserSkill[];
-  filteredSkills: Skill[];
+  skills: Skill[] | undefined;
+  userSkills: Skill[] | undefined;
+  filteredSkills: Skill[] | undefined;
   searchTerm: string;
-  selectedCategory: SkillCategory | null;
+  selectedSkill: Skill | undefined;
+  selectedCategory: SkillCategory | undefined;
+  selectedProfiencyLevel: ProficiencyLevel | undefined;
 }

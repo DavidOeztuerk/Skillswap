@@ -30,11 +30,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
 import LoadingButton from '../ui/LoadingButton';
 import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
-import { UserSkill } from '../../types/models/UserSkill';
+import { Skill } from '../../types/models/Skill';
 
 const matchFormSchema = z.object({
   skillId: z.string().nonempty('Skill muss ausgewählt werden'),
-  isLearningMode: z.boolean(),
+  isOffering: z.boolean(),
   preferredDays: z.array(z.string()).min(1, 'Wähle mindestens einen Tag'),
   preferredTimes: z.array(z.string()).min(1, 'Wähle mindestens eine Zeit'),
   additionalNotes: z
@@ -49,7 +49,7 @@ interface MatchFormProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: MatchRequest) => Promise<void>;
-  userSkill: UserSkill;
+  skill: Skill;
   isLoading?: boolean;
 }
 
@@ -71,19 +71,19 @@ const MatchForm: React.FC<MatchFormProps> = ({
   open,
   onClose,
   onSubmit,
-  userSkill,
+  skill,
   isLoading = false,
 }) => {
   // Default-Werte
   const defaultValues = useMemo(() => {
     return {
-      skillId: userSkill.skillId,
-      isLearningMode: !userSkill.isTeachable,
+      skillId: skill.id,
+      isOffering: !skill.isOffering,
       preferredDays: ['Montag', 'Dienstag', 'Mittwoch'],
       preferredTimes: ['18:00', '19:00'],
       additionalNotes: '',
     };
-  }, [userSkill]);
+  }, [skill]);
 
   const {
     control,
@@ -104,10 +104,10 @@ const MatchForm: React.FC<MatchFormProps> = ({
     if (open) {
       reset({
         ...defaultValues,
-        isLearningMode: userSkill.isLearnable && !userSkill.isTeachable,
+        isOffering: skill.isOffering,
       });
     }
-  }, [defaultValues, open, reset, userSkill]);
+  }, [defaultValues, open, reset, skill]);
 
   const handleFormSubmit: SubmitHandler<MatchFormValues> = async (data) => {
     try {
@@ -141,14 +141,14 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <Grid size={{ xs: 12 }}>
               <Box bgcolor="action.hover" p={2} borderRadius={1} mb={2}>
                 <Typography variant="subtitle1" gutterBottom>
-                  Skill: {userSkill.skill.name}
+                  Skill: {skill.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {userSkill.skill.description}
+                  {skill.description}
                 </Typography>
               </Box>
 
-              {userSkill.isTeachable && userSkill.isLearnable && (
+              {skill.isOffering && (
                 <>
                   <FormControl
                     component="fieldset"
@@ -158,7 +158,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                       Möchtest du diesen Skill lehren oder lernen?
                     </FormLabel>
                     <Controller
-                      name="isLearningMode"
+                      name="isOffering"
                       control={control}
                       render={({ field }) => (
                         <FormControlLabel
@@ -283,7 +283,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     helperText={errors.additionalNotes?.message}
                     disabled={isLoading}
                     placeholder={
-                      watch('isLearningMode')
+                      watch('isOffering')
                         ? 'Beschreibe, was du gerne lernen möchtest...'
                         : 'Beschreibe, was du unterrichten kannst...'
                     }

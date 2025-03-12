@@ -10,7 +10,7 @@ const initialState: AppointmentsState = {
   appointments: [],
   activeAppointment: undefined,
   isLoading: false,
-  error: null,
+  error: undefined,
 };
 
 // Async Thunk für das Laden aller Termine
@@ -185,7 +185,7 @@ const appointmentsSlice = createSlice({
   initialState,
   reducers: {
     clearError: (state) => {
-      state.error = null;
+      state.error = undefined;
     },
     setActiveAppointment: (
       state,
@@ -199,7 +199,7 @@ const appointmentsSlice = createSlice({
       // Fetch Appointments
       .addCase(fetchAppointments.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(fetchAppointments.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -212,7 +212,7 @@ const appointmentsSlice = createSlice({
       // Fetch Appointment
       .addCase(fetchAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(fetchAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -225,7 +225,7 @@ const appointmentsSlice = createSlice({
       // Create Appointment
       .addCase(createAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(createAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -239,7 +239,7 @@ const appointmentsSlice = createSlice({
       // Respond To Appointment
       .addCase(respondToAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(respondToAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -261,7 +261,7 @@ const appointmentsSlice = createSlice({
       // Cancel Appointment
       .addCase(cancelAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(cancelAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -283,7 +283,7 @@ const appointmentsSlice = createSlice({
       // Complete Appointment
       .addCase(completeAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(completeAppointment.fulfilled, (state, action) => {
         state.isLoading = false;

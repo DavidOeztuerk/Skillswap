@@ -13,7 +13,7 @@ const initialState: MatchmakingState = {
   matchResults: [],
   matchRequestSent: false,
   isLoading: false,
-  error: null,
+  error: undefined,
 };
 
 // Async Thunk für das Laden aller Matches
@@ -166,7 +166,7 @@ const matchmakingSlice = createSlice({
   initialState,
   reducers: {
     clearError: (state) => {
-      state.error = null;
+      state.error = undefined;
     },
     setActiveMatch: (state, action: PayloadAction<Match | null>) => {
       state.activeMatch = action.payload;
@@ -183,7 +183,7 @@ const matchmakingSlice = createSlice({
       // Fetch Matches
       .addCase(fetchMatches.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(fetchMatches.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -196,7 +196,7 @@ const matchmakingSlice = createSlice({
       // Find Match
       .addCase(findMatch.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(findMatch.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -211,7 +211,7 @@ const matchmakingSlice = createSlice({
       // Get Match
       .addCase(getMatch.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(getMatch.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -224,7 +224,7 @@ const matchmakingSlice = createSlice({
       // Accept Match
       .addCase(acceptMatch.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(acceptMatch.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -244,7 +244,7 @@ const matchmakingSlice = createSlice({
       // Reject Match
       .addCase(rejectMatch.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(rejectMatch.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -264,7 +264,7 @@ const matchmakingSlice = createSlice({
       // Search Potential Matches
       .addCase(searchPotentialMatches.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(searchPotentialMatches.fulfilled, (state, action) => {
         state.isLoading = false;

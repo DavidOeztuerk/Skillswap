@@ -7,5 +7,7 @@ public class SkillDbContext(
     DbContextOptions<SkillDbContext> options)
     : DbContext(options)
 {
-    public DbSet<Skill> Skills { get; set; }
+    public virtual DbSet<Skill> Skills => base.Set<Skill>();
+    public virtual DbSet<Category> SkillCategories => base.Set<Category>();
+    public virtual DbSet<ProficiencyLevel> ProficiencyLevels => base.Set<ProficiencyLevel>();
 }

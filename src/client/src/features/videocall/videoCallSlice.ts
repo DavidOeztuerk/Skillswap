@@ -18,7 +18,7 @@ const initialState: VideoCallState = {
   isChatOpen: false,
   messages: [],
   isLoading: false,
-  error: null,
+  error: undefined,
 };
 
 // Async Thunk für das Laden der Videoanruf-Konfiguration
@@ -152,7 +152,7 @@ const videoCallSlice = createSlice({
       state.messages = [];
     },
     clearError: (state) => {
-      state.error = null;
+      state.error = undefined;
     },
   },
   extraReducers: (builder) => {
@@ -160,7 +160,7 @@ const videoCallSlice = createSlice({
       // Get Call Config
       .addCase(getCallConfig.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(getCallConfig.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -174,7 +174,7 @@ const videoCallSlice = createSlice({
       // End Video Call
       .addCase(endVideoCall.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(endVideoCall.fulfilled, (state) => {
         state.isLoading = false;
@@ -191,7 +191,7 @@ const videoCallSlice = createSlice({
       // Save Call Info
       .addCase(saveCallInfo.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.error = undefined;
       })
       .addCase(saveCallInfo.fulfilled, (state) => {
         state.isLoading = false;
