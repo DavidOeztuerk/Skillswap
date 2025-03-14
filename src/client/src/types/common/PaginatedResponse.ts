@@ -1,4 +1,5 @@
 export interface PaginatedResponse<T> {
+  results: never[];
   items: T[];
   totalCount: number;
   pageNumber: number;

@@ -1,8 +1,9 @@
 namespace Contracts.Responses;
-public record CreateSkillResponse(
-    string SkillId,
+public record SkillResponse(
+    string Id,
+    string UserId,
     string Name,
     string Description,
     bool IsOffering,
-    string CategoryId,
-    string PoficiencyLevelId);
+    string SkillCategoryId,
+    string ProficiencyLevelId);

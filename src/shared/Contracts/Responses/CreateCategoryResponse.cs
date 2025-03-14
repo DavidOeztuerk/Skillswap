@@ -1,5 +1,5 @@
 namespace Contracts.Responses;
 
-public record CreateCategoryResponse(
+public record CategoryResponse(
     string Id,
     string Name);

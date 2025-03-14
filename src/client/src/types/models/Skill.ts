@@ -5,6 +5,8 @@ export interface Skill {
   isOffering: boolean;
   skillCategoryId: string;
   proficiencyLevelId: string;
+  skillCategory?: SkillCategory;
+  proficiencyLevel?: ProficiencyLevel;
 }
 
 export interface SkillCategory {

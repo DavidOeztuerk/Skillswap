@@ -1,6 +1,6 @@
 namespace Contracts.Responses;
 
-public record CreateProficiencyLevelResponse(
+public record ProficiencyLevelResponse(
     string Id,
     string Level,
     int Rank);

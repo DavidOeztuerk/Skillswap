@@ -1,389 +1,324 @@
-// src/components/skills/SkillForm.tsx
+// SkillForm.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
+  TextField,
   FormControl,
-  FormHelperText,
-  Grid,
   InputLabel,
-  MenuItem,
   Select,
+  MenuItem,
+  FormHelperText,
+  Button,
+  Typography,
   Switch,
   FormControlLabel,
-  TextField,
-  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
   useTheme,
+  CircularProgress,
 } from '@mui/material';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
+import { Close as CloseIcon } from '@mui/icons-material';
+import { SelectChangeEvent } from '@mui/material';
 import {
   Skill,
   SkillCategory,
   ProficiencyLevel,
 } from '../../types/models/Skill';
-import { useSkills } from '../../hooks/useSkills';
-import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
-import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+
+interface SkillRequest {
+  name: string;
+  description: string;
+  isOffering: boolean;
+  skillCategoryId: string;
+  proficiencyLevelId: string;
+}
 
 interface SkillFormProps {
-  initialData?: Skill;
-  onSubmitSuccess?: (skill: Skill) => void;
-  onCancel?: () => void;
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (skillData: SkillRequest, skillId?: string) => void;
+  categories: SkillCategory[];
+  proficiencyLevels: ProficiencyLevel[];
+  loading: boolean;
+  skill?: Skill;
+  title?: string;
 }
 
 const SkillForm: React.FC<SkillFormProps> = ({
-  initialData,
-  onSubmitSuccess,
-  onCancel,
+  open,
+  onClose,
+  onSubmit,
+  categories,
+  proficiencyLevels,
+  loading,
+  skill,
+  title,
 }) => {
   const theme = useTheme();
-  const isEditMode = !!initialData;
-  const {
-    categories,
-    proficiencyLevels,
-    getCategories,
-    getProficiencyLevels,
-    addSkill,
-    editSkill,
-    status,
-  } = useSkills();
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [formValues, setFormValues] = useState<SkillRequest>({
+    name: '',
+    description: '',
+    skillCategoryId: '',
+    proficiencyLevelId: '',
+    isOffering: true,
+  });
+
+  const [errors, setErrors] = useState<Partial<SkillRequest>>({});
 
   useEffect(() => {
-    // Load categories and proficiency levels if not already loaded
-    if (categories.length === 0) {
-      getCategories();
-    }
-    if (proficiencyLevels.length === 0) {
-      getProficiencyLevels();
-    }
-  }, [
-    categories.length,
-    proficiencyLevels.length,
-    getCategories,
-    getProficiencyLevels,
-  ]);
-
-  // Validation schema
-  const validationSchema = Yup.object({
-    name: Yup.string()
-      .required('Name ist erforderlich')
-      .min(3, 'Name muss mindestens 3 Zeichen lang sein')
-      .max(100, 'Name darf maximal 100 Zeichen lang sein'),
-    description: Yup.string().max(
-      1000,
-      'Beschreibung darf maximal 1000 Zeichen lang sein'
-    ),
-    skillCategoryId: Yup.string().required('Kategorie ist erforderlich'),
-    proficiencyLevelId: Yup.string().required(
-      'Fertigkeitsstufe ist erforderlich'
-    ),
-    isOffering: Yup.boolean().required(
-      'Bitte wähle aus, ob du diesen Skill anbietest oder suchst'
-    ),
-  });
-
-  // Initialize form with Formik
-  const formik = useFormik({
-    initialValues: {
-      name: initialData?.name || '',
-      description: initialData?.description || '',
-      skillCategoryId: initialData?.skillCategoryId || '',
-      proficiencyLevelId: initialData?.proficiencyLevelId || '',
-      isOffering:
-        initialData?.isOffering !== undefined ? initialData.isOffering : true,
-    },
-    validationSchema,
-    onSubmit: async (values) => {
-      setIsSubmitting(true);
-      setErrorMessage(null);
-
-      try {
-        let result;
-
-        if (isEditMode && initialData) {
-          // Update existing skill
-          const updateData: UpdateSkillRequest = {
-            name: values.name,
-            description: values.description,
-            skillCategoryId: values.skillCategoryId,
-            proficiencyLevelId: values.proficiencyLevelId,
-            isOffering: values.isOffering,
-          };
-
-          result = await editSkill(initialData.id, updateData);
-        } else {
-          // Create new skill
-          const newSkillData: CreateSkillRequest = {
-            name: values.name,
-            description: values.description,
-            skillCategoryId: values.skillCategoryId,
-            proficiencyLevelId: values.proficiencyLevelId,
-            isOffering: values.isOffering,
-          };
-
-          result = await addSkill(newSkillData);
-        }
-
-        if (result.success) {
-          if (onSubmitSuccess) {
-            if (result.data) {
-              onSubmitSuccess(result.data);
-            }
-          }
-        } else {
-          if (result.data) {
-            setErrorMessage(result.error || 'Ein Fehler ist aufgetreten');
-          }
-        }
-      } catch (error) {
-        console.error('Error submitting skill form:', error);
-        setErrorMessage('Ein unerwarteter Fehler ist aufgetreten');
-      } finally {
-        setIsSubmitting(false);
+    if (open) {
+      if (skill) {
+        setFormValues({
+          name: skill.name ?? '',
+          description: skill.description ?? '',
+          skillCategoryId: skill.skillCategoryId ?? '',
+          proficiencyLevelId: skill.proficiencyLevelId ?? '',
+          isOffering: skill.isOffering,
+        });
+      } else {
+        setFormValues({
+          name: '',
+          description: '',
+          skillCategoryId: '',
+          proficiencyLevelId: '',
+          isOffering: true,
+        });
       }
-    },
-  });
+      setErrors({});
+    }
+  }, [open, skill]);
 
-  const isFormLoading =
-    status.categories === 'loading' || status.proficiencyLevels === 'loading';
+  const handleTextChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormValues((prev) => ({ ...prev, [name]: value }));
+    if (errors[name as keyof SkillRequest]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
+    const { name, value } = e.target;
+    setFormValues((prev) => ({ ...prev, [name]: value }));
+
+    // Logging die neue Kategorie-ID
+    if (name === 'skillCategoryId') {
+      console.log('[SkillForm] skillCategoryId changed to:', value);
+    }
+
+    if (errors[name as keyof SkillRequest]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const handleSwitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormValues((prev) => ({ ...prev, [name]: checked }));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<SkillRequest> = {};
+
+    if (!formValues.name.trim()) {
+      newErrors.name = 'Name ist erforderlich';
+    }
+    if (!formValues.skillCategoryId) {
+      newErrors.skillCategoryId = 'Kategorie ist erforderlich';
+    }
+    if (!formValues.proficiencyLevelId) {
+      newErrors.proficiencyLevelId = 'Fertigkeitsstufe ist erforderlich';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validateForm()) {
+      console.log('[SkillForm] handleSubmit -> formValues:', formValues);
+      onSubmit(
+        {
+          name: formValues.name.trim(),
+          description: formValues.description.trim(),
+          isOffering: formValues.isOffering,
+          skillCategoryId: formValues.skillCategoryId,
+          proficiencyLevelId: formValues.proficiencyLevelId,
+        },
+        skill?.id
+      );
+    }
+  };
+
+  const handleDialogClose = () => {
+    if (!loading) {
+      onClose();
+    }
+  };
 
   return (
-    <Card sx={{ width: '100%' }}>
-      <CardContent>
-        <Typography variant="h6" component="h2" gutterBottom>
-          {isEditMode ? 'Skill bearbeiten' : 'Neuen Skill erstellen'}
-        </Typography>
+    <Dialog
+      open={open}
+      onClose={handleDialogClose}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="skill-form-dialog-title"
+    >
+      <DialogTitle id="skill-form-dialog-title">
+        {title || (skill ? 'Skill bearbeiten' : 'Neuen Skill erstellen')}
+        <IconButton
+          aria-label="Schließen"
+          onClick={handleDialogClose}
+          disabled={loading}
+          sx={{
+            position: 'absolute',
+            right: 8,
+            top: 8,
+            color: theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <form onSubmit={handleSubmit}>
+        <DialogContent dividers>
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              label="Name"
+              name="name"
+              value={formValues.name}
+              onChange={handleTextChange}
+              error={!!errors.name}
+              helperText={errors.name}
+              disabled={loading}
+              autoFocus
+              margin="normal"
+              required
+            />
 
-        {isFormLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Box
-            component="form"
-            onSubmit={formik.handleSubmit}
-            noValidate
-            sx={{ mt: 2 }}
-          >
-            <Grid container spacing={2}>
-              {/* Skill Name */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  id="name"
-                  name="name"
-                  label="Skill Name"
-                  value={formik.values.name}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.touched.name && Boolean(formik.errors.name)}
-                  helperText={formik.touched.name && formik.errors.name}
-                  required
+            <TextField
+              fullWidth
+              label="Beschreibung"
+              name="description"
+              value={formValues.description}
+              onChange={handleTextChange}
+              multiline
+              rows={4}
+              disabled={loading}
+              margin="normal"
+            />
+
+            <FormControl
+              fullWidth
+              error={!!errors.skillCategoryId}
+              disabled={loading}
+              margin="normal"
+              required
+            >
+              <InputLabel id="category-select-label">Kategorie</InputLabel>
+              <Select
+                labelId="category-select-label"
+                name="skillCategoryId"
+                value={formValues.skillCategoryId}
+                onChange={handleSelectChange}
+                label="Kategorie"
+              >
+                {categories.map((category) => (
+                  <MenuItem key={category.id} value={category.id}>
+                    {category.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              {errors.skillCategoryId && (
+                <FormHelperText>{errors.skillCategoryId}</FormHelperText>
+              )}
+            </FormControl>
+
+            <FormControl
+              fullWidth
+              error={!!errors.proficiencyLevelId}
+              disabled={loading}
+              margin="normal"
+              required
+            >
+              <InputLabel id="proficiency-select-label">
+                Fertigkeitsstufe
+              </InputLabel>
+              <Select
+                labelId="proficiency-select-label"
+                name="proficiencyLevelId"
+                value={formValues.proficiencyLevelId}
+                onChange={handleSelectChange}
+                label="Fertigkeitsstufe"
+              >
+                {[...proficiencyLevels]
+                  .sort((a, b) => a.rank - b.rank)
+                  .map((level) => (
+                    <MenuItem key={level.id} value={level.id}>
+                      {level.level} ({'★'.repeat(level.rank)})
+                    </MenuItem>
+                  ))}
+              </Select>
+              {errors.proficiencyLevelId && (
+                <FormHelperText>{errors.proficiencyLevelId}</FormHelperText>
+              )}
+            </FormControl>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formValues.isOffering}
+                  onChange={handleSwitchChange}
+                  name="isOffering"
+                  color="primary"
+                  disabled={loading}
                 />
-              </Grid>
-
-              {/* Skill Description */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  id="description"
-                  name="description"
-                  label="Beschreibung"
-                  multiline
-                  rows={4}
-                  value={formik.values.description}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={
-                    formik.touched.description &&
-                    Boolean(formik.errors.description)
-                  }
-                  helperText={
-                    formik.touched.description && formik.errors.description
-                  }
-                />
-              </Grid>
-
-              {/* Category Selection */}
-              <Grid item xs={12} sm={6}>
-                <FormControl
-                  fullWidth
-                  error={
-                    formik.touched.skillCategoryId &&
-                    Boolean(formik.errors.skillCategoryId)
-                  }
-                  required
-                >
-                  <InputLabel id="category-label">Kategorie</InputLabel>
-                  <Select
-                    labelId="category-label"
-                    id="skillCategoryId"
-                    name="skillCategoryId"
-                    value={formik.values.skillCategoryId}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    label="Kategorie"
-                  >
-                    {categories.map((category: SkillCategory) => (
-                      <MenuItem key={category.id} value={category.id}>
-                        {category.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {formik.touched.skillCategoryId &&
-                    formik.errors.skillCategoryId && (
-                      <FormHelperText>
-                        {formik.errors.skillCategoryId}
-                      </FormHelperText>
-                    )}
-                </FormControl>
-              </Grid>
-
-              {/* Proficiency Level Selection */}
-              <Grid item xs={12} sm={6}>
-                <FormControl
-                  fullWidth
-                  error={
-                    formik.touched.proficiencyLevelId &&
-                    Boolean(formik.errors.proficiencyLevelId)
-                  }
-                  required
-                >
-                  <InputLabel id="proficiency-level-label">
-                    Fertigkeitsstufe
-                  </InputLabel>
-                  <Select
-                    labelId="proficiency-level-label"
-                    id="proficiencyLevelId"
-                    name="proficiencyLevelId"
-                    value={formik.values.proficiencyLevelId}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    label="Fertigkeitsstufe"
-                  >
-                    {proficiencyLevels.map((level: ProficiencyLevel) => (
-                      <MenuItem key={level.id} value={level.id}>
-                        {level.level}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {formik.touched.proficiencyLevelId &&
-                    formik.errors.proficiencyLevelId && (
-                      <FormHelperText>
-                        {formik.errors.proficiencyLevelId}
-                      </FormHelperText>
-                    )}
-                </FormControl>
-              </Grid>
-
-              {/* IsOffering Switch */}
-              <Grid item xs={12}>
-                <Box
-                  sx={{
-                    p: 2,
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 1,
-                    bgcolor: theme.palette.grey[50],
-                  }}
-                >
-                  <Typography variant="subtitle1" gutterBottom>
-                    Art des Skills
-                  </Typography>
-
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={formik.values.isOffering}
-                        onChange={(e) =>
-                          formik.setFieldValue('isOffering', e.target.checked)
-                        }
-                        name="isOffering"
-                        color="primary"
-                      />
-                    }
-                    label={
-                      formik.values.isOffering
-                        ? 'Ich biete diesen Skill an'
-                        : 'Ich suche diesen Skill'
-                    }
-                  />
-
+              }
+              label={
+                <Typography>
+                  {formValues.isOffering ? 'Angeboten' : 'Gesucht'}
                   <Typography
+                    component="span"
                     variant="body2"
                     color="text.secondary"
-                    sx={{ mt: 1 }}
+                    sx={{ ml: 1 }}
                   >
-                    {formik.values.isOffering
-                      ? 'Wähle diese Option, wenn du anderen bei diesem Skill helfen möchtest.'
-                      : 'Wähle diese Option, wenn du diesen Skill erlernen oder verbessern möchtest.'}
+                    {formValues.isOffering
+                      ? '(Ich biete diese Fähigkeit an)'
+                      : '(Ich suche jemanden mit dieser Fähigkeit)'}
                   </Typography>
-
-                  {formik.touched.isOffering && formik.errors.isOffering && (
-                    <FormHelperText error>
-                      {formik.errors.isOffering}
-                    </FormHelperText>
-                  )}
-                </Box>
-              </Grid>
-
-              {/* Error Message */}
-              {errorMessage && (
-                <Grid item xs={12}>
-                  <Typography color="error" variant="body2">
-                    {errorMessage}
-                  </Typography>
-                </Grid>
-              )}
-
-              {/* Action Buttons */}
-              <Grid item xs={12}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    gap: 2,
-                    mt: 2,
-                  }}
-                >
-                  {onCancel && (
-                    <Button
-                      variant="outlined"
-                      color="inherit"
-                      onClick={onCancel}
-                      disabled={isSubmitting}
-                    >
-                      Abbrechen
-                    </Button>
-                  )}
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    disabled={isSubmitting || !formik.isValid}
-                    startIcon={
-                      isSubmitting ? <CircularProgress size={20} /> : null
-                    }
-                  >
-                    {isSubmitting
-                      ? 'Wird gespeichert...'
-                      : isEditMode
-                        ? 'Skill aktualisieren'
-                        : 'Skill erstellen'}
-                  </Button>
-                </Box>
-              </Grid>
-            </Grid>
+                </Typography>
+              }
+              sx={{ mt: 2 }}
+            />
           </Box>
-        )}
-      </CardContent>
-    </Card>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleDialogClose} disabled={loading}>
+            Abbrechen
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} /> : undefined}
+          >
+            {loading
+              ? 'Wird gespeichert...'
+              : skill
+                ? 'Aktualisieren'
+                : 'Erstellen'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   );
 };
 

@@ -11,12 +11,10 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 
 builder.Configuration
-    .AddJsonFile("ocelot.json",
-        optional: false,
-        reloadOnChange: true)
+    .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 
-// Lies die JWT-Einstellungen
+// JWT-Einstellungen aus ENV
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
 var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "";
 var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "";
@@ -25,29 +23,28 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowOrigins", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
     });
 });
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.RequireHttpsMetadata = false;  // Für lokale Tests
+        // Für lokale Tests ausnahmsweise false; in Prod = true
+        options.RequireHttpsMetadata = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
+            ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             ValidIssuer = issuer,
             ValidAudience = audience,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(secret))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret))
         };
     });
 
-// Ocelot einbinden
 builder.Services.AddOcelot(builder.Configuration);
 
 var app = builder.Build();
@@ -56,7 +53,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseCors("AllowOrigins");
 
-// Ocelot Middleware
 await app.UseOcelot();
 
 app.Run();

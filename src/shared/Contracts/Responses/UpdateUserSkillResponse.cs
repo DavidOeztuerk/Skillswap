@@ -5,6 +5,6 @@ public record UpdateUserSkillResponse(
     string Name,
     string Description,
     bool IsOffering,
-    string CategoryId,
+    string SkillCategoryId,
     string ProficiencyLevelId
 );

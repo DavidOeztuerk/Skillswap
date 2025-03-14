@@ -1,81 +1,3 @@
-// import React, { useState, useEffect } from 'react';
-// import { useNavigate } from 'react-router-dom';
-// import { Box, TextField, Autocomplete, CircularProgress } from '@mui/material';
-// import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-// import {
-//   clearSearchResults,
-//   fetchSearchResults,
-//   selectSearchLoading,
-//   selectSearchPage,
-//   selectSearchPageSize,
-//   selectSearchResults,
-// } from '../../features/search/searchSlice';
-
-// const Searchbar: React.FC = () => {
-//   const dispatch = useAppDispatch();
-//   const navigate = useNavigate();
-//   const searchResults = useAppSelector(selectSearchResults);
-//   const loading = useAppSelector(selectSearchLoading);
-//   const page = useAppSelector(selectSearchPage);
-//   const pageSize = useAppSelector(selectSearchPageSize);
-//   const [query, setQuery] = useState('');
-//   const [open, setOpen] = useState(false);
-
-//   useEffect(() => {
-//     if (query.length > 2) {
-//       dispatch(fetchSearchResults({ query, page, pageSize }));
-//     } else {
-//       dispatch(clearSearchResults());
-//     }
-//   }, [query, dispatch, page, pageSize]);
-
-//   return (
-//     <Box sx={{ width: '100%', maxWidth: 400 }}>
-//       <Autocomplete
-//         freeSolo
-//         open={open && searchResults.length > 0}
-//         onOpen={() => setOpen(true)}
-//         onClose={() => setOpen(false)}
-//         options={searchResults}
-//         getOptionLabel={(option) =>
-//           typeof option === 'string' ? option : option.name
-//         }
-//         loading={loading}
-//         onInputChange={(_, newValue) => setQuery(newValue)}
-//         onChange={(_, selectedSkill) => {
-//           if (selectedSkill) {
-//             if (typeof selectedSkill !== 'string') {
-//               navigate(`/skills/${selectedSkill.id}`);
-//             }
-//           }
-//         }}
-//         renderInput={(params) => (
-//           <TextField
-//             {...params}
-//             label="Skill suchen..."
-//             variant="outlined"
-//             fullWidth
-//             InputProps={{
-//               ...params.InputProps,
-//               endAdornment: (
-//                 <>
-//                   {loading ? (
-//                     <CircularProgress color="inherit" size={20} />
-//                   ) : null}
-//                   {params.InputProps.endAdornment}
-//                 </>
-//               ),
-//             }}
-//           />
-//         )}
-//       />
-//     </Box>
-//   );
-// };
-
-// export default Searchbar;
-
-// src/components/search/SearchBar.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
@@ -104,9 +26,6 @@ import { useSkills } from '../../hooks/useSkills';
 import { Skill } from '../../types/models/Skill';
 import { User } from '../../types/models/User';
 import { useDebounce } from '../../hooks/useDebounce';
-import { useAppSelector } from '../../store/store.hooks';
-
-// Beispieltypen für Suchergebnisse (Anpassung nach deinen Datenmodellen)
 
 type SearchResult = {
   skills: {
@@ -128,8 +47,6 @@ const SearchBar: React.FC = () => {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-
-  const categories = useAppSelector((state) => state.category);
 
   // Skills aus dem Hook holen
   const { skills, searchAllSkills, isLoading } = useSkills();
@@ -321,7 +238,7 @@ const SearchBar: React.FC = () => {
                               </ListItemIcon>
                               <ListItemText
                                 primary={skill.name}
-                                secondary={categories.ids.indexOf(skill.skillCategoryId).valueOf.name}
+                                secondary={skill.skillCategory?.name}
                               />
                             </ListItem>
                           ))}

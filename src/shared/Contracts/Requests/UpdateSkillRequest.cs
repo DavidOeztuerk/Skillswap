@@ -1,9 +1,9 @@
 namespace Contracts.Requests;
 
-public record UpdateUserSkillRequest(
+public record UpdateSkillRequest(
     string Name,
     string Description,
     bool IsOffering,
-    string CategoryId,
+    string SkillCategoryId,
     string ProficiencyLevelId
 );
