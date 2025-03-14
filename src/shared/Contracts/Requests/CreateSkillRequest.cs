@@ -4,5 +4,5 @@ public record CreateSkillRequest(
     string Name,
     string Description,
     bool IsOffering,
-    string CategoryId,
+    string SkillCategoryId,
     string ProficiencyLevelId);

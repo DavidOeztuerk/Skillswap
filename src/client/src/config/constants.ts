@@ -9,7 +9,7 @@ export const APP_VERSION = '1.0.0';
 /**
  * Pagination-Standardwerte
  */
-export const DEFAULT_PAGE_SIZE = 10;
+export const DEFAULT_PAGE_SIZE = 12;
 export const DEFAULT_PAGE_NUMBER = 1;
 
 /**

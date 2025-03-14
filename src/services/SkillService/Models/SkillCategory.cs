@@ -1,6 +1,6 @@
 namespace SkillService.Models;
 
-public class Category
+public class SkillCategory
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Name { get; set; } = string.Empty;

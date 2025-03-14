@@ -1,203 +1,461 @@
-// // src/pages/skills/SkillsPage.tsx
-// import React, { useState, useEffect } from 'react';
-// import { Box, Paper, Tabs, Tab } from '@mui/material';
+// SkillsPage.tsx
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Container,
+  Paper,
+  TextField,
+  InputAdornment,
+  IconButton,
+  Tabs,
+  Tab,
+  Divider,
+  Fab,
+  Tooltip,
+  Snackbar,
+  Alert,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material';
+import {
+  Search as SearchIcon,
+  Add as AddIcon,
+  Clear as ClearIcon,
+} from '@mui/icons-material';
+import { useSkills } from '../../hooks/useSkills';
+import SkillList from '../../components/skills/SkillList';
+import SkillForm from '../../components/skills/SkillForm';
+import { Skill } from '../../types/models/Skill';
+import PaginationControls from '../../components/pagination/PaginationControls';
 
-// import PageHeader from '../../components/layout/PageHeader';
-// import PageContainer from '../../components/layout/PageContainer';
-// // import SkillList from '../../components/skills/SkillList';
-// // import SkillForm from '../../components/skills/SkillForm';
-// import LoadingSpinner from '../../components/ui/LoadingSpinner';
-// import AlertMessage from '../../components/ui/AlertMessage';
-// import { useSkills } from '../../hooks/useSkills';
-// import { Skill } from '../../types/models/Skill';
-// import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+const TabPanel: React.FC<TabPanelProps> = ({
+  children,
+  value,
+  index,
+  ...other
+}) => (
+  <div
+    role="tabpanel"
+    hidden={value !== index}
+    id={`skills-tabpanel-${index}`}
+    aria-labelledby={`skills-tab-${index}`}
+    {...other}
+  >
+    {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+  </div>
+);
 
-// /**
-//  * Seite zur Verwaltung der Skills des Benutzers
-//  */
-// const SkillsPage: React.FC = () => {
-//   // Custom Hooks
-//   const {
-//     skills,
-//     userSkills,
-//     isLoading,
-//     error,
-//     loadSkills,
-//     loadUserSkills,
-//     addSkillToProfile,
-//     removeSkillFromProfile,
-//   } = useSkills();
+function a11yProps(index: number) {
+  return {
+    id: `skills-tab-${index}`,
+    'aria-controls': `skills-tabpanel-${index}`,
+  };
+}
 
-//   // State für UI
-//   const [tabValue, setTabValue] = useState(0);
-//   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
-//   const [selectedUserSkill, setSelectedUserSkill] = useState<Skill | null>(
-//     null
-//   );
-//   // const [isDialogOpen, setIsDialogOpen] = useState(false);
-//   // const [isSubmitting, setIsSubmitting] = useState(false);
-//   const [statusMessage, setStatusMessage] = useState<{
-//     text: string;
-//     type: 'success' | 'error' | 'info';
-//   } | null>(null);
+/* --------------------------------
+   Form Data Interface
+-----------------------------------*/
+interface SkillFormData {
+  name: string;
+  description: string;
+  isOffering: boolean;
+  skillCategoryId: string;
+  proficiencyLevelId: string;
+}
 
-//   // Daten laden
-//   useEffect(() => {
-//     loadSkills();
-//     loadUserSkills();
-//   }, [loadSkills, loadUserSkills]);
+const SkillsPage: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-//   // Tab-Wechsel-Handler
-//   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-//     setTabValue(newValue);
-//   };
+  const {
+    skills,
+    userSkills,
+    categories,
+    proficiencyLevels,
+    error,
+    pagination,
+    searchQuery,
+    getSkills,
+    getUserSkills,
+    searchAllSkills,
+    searchMySkills,
+    addSkill,
+    editSkill,
+    removeSkill,
+    changePagination,
+    isLoading,
+    isCreating,
+    isUpdating,
+  } = useSkills();
 
-//   // Dialog-Handler
-//   const handleOpenDialog = (skill: Skill) => {
-//     setSelectedSkill(skill);
-//     setSelectedUserSkill(null);
-//     setIsDialogOpen(true);
-//   };
+  const [activeTab, setActiveTab] = useState(0);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState<Skill | undefined>();
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
-//   const handleOpenEditDialog = (userSkill: Skill) => {
-//     setSelectedUserSkill(userSkill);
-//     setSelectedSkill(userSkill);
-//     setIsDialogOpen(true);
-//   };
+  const pageSizeOptions = [12, 24, 48, 96];
 
-//   const handleCloseDialog = () => {
-//     setIsDialogOpen(false);
-//     setSelectedSkill(null);
-//     setSelectedUserSkill(null);
-//   };
+  useEffect(() => {
+    if (activeTab === 0) {
+      if (searchQuery) {
+        searchAllSkills(
+          searchQuery,
+          pagination.currentPage,
+          pagination.pageSize
+        );
+      } else {
+        getSkills(pagination.currentPage, pagination.pageSize);
+      }
+    } else {
+      if (searchQuery) {
+        searchMySkills(
+          searchQuery,
+          pagination.currentPage,
+          pagination.pageSize
+        );
+      } else {
+        getUserSkills(pagination.currentPage, pagination.pageSize);
+      }
+    }
+  }, [
+    activeTab,
+    pagination.currentPage,
+    pagination.pageSize,
+    searchQuery,
+    getSkills,
+    getUserSkills,
+    searchAllSkills,
+    searchMySkills,
+  ]);
 
-//   // Form-Submission-Handler
-//   const handleSubmitSkill = async (data: CreateSkillRequest) => {
-//     setIsSubmitting(true);
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+    changePagination(1, pagination.pageSize);
+  };
 
-//     try {
-//       if (selectedUserSkill) {
-//         // Update vorhandenen Skill - diese Funktion müsste im Hook implementiert werden
-//         await removeSkillFromProfile(selectedUserSkill.id);
-//         await addSkillToProfile(data);
-//         setStatusMessage({
-//           text: 'Skill erfolgreich aktualisiert',
-//           type: 'success',
-//         });
-//       } else {
-//         // Neuen Skill hinzufügen
-//         await addSkillToProfile(data);
-//         setStatusMessage({
-//           text: 'Skill erfolgreich hinzugefügt',
-//           type: 'success',
-//         });
-//       }
+  const handleSearch = () => {
+    if (activeTab === 0) {
+      searchAllSkills(localSearchQuery, 1, pagination.pageSize);
+    } else {
+      searchMySkills(localSearchQuery, 1, pagination.pageSize);
+    }
+    changePagination(1, pagination.pageSize);
+  };
 
-//       handleCloseDialog();
-//     } catch (err) {
-//       setStatusMessage({
-//         text: 'Fehler beim Speichern des Skills' + ' ' + error + ' ' + err,
-//         type: 'error',
-//       });
-//     } finally {
-//       setIsSubmitting(false);
-//     }
-//   };
+  const handleClearSearch = () => {
+    setLocalSearchQuery('');
+    if (activeTab === 0) {
+      getSkills(1, pagination.pageSize);
+    } else {
+      getUserSkills(1, pagination.pageSize);
+    }
+    changePagination(1, pagination.pageSize);
+  };
 
-//   // Handler für das Entfernen eines Skills
-//   const handleRemoveSkill = async (userSkill: Skill) => {
-//     try {
-//       await removeSkillFromProfile(userSkill.id);
-//       setStatusMessage({
-//         text: 'Skill erfolgreich entfernt',
-//         type: 'success',
-//       });
-//     } catch (err) {
-//       setStatusMessage({
-//         text: 'Fehler beim Speichern des Skills' + ' ' + error + ' ' + err,
-//         type: 'error',
-//       });
-//     }
-//   };
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
-//   // Status-Meldung zurücksetzen
-//   const clearStatusMessage = () => {
-//     setStatusMessage(null);
-//   };
+  const handlePageChange = (page: number) => {
+    changePagination(page, pagination.pageSize);
+  };
+  const handlePageSizeChange = (pageSize: number) => {
+    changePagination(1, pageSize);
+  };
 
-//   return (
-//     <PageContainer>
-//       <PageHeader
-//         title="Meine Skills"
-//         subtitle="Verwalte deine Fähigkeiten und finde passende Lern- oder Lehrmöglichkeiten"
-//         breadcrumbs={[
-//           { label: 'Dashboard', href: '/dashboard' },
-//           { label: 'Skills' },
-//         ]}
-//       />
+  const handleOpenCreateForm = () => {
+    setSelectedSkill(undefined);
+    setIsFormOpen(true);
+  };
+  const handleEditSkill = (skill: Skill) => {
+    setSelectedSkill(skill);
+    setIsFormOpen(true);
+  };
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setSelectedSkill(undefined);
+  };
 
-//       {statusMessage && (
-//         <AlertMessage
-//           severity={statusMessage.type}
-//           message={statusMessage.text}
-//           onClose={clearStatusMessage}
-//         />
-//       )}
+  const handleViewSkillDetails = (skill: Skill) => {
+    console.log('[View Skill Details]', skill);
+  };
 
-//       <Paper elevation={0} sx={{ mb: 3 }}>
-//         <Tabs
-//           value={tabValue}
-//           onChange={handleTabChange}
-//           indicatorColor="primary"
-//           textColor="primary"
-//           sx={{ borderBottom: 1, borderColor: 'divider' }}
-//         >
-//           <Tab label="Meine Skills" />
-//           <Tab label="Skills entdecken" />
-//         </Tabs>
-//       </Paper>
+  const handleDeleteSkill = async (skillId: string) => {
+    console.log(skillId);
 
-//       {isLoading ? (
-//         <LoadingSpinner message="Skills werden geladen..." />
-//       ) : (
-//         <Box>
-//           {tabValue === 0 ? (
-//             <SkillList
-//               skills={userSkills}
-//               isUserSkillList
-//               onEditSkill={handleOpenEditDialog}
-//               onRemoveSkill={handleRemoveSkill}
-//               onTeachSkill={(userSkill) => {
-//                 // Hier zur Matchmaking-Seite navigieren
-//                 console.log('Lehren: ', userSkill);
-//               }}
-//               onLearnSkill={(userSkill) => {
-//                 // Hier zur Matchmaking-Seite navigieren
-//                 console.log('Lernen: ', userSkill);
-//               }}
-//             />
-//           ) : (
-//             <SkillList skills={skills} onAddSkill={handleOpenDialog} />
-//           )}
-//         </Box>
-//       )}
+    const result = await removeSkill(skillId);
+    if (result.success) {
+      setNotification({
+        open: true,
+        message: 'Skill erfolgreich gelöscht',
+        severity: 'success',
+      });
+      if (activeTab === 0) {
+        getSkills(pagination.currentPage, pagination.pageSize);
+      } else {
+        getUserSkills(pagination.currentPage, pagination.pageSize);
+      }
+    } else {
+      setNotification({
+        open: true,
+        message: `Fehler beim Löschen: ${result.error}`,
+        severity: 'error',
+      });
+    }
+  };
 
-//       {/* Dialog für das Hinzufügen/Bearbeiten eines Skills */}
-//       {selectedSkill && (
-//         // <SkillForm
-//         //   open={isDialogOpen}
-//         //   onClose={handleCloseDialog}
-//         //   onSubmit={handleSubmitSkill}
-//         //   skillId={selectedSkill.id}
-//         //   skillName={selectedSkill.name}
-//         //   // skillCategory={selectedSkill.skillCategoryId}
-//         //   // userSkill={selectedUserSkill || undefined}
-//         //   isLoading={isSubmitting}
-//         // />
-//         <div></div>
-//       )}
-//     </PageContainer>
-//   );
-// };
+  // Log die Daten, bevor sie an addSkill/editSkill gehen
+  const handleSubmitSkill = async (
+    skillData: SkillFormData,
+    skillId?: string
+  ) => {
+    console.log(
+      '[SkillsPage] handleSubmitSkill -> skillData:',
+      skillData,
+      ' skillId:',
+      skillId
+    );
 
-// export default SkillsPage;
+    if (skillId) {
+      const result = await editSkill(skillId, skillData);
+      console.log('[SkillsPage] editSkill result:', result);
+      if (result.success) {
+        setNotification({
+          open: true,
+          message: 'Skill erfolgreich aktualisiert',
+          severity: 'success',
+        });
+        setIsFormOpen(false);
+
+        if (activeTab === 0) {
+          getSkills(pagination.currentPage, pagination.pageSize);
+        } else {
+          getUserSkills(pagination.currentPage, pagination.pageSize);
+        }
+      } else {
+        setNotification({
+          open: true,
+          message: `Fehler beim Aktualisieren: ${result.error}`,
+          severity: 'error',
+        });
+      }
+    } else {
+      const result = await addSkill(skillData);
+      console.log('[SkillsPage] addSkill result:', result);
+      if (result.success) {
+        setNotification({
+          open: true,
+          message: 'Skill erfolgreich erstellt',
+          severity: 'success',
+        });
+        setIsFormOpen(false);
+
+        setActiveTab(1);
+        changePagination(1, pagination.pageSize);
+        getUserSkills(1, pagination.pageSize);
+      } else {
+        setNotification({
+          open: true,
+          message: `Fehler beim Erstellen: ${result.error}`,
+          severity: 'error',
+        });
+      }
+    }
+  };
+
+  const handleCloseNotification = () => {
+    setNotification((prev) => ({
+      ...prev,
+      open: false,
+    }));
+  };
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 3, mb: 5 }}>
+      <Box
+        sx={{
+          mb: 4,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Typography variant="h4" component="h1" gutterBottom>
+          Skills
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={handleOpenCreateForm}
+          sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+        >
+          Neuen Skill erstellen
+        </Button>
+      </Box>
+
+      <Paper sx={{ mb: 3 }}>
+        <Box sx={{ p: 2 }}>
+          <TextField
+            fullWidth
+            placeholder="Skills durchsuchen..."
+            value={localSearchQuery}
+            onChange={(e) => setLocalSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+              endAdornment: localSearchQuery && (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={handleClearSearch}
+                    edge="end"
+                    aria-label="Suche zurücksetzen"
+                  >
+                    <ClearIcon />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            sx={{ mb: 2 }}
+          />
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSearch}
+              disabled={isLoading}
+            >
+              Suchen
+            </Button>
+            <Typography variant="body2" color="text.secondary">
+              {searchQuery
+                ? `Suchergebnisse für "${searchQuery}"`
+                : 'Alle verfügbaren Skills'}
+            </Typography>
+          </Box>
+        </Box>
+
+        <Divider />
+
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          aria-label="Skills-Tabs"
+          variant={isMobile ? 'fullWidth' : 'standard'}
+        >
+          <Tab label="Alle Skills" {...a11yProps(0)} />
+          <Tab label="Meine Skills" {...a11yProps(1)} />
+        </Tabs>
+      </Paper>
+
+      <TabPanel value={activeTab} index={0}>
+        <SkillList
+          skills={skills}
+          loading={isLoading}
+          error={error || undefined}
+          onEditSkill={handleEditSkill}
+          onDeleteSkill={handleDeleteSkill}
+          onViewSkillDetails={handleViewSkillDetails}
+        />
+      </TabPanel>
+
+      <TabPanel value={activeTab} index={1}>
+        <SkillList
+          skills={userSkills}
+          loading={isLoading}
+          error={error || undefined}
+          onEditSkill={handleEditSkill}
+          onDeleteSkill={handleDeleteSkill}
+          onViewSkillDetails={handleViewSkillDetails}
+        />
+      </TabPanel>
+
+      <Box sx={{ mt: 3 }}>
+        <PaginationControls
+          totalItems={
+            pagination.totalItems ||
+            (activeTab === 0 ? skills.length : userSkills.length)
+          }
+          currentPage={pagination.currentPage}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={pageSizeOptions}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
+      </Box>
+
+      <Tooltip title="Neuen Skill erstellen">
+        <Fab
+          color="primary"
+          aria-label="Neuen Skill erstellen"
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            display: { xs: 'inline-flex', sm: 'none' },
+          }}
+          onClick={handleOpenCreateForm}
+        >
+          <AddIcon />
+        </Fab>
+      </Tooltip>
+
+      <SkillForm
+        open={isFormOpen}
+        onClose={handleCloseForm}
+        onSubmit={handleSubmitSkill}
+        categories={categories}
+        proficiencyLevels={proficiencyLevels}
+        loading={isCreating || isUpdating}
+        skill={selectedSkill}
+      />
+
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={5000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Alert
+          onClose={handleCloseNotification}
+          severity={notification.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
+    </Container>
+  );
+};
+
+export default SkillsPage;

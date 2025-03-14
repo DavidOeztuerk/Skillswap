@@ -1,4 +1,3 @@
-// src/hooks/useSkills.ts
 import { useCallback, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import {
@@ -26,8 +25,6 @@ import {
   resetStatus,
   selectAllSkills,
   selectAllUserSkills,
-  selectSkillById,
-  selectUserSkillById,
   selectAllCategories,
   selectAllProficiencyLevels,
   selectSelectedSkill,
@@ -41,15 +38,24 @@ import { CreateSkillRequest } from '../types/contracts/requests/CreateSkillReque
 import { UpdateSkillRequest } from '../types/contracts/requests/UpdateSkillRequest';
 
 /**
- * Custom-Hook für die Verwaltung von Skills
- * Bietet Zugriff auf Skills, Kategorien und Fertigkeitsstufen sowie alle
- * notwendigen Funktionen für CRUD-Operationen
+ * Typisiertes Rückgabeformat für CRUD-Aktionen:
+ * success: Boolean, data: optionales Ergebnisobjekt, error: optionaler Fehlertext
+ */
+interface ActionResult<T> {
+  success: boolean;
+  data?: T;
+  error?: unknown;
+}
+
+/**
+ * Custom-Hook für die Verwaltung von Skills, Kategorien und Fertigkeitsstufen.
+ * Kapselt sämtliche Redux-Logik (Actions/Selectors) und bietet komfortable
+ * Methoden zum Aufruf von CRUD-Operationen.
  */
 export const useSkills = () => {
   const dispatch = useAppDispatch();
 
   // Selektierte Daten aus dem Redux-Store
-  const state = useAppSelector((state) => state);
   const allSkills = useAppSelector(selectAllSkills);
   const userSkills = useAppSelector(selectAllUserSkills);
   const categories = useAppSelector(selectAllCategories);
@@ -60,7 +66,9 @@ export const useSkills = () => {
   const pagination = useAppSelector(selectSkillsPagination);
   const searchQuery = useAppSelector(selectSkillsSearchQuery);
 
-  // Skill-Helferfunktionen
+  // --------------------------------------------------
+  // Skill-Helferfunktionen (Abfragen)
+  // --------------------------------------------------
   const getSkills = useCallback(
     (page?: number, pageSize?: number) => {
       dispatch(fetchSkills({ page, pageSize }));
@@ -68,21 +76,21 @@ export const useSkills = () => {
     [dispatch]
   );
 
-  const getUserSkills = useCallback(
+  const getUserSkillsCb = useCallback(
     (page?: number, pageSize?: number) => {
       dispatch(fetchUserSkills({ page, pageSize }));
     },
     [dispatch]
   );
 
-  const getSkillById = useCallback(
+  const getSkillByIdCb = useCallback(
     (skillId: string) => {
       dispatch(fetchSkillById(skillId));
     },
     [dispatch]
   );
 
-  const getUserSkillById = useCallback(
+  const getUserSkillByIdCb = useCallback(
     (skillId: string) => {
       dispatch(fetchUserSkillById(skillId));
     },
@@ -105,74 +113,72 @@ export const useSkills = () => {
     [dispatch]
   );
 
+  // --------------------------------------------------
+  // Skill-Helferfunktionen (CRUD)
+  // --------------------------------------------------
   const addSkill = useCallback(
-    async (skillData: CreateSkillRequest) => {
+    async (skillData: CreateSkillRequest): Promise<ActionResult<unknown>> => {
       try {
         const resultAction = await dispatch(createSkill(skillData));
         if (createSkill.fulfilled.match(resultAction)) {
           return { success: true, data: resultAction.payload };
-        } else {
-          return {
-            success: false,
-            error:
-              (resultAction.payload as string) ||
-              'Skill konnte nicht erstellt werden',
-          };
         }
-      } catch (error) {
-        return { success: false, error: error };
+        return {
+          success: false,
+          error: resultAction.payload || 'Skill konnte nicht erstellt werden',
+        };
+      } catch (err) {
+        return { success: false, error: err };
       }
     },
     [dispatch]
   );
 
   const editSkill = useCallback(
-    async (skillId: string, updateData: UpdateSkillRequest) => {
+    async (
+      skillId: string,
+      updateData: UpdateSkillRequest
+    ): Promise<ActionResult<unknown>> => {
       try {
         const resultAction = await dispatch(
           updateSkill({ skillId, updateData })
         );
         if (updateSkill.fulfilled.match(resultAction)) {
           return { success: true, data: resultAction.payload };
-        } else {
-          return {
-            success: false,
-            error:
-              (resultAction.payload as string) ||
-              'Skill konnte nicht aktualisiert werden',
-          };
         }
-      } catch (error) {
-        return { success: false, error: error };
+        return {
+          success: false,
+          error:
+            resultAction.payload || 'Skill konnte nicht aktualisiert werden',
+        };
+      } catch (err) {
+        return { success: false, error: err };
       }
     },
     [dispatch]
   );
 
   const removeSkill = useCallback(
-    async (skillId: string) => {
+    async (skillId: string): Promise<ActionResult<void>> => {
       try {
         const resultAction = await dispatch(deleteSkill(skillId));
         if (deleteSkill.fulfilled.match(resultAction)) {
           return { success: true };
-        } else {
-          return {
-            success: false,
-            error:
-              (resultAction.payload as string) ||
-              'Skill konnte nicht gelöscht werden',
-          };
         }
-      } catch (error) {
         return {
           success: false,
-          error: error,
+          error: resultAction.payload || 'Skill konnte nicht gelöscht werden',
         };
+      } catch (err) {
+        return { success: false, error: err };
       }
     },
     [dispatch]
   );
 
+  // --------------------------------------------------
+  // Skill-Auswahl
+  // --------------------------------------------------
   const setSkill = useCallback(
     (skill: Skill | undefined) => {
       dispatch(setSelectedSkill(skill));
@@ -184,165 +190,149 @@ export const useSkills = () => {
     dispatch(clearSelectedSkill());
   }, [dispatch]);
 
-  // Kategorie-Helferfunktionen
-  const getCategories = useCallback(() => {
+  // --------------------------------------------------
+  // Kategorien
+  // --------------------------------------------------
+  const getCategoriesCb = useCallback(() => {
     dispatch(fetchCategories());
   }, [dispatch]);
 
   const addCategory = useCallback(
-    async (name: string) => {
+    async (name: string): Promise<ActionResult<unknown>> => {
       try {
         const resultAction = await dispatch(createCategory(name));
         if (createCategory.fulfilled.match(resultAction)) {
           return { success: true, data: resultAction.payload };
-        } else {
-          return {
-            success: false,
-            error:
-              (resultAction.payload as string) ||
-              'Kategorie konnte nicht erstellt werden',
-          };
         }
-      } catch (error) {
         return {
           success: false,
-          error: error,
+          error:
+            resultAction.payload || 'Kategorie konnte nicht erstellt werden',
         };
+      } catch (err) {
+        return { success: false, error: err };
       }
     },
     [dispatch]
   );
 
   const editCategory = useCallback(
-    async (id: string, name: string) => {
+    async (id: string, name: string): Promise<ActionResult<unknown>> => {
       try {
         const resultAction = await dispatch(updateCategory({ id, name }));
         if (updateCategory.fulfilled.match(resultAction)) {
           return { success: true, data: resultAction.payload };
-        } else {
-          return {
-            success: false,
-            error:
-              (resultAction.payload as string) ||
-              'Kategorie konnte nicht aktualisiert werden',
-          };
         }
-      } catch (error) {
         return {
           success: false,
-          error: error,
+          error:
+            resultAction.payload ||
+            'Kategorie konnte nicht aktualisiert werden',
         };
+      } catch (err) {
+        return { success: false, error: err };
       }
     },
     [dispatch]
   );
 
   const removeCategory = useCallback(
-    async (id: string) => {
+    async (id: string): Promise<ActionResult<void>> => {
       try {
         const resultAction = await dispatch(deleteCategory(id));
         if (deleteCategory.fulfilled.match(resultAction)) {
           return { success: true };
-        } else {
-          return {
-            success: false,
-            error:
-              (resultAction.payload as string) ||
-              'Kategorie konnte nicht gelöscht werden',
-          };
         }
-      } catch (error) {
         return {
           success: false,
-          error: error,
+          error:
+            resultAction.payload || 'Kategorie konnte nicht gelöscht werden',
         };
+      } catch (err) {
+        return { success: false, error: err };
       }
     },
     [dispatch]
   );
 
-  // Fertigkeitsstufen-Helferfunktionen
-  const getProficiencyLevels = useCallback(() => {
+  // --------------------------------------------------
+  // Fertigkeitsstufen
+  // --------------------------------------------------
+  const getProficiencyLevelsCb = useCallback(() => {
     dispatch(fetchProficiencyLevels());
   }, [dispatch]);
 
   const addProficiencyLevel = useCallback(
-    async (level: string, rank: number) => {
+    async (level: string, rank: number): Promise<ActionResult<unknown>> => {
       try {
         const resultAction = await dispatch(
           createProficiencyLevel({ level, rank })
         );
         if (createProficiencyLevel.fulfilled.match(resultAction)) {
           return { success: true, data: resultAction.payload };
-        } else {
-          return {
-            success: false,
-            error:
-              (resultAction.payload as string) ||
-              'Fertigkeitsstufe konnte nicht erstellt werden',
-          };
         }
-      } catch (error) {
         return {
           success: false,
-          error: error,
+          error:
+            resultAction.payload ||
+            'Fertigkeitsstufe konnte nicht erstellt werden',
         };
+      } catch (err) {
+        return { success: false, error: err };
       }
     },
     [dispatch]
   );
 
   const editProficiencyLevel = useCallback(
-    async (id: string, level: string, rank: number) => {
+    async (
+      id: string,
+      level: string,
+      rank: number
+    ): Promise<ActionResult<unknown>> => {
       try {
         const resultAction = await dispatch(
           updateProficiencyLevel({ id, level, rank })
         );
         if (updateProficiencyLevel.fulfilled.match(resultAction)) {
           return { success: true, data: resultAction.payload };
-        } else {
-          return {
-            success: false,
-            error:
-              (resultAction.payload as string) ||
-              'Fertigkeitsstufe konnte nicht aktualisiert werden',
-          };
         }
-      } catch (error) {
         return {
           success: false,
-          error: error,
+          error:
+            resultAction.payload ||
+            'Fertigkeitsstufe konnte nicht aktualisiert werden',
         };
+      } catch (err) {
+        return { success: false, error: err };
       }
     },
     [dispatch]
   );
 
   const removeProficiencyLevel = useCallback(
-    async (id: string) => {
+    async (id: string): Promise<ActionResult<void>> => {
       try {
         const resultAction = await dispatch(deleteProficiencyLevel(id));
         if (deleteProficiencyLevel.fulfilled.match(resultAction)) {
           return { success: true };
-        } else {
-          return {
-            success: false,
-            error:
-              (resultAction.payload as string) ||
-              'Fertigkeitsstufe konnte nicht gelöscht werden',
-          };
         }
-      } catch (error) {
         return {
           success: false,
-          error: error,
+          error:
+            resultAction.payload ||
+            'Fertigkeitsstufe konnte nicht gelöscht werden',
         };
+      } catch (err) {
+        return { success: false, error: err };
       }
     },
     [dispatch]
   );
 
-  // Paginierungs-Helferfunktionen
+  // --------------------------------------------------
+  // Paginierung & Status
+  // --------------------------------------------------
   const changePagination = useCallback(
     (page: number, pageSize: number) => {
       dispatch(setPagination({ page, pageSize }));
@@ -350,12 +340,13 @@ export const useSkills = () => {
     [dispatch]
   );
 
-  // Fehlerverwaltung
   const resetAllStatus = useCallback(() => {
     dispatch(resetStatus());
   }, [dispatch]);
 
-  // Hilfsfunktion zum Abrufen eines Skills (entweder aus dem Store oder vom Server)
+  // --------------------------------------------------
+  // Skill holen (aus Cache oder Server)
+  // --------------------------------------------------
   const getSkill = useCallback(
     (
       skillId: string,
@@ -363,27 +354,27 @@ export const useSkills = () => {
     ) => {
       const { forceRefresh = false, isUserSkill = false } = options || {};
 
-      // Skill aus dem Store holen, wenn verfügbar und kein Refresh gefordert wird
       const existingSkill = isUserSkill
-        ? selectUserSkillById(state, skillId)
-        : selectSkillById(state, skillId);
+        ? userSkills.find((skill) => skill.id === skillId)
+        : allSkills.find((skill) => skill.id === skillId);
 
       if (existingSkill && !forceRefresh) {
         dispatch(setSelectedSkill(existingSkill));
         return;
       }
 
-      // Ansonsten vom Server abrufen
       if (isUserSkill) {
         dispatch(fetchUserSkillById(skillId));
       } else {
         dispatch(fetchSkillById(skillId));
       }
     },
-    [dispatch, state]
+    [dispatch, userSkills, allSkills]
   );
 
-  // Effekt zum automatischen Laden von Kategorien und Fertigkeitsstufen
+  // --------------------------------------------------
+  // Automatisches Laden von Kategorien & Levels
+  // --------------------------------------------------
   useEffect(() => {
     if (status.categories === 'idle') {
       dispatch(fetchCategories());
@@ -393,8 +384,11 @@ export const useSkills = () => {
     }
   }, [dispatch, status.categories, status.proficiencyLevels]);
 
+  // --------------------------------------------------
+  // Export des Hook
+  // --------------------------------------------------
   return {
-    // Daten
+    // State
     skills: allSkills,
     userSkills,
     categories,
@@ -405,13 +399,15 @@ export const useSkills = () => {
     pagination,
     searchQuery,
 
-    // Allgemeine Skills-Operationen
+    // Skill-Methoden (Abfragen)
     getSkills,
-    getUserSkills,
-    getSkillById,
-    getUserSkillById,
+    getUserSkills: getUserSkillsCb,
+    getSkillById: getSkillByIdCb,
+    getUserSkillById: getUserSkillByIdCb,
     searchAllSkills,
     searchMySkills,
+
+    // Skill-Methoden (CRUD)
     addSkill,
     editSkill,
     removeSkill,
@@ -419,25 +415,23 @@ export const useSkills = () => {
     clearSkill,
     getSkill,
 
-    // Kategorie-Operationen
-    getCategories,
+    // Kategorie-Methoden
+    getCategories: getCategoriesCb,
     addCategory,
     editCategory,
     removeCategory,
 
-    // Fertigkeitsstufen-Operationen
-    getProficiencyLevels,
+    // Fertigkeitsstufen-Methoden
+    getProficiencyLevels: getProficiencyLevelsCb,
     addProficiencyLevel,
     editProficiencyLevel,
     removeProficiencyLevel,
 
-    // Paginierung
+    // Paginierung & Status
     changePagination,
-
-    // Fehlerverwaltung
     resetAllStatus,
 
-    // Status-Hilfsfunktionen
+    // Hilfsflags
     isLoading: status.skills === 'loading' || status.userSkills === 'loading',
     hasError: !!error,
     isCreating: status.createSkill === 'loading',

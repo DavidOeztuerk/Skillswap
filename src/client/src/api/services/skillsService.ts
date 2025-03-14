@@ -10,17 +10,27 @@ import { CreateSkillResponse } from '../../types/contracts/responses/CreateSkill
 import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkillResponse';
 
+// Beispiel: einheitliche Paging-Antwortstruktur, um "totalCount", "page" etc. abzugreifen.
+interface PaginatedResponse<T> {
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  data: T[];
+}
+
 const SkillService = {
+  // GET /skills
   getAllSkills: async (
-    page: number = 1,
-    pageSize: number = 10
-  ): Promise<Skill[]> => {
-    const response = await apiClient.get<Skill[]>(
+    page = 1,
+    pageSize = 12
+  ): Promise<PaginatedResponse<Skill>> => {
+    const response = await apiClient.get<PaginatedResponse<Skill>>(
       `${SKILL_ENDPOINTS.GET_SKILLS}?page=${page}&pageSize=${pageSize}`
     );
     return response.data;
   },
 
+  // GET /skills/{id}
   getSkillById: async (skillId: string): Promise<Skill> => {
     const response = await apiClient.get<Skill>(
       `${SKILL_ENDPOINTS.GET_SKILLS}/${skillId}`
@@ -28,27 +38,30 @@ const SkillService = {
     return response.data;
   },
 
+  // GET /skills/search?query=...
   getSkillsBySearch: async (
     query: string,
-    page: number = 1,
-    pageSize: number = 10
-  ): Promise<Skill[]> => {
-    const response = await apiClient.get<Skill[]>(
+    page = 1,
+    pageSize = 12
+  ): Promise<PaginatedResponse<Skill>> => {
+    const response = await apiClient.get<PaginatedResponse<Skill>>(
       `${SKILL_ENDPOINTS.SEARCH_SKILLS}?query=${query}&page=${page}&pageSize=${pageSize}`
     );
     return response.data;
   },
 
+  // GET /user/skills
   getUserSkills: async (
-    page: number = 1,
-    pageSize: number = 10
-  ): Promise<Skill[]> => {
-    const response = await apiClient.get<Skill[]>(
+    page = 1,
+    pageSize = 12
+  ): Promise<PaginatedResponse<Skill>> => {
+    const response = await apiClient.get<PaginatedResponse<Skill>>(
       `${SKILL_ENDPOINTS.GET_USER_SKILLS}?page=${page}&pageSize=${pageSize}`
     );
     return response.data;
   },
 
+  // GET /user/skills/{id}
   getUserSkillById: async (skillId: string): Promise<Skill> => {
     const response = await apiClient.get<Skill>(
       `${SKILL_ENDPOINTS.GET_USER_SKILLS}/${skillId}`
@@ -56,17 +69,19 @@ const SkillService = {
     return response.data;
   },
 
+  // GET /user/skills/search?query=...
   getUserSkillsBySearch: async (
     query: string,
-    page: number = 1,
-    pageSize: number = 10
-  ): Promise<Skill[]> => {
-    const response = await apiClient.get<Skill[]>(
+    page = 1,
+    pageSize = 12
+  ): Promise<PaginatedResponse<Skill>> => {
+    const response = await apiClient.get<PaginatedResponse<Skill>>(
       `${SKILL_ENDPOINTS.SEARCH_USER_SKILLS}?query=${query}&page=${page}&pageSize=${pageSize}`
     );
     return response.data;
   },
 
+  // POST /skills
   createSkill: async (
     skillData: CreateSkillRequest
   ): Promise<CreateSkillResponse> => {
@@ -77,21 +92,24 @@ const SkillService = {
     return response.data;
   },
 
+  // PUT /user/skills/{id}
   updateSkill: async (
-    skillId: string,
+    id: string,
     updateSkillData: UpdateSkillRequest
   ): Promise<UpdateSkillResponse> => {
     const response = await apiClient.put<UpdateSkillResponse>(
-      `${SKILL_ENDPOINTS.UPDATE_SKILL}/${skillId}`,
+      `${SKILL_ENDPOINTS.UPDATE_SKILL}/${id}`,
       updateSkillData
     );
     return response.data;
   },
 
-  deleteSkill: async (skillId: string): Promise<void> => {
-    await apiClient.delete(`${SKILL_ENDPOINTS.DELETE_SKILL}/${skillId}`);
+  // DELETE /user/skills/{id}
+  deleteSkill: async (id: string): Promise<void> => {
+    await apiClient.delete(`${SKILL_ENDPOINTS.DELETE_SKILL}/${id}`);
   },
 
+  // GET /categories
   getCategories: async (): Promise<SkillCategory[]> => {
     const response = await apiClient.get<SkillCategory[]>(
       SKILL_ENDPOINTS.CATEGORIES
@@ -99,6 +117,7 @@ const SkillService = {
     return response.data;
   },
 
+  // POST /categories
   createCategory: async (name: string): Promise<SkillCategory> => {
     const response = await apiClient.post<SkillCategory>(
       SKILL_ENDPOINTS.CATEGORIES,
@@ -107,6 +126,7 @@ const SkillService = {
     return response.data;
   },
 
+  // PUT /categories/{id}
   updateCategory: async (id: string, name: string): Promise<SkillCategory> => {
     const response = await apiClient.put<SkillCategory>(
       `${SKILL_ENDPOINTS.CATEGORIES}/${id}`,
@@ -115,10 +135,12 @@ const SkillService = {
     return response.data;
   },
 
+  // DELETE /categories/{id}
   deleteCategory: async (id: string): Promise<void> => {
     await apiClient.delete(`${SKILL_ENDPOINTS.CATEGORIES}/${id}`);
   },
 
+  // GET /proficiencylevels
   getProficiencyLevels: async (): Promise<ProficiencyLevel[]> => {
     const response = await apiClient.get<ProficiencyLevel[]>(
       SKILL_ENDPOINTS.PROFICIENCY_LEVELS
@@ -126,6 +148,7 @@ const SkillService = {
     return response.data;
   },
 
+  // POST /proficiencylevels
   createProficiencyLevel: async (
     level: string,
     rank: number
@@ -137,6 +160,7 @@ const SkillService = {
     return response.data;
   },
 
+  // PUT /proficiencylevels/{id}
   updateProficiencyLevel: async (
     id: string,
     level: string,
@@ -149,6 +173,7 @@ const SkillService = {
     return response.data;
   },
 
+  // DELETE /proficiencylevels/{id}
   deleteProficiencyLevel: async (id: string): Promise<void> => {
     await apiClient.delete(`${SKILL_ENDPOINTS.PROFICIENCY_LEVELS}/${id}`);
   },

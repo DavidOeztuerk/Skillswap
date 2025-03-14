@@ -3,6 +3,7 @@ import { Skill } from '../../types/models/Skill';
 import { SkillService } from '../../api/services/skillsService';
 import { RootState } from '../../store/store';
 import axios from 'axios';
+import { PaginatedResponse } from '../../types/common/PaginatedResponse';
 
 // Async Thunk für die Suche mit dynamischer Pagination
 export const fetchSearchResults = createAsyncThunk(
@@ -43,7 +44,7 @@ const initialState: SearchState = {
   loading: false,
   error: null,
   page: 1,
-  pageSize: 10,
+  pageSize: 12,
 };
 
 const searchSlice = createSlice({
@@ -70,7 +71,7 @@ const searchSlice = createSlice({
       })
       .addCase(fetchSearchResults.fulfilled, (state, action) => {
         state.loading = false;
-        state.results = action.payload || [];
+        state.results = (action.payload as unknown as PaginatedResponse<Skill>).results || [];
       })
       .addCase(fetchSearchResults.rejected, (state, action) => {
         state.loading = false;

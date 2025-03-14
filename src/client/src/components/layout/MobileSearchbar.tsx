@@ -24,7 +24,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useSkills } from '../../hooks/useSkills';
-import { useAppSelector } from '../../store/store.hooks';
 
 interface MobileSearchBarProps {
   open: boolean;
@@ -35,8 +34,6 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 300);
-
-  const categories = useAppSelector((state) => state.category);
 
   // Skills aus dem Hook holen
   const { skills, searchAllSkills, isLoading } = useSkills();
@@ -199,10 +196,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
                           </ListItemIcon>
                           <ListItemText
                             primary={skill.name}
-                            secondary={
-                              categories.ids.indexOf(skill.skillCategoryId)
-                                .valueOf.name
-                            }
+                            secondary={skill.skillCategory?.name}
                           />
                         </ListItem>
                       ))}

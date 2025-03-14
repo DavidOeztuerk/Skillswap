@@ -292,7 +292,7 @@ const DashboardPage: React.FC = () => {
                         </ListItemIcon>
                         <ListItemText
                           primary={userSkill.name}
-                          // secondary={`Level: ${userSkill.proficiencyLevel}`}
+                          secondary={`Level: ${userSkill.proficiencyLevel?.level}`}
                         />
                       </ListItem>
                       <Divider variant="inset" component="li" />
@@ -336,7 +336,7 @@ const DashboardPage: React.FC = () => {
                         </ListItemIcon>
                         <ListItemText
                           primary={userSkill.name}
-                          // secondary={`Level: ${userSkill.proficiencyLevel}`}
+                          secondary={`Level: ${userSkill.proficiencyLevel?.level}`}
                         />
                       </ListItem>
                       <Divider variant="inset" component="li" />

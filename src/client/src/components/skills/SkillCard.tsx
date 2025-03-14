@@ -1,273 +1,270 @@
-// src/components/skills/SkillCard.tsx
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
   CardActions,
   Typography,
   Button,
-  Box,
-  Chip,
   IconButton,
+  Chip,
+  Box,
   Menu,
   MenuItem,
-  Tooltip,
+  Divider,
   useTheme,
-  alpha,
 } from '@mui/material';
 import {
+  MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  MoreVert as MoreVertIcon,
-  EmojiObjects as SkillIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
 } from '@mui/icons-material';
-import { Skill } from '../../types/models/Skill';
-import { useSkills } from '../../hooks/useSkills';
+
+interface SkillCategory {
+  id: string;
+  name: string;
+}
+
+interface ProficiencyLevel {
+  id: string;
+  level: string;
+  rank: number;
+}
+
+interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  isOffering: boolean;
+  skillCategoryId: string;
+  proficiencyLevelId: string;
+  category?: SkillCategory;
+  proficiencyLevel?: ProficiencyLevel;
+}
 
 interface SkillCardProps {
   skill: Skill;
-  isOwner?: boolean;
-  categoryName?: string; // Optional prop für den Kategorienamen
-  proficiencyLevelName?: string; // Optional prop für den Fertigkeitsstufennamen
-  onEdit?: () => void;
-  onDelete?: () => void;
-  onSelect?: () => void;
+  onEdit: (skill: Skill) => void;
+  onDelete: (skillId: string) => void;
+  onViewDetails: (skill: Skill) => void;
 }
 
 const SkillCard: React.FC<SkillCardProps> = ({
   skill,
-  isOwner = false,
-  categoryName,
-  proficiencyLevelName,
   onEdit,
   onDelete,
-  onSelect,
+  onViewDetails,
 }) => {
-  const navigate = useNavigate();
   const theme = useTheme();
-  const { removeSkill, categories, proficiencyLevels } = useSkills();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [isDeleting, setIsDeleting] = React.useState(false);
+  const open = Boolean(anchorEl);
 
-  // Kategorie und Fertigkeitsstufe aus den globalen Daten ermitteln, falls nicht explizit übergeben
-  const resolvedCategoryName =
-    categoryName ||
-    categories.find((cat) => cat.id === skill.skillCategoryId)?.name ||
-    'Unbekannte Kategorie';
-
-  const resolvedProficiencyLevelName =
-    proficiencyLevelName ||
-    proficiencyLevels.find((level) => level.id === skill.proficiencyLevelId)
-      ?.level ||
-    'Unbekanntes Level';
-
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
+  // Menu open/close
+  const handleMenuClick = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    setAnchorEl(e.currentTarget);
   };
-
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
 
-  const handleEdit = () => {
+  // Edit/Delete
+  const handleEdit = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
     handleMenuClose();
-    if (onEdit) {
-      onEdit();
-    } else {
-      navigate(`/skills/edit/${skill.id}`);
-    }
+    onEdit(skill);
   };
-
-  const handleDelete = async () => {
+  const handleDelete = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
     handleMenuClose();
-    setIsDeleting(true);
-    try {
-      if (onDelete) {
-        onDelete();
-      } else {
-        const result = await removeSkill(skill.id);
-        if (!result.success) {
-          console.error(result.error);
-        }
-      }
-    } catch (error) {
-      console.error('Error deleting skill:', error);
-    } finally {
-      setIsDeleting(false);
-    }
+    onDelete(skill.id);
   };
 
-  const handleSelect = () => {
-    if (onSelect) {
-      onSelect();
-    } else {
-      navigate(`/skills/${skill.id}`);
-    }
+  // Click auf gesamte Card → Detailanzeige
+  const handleCardClick = () => {
+    onViewDetails(skill);
   };
 
-  // Truncate description if it's too long
-  const truncateDescription = (text: string | undefined, maxLength = 100) => {
-    if (!text) return '';
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
+  const getProficiencyColor = () => {
+    if (!skill.proficiencyLevel) return theme.palette.primary.main;
+    switch (skill.proficiencyLevel.rank) {
+      case 1:
+        return theme.palette.success.main;
+      case 2:
+        return theme.palette.info.main;
+      case 3:
+        return theme.palette.warning.main;
+      case 4:
+        return theme.palette.error.main;
+      default:
+        return theme.palette.primary.main;
+    }
   };
 
   return (
     <Card
       sx={{
-        height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        height: '100%',
+        cursor: 'pointer',
         transition: 'transform 0.2s, box-shadow 0.2s',
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: 4,
+          boxShadow: theme.shadows[4],
         },
-        position: 'relative',
-        overflow: 'hidden',
-        // Highlight card if it's owner's skill
-        ...(isOwner && {
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            borderWidth: '0 40px 40px 0',
-            borderStyle: 'solid',
-            borderColor: `${alpha(theme.palette.primary.main, 0.2)} transparent`,
-            zIndex: 1,
-          },
-        }),
       }}
+      onClick={handleCardClick}
     >
-      {/* Category indicator at the top */}
-      {resolvedCategoryName && (
-        <Box
-          sx={{
-            bgcolor: alpha(theme.palette.primary.main, 0.1),
-            px: 2,
-            py: 0.5,
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          <SkillIcon
-            fontSize="small"
-            sx={{ color: theme.palette.primary.main, mr: 1 }}
-          />
-          <Typography variant="caption" color="primary" fontWeight="medium">
-            {resolvedCategoryName}
-          </Typography>
-        </Box>
-      )}
-
-      <CardContent sx={{ flexGrow: 1, pt: 2 }}>
-        <Box sx={{ mb: 1 }}>
-          <Typography
-            variant="h6"
-            component="h3"
-            gutterBottom
-            sx={{
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              minHeight: '3.6rem',
-            }}
-          >
-            {skill.name}
-          </Typography>
-
-          {/* Proficiency level and isOffering chip */}
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, mt: 2 }}>
-            {resolvedProficiencyLevelName && (
-              <Chip
-                label={resolvedProficiencyLevelName}
-                size="small"
-                sx={{ mr: 1 }}
-                color="primary"
-                variant="outlined"
-              />
-            )}
-            <Chip
-              label={skill.isOffering ? 'Biete an' : 'Suche'}
-              size="small"
-              color={skill.isOffering ? 'success' : 'info'}
-              sx={{ ml: 'auto' }}
-            />
-          </Box>
-
-          {/* Description */}
-          {skill.description && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                mt: 2,
-                display: '-webkit-box',
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                minHeight: '4.5rem',
-              }}
-            >
-              {truncateDescription(skill.description)}
-            </Typography>
-          )}
-        </Box>
-      </CardContent>
-
-      <CardActions
+      <Box
         sx={{
+          height: 140,
+          bgcolor: skill.category
+            ? `rgba(${
+                parseInt(skill.category.id.slice(0, 2), 16) || 0
+              }, ${
+                parseInt(skill.category.id.slice(2, 4), 16) || 0
+              }, ${
+                parseInt(skill.category.id.slice(4, 6), 16) || 120
+              }, 0.2)`
+            : 'rgba(0, 0, 0, 0.1)',
           display: 'flex',
-          justifyContent: 'space-between',
-          px: 2,
-          pb: 2,
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
         }}
       >
+        <Typography variant="h3" sx={{ opacity: 0.5 }}>
+          {skill.name.charAt(0).toUpperCase()}
+        </Typography>
+
+        {/* Offering/Seeking-Chip */}
+        <Chip
+          label={skill.isOffering ? 'Angeboten' : 'Gesucht'}
+          color={skill.isOffering ? 'success' : 'secondary'}
+          size="small"
+          sx={{ position: 'absolute', top: 8, left: 8 }}
+        />
+
+        {/* Menü-Button */}
+        <IconButton
+          aria-label="Optionen"
+          onClick={handleMenuClick}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            bgcolor: 'rgba(255, 255, 255, 0.7)',
+            '&:hover': {
+              bgcolor: 'rgba(255, 255, 255, 0.9)',
+            },
+          }}
+        >
+          <MoreVertIcon />
+        </IconButton>
+        <Menu
+          id={`skill-menu-${skill.id}`}
+          anchorEl={anchorEl}
+          open={open}
+          onClose={handleMenuClose}
+          PaperProps={{ onClick: (e: { stopPropagation: () => unknown; }) => e.stopPropagation() }}
+        >
+          <MenuItem onClick={handleEdit}>
+            <EditIcon fontSize="small" sx={{ mr: 1 }} />
+            Bearbeiten
+          </MenuItem>
+          <Divider />
+          <MenuItem
+            onClick={handleDelete}
+            sx={{ color: theme.palette.error.main }}
+          >
+            <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+            Löschen
+          </MenuItem>
+        </Menu>
+      </Box>
+
+      <CardContent sx={{ flexGrow: 1, pt: 2 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            mb: 1,
+          }}
+        >
+          <Typography gutterBottom variant="h6" sx={{ fontWeight: 'bold' }}>
+            {skill.name}
+          </Typography>
+          {skill.proficiencyLevel && (
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {[...Array(5)].map((_, index) =>
+                skill.proficiencyLevel && index < skill.proficiencyLevel.rank ? (
+                  <StarIcon
+                    key={index}
+                    fontSize="small"
+                    sx={{ color: getProficiencyColor() }}
+                  />
+                ) : (
+                  <StarBorderIcon
+                    key={index}
+                    fontSize="small"
+                    sx={{ color: 'text.disabled' }}
+                  />
+                )
+              )}
+            </Box>
+          )}
+        </Box>
+
+        {skill.category && (
+          <Chip
+            label={skill.category.name}
+            size="small"
+            variant="outlined"
+            sx={{ mb: 1.5 }}
+          />
+        )}
+        {skill.proficiencyLevel && (
+          <Chip
+            label={skill.proficiencyLevel.level}
+            size="small"
+            sx={{
+              ml: skill.category ? 1 : 0,
+              mb: 1.5,
+              bgcolor: getProficiencyColor(),
+              color: 'white',
+            }}
+          />
+        )}
+
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            mt: 1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+          }}
+        >
+          {skill.description || 'Keine Beschreibung vorhanden.'}
+        </Typography>
+      </CardContent>
+
+      <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
         <Button
           size="small"
-          variant="outlined"
-          onClick={handleSelect}
-          color="primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewDetails(skill);
+          }}
         >
           Details
         </Button>
-
-        {isOwner && (
-          <Box>
-            <Tooltip title="Skill-Optionen">
-              <IconButton
-                aria-label="Skill-Optionen"
-                onClick={handleMenuOpen}
-                size="small"
-              >
-                <MoreVertIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleMenuClose}
-              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            >
-              <MenuItem onClick={handleEdit} disabled={isDeleting}>
-                <EditIcon fontSize="small" sx={{ mr: 1 }} />
-                Bearbeiten
-              </MenuItem>
-              <MenuItem onClick={handleDelete} disabled={isDeleting}>
-                <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-                Löschen
-              </MenuItem>
-            </Menu>
-          </Box>
-        )}
       </CardActions>
     </Card>
   );

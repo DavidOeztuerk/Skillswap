@@ -8,6 +8,6 @@ public class SkillDbContext(
     : DbContext(options)
 {
     public virtual DbSet<Skill> Skills => base.Set<Skill>();
-    public virtual DbSet<Category> SkillCategories => base.Set<Category>();
+    public virtual DbSet<SkillCategory> SkillCategories => base.Set<SkillCategory>();
     public virtual DbSet<ProficiencyLevel> ProficiencyLevels => base.Set<ProficiencyLevel>();
 }

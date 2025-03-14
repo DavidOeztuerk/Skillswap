@@ -4,46 +4,64 @@ import {
   createEntityAdapter,
   PayloadAction,
   EntityState,
+  createSelector,
 } from '@reduxjs/toolkit';
-import {
-  Skill,
-  SkillCategory,
-  ProficiencyLevel,
-} from '../../types/models/Skill';
-import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
-import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+import axios from 'axios';
 import { RootState } from '../../store/store';
 import { SkillService } from '../../api/services/skillsService';
-import axios from 'axios';
+import {
+  ProficiencyLevel,
+  Skill,
+  SkillCategory,
+} from '../../types/models/Skill';
+import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkillResponse';
+import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+import { CreateSkillResponse } from '../../types/contracts/responses/CreateSkillResponse';
+import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
 
-// Status-Typ für asynchrone Anfragen
+/* --------------------------------
+   Typen für asynchrone Requests
+-----------------------------------*/
 type RequestStatus = 'idle' | 'loading' | 'succeeded' | 'failed';
 
-// Entity-Adapter für Skills
+/**
+ * Beispiel einer Server-Paginierungsstruktur
+ * (angepasst an das, was unsere API zurückgibt: { totalCount, page, pageSize, data: Skill[] })
+ */
+interface PaginatedResponse<T> {
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  data: T[];
+}
+
+/* --------------------------------
+   Entity-Adapter
+-----------------------------------*/
 const skillsAdapter = createEntityAdapter<Skill, string>({
   selectId: (skill) => skill.id,
   sortComparer: (a, b) => a.name.localeCompare(b.name),
 });
 
-// Entity-Adapter für Kategorien
 const categoriesAdapter = createEntityAdapter<SkillCategory, string>({
   selectId: (category) => category.id,
   sortComparer: (a, b) => a.name.localeCompare(b.name),
 });
 
-// Entity-Adapter für Fertigkeitsstufen
 const proficiencyLevelsAdapter = createEntityAdapter<ProficiencyLevel, string>({
   selectId: (level) => level.id,
   sortComparer: (a, b) => a.rank - b.rank,
 });
 
-// Definition der Schnittstellenstruktur für den Zustand
+/* --------------------------------
+   Slice State
+-----------------------------------*/
 interface SkillsState {
   skills: EntityState<Skill, string>;
   userSkills: EntityState<Skill, string>;
   categories: EntityState<SkillCategory, string>;
   proficiencyLevels: EntityState<ProficiencyLevel, string>;
-  selectedSkill: Skill | undefined;
+  selectedSkill?: Skill;
   status: {
     skills: RequestStatus;
     userSkills: RequestStatus;
@@ -53,7 +71,7 @@ interface SkillsState {
     updateSkill: RequestStatus;
     deleteSkill: RequestStatus;
   };
-  error: string | undefined;
+  error?: string;
   pagination: {
     currentPage: number;
     pageSize: number;
@@ -63,13 +81,11 @@ interface SkillsState {
   searchQuery: string;
 }
 
-// Initialer Zustand
 const initialState: SkillsState = {
   skills: skillsAdapter.getInitialState(),
   userSkills: skillsAdapter.getInitialState(),
   categories: categoriesAdapter.getInitialState(),
   proficiencyLevels: proficiencyLevelsAdapter.getInitialState(),
-  selectedSkill: undefined,
   status: {
     skills: 'idle',
     userSkills: 'idle',
@@ -79,364 +95,382 @@ const initialState: SkillsState = {
     updateSkill: 'idle',
     deleteSkill: 'idle',
   },
-  error: undefined,
   pagination: {
     currentPage: 1,
-    pageSize: 10,
+    pageSize: 12,
     totalItems: 0,
     totalPages: 0,
   },
   searchQuery: '',
 };
 
-// *** Async-Thunks für Skill-Operationen ***
+/* --------------------------------
+   Async Thunks
+-----------------------------------*/
 
-// Alle Skills abrufen
-export const fetchSkills = createAsyncThunk(
+// Wir tippen den Rückgabetyp auf unser PaginatedResponse<Skill>, sodass
+// wir die Paginierung ordentlich im Reducer verarbeiten können.
+export const fetchSkills = createAsyncThunk<
+  PaginatedResponse<Skill>,
+  { page?: number; pageSize?: number },
+  { rejectValue: string }
+>(
   'skills/fetchSkills',
-  async (
-    { page = 1, pageSize = 10 }: { page?: number; pageSize?: number },
-    { rejectWithValue }
-  ) => {
+  async ({ page = 1, pageSize = 10 }, { rejectWithValue }) => {
     try {
+      // Unsere Service-Methode gibt bereits ein PaginatedResponse<Skill> zurück
       return await SkillService.getAllSkills(page, pageSize);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data?.message ||
+          (error.response?.data?.message as string) ||
             error.message ||
             'Fehler beim Abrufen der Skills'
         );
       }
+      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
     }
   }
 );
 
-// Skill nach ID abrufen
-export const fetchSkillById = createAsyncThunk(
-  'skills/fetchSkillById',
-  async (skillId: string, { rejectWithValue }) => {
-    try {
-      return await SkillService.getSkillById(skillId);
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+export const fetchSkillById = createAsyncThunk<
+  Skill,
+  string,
+  { rejectValue: string }
+>('skills/fetchSkillById', async (skillId, { rejectWithValue }) => {
+  try {
+    return await SkillService.getSkillById(skillId);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Abrufen des Skills'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// Skills nach Suchbegriff filtern
-export const searchSkills = createAsyncThunk(
+export const searchSkills = createAsyncThunk<
+  PaginatedResponse<Skill>,
+  { query: string; page?: number; pageSize?: number },
+  { rejectValue: string }
+>(
   'skills/searchSkills',
-  async (
-    {
-      query,
-      page = 1,
-      pageSize = 10,
-    }: { query: string; page?: number; pageSize?: number },
-    { rejectWithValue }
-  ) => {
+  async ({ query, page = 1, pageSize = 10 }, { rejectWithValue }) => {
     try {
       return await SkillService.getSkillsBySearch(query, page, pageSize);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data?.message ||
+          (error.response?.data?.message as string) ||
             error.message ||
-            'Fehler beim Abrufen der Skills'
+            'Fehler beim Suchen nach Skills'
         );
       }
+      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
     }
   }
 );
 
-// Skills des angemeldeten Benutzers abrufen
-export const fetchUserSkills = createAsyncThunk(
+export const fetchUserSkills = createAsyncThunk<
+  PaginatedResponse<Skill>,
+  { page?: number; pageSize?: number },
+  { rejectValue: string }
+>(
   'skills/fetchUserSkills',
-  async (
-    { page = 1, pageSize = 10 }: { page?: number; pageSize?: number },
-    { rejectWithValue }
-  ) => {
+  async ({ page = 1, pageSize = 10 }, { rejectWithValue }) => {
     try {
       return await SkillService.getUserSkills(page, pageSize);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data?.message ||
+          (error.response?.data?.message as string) ||
             error.message ||
-            'Fehler beim Abrufen der Skills'
+            'Fehler beim Abrufen der Benutzer-Skills'
         );
       }
+      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
     }
   }
 );
 
-// Benutzer-Skill nach ID abrufen
-export const fetchUserSkillById = createAsyncThunk(
-  'skills/fetchUserSkillById',
-  async (skillId: string, { rejectWithValue }) => {
-    try {
-      return await SkillService.getUserSkillById(skillId);
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+export const fetchUserSkillById = createAsyncThunk<
+  Skill,
+  string,
+  { rejectValue: string }
+>('skills/fetchUserSkillById', async (skillId, { rejectWithValue }) => {
+  try {
+    return await SkillService.getUserSkillById(skillId);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Abrufen des Benutzer-Skills'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// Benutzer-Skills nach Suchbegriff filtern
-export const searchUserSkills = createAsyncThunk(
+export const searchUserSkills = createAsyncThunk<
+  PaginatedResponse<Skill>,
+  { query: string; page?: number; pageSize?: number },
+  { rejectValue: string }
+>(
   'skills/searchUserSkills',
-  async (
-    {
-      query,
-      page = 1,
-      pageSize = 10,
-    }: { query: string; page?: number; pageSize?: number },
-    { rejectWithValue }
-  ) => {
+  async ({ query, page = 1, pageSize = 10 }, { rejectWithValue }) => {
     try {
       return await SkillService.getUserSkillsBySearch(query, page, pageSize);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data?.message ||
+          (error.response?.data?.message as string) ||
             error.message ||
-            'Fehler beim Abrufen der Skills'
+            'Fehler beim Suchen nach Benutzer-Skills'
         );
       }
+      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
     }
   }
 );
 
-// Neuen Skill erstellen
-export const createSkill = createAsyncThunk(
-  'skills/createSkill',
-  async (skillData: CreateSkillRequest, { rejectWithValue }) => {
-    try {
-      return await SkillService.createSkill(skillData);
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+export const createSkill = createAsyncThunk<
+  CreateSkillResponse,
+  CreateSkillRequest,
+  { rejectValue: string }
+>('skills/createSkill', async (skillData, { rejectWithValue }) => {
+  try {
+    console.log(skillData.skillCategoryId);
+    console.log(skillData.proficiencyLevelId);
+    
+    
+    return await SkillService.createSkill(skillData);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Erstellen des Skills'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// Skill aktualisieren
-export const updateSkill = createAsyncThunk(
+export const updateSkill = createAsyncThunk<
+  UpdateSkillResponse,
+  { skillId: string; updateData: UpdateSkillRequest },
+  { rejectValue: string }
+>(
   'skills/updateSkill',
-  async (
-    {
-      skillId,
-      updateData,
-    }: { skillId: string; updateData: UpdateSkillRequest },
-    { rejectWithValue }
-  ) => {
+  async ({ skillId, updateData }, { rejectWithValue }) => {
     try {
       return await SkillService.updateSkill(skillId, updateData);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data?.message ||
+          (error.response?.data?.message as string) ||
             error.message ||
-            'Fehler beim Abrufen der Skills'
+            'Fehler beim Aktualisieren des Skills'
         );
       }
+      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
     }
   }
 );
 
-// Skill löschen
-export const deleteSkill = createAsyncThunk(
-  'skills/deleteSkill',
-  async (skillId: string, { rejectWithValue }) => {
-    try {
-      await SkillService.deleteSkill(skillId);
-      return skillId;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+export const deleteSkill = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>('skills/deleteSkill', async (skillId, { rejectWithValue }) => {
+  try {
+    await SkillService.deleteSkill(skillId);
+    return skillId;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Löschen des Skills'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// *** Async-Thunks für Kategorie-Operationen ***
-
-// Alle Kategorien abrufen
-export const fetchCategories = createAsyncThunk(
-  'skills/fetchCategories',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await SkillService.getCategories();
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+/* --------------------------------
+   Async-Thunks: Kategorien
+-----------------------------------*/
+export const fetchCategories = createAsyncThunk<
+  SkillCategory[],
+  void,
+  { rejectValue: string }
+>('skills/fetchCategories', async (_, { rejectWithValue }) => {
+  try {
+    return await SkillService.getCategories();
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Abrufen der Kategorien'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// Neue Kategorie erstellen
-export const createCategory = createAsyncThunk(
-  'skills/createCategory',
-  async (name: string, { rejectWithValue }) => {
-    try {
-      return await SkillService.createCategory(name);
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+export const createCategory = createAsyncThunk<
+  SkillCategory,
+  string,
+  { rejectValue: string }
+>('skills/createCategory', async (name, { rejectWithValue }) => {
+  try {
+    return await SkillService.createCategory(name);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Erstellen der Kategorie'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// Kategorie aktualisieren
-export const updateCategory = createAsyncThunk(
-  'skills/updateCategory',
-  async ({ id, name }: { id: string; name: string }, { rejectWithValue }) => {
-    try {
-      return await SkillService.updateCategory(id, name);
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+export const updateCategory = createAsyncThunk<
+  SkillCategory,
+  { id: string; name: string },
+  { rejectValue: string }
+>('skills/updateCategory', async ({ id, name }, { rejectWithValue }) => {
+  try {
+    return await SkillService.updateCategory(id, name);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Aktualisieren der Kategorie'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// Kategorie löschen
-export const deleteCategory = createAsyncThunk(
-  'skills/deleteCategory',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      await SkillService.deleteCategory(id);
-      return id;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+export const deleteCategory = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>('skills/deleteCategory', async (id, { rejectWithValue }) => {
+  try {
+    await SkillService.deleteCategory(id);
+    return id;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Löschen der Kategorie'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// *** Async-Thunks für Fertigkeitsstufen-Operationen ***
-
-// Alle Fertigkeitsstufen abrufen
-export const fetchProficiencyLevels = createAsyncThunk(
-  'skills/fetchProficiencyLevels',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await SkillService.getProficiencyLevels();
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+/* --------------------------------
+   Async-Thunks: ProficiencyLevels
+-----------------------------------*/
+export const fetchProficiencyLevels = createAsyncThunk<
+  ProficiencyLevel[],
+  void,
+  { rejectValue: string }
+>('skills/fetchProficiencyLevels', async (_, { rejectWithValue }) => {
+  try {
+    return await SkillService.getProficiencyLevels();
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Abrufen der Fertigkeitsstufen'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// Neue Fertigkeitsstufe erstellen
-export const createProficiencyLevel = createAsyncThunk(
+export const createProficiencyLevel = createAsyncThunk<
+  ProficiencyLevel,
+  { level: string; rank: number },
+  { rejectValue: string }
+>(
   'skills/createProficiencyLevel',
-  async (
-    { level, rank }: { level: string; rank: number },
-    { rejectWithValue }
-  ) => {
+  async ({ level, rank }, { rejectWithValue }) => {
     try {
       return await SkillService.createProficiencyLevel(level, rank);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data?.message ||
+          (error.response?.data?.message as string) ||
             error.message ||
-            'Fehler beim Abrufen der Skills'
+            'Fehler beim Erstellen der Fertigkeitsstufe'
         );
       }
+      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
     }
   }
 );
 
-// Fertigkeitsstufe aktualisieren
-export const updateProficiencyLevel = createAsyncThunk(
+export const updateProficiencyLevel = createAsyncThunk<
+  ProficiencyLevel,
+  { id: string; level: string; rank: number },
+  { rejectValue: string }
+>(
   'skills/updateProficiencyLevel',
-  async (
-    { id, level, rank }: { id: string; level: string; rank: number },
-    { rejectWithValue }
-  ) => {
+  async ({ id, level, rank }, { rejectWithValue }) => {
     try {
       return await SkillService.updateProficiencyLevel(id, level, rank);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data?.message ||
+          (error.response?.data?.message as string) ||
             error.message ||
-            'Fehler beim Abrufen der Skills'
+            'Fehler beim Aktualisieren der Fertigkeitsstufe'
         );
       }
+      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
     }
   }
 );
 
-// Fertigkeitsstufe löschen
-export const deleteProficiencyLevel = createAsyncThunk(
-  'skills/deleteProficiencyLevel',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      await SkillService.deleteProficiencyLevel(id);
-      return id;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.message ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
+export const deleteProficiencyLevel = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>('skills/deleteProficiencyLevel', async (id, { rejectWithValue }) => {
+  try {
+    await SkillService.deleteProficiencyLevel(id);
+    return id;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return rejectWithValue(
+        (error.response?.data?.message as string) ||
+          error.message ||
+          'Fehler beim Löschen der Fertigkeitsstufe'
+      );
     }
+    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
   }
-);
+});
 
-// Skill-Slice
+/* --------------------------------
+   Slice
+-----------------------------------*/
 const skillsSlice = createSlice({
   name: 'skills',
   initialState,
@@ -471,269 +505,246 @@ const skillsSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // *** Allgemeine Skills-Operationen ***
-
     // fetchSkills
-    builder
-      .addCase(fetchSkills.pending, (state) => {
-        state.status.skills = 'loading';
-      })
-      .addCase(fetchSkills.fulfilled, (state, action) => {
-        state.status.skills = 'succeeded';
-        if (action.payload) {
-          skillsAdapter.setAll(state.skills, action.payload);
-        }
-        // Hier könnten wir Paginierungs-Metadaten aktualisieren, wenn sie von der API geliefert würden
-      })
-      .addCase(fetchSkills.rejected, (state, action) => {
-        state.status.skills = 'failed';
-        state.error = action.payload as string;
-      })
+    builder.addCase(fetchSkills.pending, (state) => {
+      state.status.skills = 'loading';
+    });
+    builder.addCase(fetchSkills.fulfilled, (state, action) => {
+      state.status.skills = 'succeeded';
+      const payload = action.payload;
+      // payload.data enthält das Skill-Array
+      skillsAdapter.setAll(state.skills, payload.data);
+      // Optional: Paginierung übernehmen, wenn gewünscht
+      state.pagination.currentPage = payload.page;
+      state.pagination.pageSize = payload.pageSize;
+      state.pagination.totalItems = payload.totalCount;
+      // Z.B. totalPages = totalCount/pageSize, falls gewünscht
+      state.pagination.totalPages = Math.ceil(
+        payload.totalCount / payload.pageSize
+      );
+    });
+    builder.addCase(fetchSkills.rejected, (state, action) => {
+      state.status.skills = 'failed';
+      state.error = action.payload as string;
+    });
 
-      // fetchSkillById
-      .addCase(fetchSkillById.pending, (state) => {
-        state.status.skills = 'loading';
-      })
-      .addCase(fetchSkillById.fulfilled, (state, action) => {
-        state.status.skills = 'succeeded';
-        state.selectedSkill = action.payload;
-        if (action.payload) {
-          skillsAdapter.upsertOne(state.skills, action.payload);
-        }
-      })
-      .addCase(fetchSkillById.rejected, (state, action) => {
-        state.status.skills = 'failed';
-        state.error = action.payload as string;
-      })
+    // fetchSkillById
+    builder.addCase(fetchSkillById.pending, (state) => {
+      state.status.skills = 'loading';
+    });
+    builder.addCase(fetchSkillById.fulfilled, (state, action) => {
+      state.status.skills = 'succeeded';
+      const skill = action.payload;
+      state.selectedSkill = skill;
+      skillsAdapter.upsertOne(state.skills, skill);
+    });
+    builder.addCase(fetchSkillById.rejected, (state, action) => {
+      state.status.skills = 'failed';
+      state.error = action.payload as string;
+    });
 
-      // searchSkills
-      .addCase(searchSkills.pending, (state) => {
-        state.status.skills = 'loading';
-      })
-      .addCase(searchSkills.fulfilled, (state, action) => {
-        state.status.skills = 'succeeded';
-        if (action.payload) {
-          skillsAdapter.setAll(state.skills, action.payload);
-        }
-      })
-      .addCase(searchSkills.rejected, (state, action) => {
-        state.status.skills = 'failed';
-        state.error = action.payload as string;
-      })
+    // searchSkills
+    builder.addCase(searchSkills.pending, (state) => {
+      state.status.skills = 'loading';
+    });
+    builder.addCase(searchSkills.fulfilled, (state, action) => {
+      state.status.skills = 'succeeded';
+      // Gleiches Spiel wie bei fetchSkills
+      const payload = action.payload;
+      skillsAdapter.setAll(state.skills, payload.data);
+      state.pagination.currentPage = payload.page;
+      state.pagination.pageSize = payload.pageSize;
+      state.pagination.totalItems = payload.totalCount;
+      state.pagination.totalPages = Math.ceil(
+        payload.totalCount / payload.pageSize
+      );
+    });
+    builder.addCase(searchSkills.rejected, (state, action) => {
+      state.status.skills = 'failed';
+      state.error = action.payload as string;
+    });
 
-      // *** Benutzerspezifische Skills-Operationen ***
+    // fetchUserSkills
+    builder.addCase(fetchUserSkills.pending, (state) => {
+      state.status.userSkills = 'loading';
+    });
+    builder.addCase(fetchUserSkills.fulfilled, (state, action) => {
+      state.status.userSkills = 'succeeded';
+      const payload = action.payload;
+      skillsAdapter.setAll(state.userSkills, payload.data);
+      // Paginierung könnte separat oder gemeinsam genutzt werden
+    });
+    builder.addCase(fetchUserSkills.rejected, (state, action) => {
+      state.status.userSkills = 'failed';
+      state.error = action.payload as string;
+    });
 
-      // fetchUserSkills
-      .addCase(fetchUserSkills.pending, (state) => {
-        state.status.userSkills = 'loading';
-      })
-      .addCase(fetchUserSkills.fulfilled, (state, action) => {
-        state.status.userSkills = 'succeeded';
-        if (action.payload) {
-          skillsAdapter.setAll(state.userSkills, action.payload);
-        }
-      })
-      .addCase(fetchUserSkills.rejected, (state, action) => {
-        state.status.userSkills = 'failed';
-        state.error = action.payload as string;
-      })
+    // fetchUserSkillById
+    builder.addCase(fetchUserSkillById.pending, (state) => {
+      state.status.userSkills = 'loading';
+    });
+    builder.addCase(fetchUserSkillById.fulfilled, (state, action) => {
+      state.status.userSkills = 'succeeded';
+      const skill = action.payload;
+      state.selectedSkill = skill;
+      skillsAdapter.upsertOne(state.userSkills, skill);
+    });
+    builder.addCase(fetchUserSkillById.rejected, (state, action) => {
+      state.status.userSkills = 'failed';
+      state.error = action.payload as string;
+    });
 
-      // fetchUserSkillById
-      .addCase(fetchUserSkillById.pending, (state) => {
-        state.status.userSkills = 'loading';
-      })
-      .addCase(fetchUserSkillById.fulfilled, (state, action) => {
-        state.status.userSkills = 'succeeded';
-        state.selectedSkill = action.payload;
-        if (action.payload) {
-          skillsAdapter.upsertOne(state.userSkills, action.payload);
-        }
-      })
-      .addCase(fetchUserSkillById.rejected, (state, action) => {
-        state.status.userSkills = 'failed';
-        state.error = action.payload as string;
-      })
+    // searchUserSkills
+    builder.addCase(searchUserSkills.pending, (state) => {
+      state.status.userSkills = 'loading';
+    });
+    builder.addCase(searchUserSkills.fulfilled, (state, action) => {
+      state.status.userSkills = 'succeeded';
+      const payload = action.payload;
+      skillsAdapter.setAll(state.userSkills, payload.data);
+    });
+    builder.addCase(searchUserSkills.rejected, (state, action) => {
+      state.status.userSkills = 'failed';
+      state.error = action.payload as string;
+    });
 
-      // searchUserSkills
-      .addCase(searchUserSkills.pending, (state) => {
-        state.status.userSkills = 'loading';
-      })
-      .addCase(searchUserSkills.fulfilled, (state, action) => {
-        state.status.userSkills = 'succeeded';
-        if (action.payload) {
-          skillsAdapter.setAll(state.userSkills, action.payload);
-        }
-      })
-      .addCase(searchUserSkills.rejected, (state, action) => {
-        state.status.userSkills = 'failed';
-        state.error = action.payload as string;
-      })
+    // createSkill
+    builder.addCase(createSkill.pending, (state) => {
+      state.status.createSkill = 'loading';
+    });
+    builder.addCase(createSkill.fulfilled, (state, action) => {
+      state.status.createSkill = 'succeeded';
+      // createSkillResponse gibt uns z.B. das neu erstellte Skill-Objekt zurück
+      const newSkill = action.payload;
+      // addOne in userSkills
+      skillsAdapter.addOne(state.userSkills, {
+        // Name, Description, usw. anpassen, wenn sich Felder unterscheiden
+        ...newSkill,
+      } as unknown as Skill);
+    });
+    builder.addCase(createSkill.rejected, (state, action) => {
+      state.status.createSkill = 'failed';
+      state.error = action.payload as string;
+    });
 
-      // *** CRUD-Operationen für Skills ***
-
-      // createSkill
-      .addCase(createSkill.pending, (state) => {
-        state.status.createSkill = 'loading';
-      })
-      .addCase(createSkill.fulfilled, (state, action) => {
-        state.status.createSkill = 'succeeded';
-        if (action.payload) {
-          skillsAdapter.addOne(state.userSkills, action.payload);
-        }
-      })
-      .addCase(createSkill.rejected, (state, action) => {
-        state.status.createSkill = 'failed';
-        state.error = action.payload as string;
-      })
-
-      // updateSkill
-      .addCase(updateSkill.pending, (state) => {
-        state.status.updateSkill = 'loading';
-      })
-      .addCase(updateSkill.fulfilled, (state, action) => {
-        state.status.updateSkill = 'succeeded';
-        if (action.payload) {
-          skillsAdapter.updateOne(state.userSkills, {
-            id: action.payload.id,
-            changes: action.payload,
-          });
-        }
-
-        // Wenn es auch in der allgemeinen Skills-Liste ist, aktualisieren wir das auch
-        if (
-          action.payload &&
-          skillsAdapter
-            .getSelectors()
-            .selectById(state.skills, action.payload.id)
-        ) {
-          skillsAdapter.updateOne(state.skills, {
-            id: action.payload.id,
-            changes: action.payload,
-          });
-        }
-        // Wenn es der ausgewählte Skill ist, aktualisieren wir auch diesen
-        if (action.payload && state.selectedSkill?.id === action.payload.id) {
-          state.selectedSkill = action.payload;
-        }
-      })
-      .addCase(updateSkill.rejected, (state, action) => {
-        state.status.updateSkill = 'failed';
-        state.error = action.payload as string;
-      })
-
-      // deleteSkill
-      .addCase(deleteSkill.pending, (state) => {
-        state.status.deleteSkill = 'loading';
-      })
-      .addCase(deleteSkill.fulfilled, (state, action) => {
-        state.status.deleteSkill = 'succeeded';
-        if (action.payload) {
-          skillsAdapter.removeOne(state.userSkills, action.payload);
-          skillsAdapter.removeOne(state.skills, action.payload);
-          if (state.selectedSkill?.id === action.payload) {
-            state.selectedSkill = undefined;
-          }
-        }
-      })
-      .addCase(deleteSkill.rejected, (state, action) => {
-        state.status.deleteSkill = 'failed';
-        state.error = action.payload as string;
-      })
-
-      // *** Kategorie-Operationen ***
-
-      // fetchCategories
-      .addCase(fetchCategories.pending, (state) => {
-        state.status.categories = 'loading';
-      })
-      .addCase(fetchCategories.fulfilled, (state, action) => {
-        state.status.categories = 'succeeded';
-        if (action.payload) {
-          categoriesAdapter.setAll(state.categories, action.payload);
-        }
-      })
-      .addCase(fetchCategories.rejected, (state, action) => {
-        state.status.categories = 'failed';
-        state.error = action.payload as string;
-      })
-
-      // createCategory
-      .addCase(createCategory.fulfilled, (state, action) => {
-        if (action.payload) {
-          categoriesAdapter.addOne(state.categories, action.payload);
-        }
-      })
-
-      // updateCategory
-      .addCase(updateCategory.fulfilled, (state, action) => {
-        if (action.payload) {
-          categoriesAdapter.updateOne(state.categories, {
-            id: action.payload.id,
-            changes: action.payload,
-          });
-        }
-      })
-
-      // deleteCategory
-      .addCase(deleteCategory.fulfilled, (state, action) => {
-        if (action.payload) {
-          categoriesAdapter.removeOne(state.categories, action.payload);
-        }
-      })
-
-      // *** Fertigkeitsstufen-Operationen ***
-
-      // fetchProficiencyLevels
-      .addCase(fetchProficiencyLevels.pending, (state) => {
-        state.status.proficiencyLevels = 'loading';
-      })
-      .addCase(fetchProficiencyLevels.fulfilled, (state, action) => {
-        state.status.proficiencyLevels = 'succeeded';
-        if (action.payload) {
-          proficiencyLevelsAdapter.setAll(
-            state.proficiencyLevels,
-            action.payload
-          );
-        }
-      })
-      .addCase(fetchProficiencyLevels.rejected, (state, action) => {
-        state.status.proficiencyLevels = 'failed';
-        state.error = action.payload as string;
-      })
-
-      // createProficiencyLevel
-      .addCase(createProficiencyLevel.fulfilled, (state, action) => {
-        if (action.payload) {
-          proficiencyLevelsAdapter.addOne(
-            state.proficiencyLevels,
-            action.payload
-          );
-        }
-      })
-
-      // updateProficiencyLevel
-      .addCase(updateProficiencyLevel.fulfilled, (state, action) => {
-        if (action.payload) {
-          proficiencyLevelsAdapter.updateOne(state.proficiencyLevels, {
-            id: action.payload.id,
-            changes: action.payload,
-          });
-        }
-      })
-
-      // deleteProficiencyLevel
-      .addCase(deleteProficiencyLevel.fulfilled, (state, action) => {
-        if (action.payload) {
-          proficiencyLevelsAdapter.removeOne(
-            state.proficiencyLevels,
-            action.payload
-          );
-        }
+    // updateSkill
+    builder.addCase(updateSkill.pending, (state) => {
+      state.status.updateSkill = 'loading';
+    });
+    builder.addCase(updateSkill.fulfilled, (state, action) => {
+      state.status.updateSkill = 'succeeded';
+      const updated = action.payload;
+      // Schauen, welche ID Felder du für das updated-Skill hast
+      skillsAdapter.updateOne(state.userSkills, {
+        id: updated.id,
+        changes: updated,
       });
+      // Falls in den allgemeinen skills vorhanden, dort auch
+      if (state.skills.entities[updated.id]) {
+        skillsAdapter.updateOne(state.skills, {
+          id: updated.id,
+          changes: updated,
+        });
+      }
+      // selectedSkill updaten
+      if (state.selectedSkill?.id === updated.id) {
+        state.selectedSkill = updated;
+      }
+    });
+    builder.addCase(updateSkill.rejected, (state, action) => {
+      state.status.updateSkill = 'failed';
+      state.error = action.payload as string;
+    });
+
+    // deleteSkill
+    builder.addCase(deleteSkill.pending, (state) => {
+      state.status.deleteSkill = 'loading';
+    });
+    builder.addCase(deleteSkill.fulfilled, (state, action) => {
+      state.status.deleteSkill = 'succeeded';
+      const removedId = action.payload;
+      skillsAdapter.removeOne(state.userSkills, removedId);
+      skillsAdapter.removeOne(state.skills, removedId);
+      if (state.selectedSkill?.id === removedId) {
+        state.selectedSkill = undefined;
+      }
+    });
+    builder.addCase(deleteSkill.rejected, (state, action) => {
+      state.status.deleteSkill = 'failed';
+      state.error = action.payload as string;
+    });
+
+    // fetchCategories
+    builder.addCase(fetchCategories.pending, (state) => {
+      state.status.categories = 'loading';
+    });
+    builder.addCase(fetchCategories.fulfilled, (state, action) => {
+      state.status.categories = 'succeeded';
+      categoriesAdapter.setAll(state.categories, action.payload);
+    });
+    builder.addCase(fetchCategories.rejected, (state, action) => {
+      state.status.categories = 'failed';
+      state.error = action.payload as string;
+    });
+
+    // createCategory
+    builder.addCase(createCategory.fulfilled, (state, action) => {
+      categoriesAdapter.addOne(state.categories, action.payload);
+    });
+
+    // updateCategory
+    builder.addCase(updateCategory.fulfilled, (state, action) => {
+      categoriesAdapter.updateOne(state.categories, {
+        id: action.payload.id,
+        changes: action.payload,
+      });
+    });
+
+    // deleteCategory
+    builder.addCase(deleteCategory.fulfilled, (state, action) => {
+      const removedId = action.payload;
+      categoriesAdapter.removeOne(state.categories, removedId);
+    });
+
+    // fetchProficiencyLevels
+    builder.addCase(fetchProficiencyLevels.pending, (state) => {
+      state.status.proficiencyLevels = 'loading';
+    });
+    builder.addCase(fetchProficiencyLevels.fulfilled, (state, action) => {
+      state.status.proficiencyLevels = 'succeeded';
+      proficiencyLevelsAdapter.setAll(state.proficiencyLevels, action.payload);
+    });
+    builder.addCase(fetchProficiencyLevels.rejected, (state, action) => {
+      state.status.proficiencyLevels = 'failed';
+      state.error = action.payload as string;
+    });
+
+    // createProficiencyLevel
+    builder.addCase(createProficiencyLevel.fulfilled, (state, action) => {
+      proficiencyLevelsAdapter.addOne(state.proficiencyLevels, action.payload);
+    });
+
+    // updateProficiencyLevel
+    builder.addCase(updateProficiencyLevel.fulfilled, (state, action) => {
+      proficiencyLevelsAdapter.updateOne(state.proficiencyLevels, {
+        id: action.payload.id,
+        changes: action.payload,
+      });
+    });
+
+    // deleteProficiencyLevel
+    builder.addCase(deleteProficiencyLevel.fulfilled, (state, action) => {
+      proficiencyLevelsAdapter.removeOne(
+        state.proficiencyLevels,
+        action.payload
+      );
+    });
   },
 });
 
-// Aktionen aus dem Slice exportieren
+/* --------------------------------
+   Exportierte Aktionen
+-----------------------------------*/
 export const {
   setSelectedSkill,
   clearSelectedSkill,
@@ -742,47 +753,63 @@ export const {
   resetStatus,
 } = skillsSlice.actions;
 
-// Selektoren erstellen
-// Allgemeine Skills
-export const {
-  selectAll: selectAllSkills,
-  selectById: selectSkillById,
-  selectIds: selectSkillIds,
-} = skillsAdapter.getSelectors<RootState>((state) => state.skills.skills);
+/* --------------------------------
+   Selektoren
+-----------------------------------*/
+const selectSkillsFeature = (state: RootState) => state.skills;
 
-// Benutzer-Skills
+// Skills-Adapter-Selektoren
+export const { selectAll: selectAllSkills, selectById: selectSkillById } =
+  skillsAdapter.getSelectors((state: RootState) => state.skills.skills);
+
 export const {
   selectAll: selectAllUserSkills,
   selectById: selectUserSkillById,
-  selectIds: selectUserSkillIds,
-} = skillsAdapter.getSelectors<RootState>((state) => state.skills.userSkills);
+} = skillsAdapter.getSelectors((state: RootState) => state.skills.userSkills);
 
-// Kategorien
+// Category-Adapter-Selektoren
 export const {
   selectAll: selectAllCategories,
   selectById: selectCategoryById,
-  selectIds: selectCategoryIds,
-} = categoriesAdapter.getSelectors<RootState>(
-  (state) => state.skills.categories
+} = categoriesAdapter.getSelectors(
+  (state: RootState) => state.skills.categories
 );
 
-// Fertigkeitsstufen
+// ProficiencyLevels-Adapter-Selektoren
 export const {
   selectAll: selectAllProficiencyLevels,
   selectById: selectProficiencyLevelById,
-  selectIds: selectProficiencyLevelIds,
-} = proficiencyLevelsAdapter.getSelectors<RootState>(
-  (state) => state.skills.proficiencyLevels
+} = proficiencyLevelsAdapter.getSelectors(
+  (state: RootState) => state.skills.proficiencyLevels
 );
 
 // Zusätzliche Selektoren
-export const selectSelectedSkill = (state: RootState) =>
-  state.skills.selectedSkill;
-export const selectSkillsStatus = (state: RootState) => state.skills.status;
-export const selectSkillsError = (state: RootState) => state.skills.error;
-export const selectSkillsPagination = (state: RootState) =>
-  state.skills.pagination;
-export const selectSkillsSearchQuery = (state: RootState) =>
-  state.skills.searchQuery;
+export const selectSelectedSkill = createSelector(
+  [selectSkillsFeature],
+  (skillsState) => skillsState.selectedSkill
+);
 
+export const selectSkillsStatus = createSelector(
+  [selectSkillsFeature],
+  (skillsState) => skillsState.status
+);
+
+export const selectSkillsError = createSelector(
+  [selectSkillsFeature],
+  (skillsState) => skillsState.error
+);
+
+export const selectSkillsPagination = createSelector(
+  [selectSkillsFeature],
+  (skillsState) => skillsState.pagination
+);
+
+export const selectSkillsSearchQuery = createSelector(
+  [selectSkillsFeature],
+  (skillsState) => skillsState.searchQuery
+);
+
+/* --------------------------------
+   Reducer
+-----------------------------------*/
 export default skillsSlice.reducer;

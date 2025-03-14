@@ -253,6 +253,26 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  // Erstellen der Menüelemente für nicht angemeldete Benutzer
+  const renderUnauthenticatedMenuItems = () => [
+    <MenuItem
+      key="login"
+      component={Link}
+      to="/login"
+      onClick={handleMoreMenuClose}
+    >
+      Anmelden
+    </MenuItem>,
+    <MenuItem
+      key="register"
+      component={Link}
+      to="/register"
+      onClick={handleMoreMenuClose}
+    >
+      Registrieren
+    </MenuItem>,
+  ];
+
   return (
     <>
       <AppBar
@@ -307,7 +327,7 @@ const Header: React.FC<HeaderProps> = ({
               sx={{
                 flexGrow: 1,
                 mx: 2,
-                maxWidth: { sm: '100%', md: '800px', lg: '1200px' },
+                maxWidth: { sm: '100%' },
                 width: '100%',
               }}
             >
@@ -365,30 +385,15 @@ const Header: React.FC<HeaderProps> = ({
         {isAuthenticated ? (
           <MenuItem onClick={handleProfile}>Profil</MenuItem>
         ) : (
-          <>
-            <MenuItem
-              component={Link}
-              to="/login"
-              onClick={handleMoreMenuClose}
-            >
-              Anmelden
-            </MenuItem>
-            <MenuItem
-              component={Link}
-              to="/register"
-              onClick={handleMoreMenuClose}
-            >
-              Registrieren
-            </MenuItem>
-          </>
+          renderUnauthenticatedMenuItems()
         )}
 
-        {isAuthenticated && (
-          <>
-            <Divider />
-            <MenuItem onClick={handleLogout}>Abmelden</MenuItem>
-          </>
-        )}
+        {isAuthenticated && [
+          <Divider key="divider" />,
+          <MenuItem key="logout" onClick={handleLogout}>
+            Abmelden
+          </MenuItem>,
+        ]}
       </Menu>
 
       {/* Notification-Menü */}
