@@ -9,6 +9,8 @@ import {
   IconButton,
   Alert,
   Stack,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
@@ -24,6 +26,7 @@ const loginSchema = z.object({
   password: z
     .string()
     .min(6, 'Das Passwort muss mindestens 6 Zeichen lang sein'),
+  rememberMe: z.boolean().optional().default(false), // Neues Feld für "Angemeldet bleiben"
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -50,12 +53,20 @@ const LoginForm: React.FC<LoginFormProps> = ({
     defaultValues: {
       email: '',
       password: '',
+      rememberMe: false,
     },
   });
 
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     try {
-      const success = await login(data, redirectPath);
+      const success = await login(
+        {
+          email: data.email,
+          password: data.password,
+          rememberMe: data.rememberMe, // Übergebe rememberMe an den Login
+        },
+        redirectPath
+      );
       if (success && onSuccess) {
         onSuccess();
       }
@@ -125,6 +136,25 @@ const LoginForm: React.FC<LoginFormProps> = ({
                   ),
                 },
               }}
+            />
+          )}
+        />
+
+        {/* Neue "Angemeldet bleiben" Checkbox */}
+        <Controller
+          name="rememberMe"
+          control={control}
+          render={({ field }) => (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={field.value}
+                  onChange={field.onChange}
+                  color="primary"
+                />
+              }
+              label="Angemeldet bleiben"
+              disabled={isLoading}
             />
           )}
         />

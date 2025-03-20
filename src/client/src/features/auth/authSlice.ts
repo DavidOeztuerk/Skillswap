@@ -1,7 +1,12 @@
 // src/features/auth/authSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import authService from '../../api/services/authService';
-import { setToken, removeToken, getToken } from '../../utils/authHelpers';
+import {
+  setToken,
+  removeToken,
+  getToken,
+  getRefreshToken,
+} from '../../utils/authHelpers';
 import { AuthState } from '../../types/states/AuthState';
 import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
 import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
@@ -12,6 +17,7 @@ import { User } from '../../types/models/User';
 const initialState: AuthState = {
   user: null,
   token: getToken(),
+  refreshToken: getRefreshToken(),
   isAuthenticated: !!getToken(),
   isLoading: false,
   error: undefined,
@@ -20,7 +26,10 @@ const initialState: AuthState = {
 // Async Thunk für Login
 export const login = createAsyncThunk(
   'auth/login',
-  async (credentials: LoginRequest, { rejectWithValue }) => {
+  async (
+    credentials: LoginRequest & { rememberMe: boolean | undefined },
+    { rejectWithValue }
+  ) => {
     try {
       const response = await authService.login(credentials);
       setToken(response.token);
@@ -33,6 +42,26 @@ export const login = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error instanceof Error ? error.message : 'Login fehlgeschlagen'
+      );
+    }
+  }
+);
+
+// Neuer Async Thunk für Token-Refresh
+export const refreshToken = createAsyncThunk(
+  'auth/refreshToken',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await authService.refreshToken();
+
+      if (!response) {
+        throw new Error('Token-Refresh fehlgeschlagen');
+      }
+
+      return response;
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Token-Refresh fehlgeschlagen'
       );
     }
   }
@@ -169,10 +198,28 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.isAuthenticated = true;
         state.token = action.payload.token;
+        state.refreshToken = action.payload.refreshToken;
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      // RefreshToken
+      .addCase(refreshToken.pending, (state) => {
+        state.isLoading = true;
+        state.error = undefined;
+      })
+      .addCase(refreshToken.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.token = action.payload.token;
+        state.refreshToken = action.payload.refreshToken;
+        state.isAuthenticated = true;
+      })
+      .addCase(refreshToken.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        // Bei einem Refresh-Fehler könnten wir den Benutzer abmelden
+        state.isAuthenticated = false;
       })
       // Register
       .addCase(register.pending, (state) => {
@@ -184,6 +231,7 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.refreshToken = action.payload.refreshToken;
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;

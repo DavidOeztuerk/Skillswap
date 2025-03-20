@@ -27,16 +27,21 @@ export const useAuth = () => {
 
   /**
    * Führt den Login-Prozess aus
-   * @param credentials - Login-Daten (E-Mail und Passwort)
+   * @param credentials - Login-Daten inkl. rememberMe-Option
    * @param redirectPath - Pfad, zu dem nach erfolgreichem Login navigiert wird
    * @returns true bei Erfolg, false bei Fehler
    */
   const login = async (
-    credentials: LoginRequest,
+    credentials: LoginRequest & { rememberMe?: boolean },
     redirectPath = '/dashboard'
   ): Promise<boolean> => {
     try {
-      const resultAction = await dispatch(loginAction(credentials));
+      const resultAction = await dispatch(
+        loginAction({
+          ...credentials,
+          rememberMe: credentials.rememberMe,
+        })
+      );
 
       if (loginAction.fulfilled.match(resultAction)) {
         navigate(redirectPath, { replace: true });

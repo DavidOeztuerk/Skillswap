@@ -16,6 +16,7 @@ export const AUTH_ENDPOINTS = {
   CHANGE_PASSWORD: '/api/users/change-password',
   FORGOT_PASSWORD: '/api/users/forgot-password',
   RESET_PASSWORD: '/api/users/reset-password',
+  REFRESH_TOKEN: '/api/users/refresh-token'
 };
 
 /**
