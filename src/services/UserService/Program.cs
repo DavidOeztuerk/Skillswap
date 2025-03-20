@@ -89,6 +89,9 @@ app.UseAuthorization();
 
 app.MapPost("/register", async (UserDbContext dbContext, IPublishEndpoint publisher, IJwtTokenGenerator generator, RegisterRequest request) =>
 {
+    // Refresh Token in der Datenbank speichern
+    var refreshToken = await generator.GenerateRefreshToken();
+
     var user = new User
     {
         Email = request.Email,
@@ -96,13 +99,21 @@ app.MapPost("/register", async (UserDbContext dbContext, IPublishEndpoint publis
         FirstName = request.FirstName,
         LastName = request.LastName
     };
-    dbContext.Users.Add(user);
-    await dbContext.SaveChangesAsync();
 
-    await publisher.Publish(new UserRegisteredEvent(user.Email, user.FirstName, user.LastName));
+    user.RefreshTokens.Add(new RefreshToken
+    {
+        Token = refreshToken,
+        ExpiryDate = DateTime.UtcNow.AddDays(7), // 7 Tage gültig
+        UserId = user.Id
+    });
 
     var token = await generator.GenerateToken(user);
-    var response = new RegisterUserResponse(user.Email, user.FirstName, user.LastName, token);
+
+    dbContext.Users.Add(user);
+    await dbContext.SaveChangesAsync();
+    await publisher.Publish(new UserRegisteredEvent(user.Email, user.FirstName, user.LastName));
+
+    var response = new RegisterUserResponse(user.Email, user.FirstName, user.LastName, token, refreshToken);
     return Results.Created($"/users/{user.Id}", response);
 });
 
@@ -113,8 +124,25 @@ app.MapPost("/login", async (UserDbContext dbContext, IJwtTokenGenerator generat
     {
         return Results.Unauthorized();
     }
+
+    // Access Token generieren
     var token = await generator.GenerateToken(user);
-    var response = new LoginResponse(token);
+
+    // Refresh Token generieren
+    var refreshToken = await generator.GenerateRefreshToken();
+
+    // Refresh Token in der Datenbank speichern
+    user.RefreshTokens.Add(new RefreshToken
+    {
+        Token = refreshToken,
+        ExpiryDate = DateTime.UtcNow.AddDays(7), // 7 Tage gültig
+        UserId = user.Id
+    });
+
+    await dbContext.SaveChangesAsync();
+
+    // Beides zurückgeben
+    var response = new LoginResponse(token, refreshToken);
 
     return Results.Ok(response);
 });
@@ -130,6 +158,71 @@ app.MapGet("/profile", async (HttpContext context, UserDbContext dbContext) =>
         : Results.NotFound();
 })
 .RequireAuthorization();
+
+app.MapPost("/refresh-token", async (
+    UserDbContext dbContext,
+    IJwtTokenGenerator generator,
+    RefreshTokenRequest request) =>
+{
+    try
+    {
+        // Token aus dem Request holen
+        var principal = await generator.GetPrincipalFromExpiredToken(request.Token)!;
+        if (principal == null)
+        {
+            return Results.BadRequest("Invalid token");
+        }
+
+        // Benutzer-ID aus dem Token extrahieren
+        var userId = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Results.BadRequest("Invalid token");
+        }
+
+        // Benutzer aus der Datenbank holen
+        var user = await dbContext.Users
+            .Include(u => u.RefreshTokens)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+        {
+            return Results.BadRequest("User not found");
+        }
+
+        // Prüfen, ob der RefreshToken in der Datenbank existiert und gültig ist
+        var refreshToken = user.RefreshTokens
+            .FirstOrDefault(rt => rt.Token == request.RefreshToken && !rt.IsRevoked);
+
+        if (refreshToken == null || refreshToken.ExpiryDate < DateTime.UtcNow)
+        {
+            return Results.BadRequest("Invalid refresh token");
+        }
+
+        // Neuen Access Token und Refresh Token generieren
+        var newAccessToken = await generator.GenerateToken(user);
+        var newRefreshToken = await generator.GenerateRefreshToken();
+
+        // Alten Refresh Token als widerrufen markieren
+        refreshToken.IsRevoked = true;
+
+        // Neuen Refresh Token speichern
+        user.RefreshTokens.Add(new RefreshToken
+        {
+            Token = newRefreshToken,
+            ExpiryDate = DateTime.UtcNow.AddDays(7), // 7 Tage gültig
+            UserId = user.Id
+        });
+
+        await dbContext.SaveChangesAsync();
+
+        return Results.Ok(new { token = newAccessToken, refreshToken = newRefreshToken });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Error: {ex.Message}");
+    }
+});
 
 app.Run();
 

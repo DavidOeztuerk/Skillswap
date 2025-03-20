@@ -2,6 +2,11 @@
 import apiClient from '../apiClient';
 import { AUTH_ENDPOINTS } from '../../config/endpoints';
 
+// Erweitere die LoginRequest-Schnittstelle
+interface ExtendedLoginRequest extends LoginRequest {
+  rememberMe?: boolean;
+}
+
 /**
  * Service für Authentifizierungs- und Benutzerverwaltungs-Operationen
  */
@@ -11,11 +16,23 @@ const authService = {
    * @param credentials - Login-Daten (E-Mail und Passwort)
    * @returns Authentifizierungsantwort mit Benutzer und Token
    */
-  login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await apiClient.post<LoginResponse>(
-      AUTH_ENDPOINTS.LOGIN,
-      credentials
-    );
+  login: async (credentials: ExtendedLoginRequest): Promise<LoginResponse> => {
+    const response = await apiClient.post<LoginResponse>(AUTH_ENDPOINTS.LOGIN, {
+      email: credentials.email,
+      password: credentials.password,
+    });
+
+    const useSessionStorage = !credentials.rememberMe;
+
+    // Token und RefreshToken speichern
+    if (response.data.token) {
+      setToken(response.data.token, useSessionStorage);
+    }
+
+    if (response.data.refreshToken) {
+      setRefreshToken(response.data.refreshToken, useSessionStorage);
+    }
+
     return response.data;
   },
 
@@ -29,7 +46,57 @@ const authService = {
       AUTH_ENDPOINTS.REGISTER,
       userData
     );
+
+    // Token und RefreshToken speichern
+    if (response.data.token) {
+      setToken(response.data.token);
+    }
+
+    if (response.data.refreshToken) {
+      setRefreshToken(response.data.refreshToken);
+    }
+
     return response.data;
+  },
+
+  /**
+   * Holt ein neues Access-Token mit dem Refresh-Token
+   * @returns Neue Tokens oder null wenn Fehler
+   */
+  refreshToken: async (): Promise<{
+    token: string;
+    refreshToken: string;
+  } | null> => {
+    const currentToken = getToken();
+    const currentRefreshToken = getRefreshToken();
+
+    if (!currentToken || !currentRefreshToken) {
+      return null;
+    }
+
+    try {
+      const response = await apiClient.post<{
+        token: string;
+        refreshToken: string;
+      }>(AUTH_ENDPOINTS.REFRESH_TOKEN, {
+        token: currentToken,
+        refreshToken: currentRefreshToken,
+      });
+
+      // Neue Tokens speichern
+      if (response.data.token) {
+        setToken(response.data.token);
+      }
+
+      if (response.data.refreshToken) {
+        setRefreshToken(response.data.refreshToken);
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Fehler beim Token-Refresh:', error);
+      return null;
+    }
   },
 
   /**
@@ -119,6 +186,10 @@ const authService = {
    * Bei einem echten Backend würde hier auch das Token invalidiert werden
    */
   logout: async (): Promise<void> => {
+    // Hier könnte man einen API-Call machen, um das Token serverseitig zu invalidieren
+    // Für jetzt entfernen wir nur die lokalen Tokens
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     return Promise.resolve();
   },
 };
@@ -135,5 +206,11 @@ import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest'
 import { User } from '../../types/models/User';
 import { UpdateProfileRequest } from '../../types/contracts/requests/UpdateProfileRequest';
 import { ChangePasswordRequest } from '../../types/contracts/requests/ChangePasswordRequest';
+import {
+  getRefreshToken,
+  getToken,
+  setRefreshToken,
+  setToken,
+} from '../../utils/authHelpers';
 
 export default authService;
