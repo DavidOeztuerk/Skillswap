@@ -2,7 +2,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import matchmakingService from '../../api/services/matchmakingService';
 import { MatchmakingState } from '../../types/states/MatchmakingState';
-import { MatchFilter } from '../../types/models/MatchFilter';
+// import { MatchFilter } from '../../types/models/MatchFilter';
 import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 import { Match } from '../../types/models/Match';
 
@@ -17,27 +17,27 @@ const initialState: MatchmakingState = {
 };
 
 // Async Thunk für das Laden aller Matches
-export const fetchMatches = createAsyncThunk(
-  'matchmaking/fetchMatches',
-  async (filter: MatchFilter | null, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.getMatches(filter);
-      return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Matches konnten nicht geladen werden'
-      // );
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Matches konnten nicht geladen werden'
-      );
-    }
-  }
-);
+// export const fetchMatches = createAsyncThunk(
+//   'matchmaking/fetchMatches',
+//   // async (filter: MatchFilter | null, { rejectWithValue }) => {
+//   //   try {
+//   //     // const response = await matchmakingService.getMatches(filter);
+//   //     // return response;
+//   //     // if (response.success && response.data) {
+//   //     //   return response.data;
+//   //     // }
+//   //     // return rejectWithValue(
+//   //     //   response.message || 'Matches konnten nicht geladen werden'
+//   //     // );
+//   //   } catch (error) {
+//   //     return rejectWithValue(
+//   //       error instanceof Error
+//   //         ? error.message
+//   //         : 'Matches konnten nicht geladen werden'
+//   //     );
+//   //    }
+//   //  }
+// );
 
 // Async Thunk für das Suchen eines Matches
 export const findMatch = createAsyncThunk(
@@ -181,18 +181,18 @@ const matchmakingSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // Fetch Matches
-      .addCase(fetchMatches.pending, (state) => {
-        state.isLoading = true;
-        state.error = undefined;
-      })
-      .addCase(fetchMatches.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.matches = action.payload;
-      })
-      .addCase(fetchMatches.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
+      // .addCase(fetchMatches.pending, (state) => {
+      //   state.isLoading = true;
+      //   state.error = undefined;
+      // })
+      // // .addCase(fetchMatches.fulfilled, (state, action) => {
+      // //   state.isLoading = false;
+      // //   // state.matches = action.payload;
+      // // })
+      // .addCase(fetchMatches.rejected, (state, action) => {
+      //   state.isLoading = false;
+      //   state.error = action.payload as string;
+      // })
       // Find Match
       .addCase(findMatch.pending, (state) => {
         state.isLoading = true;

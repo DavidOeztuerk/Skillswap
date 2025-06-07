@@ -1,6 +1,6 @@
-namespace Events;
+// namespace Events;
 
-public record UserRegisteredEvent(
-    string Email,
-    string FirstName,
-    string LastName);
+// public record UserRegisteredEvent(
+//     string Email,
+//     string FirstName,
+//     string LastName) ;

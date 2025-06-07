@@ -1,8 +1,8 @@
 // src/api/services/videoCallService.ts
-import apiClient from '../apiClient';
 import { VIDEOCALL_ENDPOINTS } from '../../config/endpoints';
+import apiClient from '../apiClient';
 // import { ApiResponse } from '../../types/common/ApiResponse';
-import { VideoCallConfig } from '../../types/models/VideoCallConfig';
+// import { VideoCallConfig } from '../../types/models/VideoCallConfig';
 
 /**
  * Service für Videoanruf-Operationen
@@ -13,15 +13,15 @@ const videoCallService = {
    * @param appointmentId - ID des Termins, für den ein Anruf gestartet wird
    * @returns Konfiguration für den Videoanruf
    */
-  getCallConfig: async (appointmentId: string): Promise<VideoCallConfig> => {
-    const response = await apiClient.get<VideoCallConfig>(
-      VIDEOCALL_ENDPOINTS.CONFIG,
-      {
-        params: { appointmentId },
-      }
-    );
-    return response.data;
-  },
+  // getCallConfig: async (appointmentId: string): Promise<VideoCallConfig> => {
+  //   const response = await apiClient.get<VideoCallConfig>(
+  //     VIDEOCALL_ENDPOINTS.CONFIG,
+  //     {
+  //       // params: { appointmentId },
+  //     }
+  //   );
+  //   return response;
+  // },
 
   /**
    * Beendet einen Videoanruf

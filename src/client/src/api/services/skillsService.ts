@@ -1,4 +1,3 @@
-import apiClient from '../apiClient';
 import { SKILL_ENDPOINTS } from '../../config/endpoints';
 import {
   ProficiencyLevel,
@@ -9,6 +8,7 @@ import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRe
 import { CreateSkillResponse } from '../../types/contracts/responses/CreateSkillResponse';
 import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkillResponse';
+import apiClient from '../apiClient';
 
 // Beispiel: einheitliche Paging-Antwortstruktur, um "totalCount", "page" etc. abzugreifen.
 interface PaginatedResponse<T> {

@@ -1,7 +1,7 @@
 // src/hooks/useMatchmaking.ts
 import { useEffect, useCallback } from 'react';
 import {
-  fetchMatches,
+  // fetchMatches,
   findMatch,
   acceptMatch,
   rejectMatch,
@@ -29,7 +29,7 @@ export const useMatchmaking = () => {
    * Lädt alle Matches für den aktuellen Benutzer
    */
   const loadMatches = useCallback(async (): Promise<void> => {
-    await dispatch(fetchMatches(null));
+    // await dispatch(fetchMatches(null));
   }, [dispatch]);
 
   // Lade Matches beim ersten Rendern

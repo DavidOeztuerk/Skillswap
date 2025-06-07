@@ -2,7 +2,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import authService from '../../api/services/authService';
 import {
-  setToken,
   removeToken,
   getToken,
   getRefreshToken,
@@ -32,7 +31,6 @@ export const login = createAsyncThunk(
   ) => {
     try {
       const response = await authService.login(credentials);
-      setToken(response.token);
       return response;
       // if (response.success && response.data) {
 
@@ -73,7 +71,6 @@ export const register = createAsyncThunk(
   async (userData: RegisterRequest, { rejectWithValue }) => {
     try {
       const response = await authService.register(userData);
-      setToken(response.token);
       return response;
       // if (response.success && response.data) {
 
@@ -197,8 +194,8 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        state.token = action.payload.token;
-        state.refreshToken = action.payload.refreshToken;
+        state.token = action.payload.tokens.accessToken;
+        state.refreshToken = action.payload.tokens.refreshToken;
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
@@ -229,9 +226,13 @@ const authSlice = createSlice({
       .addCase(register.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        state.refreshToken = action.payload.refreshToken;
+        if (state.user) {
+          state.user.email = action.payload.email;
+          state.user.firstName = action.payload.firstName;
+          state.user.lastName = action.payload.lastName;
+        }
+        state.token = action.payload.tokens.accessToken;
+        state.refreshToken = action.payload.tokens.refreshToken;
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;

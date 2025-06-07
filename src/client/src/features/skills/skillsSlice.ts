@@ -6,7 +6,6 @@ import {
   EntityState,
   createSelector,
 } from '@reduxjs/toolkit';
-import axios from 'axios';
 import { RootState } from '../../store/store';
 import { SkillService } from '../../api/services/skillsService';
 import {
@@ -108,8 +107,14 @@ const initialState: SkillsState = {
    Async Thunks
 -----------------------------------*/
 
-// Wir tippen den Rückgabetyp auf unser PaginatedResponse<Skill>, sodass
-// wir die Paginierung ordentlich im Reducer verarbeiten können.
+// Ich kürze nur die Thunks, der Rest des Codes bleibt gleich.
+// Ersetze axios durch native Fetch API + Fehlerhandling
+
+function handleApiError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return 'Ein unbekannter Fehler ist aufgetreten';
+}
+
 export const fetchSkills = createAsyncThunk<
   PaginatedResponse<Skill>,
   { page?: number; pageSize?: number },
@@ -118,17 +123,9 @@ export const fetchSkills = createAsyncThunk<
   'skills/fetchSkills',
   async ({ page = 1, pageSize = 10 }, { rejectWithValue }) => {
     try {
-      // Unsere Service-Methode gibt bereits ein PaginatedResponse<Skill> zurück
       return await SkillService.getAllSkills(page, pageSize);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          (error.response?.data?.message as string) ||
-            error.message ||
-            'Fehler beim Abrufen der Skills'
-        );
-      }
-      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+      return rejectWithValue(handleApiError(error));
     }
   }
 );
@@ -141,14 +138,7 @@ export const fetchSkillById = createAsyncThunk<
   try {
     return await SkillService.getSkillById(skillId);
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Abrufen des Skills'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
@@ -162,14 +152,7 @@ export const searchSkills = createAsyncThunk<
     try {
       return await SkillService.getSkillsBySearch(query, page, pageSize);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          (error.response?.data?.message as string) ||
-            error.message ||
-            'Fehler beim Suchen nach Skills'
-        );
-      }
-      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+      return rejectWithValue(handleApiError(error));
     }
   }
 );
@@ -184,14 +167,7 @@ export const fetchUserSkills = createAsyncThunk<
     try {
       return await SkillService.getUserSkills(page, pageSize);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          (error.response?.data?.message as string) ||
-            error.message ||
-            'Fehler beim Abrufen der Benutzer-Skills'
-        );
-      }
-      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+      return rejectWithValue(handleApiError(error));
     }
   }
 );
@@ -204,14 +180,7 @@ export const fetchUserSkillById = createAsyncThunk<
   try {
     return await SkillService.getUserSkillById(skillId);
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Abrufen des Benutzer-Skills'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
@@ -225,14 +194,7 @@ export const searchUserSkills = createAsyncThunk<
     try {
       return await SkillService.getUserSkillsBySearch(query, page, pageSize);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          (error.response?.data?.message as string) ||
-            error.message ||
-            'Fehler beim Suchen nach Benutzer-Skills'
-        );
-      }
-      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+      return rejectWithValue(handleApiError(error));
     }
   }
 );
@@ -243,20 +205,9 @@ export const createSkill = createAsyncThunk<
   { rejectValue: string }
 >('skills/createSkill', async (skillData, { rejectWithValue }) => {
   try {
-    console.log(skillData.skillCategoryId);
-    console.log(skillData.proficiencyLevelId);
-    
-    
     return await SkillService.createSkill(skillData);
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Erstellen des Skills'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
@@ -270,14 +221,7 @@ export const updateSkill = createAsyncThunk<
     try {
       return await SkillService.updateSkill(skillId, updateData);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          (error.response?.data?.message as string) ||
-            error.message ||
-            'Fehler beim Aktualisieren des Skills'
-        );
-      }
-      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+      return rejectWithValue(handleApiError(error));
     }
   }
 );
@@ -291,20 +235,10 @@ export const deleteSkill = createAsyncThunk<
     await SkillService.deleteSkill(skillId);
     return skillId;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Löschen des Skills'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
-/* --------------------------------
-   Async-Thunks: Kategorien
------------------------------------*/
 export const fetchCategories = createAsyncThunk<
   SkillCategory[],
   void,
@@ -313,14 +247,7 @@ export const fetchCategories = createAsyncThunk<
   try {
     return await SkillService.getCategories();
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Abrufen der Kategorien'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
@@ -332,14 +259,7 @@ export const createCategory = createAsyncThunk<
   try {
     return await SkillService.createCategory(name);
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Erstellen der Kategorie'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
@@ -351,14 +271,7 @@ export const updateCategory = createAsyncThunk<
   try {
     return await SkillService.updateCategory(id, name);
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Aktualisieren der Kategorie'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
@@ -371,20 +284,10 @@ export const deleteCategory = createAsyncThunk<
     await SkillService.deleteCategory(id);
     return id;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Löschen der Kategorie'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
-/* --------------------------------
-   Async-Thunks: ProficiencyLevels
------------------------------------*/
 export const fetchProficiencyLevels = createAsyncThunk<
   ProficiencyLevel[],
   void,
@@ -393,14 +296,7 @@ export const fetchProficiencyLevels = createAsyncThunk<
   try {
     return await SkillService.getProficiencyLevels();
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Abrufen der Fertigkeitsstufen'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
@@ -414,14 +310,7 @@ export const createProficiencyLevel = createAsyncThunk<
     try {
       return await SkillService.createProficiencyLevel(level, rank);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          (error.response?.data?.message as string) ||
-            error.message ||
-            'Fehler beim Erstellen der Fertigkeitsstufe'
-        );
-      }
-      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+      return rejectWithValue(handleApiError(error));
     }
   }
 );
@@ -436,14 +325,7 @@ export const updateProficiencyLevel = createAsyncThunk<
     try {
       return await SkillService.updateProficiencyLevel(id, level, rank);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          (error.response?.data?.message as string) ||
-            error.message ||
-            'Fehler beim Aktualisieren der Fertigkeitsstufe'
-        );
-      }
-      return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+      return rejectWithValue(handleApiError(error));
     }
   }
 );
@@ -457,14 +339,7 @@ export const deleteProficiencyLevel = createAsyncThunk<
     await SkillService.deleteProficiencyLevel(id);
     return id;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        (error.response?.data?.message as string) ||
-          error.message ||
-          'Fehler beim Löschen der Fertigkeitsstufe'
-      );
-    }
-    return rejectWithValue('Ein unbekannter Fehler ist aufgetreten');
+    return rejectWithValue(handleApiError(error));
   }
 });
 
