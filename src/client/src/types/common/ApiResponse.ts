@@ -2,7 +2,9 @@ export interface ApiResponse<T> {
   data: T;
   success: boolean;
   message?: string;
-  errorCode?: number;
+  errors?: Array<string>;
+  timestamp?: Date;
+  traceId?: string;
 }
 
 export interface ApiError {

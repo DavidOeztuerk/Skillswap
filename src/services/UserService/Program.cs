@@ -1,49 +1,83 @@
-using Microsoft.EntityFrameworkCore;
-using MassTransit;
-using UserService;
-using Events;
-using UserService.Models;
-using Contracts.Responses;
-using UserService.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
+using System.Reflection;
 using System.Text;
-using Contracts.Requests;
-using Microsoft.Extensions.Options;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
+using MassTransit;
+using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Infrastructure.Extensions;
+using Infrastructure.Security;
+using Infrastructure.Middleware;
+using CQRS.Extensions;
+using UserService.Application.Commands;
+using UserService.Application.Queries;
 using Contracts.Models;
+using UserService;
+using Infrastructure.Models;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
-builder.Services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
-builder.Services.AddSingleton(sp =>
-    sp.GetRequiredService<IOptions<JwtSettings>>().Value
-);
+// ============================================================================
+// CONFIGURATION SETUP
+// ============================================================================
 
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST")
-    ?? "rabbitmq";
+var serviceName = "UserService";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
 
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
-    ?? "";
+    ?? throw new InvalidOperationException("JWT Secret not configured");
+
 var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
     ?? builder.Configuration["JwtSettings:Issuer"]
-    ?? "";
+    ?? throw new InvalidOperationException("JWT Issuer not configured");
+
 var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
     ?? builder.Configuration["JwtSettings:Audience"]
-    ?? "";
+    ?? throw new InvalidOperationException("JWT Audience not configured");
+
 var expireString = Environment.GetEnvironmentVariable("JWT_EXPIRE")
     ?? builder.Configuration["JwtSettings:ExpireMinutes"]
     ?? "60";
+
 var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
 
-builder.Services.AddDbContext<UserDbContext>(opt =>
-    opt.UseInMemoryDatabase("InMemoryDb"));
+// ============================================================================
+// SHARED INFRASTRUCTURE SERVICES
+// ============================================================================
+
+// Add shared infrastructure (logging, middleware, etc.)
+builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
+
+// ============================================================================
+// DATABASE SETUP
+// ============================================================================
+
+// Configure Entity Framework with InMemory for development
+builder.Services.AddDbContext<UserDbContext>(options =>
+{
+    options.UseInMemoryDatabase("UserServiceDb");
+    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
+});
+
+// ============================================================================
+// CQRS & MEDIATR SETUP
+// ============================================================================
+
+// Add CQRS with caching support
+builder.Services.AddCQRSWithCaching(builder.Configuration, Assembly.GetExecutingAssembly());
+
+// ============================================================================
+// MESSAGE BUS SETUP (MassTransit + RabbitMQ)
+// ============================================================================
 
 builder.Services.AddMassTransit(x =>
 {
+    // Register all consumers from current assembly
+    x.AddConsumers(Assembly.GetExecutingAssembly());
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(rabbitHost, "/", h =>
@@ -51,9 +85,17 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
+
+        // Configure endpoints for domain event handlers
+        cfg.ConfigureEndpoints(context);
     });
 });
 
+// ============================================================================
+// JWT & AUTHENTICATION SETUP
+// ============================================================================
+
+// Configure JWT settings
 builder.Services.Configure<JwtSettings>(options =>
 {
     options.Secret = secret;
@@ -62,11 +104,15 @@ builder.Services.Configure<JwtSettings>(options =>
     options.ExpireMinutes = expireMinutes;
 });
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+// Register enhanced JWT service
+builder.Services.AddScoped<IEnhancedJwtService, EnhancedJwtService>();
+
+// Configure JWT authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
-        opts.RequireHttpsMetadata = false;
+        opts.RequireHttpsMetadata = false; // For development only
+        opts.SaveToken = true;
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -75,174 +121,381 @@ builder.Services
             ValidateLifetime = true,
             ValidIssuer = issuer,
             ValidAudience = audience,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(secret))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+            ClockSkew = TimeSpan.Zero // No clock skew tolerance
+        };
+
+        // Add custom token validation events
+        opts.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+                {
+                    context.Response.Headers.Append("Token-Expired", "true");
+                }
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                var result = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    error = "unauthorized",
+                    message = "You are not authorized to access this resource"
+                });
+                return context.Response.WriteAsync(result);
+            }
         };
     });
 
-builder.Services.AddAuthorization();
+// ============================================================================
+// AUTHORIZATION SETUP
+// ============================================================================
+
+// Add SkillSwap authorization policies
+builder.Services.AddSkillSwapAuthorization();
+
+// ============================================================================
+// RATE LIMITING SETUP
+// ============================================================================
+
+// Configure rate limiting
+builder.Services.Configure<RateLimitingOptions>(builder.Configuration.GetSection("RateLimiting"));
+builder.Services.AddMemoryCache(); // Required for rate limiting
+
+// ============================================================================
+// API DOCUMENTATION
+// ============================================================================
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "SkillSwap UserService API",
+        Version = "v1",
+        Description = "Advanced UserService with CQRS, Event Sourcing, and comprehensive security"
+    });
+
+    // Add JWT authentication to Swagger
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+// ============================================================================
+// BUILD APPLICATION
+// ============================================================================
 
 var app = builder.Build();
 
+// ============================================================================
+// MIDDLEWARE PIPELINE
+// ============================================================================
+
+// Use shared infrastructure middleware (security headers, logging, etc.)
+app.UseSharedInfrastructure();
+
+// Rate limiting (after shared infrastructure)
+app.UseMiddleware<RateLimitingMiddleware>();
+
+// Development-specific middleware
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "UserService API v1");
+        c.RoutePrefix = string.Empty; // Serve Swagger UI at root
+    });
+}
+
+// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapPost("/register", async (UserDbContext dbContext, IPublishEndpoint publisher, IJwtTokenGenerator generator, RegisterRequest request) =>
+// ============================================================================
+// DATABASE INITIALIZATION
+// ============================================================================
+
+// Initialize database with seed data
+using (var scope = app.Services.CreateScope())
 {
-    // Refresh Token in der Datenbank speichern
-    var refreshToken = await generator.GenerateRefreshToken();
+    var context = scope.ServiceProvider.GetRequiredService<UserDbContext>();
 
-    var user = new User
+    try
     {
-        Email = request.Email,
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-        FirstName = request.FirstName,
-        LastName = request.LastName
-    };
+        // Ensure database is created (for InMemory provider)
+        await context.Database.EnsureCreatedAsync();
 
-    user.RefreshTokens.Add(new RefreshToken
-    {
-        Token = refreshToken,
-        ExpiryDate = DateTime.UtcNow.AddDays(7), // 7 Tage gültig
-        UserId = user.Id
-    });
-
-    var token = await generator.GenerateToken(user);
-
-    dbContext.Users.Add(user);
-    await dbContext.SaveChangesAsync();
-    await publisher.Publish(new UserRegisteredEvent(user.Email, user.FirstName, user.LastName));
-
-    var response = new RegisterUserResponse(user.Email, user.FirstName, user.LastName, token, refreshToken);
-    return Results.Created($"/users/{user.Id}", response);
-});
-
-app.MapPost("/login", async (UserDbContext dbContext, IJwtTokenGenerator generator, LoginRequest request) =>
-{
-    var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
-    if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-    {
-        return Results.Unauthorized();
+        app.Logger.LogInformation("Database initialized successfully");
     }
-
-    // Access Token generieren
-    var token = await generator.GenerateToken(user);
-
-    // Refresh Token generieren
-    var refreshToken = await generator.GenerateRefreshToken();
-
-    // Refresh Token in der Datenbank speichern
-    user.RefreshTokens.Add(new RefreshToken
+    catch (Exception ex)
     {
-        Token = refreshToken,
-        ExpiryDate = DateTime.UtcNow.AddDays(7), // 7 Tage gültig
-        UserId = user.Id
-    });
+        app.Logger.LogError(ex, "Error occurred while initializing database");
+    }
+}
 
-    await dbContext.SaveChangesAsync();
+// ============================================================================
+// API ENDPOINTS - AUTHENTICATION
+// ============================================================================
 
-    // Beides zurückgeben
-    var response = new LoginResponse(token, refreshToken);
+app.MapPost("/register", async (IMediator mediator, RegisterUserCommand command) =>
+{
+    return await mediator.SendCommand(command);
+})
+.WithName("RegisterUser")
+.WithSummary("Register a new user")
+.WithDescription("Creates a new user account with email verification")
+.WithTags("Authentication")
+.Produces<RegisterUserResponse>(201)
+.Produces(400);
 
-    return Results.Ok(response);
-});
+app.MapPost("/login", async (IMediator mediator, LoginUserCommand command) =>
+{
+    return await mediator.SendCommand(command);
+})
+.WithName("LoginUser")
+.WithSummary("Authenticate user")
+.WithDescription("Authenticates user credentials and returns JWT tokens")
+.WithTags("Authentication")
+.Produces<LoginUserResponse>(200)
+.Produces(401);
 
-app.MapGet("/profile", async (HttpContext context, UserDbContext dbContext) =>
+app.MapPost("/refresh-token", async (IMediator mediator, RefreshTokenCommand command) =>
+{
+    return await mediator.SendCommand(command);
+})
+.WithName("RefreshToken")
+.WithSummary("Refresh access token")
+.WithDescription("Refreshes an expired access token using a valid refresh token")
+.WithTags("Authentication")
+.Produces<RefreshTokenResponse>(200)
+.Produces(400);
+
+app.MapPost("/verify-email", async (IMediator mediator, VerifyEmailCommand command) =>
+{
+    return await mediator.SendCommand(command);
+})
+.WithName("VerifyEmail")
+.WithSummary("Verify email address")
+.WithDescription("Verifies user's email address using verification token")
+.WithTags("Authentication")
+.Produces<VerifyEmailResponse>(200)
+.Produces(400);
+
+// ============================================================================
+// API ENDPOINTS - PASSWORD MANAGEMENT
+// ============================================================================
+
+app.MapPost("/request-password-reset", async (IMediator mediator, RequestPasswordResetCommand command) =>
+{
+    return await mediator.SendCommand(command);
+})
+.WithName("RequestPasswordReset")
+.WithSummary("Request password reset")
+.WithDescription("Sends password reset email to user")
+.WithTags("Password Management")
+.Produces<RequestPasswordResetResponse>(200);
+
+app.MapPost("/reset-password", async (IMediator mediator, ResetPasswordCommand command) =>
+{
+    return await mediator.SendCommand(command);
+})
+.WithName("ResetPassword")
+.WithSummary("Reset password")
+.WithDescription("Resets user password using reset token")
+.WithTags("Password Management")
+.Produces<ResetPasswordResponse>(200)
+.Produces(400);
+
+app.MapPost("/change-password", async (IMediator mediator, ChangePasswordCommand command) =>
+{
+    return await mediator.SendCommand(command);
+})
+.WithName("ChangePassword")
+.WithSummary("Change password")
+.WithDescription("Changes user password (requires authentication)")
+.WithTags("Password Management")
+.RequireAuthorization()
+.Produces<ChangePasswordResponse>(200)
+.Produces(400);
+
+// ============================================================================
+// API ENDPOINTS - USER PROFILE
+// ============================================================================
+
+app.MapGet("/profile", async (IMediator mediator, HttpContext context) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
-    return user is not null
-        ? Results.Ok(new { user.Email, user.FirstName, user.LastName })
-        : Results.NotFound();
+    var query = new GetUserProfileQuery(userId);
+    return await mediator.SendQuery(query);
 })
-.RequireAuthorization();
+.WithName("GetUserProfile")
+.WithSummary("Get user profile")
+.WithDescription("Retrieves the authenticated user's profile information")
+.WithTags("User Profile")
+.RequireAuthorization()
+.Produces<UserProfileResponse>(200)
+.Produces(404);
 
-app.MapPost("/refresh-token", async (
-    UserDbContext dbContext,
-    IJwtTokenGenerator generator,
-    RefreshTokenRequest request) =>
+app.MapPut("/users/profile", async (IMediator mediator, HttpContext context, UpdateUserProfileCommand command) =>
+{
+    var userId = ExtractUserIdFromContext(context);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    // Ensure user can only update their own profile
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("UpdateUserProfile")
+.WithSummary("Update user profile")
+.WithDescription("Updates the authenticated user's profile information")
+.WithTags("User Profile")
+.RequireAuthorization()
+.Produces<UpdateUserProfileResponse>(200)
+.Produces(400);
+
+// ============================================================================
+// API ENDPOINTS - USER MANAGEMENT (Admin)
+// ============================================================================
+
+app.MapGet("/users/search", async (IMediator mediator, [AsParameters] SearchUsersQuery query) =>
+{
+    return await mediator.SendQuery(query);
+})
+.WithName("SearchUsers")
+.WithSummary("Search users (Admin)")
+.WithDescription("Search and filter users - Admin access required")
+.WithTags("User Management")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<PagedResponse<UserSearchResultResponse>>(200);
+
+app.MapGet("/users/statistics", async (IMediator mediator, [AsParameters] GetUserStatisticsQuery query) =>
+{
+    return await mediator.SendQuery(query);
+})
+.WithName("GetUserStatistics")
+.WithSummary("Get user statistics (Admin)")
+.WithDescription("Retrieves comprehensive user statistics - Admin access required")
+.WithTags("User Management")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<UserStatisticsResponse>(200);
+
+app.MapGet("/users/{userId}/activity", async (IMediator mediator, string userId, [AsParameters] GetUserActivityLogQuery query) =>
+{
+    // Update query with userId from route
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(updatedQuery);
+})
+.WithName("GetUserActivity")
+.WithSummary("Get user activity log")
+.WithDescription("Retrieves user activity log - Admin access or own data required")
+.WithTags("User Management")
+.RequireAuthorization()
+.Produces<PagedResponse<UserActivityResponse>>(200);
+
+// ============================================================================
+// API ENDPOINTS - UTILITY
+// ============================================================================
+
+app.MapGet("/users/email-availability", async (IMediator mediator, string email) =>
+{
+    var query = new CheckEmailAvailabilityQuery(email);
+    return await mediator.SendQuery(query);
+})
+.WithName("CheckEmailAvailability")
+.WithSummary("Check email availability")
+.WithDescription("Checks if an email address is available for registration")
+.WithTags("Utility")
+.Produces<EmailAvailabilityResponse>(200);
+
+app.MapGet("/users/{userId}/roles", async (IMediator mediator, string userId) =>
+{
+    var query = new GetUserRolesQuery(userId);
+    return await mediator.SendQuery(query);
+})
+.WithName("GetUserRoles")
+.WithSummary("Get user roles")
+.WithDescription("Retrieves user roles and permissions")
+.WithTags("User Management")
+.RequireAuthorization()
+.Produces<UserRolesResponse>(200);
+
+// ============================================================================
+// HEALTH CHECK ENDPOINTS
+// ============================================================================
+
+app.MapGet("/health/ready", async (UserDbContext dbContext) =>
 {
     try
     {
-        // Token aus dem Request holen
-        var principal = await generator.GetPrincipalFromExpiredToken(request.Token)!;
-        if (principal == null)
-        {
-            return Results.BadRequest("Invalid token");
-        }
-
-        // Benutzer-ID aus dem Token extrahieren
-        var userId = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Results.BadRequest("Invalid token");
-        }
-
-        // Benutzer aus der Datenbank holen
-        var user = await dbContext.Users
-            .Include(u => u.RefreshTokens)
-            .FirstOrDefaultAsync(u => u.Id == userId);
-
-        if (user == null)
-        {
-            return Results.BadRequest("User not found");
-        }
-
-        // Prüfen, ob der RefreshToken in der Datenbank existiert und gültig ist
-        var refreshToken = user.RefreshTokens
-            .FirstOrDefault(rt => rt.Token == request.RefreshToken && !rt.IsRevoked);
-
-        if (refreshToken == null || refreshToken.ExpiryDate < DateTime.UtcNow)
-        {
-            return Results.BadRequest("Invalid refresh token");
-        }
-
-        // Neuen Access Token und Refresh Token generieren
-        var newAccessToken = await generator.GenerateToken(user);
-        var newRefreshToken = await generator.GenerateRefreshToken();
-
-        // Alten Refresh Token als widerrufen markieren
-        refreshToken.IsRevoked = true;
-
-        // Neuen Refresh Token speichern
-        user.RefreshTokens.Add(new RefreshToken
-        {
-            Token = newRefreshToken,
-            ExpiryDate = DateTime.UtcNow.AddDays(7), // 7 Tage gültig
-            UserId = user.Id
-        });
-
-        await dbContext.SaveChangesAsync();
-
-        return Results.Ok(new { token = newAccessToken, refreshToken = newRefreshToken });
+        // Simple database connectivity check
+        await dbContext.Database.CanConnectAsync();
+        return Results.Ok(new { status = "ready", timestamp = DateTime.UtcNow });
     }
     catch (Exception ex)
     {
-        return Results.BadRequest($"Error: {ex.Message}");
+        return Results.Problem($"Database connection failed: {ex.Message}");
     }
-});
+})
+.WithName("HealthReady")
+.WithSummary("Readiness check")
+.WithTags("Health");
 
-app.Run();
+app.MapGet("/health/live", () =>
+{
+    return Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow });
+})
+.WithName("HealthLive")
+.WithSummary("Liveness check")
+.WithTags("Health");
+
+// ============================================================================
+// HELPER METHODS
+// ============================================================================
 
 static string? ExtractUserIdFromContext(HttpContext context)
 {
-    Console.WriteLine("Authentication Type: " + context.User.Identity?.AuthenticationType);
-    Console.WriteLine("Is Authenticated: " + context.User.Identity?.IsAuthenticated);
-
-    Console.WriteLine("\nAll Claims:");
-    foreach (var claim in context.User.Claims)
-    {
-        Console.WriteLine($"Type: {claim.Type}, Value: {claim.Value}");
-    }
-
-    // Erweiterte Claim-Suche
-    var userId =
-        context.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ??
-        context.User.FindFirst("sub")?.Value ??
-        context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-    Console.WriteLine($"\nExtracted User ID: {userId ?? "NULL"}");
-    return userId;
+    return context.User.FindFirst("user_id")?.Value
+           ?? context.User.FindFirst("sub")?.Value
+           ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 }
+
+// ============================================================================
+// RUN APPLICATION
+// ============================================================================
+
+app.Logger.LogInformation("Starting {ServiceName} with enhanced CQRS architecture", serviceName);
+app.Logger.LogInformation("JWT Configuration: Issuer={Issuer}, Audience={Audience}, Expiry={Expiry}min",
+    issuer, audience, expireMinutes);
+
+app.Run();
+
+// Make the implicit Program class public for testing
+public partial class Program { }

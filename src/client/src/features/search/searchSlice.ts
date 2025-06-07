@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Skill } from '../../types/models/Skill';
 import { SkillService } from '../../api/services/skillsService';
 import { RootState } from '../../store/store';
-import axios from 'axios';
+// import axios from 'axios';
 import { PaginatedResponse } from '../../types/common/PaginatedResponse';
 
 // Async Thunk für die Suche mit dynamischer Pagination
@@ -14,7 +14,7 @@ export const fetchSearchResults = createAsyncThunk(
       page,
       pageSize,
     }: { query: string; page: number; pageSize: number },
-    { rejectWithValue }
+    // { rejectWithValue }
   ) => {
     try {
       const response = await SkillService.getSkillsBySearch(
@@ -23,10 +23,10 @@ export const fetchSearchResults = createAsyncThunk(
         pageSize
       );
       return response;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(error.message);
-      }
+    } catch  {
+      // if (axios.isAxiosError(error)) {
+      //   return rejectWithValue(error.message);
+      // }
     }
   }
 );

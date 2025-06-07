@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using UserService.Models;
+using UserService.Domain.Models;
 
 namespace UserService.Authentication;
 

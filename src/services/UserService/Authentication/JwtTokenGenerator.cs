@@ -5,7 +5,7 @@ using System.Text;
 using Contracts.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using UserService.Models;
+using UserService.Domain.Models;
 
 namespace UserService.Authentication;
 

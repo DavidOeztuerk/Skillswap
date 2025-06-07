@@ -1,10 +1,10 @@
 // src/api/services/appointmentService.ts
-import apiClient from '../apiClient';
 import { APPOINTMENT_ENDPOINTS } from '../../config/endpoints';
 // import { ApiResponse } from '../../types/common/ApiResponse';
 import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import { AppointmentResponse } from '../../types/contracts/responses/AppointmentResponse';
+import apiClient from '../apiClient';
 
 /**
  * Service für Termin-Operationen

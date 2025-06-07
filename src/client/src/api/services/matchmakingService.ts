@@ -1,11 +1,11 @@
 // src/api/services/matchmakingService.ts
-import apiClient from '../apiClient';
 import { MATCHMAKING_ENDPOINTS } from '../../config/endpoints';
 import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 // import { ApiResponse } from '../../types/common/ApiResponse';
 import { User } from '../../types/models/User';
-import { MatchFilter } from '../../types/models/MatchFilter';
+// import { MatchFilter } from '../../types/models/MatchFilter';
 import { Match } from '../../types/models/Match';
+import apiClient from '../apiClient';
 
 /**
  * Service für Matchmaking-Operationen
@@ -29,20 +29,20 @@ const matchmakingService = {
    * @param filter - Optionaler Filter für Matches
    * @returns Liste von Matches
    */
-  getMatches: async (filter: MatchFilter | null): Promise<Match[]> => {
-    const params = filter
-      ? {
-          status: filter.status,
-          role: filter.role,
-        }
-      : {};
+  // getMatches: async (filter: MatchFilter | null): Promise<Match[]> => {
+  //   const params = filter
+  //     ? {
+  //         status: filter.status,
+  //         role: filter.role,
+  //       }
+  //     : {};
 
-    const response = await apiClient.get<Match[]>(
-      MATCHMAKING_ENDPOINTS.GET_USER_MATCHES,
-      { params }
-    );
-    return response.data;
-  },
+  //   const response = await apiClient.get<Match[]>(
+  //     MATCHMAKING_ENDPOINTS.GET_USER_MATCHES,
+  //     { params }
+  //   );
+  //   return response;
+  // },
 
   /**
    * Holt ein spezifisches Match anhand seiner ID
@@ -91,13 +91,7 @@ const matchmakingService = {
     isLearningMode: boolean
   ): Promise<User[]> => {
     const response = await apiClient.get<User[]>(
-      `${MATCHMAKING_ENDPOINTS.FIND_MATCH}/potential`,
-      {
-        params: {
-          skillId,
-          isLearningMode,
-        },
-      }
+      `${MATCHMAKING_ENDPOINTS.FIND_MATCH}/potential?skillId=${encodeURIComponent(skillId)}&isLearningMode=${encodeURIComponent(isLearningMode)}`
     );
     return response.data;
   },

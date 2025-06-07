@@ -26,8 +26,10 @@ export const getCallConfig = createAsyncThunk(
   'videoCall/getCallConfig',
   async (appointmentId: string, { rejectWithValue }) => {
     try {
-      const response = await videoCallService.getCallConfig(appointmentId);
-      return response;
+      console.log(appointmentId);
+
+      // const response = await videoCallService.getCallConfig(appointmentId);
+      // return response;
       // if (response.success && response.data) {
       //   return response.data;
       // }
@@ -162,11 +164,11 @@ const videoCallSlice = createSlice({
         state.isLoading = true;
         state.error = undefined;
       })
-      .addCase(getCallConfig.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.roomId = action.payload.roomId;
-        state.peerId = action.payload.peerId;
-      })
+      // .addCase(getCallConfig.fulfilled, (state, action) => {
+      //   state.isLoading = false;
+      //   state.roomId = action.payload.roomId;
+      //   state.peerId = action.payload.peerId;
+      // })
       .addCase(getCallConfig.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
