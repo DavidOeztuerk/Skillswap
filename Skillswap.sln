@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Infrastructure", "src\share
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CQRS", "src\shared\CQRS\CQRS.csproj", "{668F8CF4-0C4B-48F8-9E65-AB9623EE039C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotificationService", "src\services\NotificationService\NotificationService.csproj", "{EEE60771-FBBB-4923-89B4-764E39B3327C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -75,6 +77,10 @@ Global
 		{668F8CF4-0C4B-48F8-9E65-AB9623EE039C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{668F8CF4-0C4B-48F8-9E65-AB9623EE039C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{668F8CF4-0C4B-48F8-9E65-AB9623EE039C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EEE60771-FBBB-4923-89B4-764E39B3327C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEE60771-FBBB-4923-89B4-764E39B3327C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEE60771-FBBB-4923-89B4-764E39B3327C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEE60771-FBBB-4923-89B4-764E39B3327C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -92,5 +98,6 @@ Global
 		{260B63C1-377E-484B-9268-5F7E3FA98036} = {9C4DCF7E-340D-447D-AED0-92F0066E3FF9}
 		{04A9F09A-F2AB-48D9-88EC-9BA7A72771E5} = {433A94D4-17FB-43C1-B837-797902F53523}
 		{668F8CF4-0C4B-48F8-9E65-AB9623EE039C} = {433A94D4-17FB-43C1-B837-797902F53523}
+		{EEE60771-FBBB-4923-89B4-764E39B3327C} = {9C4DCF7E-340D-447D-AED0-92F0066E3FF9}
 	EndGlobalSection
 EndGlobal
