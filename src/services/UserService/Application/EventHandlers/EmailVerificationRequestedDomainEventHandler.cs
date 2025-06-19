@@ -71,11 +71,3 @@ public class EmailVerifiedDomainEventHandler : BaseDomainEventHandler<EmailVerif
         Logger.LogInformation("Email verified for user {UserId}", domainEvent.UserId);
     }
 }
-
-
-
-
-
-
-
-
