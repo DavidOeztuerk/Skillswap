@@ -1,4 +1,4 @@
-using AppointmentService.Models;
+using AppointmentService.Domain.Entities;
 using Events;
 using MassTransit;
 
@@ -16,9 +16,9 @@ public class MatchFoundConsumer(
         {
             Title = "Skill Swap: " + context.Message.SkillName,
             Description = "Automatisch erstellter Termin für den Skill-Tausch",
-            Date = DateTime.UtcNow.AddDays(3),
+            ScheduledDate = DateTime.UtcNow.AddDays(3),
             CreatedBy = context.Message.SkillSearcherId,
-            ParticipantId = context.Message.SkillCreatorId,
+            ParticipantUserId = context.Message.SkillCreatorId,
             Status = "Pending"
         };
 
