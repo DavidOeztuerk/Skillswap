@@ -17,6 +17,8 @@ using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
 using NotificationService.Infrastructure.BackgroundServices;
 using MediatR;
+using NotificationService.Application.Queries;
+using NotificationService.Domain.ResponseModels;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -369,88 +371,88 @@ app.MapPost("/notifications/{notificationId}/read", async (IMediator mediator, s
 // API ENDPOINTS - USER PREFERENCES
 // ============================================================================
 
-// app.MapGet("/preferences", async (IMediator mediator, HttpContext context) =>
-// {
-//     var userId = ExtractUserIdFromContext(context);
-//     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+app.MapGet("/preferences", async (IMediator mediator, HttpContext context) =>
+{
+    var userId = ExtractUserIdFromContext(context);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-//     var query = new GetNotificationPreferencesQuery(userId);
-//     return await mediator.SendQuery(query);
-// })
-// .WithName("GetNotificationPreferences")
-// .WithSummary("Get user notification preferences")
-// .WithDescription("Retrieves the authenticated user's notification preferences")
-// .WithTags("Preferences")
-// .RequireAuthorization()
-// .Produces<NotificationPreferencesResponse>(200);
+    var query = new GetNotificationPreferencesQuery(userId);
+    return await mediator.SendQuery(query);
+})
+.WithName("GetNotificationPreferences")
+.WithSummary("Get user notification preferences")
+.WithDescription("Retrieves the authenticated user's notification preferences")
+.WithTags("Preferences")
+.RequireAuthorization()
+.Produces<NotificationPreferencesResponse>(200);
 
-// app.MapPut("/preferences", async (IMediator mediator, HttpContext context, UpdateNotificationPreferencesCommand command) =>
-// {
-//     var userId = ExtractUserIdFromContext(context);
-//     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+app.MapPut("/preferences", async (IMediator mediator, HttpContext context, UpdateNotificationPreferencesCommand command) =>
+{
+    var userId = ExtractUserIdFromContext(context);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-//     var updatedCommand = command with { UserId = userId };
-//     return await mediator.SendCommand(updatedCommand);
-// })
-// .WithName("UpdateNotificationPreferences")
-// .WithSummary("Update notification preferences")
-// .WithDescription("Updates the authenticated user's notification preferences")
-// .WithTags("Preferences")
-// .RequireAuthorization()
-// .Produces<UpdateNotificationPreferencesResponse>(200);
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("UpdateNotificationPreferences")
+.WithSummary("Update notification preferences")
+.WithDescription("Updates the authenticated user's notification preferences")
+.WithTags("Preferences")
+.RequireAuthorization()
+.Produces<UpdateNotificationPreferencesResponse>(200);
 
-// // ============================================================================
-// // API ENDPOINTS - TEMPLATES (Admin)
-// // ============================================================================
+// ============================================================================
+// API ENDPOINTS - TEMPLATES (Admin)
+// ============================================================================
 
-// app.MapPost("/templates", async (IMediator mediator, CreateEmailTemplateCommand command) =>
-// {
-//     return await mediator.SendCommand(command);
-// })
-// .WithName("CreateEmailTemplate")
-// .WithSummary("Create email template (Admin)")
-// .WithDescription("Creates a new email template - Admin access required")
-// .WithTags("Templates")
-// .RequireAuthorization(Policies.RequireAdminRole)
-// .Produces<CreateEmailTemplateResponse>(201);
+app.MapPost("/templates", async (IMediator mediator, CreateEmailTemplateCommand command) =>
+{
+    return await mediator.SendCommand(command);
+})
+.WithName("CreateEmailTemplate")
+.WithSummary("Create email template (Admin)")
+.WithDescription("Creates a new email template - Admin access required")
+.WithTags("Templates")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<CreateEmailTemplateResponse>(201);
 
-// app.MapPut("/templates/{templateId}", async (IMediator mediator, string templateId, UpdateEmailTemplateCommand command) =>
-// {
-//     var updatedCommand = command with { TemplateId = templateId };
-//     return await mediator.SendCommand(updatedCommand);
-// })
-// .WithName("UpdateEmailTemplate")
-// .WithSummary("Update email template (Admin)")
-// .WithDescription("Updates an existing email template - Admin access required")
-// .WithTags("Templates")
-// .RequireAuthorization(Policies.RequireAdminRole)
-// .Produces<UpdateEmailTemplateResponse>(200);
+app.MapPut("/templates/{templateId}", async (IMediator mediator, string templateId, UpdateEmailTemplateCommand command) =>
+{
+    var updatedCommand = command with { TemplateId = templateId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("UpdateEmailTemplate")
+.WithSummary("Update email template (Admin)")
+.WithDescription("Updates an existing email template - Admin access required")
+.WithTags("Templates")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<UpdateEmailTemplateResponse>(200);
 
-// app.MapGet("/templates", async (IMediator mediator, [AsParameters] GetEmailTemplatesQuery query) =>
-// {
-//     return await mediator.SendQuery(query);
-// })
-// .WithName("GetEmailTemplates")
-// .WithSummary("Get email templates (Admin)")
-// .WithDescription("Retrieves all email templates - Admin access required")
-// .WithTags("Templates")
-// .RequireAuthorization(Policies.RequireAdminRole)
-// .Produces<PagedResponse<EmailTemplateResponse>>(200);
+app.MapGet("/templates", async (IMediator mediator, [AsParameters] GetEmailTemplatesQuery query) =>
+{
+    return await mediator.SendQuery(query);
+})
+.WithName("GetEmailTemplates")
+.WithSummary("Get email templates (Admin)")
+.WithDescription("Retrieves all email templates - Admin access required")
+.WithTags("Templates")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<PagedResponse<EmailTemplateResponse>>(200);
 
-// // ============================================================================
-// // API ENDPOINTS - ANALYTICS & REPORTING (Admin)
-// // ============================================================================
+// ============================================================================
+// API ENDPOINTS - ANALYTICS & REPORTING (Admin)
+// ============================================================================
 
-// app.MapGet("/analytics/statistics", async (IMediator mediator, [AsParameters] GetNotificationStatisticsQuery query) =>
-// {
-//     return await mediator.SendQuery(query);
-// })
-// .WithName("GetNotificationStatistics")
-// .WithSummary("Get notification statistics (Admin)")
-// .WithDescription("Retrieves comprehensive notification statistics - Admin access required")
-// .WithTags("Analytics")
-// .RequireAuthorization(Policies.RequireAdminRole)
-// .Produces<NotificationStatisticsResponse>(200);
+app.MapGet("/analytics/statistics", async (IMediator mediator, [AsParameters] GetNotificationStatisticsQuery query) =>
+{
+    return await mediator.SendQuery(query);
+})
+.WithName("GetNotificationStatistics")
+.WithSummary("Get notification statistics (Admin)")
+.WithDescription("Retrieves comprehensive notification statistics - Admin access required")
+.WithTags("Analytics")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<NotificationStatisticsResponse>(200);
 
 // ============================================================================
 // HEALTH CHECK ENDPOINTS
