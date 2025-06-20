@@ -3,11 +3,13 @@ using CQRS.Interfaces;
 namespace SkillService.Domain.Events;
 
 // ============================================================================
-// SKILL LEARNING EVENTS
+// SKILL BADGE AND ACHIEVEMENT EVENTS
 // ============================================================================
 
-public record SkillLearningPathGeneratedDomainEvent(
-    string TargetSkillId,
+public record SkillBadgeEarnedDomainEvent(
+    string BadgeId,
+    string SkillId,
     string UserId,
-    List<string> LearningStepSkillIds,
-    int EstimatedTotalHours) : DomainEvent;
+    string BadgeType,
+    string Criteria,
+    DateTime EarnedAt) : DomainEvent;

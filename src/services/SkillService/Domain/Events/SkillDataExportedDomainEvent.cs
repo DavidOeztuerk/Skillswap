@@ -3,11 +3,12 @@ using CQRS.Interfaces;
 namespace SkillService.Domain.Events;
 
 // ============================================================================
-// SKILL LEARNING EVENTS
+// SKILL EXPORT/IMPORT EVENTS
 // ============================================================================
 
-public record SkillLearningPathGeneratedDomainEvent(
-    string TargetSkillId,
+public record SkillDataExportedDomainEvent(
+    string ExportId,
     string UserId,
-    List<string> LearningStepSkillIds,
-    int EstimatedTotalHours) : DomainEvent;
+    List<string> ExportedSkillIds,
+    string ExportFormat,
+    DateTime ExportedAt) : DomainEvent;
