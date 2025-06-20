@@ -1,4 +1,3 @@
-using System;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -16,11 +15,11 @@ public record SearchUsersQuery(
     DateTime? CreatedAfter = null,
     DateTime? CreatedBefore = null,
     int PageNumber = 1,
-    int PageSize = 20) 
+    int PageSize = 20)
     : IPagedQuery<UserSearchResultResponse>
 {
-    int IPagedQuery<UserSearchResultResponse>.PageNumber { get; set; } = PageNumber;
-    int IPagedQuery<UserSearchResultResponse>.PageSize { get; set; } = PageSize;
+    public int PageNumber { get; set; } = PageNumber;
+    public int PageSize { get; set; } = PageSize;
 }
 
 public record UserSearchResultResponse(
@@ -64,7 +63,7 @@ public class SearchUsersQueryValidator : AbstractValidator<SearchUsersQuery>
     private static bool BeValidRole(string? role)
     {
         if (string.IsNullOrEmpty(role)) return true;
-        
+
         var validRoles = new[] { "User", "Admin", "Moderator", "SuperAdmin" };
         return validRoles.Contains(role, StringComparer.OrdinalIgnoreCase);
     }
@@ -72,7 +71,7 @@ public class SearchUsersQueryValidator : AbstractValidator<SearchUsersQuery>
     private static bool BeValidAccountStatus(string? status)
     {
         if (string.IsNullOrEmpty(status)) return true;
-        
+
         var validStatuses = new[] { "Active", "Inactive", "Suspended", "PendingVerification" };
         return validStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
     }
