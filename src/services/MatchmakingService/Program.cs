@@ -1,49 +1,62 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
+using System.Reflection;
 using System.Text;
-using Contracts.Models;
-using Contracts.Requests;
-using Contracts.Responses;
-using Events;
 using MassTransit;
-using MatchmakingService;
-using MatchmakingService.Consumer;
-using MatchmakingService.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Infrastructure.Extensions;
+using Infrastructure.Security;
+using CQRS.Extensions;
+using MatchmakingService.Application.Commands;
+using MatchmakingService.Application.Queries;
+using MediatR;
+using MatchmakingService;
+using MatchmakingService.Consumer;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST")
-    ?? "rabbitmq";
+var serviceName = "MatchmakingService";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
 
+// JWT Configuration
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
-    ?? "";
+    ?? throw new InvalidOperationException("JWT Secret not configured");
+
 var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
     ?? builder.Configuration["JwtSettings:Issuer"]
-    ?? "";
+    ?? throw new InvalidOperationException("JWT Issuer not configured");
+
 var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
     ?? builder.Configuration["JwtSettings:Audience"]
-    ?? "";
-var expireString = Environment.GetEnvironmentVariable("JWT_EXPIRE")
-    ?? builder.Configuration["JwtSettings:ExpireMinutes"]
-    ?? "60";
-var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
+    ?? throw new InvalidOperationException("JWT Audience not configured");
 
-Console.WriteLine($"ExpireMinutes: {expireMinutes}");
+// Add shared infrastructure
+builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
+// Add database
 builder.Services.AddDbContext<MatchmakingDbContext>(options =>
-    options.UseInMemoryDatabase("MatchmakingDb"));
+{
+    options.UseInMemoryDatabase("MatchmakingServiceDb");
+    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+});
 
-// MassTransit + RabbitMQ konfigurieren
+// Add CQRS
+builder.Services.AddCQRSWithCaching(builder.Configuration, Assembly.GetExecutingAssembly());
+
+// Add MassTransit
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<SkillCreatedConsumer>();
+    
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host(rabbitHost, "/");
+        cfg.Host(rabbitHost, "/", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+        
         cfg.ReceiveEndpoint("matchmaking-skill-queue", e =>
         {
             e.ConfigureConsumer<SkillCreatedConsumer>(context);
@@ -51,19 +64,12 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
-builder.Services.Configure<JwtSettings>(options =>
-{
-    options.Secret = secret;
-    options.Issuer = issuer;
-    options.Audience = audience;
-    options.ExpireMinutes = expireMinutes;
-});
-
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+// Add JWT authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
         opts.RequireHttpsMetadata = false;
+        opts.SaveToken = true;
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -72,104 +78,179 @@ builder.Services
             ValidateLifetime = true,
             ValidIssuer = issuer,
             ValidAudience = audience,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(secret))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+            ClockSkew = TimeSpan.Zero
         };
     });
 
-builder.Services.AddAuthorization();
+// Add authorization
+builder.Services.AddSkillSwapAuthorization();
+
+// Add API documentation
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
+    { 
+        Title = "SkillSwap MatchmakingService API", 
+        Version = "v1",
+        Description = "Intelligent skill matching service with CQRS architecture"
+    });
+    
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var app = builder.Build();
+
+// Use shared infrastructure middleware
+app.UseSharedInfrastructure();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "MatchmakingService API v1");
+        c.RoutePrefix = string.Empty;
+    });
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Endpunkte
-app.MapPost("/matches/find", async (HttpContext context, MatchmakingDbContext dbContext, IPublishEndpoint publisher, FindMatchRequest request) =>
+// API Endpoints
+app.MapPost("/matches/find", async (IMediator mediator, HttpContext context, FindMatchCommand command) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    // Suche nach einem passenden Match
-    var potentialMatch = await dbContext.Matches
-        .FirstOrDefaultAsync(m => m.SkillName == request.SkillName && !m.IsMatched);
+    command.UserId = userId;
+    return await mediator.SendCommand(command);
+})
+.WithName("FindMatch")
+.WithSummary("Find skill matches")
+.WithTags("Matching")
+.RequireAuthorization();
 
-    if (potentialMatch != null)
+app.MapPost("/matches/{matchId}/accept", async (IMediator mediator, HttpContext context, string matchId) =>
+{
+    var userId = ExtractUserIdFromContext(context);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new AcceptMatchCommand(matchId) { UserId = userId };
+    return await mediator.SendCommand(command);
+})
+.WithName("AcceptMatch")
+.WithSummary("Accept a match")
+.WithTags("Matching")
+.RequireAuthorization();
+
+app.MapPost("/matches/{matchId}/reject", async (IMediator mediator, HttpContext context, string matchId, string? reason = null) =>
+{
+    var userId = ExtractUserIdFromContext(context);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new RejectMatchCommand(matchId, reason) { UserId = userId };
+    return await mediator.SendCommand(command);
+})
+.WithName("RejectMatch")
+.WithSummary("Reject a match")
+.WithTags("Matching")
+.RequireAuthorization();
+
+app.MapGet("/matches/{matchId}", async (IMediator mediator, string matchId) =>
+{
+    var query = new GetMatchDetailsQuery(matchId);
+    return await mediator.SendQuery(query);
+})
+.WithName("GetMatchDetails")
+.WithSummary("Get match details")
+.WithTags("Matching");
+
+app.MapGet("/my/matches", async (IMediator mediator, HttpContext context, [AsParameters] GetUserMatchesQuery query) =>
+{
+    var userId = ExtractUserIdFromContext(context);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    return await mediator.SendQuery(query);
+})
+.WithName("GetMyMatches")
+.WithSummary("Get my matches")
+.WithTags("Matching")
+.RequireAuthorization();
+
+app.MapGet("/statistics", async (IMediator mediator, [AsParameters] GetMatchStatisticsQuery query) =>
+{
+    return await mediator.SendQuery(query);
+})
+.WithName("GetMatchStatistics")
+.WithSummary("Get matching statistics")
+.WithTags("Analytics");
+
+// Health checks
+app.MapGet("/health/ready", async (MatchmakingDbContext dbContext) =>
+{
+    try
     {
-        potentialMatch.IsMatched = true;
-        potentialMatch.SkillSearcherId = userId;
-        await dbContext.SaveChangesAsync();
-
-        await publisher.Publish(new MatchFoundEvent(potentialMatch.Id, potentialMatch.SkillName, potentialMatch.SkillSearcherId, potentialMatch.SkillCreatorId));
-        return Results.Ok(new FindMatchResponse(potentialMatch.Id, potentialMatch.SkillName));
+        await dbContext.Database.CanConnectAsync();
+        return Results.Ok(new { status = "ready", timestamp = DateTime.UtcNow });
     }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Health check failed: {ex.Message}");
+    }
+})
+.WithName("HealthReady")
+.WithTags("Health");
 
-    // Falls kein Match existiert, neue Anfrage speichern
-    var newMatch = new Match { SkillName = request.SkillName, IsMatched = false, SkillSearcherId = userId };
-    dbContext.Matches.Add(newMatch);
-    await dbContext.SaveChangesAsync();
+app.MapGet("/health/live", () => Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }))
+.WithName("HealthLive")
+.WithTags("Health");
 
-    return Results.Accepted();
-}).RequireAuthorization();
-
-app.MapGet("/matches/{matchSessionId}", async (HttpContext context, MatchmakingDbContext dbContext, string matchSessionId) =>
-{
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-    var match = await dbContext.Matches.FindAsync(matchSessionId);
-    if (match == null || (match.SkillSearcherId != userId && match.SkillCreatorId != userId)) return Results.Forbid();
-
-    return Results.Ok(match);
-}).RequireAuthorization();
-
-app.MapPost("/matches/accept/{matchSessionId}", async (HttpContext context, MatchmakingDbContext dbContext, Guid matchSessionId) =>
-{
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-    var match = await dbContext.Matches.FindAsync(matchSessionId);
-    if (match == null || (match.SkillSearcherId != userId && match.SkillCreatorId != userId)) return Results.Forbid();
-
-    match.IsConfirmed = true;
-    await dbContext.SaveChangesAsync();
-
-    return Results.Ok();
-}).RequireAuthorization();
-
-app.MapPost("/matches/reject/{matchSessionId}", async (HttpContext context, MatchmakingDbContext dbContext, Guid matchSessionId) =>
-{
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-    var match = await dbContext.Matches.FindAsync(matchSessionId);
-    if (match == null || (match.SkillSearcherId != userId && match.SkillCreatorId != userId)) return Results.Forbid();
-
-    dbContext.Matches.Remove(match);
-    await dbContext.SaveChangesAsync();
-
-    return Results.Ok();
-}).RequireAuthorization();
-
-app.Run();
-
+// Helper method
 static string? ExtractUserIdFromContext(HttpContext context)
 {
-    Console.WriteLine("Authentication Type: " + context.User.Identity?.AuthenticationType);
-    Console.WriteLine("Is Authenticated: " + context.User.Identity?.IsAuthenticated);
-
-    Console.WriteLine("\nAll Claims:");
-    foreach (var claim in context.User.Claims)
-    {
-        Console.WriteLine($"Type: {claim.Type}, Value: {claim.Value}");
-    }
-
-    // Erweiterte Claim-Suche
-    var userId =
-        context.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ??
-        context.User.FindFirst("sub")?.Value ??
-        context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-    Console.WriteLine($"\nExtracted User ID: {userId ?? "NULL"}");
-    return userId;
+    return context.User.FindFirst("user_id")?.Value
+           ?? context.User.FindFirst("sub")?.Value
+           ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 }
+
+// Initialize database
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<MatchmakingDbContext>();
+    try
+    {
+        await context.Database.EnsureCreatedAsync();
+        app.Logger.LogInformation("MatchmakingService database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Error occurred while initializing MatchmakingService database");
+    }
+}
+
+app.Logger.LogInformation("Starting {ServiceName} with intelligent skill matching capabilities", serviceName);
+app.Run();
