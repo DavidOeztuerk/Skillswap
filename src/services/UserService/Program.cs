@@ -67,7 +67,11 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 // ============================================================================
 
 // Add CQRS with caching support
-builder.Services.AddCQRSWithCaching(builder.Configuration, Assembly.GetExecutingAssembly());
+var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+    ?? builder.Configuration.GetConnectionString("Redis")
+    ?? builder.Configuration["ConnectionStrings:Redis"]
+    ?? "localhost:6379"; // Default Redis connection string
+builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
 
 // ============================================================================
 // MESSAGE BUS SETUP (MassTransit + RabbitMQ)

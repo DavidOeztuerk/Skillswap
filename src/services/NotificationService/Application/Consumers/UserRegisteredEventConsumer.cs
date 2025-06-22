@@ -1,3 +1,4 @@
+using CQRS.Interfaces;
 using Events;
 using MassTransit;
 using MediatR;
@@ -10,7 +11,7 @@ namespace NotificationService.Application.Consumers;
 
 public class UserRegisteredEventConsumer(
     IMediator mediator,
-    ILogger<UserRegisteredEventConsumer> logger) 
+    ILogger<UserRegisteredEventConsumer> logger)
     : IConsumer<UserRegisteredEvent>
 {
     private readonly IMediator _mediator = mediator;
@@ -35,3 +36,9 @@ public class UserRegisteredEventConsumer(
         }
     }
 }
+
+public record UserRegisteredEvent(
+    string Email,
+    string FirstName,
+    string LastName) : DomainEvent;
+

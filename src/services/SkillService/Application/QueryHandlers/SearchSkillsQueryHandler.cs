@@ -1,12 +1,12 @@
 // ============================================================================
 // SKILL SERVICE QUERY HANDLERS - COMPLETE IMPLEMENTATION
-// src/services/SkillService/Application/QueryHandlers/
 // ============================================================================
 
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
 using SkillService.Application.Queries;
+using System.Text.Json;
 
 namespace SkillService.Application.QueryHandlers;
 
@@ -70,9 +70,14 @@ public class SearchSkillsQueryHandler(
                 query = query.Where(s => s.AverageRating >= request.MinRating.Value);
             }
 
-            if (request.Tags != null && request.Tags.Any())
+            if (request.TagsJson != null)
             {
-                foreach (var tag in request.Tags)
+
+                var tags = string.IsNullOrEmpty(request.TagsJson)
+                    ? []
+                    : JsonSerializer.Deserialize<List<string>>(request.TagsJson) ?? new List<string>();
+
+                foreach (var tag in tags)
                 {
                     var tagLower = tag.ToLower();
                     query = query.Where(s => s.TagsJson != null && s.TagsJson.Contains(tagLower));
@@ -131,7 +136,7 @@ public class SearchSkillsQueryHandler(
                         null,
                         s.ProficiencyLevel.IsActive,
                         s.ProficiencyLevel.CreatedAt),
-                    s.Tags,
+                    s.TagsJson ?? string.Empty,
                     s.AverageRating,
                     s.ReviewCount,
                     s.EndorsementCount,

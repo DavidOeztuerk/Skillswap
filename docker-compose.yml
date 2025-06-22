@@ -11,6 +11,9 @@ services:
       - '3000:3000'
     depends_on:
       - gateway
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8080
+      - VITE_SIGNALR_URL=http://localhost:8080/videocall
 
   rabbitmq:
     image: 'rabbitmq:3-management'
@@ -21,22 +24,25 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: ['CMD', 'rabbitmqctl', 'status']
-      interval: 5s
-      timeout: 10s
+      interval: 10s
+      timeout: 15s
       retries: 5
-      start_period: 5s
+      start_period: 10s
 
-  redis: 
+  redis:
     image: redis:7-alpine
+    container_name: 'redis'
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']  # ← FIX: war 'rabbitmqctl'
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 10s
       retries: 5
@@ -60,20 +66,25 @@ services:
         condition: service_started
       videocallservice:
         condition: service_started
+      notificationservice:
+        condition: service_started
     ports:
       - '8080:8080'
     environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
       - RABBITMQ_HOST=rabbitmq
       - USERSERVICE_URL=http://userservice:5001
       - SKILLSERVICE_URL=http://skillservice:5002
       - MATCHMAKINGSERVICE_URL=http://matchmakingservice:5003
       - APPOINTMENTSERVICE_URL=http://appointmentservice:5004
       - VIDEOCALLSERVICE_URL=http://videocallservice:5005
+      - NOTIFICATIONSERVICE_URL=http://notificationservice:5006
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
-        # CORS-Konfiguration für das Frontend
       - ALLOWED_ORIGINS=http://localhost:3000
+    restart: unless-stopped
 
   userservice:
     build:
@@ -88,12 +99,21 @@ services:
     ports:
       - '5001:5001'
     environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
       - RABBITMQ_HOST=rabbitmq
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5001/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   skillservice:
     build:
@@ -103,19 +123,31 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - '5002:5002'
     environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5002
       - RABBITMQ_HOST=rabbitmq
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
+      - REDIS_CONNECTION_STRING=redis:6379
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5002/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   matchmakingservice:
     build:
       context: ./src
-      dockerfile: services/matchmakingservice/Dockerfile
+      dockerfile: services/MatchmakingService/Dockerfile
     container_name: 'matchmakingservice'
     depends_on:
       rabbitmq:
@@ -123,16 +155,25 @@ services:
     ports:
       - '5003:5003'
     environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5003
       - RABBITMQ_HOST=rabbitmq
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5003/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   appointmentservice:
     build:
       context: ./src
-      dockerfile: services/Appointmentservice/Dockerfile
+      dockerfile: services/AppointmentService/Dockerfile
     container_name: 'appointmentservice'
     depends_on:
       rabbitmq:
@@ -140,16 +181,25 @@ services:
     ports:
       - '5004:5004'
     environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5004
       - RABBITMQ_HOST=rabbitmq
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5004/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   videocallservice:
     build:
       context: ./src
-      dockerfile: services/VideoCallService/Dockerfile
+      dockerfile: services/VideocallService/Dockerfile
     container_name: 'videocallservice'
     depends_on:
       rabbitmq:
@@ -157,11 +207,105 @@ services:
     ports:
       - '5005:5005'
     environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5005
       - RABBITMQ_HOST=rabbitmq
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5005/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  notificationservice:
+    build:
+      context: ./src
+      dockerfile: services/NotificationService/Dockerfile
+    container_name: 'notificationservice'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - '5006:5006'
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5006
+      - RABBITMQ_HOST=rabbitmq
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_EXPIRE=${JWT_EXPIRE}
+      - REDIS_CONNECTION_STRING=redis:6379
+      # SMTP-Konfiguration für E-Mail-Versand
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_USE_SSL=${SMTP_USE_SSL:-true}
+      # SMS-Konfiguration (optional)
+      - SMS_PROVIDER=${SMS_PROVIDER:-twilio}
+      - SMS_API_KEY=${SMS_API_KEY}
+      - SMS_API_SECRET=${SMS_API_SECRET}
+      - SMS_FROM_NUMBER=${SMS_FROM_NUMBER}
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5006/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: PostgreSQL für Production Database
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: 'postgres'
+  #   ports:
+  #     - '5432:5432'
+  #   environment:
+  #     POSTGRES_DB: skillswap
+  #     POSTGRES_USER: ${POSTGRES_USER:-skillswap}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skillswap}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # Optional: Elasticsearch für Advanced Search
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+  #   container_name: 'elasticsearch'
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   ports:
+  #     - '9200:9200'
+  #   volumes:
+  #     - elasticsearch_data:/usr/share/elasticsearch/data
+
+  # Optional: Kibana für Elasticsearch Visualization
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:8.11.0
+  #   container_name: 'kibana'
+  #   depends_on:
+  #     - elasticsearch
+  #   ports:
+  #     - '5601:5601'
+  #   environment:
+  #     ELASTICSEARCH_HOSTS: http://elasticsearch:9200
 
 volumes:
   redis_data:
+  rabbitmq_data:
+  # postgres_data:
+  # elasticsearch_data:

@@ -6,18 +6,13 @@ using NotificationService.Domain.Entities;
 
 namespace NotificationService.Application.Consumers;
 
-public class PasswordChangedNotificationEventConsumer : IConsumer<PasswordChangedNotificationEvent>
+public class PasswordChangedNotificationEventConsumer(
+    IMediator mediator,
+    ILogger<PasswordChangedNotificationEventConsumer> logger)
+    : IConsumer<PasswordChangedNotificationEvent>
 {
-    private readonly IMediator _mediator;
-    private readonly ILogger<PasswordChangedNotificationEventConsumer> _logger;
-
-    public PasswordChangedNotificationEventConsumer(
-        IMediator mediator,
-        ILogger<PasswordChangedNotificationEventConsumer> logger)
-    {
-        _mediator = mediator;
-        _logger = logger;
-    }
+    private readonly IMediator _mediator = mediator;
+    private readonly ILogger<PasswordChangedNotificationEventConsumer> _logger = logger;
 
     public async Task Consume(ConsumeContext<PasswordChangedNotificationEvent> context)
     {
@@ -31,13 +26,15 @@ public class PasswordChangedNotificationEventConsumer : IConsumer<PasswordChange
             };
 
             var command = new SendNotificationCommand(
-                context.Message.UserId,
                 NotificationTypes.Email,
                 EmailTemplateNames.PasswordChanged,
                 context.Message.Email,
                 variables,
                 NotificationPriority.Normal,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.UserId
+            };
 
             await _mediator.Send(command);
 

@@ -38,13 +38,15 @@ public class SecurityAlertEventConsumer : IConsumer<SecurityAlertEvent>
 
             // Send email notification
             var emailCommand = new SendNotificationCommand(
-                context.Message.UserId,
                 NotificationTypes.Email,
                 EmailTemplateNames.SecurityAlert,
                 context.Message.Email,
                 variables,
                 NotificationPriority.Urgent,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.UserId
+            };
 
             await _mediator.Send(emailCommand);
 
@@ -56,13 +58,15 @@ public class SecurityAlertEventConsumer : IConsumer<SecurityAlertEvent>
             };
 
             var pushCommand = new SendNotificationCommand(
-                context.Message.UserId,
                 NotificationTypes.Push,
                 "security-alert",
                 context.Message.UserId, // For push, recipient is user ID
                 pushVariables,
                 NotificationPriority.Urgent,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.UserId
+            };
 
             await _mediator.Send(pushCommand);
 

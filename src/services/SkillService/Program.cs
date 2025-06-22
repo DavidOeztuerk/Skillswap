@@ -20,6 +20,7 @@ using Infrastructure.Models;
 using MediatR;
 using SkillService;
 using SkillService.Domain.Entities;
+using Microsoft.Extensions.Caching.Distributed;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,8 +66,11 @@ builder.Services.AddDbContext<SkillDbContext>(options =>
 // CQRS & MEDIATR SETUP
 // ============================================================================
 
-// Add CQRS with caching support
-builder.Services.AddCQRSWithCaching(builder.Configuration, Assembly.GetExecutingAssembly());
+var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+    ?? builder.Configuration.GetConnectionString("Redis")
+    ?? builder.Configuration["ConnectionStrings:Redis"]
+    ?? "localhost:6379"; // Default Redis connection string
+builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
 
 // ============================================================================
 // MESSAGE BUS SETUP (MassTransit + RabbitMQ)
@@ -211,6 +215,9 @@ app.UseAuthorization();
 
 using (var scope = app.Services.CreateScope())
 {
+     var cache = scope.ServiceProvider.GetService<IDistributedCache>();
+    app.Logger.LogInformation("✅ Cache Type: {CacheType}", cache?.GetType().Name);
+    
     var context = scope.ServiceProvider.GetRequiredService<SkillDbContext>();
     
     try

@@ -51,13 +51,17 @@ builder.Services.AddDbContext<VideoCallDbContext>(options =>
 });
 
 // Add CQRS
-builder.Services.AddCQRSWithCaching(builder.Configuration, Assembly.GetExecutingAssembly());
+var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+    ?? builder.Configuration.GetConnectionString("Redis")
+    ?? builder.Configuration["ConnectionStrings:Redis"]
+    ?? "localhost:6379"; // Default Redis connection string
+builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
 
 // Add MassTransit
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<AppointmentAcceptedConsumer>();
-    
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(rabbitHost, "/", h =>
@@ -65,7 +69,7 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
-        
+
         cfg.ReceiveEndpoint("videocall-appointment-queue", e =>
         {
             e.ConfigureConsumer<AppointmentAcceptedConsumer>(context);
@@ -90,7 +94,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
             ClockSkew = TimeSpan.Zero
         };
-        
+
         // Configure JWT for SignalR
         opts.Events = new JwtBearerEvents
         {
@@ -98,12 +102,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             {
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
-                
+
                 if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/videocall"))
                 {
                     context.Token = accessToken;
                 }
-                
+
                 return Task.CompletedTask;
             }
         };
@@ -128,13 +132,13 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
-    { 
-        Title = "SkillSwap VideocallService API", 
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "SkillSwap VideocallService API",
         Version = "v1",
         Description = "Real-time video calling service with WebRTC and SignalR"
     });
-    
+
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme",
@@ -143,7 +147,7 @@ builder.Services.AddSwaggerGen(c =>
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-    
+
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
         {
@@ -288,8 +292,9 @@ app.MapGet("/health/ready", async (VideoCallDbContext dbContext) =>
     try
     {
         await dbContext.Database.CanConnectAsync();
-        return Results.Ok(new { 
-            status = "ready", 
+        return Results.Ok(new
+        {
+            status = "ready",
             timestamp = DateTime.UtcNow,
             signalr = "enabled"
         });

@@ -44,13 +44,17 @@ builder.Services.AddDbContext<AppointmentDbContext>(options =>
 });
 
 // Add CQRS
-builder.Services.AddCQRSWithCaching(builder.Configuration, Assembly.GetExecutingAssembly());
+var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+    ?? builder.Configuration.GetConnectionString("Redis")
+    ?? builder.Configuration["ConnectionStrings:Redis"]
+    ?? "localhost:6379"; // Default Redis connection string
+builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
 
 // Add MassTransit
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<MatchFoundConsumer>();
-    
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(rabbitHost, "/", h =>
@@ -58,7 +62,7 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
-        
+
         cfg.ReceiveEndpoint("appointment-match-queue", e =>
         {
             e.ConfigureConsumer<MatchFoundConsumer>(context);
@@ -96,13 +100,13 @@ builder.Services.AddMemoryCache();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
-    { 
-        Title = "SkillSwap AppointmentService API", 
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "SkillSwap AppointmentService API",
         Version = "v1",
         Description = "Appointment management service with CQRS architecture"
     });
-    
+
     // Add JWT authentication to Swagger
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
@@ -112,7 +116,7 @@ builder.Services.AddSwaggerGen(c =>
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-    
+
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
         {

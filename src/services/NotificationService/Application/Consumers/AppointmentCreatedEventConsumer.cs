@@ -10,18 +10,13 @@ namespace NotificationService.Application.Consumers;
 // APPOINTMENT EVENT CONSUMERS (Future Integration)
 // ============================================================================
 
-public class AppointmentCreatedEventConsumer : IConsumer<AppointmentCreatedEvent>
+public class AppointmentCreatedEventConsumer(
+    IMediator mediator,
+    ILogger<AppointmentCreatedEventConsumer> logger)
+    : IConsumer<AppointmentCreatedEvent>
 {
-    private readonly IMediator _mediator;
-    private readonly ILogger<AppointmentCreatedEventConsumer> _logger;
-
-    public AppointmentCreatedEventConsumer(
-        IMediator mediator,
-        ILogger<AppointmentCreatedEventConsumer> logger)
-    {
-        _mediator = mediator;
-        _logger = logger;
-    }
+    private readonly IMediator _mediator = mediator;
+    private readonly ILogger<AppointmentCreatedEventConsumer> _logger = logger;
 
     public async Task Consume(ConsumeContext<AppointmentCreatedEvent> context)
     {
@@ -38,23 +33,27 @@ public class AppointmentCreatedEventConsumer : IConsumer<AppointmentCreatedEvent
 
             // Send confirmation to appointment creator
             var creatorCommand = new SendNotificationCommand(
-                context.Message.CreatedBy,
                 NotificationTypes.Email,
                 EmailTemplateNames.AppointmentConfirmation,
                 "placeholder@email.com", // We'd need to get email from UserService
                 variables,
                 NotificationPriority.Normal,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.CreatedBy
+            };
 
             // Send notification to participant
             var participantCommand = new SendNotificationCommand(
-                context.Message.ParticipantId,
                 NotificationTypes.Email,
                 EmailTemplateNames.AppointmentConfirmation,
                 "placeholder@email.com", // We'd need to get email from UserService
                 variables,
                 NotificationPriority.Normal,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.ParticipantId
+            };
 
             // For now, we'll skip sending as we don't have the email addresses
             // await _mediator.Send(creatorCommand);
