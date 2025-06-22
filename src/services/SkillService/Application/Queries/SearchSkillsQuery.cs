@@ -12,7 +12,7 @@ public record SearchSkillsQuery(
     string? CategoryId = null,
     string? ProficiencyLevelId = null,
     bool? IsOffering = null,
-    List<string>? Tags = null,
+    string? TagsJson = null,
     string? Location = null,
     int? MaxDistance = null,
     bool? RemoteOnly = null,
@@ -20,12 +20,14 @@ public record SearchSkillsQuery(
     string? SortBy = "relevance",
     string? SortDirection = "desc",
     int PageNumber = 1,
-    int PageSize = 20) : IPagedQuery<SkillSearchResultResponse>, ICacheableQuery
+    int PageSize = 20) 
+    : IPagedQuery<SkillSearchResultResponse>,
+    ICacheableQuery
 {
     int IPagedQuery<SkillSearchResultResponse>.PageNumber { get; set; } = PageNumber;
     int IPagedQuery<SkillSearchResultResponse>.PageSize { get; set; } = PageSize;
 
-    public string CacheKey => $"skills-search:{Query}:{CategoryId}:{ProficiencyLevelId}:{IsOffering}:{string.Join(",", Tags ?? new List<string>())}:{PageNumber}:{PageSize}";
+    public string CacheKey => $"skills-search:{Query}:{CategoryId}:{ProficiencyLevelId}:{IsOffering}:{string.Join(",", TagsJson)}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 
@@ -38,7 +40,7 @@ public record SkillSearchResultResponse(
     bool IsOffering,
     SkillCategoryResponse Category,
     ProficiencyLevelResponse ProficiencyLevel,
-    List<string> Tags,
+    string TagsJson,
     double? AverageRating,
     int ReviewCount,
     int EndorsementCount,
@@ -56,8 +58,8 @@ public class SearchSkillsQueryValidator : AbstractValidator<SearchSkillsQuery>
             .MaximumLength(200).WithMessage("Search query must not exceed 200 characters")
             .When(x => !string.IsNullOrEmpty(x.Query));
 
-        RuleFor(x => x.Tags)
-            .Must(tags => tags == null || tags.Count <= 10)
+        RuleFor(x => x.TagsJson)
+            .Must(tags => tags == null)
             .WithMessage("Maximum 10 tags allowed in search");
 
         RuleFor(x => x.MaxDistance)

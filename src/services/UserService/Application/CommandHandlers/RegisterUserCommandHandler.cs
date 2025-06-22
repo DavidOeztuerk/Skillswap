@@ -1,4 +1,5 @@
 using CQRS.Handlers;
+using CQRS.Interfaces;
 using Events;
 using Infrastructure.Models;
 using Infrastructure.Security;
@@ -131,3 +132,9 @@ public class RegisterUserCommandHandler(
         return Guid.NewGuid().ToString("N");
     }
 }
+
+
+public record UserRegisteredEvent(
+    string Email,
+    string FirstName,
+    string LastName) : DomainEvent;

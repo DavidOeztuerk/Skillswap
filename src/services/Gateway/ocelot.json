@@ -5,14 +5,74 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/register",
-      "UpstreamHttpMethod": ["POST", "OPTIONS"]
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 5
+      }
     },
     {
       "DownstreamPathTemplate": "/login",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/login",
+      "UpstreamHttpMethod": ["POST"],
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 10
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/refresh-token",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/refresh-token",
       "UpstreamHttpMethod": ["POST"]
+    },
+    {
+      "DownstreamPathTemplate": "/verify-email",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/verify-email",
+      "UpstreamHttpMethod": ["POST"]
+    },
+    {
+      "DownstreamPathTemplate": "/request-password-reset",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/request-password-reset",
+      "UpstreamHttpMethod": ["POST"],
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 3
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/reset-password",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/reset-password",
+      "UpstreamHttpMethod": ["POST"]
+    },
+    {
+      "DownstreamPathTemplate": "/change-password",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/change-password",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
     },
     {
       "DownstreamPathTemplate": "/profile",
@@ -26,11 +86,70 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/refresh-token",
+      "DownstreamPathTemplate": "/users/profile",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/refresh-token",
-      "UpstreamHttpMethod": ["POST"]
+      "UpstreamPathTemplate": "/api/users/profile",
+      "UpstreamHttpMethod": ["PUT"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/search",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/search",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/users/statistics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/statistics",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/users/{userId}/activity",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/{userId}/activity",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/users/email-availability",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/email-availability",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/users/{userId}/roles",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/{userId}/roles",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
     },
     {
       "DownstreamPathTemplate": "/skills",
@@ -41,57 +160,32 @@
       "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/skills/{id}",
+      "DownstreamPathTemplate": "/skills/{skillId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/skills/{id}",
-      "UpstreamHttpMethod": ["GET"]
-    },
-    {
-      "DownstreamPathTemplate": "/user/skills",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/user/skills",
-      "UpstreamHttpMethod": ["GET"],
-      "AddQueriesToRequest": true,
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true,
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/user/skills/{id}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/user/skills/{id}",
-      "UpstreamHttpMethod": ["GET"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true,
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/skills/search",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/skills/search",
+      "UpstreamPathTemplate": "/api/skills/{skillId}",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/user/skills/search",
+      "DownstreamPathTemplate": "/users/{userId}/skills",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/user/skills/search",
+      "UpstreamPathTemplate": "/api/users/{userId}/skills",
       "UpstreamHttpMethod": ["GET"],
-      "AddQueriesToRequest": true,
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/my/skills",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/my/skills",
+      "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true,
         "AllowedScopes": []
-      }
+      },
+      "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/skills",
@@ -101,19 +195,39 @@
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true,
         "AllowedScopes": []
       }
     },
     {
-      "DownstreamPathTemplate": "/user/skills/{id}",
+      "DownstreamPathTemplate": "/skills/{skillId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/skills/{id}",
+      "UpstreamPathTemplate": "/api/skills/{skillId}",
       "UpstreamHttpMethod": ["PUT", "DELETE"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true,
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/skills/{skillId}/rate",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/{skillId}/rate",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/skills/{skillId}/endorse",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/{skillId}/endorse",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
     },
@@ -122,7 +236,8 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/categories",
-      "UpstreamHttpMethod": ["GET"]
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/categories",
@@ -132,48 +247,66 @@
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true
+        "AllowedScopes": []
       }
     },
     {
-      "DownstreamPathTemplate": "/categories/{id}",
+      "DownstreamPathTemplate": "/categories/{categoryId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/categories/{id}",
+      "UpstreamPathTemplate": "/api/categories/{categoryId}",
       "UpstreamHttpMethod": ["PUT", "DELETE"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true
+        "AllowedScopes": []
       }
     },
     {
-      "DownstreamPathTemplate": "/proficiencylevels",
+      "DownstreamPathTemplate": "/proficiency-levels",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/proficiencylevels",
-      "UpstreamHttpMethod": ["GET"]
+      "UpstreamPathTemplate": "/api/proficiency-levels",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/proficiencylevels",
+      "DownstreamPathTemplate": "/proficiency-levels",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/proficiencylevels",
+      "UpstreamPathTemplate": "/api/proficiency-levels",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true
+        "AllowedScopes": []
       }
     },
     {
-      "DownstreamPathTemplate": "/proficiencylevels/{id}",
+      "DownstreamPathTemplate": "/analytics/statistics",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/proficiencylevels/{id}",
-      "UpstreamHttpMethod": ["PUT", "DELETE"],
+      "UpstreamPathTemplate": "/api/skills/analytics/statistics",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/analytics/popular-tags",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/analytics/popular-tags",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/recommendations",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/recommendations",
+      "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true
-      }
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/matches/find",
@@ -185,61 +318,71 @@
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true
+        "AllowedScopes": []
       }
     },
     {
-      "DownstreamPathTemplate": "/matches/{matchSessionId}",
+      "DownstreamPathTemplate": "/matches/{matchId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "matchmakingservice", "Port": 5003 }
       ],
-      "UpstreamPathTemplate": "/api/matches/{matchSessionId}",
+      "UpstreamPathTemplate": "/api/matches/{matchId}",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/matches/accept/{matchSessionId}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "matchmakingservice", "Port": 5003 }
-      ],
-      "UpstreamPathTemplate": "/api/matches/accept/{matchSessionId}",
-      "UpstreamHttpMethod": ["POST"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/matches/reject/{matchSessionId}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "matchmakingservice", "Port": 5003 }
-      ],
-      "UpstreamPathTemplate": "/api/matches/reject/{matchSessionId}",
-      "UpstreamHttpMethod": ["POST"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/appointments/create",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "appointmentservice", "Port": 5004 }
-      ],
-      "UpstreamPathTemplate": "/api/appointments/create",
-      "UpstreamHttpMethod": ["POST"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true,
         "AllowedScopes": []
       }
+    },
+    {
+      "DownstreamPathTemplate": "/matches/{matchId}/accept",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/matches/{matchId}/accept",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/matches/{matchId}/reject",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/matches/{matchId}/reject",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/my/matches",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/my/matches",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/statistics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/matches/statistics",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/appointments",
@@ -248,40 +391,277 @@
         { "Host": "appointmentservice", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments",
-      "UpstreamHttpMethod": ["GET"],
+      "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true,
         "AllowedScopes": []
       }
     },
     {
-      "DownstreamPathTemplate": "/appointments/respond",
+      "DownstreamPathTemplate": "/appointments/{appointmentId}/accept",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "appointmentservice", "Port": 5004 }
       ],
-      "UpstreamPathTemplate": "/api/appointments/respond",
+      "UpstreamPathTemplate": "/api/appointments/{appointmentId}/accept",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true,
         "AllowedScopes": []
       }
     },
     {
-      "DownstreamPathTemplate": "/videocall",
+      "DownstreamPathTemplate": "/appointments/{appointmentId}/cancel",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "appointmentservice", "Port": 5004 }
+      ],
+      "UpstreamPathTemplate": "/api/appointments/{appointmentId}/cancel",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/appointments/{appointmentId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "appointmentservice", "Port": 5004 }
+      ],
+      "UpstreamPathTemplate": "/api/appointments/{appointmentId}",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/my/appointments",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "appointmentservice", "Port": 5004 }
+      ],
+      "UpstreamPathTemplate": "/api/my/appointments",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/calls/create",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/videocall",
+      "UpstreamPathTemplate": "/api/calls/create",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/calls/{sessionId}/join",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/{sessionId}/join",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/calls/{sessionId}/leave",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/{sessionId}/leave",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/calls/{sessionId}/start",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/{sessionId}/start",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/calls/{sessionId}/end",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/{sessionId}/end",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/calls/{sessionId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/{sessionId}",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/my/calls",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/my/calls",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/statistics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/statistics",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/notifications/send",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/send",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/notifications/bulk",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/bulk",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/notifications/{notificationId}/cancel",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/{notificationId}/cancel",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/notifications/{notificationId}/retry",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/{notificationId}/retry",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/notifications/{notificationId}/read",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/{notificationId}/read",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/preferences",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/preferences",
+      "UpstreamHttpMethod": ["GET", "PUT"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/templates",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/templates",
       "UpstreamHttpMethod": ["GET", "POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
-        "RequireAuthorizationOnRoute": true
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/templates/{templateId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/templates/{templateId}",
+      "UpstreamHttpMethod": ["PUT"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
       }
+    },
+    {
+      "DownstreamPathTemplate": "/analytics/statistics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/analytics/statistics",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
     }
   ],
   "GlobalConfiguration": {
-    "BaseUrl": "http://localhost:8080"
+    "BaseUrl": "http://localhost:8080",
+    "RateLimitOptions": {
+      "QuotaExceededMessage": "Rate limit exceeded. Please try again later.",
+      "HttpStatusCode": 429,
+      "ClientIdHeader": "ClientId"
+    }
   }
 }

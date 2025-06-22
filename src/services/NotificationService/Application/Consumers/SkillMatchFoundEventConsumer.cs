@@ -10,18 +10,13 @@ namespace NotificationService.Application.Consumers;
 // SKILL MATCHING EVENT CONSUMERS (Future Integration)
 // ============================================================================
 
-public class SkillMatchFoundEventConsumer : IConsumer<MatchFoundEvent>
+public class SkillMatchFoundEventConsumer(
+    IMediator mediator,
+    ILogger<SkillMatchFoundEventConsumer> logger)
+    : IConsumer<MatchFoundEvent>
 {
-    private readonly IMediator _mediator;
-    private readonly ILogger<SkillMatchFoundEventConsumer> _logger;
-
-    public SkillMatchFoundEventConsumer(
-        IMediator mediator,
-        ILogger<SkillMatchFoundEventConsumer> logger)
-    {
-        _mediator = mediator;
-        _logger = logger;
-    }
+    private readonly IMediator _mediator = mediator;
+    private readonly ILogger<SkillMatchFoundEventConsumer> _logger = logger;
 
     public async Task Consume(ConsumeContext<MatchFoundEvent> context)
     {
@@ -37,13 +32,15 @@ public class SkillMatchFoundEventConsumer : IConsumer<MatchFoundEvent>
             };
 
             var searcherCommand = new SendNotificationCommand(
-                context.Message.SkillSearcherId,
                 NotificationTypes.Email,
                 EmailTemplateNames.SkillMatchFound,
                 "placeholder@email.com", // We'd need to get email from UserService
                 searcherVariables,
                 NotificationPriority.Normal,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.SkillSearcherId
+            };
 
             // For now, we'll skip sending as we don't have the email address
             // await _mediator.Send(searcherCommand);
@@ -56,13 +53,15 @@ public class SkillMatchFoundEventConsumer : IConsumer<MatchFoundEvent>
             };
 
             var creatorCommand = new SendNotificationCommand(
-                context.Message.SkillCreatorId,
                 NotificationTypes.Email,
                 EmailTemplateNames.SkillMatchFound,
                 "placeholder@email.com", // We'd need to get email from UserService
                 creatorVariables,
                 NotificationPriority.Normal,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.SkillCreatorId
+            };
 
             // For now, we'll skip sending as we don't have the email address
             // await _mediator.Send(creatorCommand);

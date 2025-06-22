@@ -10,21 +10,15 @@ namespace NotificationService.Application.Consumers;
 // PASSWORD MANAGEMENT EVENT CONSUMERS
 // ============================================================================
 
-public class PasswordResetEmailEventConsumer : IConsumer<PasswordResetEmailEvent>
+public class PasswordResetEmailEventConsumer(
+    IMediator mediator,
+    ILogger<PasswordResetEmailEventConsumer> logger,
+    IConfiguration configuration)
+    : IConsumer<PasswordResetEmailEvent>
 {
-    private readonly IMediator _mediator;
-    private readonly ILogger<PasswordResetEmailEventConsumer> _logger;
-    private readonly IConfiguration _configuration;
-
-    public PasswordResetEmailEventConsumer(
-        IMediator mediator,
-        ILogger<PasswordResetEmailEventConsumer> logger,
-        IConfiguration configuration)
-    {
-        _mediator = mediator;
-        _logger = logger;
-        _configuration = configuration;
-    }
+    private readonly IMediator _mediator = mediator;
+    private readonly ILogger<PasswordResetEmailEventConsumer> _logger = logger;
+    private readonly IConfiguration _configuration = configuration;
 
     public async Task Consume(ConsumeContext<PasswordResetEmailEvent> context)
     {
@@ -43,13 +37,15 @@ public class PasswordResetEmailEventConsumer : IConsumer<PasswordResetEmailEvent
             };
 
             var command = new SendNotificationCommand(
-                context.Message.UserId,
                 NotificationTypes.Email,
                 EmailTemplateNames.PasswordReset,
                 context.Message.Email,
                 variables,
                 NotificationPriority.High,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.UserId
+            };
 
             await _mediator.Send(command);
 

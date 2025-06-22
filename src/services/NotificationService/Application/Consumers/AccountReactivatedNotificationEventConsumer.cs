@@ -31,13 +31,15 @@ public class AccountReactivatedNotificationEventConsumer : IConsumer<AccountReac
             };
 
             var command = new SendNotificationCommand(
-                context.Message.UserId,
                 NotificationTypes.Email,
                 EmailTemplateNames.AccountReactivated,
                 context.Message.Email,
                 variables,
                 NotificationPriority.Normal,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.UserId
+            };
 
             await _mediator.Send(command);
 

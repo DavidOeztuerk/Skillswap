@@ -6,21 +6,15 @@ using NotificationService.Domain.Entities;
 
 namespace NotificationService.Application.Consumers;
 
-public class WelcomeEmailEventConsumer : IConsumer<WelcomeEmailEvent>
+public class WelcomeEmailEventConsumer(
+    IMediator mediator,
+    ILogger<WelcomeEmailEventConsumer> logger,
+    IConfiguration configuration)
+    : IConsumer<WelcomeEmailEvent>
 {
-    private readonly IMediator _mediator;
-    private readonly ILogger<WelcomeEmailEventConsumer> _logger;
-    private readonly IConfiguration _configuration;
-
-    public WelcomeEmailEventConsumer(
-        IMediator mediator,
-        ILogger<WelcomeEmailEventConsumer> logger,
-        IConfiguration configuration)
-    {
-        _mediator = mediator;
-        _logger = logger;
-        _configuration = configuration;
-    }
+    private readonly IMediator _mediator = mediator;
+    private readonly ILogger<WelcomeEmailEventConsumer> _logger = logger;
+    private readonly IConfiguration _configuration = configuration;
 
     public async Task Consume(ConsumeContext<WelcomeEmailEvent> context)
     {
@@ -37,13 +31,15 @@ public class WelcomeEmailEventConsumer : IConsumer<WelcomeEmailEvent>
             };
 
             var command = new SendNotificationCommand(
-                context.Message.UserId,
                 NotificationTypes.Email,
                 EmailTemplateNames.Welcome,
                 context.Message.Email,
                 variables,
                 NotificationPriority.Normal,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.UserId
+            };
 
             await _mediator.Send(command);
 

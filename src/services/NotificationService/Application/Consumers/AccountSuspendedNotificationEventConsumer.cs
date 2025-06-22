@@ -36,13 +36,15 @@ public class AccountSuspendedNotificationEventConsumer : IConsumer<AccountSuspen
             };
 
             var command = new SendNotificationCommand(
-                context.Message.UserId,
                 NotificationTypes.Email,
                 EmailTemplateNames.AccountSuspended,
                 context.Message.Email,
                 variables,
                 NotificationPriority.High,
-                CorrelationId: context.ConversationId?.ToString());
+                CorrelationId: context.ConversationId?.ToString())
+            {
+                UserId = context.Message.UserId
+            };
 
             await _mediator.Send(command);
 
