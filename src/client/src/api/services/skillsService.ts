@@ -120,16 +120,10 @@ const skillsService = {
     page = 1,
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
-    try {
-      const response = await apiClient.get<PaginatedResponse<Skill>>(
-        SKILL_ENDPOINTS.SEARCH_SKILLS,
-        { params: { query, page, pageSize } }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Skill search failed:', error);
-      throw new Error('Skill-Suche fehlgeschlagen.');
-    }
+    const response = await apiClient.get<PaginatedResponse<Skill>>(
+      `${SKILL_ENDPOINTS.GET_SKILLS}?searchTerm=${query}&page=${page}&pageSize=${pageSize}`
+    );
+    return response.data;
   },
 
   /**
@@ -142,16 +136,10 @@ const skillsService = {
     page = 1,
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
-    try {
-      const response = await apiClient.get<PaginatedResponse<Skill>>(
-        SKILL_ENDPOINTS.GET_USER_SKILLS,
-        { params: { page, pageSize } }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Failed to fetch user skills:', error);
-      throw new Error('Benutzer-Skills konnten nicht geladen werden.');
-    }
+    const response = await apiClient.get<PaginatedResponse<Skill>>(
+      `${SKILL_ENDPOINTS.GET_MY_SKILLS}?page=${page}&pageSize=${pageSize}`
+    );
+    return response.data;
   },
 
   /**
@@ -160,15 +148,10 @@ const skillsService = {
    * @returns Skill-Details
    */
   getUserSkillById: async (skillId: string): Promise<Skill> => {
-    try {
-      const response = await apiClient.get<Skill>(
-        `${SKILL_ENDPOINTS.GET_USER_SKILLS}/${skillId}`
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Failed to fetch user skill:', error);
-      throw new Error('Benutzer-Skill konnte nicht geladen werden.');
-    }
+    const response = await apiClient.get<Skill>(
+      `${SKILL_ENDPOINTS.GET_MY_SKILLS}/${skillId}`
+    );
+    return response.data;
   },
 
   /**
@@ -183,16 +166,10 @@ const skillsService = {
     page = 1,
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
-    try {
-      const response = await apiClient.get<PaginatedResponse<Skill>>(
-        SKILL_ENDPOINTS.SEARCH_USER_SKILLS,
-        { params: { query, page, pageSize } }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('User skill search failed:', error);
-      throw new Error('Benutzer-Skill-Suche fehlgeschlagen.');
-    }
+    const response = await apiClient.get<PaginatedResponse<Skill>>(
+      `${SKILL_ENDPOINTS.GET_MY_SKILLS}?searchTerm=${query}&page=${page}&pageSize=${pageSize}`
+    );
+    return response.data;
   },
 
   /**

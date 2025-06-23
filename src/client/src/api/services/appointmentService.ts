@@ -16,7 +16,7 @@ const appointmentService = {
    */
   getAppointments: async (): Promise<Appointment[]> => {
     const response = await apiClient.get<Appointment[]>(
-      APPOINTMENT_ENDPOINTS.GET_ALL
+      APPOINTMENT_ENDPOINTS.GET_MY
     );
     return response.data;
   },
@@ -58,10 +58,11 @@ const appointmentService = {
     appointmentId: string,
     status: AppointmentStatus
   ): Promise<AppointmentResponse> => {
-    const response = await apiClient.post<AppointmentResponse>(
-      APPOINTMENT_ENDPOINTS.RESPOND,
-      { appointmentId, status }
-    );
+    const endpoint =
+      status === AppointmentStatus.Confirmed
+        ? `${APPOINTMENT_ENDPOINTS.ACCEPT}/${appointmentId}/accept`
+        : `${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`;
+    const response = await apiClient.post<AppointmentResponse>(endpoint);
     return response.data;
   },
 
@@ -74,7 +75,7 @@ const appointmentService = {
     appointmentId: string
   ): Promise<AppointmentResponse> => {
     const response = await apiClient.post<AppointmentResponse>(
-      `${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}`
+      `${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`
     );
     return response.data;
   },
@@ -88,7 +89,7 @@ const appointmentService = {
     appointmentId: string
   ): Promise<AppointmentResponse> => {
     const response = await apiClient.post<AppointmentResponse>(
-      `${APPOINTMENT_ENDPOINTS.COMPLETE}/${appointmentId}`
+      `${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/complete`
     );
     return response.data;
   },
