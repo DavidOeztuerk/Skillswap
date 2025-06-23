@@ -6,6 +6,8 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
+using Contracts.Users;
+using Infrastructure.Services;
 using SkillService.Application.Queries;
 using System.Text.Json;
 
@@ -17,13 +19,15 @@ namespace SkillService.Application.QueryHandlers;
 
 public class GetSkillRecommendationsQueryHandler(
     SkillDbContext dbContext,
-    ILogger<GetSkillRecommendationsQueryHandler> logger) 
+    IUserLookupService userLookup,
+    ILogger<GetSkillRecommendationsQueryHandler> logger)
     : BaseQueryHandler<
     GetSkillRecommendationsQuery,
     List<SkillRecommendationResponse>>(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
+    private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<List<SkillRecommendationResponse>>> Handle(
         GetSkillRecommendationsQuery request,
@@ -143,10 +147,11 @@ public class GetSkillRecommendationsQueryHandler(
 
                 if (compatibilityScore > 0.2) // Minimum threshold
                 {
+                    var owner = await _userLookup.GetUserAsync(skill.UserId, cancellationToken);
                     recommendations.Add(new SkillRecommendationResponse(
                         skill.Id,
                         skill.UserId,
-                        "User Name", // TODO: Get from UserService
+                        owner?.FullName ?? string.Empty,
                         skill.Name,
                         skill.Description,
                         new SkillCategoryResponse(

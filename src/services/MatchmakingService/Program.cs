@@ -12,6 +12,8 @@ using MatchmakingService.Application.Queries;
 using MediatR;
 using MatchmakingService;
 using MatchmakingService.Consumer;
+using Infrastructure.Services;
+using Contracts.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +35,14 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
 
 // Add shared infrastructure
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
+
+builder.Services.AddMemoryCache();
+
+var userServiceUrl = Environment.GetEnvironmentVariable("USERSERVICE_URL") ?? "http://userservice:5001";
+builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
+{
+    client.BaseAddress = new Uri(userServiceUrl);
+});
 
 // Add database
 builder.Services.AddDbContext<MatchmakingDbContext>(options =>
