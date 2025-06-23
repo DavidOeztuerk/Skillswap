@@ -4,6 +4,7 @@ using CQRS.Handlers;
 using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Events;
+using EventSourcing;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -14,15 +15,15 @@ namespace SkillService.Application.CommandHandlers;
 public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, UpdateSkillResponse>
 {
     private readonly SkillDbContext _dbContext;
-    private readonly IPublisher _publisher;
+    private readonly IDomainEventPublisher _eventPublisher;
 
     public UpdateSkillCommandHandler(
         SkillDbContext dbContext,
-        IPublisher publisher,
+        IDomainEventPublisher eventPublisher,
         ILogger<UpdateSkillCommandHandler> logger) : base(logger)
     {
         _dbContext = dbContext;
-        _publisher = publisher;
+        _eventPublisher = eventPublisher;
     }
 
     public override async Task<ApiResponse<UpdateSkillResponse>> Handle(
@@ -170,7 +171,7 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new SkillUpdatedDomainEvent(
+            await _eventPublisher.Publish(new SkillUpdatedDomainEvent(
                 skill.Id,
                 skill.UserId,
                 skill.Name,

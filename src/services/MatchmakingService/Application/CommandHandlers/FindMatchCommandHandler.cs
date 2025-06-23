@@ -5,17 +5,18 @@ using MatchmakingService.Domain.Entities;
 using MatchmakingService.Domain.Events;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using EventSourcing;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
 public class FindMatchCommandHandler(
     MatchmakingDbContext dbContext,
-    IPublisher publisher,
+    IDomainEventPublisher eventPublisher,
     ILogger<FindMatchCommandHandler> logger)
     : BaseCommandHandler<FindMatchCommand, FindMatchResponse>(logger)
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<FindMatchResponse>> Handle(
         FindMatchCommand request,
@@ -58,7 +59,7 @@ public class FindMatchCommandHandler(
                 await _dbContext.SaveChangesAsync(cancellationToken);
 
                 // Publish domain event
-                await _publisher.Publish(new MatchCreatedDomainEvent(
+                await _eventPublisher.Publish(new MatchCreatedDomainEvent(
                     match.Id,
                     match.OfferedSkillId,
                     match.RequestedSkillId,

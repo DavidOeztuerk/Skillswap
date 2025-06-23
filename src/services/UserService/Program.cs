@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using Infrastructure.Extensions;
 using Infrastructure.Security;
 using Infrastructure.Middleware;
+using EventSourcing;
 using CQRS.Extensions;
 using UserService.Application.Commands;
 using UserService.Application.Queries;
@@ -61,6 +62,10 @@ builder.Services.AddDbContext<UserDbContext>(options =>
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     options.EnableDetailedErrors(builder.Environment.IsDevelopment());
 });
+
+// Event sourcing setup
+builder.Services.AddEventSourcing("UserServiceEventStore");
+builder.Services.AddScoped<EventReplayService>();
 
 // ============================================================================
 // CQRS & MEDIATR SETUP
@@ -482,6 +487,15 @@ app.MapGet("/users/{userId}/roles", async (IMediator mediator, string userId) =>
 .WithTags("User Management")
 .RequireAuthorization()
 .Produces<UserRolesResponse>(200);
+
+app.MapPost("/events/replay", async (EventReplayService replayService) =>
+{
+    await replayService.ReplayAsync();
+    return Results.Ok();
+})
+.WithName("ReplayEvents")
+.WithSummary("Replay domain events")
+.WithTags("Events");
 
 // ============================================================================
 // HEALTH CHECK ENDPOINTS

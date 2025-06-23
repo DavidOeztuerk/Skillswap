@@ -5,6 +5,7 @@ using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
 using SkillService.Domain.Events;
+using EventSourcing;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -15,15 +16,15 @@ namespace SkillService.Application.CommandHandlers;
 public class EndorseSkillCommandHandler : BaseCommandHandler<EndorseSkillCommand, EndorseSkillResponse>
 {
     private readonly SkillDbContext _dbContext;
-    private readonly IPublisher _publisher;
+    private readonly IDomainEventPublisher _eventPublisher;
 
     public EndorseSkillCommandHandler(
         SkillDbContext dbContext,
-        IPublisher publisher,
+        IDomainEventPublisher eventPublisher,
         ILogger<EndorseSkillCommandHandler> logger) : base(logger)
     {
         _dbContext = dbContext;
-        _publisher = publisher;
+        _eventPublisher = eventPublisher;
     }
 
     public override async Task<ApiResponse<EndorseSkillResponse>> Handle(
@@ -73,7 +74,7 @@ public class EndorseSkillCommandHandler : BaseCommandHandler<EndorseSkillCommand
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new SkillEndorsedDomainEvent(
+            await _eventPublisher.Publish(new SkillEndorsedDomainEvent(
                 request.SkillId,
                 request.EndorsedUserId,
                 request.UserId!,

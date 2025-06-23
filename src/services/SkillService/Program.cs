@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Infrastructure.Extensions;
+using EventSourcing;
 using Infrastructure.Security;
 using Infrastructure.Middleware;
 using CQRS.Extensions;
@@ -69,6 +70,9 @@ builder.Services.AddDbContext<SkillDbContext>(options =>
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     options.EnableDetailedErrors(builder.Environment.IsDevelopment());
 });
+
+// Event sourcing setup
+builder.Services.AddEventSourcing("SkillServiceEventStore");
 
 // ============================================================================
 // CQRS & MEDIATR SETUP
