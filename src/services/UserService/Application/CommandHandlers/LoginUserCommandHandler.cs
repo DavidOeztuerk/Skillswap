@@ -16,12 +16,14 @@ namespace UserService.Application.CommandHandlers;
 public class LoginUserCommandHandler(
     UserDbContext dbContext,
     IEnhancedJwtService jwtService,
+    ITotpService totpService,
     IPublisher publisher,
-    ILogger<LoginUserCommandHandler> logger) 
+    ILogger<LoginUserCommandHandler> logger)
     : BaseCommandHandler<LoginUserCommand, LoginUserResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
     private readonly IEnhancedJwtService _jwtService = jwtService;
+    private readonly ITotpService _totpService = totpService;
     private readonly IPublisher _publisher = publisher;
 
     public override async Task<ApiResponse<LoginUserResponse>> Handle(
@@ -57,6 +59,39 @@ public class LoginUserCommandHandler(
             if (user.AccountStatus == "Inactive")
             {
                 return Error("Your account is inactive. Please contact support.");
+            }
+
+            var requiresTwoFactor = user.TwoFactorEnabled && !string.IsNullOrEmpty(user.TwoFactorSecret);
+
+            if (requiresTwoFactor)
+            {
+                if (string.IsNullOrWhiteSpace(request.TwoFactorCode))
+                {
+                    var profileOnly = new UserProfileData(
+                        user.Id,
+                        user.Email,
+                        user.FirstName,
+                        user.LastName,
+                        user.UserRoles.Select(ur => ur.Role).ToList(),
+                        user.EmailVerified,
+                        user.AccountStatus,
+                        user.CreatedAt,
+                        user.LastLoginAt);
+
+                    return Success(new LoginUserResponse(
+                        user.Id,
+                        null,
+                        profileOnly,
+                        !user.EmailVerified,
+                        true,
+                        user.LastLoginAt ?? DateTime.UtcNow),
+                        "Two-factor authentication required");
+                }
+
+                if (!_totpService.VerifyCode(user.TwoFactorSecret!, request.TwoFactorCode))
+                {
+                    return Error("Invalid two-factor authentication code");
+                }
             }
 
             // Update last login
@@ -113,7 +148,7 @@ public class LoginUserCommandHandler(
                 tokens,
                 profileData,
                 !user.EmailVerified,
-                false, // TODO: Implement 2FA
+                false,
                 user.LastLoginAt ?? DateTime.UtcNow);
 
             return Success(response, "Login successful");
