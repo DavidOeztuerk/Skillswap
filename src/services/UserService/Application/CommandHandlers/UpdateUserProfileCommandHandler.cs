@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
+using EventSourcing;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -13,12 +14,12 @@ namespace UserService.Application.CommandHandlers;
 
 public class UpdateUserProfileCommandHandler(
     UserDbContext dbContext,
-    IPublisher publisher,
+    IDomainEventPublisher eventPublisher,
     ILogger<UpdateUserProfileCommandHandler> logger)
     : BaseCommandHandler<UpdateUserProfileCommand, UpdateUserProfileResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<UpdateUserProfileResponse>> Handle(UpdateUserProfileCommand request, CancellationToken cancellationToken)
     {
@@ -42,7 +43,7 @@ public class UpdateUserProfileCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new UserProfileUpdatedDomainEvent(
+            await _eventPublisher.Publish(new UserProfileUpdatedDomainEvent(
                 user.Id,
                 user.Email,
                 new Dictionary<string, string>

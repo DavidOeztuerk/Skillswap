@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
+using EventSourcing;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -13,12 +14,12 @@ namespace UserService.Application.CommandHandlers;
 
 public class VerifyEmailCommandHandler(
     UserDbContext dbContext,
-    IPublisher publisher,
-    ILogger<VerifyEmailCommandHandler> logger) 
+    IDomainEventPublisher eventPublisher,
+    ILogger<VerifyEmailCommandHandler> logger)
     : BaseCommandHandler<VerifyEmailCommand, VerifyEmailResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<VerifyEmailResponse>> Handle(
         VerifyEmailCommand request, 
@@ -50,7 +51,7 @@ public class VerifyEmailCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new EmailVerifiedDomainEvent(
+            await _eventPublisher.Publish(new EmailVerifiedDomainEvent(
                 user.Id,
                 user.Email), cancellationToken);
 

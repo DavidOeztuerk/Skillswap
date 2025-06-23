@@ -4,6 +4,7 @@ using Events;
 using Infrastructure.Models;
 using Infrastructure.Security;
 using MediatR;
+using EventSourcing;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
@@ -18,13 +19,13 @@ namespace UserService.Application.CommandHandlers;
 public class RegisterUserCommandHandler(
     UserDbContext dbContext,
     IEnhancedJwtService jwtService,
-    IPublisher publisher,
+    IDomainEventPublisher eventPublisher,
     ILogger<RegisterUserCommandHandler> logger)
     : BaseCommandHandler<RegisterUserCommand, RegisterUserResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
     private readonly IEnhancedJwtService _jwtService = jwtService;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<RegisterUserResponse>> Handle(
         RegisterUserCommand request,
@@ -95,13 +96,13 @@ public class RegisterUserCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new UserRegisteredEvent(
+            await _eventPublisher.Publish(new UserRegisteredEvent(
                 user.Email,
                 user.FirstName,
                 user.LastName), cancellationToken);
 
             // Publish verification email event
-            await _publisher.Publish(new EmailVerificationRequestedDomainEvent(
+            await _eventPublisher.Publish(new EmailVerificationRequestedDomainEvent(
                 user.Id,
                 user.Email,
                 user.EmailVerificationToken!,
