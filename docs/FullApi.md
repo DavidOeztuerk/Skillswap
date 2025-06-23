@@ -44,7 +44,8 @@ Authorization: Bearer {token}
 ```json
 {
   "email": "john@example.com",
-  "password": "SecurePassword123!"
+  "password": "SecurePassword123!",
+  "twoFactorCode": "123456"
 }
 ```
 
@@ -65,6 +66,24 @@ Authorization: Bearer {token}
 ```json
 {
   "token": "verification_token_here"
+}
+```
+
+#### **POST** `/users/2fa/generate` 🔒
+
+**Beschreibung:** Erstellt ein 2FA-Geheimnis
+
+```json
+{}
+```
+
+#### **POST** `/users/2fa/verify` 🔒
+
+**Beschreibung:** Überprüft einen TOTP-Code und aktiviert 2FA
+
+```json
+{
+  "code": "123456"
 }
 ```
 

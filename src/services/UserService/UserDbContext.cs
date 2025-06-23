@@ -103,6 +103,9 @@ public class UserDbContext(
             entity.Property(e => e.TwoFactorEnabled)
                 .HasDefaultValue(false);
 
+            entity.Property(e => e.TwoFactorSecret)
+                .HasMaxLength(100);
+
             entity.Property(e => e.FailedLoginAttempts)
                 .HasDefaultValue(0);
 

@@ -41,6 +41,9 @@ public class User : AuditableEntity
     public bool PhoneVerified { get; set; } = false;
     public bool TwoFactorEnabled { get; set; } = false;
 
+    [MaxLength(100)]
+    public string? TwoFactorSecret { get; set; }
+
     // Email verification
     [MaxLength(100)]
     public string? EmailVerificationToken { get; set; }
