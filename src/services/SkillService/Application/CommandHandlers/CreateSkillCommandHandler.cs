@@ -6,6 +6,7 @@ using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
 using Events;
 using SkillService.Domain.Events;
+using EventSourcing;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -16,14 +17,17 @@ namespace SkillService.Application.CommandHandlers;
 public class CreateSkillCommandHandler : BaseCommandHandler<CreateSkillCommand, CreateSkillResponse>
 {
     private readonly SkillDbContext _dbContext;
+    private readonly IDomainEventPublisher _eventPublisher;
     private readonly IPublisher _publisher;
 
     public CreateSkillCommandHandler(
         SkillDbContext dbContext,
+        IDomainEventPublisher eventPublisher,
         IPublisher publisher,
         ILogger<CreateSkillCommandHandler> logger) : base(logger)
     {
         _dbContext = dbContext;
+        _eventPublisher = eventPublisher;
         _publisher = publisher;
     }
 
@@ -91,7 +95,7 @@ public class CreateSkillCommandHandler : BaseCommandHandler<CreateSkillCommand, 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new SkillCreatedDomainEvent(
+            await _eventPublisher.Publish(new SkillCreatedDomainEvent(
                 skill.Id,
                 skill.UserId,
                 skill.Name,

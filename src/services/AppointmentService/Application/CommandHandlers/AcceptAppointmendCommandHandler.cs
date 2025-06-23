@@ -6,17 +6,18 @@ using CQRS.Handlers;
 using Infrastructure.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using EventSourcing;
 
 namespace AppointmentService.Application.CommandHandlers;
 
 public class CreateAppointmentCommandHandler(
     AppointmentDbContext dbContext,
-    IPublisher publisher,
+    IDomainEventPublisher eventPublisher,
     ILogger<CreateAppointmentCommandHandler> logger)
     : BaseCommandHandler<CreateAppointmentCommand, CreateAppointmentResponse>(logger)
 {
     private readonly AppointmentDbContext _dbContext = dbContext;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<CreateAppointmentResponse>> Handle(
         CreateAppointmentCommand request,
@@ -58,7 +59,7 @@ public class CreateAppointmentCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new AppointmentCreatedDomainEvent(
+            await _eventPublisher.Publish(new AppointmentCreatedDomainEvent(
                 appointment.Id,
                 appointment.OrganizerUserId,
                 appointment.ParticipantUserId,
@@ -87,12 +88,12 @@ public class CreateAppointmentCommandHandler(
 // Application/CommandHandlers/AcceptAppointmentCommandHandler.cs
 public class AcceptAppointmentCommandHandler(
     AppointmentDbContext dbContext,
-    IPublisher publisher,
+    IDomainEventPublisher eventPublisher,
     ILogger<AcceptAppointmentCommandHandler> logger)
     : BaseCommandHandler<AcceptAppointmentCommand, AcceptAppointmentResponse>(logger)
 {
     private readonly AppointmentDbContext _dbContext = dbContext;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<AcceptAppointmentResponse>> Handle(
         AcceptAppointmentCommand request,
@@ -122,7 +123,7 @@ public class AcceptAppointmentCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new AppointmentAcceptedDomainEvent(
+            await _eventPublisher.Publish(new AppointmentAcceptedDomainEvent(
                 appointment.Id,
                 appointment.OrganizerUserId,
                 appointment.ParticipantUserId,
