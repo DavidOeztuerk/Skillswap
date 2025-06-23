@@ -1,6 +1,5 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VideocallService.Application.Commands;
 using VideocallService.Domain.Entities;

@@ -71,14 +71,14 @@ export const useSkills = () => {
   // --------------------------------------------------
   const getSkills = useCallback(
     (page?: number, pageSize?: number) => {
-      dispatch(fetchSkills({ page, pageSize }));
+      dispatch(fetchSkills({ page: page ?? 1, pageSize: pageSize ?? 10 }));
     },
     [dispatch]
   );
 
   const getUserSkillsCb = useCallback(
     (page?: number, pageSize?: number) => {
-      dispatch(fetchUserSkills({ page, pageSize }));
+      dispatch(fetchUserSkills({ query: '', page: page ?? 1, pageSize: pageSize ?? 10 }));
     },
     [dispatch]
   );
@@ -100,7 +100,7 @@ export const useSkills = () => {
   const searchAllSkills = useCallback(
     (query: string, page?: number, pageSize?: number) => {
       dispatch(setSearchQuery(query));
-      dispatch(searchSkills({ query, page, pageSize }));
+      dispatch(searchSkills({ query, page: page ?? 1, pageSize: pageSize ?? 10 }));
     },
     [dispatch]
   );
@@ -108,7 +108,7 @@ export const useSkills = () => {
   const searchMySkills = useCallback(
     (query: string, page?: number, pageSize?: number) => {
       dispatch(setSearchQuery(query));
-      dispatch(searchUserSkills({ query, page, pageSize }));
+      dispatch(searchUserSkills({ query, page: page ?? 1, pageSize: pageSize ?? 10 }));
     },
     [dispatch]
   );

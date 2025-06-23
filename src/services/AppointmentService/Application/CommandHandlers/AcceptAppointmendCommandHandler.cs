@@ -1,12 +1,10 @@
-using System;
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
 using AppointmentService.Domain.Events;
 using CQRS.Handlers;
-using Infrastructure.Models;
-using MediatR;
-using Microsoft.EntityFrameworkCore;
 using EventSourcing;
+using Infrastructure.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace AppointmentService.Application.CommandHandlers;
 
@@ -27,7 +25,7 @@ public class CreateAppointmentCommandHandler(
         {
             // Check for scheduling conflicts
             var hasConflict = await _dbContext.Appointments
-                .AnyAsync(a => 
+                .AnyAsync(a =>
                     (a.OrganizerUserId == request.UserId || a.ParticipantUserId == request.UserId ||
                      a.OrganizerUserId == request.ParticipantUserId || a.ParticipantUserId == request.ParticipantUserId) &&
                     a.Status != AppointmentStatus.Cancelled &&
