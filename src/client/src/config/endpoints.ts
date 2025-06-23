@@ -13,8 +13,11 @@ export const AUTH_ENDPOINTS = {
   LOGIN: '/api/users/login',
   REGISTER: '/api/users/register',
   PROFILE: '/api/users/profile',
+  VERIFY_EMAIL: '/api/users/verify-email',
+  GENERATE_2FA: '/api/users/2fa/generate',
+  VERIFY_2FA: '/api/users/2fa/verify',
   CHANGE_PASSWORD: '/api/users/change-password',
-  FORGOT_PASSWORD: '/api/users/forgot-password',
+  FORGOT_PASSWORD: '/api/users/request-password-reset',
   RESET_PASSWORD: '/api/users/reset-password',
   REFRESH_TOKEN: '/api/users/refresh-token'
 };
@@ -24,14 +27,18 @@ export const AUTH_ENDPOINTS = {
  */
 export const SKILL_ENDPOINTS = {
   GET_SKILLS: '/api/skills',
-  GET_USER_SKILLS: '/api/user/skills',
-  SEARCH_SKILLS: '/api/skills/search',
-  SEARCH_USER_SKILLS: '/api/user/skills/search',
+  GET_MY_SKILLS: '/api/my/skills',
+  GET_USER_SKILLS: '/api/users', // + /{userId}/skills
   CREATE_SKILL: '/api/skills',
   UPDATE_SKILL: '/api/skills',
   DELETE_SKILL: '/api/skills',
+  RATE_SKILL: '/api/skills', // + /{skillId}/rate
+  ENDORSE_SKILL: '/api/skills', // + /{skillId}/endorse
   CATEGORIES: '/api/categories',
-  PROFICIENCY_LEVELS: '/api/proficiencylevels',
+  PROFICIENCY_LEVELS: '/api/proficiency-levels',
+  ANALYTICS_STATS: '/api/skills/analytics/statistics',
+  ANALYTICS_TAGS: '/api/skills/analytics/popular-tags',
+  RECOMMENDATIONS: '/api/skills/recommendations',
 };
 
 /**
@@ -39,38 +46,44 @@ export const SKILL_ENDPOINTS = {
  */
 export const MATCHMAKING_ENDPOINTS = {
   FIND_MATCH: '/api/matches/find',
-  GET_MATCH: '/api/matches', // + /{matchSessionId}
-  ACCEPT_MATCH: '/api/matches/accept', // + /{matchSessionId}
-  REJECT_MATCH: '/api/matches/reject', // + /{matchSessionId}
-  GET_USER_MATCHES: '/api/matches',
+  GET_MATCH: '/api/matches', // + /{matchId}
+  ACCEPT_MATCH: '/api/matches', // + /{matchId}/accept
+  REJECT_MATCH: '/api/matches', // + /{matchId}/reject
+  GET_MY_MATCHES: '/api/my/matches',
+  STATISTICS: '/api/matches/statistics',
 };
 
 /**
  * Termin-Endpunkte
  */
 export const APPOINTMENT_ENDPOINTS = {
-  CREATE: '/api/appointments/create',
-  GET_ALL: '/api/appointments',
-  RESPOND: '/api/appointments/respond',
+  CREATE: '/api/appointments',
+  GET_MY: '/api/my/appointments',
   GET_SINGLE: '/api/appointments', // + /{appointmentId}
-  CANCEL: '/api/appointments/cancel', // + /{appointmentId}
-  COMPLETE: '/api/appointments/complete', // + /{appointmentId}
+  ACCEPT: '/api/appointments', // + /{appointmentId}/accept
+  CANCEL: '/api/appointments', // + /{appointmentId}/cancel
 };
 
 /**
  * Videoanruf-Endpunkte
  */
 export const VIDEOCALL_ENDPOINTS = {
-  CONFIG: '/api/videocall', // mit appointmentId als Query-Parameter
-  END_CALL: '/api/videocall', // POST mit roomId im Body
-  SIGNALING: '/api/videocall/hub', // SignalR-Hub
+  CREATE: '/api/calls/create',
+  JOIN: '/api/calls', // + /{sessionId}/join
+  LEAVE: '/api/calls', // + /{sessionId}/leave
+  START: '/api/calls', // + /{sessionId}/start
+  END_CALL: '/api/calls', // + /{sessionId}/end
+  DETAILS: '/api/calls', // + /{sessionId}
+  MY_CALLS: '/api/my/calls',
+  STATISTICS: '/api/calls/statistics',
+  SIGNALING: '/api/videocall',
 };
 
 /**
  * Benutzerprofilendpunkte
  */
 export const PROFILE_ENDPOINTS = {
-  UPDATE: '/api/users/profile/update',
+  UPDATE: '/api/users/profile',
   UPLOAD_AVATAR: '/api/users/profile/avatar',
   GET_USER: '/api/users', // + /{userId}
   FEEDBACK: '/api/users/feedback',
