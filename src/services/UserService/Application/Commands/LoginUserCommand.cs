@@ -12,7 +12,8 @@ public record LoginUserCommand(
     string Email,
     string Password,
     string? DeviceInfo = null,
-    string? IpAddress = null) 
+    string? IpAddress = null,
+    string? TwoFactorCode = null)
     : ICommand<LoginUserResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
@@ -21,7 +22,7 @@ public record LoginUserCommand(
 
 public record LoginUserResponse(
     string UserId,
-    TokenResult Tokens,
+    TokenResult? Tokens,
     UserProfileData Profile,
     bool RequiresEmailVerification,
     bool RequiresTwoFactor,
@@ -52,5 +53,9 @@ public class LoginUserCommandValidator : AbstractValidator<LoginUserCommand>
         RuleFor(x => x.DeviceInfo)
             .MaximumLength(500).WithMessage("Device info must not exceed 500 characters")
             .When(x => !string.IsNullOrEmpty(x.DeviceInfo));
+
+        RuleFor(x => x.TwoFactorCode)
+            .Matches("^\\d{6}$").WithMessage("Two factor code must be 6 digits")
+            .When(x => !string.IsNullOrEmpty(x.TwoFactorCode));
     }
 }

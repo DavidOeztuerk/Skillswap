@@ -110,6 +110,7 @@ builder.Services.Configure<JwtSettings>(options =>
 
 // Register enhanced JWT service
 builder.Services.AddScoped<IEnhancedJwtService, EnhancedJwtService>();
+builder.Services.AddSingleton<ITotpService, TotpService>();
 
 // Configure JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -309,6 +310,37 @@ app.MapPost("/verify-email", async (IMediator mediator, VerifyEmailCommand comma
 .WithDescription("Verifies user's email address using verification token")
 .WithTags("Authentication")
 .Produces<VerifyEmailResponse>(200)
+.Produces(400);
+
+app.MapPost("/2fa/generate", async (IMediator mediator, HttpContext context) =>
+{
+    var userId = ExtractUserIdFromContext(context);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var cmd = new GenerateTwoFactorSecretCommand(userId);
+    return await mediator.SendCommand(cmd);
+})
+.WithName("GenerateTwoFactorSecret")
+.WithSummary("Generate 2FA secret")
+.WithDescription("Generates a secret key for two-factor authentication")
+.WithTags("Authentication")
+.RequireAuthorization()
+.Produces<GenerateTwoFactorSecretResponse>(200);
+
+app.MapPost("/2fa/verify", async (IMediator mediator, HttpContext context, VerifyTwoFactorCodeCommand command) =>
+{
+    var userId = ExtractUserIdFromContext(context);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updated = command with { UserId = userId };
+    return await mediator.SendCommand(updated);
+})
+.WithName("VerifyTwoFactorCode")
+.WithSummary("Verify 2FA code")
+.WithDescription("Verifies a TOTP code and enables two-factor authentication")
+.WithTags("Authentication")
+.RequireAuthorization()
+.Produces<VerifyTwoFactorCodeResponse>(200)
 .Produces(400);
 
 // ============================================================================
