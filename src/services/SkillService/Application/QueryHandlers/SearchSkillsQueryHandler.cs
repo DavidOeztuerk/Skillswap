@@ -5,6 +5,8 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
+using Contracts.Users;
+using Infrastructure.Services;
 using SkillService.Application.Queries;
 using System.Text.Json;
 
@@ -16,6 +18,7 @@ namespace SkillService.Application.QueryHandlers;
 
 public class SearchSkillsQueryHandler(
     SkillDbContext dbContext,
+    IUserLookupService userLookup,
     ILogger<SearchSkillsQueryHandler> logger)
     : BasePagedQueryHandler<
     SearchSkillsQuery,
@@ -23,6 +26,7 @@ public class SearchSkillsQueryHandler(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
+    private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<PagedResponse<SkillSearchResultResponse>> Handle(
         SearchSkillsQuery request,
@@ -107,35 +111,79 @@ public class SearchSkillsQueryHandler(
 
             var totalRecords = await query.CountAsync(cancellationToken);
 
-            var skills = await query
+            var rawSkills = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(s => new SkillSearchResultResponse(
+                .Select(s => new
+                {
                     s.Id,
                     s.UserId,
-                    "User Name", // TODO: Get from UserService
                     s.Name,
                     s.Description,
                     s.IsOffering,
-                    new SkillCategoryResponse(
+                    Category = new
+                    {
                         s.SkillCategory.Id,
                         s.SkillCategory.Name,
                         s.SkillCategory.Description,
                         s.SkillCategory.IconName,
                         s.SkillCategory.Color,
                         s.SkillCategory.SortOrder,
-                        null,
                         s.SkillCategory.IsActive,
-                        s.SkillCategory.CreatedAt),
-                    new ProficiencyLevelResponse(
+                        s.SkillCategory.CreatedAt
+                    },
+                    Proficiency = new
+                    {
                         s.ProficiencyLevel.Id,
                         s.ProficiencyLevel.Level,
                         s.ProficiencyLevel.Description,
                         s.ProficiencyLevel.Rank,
                         s.ProficiencyLevel.Color,
-                        null,
                         s.ProficiencyLevel.IsActive,
-                        s.ProficiencyLevel.CreatedAt),
+                        s.ProficiencyLevel.CreatedAt
+                    },
+                    s.TagsJson,
+                    s.AverageRating,
+                    s.ReviewCount,
+                    s.EndorsementCount,
+                    s.Location,
+                    s.IsRemoteAvailable,
+                    s.EstimatedDurationMinutes,
+                    s.CreatedAt,
+                    s.LastViewedAt
+                })
+                .ToListAsync(cancellationToken);
+
+            var skills = new List<SkillSearchResultResponse>();
+            foreach (var s in rawSkills)
+            {
+                var user = await _userLookup.GetUserAsync(s.UserId, cancellationToken);
+                skills.Add(new SkillSearchResultResponse(
+                    s.Id,
+                    s.UserId,
+                    user?.FullName ?? string.Empty,
+                    s.Name,
+                    s.Description,
+                    s.IsOffering,
+                    new SkillCategoryResponse(
+                        s.Category.Id,
+                        s.Category.Name,
+                        s.Category.Description,
+                        s.Category.IconName,
+                        s.Category.Color,
+                        s.Category.SortOrder,
+                        null,
+                        s.Category.IsActive,
+                        s.Category.CreatedAt),
+                    new ProficiencyLevelResponse(
+                        s.Proficiency.Id,
+                        s.Proficiency.Level,
+                        s.Proficiency.Description,
+                        s.Proficiency.Rank,
+                        s.Proficiency.Color,
+                        null,
+                        s.Proficiency.IsActive,
+                        s.Proficiency.CreatedAt),
                     s.TagsJson ?? string.Empty,
                     s.AverageRating,
                     s.ReviewCount,
@@ -144,8 +192,8 @@ public class SearchSkillsQueryHandler(
                     s.IsRemoteAvailable,
                     s.EstimatedDurationMinutes,
                     s.CreatedAt,
-                    s.LastViewedAt))
-                .ToListAsync(cancellationToken);
+                    s.LastViewedAt));
+            }
 
             return Success(skills, request.PageNumber, request.PageSize, totalRecords);
         }
