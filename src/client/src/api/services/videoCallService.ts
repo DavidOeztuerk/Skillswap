@@ -25,14 +25,13 @@ const videoCallService = {
 
   /**
    * Beendet einen Videoanruf
-   * @param roomId - ID des Anrufraums
+   * @param sessionId - ID des Anrufraums
    * @returns Erfolg-/Fehlermeldung
    */
-  endCall: async (roomId: string): Promise<void> => {
-    const response = await apiClient.post<void>(VIDEOCALL_ENDPOINTS.END_CALL, {
-      roomId,
-      action: 'end',
-    });
+  endCall: async (sessionId: string): Promise<void> => {
+    const response = await apiClient.post<void>(
+      `${VIDEOCALL_ENDPOINTS.END_CALL}/${sessionId}/end`
+    );
     return response.data;
   },
 
@@ -47,9 +46,8 @@ const videoCallService = {
     durationInSeconds: number
   ): Promise<void> => {
     const response = await apiClient.post<void>(
-      `${VIDEOCALL_ENDPOINTS.CONFIG}/info`,
+      `${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/info`,
       {
-        roomId,
         durationInSeconds,
       }
     );
@@ -64,9 +62,8 @@ const videoCallService = {
    */
   reportIssue: async (roomId: string, issue: string): Promise<void> => {
     const response = await apiClient.post<void>(
-      `${VIDEOCALL_ENDPOINTS.CONFIG}/report`,
+      `${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/report`,
       {
-        roomId,
         issue,
       }
     );

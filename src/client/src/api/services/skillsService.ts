@@ -45,7 +45,7 @@ const SkillService = {
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
     const response = await apiClient.get<PaginatedResponse<Skill>>(
-      `${SKILL_ENDPOINTS.SEARCH_SKILLS}?query=${query}&page=${page}&pageSize=${pageSize}`
+      `${SKILL_ENDPOINTS.GET_SKILLS}?searchTerm=${query}&page=${page}&pageSize=${pageSize}`
     );
     return response.data;
   },
@@ -56,7 +56,7 @@ const SkillService = {
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
     const response = await apiClient.get<PaginatedResponse<Skill>>(
-      `${SKILL_ENDPOINTS.GET_USER_SKILLS}?page=${page}&pageSize=${pageSize}`
+      `${SKILL_ENDPOINTS.GET_MY_SKILLS}?page=${page}&pageSize=${pageSize}`
     );
     return response.data;
   },
@@ -64,7 +64,7 @@ const SkillService = {
   // GET /user/skills/{id}
   getUserSkillById: async (skillId: string): Promise<Skill> => {
     const response = await apiClient.get<Skill>(
-      `${SKILL_ENDPOINTS.GET_USER_SKILLS}/${skillId}`
+      `${SKILL_ENDPOINTS.GET_MY_SKILLS}/${skillId}`
     );
     return response.data;
   },
@@ -76,7 +76,7 @@ const SkillService = {
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
     const response = await apiClient.get<PaginatedResponse<Skill>>(
-      `${SKILL_ENDPOINTS.SEARCH_USER_SKILLS}?query=${query}&page=${page}&pageSize=${pageSize}`
+      `${SKILL_ENDPOINTS.GET_MY_SKILLS}?searchTerm=${query}&page=${page}&pageSize=${pageSize}`
     );
     return response.data;
   },
