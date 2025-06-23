@@ -17,6 +17,8 @@ using SkillService.Application.Commands;
 using SkillService.Application.Queries;
 using Contracts.Models;
 using Infrastructure.Models;
+using Infrastructure.Services;
+using Contracts.Users;
 using MediatR;
 using SkillService;
 using SkillService.Domain.Entities;
@@ -49,6 +51,12 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
 
 // Add shared infrastructure (logging, middleware, etc.)
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
+
+var userServiceUrl = Environment.GetEnvironmentVariable("USERSERVICE_URL") ?? "http://userservice:5001";
+builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
+{
+    client.BaseAddress = new Uri(userServiceUrl);
+});
 
 // ============================================================================
 // DATABASE SETUP
