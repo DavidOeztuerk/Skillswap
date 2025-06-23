@@ -1,7 +1,6 @@
 // src/api/services/authService.ts
 import { AUTH_ENDPOINTS, PROFILE_ENDPOINTS } from '../../config/endpoints';
 import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
-import { ApiResponse } from '../../types/common/ApiResponse';
 import {
   RegisterResponse,
   LoginResponse,
@@ -31,7 +30,7 @@ interface TokenRefreshApiResponse {
 }
 
 /**
- * Service für Authentifizierungs- und Benutzerverwaltungs-Operationen
+ * Enhanced Auth Service with improved error handling and type safety
  */
 const authService = {
   /**
@@ -40,27 +39,32 @@ const authService = {
    * @returns Authentifizierungsantwort mit Benutzer und Token
    */
   login: async (credentials: ExtendedLoginRequest): Promise<LoginResponse> => {
-    const response = await apiClient.post<ApiResponse<LoginResponse>>(
-      AUTH_ENDPOINTS.LOGIN,
-      {
-        email: credentials.email,
-        password: credentials.password,
+    try {
+      const response = await apiClient.post<LoginResponse>(
+        AUTH_ENDPOINTS.LOGIN,
+        {
+          email: credentials.email,
+          password: credentials.password,
+        }
+      );
+
+      const loginData = response.data;
+      const useSessionStorage = !credentials.rememberMe;
+
+      // Token und RefreshToken speichern
+      if (loginData.tokens?.accessToken) {
+        setToken(loginData.tokens.accessToken, useSessionStorage);
       }
-    );
 
-    const loginData = response.data.data;
-    const useSessionStorage = !credentials.rememberMe;
+      if (loginData.tokens?.refreshToken) {
+        setRefreshToken(loginData.tokens.refreshToken, useSessionStorage);
+      }
 
-    // Token und RefreshToken speichern
-    if (loginData.tokens.accessToken) {
-      setToken(loginData.tokens.accessToken, useSessionStorage);
+      return loginData;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw new Error('Login fehlgeschlagen. Bitte überprüfe deine Anmeldedaten.');
     }
-
-    if (loginData.tokens.refreshToken) {
-      setRefreshToken(loginData.tokens.refreshToken, useSessionStorage);
-    }
-
-    return loginData;
   },
 
   /**
@@ -69,23 +73,28 @@ const authService = {
    * @returns Authentifizierungsantwort mit Benutzer und Token
    */
   register: async (userData: RegisterRequest): Promise<RegisterResponse> => {
-    const response = await apiClient.post<ApiResponse<RegisterResponse>>(
-      AUTH_ENDPOINTS.REGISTER,
-      userData
-    );
+    try {
+      const response = await apiClient.post<RegisterResponse>(
+        AUTH_ENDPOINTS.REGISTER,
+        userData
+      );
 
-    const registerData = response.data.data;
+      const registerData = response.data;
 
-    // Token und RefreshToken speichern
-    if (registerData.tokens.accessToken) {
-      setToken(registerData.tokens.accessToken);
+      // Token und RefreshToken speichern
+      if (registerData.tokens?.accessToken) {
+        setToken(registerData.tokens.accessToken);
+      }
+
+      if (registerData.tokens?.refreshToken) {
+        setRefreshToken(registerData.tokens.refreshToken);
+      }
+
+      return registerData;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw new Error('Registrierung fehlgeschlagen. Bitte versuche es erneut.');
     }
-
-    if (registerData.tokens.refreshToken) {
-      setRefreshToken(registerData.tokens.refreshToken);
-    }
-
-    return registerData;
   },
 
   /**
@@ -101,14 +110,15 @@ const authService = {
     }
 
     try {
-      const response = await apiClient.post<
-        ApiResponse<TokenRefreshApiResponse>
-      >(AUTH_ENDPOINTS.REFRESH_TOKEN, {
-        token: currentToken,
-        refreshToken: currentRefreshToken,
-      });
+      const response = await apiClient.post<TokenRefreshApiResponse>(
+        AUTH_ENDPOINTS.REFRESH_TOKEN,
+        {
+          token: currentToken,
+          refreshToken: currentRefreshToken,
+        }
+      );
 
-      const tokenData = response.data.data;
+      const tokenData = response.data;
 
       // Neue Tokens speichern
       if (tokenData.token) {
@@ -121,7 +131,9 @@ const authService = {
 
       return tokenData;
     } catch (error) {
-      console.error('Fehler beim Token-Refresh:', error);
+      console.error('Token refresh failed:', error);
+      // Bei Token-Refresh-Fehler logout durchführen
+      await authService.logout();
       return null;
     }
   },
@@ -131,10 +143,13 @@ const authService = {
    * @returns Benutzerprofildaten
    */
   getProfile: async (): Promise<User> => {
-    const response = await apiClient.get<ApiResponse<User>>(
-      AUTH_ENDPOINTS.PROFILE
-    );
-    return response.data.data;
+    try {
+      const response = await apiClient.get<User>(AUTH_ENDPOINTS.PROFILE);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      throw new Error('Profil konnte nicht geladen werden.');
+    }
   },
 
   /**
@@ -143,29 +158,37 @@ const authService = {
    * @returns Aktualisierte Benutzerprofildaten
    */
   updateProfile: async (profileData: UpdateProfileRequest): Promise<User> => {
-    const response = await apiClient.post<ApiResponse<User>>(
-      PROFILE_ENDPOINTS.UPDATE,
-      profileData
-    );
-    return response.data.data;
+    try {
+      const response = await apiClient.post<User>(
+        PROFILE_ENDPOINTS.UPDATE,
+        profileData
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Profile update failed:', error);
+      throw new Error('Profil konnte nicht aktualisiert werden.');
+    }
   },
 
   /**
    * Lädt ein Profilbild hoch
-   * @param formData - FormData mit dem Profilbild
+   * @param file - Profilbild-Datei
    * @returns Aktualisierte Benutzerprofildaten
    */
-  uploadProfilePicture: async (formData: FormData): Promise<User> => {
-    const response = await apiClient.post<ApiResponse<User>>(
-      PROFILE_ENDPOINTS.UPLOAD_AVATAR,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-    return response.data.data;
+  uploadProfilePicture: async (file: File): Promise<User> => {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await apiClient.uploadFile<User>(
+        PROFILE_ENDPOINTS.UPLOAD_AVATAR,
+        formData
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Profile picture upload failed:', error);
+      throw new Error('Profilbild konnte nicht hochgeladen werden.');
+    }
   },
 
   /**
@@ -173,14 +196,13 @@ const authService = {
    * @param passwordData - Daten zur Passwortänderung
    * @returns Erfolg-/Fehlermeldung
    */
-  changePassword: async (
-    passwordData: ChangePasswordRequest
-  ): Promise<void> => {
-    await apiClient.post<ApiResponse<void>>(
-      AUTH_ENDPOINTS.CHANGE_PASSWORD,
-      passwordData
-    );
-    // Bei void-Responses geben wir nichts zurück
+  changePassword: async (passwordData: ChangePasswordRequest): Promise<void> => {
+    try {
+      await apiClient.post<void>(AUTH_ENDPOINTS.CHANGE_PASSWORD, passwordData);
+    } catch (error) {
+      console.error('Password change failed:', error);
+      throw new Error('Passwort konnte nicht geändert werden.');
+    }
   },
 
   /**
@@ -189,10 +211,12 @@ const authService = {
    * @returns Erfolg-/Fehlermeldung
    */
   forgotPassword: async (email: string): Promise<void> => {
-    await apiClient.post<ApiResponse<void>>(AUTH_ENDPOINTS.FORGOT_PASSWORD, {
-      email,
-    });
-    // Bei void-Responses geben wir nichts zurück
+    try {
+      await apiClient.post<void>(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email });
+    } catch (error) {
+      console.error('Forgot password request failed:', error);
+      throw new Error('Passwort-Reset-Anfrage fehlgeschlagen.');
+    }
   },
 
   /**
@@ -202,21 +226,87 @@ const authService = {
    * @returns Erfolg-/Fehlermeldung
    */
   resetPassword: async (token: string, password: string): Promise<void> => {
-    await apiClient.post<ApiResponse<void>>(AUTH_ENDPOINTS.RESET_PASSWORD, {
-      token,
-      password,
-    });
-    // Bei void-Responses geben wir nichts zurück
+    try {
+      await apiClient.post<void>(AUTH_ENDPOINTS.RESET_PASSWORD, {
+        token,
+        password,
+      });
+    } catch (error) {
+      console.error('Password reset failed:', error);
+      throw new Error('Passwort konnte nicht zurückgesetzt werden.');
+    }
   },
 
   /**
-   * Führt einen Logout durch (Client-seitig)
-   * Bei einem echten Backend würde hier auch das Token invalidiert werden
+   * Überprüft ob der Benutzer authentifiziert ist
+   * @returns true wenn authentifiziert
+   */
+  isAuthenticated: (): boolean => {
+    const token = getToken();
+    return !!token;
+  },
+
+  /**
+   * Überprüft die Token-Gültigkeit
+   * @returns true wenn Token gültig ist
+   */
+  validateToken: async (): Promise<boolean> => {
+    try {
+      await apiClient.get<User>(AUTH_ENDPOINTS.PROFILE);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * Führt einen Logout durch
    */
   logout: async (): Promise<void> => {
-    // Hier könnte man einen API-Call machen, um das Token serverseitig zu invalidieren
-    removeToken();
-    return Promise.resolve();
+    try {
+      // Clear cache when logging out
+      apiClient.clearCache();
+      
+      // Remove tokens
+      removeToken();
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Ensure tokens are removed even if logout request fails
+      removeToken();
+      return Promise.resolve();
+    }
+  },
+
+  /**
+   * Führt einen stillen Login durch (mit gespeicherten Tokens)
+   * @returns User-Daten wenn erfolgreich, null wenn fehlgeschlagen
+   */
+  silentLogin: async (): Promise<User | null> => {
+    try {
+      const token = getToken();
+      if (!token) {
+        return null;
+      }
+
+      // Validate current token by fetching profile
+      const user = await authService.getProfile();
+      return user;
+    } catch {
+      // Try to refresh token
+      const refreshResult = await authService.refreshToken();
+      if (refreshResult) {
+        try {
+          const user = await authService.getProfile();
+          return user;
+        } catch (profileError) {
+          console.error('Silent login failed:', profileError);
+          return null;
+        }
+      }
+      return null;
+    }
   },
 };
 

@@ -10,7 +10,6 @@ public class EventStoreDbContext(DbContextOptions<EventStoreDbContext> options) 
     {
         modelBuilder.Entity<StoredEvent>(entity =>
         {
-            entity.ToTable("EventStore");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.EventId).IsRequired();
             entity.Property(e => e.EventType).IsRequired();

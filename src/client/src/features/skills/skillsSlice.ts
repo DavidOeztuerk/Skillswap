@@ -23,17 +23,6 @@ import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRe
 -----------------------------------*/
 type RequestStatus = 'idle' | 'loading' | 'succeeded' | 'failed';
 
-/**
- * Beispiel einer Server-Paginierungsstruktur
- * (angepasst an das, was unsere API zurückgibt: { totalCount, page, pageSize, data: Skill[] })
- */
-interface PaginatedResponse<T> {
-  totalCount: number;
-  page: number;
-  pageSize: number;
-  data: T[];
-}
-
 /* --------------------------------
    Entity-Adapter
 -----------------------------------*/
@@ -115,13 +104,12 @@ function handleApiError(error: unknown): string {
   return 'Ein unbekannter Fehler ist aufgetreten';
 }
 
-export const fetchSkills = createAsyncThunk<
-  PaginatedResponse<Skill>,
-  { page?: number; pageSize?: number },
-  { rejectValue: string }
->(
+export const fetchSkills = createAsyncThunk(
   'skills/fetchSkills',
-  async ({ page = 1, pageSize = 10 }, { rejectWithValue }) => {
+  async (
+    { page = 1, pageSize = 10 }: { page: number; pageSize: number },
+    { rejectWithValue }
+  ) => {
     try {
       return await SkillService.getAllSkills(page, pageSize);
     } catch (error) {
@@ -142,13 +130,16 @@ export const fetchSkillById = createAsyncThunk<
   }
 });
 
-export const searchSkills = createAsyncThunk<
-  PaginatedResponse<Skill>,
-  { query: string; page?: number; pageSize?: number },
-  { rejectValue: string }
->(
+export const searchSkills = createAsyncThunk(
   'skills/searchSkills',
-  async ({ query, page = 1, pageSize = 10 }, { rejectWithValue }) => {
+  async (
+    {
+      query,
+      page = 1,
+      pageSize = 10,
+    }: { query: string; page: number; pageSize: number },
+    { rejectWithValue }
+  ) => {
     try {
       return await SkillService.getSkillsBySearch(query, page, pageSize);
     } catch (error) {
@@ -157,13 +148,15 @@ export const searchSkills = createAsyncThunk<
   }
 );
 
-export const fetchUserSkills = createAsyncThunk<
-  PaginatedResponse<Skill>,
-  { page?: number; pageSize?: number },
-  { rejectValue: string }
->(
+export const fetchUserSkills = createAsyncThunk(
   'skills/fetchUserSkills',
-  async ({ page = 1, pageSize = 10 }, { rejectWithValue }) => {
+  async (
+    {
+      page = 1,
+      pageSize = 10,
+    }: { query: string; page: number; pageSize: number },
+    { rejectWithValue }
+  ) => {
     try {
       return await SkillService.getUserSkills(page, pageSize);
     } catch (error) {
@@ -184,13 +177,16 @@ export const fetchUserSkillById = createAsyncThunk<
   }
 });
 
-export const searchUserSkills = createAsyncThunk<
-  PaginatedResponse<Skill>,
-  { query: string; page?: number; pageSize?: number },
-  { rejectValue: string }
->(
+export const searchUserSkills = createAsyncThunk(
   'skills/searchUserSkills',
-  async ({ query, page = 1, pageSize = 10 }, { rejectWithValue }) => {
+  async (
+    {
+      query,
+      page = 1,
+      pageSize = 10,
+    }: { query: string; page: number; pageSize: number },
+    { rejectWithValue }
+  ) => {
     try {
       return await SkillService.getUserSkillsBySearch(query, page, pageSize);
     } catch (error) {
@@ -388,9 +384,9 @@ const skillsSlice = createSlice({
       state.status.skills = 'succeeded';
       const payload = action.payload;
       // payload.data enthält das Skill-Array
-      skillsAdapter.setAll(state.skills, payload.data);
+      skillsAdapter.setAll(state.skills, payload.items);
       // Optional: Paginierung übernehmen, wenn gewünscht
-      state.pagination.currentPage = payload.page;
+      state.pagination.currentPage = payload.pageNumber;
       state.pagination.pageSize = payload.pageSize;
       state.pagination.totalItems = payload.totalCount;
       // Z.B. totalPages = totalCount/pageSize, falls gewünscht
@@ -426,8 +422,8 @@ const skillsSlice = createSlice({
       state.status.skills = 'succeeded';
       // Gleiches Spiel wie bei fetchSkills
       const payload = action.payload;
-      skillsAdapter.setAll(state.skills, payload.data);
-      state.pagination.currentPage = payload.page;
+      skillsAdapter.setAll(state.skills, payload.items);
+      state.pagination.currentPage = payload.pageNumber;
       state.pagination.pageSize = payload.pageSize;
       state.pagination.totalItems = payload.totalCount;
       state.pagination.totalPages = Math.ceil(
@@ -446,7 +442,7 @@ const skillsSlice = createSlice({
     builder.addCase(fetchUserSkills.fulfilled, (state, action) => {
       state.status.userSkills = 'succeeded';
       const payload = action.payload;
-      skillsAdapter.setAll(state.userSkills, payload.data);
+      skillsAdapter.setAll(state.userSkills, payload.items);
       // Paginierung könnte separat oder gemeinsam genutzt werden
     });
     builder.addCase(fetchUserSkills.rejected, (state, action) => {
@@ -476,7 +472,7 @@ const skillsSlice = createSlice({
     builder.addCase(searchUserSkills.fulfilled, (state, action) => {
       state.status.userSkills = 'succeeded';
       const payload = action.payload;
-      skillsAdapter.setAll(state.userSkills, payload.data);
+      skillsAdapter.setAll(state.userSkills, payload.items);
     });
     builder.addCase(searchUserSkills.rejected, (state, action) => {
       state.status.userSkills = 'failed';

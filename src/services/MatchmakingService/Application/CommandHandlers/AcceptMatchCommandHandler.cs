@@ -3,7 +3,6 @@ using Infrastructure.Models;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
 using MatchmakingService.Domain.Events;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using EventSourcing;
 

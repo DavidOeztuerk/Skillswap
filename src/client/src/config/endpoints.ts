@@ -31,7 +31,7 @@ export const SKILL_ENDPOINTS = {
   UPDATE_SKILL: '/api/skills',
   DELETE_SKILL: '/api/skills',
   CATEGORIES: '/api/categories',
-  PROFICIENCY_LEVELS: '/api/proficiencylevels',
+  PROFICIENCY_LEVELS: '/api/proficiency-levels',
 };
 
 /**
