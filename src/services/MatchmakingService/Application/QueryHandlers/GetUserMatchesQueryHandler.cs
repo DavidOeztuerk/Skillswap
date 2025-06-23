@@ -1,5 +1,7 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
+using Contracts.Users;
+using Infrastructure.Services;
 using MatchmakingService.Application.Queries;
 using MatchmakingService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -8,10 +10,12 @@ namespace MatchmakingService.Application.QueryHandlers;
 
 public class GetUserMatchesQueryHandler(
     MatchmakingDbContext dbContext,
+    IUserLookupService userLookup,
     ILogger<GetUserMatchesQueryHandler> logger)
     : BasePagedQueryHandler<GetUserMatchesQuery, UserMatchResponse>(logger)
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
+    private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<PagedResponse<UserMatchResponse>> Handle(
         GetUserMatchesQuery request,
@@ -38,19 +42,25 @@ public class GetUserMatchesQueryHandler(
 
             var totalRecords = await query.CountAsync(cancellationToken);
 
-            var matches = await query
+            var matchEntities = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(m => new UserMatchResponse(
+                .ToListAsync(cancellationToken);
+
+            var matches = new List<UserMatchResponse>();
+            foreach (var m in matchEntities)
+            {
+                var otherUser = await _userLookup.GetUserAsync(m.OfferingUserId, cancellationToken);
+                matches.Add(new UserMatchResponse(
                     m.Id,
                     m.OfferedSkillName + " ↔ " + m.RequestedSkillName,
-                    "Other User", // TODO: Get from UserService
+                    otherUser?.FullName ?? string.Empty,
                     m.Status,
                     m.CompatibilityScore,
-                    true, // TODO: Determine if current user is offering
+                    true,
                     m.CreatedAt,
-                    m.AcceptedAt))
-                .ToListAsync(cancellationToken);
+                    m.AcceptedAt));
+            }
 
             return Success(matches, request.PageNumber, request.PageSize, totalRecords);
         }

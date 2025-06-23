@@ -6,6 +6,8 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
+using Contracts.Users;
+using Infrastructure.Services;
 using SkillService.Application.Queries;
 
 namespace SkillService.Application.QueryHandlers;
@@ -16,6 +18,7 @@ namespace SkillService.Application.QueryHandlers;
 
 public class GetSkillDetailsQueryHandler(
     SkillDbContext dbContext,
+    IUserLookupService userLookup,
     ILogger<GetSkillDetailsQueryHandler> logger)
     : BaseQueryHandler<
     GetSkillDetailsQuery,
@@ -23,6 +26,7 @@ public class GetSkillDetailsQueryHandler(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
+    private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<SkillDetailsResponse>> Handle(
         GetSkillDetailsQuery request,
@@ -42,31 +46,47 @@ public class GetSkillDetailsQueryHandler(
                 return NotFound("Skill not found");
             }
 
-            var reviews = request.IncludeReviews && skill.Reviews.Any()
-                ? skill.Reviews.Take(10).Select(r => new SkillReviewResponse(
-                    r.Id,
-                    r.ReviewerUserId,
-                    "Reviewer Name", // TODO: Get from UserService
-                    r.Rating,
-                    r.Comment,
-                    r.Tags,
-                    r.CreatedAt)).ToList()
-                : null;
+            List<SkillReviewResponse>? reviews = null;
+            if (request.IncludeReviews && skill.Reviews.Any())
+            {
+                reviews = new List<SkillReviewResponse>();
+                foreach (var r in skill.Reviews.Take(10))
+                {
+                    var reviewer = await _userLookup.GetUserAsync(r.ReviewerUserId, cancellationToken);
+                    reviews.Add(new SkillReviewResponse(
+                        r.Id,
+                        r.ReviewerUserId,
+                        reviewer?.FullName ?? string.Empty,
+                        r.Rating,
+                        r.Comment,
+                        r.Tags,
+                        r.CreatedAt));
+                }
+            }
 
-            var endorsements = request.IncludeEndorsements && skill.Endorsements.Any()
-                ? skill.Endorsements.Take(10).Select(e => new SkillEndorsementResponse(
-                    e.Id,
-                    e.EndorserUserId,
-                    "Endorser Name", // TODO: Get from UserService
-                    e.Message,
-                    e.CreatedAt)).ToList()
-                : null;
+            List<SkillEndorsementResponse>? endorsements = null;
+            if (request.IncludeEndorsements && skill.Endorsements.Any())
+            {
+                endorsements = new List<SkillEndorsementResponse>();
+                foreach (var e in skill.Endorsements.Take(10))
+                {
+                    var endorser = await _userLookup.GetUserAsync(e.EndorserUserId, cancellationToken);
+                    endorsements.Add(new SkillEndorsementResponse(
+                        e.Id,
+                        e.EndorserUserId,
+                        endorser?.FullName ?? string.Empty,
+                        e.Message,
+                        e.CreatedAt));
+                }
+            }
+
+            var owner = await _userLookup.GetUserAsync(skill.UserId, cancellationToken);
 
             var response = new SkillDetailsResponse(
                 skill.Id,
                 skill.UserId,
-                "User Name", // TODO: Get from UserService
-                "Profile Picture URL", // TODO: Get from UserService
+                owner?.FullName ?? string.Empty,
+                owner?.ProfilePictureUrl ?? string.Empty,
                 skill.Name,
                 skill.Description,
                 skill.IsOffering,
