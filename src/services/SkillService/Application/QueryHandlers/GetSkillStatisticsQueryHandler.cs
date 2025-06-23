@@ -6,6 +6,8 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
+using Contracts.Users;
+using Infrastructure.Services;
 using SkillService.Application.Queries;
 
 namespace SkillService.Application.QueryHandlers;
@@ -16,13 +18,15 @@ namespace SkillService.Application.QueryHandlers;
 
 public class GetSkillStatisticsQueryHandler(
     SkillDbContext dbContext,
-    ILogger<GetSkillStatisticsQueryHandler> logger) 
+    IUserLookupService userLookup,
+    ILogger<GetSkillStatisticsQueryHandler> logger)
     : BaseQueryHandler<
     GetSkillStatisticsQuery,
     SkillStatisticsResponse>(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
+    private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<SkillStatisticsResponse>> Handle(
         GetSkillStatisticsQuery request,
@@ -74,18 +78,32 @@ public class GetSkillStatisticsQueryHandler(
                 .Select(g => new { Level = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.Level, x => x.Count, cancellationToken);
 
-            var topRatedSkills = await query
+            var rawTopRated = await query
                 .Where(s => s.AverageRating.HasValue && s.ReviewCount > 0)
                 .OrderByDescending(s => s.AverageRating)
                 .ThenByDescending(s => s.ReviewCount)
                 .Take(10)
-                .Select(s => new TopSkillResponse(
+                .Select(s => new
+                {
                     s.Id,
                     s.Name,
-                    "User Name", // TODO: Get from UserService
-                    s.AverageRating!.Value,
-                    s.ReviewCount))
+                    s.UserId,
+                    s.AverageRating,
+                    s.ReviewCount
+                })
                 .ToListAsync(cancellationToken);
+
+            var topRatedSkills = new List<TopSkillResponse>();
+            foreach (var s in rawTopRated)
+            {
+                var user = await _userLookup.GetUserAsync(s.UserId, cancellationToken);
+                topRatedSkills.Add(new TopSkillResponse(
+                    s.Id,
+                    s.Name,
+                    user?.FullName ?? string.Empty,
+                    s.AverageRating!.Value,
+                    s.ReviewCount));
+            }
 
             var trendingSkills = await query
                 .Include(s => s.SkillCategory)
