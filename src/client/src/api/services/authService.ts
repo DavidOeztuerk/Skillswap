@@ -1,5 +1,5 @@
 // src/api/services/authService.ts
-import { AUTH_ENDPOINTS } from '../../config/endpoints';
+import { AUTH_ENDPOINTS, PROFILE_ENDPOINTS } from '../../config/endpoints';
 import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
 import { ApiResponse } from '../../types/common/ApiResponse';
 import {
@@ -15,6 +15,7 @@ import {
   getToken,
   setRefreshToken,
   setToken,
+  removeToken,
 } from '../../utils/authHelpers';
 import apiClient from '../apiClient';
 
@@ -102,7 +103,7 @@ const authService = {
     try {
       const response = await apiClient.post<
         ApiResponse<TokenRefreshApiResponse>
-      >('/refresh-token', {
+      >(AUTH_ENDPOINTS.REFRESH_TOKEN, {
         token: currentToken,
         refreshToken: currentRefreshToken,
       });
@@ -143,7 +144,7 @@ const authService = {
    */
   updateProfile: async (profileData: UpdateProfileRequest): Promise<User> => {
     const response = await apiClient.post<ApiResponse<User>>(
-      '/users/profile',
+      PROFILE_ENDPOINTS.UPDATE,
       profileData
     );
     return response.data.data;
@@ -156,7 +157,7 @@ const authService = {
    */
   uploadProfilePicture: async (formData: FormData): Promise<User> => {
     const response = await apiClient.post<ApiResponse<User>>(
-      '/users/upload-avatar',
+      PROFILE_ENDPOINTS.UPLOAD_AVATAR,
       formData,
       {
         headers: {
@@ -175,7 +176,10 @@ const authService = {
   changePassword: async (
     passwordData: ChangePasswordRequest
   ): Promise<void> => {
-    await apiClient.post<ApiResponse<void>>('/change-password', passwordData);
+    await apiClient.post<ApiResponse<void>>(
+      AUTH_ENDPOINTS.CHANGE_PASSWORD,
+      passwordData
+    );
     // Bei void-Responses geben wir nichts zurück
   },
 
@@ -185,7 +189,7 @@ const authService = {
    * @returns Erfolg-/Fehlermeldung
    */
   forgotPassword: async (email: string): Promise<void> => {
-    await apiClient.post<ApiResponse<void>>('/request-password-reset', {
+    await apiClient.post<ApiResponse<void>>(AUTH_ENDPOINTS.FORGOT_PASSWORD, {
       email,
     });
     // Bei void-Responses geben wir nichts zurück
@@ -198,7 +202,7 @@ const authService = {
    * @returns Erfolg-/Fehlermeldung
    */
   resetPassword: async (token: string, password: string): Promise<void> => {
-    await apiClient.post<ApiResponse<void>>('/reset-password', {
+    await apiClient.post<ApiResponse<void>>(AUTH_ENDPOINTS.RESET_PASSWORD, {
       token,
       password,
     });
@@ -211,11 +215,7 @@ const authService = {
    */
   logout: async (): Promise<void> => {
     // Hier könnte man einen API-Call machen, um das Token serverseitig zu invalidieren
-    // Für jetzt entfernen wir nur die lokalen Tokens
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    sessionStorage.removeItem('access_token');
-    sessionStorage.removeItem('refresh_token');
+    removeToken();
     return Promise.resolve();
   },
 };
