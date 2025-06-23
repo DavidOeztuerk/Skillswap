@@ -13,6 +13,7 @@ using MediatR;
 using MatchmakingService;
 using MatchmakingService.Consumer;
 using Infrastructure.Services;
+using EventSourcing;
 using Contracts.Users;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -50,6 +51,9 @@ builder.Services.AddDbContext<MatchmakingDbContext>(options =>
     options.UseInMemoryDatabase("MatchmakingServiceDb");
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
 });
+
+// Event sourcing setup
+builder.Services.AddEventSourcing("MatchmakingEventStore");
 
 // Add CQRS
 var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")

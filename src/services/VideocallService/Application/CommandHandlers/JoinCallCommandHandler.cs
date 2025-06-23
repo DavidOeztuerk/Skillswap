@@ -5,17 +5,18 @@ using Microsoft.EntityFrameworkCore;
 using VideocallService.Application.Commands;
 using VideocallService.Domain.Entities;
 using VideocallService.Domain.Events;
+using EventSourcing;
 
 namespace VideocallService.Application.CommandHandlers;
 
 public class JoinCallCommandHandler(
     VideoCallDbContext dbContext,
-    IPublisher publisher,
+    IDomainEventPublisher eventPublisher,
     ILogger<JoinCallCommandHandler> logger)
     : BaseCommandHandler<JoinCallCommand, JoinCallResponse>(logger)
 {
     private readonly VideoCallDbContext _dbContext = dbContext;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<JoinCallResponse>> Handle(
         JoinCallCommand request,
@@ -76,7 +77,7 @@ public class JoinCallCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new ParticipantJoinedCallDomainEvent(
+            await _eventPublisher.Publish(new ParticipantJoinedCallDomainEvent(
                 session.Id,
                 request.UserId!,
                 request.ConnectionId,

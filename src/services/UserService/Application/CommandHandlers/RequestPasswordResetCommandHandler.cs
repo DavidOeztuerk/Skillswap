@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
+using EventSourcing;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -13,12 +14,12 @@ namespace UserService.Application.CommandHandlers;
 
 public class RequestPasswordResetCommandHandler(
     UserDbContext dbContext,
-    IPublisher publisher,
-    ILogger<RequestPasswordResetCommandHandler> logger) 
+    IDomainEventPublisher eventPublisher,
+    ILogger<RequestPasswordResetCommandHandler> logger)
     : BaseCommandHandler<RequestPasswordResetCommand, RequestPasswordResetResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<RequestPasswordResetResponse>> Handle(
         RequestPasswordResetCommand request, 
@@ -48,7 +49,7 @@ public class RequestPasswordResetCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event for email sending
-            await _publisher.Publish(new PasswordResetRequestedDomainEvent(
+            await _eventPublisher.Publish(new PasswordResetRequestedDomainEvent(
                 user.Id,
                 user.Email,
                 user.PasswordResetToken,

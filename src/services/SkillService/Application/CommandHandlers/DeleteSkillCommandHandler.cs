@@ -5,6 +5,7 @@ using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
 using SkillService.Domain.Events;
+using EventSourcing;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -15,15 +16,15 @@ namespace SkillService.Application.CommandHandlers;
 public class DeleteSkillCommandHandler : BaseCommandHandler<DeleteSkillCommand, DeleteSkillResponse>
 {
     private readonly SkillDbContext _dbContext;
-    private readonly IPublisher _publisher;
+    private readonly IDomainEventPublisher _eventPublisher;
 
     public DeleteSkillCommandHandler(
         SkillDbContext dbContext,
-        IPublisher publisher,
+        IDomainEventPublisher eventPublisher,
         ILogger<DeleteSkillCommandHandler> logger) : base(logger)
     {
         _dbContext = dbContext;
-        _publisher = publisher;
+        _eventPublisher = eventPublisher;
     }
 
     public override async Task<ApiResponse<DeleteSkillResponse>> Handle(
@@ -68,7 +69,7 @@ public class DeleteSkillCommandHandler : BaseCommandHandler<DeleteSkillCommand, 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new SkillDeletedDomainEvent(
+            await _eventPublisher.Publish(new SkillDeletedDomainEvent(
                 skill.Id,
                 skill.UserId,
                 skill.Name,

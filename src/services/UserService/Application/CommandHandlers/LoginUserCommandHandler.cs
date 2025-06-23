@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
 using UserService.Domain.Models;
+using EventSourcing;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -17,14 +18,14 @@ public class LoginUserCommandHandler(
     UserDbContext dbContext,
     IEnhancedJwtService jwtService,
     ITotpService totpService,
-    IPublisher publisher,
+    IDomainEventPublisher eventPublisher,
     ILogger<LoginUserCommandHandler> logger)
     : BaseCommandHandler<LoginUserCommand, LoginUserResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
     private readonly IEnhancedJwtService _jwtService = jwtService;
     private readonly ITotpService _totpService = totpService;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<LoginUserResponse>> Handle(
         LoginUserCommand request, 
@@ -42,7 +43,7 @@ public class LoginUserCommandHandler(
                     request.Email, request.IpAddress);
 
                 // Track failed login attempt
-                await _publisher.Publish(new LoginAttemptFailedDomainEvent(
+                await _eventPublisher.Publish(new LoginAttemptFailedDomainEvent(
                     request.Email,
                     request.IpAddress ?? "Unknown",
                     "Invalid credentials"), cancellationToken);
@@ -125,7 +126,7 @@ public class LoginUserCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish successful login event
-            await _publisher.Publish(new UserLoggedInDomainEvent(
+            await _eventPublisher.Publish(new UserLoggedInDomainEvent(
                 user.Id,
                 request.IpAddress ?? "Unknown",
                 request.DeviceInfo), cancellationToken);

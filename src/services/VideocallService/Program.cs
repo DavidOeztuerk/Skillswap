@@ -10,6 +10,7 @@ using CQRS.Extensions;
 using VideocallService.Application.Commands;
 using VideocallService.Application.Queries;
 using MediatR;
+using EventSourcing;
 using VideocallService;
 using VideocallService.Consumer;
 using VideocallService.Hubs;
@@ -49,6 +50,9 @@ builder.Services.AddDbContext<VideoCallDbContext>(options =>
     options.UseInMemoryDatabase("VideocallServiceDb");
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
 });
+
+// Event sourcing setup
+builder.Services.AddEventSourcing("VideocallEventStore");
 
 // Add CQRS
 var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")

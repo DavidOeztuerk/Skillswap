@@ -8,6 +8,7 @@ using Infrastructure.Extensions;
 using Infrastructure.Security;
 using Infrastructure.Middleware;
 using CQRS.Extensions;
+using EventSourcing;
 using AppointmentService.Application.Commands;
 using AppointmentService.Application.Queries;
 using Infrastructure.Models;
@@ -42,6 +43,9 @@ builder.Services.AddDbContext<AppointmentDbContext>(options =>
     options.UseInMemoryDatabase("AppointmentServiceDb");
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
 });
+
+// Event sourcing setup
+builder.Services.AddEventSourcing("AppointmentEventStore");
 
 // Add CQRS
 var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")

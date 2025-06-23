@@ -1,6 +1,7 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
 using MediatR;
+using EventSourcing;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
@@ -13,12 +14,12 @@ namespace UserService.Application.CommandHandlers;
 
 public class ChangePasswordCommandHandler(
     UserDbContext dbContext,
-    IPublisher publisher,
+    IDomainEventPublisher eventPublisher,
     ILogger<ChangePasswordCommandHandler> logger)
     : BaseCommandHandler<ChangePasswordCommand, ChangePasswordResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
-    private readonly IPublisher _publisher = publisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<ChangePasswordResponse>> Handle(
         ChangePasswordCommand request,
@@ -60,7 +61,7 @@ public class ChangePasswordCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
-            await _publisher.Publish(new PasswordChangedDomainEvent(
+            await _eventPublisher.Publish(new PasswordChangedDomainEvent(
                 user.Id,
                 user.Email), cancellationToken);
 
