@@ -162,6 +162,7 @@ services:
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
+      - REDIS_CONNECTION_STRING=redis:6379
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5003/health/live']
@@ -188,6 +189,7 @@ services:
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
+      - REDIS_CONNECTION_STRING=redis:6379
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5004/health/live']
@@ -214,6 +216,7 @@ services:
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
+      - REDIS_CONNECTION_STRING=redis:6379
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5005/health/live']
