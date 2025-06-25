@@ -21,7 +21,6 @@
     "@mui/styled-engine-sc": "^6.4.6",
     "@mui/x-date-pickers": "^7.27.3",
     "@reduxjs/toolkit": "^2.6.0",
-    "axios": "^1.9.0",
     "date-fns": "^2.29.3",
     "formik": "^2.4.6",
     "react": "^19.1.0",
