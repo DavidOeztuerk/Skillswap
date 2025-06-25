@@ -1,14 +1,15 @@
-// src/api/apiClient.ts
+// src/api/apiClient.ts - BEHOBEN
 import httpClient from './httpClient';
 import { ApiResponse } from '../types/common/ApiResponse';
 
+import {  } from 'axios'
+
 /**
- * Enhanced API Client with improved error handling and utilities
- * Replaces Axios with custom fetch-based implementation
+ * Enhanced API Client mit verbessertem Parameter-Handling
  */
 class ApiClient {
   /**
-   * Performs GET request
+   * Performs GET request mit korrigiertem Parameter-Handling
    */
   async get<T>(
     url: string,
@@ -16,19 +17,28 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     let fullUrl = url;
 
-    // Handle query parameters
+    // Handle query parameters - VERHINDERE DOPPELTE PARAMETER
     if (config?.params) {
       const searchParams = new URLSearchParams();
+
+      // Entferne bereits vorhandene Parameter aus der URL
+      const [baseUrl, existingQuery] = url.split('?');
+      const existingParams = new URLSearchParams(existingQuery || '');
+
+      // Verwende existierende Parameter als Basis
+      existingParams.forEach((value, key) => {
+        searchParams.set(key, value);
+      });
+
+      // Überschreibe/Ergänze mit neuen Parametern
       Object.entries(config.params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          searchParams.append(key, String(value));
+          searchParams.set(key, String(value));
         }
       });
 
       const queryString = searchParams.toString();
-      if (queryString) {
-        fullUrl = `${url}${url.includes('?') ? '&' : '?'}${queryString}`;
-      }
+      fullUrl = queryString ? `${baseUrl}?${queryString}` : baseUrl;
     }
 
     return httpClient.get<T>(fullUrl);
@@ -187,18 +197,19 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     let fullUrl = url;
 
-    // Handle query parameters for cache key
+    // Handle query parameters for cache key - VERHINDERE DOPPELTE PARAMETER
     if (config?.params) {
-      const searchParams = new URLSearchParams();
+      const [baseUrl, existingQuery] = url.split('?');
+      const searchParams = new URLSearchParams(existingQuery || '');
+
       Object.entries(config.params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          searchParams.append(key, String(value));
+          searchParams.set(key, String(value));
         }
       });
+
       const queryString = searchParams.toString();
-      if (queryString) {
-        fullUrl = `${url}${url.includes('?') ? '&' : '?'}${queryString}`;
-      }
+      fullUrl = queryString ? `${baseUrl}?${queryString}` : baseUrl;
     }
 
     const cacheKey = fullUrl;

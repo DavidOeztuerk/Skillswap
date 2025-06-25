@@ -1,4 +1,4 @@
-// src/api/services/skillsService.ts
+// src/api/services/skillsService.ts - BEHOBEN
 import { SKILL_ENDPOINTS } from '../../config/endpoints';
 import {
   ProficiencyLevel,
@@ -47,13 +47,11 @@ interface SkillRecommendation {
 }
 
 /**
- * Enhanced Skills Service with comprehensive functionality
+ * Enhanced Skills Service mit korrigiertem Parameter-Handling
  */
 const skillsService = {
   /**
    * Sucht nach Skills mit erweiterten Filteroptionen
-   * @param params - Suchparameter
-   * @returns Paginierte Skill-Liste
    */
   searchSkills: async (params: SkillSearchParams = {}): Promise<PaginatedResponse<Skill>> => {
     try {
@@ -69,10 +67,7 @@ const skillsService = {
   },
 
   /**
-   * Holt alle Skills mit Caching
-   * @param page - Seitenzahl
-   * @param pageSize - Anzahl pro Seite
-   * @returns Paginierte Skill-Liste
+   * Holt alle Skills mit Caching - BEHOBEN: Saubere Parameter-Übergabe
    */
   getAllSkills: async (
     page = 1,
@@ -82,7 +77,12 @@ const skillsService = {
       const response = await apiClient.getWithCache<PaginatedResponse<Skill>>(
         SKILL_ENDPOINTS.GET_SKILLS,
         5 * 60 * 1000, // 5 minutes cache
-        { params: { page, pageSize } }
+        { 
+          params: { 
+            page: page,
+            pageSize: pageSize 
+          } 
+        }
       );
       return response.data;
     } catch (error) {
@@ -93,8 +93,6 @@ const skillsService = {
 
   /**
    * Holt einen einzelnen Skill
-   * @param skillId - Skill-ID
-   * @returns Skill-Details
    */
   getSkillById: async (skillId: string): Promise<Skill> => {
     try {
@@ -109,11 +107,7 @@ const skillsService = {
   },
 
   /**
-   * Sucht Skills nach Suchbegriff
-   * @param query - Suchbegriff
-   * @param page - Seitenzahl
-   * @param pageSize - Anzahl pro Seite
-   * @returns Paginierte Skill-Liste
+   * Sucht Skills nach Suchbegriff - BEHOBEN: URL-Building
    */
   getSkillsBySearch: async (
     query: string,
@@ -121,31 +115,39 @@ const skillsService = {
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
     const response = await apiClient.get<PaginatedResponse<Skill>>(
-      `${SKILL_ENDPOINTS.GET_SKILLS}?searchTerm=${query}&page=${page}&pageSize=${pageSize}`
+      SKILL_ENDPOINTS.GET_SKILLS,
+      {
+        params: {
+          searchTerm: query,
+          page: page,
+          pageSize: pageSize
+        }
+      }
     );
     return response.data;
   },
 
   /**
-   * Holt Benutzer-Skills
-   * @param page - Seitenzahl
-   * @param pageSize - Anzahl pro Seite
-   * @returns Paginierte User-Skill-Liste
+   * Holt Benutzer-Skills - BEHOBEN: Korrekte Parameter-Übergabe
    */
   getUserSkills: async (
     page = 1,
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
     const response = await apiClient.get<PaginatedResponse<Skill>>(
-      `${SKILL_ENDPOINTS.GET_MY_SKILLS}?page=${page}&pageSize=${pageSize}`
+      SKILL_ENDPOINTS.GET_MY_SKILLS,
+      {
+        params: {
+          page: page,
+          pageSize: pageSize
+        }
+      }
     );
     return response.data;
   },
 
   /**
    * Holt einen einzelnen Benutzer-Skill
-   * @param skillId - Skill-ID
-   * @returns Skill-Details
    */
   getUserSkillById: async (skillId: string): Promise<Skill> => {
     const response = await apiClient.get<Skill>(
@@ -155,11 +157,7 @@ const skillsService = {
   },
 
   /**
-   * Sucht in Benutzer-Skills
-   * @param query - Suchbegriff
-   * @param page - Seitenzahl
-   * @param pageSize - Anzahl pro Seite
-   * @returns Paginierte User-Skill-Liste
+   * Sucht in Benutzer-Skills - BEHOBEN: Korrekte Parameter-Übergabe
    */
   getUserSkillsBySearch: async (
     query: string,
@@ -167,15 +165,20 @@ const skillsService = {
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
     const response = await apiClient.get<PaginatedResponse<Skill>>(
-      `${SKILL_ENDPOINTS.GET_MY_SKILLS}?searchTerm=${query}&page=${page}&pageSize=${pageSize}`
+      SKILL_ENDPOINTS.GET_MY_SKILLS,
+      {
+        params: {
+          searchTerm: query,
+          page: page,
+          pageSize: pageSize
+        }
+      }
     );
     return response.data;
   },
 
   /**
    * Erstellt einen neuen Skill
-   * @param skillData - Skill-Daten
-   * @returns Erstellter Skill
    */
   createSkill: async (skillData: CreateSkillRequest): Promise<CreateSkillResponse> => {
     try {
@@ -197,9 +200,6 @@ const skillsService = {
 
   /**
    * Aktualisiert einen Skill
-   * @param id - Skill-ID
-   * @param updateSkillData - Aktualisierte Skill-Daten
-   * @returns Aktualisierter Skill
    */
   updateSkill: async (
     id: string,
@@ -224,7 +224,6 @@ const skillsService = {
 
   /**
    * Löscht einen Skill
-   * @param id - Skill-ID
    */
   deleteSkill: async (id: string): Promise<void> => {
     try {
@@ -241,10 +240,6 @@ const skillsService = {
 
   /**
    * Bewertet einen Skill
-   * @param skillId - Skill-ID
-   * @param rating - Bewertung (1-5)
-   * @param review - Optionale Rezension
-   * @returns Erfolg-Status
    */
   rateSkill: async (skillId: string, rating: number, review?: string): Promise<void> => {
     try {
@@ -263,9 +258,6 @@ const skillsService = {
 
   /**
    * Empfiehlt einen Skill
-   * @param skillId - Skill-ID
-   * @param message - Empfehlungsnachricht
-   * @returns Erfolg-Status
    */
   endorseSkill: async (skillId: string, message?: string): Promise<void> => {
     try {
@@ -283,7 +275,6 @@ const skillsService = {
 
   /**
    * Holt Skill-Kategorien mit Caching
-   * @returns Liste der Kategorien
    */
   getCategories: async (): Promise<SkillCategory[]> => {
     try {
@@ -300,9 +291,6 @@ const skillsService = {
 
   /**
    * Erstellt eine neue Kategorie (Admin)
-   * @param name - Kategoriename
-   * @param description - Kategoriebeschreibung
-   * @returns Erstellte Kategorie
    */
   createCategory: async (name: string, description?: string): Promise<SkillCategory> => {
     try {
@@ -323,10 +311,6 @@ const skillsService = {
 
   /**
    * Aktualisiert eine Kategorie (Admin)
-   * @param id - Kategorie-ID
-   * @param name - Neuer Name
-   * @param description - Neue Beschreibung
-   * @returns Aktualisierte Kategorie
    */
   updateCategory: async (
     id: string,
@@ -351,7 +335,6 @@ const skillsService = {
 
   /**
    * Löscht eine Kategorie (Admin)
-   * @param id - Kategorie-ID
    */
   deleteCategory: async (id: string): Promise<void> => {
     try {
@@ -367,7 +350,6 @@ const skillsService = {
 
   /**
    * Holt Kompetenzlevel mit Caching
-   * @returns Liste der Kompetenzlevel
    */
   getProficiencyLevels: async (): Promise<ProficiencyLevel[]> => {
     try {
@@ -384,10 +366,6 @@ const skillsService = {
 
   /**
    * Erstellt ein neues Kompetenzlevel (Admin)
-   * @param level - Level-Name
-   * @param rank - Level-Rang
-   * @param description - Level-Beschreibung
-   * @returns Erstelltes Kompetenzlevel
    */
   createProficiencyLevel: async (
     level: string,
@@ -412,11 +390,6 @@ const skillsService = {
 
   /**
    * Aktualisiert ein Kompetenzlevel (Admin)
-   * @param id - Level-ID
-   * @param level - Neuer Level-Name
-   * @param rank - Neuer Level-Rang
-   * @param description - Neue Beschreibung
-   * @returns Aktualisiertes Kompetenzlevel
    */
   updateProficiencyLevel: async (
     id: string,
@@ -442,7 +415,6 @@ const skillsService = {
 
   /**
    * Löscht ein Kompetenzlevel (Admin)
-   * @param id - Level-ID
    */
   deleteProficiencyLevel: async (id: string): Promise<void> => {
     try {
@@ -458,7 +430,6 @@ const skillsService = {
 
   /**
    * Holt Skill-Statistiken
-   * @returns Skill-Statistiken
    */
   getSkillStatistics: async (): Promise<SkillStatistics> => {
     try {
@@ -475,8 +446,6 @@ const skillsService = {
 
   /**
    * Holt beliebte Tags
-   * @param limit - Anzahl der Tags
-   * @returns Liste beliebter Tags
    */
   getPopularTags: async (limit = 20): Promise<Array<{ tag: string; count: number }>> => {
     try {
@@ -494,8 +463,6 @@ const skillsService = {
 
   /**
    * Holt personalisierte Skill-Empfehlungen
-   * @param limit - Anzahl der Empfehlungen
-   * @returns Liste von Skill-Empfehlungen
    */
   getSkillRecommendations: async (limit = 10): Promise<SkillRecommendation[]> => {
     try {
@@ -512,8 +479,6 @@ const skillsService = {
 
   /**
    * Bulk-Import von Skills
-   * @param skills - Array von Skills zum Import
-   * @returns Import-Ergebnis
    */
   bulkImportSkills: async (skills: CreateSkillRequest[]): Promise<{ success: number; failed: number; errors: string[] }> => {
     try {
@@ -535,13 +500,11 @@ const skillsService = {
 
   /**
    * Exportiert Benutzer-Skills
-   * @param format - Export-Format ('csv' | 'json' | 'xlsx')
-   * @returns Export-Datei als Blob
    */
   exportUserSkills: async (format: 'csv' | 'json' | 'xlsx' = 'csv'): Promise<void> => {
     try {
       await apiClient.downloadFile(
-        `${SKILL_ENDPOINTS.GET_USER_SKILLS}/export?format=${format}`,
+        `${SKILL_ENDPOINTS.GET_USER_SKILLS}/export`,
         `my-skills.${format}`
       );
     } catch (error) {
