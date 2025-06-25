@@ -53,11 +53,13 @@ const skillsService = {
   /**
    * Sucht nach Skills mit erweiterten Filteroptionen
    */
-  searchSkills: async (params: SkillSearchParams = {}): Promise<PaginatedResponse<Skill>> => {
+  searchSkills: async (
+    params: SkillSearchParams = {}
+  ): Promise<PaginatedResponse<Skill>> => {
     try {
       const response = await apiClient.get<PaginatedResponse<Skill>>(
         SKILL_ENDPOINTS.GET_SKILLS,
-        { params: params as Record<string, unknown> }
+        { params }
       );
       return response.data;
     } catch (error) {
@@ -77,11 +79,11 @@ const skillsService = {
       const response = await apiClient.getWithCache<PaginatedResponse<Skill>>(
         SKILL_ENDPOINTS.GET_SKILLS,
         5 * 60 * 1000, // 5 minutes cache
-        { 
-          params: { 
+        {
+          params: {
             page: page,
-            pageSize: pageSize 
-          } 
+            pageSize: pageSize,
+          },
         }
       );
       return response.data;
@@ -120,8 +122,8 @@ const skillsService = {
         params: {
           searchTerm: query,
           page: page,
-          pageSize: pageSize
-        }
+          pageSize: pageSize,
+        },
       }
     );
     return response.data;
@@ -139,8 +141,8 @@ const skillsService = {
       {
         params: {
           page: page,
-          pageSize: pageSize
-        }
+          pageSize: pageSize,
+        },
       }
     );
     return response.data;
@@ -170,8 +172,8 @@ const skillsService = {
         params: {
           searchTerm: query,
           page: page,
-          pageSize: pageSize
-        }
+          pageSize: pageSize,
+        },
       }
     );
     return response.data;
@@ -180,17 +182,19 @@ const skillsService = {
   /**
    * Erstellt einen neuen Skill
    */
-  createSkill: async (skillData: CreateSkillRequest): Promise<CreateSkillResponse> => {
+  createSkill: async (
+    skillData: CreateSkillRequest
+  ): Promise<CreateSkillResponse> => {
     try {
       const response = await apiClient.post<CreateSkillResponse>(
         SKILL_ENDPOINTS.CREATE_SKILL,
         skillData
       );
-      
+
       // Clear related cache
       apiClient.clearCache('skills');
       apiClient.clearCache('user/skills');
-      
+
       return response.data;
     } catch (error) {
       console.error('Skill creation failed:', error);
@@ -210,11 +214,11 @@ const skillsService = {
         `${SKILL_ENDPOINTS.UPDATE_SKILL}/${id}`,
         updateSkillData
       );
-      
+
       // Clear related cache
       apiClient.clearCache('skills');
       apiClient.clearCache('user/skills');
-      
+
       return response.data;
     } catch (error) {
       console.error('Skill update failed:', error);
@@ -228,7 +232,7 @@ const skillsService = {
   deleteSkill: async (id: string): Promise<void> => {
     try {
       await apiClient.delete(`${SKILL_ENDPOINTS.DELETE_SKILL}/${id}`);
-      
+
       // Clear related cache
       apiClient.clearCache('skills');
       apiClient.clearCache('user/skills');
@@ -241,13 +245,17 @@ const skillsService = {
   /**
    * Bewertet einen Skill
    */
-  rateSkill: async (skillId: string, rating: number, review?: string): Promise<void> => {
+  rateSkill: async (
+    skillId: string,
+    rating: number,
+    review?: string
+  ): Promise<void> => {
     try {
       await apiClient.post(`${SKILL_ENDPOINTS.GET_SKILLS}/${skillId}/rate`, {
         rating,
         review,
       });
-      
+
       // Clear skill cache to refresh ratings
       apiClient.clearCache(`skills/${skillId}`);
     } catch (error) {
@@ -264,7 +272,7 @@ const skillsService = {
       await apiClient.post(`${SKILL_ENDPOINTS.GET_SKILLS}/${skillId}/endorse`, {
         message,
       });
-      
+
       // Clear skill cache to refresh endorsements
       apiClient.clearCache(`skills/${skillId}`);
     } catch (error) {
@@ -292,16 +300,19 @@ const skillsService = {
   /**
    * Erstellt eine neue Kategorie (Admin)
    */
-  createCategory: async (name: string, description?: string): Promise<SkillCategory> => {
+  createCategory: async (
+    name: string,
+    description?: string
+  ): Promise<SkillCategory> => {
     try {
       const response = await apiClient.post<SkillCategory>(
         SKILL_ENDPOINTS.CATEGORIES,
         { name, description }
       );
-      
+
       // Clear categories cache
       apiClient.clearCache(SKILL_ENDPOINTS.CATEGORIES);
-      
+
       return response.data;
     } catch (error) {
       console.error('Category creation failed:', error);
@@ -322,10 +333,10 @@ const skillsService = {
         `${SKILL_ENDPOINTS.CATEGORIES}/${id}`,
         { name, description }
       );
-      
+
       // Clear categories cache
       apiClient.clearCache(SKILL_ENDPOINTS.CATEGORIES);
-      
+
       return response.data;
     } catch (error) {
       console.error('Category update failed:', error);
@@ -339,7 +350,7 @@ const skillsService = {
   deleteCategory: async (id: string): Promise<void> => {
     try {
       await apiClient.delete(`${SKILL_ENDPOINTS.CATEGORIES}/${id}`);
-      
+
       // Clear categories cache
       apiClient.clearCache(SKILL_ENDPOINTS.CATEGORIES);
     } catch (error) {
@@ -377,10 +388,10 @@ const skillsService = {
         SKILL_ENDPOINTS.PROFICIENCY_LEVELS,
         { level, rank, description }
       );
-      
+
       // Clear proficiency levels cache
       apiClient.clearCache(SKILL_ENDPOINTS.PROFICIENCY_LEVELS);
-      
+
       return response.data;
     } catch (error) {
       console.error('Proficiency level creation failed:', error);
@@ -402,10 +413,10 @@ const skillsService = {
         `${SKILL_ENDPOINTS.PROFICIENCY_LEVELS}/${id}`,
         { level, rank, description }
       );
-      
+
       // Clear proficiency levels cache
       apiClient.clearCache(SKILL_ENDPOINTS.PROFICIENCY_LEVELS);
-      
+
       return response.data;
     } catch (error) {
       console.error('Proficiency level update failed:', error);
@@ -419,7 +430,7 @@ const skillsService = {
   deleteProficiencyLevel: async (id: string): Promise<void> => {
     try {
       await apiClient.delete(`${SKILL_ENDPOINTS.PROFICIENCY_LEVELS}/${id}`);
-      
+
       // Clear proficiency levels cache
       apiClient.clearCache(SKILL_ENDPOINTS.PROFICIENCY_LEVELS);
     } catch (error) {
@@ -447,9 +458,13 @@ const skillsService = {
   /**
    * Holt beliebte Tags
    */
-  getPopularTags: async (limit = 20): Promise<Array<{ tag: string; count: number }>> => {
+  getPopularTags: async (
+    limit = 20
+  ): Promise<Array<{ tag: string; count: number }>> => {
     try {
-      const response = await apiClient.getWithCache<Array<{ tag: string; count: number }>>(
+      const response = await apiClient.getWithCache<
+        Array<{ tag: string; count: number }>
+      >(
         `${SKILL_ENDPOINTS.GET_SKILLS}/analytics/popular-tags`,
         5 * 60 * 1000, // 5 minutes cache
         { params: { limit } }
@@ -464,7 +479,9 @@ const skillsService = {
   /**
    * Holt personalisierte Skill-Empfehlungen
    */
-  getSkillRecommendations: async (limit = 10): Promise<SkillRecommendation[]> => {
+  getSkillRecommendations: async (
+    limit = 10
+  ): Promise<SkillRecommendation[]> => {
     try {
       const response = await apiClient.get<SkillRecommendation[]>(
         `${SKILL_ENDPOINTS.GET_SKILLS}/recommendations`,
@@ -480,17 +497,20 @@ const skillsService = {
   /**
    * Bulk-Import von Skills
    */
-  bulkImportSkills: async (skills: CreateSkillRequest[]): Promise<{ success: number; failed: number; errors: string[] }> => {
+  bulkImportSkills: async (
+    skills: CreateSkillRequest[]
+  ): Promise<{ success: number; failed: number; errors: string[] }> => {
     try {
-      const response = await apiClient.post<{ success: number; failed: number; errors: string[] }>(
-        `${SKILL_ENDPOINTS.CREATE_SKILL}/bulk`,
-        { skills }
-      );
-      
+      const response = await apiClient.post<{
+        success: number;
+        failed: number;
+        errors: string[];
+      }>(`${SKILL_ENDPOINTS.CREATE_SKILL}/bulk`, { skills });
+
       // Clear all skill caches after bulk import
       apiClient.clearCache('skills');
       apiClient.clearCache('user/skills');
-      
+
       return response.data;
     } catch (error) {
       console.error('Bulk skill import failed:', error);
@@ -501,7 +521,9 @@ const skillsService = {
   /**
    * Exportiert Benutzer-Skills
    */
-  exportUserSkills: async (format: 'csv' | 'json' | 'xlsx' = 'csv'): Promise<void> => {
+  exportUserSkills: async (
+    format: 'csv' | 'json' | 'xlsx' = 'csv'
+  ): Promise<void> => {
     try {
       await apiClient.downloadFile(
         `${SKILL_ENDPOINTS.GET_USER_SKILLS}/export`,

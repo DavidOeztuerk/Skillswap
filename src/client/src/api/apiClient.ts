@@ -1,47 +1,28 @@
-// src/api/apiClient.ts - BEHOBEN
+// src/api/apiClient.ts
 import httpClient from './httpClient';
 import { ApiResponse } from '../types/common/ApiResponse';
 
-import {  } from 'axios'
+// Request Configuration Interface
+interface RequestConfig {
+  headers?: Record<string, string>;
+  timeout?: number;
+  retries?: number;
+  retryDelay?: number;
+}
 
 /**
- * Enhanced API Client mit verbessertem Parameter-Handling
+ * Enhanced API Client - Vereinfacht und robust mit Fetch
  */
 class ApiClient {
   /**
-   * Performs GET request mit korrigiertem Parameter-Handling
+   * Performs GET request
    */
   async get<T>(
     url: string,
-    config?: { params?: Record<string, unknown> }
+    params?: Record<string, unknown>,
+    config?: RequestConfig
   ): Promise<ApiResponse<T>> {
-    let fullUrl = url;
-
-    // Handle query parameters - VERHINDERE DOPPELTE PARAMETER
-    if (config?.params) {
-      const searchParams = new URLSearchParams();
-
-      // Entferne bereits vorhandene Parameter aus der URL
-      const [baseUrl, existingQuery] = url.split('?');
-      const existingParams = new URLSearchParams(existingQuery || '');
-
-      // Verwende existierende Parameter als Basis
-      existingParams.forEach((value, key) => {
-        searchParams.set(key, value);
-      });
-
-      // Überschreibe/Ergänze mit neuen Parametern
-      Object.entries(config.params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          searchParams.set(key, String(value));
-        }
-      });
-
-      const queryString = searchParams.toString();
-      fullUrl = queryString ? `${baseUrl}?${queryString}` : baseUrl;
-    }
-
-    return httpClient.get<T>(fullUrl);
+    return httpClient.get<T>(url, params, config);
   }
 
   /**
@@ -50,7 +31,7 @@ class ApiClient {
   async post<T>(
     url: string,
     data?: unknown,
-    config?: { headers?: Record<string, string> }
+    config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     return httpClient.post<T>(url, data, config);
   }
@@ -61,7 +42,7 @@ class ApiClient {
   async put<T>(
     url: string,
     data?: unknown,
-    config?: { headers?: Record<string, string> }
+    config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     return httpClient.put<T>(url, data, config);
   }
@@ -72,7 +53,7 @@ class ApiClient {
   async patch<T>(
     url: string,
     data?: unknown,
-    config?: { headers?: Record<string, string> }
+    config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     return httpClient.patch<T>(url, data, config);
   }
@@ -82,7 +63,7 @@ class ApiClient {
    */
   async delete<T>(
     url: string,
-    config?: { headers?: Record<string, string> }
+    config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     return httpClient.delete<T>(url, config);
   }
@@ -90,8 +71,12 @@ class ApiClient {
   /**
    * Downloads a file
    */
-  async downloadFile(url: string, filename?: string): Promise<void> {
-    return httpClient.downloadFile(url, filename);
+  async downloadFile(
+    url: string,
+    filename?: string,
+    config?: RequestConfig
+  ): Promise<void> {
+    return httpClient.downloadFile(url, filename, config);
   }
 
   /**
@@ -100,9 +85,10 @@ class ApiClient {
   async uploadFile<T>(
     url: string,
     formData: FormData,
+    config?: RequestConfig,
     onProgress?: (progressEvent: ProgressEvent) => void
   ): Promise<ApiResponse<T>> {
-    return httpClient.uploadFile<T>(url, formData, {}, onProgress);
+    return httpClient.uploadFile<T>(url, formData, config, onProgress);
   }
 
   /**
@@ -122,11 +108,7 @@ class ApiClient {
       method,
       url,
       data,
-      {
-        retries: options?.retries,
-        retryDelay: options?.retryDelay,
-        headers: options?.headers,
-      }
+      options
     );
     return response.data;
   }
@@ -193,26 +175,10 @@ class ApiClient {
   async getWithCache<T>(
     url: string,
     ttl = 5 * 60 * 1000, // 5 minutes default
-    config?: { params?: Record<string, unknown> }
+    params?: Record<string, unknown>
   ): Promise<ApiResponse<T>> {
-    let fullUrl = url;
-
-    // Handle query parameters for cache key - VERHINDERE DOPPELTE PARAMETER
-    if (config?.params) {
-      const [baseUrl, existingQuery] = url.split('?');
-      const searchParams = new URLSearchParams(existingQuery || '');
-
-      Object.entries(config.params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          searchParams.set(key, String(value));
-        }
-      });
-
-      const queryString = searchParams.toString();
-      fullUrl = queryString ? `${baseUrl}?${queryString}` : baseUrl;
-    }
-
-    const cacheKey = fullUrl;
+    // Create cache key from URL and params
+    const cacheKey = this.createCacheKey(url, params);
     const cached = this.cache.get(cacheKey);
 
     // Return cached data if valid
@@ -221,7 +187,7 @@ class ApiClient {
     }
 
     // Fetch new data
-    const response = await this.get<T>(fullUrl, config);
+    const response = await this.get<T>(url, params);
 
     // Cache the response
     this.cache.set(cacheKey, {
@@ -231,6 +197,26 @@ class ApiClient {
     });
 
     return response;
+  }
+
+  /**
+   * Creates a cache key from URL and parameters
+   */
+  private createCacheKey(
+    url: string,
+    params?: Record<string, unknown>
+  ): string {
+    if (!params) return url;
+
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.set(key, String(value));
+      }
+    });
+
+    const queryString = searchParams.toString();
+    return queryString ? `${url}?${queryString}` : url;
   }
 
   /**
@@ -259,7 +245,7 @@ class ApiClient {
     data?: unknown,
     timeout = 10000
   ): Promise<ApiResponse<T>> {
-    const response = await httpClient.request<ApiResponse<T>>(
+    const response = await httpClient.requestWithRetry<ApiResponse<T>>(
       method,
       url,
       data,

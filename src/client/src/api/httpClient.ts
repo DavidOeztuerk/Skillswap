@@ -11,8 +11,14 @@ import {
 import { router } from '../routes/Router';
 import { ApiResponse } from '../types/common/ApiResponse';
 
-// HTTP Methods
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+// HTTP Response Interface
+export interface HttpResponse<T> {
+  data: T;
+  status: number;
+  ok: boolean;
+  message?: string;
+  headers?: Record<string, string>;
+}
 
 // Request Configuration Interface
 interface RequestConfig {
@@ -20,25 +26,7 @@ interface RequestConfig {
   timeout?: number;
   retries?: number;
   retryDelay?: number;
-}
-
-interface ExtendedRequestConfig extends RequestConfig {
   _retry?: boolean;
-}
-
-// Response Interface
-interface HttpResponse<T = unknown> {
-  data: T;
-  status: number;
-  statusText: string;
-  headers: Headers;
-}
-
-// Error Interface
-interface HttpError extends Error {
-  status?: number;
-  statusText?: string;
-  response?: HttpResponse;
 }
 
 // Token Refresh Response Interface
@@ -48,23 +36,98 @@ interface TokenRefreshResponse {
 }
 
 class CustomHttpClient {
+  private baseUrl: string;
   private isRefreshing = false;
   private refreshSubscribers: Array<(token: string) => void> = [];
 
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+  }
+
   /**
-   * Creates an HTTP error with additional metadata
+   * Gets default headers including auth token
    */
-  private createHttpError(
-    message: string,
-    status?: number,
-    statusText?: string,
-    response?: HttpResponse
-  ): HttpError {
-    const error = new Error(message) as HttpError;
-    error.status = status;
-    error.statusText = statusText;
-    error.response = response;
-    return error;
+  private getHeaders(customHeaders?: Record<string, string>): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...customHeaders,
+    };
+
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
+  }
+
+  /**
+   * Handles fetch response and parses JSON
+   */
+  private async handleResponse<T>(
+    response: Response
+  ): Promise<HttpResponse<T>> {
+    let data: unknown = null;
+
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
+    } catch {
+      // Response might not contain JSON/text
+    }
+
+    // Convert headers to plain object
+    const headersObj: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      headersObj[key] = value;
+    });
+
+    const result: HttpResponse<T> = {
+      data: data as T,
+      status: response.status,
+      ok: response.ok,
+      message: response.ok
+        ? 'Success'
+        : (data as { message?: string })?.message || response.statusText,
+      headers: headersObj,
+    };
+
+    if (!response.ok) {
+      console.error('API Error:', result.message);
+    }
+
+    return result;
+  }
+
+  /**
+   * Creates fetch request with timeout support
+   */
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+    timeout: number = API_TIMEOUT
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error('Request timeout');
+      }
+      throw error;
+    }
   }
 
   /**
@@ -93,6 +156,10 @@ class CustomHttpClient {
       refreshToken: getRefreshToken(),
     });
 
+    if (!response.ok || !response.data.data) {
+      throw new Error('Token refresh failed');
+    }
+
     const tokenData = response.data.data;
     setToken(tokenData.token);
     setRefreshToken(tokenData.refreshToken);
@@ -100,16 +167,57 @@ class CustomHttpClient {
   }
 
   /**
+   * Performs HTTP request without authentication interceptors
+   */
+  private async requestWithoutInterceptor<T>(
+    method: string,
+    endpoint: string,
+    body?: unknown,
+    config?: RequestConfig
+  ): Promise<HttpResponse<T>> {
+    const url = endpoint.startsWith('http')
+      ? endpoint
+      : `${this.baseUrl}${endpoint}`;
+
+    const options: RequestInit = {
+      method,
+      headers: this.getHeaders(config?.headers),
+    };
+
+    // Add body for non-GET requests
+    if (body && method !== 'GET') {
+      if (body instanceof FormData) {
+        // Remove Content-Type for FormData (browser will set it with boundary)
+        const headers = { ...options.headers } as Record<string, string>;
+        delete headers['Content-Type'];
+        options.headers = headers;
+        options.body = body;
+      } else {
+        options.body = JSON.stringify(body);
+      }
+    }
+
+    const response = await this.fetchWithTimeout(url, options, config?.timeout);
+    return this.handleResponse<T>(response);
+  }
+
+  /**
    * Handles HTTP errors and implements retry logic for 401 errors
    */
   private async handleError<T>(
-    error: HttpError,
-    method: HttpMethod,
-    url: string,
-    data?: unknown,
-    config?: ExtendedRequestConfig
+    error: unknown,
+    method: string,
+    endpoint: string,
+    body?: unknown,
+    config?: RequestConfig
   ): Promise<HttpResponse<T>> {
-    if (error.status === 401 && !config?._retry) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      (error as { status?: number }).status === 401 &&
+      !config?._retry
+    ) {
       const retryConfig = { ...config, _retry: true };
 
       if (!this.isRefreshing) {
@@ -118,18 +226,23 @@ class CustomHttpClient {
           const tokenData = await this.refreshAccessToken();
           this.onRefreshed(tokenData.token);
           this.isRefreshing = false;
+
+          // Retry original request with new token
+          return this.request<T>(method, endpoint, body, retryConfig);
         } catch (refreshError) {
           this.isRefreshing = false;
+          this.refreshSubscribers = [];
           removeToken();
           router.navigate('/login');
           throw refreshError;
         }
       }
 
+      // Queue the request if token refresh is in progress
       return new Promise<HttpResponse<T>>((resolve, reject) => {
         this.subscribeTokenRefresh(() => {
-          this.request<T>(method, url, data, retryConfig)
-            .then((result) => resolve(result as HttpResponse<T>))
+          this.request<T>(method, endpoint, body, retryConfig)
+            .then(resolve)
             .catch(reject);
         });
       });
@@ -139,150 +252,66 @@ class CustomHttpClient {
   }
 
   /**
-   * Creates fetch request with timeout support
-   */
-  private async fetchWithTimeout(
-    url: string,
-    options: RequestInit,
-    timeout: number
-  ): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        throw this.createHttpError('Request timeout', 408, 'Request Timeout');
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Performs HTTP request without authentication interceptors
-   */
-  private async requestWithoutInterceptor<T>(
-    method: HttpMethod,
-    url: string,
-    data?: unknown,
-    config?: RequestConfig
-  ): Promise<HttpResponse<T>> {
-    const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
-    const timeout = config?.timeout || API_TIMEOUT;
-
-    // Prepare headers
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...config?.headers,
-    };
-
-    // Prepare request options
-    const options: RequestInit = {
-      method,
-      headers,
-    };
-
-    // Add body for non-GET requests
-    if (data && method !== 'GET') {
-      if (data instanceof FormData) {
-        // Remove Content-Type for FormData (browser will set it with boundary)
-        delete headers['Content-Type'];
-        options.body = data;
-      } else {
-        options.body = JSON.stringify(data);
-      }
-    }
-
-    try {
-      const response = await this.fetchWithTimeout(fullUrl, options, timeout);
-
-      // Parse response
-      let responseData: T;
-      const contentType = response.headers.get('content-type');
-
-      if (contentType && contentType.includes('application/json')) {
-        responseData = await response.json();
-      } else {
-        responseData = (await response.text()) as unknown as T;
-      }
-
-      const httpResponse: HttpResponse<T> = {
-        data: responseData,
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      };
-
-      // Handle HTTP errors
-      if (!response.ok) {
-        throw this.createHttpError(
-          `HTTP Error: ${response.status} ${response.statusText}`,
-          response.status,
-          response.statusText,
-          httpResponse
-        );
-      }
-
-      return httpResponse;
-    } catch (error) {
-      if (error instanceof TypeError) {
-        throw this.createHttpError(
-          'Network Error: Unable to connect to server'
-        );
-      }
-      throw error;
-    }
-  }
-
-  /**
    * Performs HTTP request with authentication and retry logic
    */
-  public async request<T>(
-    method: HttpMethod,
-    url: string,
-    data?: unknown,
-    config?: ExtendedRequestConfig
+  private async request<T>(
+    method: string,
+    endpoint: string,
+    body?: unknown,
+    config?: RequestConfig
   ): Promise<HttpResponse<T>> {
-    // Add authorization header if token exists
-    const token = getToken();
-    const headers = { ...config?.headers };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const requestConfig = { ...config, headers };
-
     try {
-      return await this.requestWithoutInterceptor<T>(
+      const response = await this.requestWithoutInterceptor<T>(
         method,
-        url,
-        data,
-        requestConfig
+        endpoint,
+        body,
+        config
       );
-    } catch (error) {
-      if (error instanceof Error) {
-        const httpError = error as HttpError;
-        return this.handleError<T>(httpError, method, url, data, requestConfig);
+
+      // Handle 401 errors for token refresh
+      if (response.status === 401) {
+        return this.handleError<T>(
+          { status: response.status },
+          method,
+          endpoint,
+          body,
+          config
+        );
       }
-      throw error;
+
+      return response;
+    } catch (error) {
+      // Handle network errors or other issues
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Network error occurred');
     }
   }
 
   /**
-   * Performs GET request
+   * GET request
    */
   public async get<T>(
-    url: string,
+    endpoint: string,
+    params?: Record<string, unknown>,
     config?: RequestConfig
   ): Promise<ApiResponse<T>> {
+    let url = endpoint;
+
+    if (params) {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+      const queryString = queryParams.toString();
+      if (queryString) {
+        url += url.includes('?') ? `&${queryString}` : `?${queryString}`;
+      }
+    }
+
     const response = await this.request<ApiResponse<T>>(
       'GET',
       url,
@@ -293,66 +322,66 @@ class CustomHttpClient {
   }
 
   /**
-   * Performs POST request
+   * POST request
    */
   public async post<T>(
-    url: string,
-    data?: unknown,
+    endpoint: string,
+    body?: unknown,
     config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     const response = await this.request<ApiResponse<T>>(
       'POST',
-      url,
-      data,
+      endpoint,
+      body,
       config
     );
     return response.data;
   }
 
   /**
-   * Performs PUT request
+   * PUT request
    */
   public async put<T>(
-    url: string,
-    data?: unknown,
+    endpoint: string,
+    body?: unknown,
     config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     const response = await this.request<ApiResponse<T>>(
       'PUT',
-      url,
-      data,
+      endpoint,
+      body,
       config
     );
     return response.data;
   }
 
   /**
-   * Performs PATCH request
+   * PATCH request
    */
   public async patch<T>(
-    url: string,
-    data?: unknown,
+    endpoint: string,
+    body?: unknown,
     config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     const response = await this.request<ApiResponse<T>>(
       'PATCH',
-      url,
-      data,
+      endpoint,
+      body,
       config
     );
     return response.data;
   }
 
   /**
-   * Performs DELETE request
+   * DELETE request
    */
   public async delete<T>(
-    url: string,
+    endpoint: string,
     config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     const response = await this.request<ApiResponse<T>>(
       'DELETE',
-      url,
+      endpoint,
       undefined,
       config
     );
@@ -363,32 +392,34 @@ class CustomHttpClient {
    * Performs request with retry logic
    */
   public async requestWithRetry<T>(
-    method: HttpMethod,
-    url: string,
-    data?: unknown,
+    method: string,
+    endpoint: string,
+    body?: unknown,
     config?: RequestConfig
   ): Promise<HttpResponse<T>> {
     const maxRetries = config?.retries || 3;
     const retryDelay = config?.retryDelay || 1000;
     let lastError: Error;
 
+    interface StatusError extends Error {
+      status?: number;
+    }
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await this.request<T>(method, url, data, config);
+        return await this.request<T>(method, endpoint, body, config);
       } catch (error) {
         lastError = error as Error;
 
         // Don't retry on client errors (4xx) except 401
-        if (error instanceof Error) {
-          const httpError = error as HttpError;
-          if (
-            httpError.status &&
-            httpError.status >= 400 &&
-            httpError.status < 500 &&
-            httpError.status !== 401
-          ) {
-            throw error;
-          }
+        const status = (error as StatusError)?.status;
+        if (
+          status !== undefined &&
+          status >= 400 &&
+          status < 500 &&
+          status !== 401
+        ) {
+          throw error;
         }
 
         // Wait before retry (except on last attempt)
@@ -407,11 +438,11 @@ class CustomHttpClient {
    * Downloads a file
    */
   public async downloadFile(
-    url: string,
+    endpoint: string,
     filename?: string,
     config?: RequestConfig
   ): Promise<void> {
-    const response = await this.request<Blob>('GET', url, undefined, {
+    const response = await this.request<Blob>('GET', endpoint, undefined, {
       ...config,
       headers: {
         ...config?.headers,
@@ -435,28 +466,25 @@ class CustomHttpClient {
    * Uploads a file
    */
   public async uploadFile<T>(
-    url: string,
+    endpoint: string,
     formData: FormData,
     config?: RequestConfig,
     onProgress?: (progressEvent: ProgressEvent) => void
   ): Promise<ApiResponse<T>> {
     // Note: Progress tracking with fetch API requires additional implementation
-    // For now, we'll implement basic file upload without progress tracking
-
     if (onProgress) {
-      console.log('nix ');
+      console.warn('Progress tracking not implemented with fetch API');
     }
 
-    const response = await this.request<ApiResponse<T>>('POST', url, formData, {
-      ...config,
-      headers: {
-        ...config?.headers,
-        // Don't set Content-Type for FormData - browser will set it with boundary
-      },
-    });
+    const response = await this.request<ApiResponse<T>>(
+      'POST',
+      endpoint,
+      formData,
+      config
+    );
     return response.data;
   }
 }
 
 // Create and export singleton instance
-export default new CustomHttpClient();
+export default new CustomHttpClient(API_BASE_URL);
