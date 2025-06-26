@@ -1,5 +1,3 @@
-using CQRS.Interfaces;
-
 namespace EventSourcing;
 
 public class StoredEvent

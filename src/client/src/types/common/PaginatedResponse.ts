@@ -1,8 +1,14 @@
 export interface PaginatedResponse<T> {
-  results: never[];
-  items: T[];
-  totalCount: number;
   pageNumber: number;
   pageSize: number;
   totalPages: number;
+  totalRecords: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  success: boolean;
+  data: T[];
+  message: string | null;
+  errors: string[] | null;
+  timestamp: string;
+  traceId?: string | null;
 }

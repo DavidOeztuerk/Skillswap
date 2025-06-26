@@ -49,7 +49,7 @@ const SearchBar: React.FC = () => {
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Skills aus dem Hook holen
-  const { skills, searchAllSkills, isLoading } = useSkills();
+  const { skills, searchSkillsByQuery, isLoading } = useSkills();
 
   // Beispiel-Zustand für die Suchergebnisse
   const [searchResults, setSearchResults] = useState<SearchResult>({
@@ -74,7 +74,7 @@ const SearchBar: React.FC = () => {
   useEffect(() => {
     if (debouncedSearchQuery.length > 2) {
       // Skills suchen
-      searchAllSkills(debouncedSearchQuery);
+      searchSkillsByQuery(debouncedSearchQuery);
 
       // Hier könntest du weitere Suchoperationen durchführen, z.B. nach Benutzern suchen
       // Diese könnten aus einem useUsers Hook kommen
@@ -83,7 +83,7 @@ const SearchBar: React.FC = () => {
     } else if (debouncedSearchQuery.length === 0) {
       setIsOpen(false);
     }
-  }, [debouncedSearchQuery, searchAllSkills]);
+  }, [debouncedSearchQuery, searchSkillsByQuery]);
 
   // Wenn sich die Skills ändern, Suchergebnisse aktualisieren
   useEffect(() => {

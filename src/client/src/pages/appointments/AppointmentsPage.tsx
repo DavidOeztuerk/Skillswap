@@ -154,7 +154,7 @@ const AppointmentsPage: React.FC = () => {
       {statusMessage && (
         <AlertMessage
           severity={statusMessage.type}
-          message={statusMessage.text}
+          message={[statusMessage.text]}
           onClose={() => setStatusMessage(null)}
         />
       )}

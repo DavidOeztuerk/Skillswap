@@ -1,686 +1,842 @@
-import {
-  createSlice,
-  createAsyncThunk,
-  createEntityAdapter,
-  PayloadAction,
-  EntityState,
-  createSelector,
-} from '@reduxjs/toolkit';
-import { RootState } from '../../store/store';
-import { SkillService } from '../../api/services/skillsService';
-import {
-  ProficiencyLevel,
-  Skill,
-  SkillCategory,
-} from '../../types/models/Skill';
-import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkillResponse';
-import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
-import { CreateSkillResponse } from '../../types/contracts/responses/CreateSkillResponse';
+// src/features/skills/skillsSlice.ts
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { Skill } from '../../types/models/Skill';
 import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
+import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+import skillService, {
+  SkillSearchParams,
+  SkillStatistics,
+  SkillRecommendation,
+} from '../../api/services/skillsService';
+import { PaginatedResponse } from '../../types/common/PaginatedResponse';
 
-/* --------------------------------
-   Typen für asynchrone Requests
------------------------------------*/
-type RequestStatus = 'idle' | 'loading' | 'succeeded' | 'failed';
+// Enhanced interfaces
+interface ExtendedCreateSkillRequest extends CreateSkillRequest {
+  tags?: string[];
+  remoteAvailable?: boolean;
+  location?: string;
+}
 
-/* --------------------------------
-   Entity-Adapter
------------------------------------*/
-const skillsAdapter = createEntityAdapter<Skill, string>({
-  selectId: (skill) => skill.id,
-  sortComparer: (a, b) => a.name.localeCompare(b.name),
-});
+interface ExtendedUpdateSkillRequest extends UpdateSkillRequest {
+  tags?: string[];
+  remoteAvailable?: boolean;
+  location?: string;
+}
 
-const categoriesAdapter = createEntityAdapter<SkillCategory, string>({
-  selectId: (category) => category.id,
-  sortComparer: (a, b) => a.name.localeCompare(b.name),
-});
+// API Response interface - angepasst an deine API
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  errors?: string[];
+  pageNumber?: number;
+  pageSize?: number;
+  totalPages?: number;
+  totalRecords?: number;
+  hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
+  timestamp?: string;
+  traceId?: string;
+}
 
-const proficiencyLevelsAdapter = createEntityAdapter<ProficiencyLevel, string>({
-  selectId: (level) => level.id,
-  sortComparer: (a, b) => a.rank - b.rank,
-});
-
-/* --------------------------------
-   Slice State
------------------------------------*/
+// Unified Skills State
 interface SkillsState {
-  skills: EntityState<Skill, string>;
-  userSkills: EntityState<Skill, string>;
-  categories: EntityState<SkillCategory, string>;
-  proficiencyLevels: EntityState<ProficiencyLevel, string>;
-  selectedSkill?: Skill;
-  status: {
-    skills: RequestStatus;
-    userSkills: RequestStatus;
-    categories: RequestStatus;
-    proficiencyLevels: RequestStatus;
-    createSkill: RequestStatus;
-    updateSkill: RequestStatus;
-    deleteSkill: RequestStatus;
-  };
-  error?: string;
-  pagination: {
-    currentPage: number;
-    pageSize: number;
-    totalItems: number;
-    totalPages: number;
-  };
+  // All skills (from search/browse)
+  allSkills: Skill[];
+
+  // User's own skills
+  userSkills: Skill[];
+
+  // Currently selected skill for details
+  selectedSkill: Skill | null;
+
+  // Search & Filter
   searchQuery: string;
+  searchResults: Skill[];
+  isSearchActive: boolean;
+
+  // Pagination
+  pagination: {
+    pageNumber: number;
+    pageSize: number;
+    totalPages: number;
+    totalRecords: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+
+  // Analytics
+  statistics: SkillStatistics | null;
+  recommendations: SkillRecommendation[];
+  popularTags: Array<{ tag: string; count: number }>;
+
+  // Loading states
+  isLoading: boolean;
+  isCreating: boolean;
+  isUpdating: boolean;
+  isDeleting: boolean;
+
+  // Error handling
+  errors: string[] | null;
 }
 
 const initialState: SkillsState = {
-  skills: skillsAdapter.getInitialState(),
-  userSkills: skillsAdapter.getInitialState(),
-  categories: categoriesAdapter.getInitialState(),
-  proficiencyLevels: proficiencyLevelsAdapter.getInitialState(),
-  status: {
-    skills: 'idle',
-    userSkills: 'idle',
-    categories: 'idle',
-    proficiencyLevels: 'idle',
-    createSkill: 'idle',
-    updateSkill: 'idle',
-    deleteSkill: 'idle',
-  },
-  pagination: {
-    currentPage: 1,
-    pageSize: 12,
-    totalItems: 0,
-    totalPages: 0,
-  },
+  allSkills: [],
+  userSkills: [],
+  selectedSkill: null,
   searchQuery: '',
+  searchResults: [],
+  isSearchActive: false,
+  pagination: {
+    pageNumber: 1,
+    pageSize: 12,
+    totalPages: 0,
+    totalRecords: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  },
+  statistics: null,
+  recommendations: [],
+  popularTags: [],
+  isLoading: false,
+  isCreating: false,
+  isUpdating: false,
+  isDeleting: false,
+  errors: null,
 };
 
-/* --------------------------------
-   Async Thunks
------------------------------------*/
-
-// Ich kürze nur die Thunks, der Rest des Codes bleibt gleich.
-// Ersetze axios durch native Fetch API + Fehlerhandling
-
-function handleApiError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return 'Ein unbekannter Fehler ist aufgetreten';
-}
-
-export const fetchSkills = createAsyncThunk(
-  'skills/fetchSkills',
-  async (
-    { page = 1, pageSize = 10 }: { page: number; pageSize: number },
-    { rejectWithValue }
-  ) => {
-    try {
-      return await SkillService.getAllSkills(page, pageSize);
-    } catch (error) {
-      return rejectWithValue(handleApiError(error));
-    }
+/**
+ * Helper function to extract data from API response
+ */
+const extractApiData = <T>(response: PaginatedResponse<T> | T): T => {
+  // If response has 'data' property, extract it
+  if (response && typeof response === 'object' && 'data' in response) {
+    return (response as ApiResponse<T>).data;
   }
-);
+  // Otherwise, assume the response is the data itself
+  return response as T;
+};
 
-export const fetchSkillById = createAsyncThunk<
-  Skill,
-  string,
-  { rejectValue: string }
->('skills/fetchSkillById', async (skillId, { rejectWithValue }) => {
-  try {
-    return await SkillService.getSkillById(skillId);
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
+/**
+ * Helper function to extract pagination from API response
+ */
+const extractPagination = <T>(response: PaginatedResponse<T> | unknown) => {
+  if (response && typeof response === 'object') {
+    return {
+      pageNumber: (response as PaginatedResponse<T>).pageNumber || 1,
+      pageSize: (response as PaginatedResponse<T>).pageSize || 12,
+      totalPages: (response as PaginatedResponse<T>).totalPages || 0,
+      totalRecords: (response as PaginatedResponse<T>).totalRecords || 0,
+      hasNextPage: (response as PaginatedResponse<T>).hasNextPage || false,
+      hasPreviousPage:
+        (response as PaginatedResponse<T>).hasPreviousPage || false,
+    };
   }
-});
+  return initialState.pagination;
+};
 
+/**
+ * Async Thunks
+ */
+
+// Search skills with enhanced parameters
 export const searchSkills = createAsyncThunk(
   'skills/searchSkills',
-  async (
-    {
-      query,
-      page = 1,
-      pageSize = 10,
-    }: { query: string; page: number; pageSize: number },
-    { rejectWithValue }
-  ) => {
+  async (params: SkillSearchParams, { rejectWithValue }) => {
     try {
-      return await SkillService.getSkillsBySearch(query, page, pageSize);
+      console.log('🔍 Searching skills with params:', params);
+      const response = await skillService.searchSkills(params);
+      console.log('🔍 Search response:', response);
+      return response;
     } catch (error) {
-      return rejectWithValue(handleApiError(error));
+      console.error('❌ Search skills error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Skill-Suche fehlgeschlagen';
+      return rejectWithValue([errorMessage]);
     }
   }
 );
 
+// Get all skills with pagination
+export const fetchAllSkills = createAsyncThunk(
+  'skills/fetchAllSkills',
+  async (
+    { page = 1, pageSize = 12 }: { page?: number; pageSize?: number } = {},
+    { rejectWithValue }
+  ) => {
+    try {
+      console.log(
+        '📋 Fetching all skills - page:',
+        page,
+        'pageSize:',
+        pageSize
+      );
+      const response = await skillService.getAllSkills(page, pageSize);
+      console.log('📋 All skills response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Fetch all skills error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Skills konnten nicht geladen werden';
+      return rejectWithValue([errorMessage]);
+    }
+  }
+);
+
+// Get skill by ID
+export const fetchSkillById = createAsyncThunk(
+  'skills/fetchSkillById',
+  async (skillId: string, { rejectWithValue }) => {
+    try {
+      console.log('🎯 Fetching skill by ID:', skillId);
+      const response = await skillService.getSkillById(skillId);
+      console.log('🎯 Skill by ID response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Fetch skill by ID error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Skill konnte nicht geladen werden';
+      return rejectWithValue([errorMessage]);
+    }
+  }
+);
+
+// Get user skills
 export const fetchUserSkills = createAsyncThunk(
   'skills/fetchUserSkills',
   async (
-    {
-      page = 1,
-      pageSize = 10,
-    }: { query: string; page: number; pageSize: number },
+    { page = 1, pageSize = 12 }: { page?: number; pageSize?: number } = {},
     { rejectWithValue }
   ) => {
     try {
-      return await SkillService.getUserSkills(page, pageSize);
+      console.log(
+        '👤 Fetching user skills - page:',
+        page,
+        'pageSize:',
+        pageSize
+      );
+      const response = await skillService.getUserSkills(page, pageSize);
+      console.log('👤 User skills response:', response);
+      return response;
     } catch (error) {
-      return rejectWithValue(handleApiError(error));
+      console.error('❌ Fetch user skills error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Deine Skills konnten nicht geladen werden';
+      return rejectWithValue([errorMessage]);
     }
   }
 );
 
-export const fetchUserSkillById = createAsyncThunk<
-  Skill,
-  string,
-  { rejectValue: string }
->('skills/fetchUserSkillById', async (skillId, { rejectWithValue }) => {
-  try {
-    return await SkillService.getUserSkillById(skillId);
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
+// Create new skill
+export const createSkill = createAsyncThunk(
+  'skills/createSkill',
+  async (skillData: ExtendedCreateSkillRequest, { rejectWithValue }) => {
+    try {
+      console.log('✨ Creating skill:', skillData);
+      const response = await skillService.createSkill(skillData);
+      console.log('✨ Create skill response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Create skill error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Skill konnte nicht erstellt werden';
+      return rejectWithValue([errorMessage]);
+    }
   }
-});
+);
 
-export const searchUserSkills = createAsyncThunk(
-  'skills/searchUserSkills',
+// Update existing skill
+export const updateSkill = createAsyncThunk(
+  'skills/updateSkill',
   async (
     {
-      query,
-      page = 1,
-      pageSize = 10,
-    }: { query: string; page: number; pageSize: number },
+      skillId,
+      updateData,
+    }: { skillId: string; updateData: ExtendedUpdateSkillRequest },
     { rejectWithValue }
   ) => {
     try {
-      return await SkillService.getUserSkillsBySearch(query, page, pageSize);
+      console.log('📝 Updating skill:', skillId, updateData);
+      const response = await skillService.updateSkill(skillId, updateData);
+      console.log('📝 Update skill response:', response);
+      return { skillId, updatedSkill: response };
     } catch (error) {
-      return rejectWithValue(handleApiError(error));
+      console.error('❌ Update skill error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Skill konnte nicht aktualisiert werden';
+      return rejectWithValue([errorMessage]);
     }
   }
 );
 
-export const createSkill = createAsyncThunk<
-  CreateSkillResponse,
-  CreateSkillRequest,
-  { rejectValue: string }
->('skills/createSkill', async (skillData, { rejectWithValue }) => {
-  try {
-    return await SkillService.createSkill(skillData);
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
-  }
-});
-
-export const updateSkill = createAsyncThunk<
-  UpdateSkillResponse,
-  { skillId: string; updateData: UpdateSkillRequest },
-  { rejectValue: string }
->(
-  'skills/updateSkill',
-  async ({ skillId, updateData }, { rejectWithValue }) => {
+// Delete skill
+export const deleteSkill = createAsyncThunk(
+  'skills/deleteSkill',
+  async (
+    { skillId, reason }: { skillId: string; reason?: string },
+    { rejectWithValue }
+  ) => {
     try {
-      return await SkillService.updateSkill(skillId, updateData);
+      console.log('🗑️ Deleting skill:', skillId, reason);
+      await skillService.deleteSkill(skillId, reason);
+      console.log('🗑️ Skill deleted successfully');
+      return skillId;
     } catch (error) {
-      return rejectWithValue(handleApiError(error));
+      console.error('❌ Delete skill error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Skill konnte nicht gelöscht werden';
+      return rejectWithValue([errorMessage]);
     }
   }
 );
 
-export const deleteSkill = createAsyncThunk<
-  string,
-  string,
-  { rejectValue: string }
->('skills/deleteSkill', async (skillId, { rejectWithValue }) => {
-  try {
-    await SkillService.deleteSkill(skillId);
-    return skillId;
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
-  }
-});
-
-export const fetchCategories = createAsyncThunk<
-  SkillCategory[],
-  void,
-  { rejectValue: string }
->('skills/fetchCategories', async (_, { rejectWithValue }) => {
-  try {
-    return await SkillService.getCategories();
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
-  }
-});
-
-export const createCategory = createAsyncThunk<
-  SkillCategory,
-  string,
-  { rejectValue: string }
->('skills/createCategory', async (name, { rejectWithValue }) => {
-  try {
-    return await SkillService.createCategory(name);
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
-  }
-});
-
-export const updateCategory = createAsyncThunk<
-  SkillCategory,
-  { id: string; name: string },
-  { rejectValue: string }
->('skills/updateCategory', async ({ id, name }, { rejectWithValue }) => {
-  try {
-    return await SkillService.updateCategory(id, name);
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
-  }
-});
-
-export const deleteCategory = createAsyncThunk<
-  string,
-  string,
-  { rejectValue: string }
->('skills/deleteCategory', async (id, { rejectWithValue }) => {
-  try {
-    await SkillService.deleteCategory(id);
-    return id;
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
-  }
-});
-
-export const fetchProficiencyLevels = createAsyncThunk<
-  ProficiencyLevel[],
-  void,
-  { rejectValue: string }
->('skills/fetchProficiencyLevels', async (_, { rejectWithValue }) => {
-  try {
-    return await SkillService.getProficiencyLevels();
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
-  }
-});
-
-export const createProficiencyLevel = createAsyncThunk<
-  ProficiencyLevel,
-  { level: string; rank: number },
-  { rejectValue: string }
->(
-  'skills/createProficiencyLevel',
-  async ({ level, rank }, { rejectWithValue }) => {
+// Rate skill
+export const rateSkill = createAsyncThunk(
+  'skills/rateSkill',
+  async (
+    {
+      skillId,
+      rating,
+      review,
+    }: { skillId: string; rating: number; review?: string },
+    { rejectWithValue }
+  ) => {
     try {
-      return await SkillService.createProficiencyLevel(level, rank);
+      await skillService.rateSkill(skillId, rating, review);
+      return { skillId, rating, review };
     } catch (error) {
-      return rejectWithValue(handleApiError(error));
+      console.error('❌ Rate skill error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Skill-Bewertung fehlgeschlagen';
+      return rejectWithValue([errorMessage]);
     }
   }
 );
 
-export const updateProficiencyLevel = createAsyncThunk<
-  ProficiencyLevel,
-  { id: string; level: string; rank: number },
-  { rejectValue: string }
->(
-  'skills/updateProficiencyLevel',
-  async ({ id, level, rank }, { rejectWithValue }) => {
+// Endorse skill
+export const endorseSkill = createAsyncThunk(
+  'skills/endorseSkill',
+  async (
+    { skillId, message }: { skillId: string; message?: string },
+    { rejectWithValue }
+  ) => {
     try {
-      return await SkillService.updateProficiencyLevel(id, level, rank);
+      await skillService.endorseSkill(skillId, message);
+      return { skillId, message };
     } catch (error) {
-      return rejectWithValue(handleApiError(error));
+      console.error('❌ Endorse skill error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Skill-Empfehlung fehlgeschlagen';
+      return rejectWithValue([errorMessage]);
     }
   }
 );
 
-export const deleteProficiencyLevel = createAsyncThunk<
-  string,
-  string,
-  { rejectValue: string }
->('skills/deleteProficiencyLevel', async (id, { rejectWithValue }) => {
-  try {
-    await SkillService.deleteProficiencyLevel(id);
-    return id;
-  } catch (error) {
-    return rejectWithValue(handleApiError(error));
+// Fetch skill statistics
+export const fetchSkillStatistics = createAsyncThunk(
+  'skills/fetchSkillStatistics',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await skillService.getSkillStatistics();
+      return response;
+    } catch (error) {
+      console.error('❌ Fetch skill statistics error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Skill-Statistiken konnten nicht geladen werden';
+      return rejectWithValue([errorMessage]);
+    }
   }
-});
+);
 
-/* --------------------------------
-   Slice
------------------------------------*/
+// Fetch popular tags
+export const fetchPopularTags = createAsyncThunk(
+  'skills/fetchPopularTags',
+  async ({ limit = 20 }: { limit?: number } = {}, { rejectWithValue }) => {
+    try {
+      const response = await skillService.getPopularTags(limit);
+      return response;
+    } catch (error) {
+      console.error('❌ Fetch popular tags error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Beliebte Tags konnten nicht geladen werden';
+      return rejectWithValue([errorMessage]);
+    }
+  }
+);
+
+// Fetch skill recommendations
+export const fetchSkillRecommendations = createAsyncThunk(
+  'skills/fetchSkillRecommendations',
+  async ({ limit = 10 }: { limit?: number } = {}, { rejectWithValue }) => {
+    try {
+      const response = await skillService.getSkillRecommendations(limit);
+      return response;
+    } catch (error) {
+      console.error('❌ Fetch skill recommendations error:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Skill-Empfehlungen konnten nicht geladen werden';
+      return rejectWithValue([errorMessage]);
+    }
+  }
+);
+
+/**
+ * Skills Slice
+ */
 const skillsSlice = createSlice({
   name: 'skills',
   initialState,
   reducers: {
-    setSelectedSkill: (state, action: PayloadAction<Skill | undefined>) => {
+    // Error handling
+    clearError: (state) => {
+      state.errors = null;
+    },
+
+    setError: (state, action: PayloadAction<string[] | null>) => {
+      state.errors = action.payload;
+    },
+
+    // Selected skill management
+    setSelectedSkill: (state, action: PayloadAction<Skill | null>) => {
       state.selectedSkill = action.payload;
     },
+
     clearSelectedSkill: (state) => {
-      state.selectedSkill = undefined;
+      state.selectedSkill = null;
     },
+
+    // Search management
     setSearchQuery: (state, action: PayloadAction<string>) => {
       state.searchQuery = action.payload;
+      state.isSearchActive = action.payload.length > 0;
     },
+
+    clearSearch: (state) => {
+      state.searchQuery = '';
+      state.searchResults = [];
+      state.isSearchActive = false;
+    },
+
+    // Pagination management
     setPagination: (
       state,
-      action: PayloadAction<{ page: number; pageSize: number }>
+      action: PayloadAction<Partial<typeof initialState.pagination>>
     ) => {
-      state.pagination.currentPage = action.payload.page;
-      state.pagination.pageSize = action.payload.pageSize;
+      state.pagination = { ...state.pagination, ...action.payload };
     },
-    resetStatus: (state) => {
-      state.status = {
-        skills: 'idle',
-        userSkills: 'idle',
-        categories: 'idle',
-        proficiencyLevels: 'idle',
-        createSkill: 'idle',
-        updateSkill: 'idle',
-        deleteSkill: 'idle',
+
+    resetPagination: (state) => {
+      state.pagination = initialState.pagination;
+    },
+
+    // Manual state updates
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.isLoading = action.payload;
+    },
+
+    addUserSkill: (state, action: PayloadAction<Skill>) => {
+      const existingIndex = state.userSkills.findIndex(
+        (skill) => skill.id === action.payload.id
+      );
+      if (existingIndex === -1) {
+        state.userSkills.unshift(action.payload);
+      } else {
+        state.userSkills[existingIndex] = action.payload;
+      }
+    },
+
+    removeUserSkill: (state, action: PayloadAction<string>) => {
+      state.userSkills = state.userSkills.filter(
+        (skill) => skill.id !== action.payload
+      );
+      if (state.selectedSkill?.id === action.payload) {
+        state.selectedSkill = null;
+      }
+    },
+
+    updateSkillInState: (state, action: PayloadAction<Skill>) => {
+      const updatedSkill = action.payload;
+
+      // Update in all relevant arrays
+      const updateInArray = (array: Skill[]) => {
+        const index = array.findIndex((skill) => skill.id === updatedSkill.id);
+        if (index !== -1) {
+          array[index] = updatedSkill;
+        }
       };
-      state.error = undefined;
+
+      updateInArray(state.allSkills);
+      updateInArray(state.userSkills);
+      updateInArray(state.searchResults);
+
+      if (state.selectedSkill?.id === updatedSkill.id) {
+        state.selectedSkill = updatedSkill;
+      }
     },
+
+    // Clear all data
+    clearAllSkills: (state) => {
+      state.allSkills = [];
+      state.userSkills = [];
+      state.searchResults = [];
+      state.selectedSkill = null;
+      state.recommendations = [];
+    },
+
+    // Reset entire state
+    resetState: () => initialState,
   },
   extraReducers: (builder) => {
-    // fetchSkills
-    builder.addCase(fetchSkills.pending, (state) => {
-      state.status.skills = 'loading';
-    });
-    builder.addCase(fetchSkills.fulfilled, (state, action) => {
-      state.status.skills = 'succeeded';
-      const payload = action.payload;
-      // payload.data enthält das Skill-Array
-      skillsAdapter.setAll(state.skills, payload.items);
-      // Optional: Paginierung übernehmen, wenn gewünscht
-      state.pagination.currentPage = payload.pageNumber;
-      state.pagination.pageSize = payload.pageSize;
-      state.pagination.totalItems = payload.totalCount;
-      // Z.B. totalPages = totalCount/pageSize, falls gewünscht
-      state.pagination.totalPages = Math.ceil(
-        payload.totalCount / payload.pageSize
-      );
-    });
-    builder.addCase(fetchSkills.rejected, (state, action) => {
-      state.status.skills = 'failed';
-      state.error = action.payload as string;
-    });
+    builder
+      // Search skills cases
+      .addCase(searchSkills.pending, (state) => {
+        state.isLoading = true;
+        state.errors = null;
+      })
+      .addCase(searchSkills.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const data = extractApiData(action.payload);
+        const pagination = extractPagination(action.payload);
 
-    // fetchSkillById
-    builder.addCase(fetchSkillById.pending, (state) => {
-      state.status.skills = 'loading';
-    });
-    builder.addCase(fetchSkillById.fulfilled, (state, action) => {
-      state.status.skills = 'succeeded';
-      const skill = action.payload;
-      state.selectedSkill = skill;
-      skillsAdapter.upsertOne(state.skills, skill);
-    });
-    builder.addCase(fetchSkillById.rejected, (state, action) => {
-      state.status.skills = 'failed';
-      state.error = action.payload as string;
-    });
+        state.searchResults = Array.isArray(data) ? data : [];
+        state.pagination = pagination;
+        state.isSearchActive = true;
+        state.errors = null;
 
-    // searchSkills
-    builder.addCase(searchSkills.pending, (state) => {
-      state.status.skills = 'loading';
-    });
-    builder.addCase(searchSkills.fulfilled, (state, action) => {
-      state.status.skills = 'succeeded';
-      // Gleiches Spiel wie bei fetchSkills
-      const payload = action.payload;
-      skillsAdapter.setAll(state.skills, payload.items);
-      state.pagination.currentPage = payload.pageNumber;
-      state.pagination.pageSize = payload.pageSize;
-      state.pagination.totalItems = payload.totalCount;
-      state.pagination.totalPages = Math.ceil(
-        payload.totalCount / payload.pageSize
-      );
-    });
-    builder.addCase(searchSkills.rejected, (state, action) => {
-      state.status.skills = 'failed';
-      state.error = action.payload as string;
-    });
+        console.log(
+          '✅ Search results updated:',
+          state.searchResults.length,
+          'skills'
+        );
+      })
+      .addCase(searchSkills.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errors = action.payload as string[];
+        state.searchResults = [];
+        console.log('❌ Search failed:', action.payload);
+      })
 
-    // fetchUserSkills
-    builder.addCase(fetchUserSkills.pending, (state) => {
-      state.status.userSkills = 'loading';
-    });
-    builder.addCase(fetchUserSkills.fulfilled, (state, action) => {
-      state.status.userSkills = 'succeeded';
-      const payload = action.payload;
-      skillsAdapter.setAll(state.userSkills, payload.items);
-      // Paginierung könnte separat oder gemeinsam genutzt werden
-    });
-    builder.addCase(fetchUserSkills.rejected, (state, action) => {
-      state.status.userSkills = 'failed';
-      state.error = action.payload as string;
-    });
+      // Fetch all skills cases
+      .addCase(fetchAllSkills.pending, (state) => {
+        state.isLoading = true;
+        state.errors = null;
+      })
+      .addCase(fetchAllSkills.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const data = extractApiData(action.payload);
+        const pagination = extractPagination(action.payload);
 
-    // fetchUserSkillById
-    builder.addCase(fetchUserSkillById.pending, (state) => {
-      state.status.userSkills = 'loading';
-    });
-    builder.addCase(fetchUserSkillById.fulfilled, (state, action) => {
-      state.status.userSkills = 'succeeded';
-      const skill = action.payload;
-      state.selectedSkill = skill;
-      skillsAdapter.upsertOne(state.userSkills, skill);
-    });
-    builder.addCase(fetchUserSkillById.rejected, (state, action) => {
-      state.status.userSkills = 'failed';
-      state.error = action.payload as string;
-    });
+        state.allSkills = Array.isArray(data) ? data : [];
+        state.pagination = pagination;
+        state.errors = null;
 
-    // searchUserSkills
-    builder.addCase(searchUserSkills.pending, (state) => {
-      state.status.userSkills = 'loading';
-    });
-    builder.addCase(searchUserSkills.fulfilled, (state, action) => {
-      state.status.userSkills = 'succeeded';
-      const payload = action.payload;
-      skillsAdapter.setAll(state.userSkills, payload.items);
-    });
-    builder.addCase(searchUserSkills.rejected, (state, action) => {
-      state.status.userSkills = 'failed';
-      state.error = action.payload as string;
-    });
+        console.log('✅ All skills updated:', state.allSkills.length, 'skills');
+      })
+      .addCase(fetchAllSkills.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errors = action.payload as string[];
+        state.allSkills = [];
+        console.log('❌ Fetch all skills failed:', action.payload);
+      })
 
-    // createSkill
-    builder.addCase(createSkill.pending, (state) => {
-      state.status.createSkill = 'loading';
-    });
-    builder.addCase(createSkill.fulfilled, (state, action) => {
-      state.status.createSkill = 'succeeded';
-      // createSkillResponse gibt uns z.B. das neu erstellte Skill-Objekt zurück
-      const newSkill = action.payload;
-      // addOne in userSkills
-      skillsAdapter.addOne(state.userSkills, {
-        // Name, Description, usw. anpassen, wenn sich Felder unterscheiden
-        ...newSkill,
-      } as unknown as Skill);
-    });
-    builder.addCase(createSkill.rejected, (state, action) => {
-      state.status.createSkill = 'failed';
-      state.error = action.payload as string;
-    });
+      // Fetch skill by ID cases
+      .addCase(fetchSkillById.pending, (state) => {
+        state.isLoading = true;
+        state.errors = null;
+      })
+      .addCase(fetchSkillById.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const data = extractApiData(action.payload);
+        state.selectedSkill = data || null;
 
-    // updateSkill
-    builder.addCase(updateSkill.pending, (state) => {
-      state.status.updateSkill = 'loading';
-    });
-    builder.addCase(updateSkill.fulfilled, (state, action) => {
-      state.status.updateSkill = 'succeeded';
-      const updated = action.payload;
-      // Schauen, welche ID Felder du für das updated-Skill hast
-      skillsAdapter.updateOne(state.userSkills, {
-        id: updated.id,
-        changes: updated,
+        // Update in arrays if it exists
+        if (data) {
+          const updateInArray = (array: Skill[]) => {
+            const index = array.findIndex((skill) => skill.id === data.id);
+            if (index !== -1) {
+              array[index] = data;
+            }
+          };
+
+          updateInArray(state.allSkills);
+          updateInArray(state.userSkills);
+          updateInArray(state.searchResults);
+        }
+
+        state.errors = null;
+        console.log('✅ Skill by ID updated:', data?.name);
+      })
+      .addCase(fetchSkillById.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errors = action.payload as string[];
+        state.selectedSkill = null;
+        console.log('❌ Fetch skill by ID failed:', action.payload);
+      })
+
+      // Fetch user skills cases
+      .addCase(fetchUserSkills.pending, (state) => {
+        state.isLoading = true;
+        state.errors = null;
+      })
+      .addCase(fetchUserSkills.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const data = extractApiData(action.payload);
+        const pagination = extractPagination(action.payload);
+
+        state.userSkills = Array.isArray(data) ? data : [];
+        state.pagination = pagination;
+        state.errors = null;
+
+        console.log(
+          '✅ User skills updated:',
+          state.userSkills.length,
+          'skills'
+        );
+      })
+      .addCase(fetchUserSkills.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errors = action.payload as string[];
+        state.userSkills = [];
+        console.log('❌ Fetch user skills failed:', action.payload);
+      })
+
+      // Create skill cases
+      .addCase(createSkill.pending, (state) => {
+        state.isCreating = true;
+        state.errors = null;
+      })
+      .addCase(createSkill.fulfilled, (state, action) => {
+        state.isCreating = false;
+        const response = action.payload;
+        console.log('✅ Create skill response:', response);
+
+        // // Handle the API response structure
+        const skillData = action.payload;
+        // if (response && typeof (response as CreateSkillResponse)) {
+        //   if ('data' in response) {
+        //     skillData = response.data;
+        //   } else if ('skillId' in response) {
+        //     // Handle case where response is the skill data directly
+        //     skillData = response;
+        //   }
+        // }
+
+        if (skillData) {
+          // Ensure we have all required fields for the Skill interface
+          const newSkill = {
+            id: skillData.id,
+            name: skillData.name || '',
+            description: skillData.description || '',
+            isOffering: skillData.isOffering || false,
+            skillCategoryId: skillData.skillCategoryId || '',
+            proficiencyLevelId: skillData.proficiencyLevelId || '',
+            // Add other fields if available
+            // createdAt: skillData.,
+            // updatedAt: skillData.updatedAt,
+          };
+
+          // Add to user skills (at the beginning)
+          state.userSkills.unshift(newSkill);
+          // Also add to all skills
+          state.allSkills.unshift(newSkill);
+
+          console.log('✅ New skill added to state:', newSkill);
+        } else {
+          console.warn('⚠️ No skill data found in response:', response);
+        }
+
+        state.errors = null;
+      })
+      .addCase(createSkill.rejected, (state, action) => {
+        state.isCreating = false;
+        state.errors = action.payload as string[];
+        console.log('❌ Create skill failed:', action.payload);
+      })
+
+      // Update skill cases
+      .addCase(updateSkill.pending, (state) => {
+        state.isUpdating = true;
+        state.errors = null;
+      })
+      .addCase(updateSkill.fulfilled, (state, action) => {
+        state.isUpdating = false;
+        const { skillId, updatedSkill } = action.payload;
+        const data = extractApiData(updatedSkill);
+
+        if (data) {
+          // Update in all relevant arrays
+          const updateInArray = (array: Skill[]) => {
+            const index = array.findIndex((skill) => skill.id === skillId);
+            if (index !== -1) {
+              array[index] = data;
+            }
+          };
+
+          updateInArray(state.allSkills);
+          updateInArray(state.userSkills);
+          updateInArray(state.searchResults);
+
+          if (state.selectedSkill?.id === skillId) {
+            state.selectedSkill = data;
+          }
+
+          console.log('✅ Skill updated:', data.name);
+        }
+
+        state.errors = null;
+      })
+      .addCase(updateSkill.rejected, (state, action) => {
+        state.isUpdating = false;
+        state.errors = action.payload as string[];
+        console.log('❌ Update skill failed:', action.payload);
+      })
+
+      // Delete skill cases
+      .addCase(deleteSkill.pending, (state) => {
+        state.isDeleting = true;
+        state.errors = null;
+      })
+      .addCase(deleteSkill.fulfilled, (state, action) => {
+        state.isDeleting = false;
+        const deletedSkillId = action.payload;
+
+        // Remove from all arrays
+        state.allSkills = state.allSkills.filter(
+          (skill) => skill.id !== deletedSkillId
+        );
+        state.userSkills = state.userSkills.filter(
+          (skill) => skill.id !== deletedSkillId
+        );
+        state.searchResults = state.searchResults.filter(
+          (skill) => skill.id !== deletedSkillId
+        );
+
+        if (state.selectedSkill?.id === deletedSkillId) {
+          state.selectedSkill = null;
+        }
+
+        state.errors = null;
+        console.log('✅ Skill deleted:', deletedSkillId);
+      })
+      .addCase(deleteSkill.rejected, (state, action) => {
+        state.isDeleting = false;
+        state.errors = action.payload as string[];
+        console.log('❌ Delete skill failed:', action.payload);
+      })
+
+      // Rate/Endorse skill cases
+      .addCase(rateSkill.pending, (state) => {
+        state.isLoading = true;
+        state.errors = null;
+      })
+      .addCase(rateSkill.fulfilled, (state) => {
+        state.isLoading = false;
+        state.errors = null;
+      })
+      .addCase(rateSkill.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errors = action.payload as string[];
+      })
+
+      .addCase(endorseSkill.pending, (state) => {
+        state.isLoading = true;
+        state.errors = null;
+      })
+      .addCase(endorseSkill.fulfilled, (state) => {
+        state.isLoading = false;
+        state.errors = null;
+      })
+      .addCase(endorseSkill.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errors = action.payload as string[];
+      })
+
+      // Statistics and analytics cases
+      .addCase(fetchSkillStatistics.pending, (state) => {
+        state.isLoading = true;
+        state.errors = null;
+      })
+      .addCase(fetchSkillStatistics.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.statistics = extractApiData(action.payload);
+        state.errors = null;
+      })
+      .addCase(fetchSkillStatistics.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errors = action.payload as string[];
+        state.statistics = null;
+      })
+
+      .addCase(fetchPopularTags.pending, (state) => {
+        state.isLoading = true;
+        state.errors = null;
+      })
+      .addCase(fetchPopularTags.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.popularTags = extractApiData(action.payload) || [];
+        state.errors = null;
+      })
+      .addCase(fetchPopularTags.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errors = action.payload as string[];
+        state.popularTags = [];
+      })
+
+      .addCase(fetchSkillRecommendations.pending, (state) => {
+        state.isLoading = true;
+        state.errors = null;
+      })
+      .addCase(fetchSkillRecommendations.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.recommendations = extractApiData(action.payload) || [];
+        state.errors = null;
+      })
+      .addCase(fetchSkillRecommendations.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errors = action.payload as string[];
+        state.recommendations = [];
       });
-      // Falls in den allgemeinen skills vorhanden, dort auch
-      if (state.skills.entities[updated.id]) {
-        skillsAdapter.updateOne(state.skills, {
-          id: updated.id,
-          changes: updated,
-        });
-      }
-      // selectedSkill updaten
-      if (state.selectedSkill?.id === updated.id) {
-        state.selectedSkill = updated;
-      }
-    });
-    builder.addCase(updateSkill.rejected, (state, action) => {
-      state.status.updateSkill = 'failed';
-      state.error = action.payload as string;
-    });
-
-    // deleteSkill
-    builder.addCase(deleteSkill.pending, (state) => {
-      state.status.deleteSkill = 'loading';
-    });
-    builder.addCase(deleteSkill.fulfilled, (state, action) => {
-      state.status.deleteSkill = 'succeeded';
-      const removedId = action.payload;
-      skillsAdapter.removeOne(state.userSkills, removedId);
-      skillsAdapter.removeOne(state.skills, removedId);
-      if (state.selectedSkill?.id === removedId) {
-        state.selectedSkill = undefined;
-      }
-    });
-    builder.addCase(deleteSkill.rejected, (state, action) => {
-      state.status.deleteSkill = 'failed';
-      state.error = action.payload as string;
-    });
-
-    // fetchCategories
-    builder.addCase(fetchCategories.pending, (state) => {
-      state.status.categories = 'loading';
-    });
-    builder.addCase(fetchCategories.fulfilled, (state, action) => {
-      state.status.categories = 'succeeded';
-      categoriesAdapter.setAll(state.categories, action.payload);
-    });
-    builder.addCase(fetchCategories.rejected, (state, action) => {
-      state.status.categories = 'failed';
-      state.error = action.payload as string;
-    });
-
-    // createCategory
-    builder.addCase(createCategory.fulfilled, (state, action) => {
-      categoriesAdapter.addOne(state.categories, action.payload);
-    });
-
-    // updateCategory
-    builder.addCase(updateCategory.fulfilled, (state, action) => {
-      categoriesAdapter.updateOne(state.categories, {
-        id: action.payload.id,
-        changes: action.payload,
-      });
-    });
-
-    // deleteCategory
-    builder.addCase(deleteCategory.fulfilled, (state, action) => {
-      const removedId = action.payload;
-      categoriesAdapter.removeOne(state.categories, removedId);
-    });
-
-    // fetchProficiencyLevels
-    builder.addCase(fetchProficiencyLevels.pending, (state) => {
-      state.status.proficiencyLevels = 'loading';
-    });
-    builder.addCase(fetchProficiencyLevels.fulfilled, (state, action) => {
-      state.status.proficiencyLevels = 'succeeded';
-      proficiencyLevelsAdapter.setAll(state.proficiencyLevels, action.payload);
-    });
-    builder.addCase(fetchProficiencyLevels.rejected, (state, action) => {
-      state.status.proficiencyLevels = 'failed';
-      state.error = action.payload as string;
-    });
-
-    // createProficiencyLevel
-    builder.addCase(createProficiencyLevel.fulfilled, (state, action) => {
-      proficiencyLevelsAdapter.addOne(state.proficiencyLevels, action.payload);
-    });
-
-    // updateProficiencyLevel
-    builder.addCase(updateProficiencyLevel.fulfilled, (state, action) => {
-      proficiencyLevelsAdapter.updateOne(state.proficiencyLevels, {
-        id: action.payload.id,
-        changes: action.payload,
-      });
-    });
-
-    // deleteProficiencyLevel
-    builder.addCase(deleteProficiencyLevel.fulfilled, (state, action) => {
-      proficiencyLevelsAdapter.removeOne(
-        state.proficiencyLevels,
-        action.payload
-      );
-    });
   },
 });
 
-/* --------------------------------
-   Exportierte Aktionen
------------------------------------*/
+// Export actions
 export const {
+  clearError,
+  setError,
   setSelectedSkill,
   clearSelectedSkill,
   setSearchQuery,
+  clearSearch,
   setPagination,
-  resetStatus,
+  resetPagination,
+  setLoading,
+  addUserSkill,
+  removeUserSkill,
+  updateSkillInState,
+  clearAllSkills,
+  resetState,
 } = skillsSlice.actions;
 
-/* --------------------------------
-   Selektoren
------------------------------------*/
-const selectSkillsFeature = (state: RootState) => state.skills;
-
-// Skills-Adapter-Selektoren
-export const { selectAll: selectAllSkills, selectById: selectSkillById } =
-  skillsAdapter.getSelectors((state: RootState) => state.skills.skills);
-
-export const {
-  selectAll: selectAllUserSkills,
-  selectById: selectUserSkillById,
-} = skillsAdapter.getSelectors((state: RootState) => state.skills.userSkills);
-
-// Category-Adapter-Selektoren
-export const {
-  selectAll: selectAllCategories,
-  selectById: selectCategoryById,
-} = categoriesAdapter.getSelectors(
-  (state: RootState) => state.skills.categories
-);
-
-// ProficiencyLevels-Adapter-Selektoren
-export const {
-  selectAll: selectAllProficiencyLevels,
-  selectById: selectProficiencyLevelById,
-} = proficiencyLevelsAdapter.getSelectors(
-  (state: RootState) => state.skills.proficiencyLevels
-);
-
-// Zusätzliche Selektoren
-export const selectSelectedSkill = createSelector(
-  [selectSkillsFeature],
-  (skillsState) => skillsState.selectedSkill
-);
-
-export const selectSkillsStatus = createSelector(
-  [selectSkillsFeature],
-  (skillsState) => skillsState.status
-);
-
-export const selectSkillsError = createSelector(
-  [selectSkillsFeature],
-  (skillsState) => skillsState.error
-);
-
-export const selectSkillsPagination = createSelector(
-  [selectSkillsFeature],
-  (skillsState) => skillsState.pagination
-);
-
-export const selectSkillsSearchQuery = createSelector(
-  [selectSkillsFeature],
-  (skillsState) => skillsState.searchQuery
-);
-
-/* --------------------------------
-   Reducer
------------------------------------*/
 export default skillsSlice.reducer;

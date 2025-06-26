@@ -69,7 +69,27 @@ const SkillForm: React.FC<SkillFormProps> = ({
 
   const [errors, setErrors] = useState<Partial<SkillRequest>>({});
 
+  // Helper function to get the correct ID field from categories
+  const getCategoryId = (category: SkillCategory): string => {
+    // Try different possible ID field names
+    return category.categoryId || category.categoryId || '';
+  };
+
+  // Helper function to get the correct ID field from proficiency levels
+  const getProficiencyLevelId = (level: ProficiencyLevel): string => {
+    // Try different possible ID field names
+    return level.levelId || level.levelId || '';
+  };
+
+  // Helper function to get rank from proficiency level
+  const getProficiencyLevelRank = (level: ProficiencyLevel): number => {
+    return level.rank || 0;
+  };
+
   useEffect(() => {
+    console.log('[SkillForm] Categories received:', categories);
+    console.log('[SkillForm] ProficiencyLevels received:', proficiencyLevels);
+
     if (open) {
       if (skill) {
         setFormValues({
@@ -90,7 +110,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
       }
       setErrors({});
     }
-  }, [open, skill]);
+  }, [open, skill, categories, proficiencyLevels]);
 
   const handleTextChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -104,12 +124,13 @@ const SkillForm: React.FC<SkillFormProps> = ({
 
   const handleSelectChange = (e: SelectChangeEvent<string>) => {
     const { name, value } = e.target;
-    setFormValues((prev) => ({ ...prev, [name]: value }));
+    console.log('[SkillForm] Select change:', { name, value });
 
-    // Logging die neue Kategorie-ID
-    if (name === 'skillCategoryId') {
-      console.log('[SkillForm] skillCategoryId changed to:', value);
-    }
+    setFormValues((prev) => {
+      const newValues = { ...prev, [name]: value };
+      console.log('[SkillForm] New form values:', newValues);
+      return newValues;
+    });
 
     if (errors[name as keyof SkillRequest]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
@@ -127,6 +148,18 @@ const SkillForm: React.FC<SkillFormProps> = ({
     if (!formValues.name.trim()) {
       newErrors.name = 'Name ist erforderlich';
     }
+
+    // Backend requires description to be between 10-2000 characters
+    if (!formValues.description.trim()) {
+      newErrors.description = 'Beschreibung ist erforderlich';
+    } else if (formValues.description.trim().length < 10) {
+      newErrors.description =
+        'Beschreibung muss mindestens 10 Zeichen lang sein';
+    } else if (formValues.description.trim().length > 2000) {
+      newErrors.description =
+        'Beschreibung darf maximal 2000 Zeichen lang sein';
+    }
+
     if (!formValues.skillCategoryId) {
       newErrors.skillCategoryId = 'Kategorie ist erforderlich';
     }
@@ -134,14 +167,18 @@ const SkillForm: React.FC<SkillFormProps> = ({
       newErrors.proficiencyLevelId = 'Fertigkeitsstufe ist erforderlich';
     }
 
+    console.log('[SkillForm] Validation errors:', newErrors);
+    console.log('[SkillForm] Current form values:', formValues);
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[SkillForm] handleSubmit -> formValues:', formValues);
+
     if (validateForm()) {
-      console.log('[SkillForm] handleSubmit -> formValues:', formValues);
       onSubmit(
         {
           name: formValues.name.trim(),
@@ -160,6 +197,19 @@ const SkillForm: React.FC<SkillFormProps> = ({
       onClose();
     }
   };
+
+  // Debug: Check if we have valid data
+  const hasCategories = Array.isArray(categories) && categories.length > 0;
+  const hasProficiencyLevels =
+    Array.isArray(proficiencyLevels) && proficiencyLevels.length > 0;
+
+  console.log('[SkillForm] Render state:', {
+    hasCategories,
+    hasProficiencyLevels,
+    categoriesLength: categories?.length || 0,
+    proficiencyLevelsLength: proficiencyLevels?.length || 0,
+    formValues,
+  });
 
   return (
     <Dialog
@@ -208,16 +258,24 @@ const SkillForm: React.FC<SkillFormProps> = ({
               name="description"
               value={formValues.description}
               onChange={handleTextChange}
+              error={!!errors.description}
+              helperText={
+                errors.description || 'Mindestens 10 Zeichen erforderlich'
+              }
               multiline
               rows={4}
               disabled={loading}
               margin="normal"
+              required
+              inputProps={{
+                maxLength: 2000,
+              }}
             />
 
             <FormControl
               fullWidth
               error={!!errors.skillCategoryId}
-              disabled={loading}
+              disabled={loading || !hasCategories}
               margin="normal"
               required
             >
@@ -229,21 +287,31 @@ const SkillForm: React.FC<SkillFormProps> = ({
                 onChange={handleSelectChange}
                 label="Kategorie"
               >
-                {categories.map((category) => (
-                  <MenuItem key={category.id} value={category.id}>
-                    {category.name}
-                  </MenuItem>
-                ))}
+                {hasCategories ? (
+                  categories.map((category) => {
+                    const categoryId = getCategoryId(category);
+                    return (
+                      <MenuItem key={categoryId} value={categoryId}>
+                        {category.name}
+                      </MenuItem>
+                    );
+                  })
+                ) : (
+                  <MenuItem disabled>Kategorien werden geladen...</MenuItem>
+                )}
               </Select>
               {errors.skillCategoryId && (
                 <FormHelperText>{errors.skillCategoryId}</FormHelperText>
+              )}
+              {!hasCategories && (
+                <FormHelperText>Kategorien werden geladen...</FormHelperText>
               )}
             </FormControl>
 
             <FormControl
               fullWidth
               error={!!errors.proficiencyLevelId}
-              disabled={loading}
+              disabled={loading || !hasProficiencyLevels}
               margin="normal"
               required
             >
@@ -257,16 +325,34 @@ const SkillForm: React.FC<SkillFormProps> = ({
                 onChange={handleSelectChange}
                 label="Fertigkeitsstufe"
               >
-                {[...proficiencyLevels]
-                  .sort((a, b) => a.rank - b.rank)
-                  .map((level) => (
-                    <MenuItem key={level.id} value={level.id}>
-                      {level.level} ({'★'.repeat(level.rank)})
-                    </MenuItem>
-                  ))}
+                {hasProficiencyLevels ? (
+                  [...proficiencyLevels]
+                    .sort(
+                      (a, b) =>
+                        getProficiencyLevelRank(a) - getProficiencyLevelRank(b)
+                    )
+                    .map((level) => {
+                      const levelId = getProficiencyLevelId(level);
+                      const rank = getProficiencyLevelRank(level);
+                      return (
+                        <MenuItem key={levelId} value={levelId}>
+                          {level.level} {rank > 0 && `(${'★'.repeat(rank)})`}
+                        </MenuItem>
+                      );
+                    })
+                ) : (
+                  <MenuItem disabled>
+                    Fertigkeitsstufen werden geladen...
+                  </MenuItem>
+                )}
               </Select>
               {errors.proficiencyLevelId && (
                 <FormHelperText>{errors.proficiencyLevelId}</FormHelperText>
+              )}
+              {!hasProficiencyLevels && (
+                <FormHelperText>
+                  Fertigkeitsstufen werden geladen...
+                </FormHelperText>
               )}
             </FormControl>
 
@@ -307,7 +393,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
             type="submit"
             variant="contained"
             color="primary"
-            disabled={loading}
+            disabled={loading || !hasCategories || !hasProficiencyLevels}
             startIcon={loading ? <CircularProgress size={20} /> : undefined}
           >
             {loading

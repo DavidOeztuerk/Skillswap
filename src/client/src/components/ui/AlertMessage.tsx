@@ -3,7 +3,7 @@ import React from 'react';
 import { Alert, AlertTitle, Snackbar, AlertColor, Box } from '@mui/material';
 
 interface AlertMessageProps {
-  message: string;
+  message: string[];
   title?: string;
   severity?: AlertColor;
   onClose?: () => void;

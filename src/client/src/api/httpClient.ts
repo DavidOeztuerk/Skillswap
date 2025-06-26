@@ -377,12 +377,13 @@ class CustomHttpClient {
    */
   public async delete<T>(
     endpoint: string,
+    body?: unknown,
     config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     const response = await this.request<ApiResponse<T>>(
       'DELETE',
       endpoint,
-      undefined,
+      body,
       config
     );
     return response.data;

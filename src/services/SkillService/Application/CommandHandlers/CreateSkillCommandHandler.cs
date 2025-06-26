@@ -1,35 +1,25 @@
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
-using Events;
 using SkillService.Domain.Events;
 using EventSourcing;
 
 namespace SkillService.Application.CommandHandlers;
 
 // ============================================================================
-// CREATE SKILL COMMAND HANDLER
+// 1. KORRIGIERTER COMMAND HANDLER
 // ============================================================================
 
-public class CreateSkillCommandHandler : BaseCommandHandler<CreateSkillCommand, CreateSkillResponse>
+public class CreateSkillCommandHandler(
+    SkillDbContext dbContext,
+    IDomainEventPublisher eventPublisher,
+    ILogger<CreateSkillCommandHandler> logger)
+    : BaseCommandHandler<CreateSkillCommand, CreateSkillResponse>(logger)
 {
-    private readonly SkillDbContext _dbContext;
-    private readonly IDomainEventPublisher _eventPublisher;
-    private readonly IPublisher _publisher;
-
-    public CreateSkillCommandHandler(
-        SkillDbContext dbContext,
-        IDomainEventPublisher eventPublisher,
-        IPublisher publisher,
-        ILogger<CreateSkillCommandHandler> logger) : base(logger)
-    {
-        _dbContext = dbContext;
-        _eventPublisher = eventPublisher;
-        _publisher = publisher;
-    }
+    private readonly SkillDbContext _dbContext = dbContext;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<CreateSkillResponse>> Handle(
         CreateSkillCommand request,
@@ -94,7 +84,7 @@ public class CreateSkillCommandHandler : BaseCommandHandler<CreateSkillCommand, 
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
-            // Publish domain event
+            // ✅ NUR HIER Domain Event publizieren - NICHT im Event Handler!
             await _eventPublisher.Publish(new SkillCreatedDomainEvent(
                 skill.Id,
                 skill.UserId,
@@ -103,14 +93,6 @@ public class CreateSkillCommandHandler : BaseCommandHandler<CreateSkillCommand, 
                 skill.IsOffering,
                 skill.SkillCategoryId,
                 skill.ProficiencyLevelId), cancellationToken);
-
-            // Publish integration event
-            await _publisher.Publish(new SkillCreatedEvent(
-                skill.Id,
-                skill.Name,
-                skill.Description,
-                skill.IsOffering,
-                skill.UserId), cancellationToken);
 
             Logger.LogInformation("Skill {SkillName} created successfully by user {UserId}",
                 skill.Name, request.UserId);

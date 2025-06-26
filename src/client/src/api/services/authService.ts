@@ -463,7 +463,6 @@ const authService = {
   logout: async (): Promise<void> => {
     try {
       // Clear cache and stored data
-      apiClient.clearCache();
       removeToken();
 
       // Could make logout API call here if backend supports it
@@ -474,7 +473,6 @@ const authService = {
       console.error('Logout error:', error);
 
       // Ensure cleanup happens even if API call fails
-      apiClient.clearCache();
       removeToken();
       return Promise.resolve();
     }
