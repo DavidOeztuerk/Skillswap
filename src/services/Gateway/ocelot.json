@@ -70,8 +70,7 @@
       "UpstreamPathTemplate": "/api/users/change-password",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -81,8 +80,7 @@
       "UpstreamPathTemplate": "/api/users/profile",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -92,8 +90,7 @@
       "UpstreamPathTemplate": "/api/users/profile",
       "UpstreamHttpMethod": ["PUT"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -103,8 +100,7 @@
       "UpstreamPathTemplate": "/api/users/search",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       },
       "AddQueriesToRequest": true
     },
@@ -115,8 +111,7 @@
       "UpstreamPathTemplate": "/api/users/statistics",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       },
       "AddQueriesToRequest": true
     },
@@ -127,8 +122,7 @@
       "UpstreamPathTemplate": "/api/users/{userId}/activity",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       },
       "AddQueriesToRequest": true
     },
@@ -147,8 +141,7 @@
       "UpstreamPathTemplate": "/api/users/{userId}/roles",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -182,8 +175,7 @@
       "UpstreamPathTemplate": "/api/my/skills",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       },
       "AddQueriesToRequest": true
     },
@@ -194,8 +186,7 @@
       "UpstreamPathTemplate": "/api/skills",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -205,8 +196,7 @@
       "UpstreamPathTemplate": "/api/skills/{skillId}",
       "UpstreamHttpMethod": ["PUT", "DELETE"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -216,8 +206,7 @@
       "UpstreamPathTemplate": "/api/skills/{skillId}/rate",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -227,8 +216,7 @@
       "UpstreamPathTemplate": "/api/skills/{skillId}/endorse",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -246,8 +234,7 @@
       "UpstreamPathTemplate": "/api/categories",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -255,10 +242,9 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/categories/{categoryId}",
-      "UpstreamHttpMethod": ["PUT", "DELETE"],
+      "UpstreamHttpMethod": ["PUT"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
@@ -276,15 +262,14 @@
       "UpstreamPathTemplate": "/api/proficiency-levels",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       }
     },
     {
       "DownstreamPathTemplate": "/analytics/statistics",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/skills/analytics/statistics",
+      "UpstreamPathTemplate": "/api/analytics/statistics",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
@@ -292,7 +277,7 @@
       "DownstreamPathTemplate": "/analytics/popular-tags",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/skills/analytics/popular-tags",
+      "UpstreamPathTemplate": "/api/analytics/popular-tags",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
@@ -300,11 +285,10 @@
       "DownstreamPathTemplate": "/recommendations",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/skills/recommendations",
+      "UpstreamPathTemplate": "/api/recommendations",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       },
       "AddQueriesToRequest": true
     },

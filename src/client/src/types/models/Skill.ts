@@ -10,12 +10,12 @@ export interface Skill {
 }
 
 export interface SkillCategory {
-  id: string;
+  categoryId: string;
   name: string;
 }
 
 export interface ProficiencyLevel {
-  id: string;
+  levelId: string;
   level: string;
   rank: number;
 }

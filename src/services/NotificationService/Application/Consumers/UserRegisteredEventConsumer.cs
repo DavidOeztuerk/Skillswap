@@ -1,5 +1,4 @@
 using CQRS.Interfaces;
-using Events;
 using MassTransit;
 using MediatR;
 
@@ -40,5 +39,6 @@ public class UserRegisteredEventConsumer(
 public record UserRegisteredEvent(
     string Email,
     string FirstName,
-    string LastName) : DomainEvent;
+    string LastName) 
+    : DomainEvent;
 

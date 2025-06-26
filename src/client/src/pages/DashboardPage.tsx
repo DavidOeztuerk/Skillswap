@@ -41,7 +41,7 @@ import { formatDateTimeRange } from '../utils/dateUtils';
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { userSkills, getUserSkills, isLoading: skillsLoading } = useSkills();
+  const { userSkills, fetchUserSkills, isLoading: skillsLoading } = useSkills();
   const {
     appointments,
     loadAppointments,
@@ -50,9 +50,9 @@ const DashboardPage: React.FC = () => {
 
   // Daten laden
   useEffect(() => {
-    getUserSkills();
+    fetchUserSkills();
     loadAppointments();
-  }, [getUserSkills, loadAppointments]);
+  }, [fetchUserSkills, loadAppointments]);
 
   // Dashboard-Karten
   const dashboardCards = [

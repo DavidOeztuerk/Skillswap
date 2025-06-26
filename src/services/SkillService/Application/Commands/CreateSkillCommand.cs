@@ -17,7 +17,8 @@ public record CreateSkillCommand(
     int? EstimatedDurationMinutes = null,
     string? Requirements = null,
     string? Location = null,
-    bool IsRemoteAvailable = true) : ICommand<CreateSkillResponse>, IAuditableCommand
+    bool IsRemoteAvailable = true) 
+    : ICommand<CreateSkillResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;

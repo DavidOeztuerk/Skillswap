@@ -7,7 +7,8 @@ namespace SkillService.Domain.Events;
 // ============================================================================
 
 public record SkillCategoryCreatedDomainEvent(
-    string CategoryId,
+    string SkillCategoryId,
+    string ProficiencyLevelId,
     string Name,
     string? Description,
     string CreatedByUserId) : DomainEvent;

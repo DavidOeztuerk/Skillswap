@@ -1,3 +1,4 @@
+// src/components/skills/SkillCard.tsx
 import React from 'react';
 import {
   Card,
@@ -19,17 +20,24 @@ import {
   Delete as DeleteIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
+  Code as CodeIcon,
+  Palette as PaletteIcon,
+  Business as BusinessIcon,
+  School as SchoolIcon,
 } from '@mui/icons-material';
 
 interface SkillCategory {
-  id: string;
+  categoryId: string;
   name: string;
+  color?: string;
+  iconName?: string;
 }
 
 interface ProficiencyLevel {
-  id: string;
+  levelId: string;
   level: string;
   rank: number;
+  color?: string;
 }
 
 interface Skill {
@@ -60,47 +68,110 @@ const SkillCard: React.FC<SkillCardProps> = ({
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
-  // Menu open/close
+  // Debug logging
+  console.log('🎴 SkillCard render:', {
+    id: skill.id,
+    name: skill.name,
+    hasCategory: !!skill.category,
+    hasProficiencyLevel: !!skill.proficiencyLevel,
+  });
+
+  // Menu handlers
   const handleMenuClick = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     setAnchorEl(e.currentTarget);
   };
+
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
 
-  // Edit/Delete
+  // Action handlers
   const handleEdit = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     handleMenuClose();
     onEdit(skill);
   };
+
   const handleDelete = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     handleMenuClose();
     onDelete(skill.id);
   };
 
-  // Click auf gesamte Card → Detailanzeige
   const handleCardClick = () => {
     onViewDetails(skill);
   };
 
+  // Utility functions
+  const getCategoryIcon = () => {
+    if (!skill.category?.iconName) return <CodeIcon />;
+
+    switch (skill.category.iconName.toLowerCase()) {
+      case 'code':
+        return <CodeIcon />;
+      case 'palette':
+        return <PaletteIcon />;
+      case 'business':
+      case 'briefcase':
+        return <BusinessIcon />;
+      case 'school':
+        return <SchoolIcon />;
+      default:
+        return <CodeIcon />;
+    }
+  };
+
+  const getCategoryColor = () => {
+    if (skill.category?.color) {
+      return skill.category.color;
+    }
+
+    // Fallback colors based on category name
+    const categoryName = skill.category?.name?.toLowerCase() || '';
+    if (categoryName.includes('programming') || categoryName.includes('code')) {
+      return theme.palette.primary.main;
+    } else if (categoryName.includes('design')) {
+      return theme.palette.secondary.main;
+    } else if (categoryName.includes('business')) {
+      return theme.palette.warning.main;
+    } else if (categoryName.includes('marketing')) {
+      return theme.palette.success.main;
+    }
+
+    return theme.palette.primary.main;
+  };
+
   const getProficiencyColor = () => {
-    if (!skill.proficiencyLevel) return theme.palette.primary.main;
+    if (skill.proficiencyLevel?.color) {
+      return skill.proficiencyLevel.color;
+    }
+
+    // Fallback colors based on rank
+    if (!skill.proficiencyLevel?.rank) return theme.palette.primary.main;
+
     switch (skill.proficiencyLevel.rank) {
       case 1:
-        return theme.palette.success.main;
+        return theme.palette.success.main; // Beginner - Green
       case 2:
-        return theme.palette.info.main;
+        return theme.palette.info.main; // Intermediate - Blue
       case 3:
-        return theme.palette.warning.main;
+        return theme.palette.warning.main; // Advanced - Orange
       case 4:
-        return theme.palette.error.main;
+      case 5:
+        return theme.palette.error.main; // Expert/Master - Red
       default:
         return theme.palette.primary.main;
     }
   };
+
+  const getStarsCount = () => {
+    return Math.min(skill.proficiencyLevel?.rank || 1, 5);
+  };
+
+  const categoryColor = getCategoryColor();
+  const proficiencyColor = getProficiencyColor();
+  const starsCount = getStarsCount();
 
   return (
     <Card
@@ -109,45 +180,54 @@ const SkillCard: React.FC<SkillCardProps> = ({
         flexDirection: 'column',
         height: '100%',
         cursor: 'pointer',
-        transition: 'transform 0.2s, box-shadow 0.2s',
+        transition: 'all 0.3s ease',
+        border: '1px solid',
+        borderColor: 'divider',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: theme.shadows[4],
+          transform: 'translateY(-8px)',
+          boxShadow: theme.shadows[8],
+          borderColor: categoryColor,
         },
       }}
       onClick={handleCardClick}
     >
+      {/* Header with category background */}
       <Box
         sx={{
-          height: 140,
-          bgcolor: skill.category
-            ? `rgba(${
-                parseInt(skill.category.id.slice(0, 2), 16) || 0
-              }, ${
-                parseInt(skill.category.id.slice(2, 4), 16) || 0
-              }, ${
-                parseInt(skill.category.id.slice(4, 6), 16) || 120
-              }, 0.2)`
-            : 'rgba(0, 0, 0, 0.1)',
+          height: 120,
+          background: `linear-gradient(135deg, ${categoryColor}20 0%, ${categoryColor}10 100%)`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           position: 'relative',
+          borderBottom: `2px solid ${categoryColor}30`,
         }}
       >
-        <Typography variant="h3" sx={{ opacity: 0.5 }}>
-          {skill.name.charAt(0).toUpperCase()}
-        </Typography>
+        {/* Category icon */}
+        <Box
+          sx={{
+            color: categoryColor,
+            opacity: 0.7,
+            fontSize: '3rem',
+          }}
+        >
+          {getCategoryIcon()}
+        </Box>
 
-        {/* Offering/Seeking-Chip */}
+        {/* Offering/Seeking chip */}
         <Chip
           label={skill.isOffering ? 'Angeboten' : 'Gesucht'}
           color={skill.isOffering ? 'success' : 'secondary'}
           size="small"
-          sx={{ position: 'absolute', top: 8, left: 8 }}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            fontWeight: 'bold',
+          }}
         />
 
-        {/* Menü-Button */}
+        {/* Menu button */}
         <IconButton
           aria-label="Optionen"
           onClick={handleMenuClick}
@@ -155,20 +235,34 @@ const SkillCard: React.FC<SkillCardProps> = ({
             position: 'absolute',
             top: 8,
             right: 8,
-            bgcolor: 'rgba(255, 255, 255, 0.7)',
+            bgcolor: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(4px)',
             '&:hover': {
-              bgcolor: 'rgba(255, 255, 255, 0.9)',
+              bgcolor: 'rgba(255, 255, 255, 1)',
+              transform: 'scale(1.1)',
             },
           }}
         >
           <MoreVertIcon />
         </IconButton>
+
+        {/* Context menu */}
         <Menu
           id={`skill-menu-${skill.id}`}
           anchorEl={anchorEl}
           open={open}
           onClose={handleMenuClose}
-          PaperProps={{ onClick: (e: { stopPropagation: () => unknown; }) => e.stopPropagation() }}
+          onClick={(e) => e.stopPropagation()}
+          PaperProps={{
+            elevation: 8,
+            sx: {
+              mt: 1,
+              '& .MuiMenuItem-root': {
+                px: 2,
+                py: 1,
+              },
+            },
+          }}
         >
           <MenuItem onClick={handleEdit}>
             <EditIcon fontSize="small" sx={{ mr: 1 }} />
@@ -177,7 +271,12 @@ const SkillCard: React.FC<SkillCardProps> = ({
           <Divider />
           <MenuItem
             onClick={handleDelete}
-            sx={{ color: theme.palette.error.main }}
+            sx={{
+              color: theme.palette.error.main,
+              '&:hover': {
+                bgcolor: theme.palette.error.light + '20',
+              },
+            }}
           >
             <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
             Löschen
@@ -185,26 +284,47 @@ const SkillCard: React.FC<SkillCardProps> = ({
         </Menu>
       </Box>
 
-      <CardContent sx={{ flexGrow: 1, pt: 2 }}>
+      {/* Content */}
+      <CardContent sx={{ flexGrow: 1, pt: 2, pb: 1 }}>
+        {/* Title and proficiency stars */}
         <Box
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
-            mb: 1,
+            mb: 1.5,
+            gap: 1,
           }}
         >
-          <Typography gutterBottom variant="h6" sx={{ fontWeight: 'bold' }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 'bold',
+              fontSize: '1.1rem',
+              lineHeight: 1.2,
+              flex: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+            }}
+          >
             {skill.name}
           </Typography>
+
+          {/* Proficiency stars */}
           {skill.proficiencyLevel && (
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               {[...Array(5)].map((_, index) =>
-                skill.proficiencyLevel && index < skill.proficiencyLevel.rank ? (
+                index < starsCount ? (
                   <StarIcon
                     key={index}
                     fontSize="small"
-                    sx={{ color: getProficiencyColor() }}
+                    sx={{
+                      color: proficiencyColor,
+                      filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
+                    }}
                   />
                 ) : (
                   <StarBorderIcon
@@ -218,49 +338,87 @@ const SkillCard: React.FC<SkillCardProps> = ({
           )}
         </Box>
 
-        {skill.category && (
-          <Chip
-            label={skill.category.name}
-            size="small"
-            variant="outlined"
-            sx={{ mb: 1.5 }}
-          />
-        )}
-        {skill.proficiencyLevel && (
-          <Chip
-            label={skill.proficiencyLevel.level}
-            size="small"
-            sx={{
-              ml: skill.category ? 1 : 0,
-              mb: 1.5,
-              bgcolor: getProficiencyColor(),
-              color: 'white',
-            }}
-          />
-        )}
+        {/* Category and proficiency level chips */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
+          {skill.category && (
+            <Chip
+              label={skill.category.name}
+              size="small"
+              variant="outlined"
+              sx={{
+                borderColor: categoryColor,
+                color: categoryColor,
+                '& .MuiChip-label': {
+                  fontWeight: 500,
+                },
+              }}
+            />
+          )}
 
+          {skill.proficiencyLevel && (
+            <Chip
+              label={skill.proficiencyLevel.level}
+              size="small"
+              sx={{
+                bgcolor: proficiencyColor,
+                color: 'white',
+                fontWeight: 'bold',
+                '& .MuiChip-label': {
+                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                },
+              }}
+            />
+          )}
+        </Box>
+
+        {/* Description */}
         <Typography
           variant="body2"
           color="text.secondary"
           sx={{
-            mt: 1,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             display: '-webkit-box',
             WebkitLineClamp: 3,
             WebkitBoxOrient: 'vertical',
+            lineHeight: 1.4,
+            minHeight: '3.6em', // Reserve space for 3 lines
           }}
         >
           {skill.description || 'Keine Beschreibung vorhanden.'}
         </Typography>
       </CardContent>
 
-      <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
+      {/* Actions */}
+      <CardActions
+        sx={{
+          justifyContent: 'space-between',
+          px: 2,
+          pb: 2,
+          pt: 0,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {/* Skill ID for debugging (can be removed in production) */}
+          <Typography variant="caption" color="text.disabled">
+            #{skill.id.slice(-6)}
+          </Typography>
+        </Box>
+
         <Button
           size="small"
+          variant="outlined"
           onClick={(e) => {
             e.stopPropagation();
             onViewDetails(skill);
+          }}
+          sx={{
+            borderColor: categoryColor,
+            color: categoryColor,
+            '&:hover': {
+              borderColor: categoryColor,
+              bgcolor: categoryColor + '10',
+            },
           }}
         >
           Details

@@ -36,7 +36,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
   const debouncedQuery = useDebounce(searchQuery, 300);
 
   // Skills aus dem Hook holen
-  const { skills, searchAllSkills, isLoading } = useSkills();
+  const { skills, searchSkillsByQuery, isLoading } = useSkills();
 
   // Beliebte Suchvorschläge
   const popularSearches = [
@@ -50,9 +50,9 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
   // Effekt für die Suche
   React.useEffect(() => {
     if (debouncedQuery.length > 2) {
-      searchAllSkills(debouncedQuery);
+      searchSkillsByQuery(debouncedQuery);
     }
-  }, [debouncedQuery, searchAllSkills]);
+  }, [debouncedQuery, searchSkillsByQuery]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
