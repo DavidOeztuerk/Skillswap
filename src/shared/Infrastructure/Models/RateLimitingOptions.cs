@@ -7,9 +7,9 @@ public class RateLimitingOptions
 {
     public const string SectionName = "RateLimiting";
 
-    public int RequestsPerMinute { get; set; } = 60;
-    public int RequestsPerHour { get; set; } = 1000;
-    public int RequestsPerDay { get; set; } = 10000;
+    public int RequestsPerMinute { get; set; } = 100;
+    public int RequestsPerHour { get; set; } = 10000;
+    public int RequestsPerDay { get; set; } = 100000;
     public bool EnableIpRateLimiting { get; set; } = true;
     public bool EnableUserRateLimiting { get; set; } = true;
     public List<string> WhitelistedIps { get; set; } = new();

@@ -198,7 +198,7 @@ builder.Services.AddSkillSwapAuthorization();
 
 // Configure rate limiting
 builder.Services.Configure<RateLimitingOptions>(builder.Configuration.GetSection("RateLimiting"));
-builder.Services.AddMemoryCache();
+// builder.Services.AddMemoryCache();
 
 // ============================================================================
 // BACKGROUND SERVICES

@@ -95,8 +95,8 @@ const SkillForm: React.FC<SkillFormProps> = ({
         setFormValues({
           name: skill.name ?? '',
           description: skill.description ?? '',
-          skillCategoryId: skill.skillCategoryId ?? '',
-          proficiencyLevelId: skill.proficiencyLevelId ?? '',
+          skillCategoryId: skill.category?.categoryId ?? '',
+          proficiencyLevelId: skill.proficiencyLevel?.levelId ?? '',
           isOffering: skill.isOffering,
         });
       } else {
@@ -187,7 +187,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
           skillCategoryId: formValues.skillCategoryId,
           proficiencyLevelId: formValues.proficiencyLevelId,
         },
-        skill?.id
+        skill?.skillId
       );
     }
   };

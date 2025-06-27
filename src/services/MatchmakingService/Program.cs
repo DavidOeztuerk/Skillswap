@@ -37,7 +37,7 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
 // Add shared infrastructure
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
-builder.Services.AddMemoryCache();
+// builder.Services.AddMemoryCache();
 
 var userServiceUrl = Environment.GetEnvironmentVariable("USERSERVICE_URL") ?? "http://userservice:5001";
 builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>

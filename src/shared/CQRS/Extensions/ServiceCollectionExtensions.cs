@@ -2,7 +2,6 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using CQRS.Behaviors;
-using CQRS.Services;
 using System.Reflection;
 using Microsoft.Extensions.Caching.Distributed;
 using StackExchange.Redis;
@@ -16,12 +15,11 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddCQRSWithRedis(this IServiceCollection services, string redisConnectionString, params Assembly[] assemblies)
     {
-        // Add memory cache as fallback
+        // für Rate limiting 
         services.AddMemoryCache();
 
         // Configure Redis if connection string is provided
         IConnectionMultiplexer? connectionMultiplexer = null;
-        bool useRedis = false;
 
         if (!string.IsNullOrWhiteSpace(redisConnectionString))
         {
@@ -51,7 +49,6 @@ public static class ServiceCollectionExtensions
                     options.InstanceName = GetCurrentServiceName() + ":";
                 });
 
-                useRedis = true;
                 Console.WriteLine($"[DEBUG] Redis cache configured successfully");
             }
             catch (Exception ex)
@@ -66,16 +63,6 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IDistributedCache, MemoryDistributedCache>();
         }
 
-        // Register appropriate cache invalidation service
-        if (useRedis)
-        {
-            services.AddSingleton<ICacheInvalidationService, RedisCacheInvalidationService>();
-        }
-        else
-        {
-            services.AddSingleton<ICacheInvalidationService, MemoryCacheInvalidationService>();
-        }
-
         // Add MediatR with all behaviors including cache invalidation
         services.AddMediatR(cfg =>
         {
@@ -85,8 +72,6 @@ public static class ServiceCollectionExtensions
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(PerformanceBehavior<,>));
-            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(RedisCachingBehavior<,>)); // Redis-aware caching
-            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(CacheInvalidationBehavior<,>)); // Cache invalidation
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(AuditBehavior<,>));
         });
 
@@ -107,12 +92,12 @@ public static class ServiceCollectionExtensions
         var assembly = Assembly.GetEntryAssembly();
         var assemblyName = assembly?.GetName().Name ?? "UnknownService";
 
-        if (assemblyName.Contains("UserService")) return "UserService";
-        if (assemblyName.Contains("SkillService")) return "SkillService";
-        if (assemblyName.Contains("NotificationService")) return "NotificationService";
-        if (assemblyName.Contains("MatchmakingService")) return "MatchmakingService";
-        if (assemblyName.Contains("AppointmentService")) return "AppointmentService";
-        if (assemblyName.Contains("VideocallService")) return "VideocallService";
+        if (assemblyName.Contains("UserService")) return "userservice";
+        if (assemblyName.Contains("SkillService")) return "skillservice";
+        if (assemblyName.Contains("NotificationService")) return "notificationservice";
+        if (assemblyName.Contains("MatchmakingService")) return "matchmakingservice";
+        if (assemblyName.Contains("AppointmentService")) return "appointmentservice";
+        if (assemblyName.Contains("VideocallService")) return "videocallservice";
 
         return assemblyName;
     }

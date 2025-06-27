@@ -25,31 +25,7 @@ import {
   Business as BusinessIcon,
   School as SchoolIcon,
 } from '@mui/icons-material';
-
-interface SkillCategory {
-  categoryId: string;
-  name: string;
-  color?: string;
-  iconName?: string;
-}
-
-interface ProficiencyLevel {
-  levelId: string;
-  level: string;
-  rank: number;
-  color?: string;
-}
-
-interface Skill {
-  id: string;
-  name: string;
-  description: string;
-  isOffering: boolean;
-  skillCategoryId: string;
-  proficiencyLevelId: string;
-  category?: SkillCategory;
-  proficiencyLevel?: ProficiencyLevel;
-}
+import { Skill } from '../../types/models/Skill';
 
 interface SkillCardProps {
   skill: Skill;
@@ -70,7 +46,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
 
   // Debug logging
   console.log('🎴 SkillCard render:', {
-    id: skill.id,
+    id: skill.skillId,
     name: skill.name,
     hasCategory: !!skill.category,
     hasProficiencyLevel: !!skill.proficiencyLevel,
@@ -96,7 +72,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
   const handleDelete = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     handleMenuClose();
-    onDelete(skill.id);
+    onDelete(skill.skillId);
   };
 
   const handleCardClick = () => {
@@ -248,7 +224,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
 
         {/* Context menu */}
         <Menu
-          id={`skill-menu-${skill.id}`}
+          id={`skill-menu-${skill.skillId}`}
           anchorEl={anchorEl}
           open={open}
           onClose={handleMenuClose}
@@ -401,7 +377,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {/* Skill ID for debugging (can be removed in production) */}
           <Typography variant="caption" color="text.disabled">
-            #{skill.id.slice(-6)}
+            #{skill.skillId.slice(-6)}
           </Typography>
         </Box>
 

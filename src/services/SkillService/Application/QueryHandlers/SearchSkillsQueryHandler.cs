@@ -1,20 +1,11 @@
-// ============================================================================
-// SKILL SERVICE QUERY HANDLERS - COMPLETE IMPLEMENTATION
-// ============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
 using Contracts.Users;
-using Infrastructure.Services;
 using SkillService.Application.Queries;
 using System.Text.Json;
 
 namespace SkillService.Application.QueryHandlers;
-
-// ============================================================================
-// SEARCH SKILLS QUERY HANDLER
-// ============================================================================
 
 public class SearchSkillsQueryHandler(
     SkillDbContext dbContext,

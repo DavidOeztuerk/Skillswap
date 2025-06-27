@@ -2,7 +2,6 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  searchSkills as searchSkillsAction,
   fetchAllSkills as fetchAllSkillsAction,
   fetchSkillById as fetchSkillByIdAction,
   fetchUserSkills as fetchUserSkillsAction,
@@ -108,49 +107,15 @@ export const useSkills = () => {
   );
 
   /**
-   * Search skills with comprehensive error handling
-   * @param params - Search parameters
-   * @returns Promise<boolean> - Success status
-   */
-  const searchSkills = useCallback(
-    async (params: SkillSearchParams = {}): Promise<boolean> => {
-      try {
-        console.log('🔍 Starting skill search:', params);
-        const resultAction = await dispatch(searchSkillsAction(params));
-
-        if (searchSkillsAction.fulfilled.match(resultAction)) {
-          console.log('✅ Search successful');
-          return true;
-        } else {
-          console.error('❌ Search failed:', resultAction.payload);
-          return false;
-        }
-      } catch (error) {
-        console.error('❌ Search error:', error);
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  /**
    * Fetch all skills with pagination
    * @param page - Page number (default: 1)
    * @param pageSize - Items per page (default: 12)
    * @returns Promise<boolean> - Success status
    */
   const fetchAllSkills = useCallback(
-    async (page = 1, pageSize = 12): Promise<boolean> => {
+    async (params: SkillSearchParams = {}): Promise<boolean> => {
       try {
-        console.log(
-          '📋 Fetching all skills - page:',
-          page,
-          'pageSize:',
-          pageSize
-        );
-        const resultAction = await dispatch(
-          fetchAllSkillsAction({ page, pageSize })
-        );
+        const resultAction = await dispatch(fetchAllSkillsAction(params));
 
         if (fetchAllSkillsAction.fulfilled.match(resultAction)) {
           console.log('✅ All skills fetched successfully');
@@ -221,14 +186,14 @@ export const useSkills = () => {
         dispatch(setSearchQuery(query));
 
         const resultAction = await dispatch(
-          searchSkillsAction({
+          fetchAllSkillsAction({
             query: query.trim(),
             page,
             pageSize,
           })
         );
 
-        if (searchSkillsAction.fulfilled.match(resultAction)) {
+        if (fetchAllSkillsAction.fulfilled.match(resultAction)) {
           console.log('✅ Search by query successful');
           return true;
         } else {
@@ -299,7 +264,7 @@ export const useSkills = () => {
 
         // Search in user skills specifically
         const resultAction = await dispatch(
-          searchSkillsAction({
+          fetchAllSkillsAction({
             query: query.trim(),
             page,
             pageSize,
@@ -308,7 +273,7 @@ export const useSkills = () => {
           })
         );
 
-        if (searchSkillsAction.fulfilled.match(resultAction)) {
+        if (fetchAllSkillsAction.fulfilled.match(resultAction)) {
           console.log('✅ User skills search successful');
           return true;
         } else {
@@ -738,9 +703,9 @@ export const useSkills = () => {
   const getSkillFromState = useCallback(
     (skillId: string): Skill | undefined => {
       return (
-        allSkills.find((skill) => skill.id === skillId) ||
-        userSkills.find((skill) => skill.id === skillId) ||
-        searchResults.find((skill) => skill.id === skillId)
+        allSkills.find((skill) => skill.skillId === skillId) ||
+        userSkills.find((skill) => skill.skillId === skillId) ||
+        searchResults.find((skill) => skill.skillId === skillId)
       );
     },
     [allSkills, userSkills, searchResults]
@@ -764,7 +729,7 @@ export const useSkills = () => {
     (categoryId: string): Skill[] => {
       const currentSkills = isSearchActive ? searchResults : allSkills;
       return currentSkills.filter(
-        (skill) => skill.skillCategoryId === categoryId
+        (skill) => skill.category?.categoryId === categoryId
       );
     },
     [allSkills, searchResults, isSearchActive]
@@ -774,7 +739,7 @@ export const useSkills = () => {
     (levelId: string): Skill[] => {
       const currentSkills = isSearchActive ? searchResults : allSkills;
       return currentSkills.filter(
-        (skill) => skill.proficiencyLevelId === levelId
+        (skill) => skill.proficiencyLevel?.levelId === levelId
       );
     },
     [allSkills, searchResults, isSearchActive]
@@ -782,7 +747,7 @@ export const useSkills = () => {
 
   const isUserSkill = useCallback(
     (skillId: string): boolean => {
-      return userSkills.some((skill) => skill.id === skillId);
+      return userSkills.some((skill) => skill.skillId === skillId);
     },
     [userSkills]
   );
@@ -811,7 +776,6 @@ export const useSkills = () => {
     errors,
 
     // Core skill operations
-    searchSkills,
     fetchAllSkills,
     fetchSkillById,
     searchSkillsByQuery,

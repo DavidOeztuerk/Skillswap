@@ -9,16 +9,13 @@ namespace CQRS.Behaviors;
 /// </summary>
 /// <typeparam name="TRequest"></typeparam>
 /// <typeparam name="TResponse"></typeparam>
-public class PerformanceBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public class PerformanceBehavior<TRequest, TResponse>(
+    ILogger<PerformanceBehavior<TRequest, TResponse>> logger) 
+    : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
-    private readonly ILogger<PerformanceBehavior<TRequest, TResponse>> _logger;
+    private readonly ILogger<PerformanceBehavior<TRequest, TResponse>> _logger = logger;
     private const int SlowRequestThresholdMs = 1000;
-
-    public PerformanceBehavior(ILogger<PerformanceBehavior<TRequest, TResponse>> logger)
-    {
-        _logger = logger;
-    }
 
     public async Task<TResponse> Handle(
         TRequest request,
@@ -26,7 +23,7 @@ public class PerformanceBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
         CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        var response = await next();
+        var response = await next(cancellationToken);
         stopwatch.Stop();
 
         var elapsedMs = stopwatch.ElapsedMilliseconds;

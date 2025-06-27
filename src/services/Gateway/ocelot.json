@@ -145,6 +145,17 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/skills/my-skills",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/my-skills",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
       "DownstreamPathTemplate": "/skills",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
@@ -158,25 +169,6 @@
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/{skillId}",
       "UpstreamHttpMethod": ["GET"],
-      "AddQueriesToRequest": true
-    },
-    {
-      "DownstreamPathTemplate": "/users/{userId}/skills",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/users/{userId}/skills",
-      "UpstreamHttpMethod": ["GET"],
-      "AddQueriesToRequest": true
-    },
-    {
-      "DownstreamPathTemplate": "/my/skills",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/my/skills",
-      "UpstreamHttpMethod": ["GET"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      },
       "AddQueriesToRequest": true
     },
     {

@@ -3,10 +3,6 @@ using CQRS.Interfaces;
 
 namespace SkillService.Application.Queries;
 
-// ============================================================================
-// SKILL SEARCH & DISCOVERY QUERIES
-// ============================================================================
-
 public record SearchSkillsQuery(
     string? Query = null,
     string? CategoryId = null,
@@ -20,7 +16,7 @@ public record SearchSkillsQuery(
     string? SortBy = "relevance",
     string? SortDirection = "desc",
     int PageNumber = 1,
-    int PageSize = 20) 
+    int PageSize = 20)
     : IPagedQuery<SkillSearchResultResponse>,
     ICacheableQuery
 {
