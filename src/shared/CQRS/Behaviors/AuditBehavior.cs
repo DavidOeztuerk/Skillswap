@@ -9,15 +9,12 @@ namespace CQRS.Behaviors;
 /// </summary>
 /// <typeparam name="TRequest"></typeparam>
 /// <typeparam name="TResponse"></typeparam>
-public class AuditBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public class AuditBehavior<TRequest, TResponse>(
+    ILogger<AuditBehavior<TRequest, TResponse>> logger) 
+    : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
-    private readonly ILogger<AuditBehavior<TRequest, TResponse>> _logger;
-
-    public AuditBehavior(ILogger<AuditBehavior<TRequest, TResponse>> logger)
-    {
-        _logger = logger;
-    }
+    private readonly ILogger<AuditBehavior<TRequest, TResponse>> _logger = logger;
 
     public async Task<TResponse> Handle(
         TRequest request,
@@ -27,7 +24,7 @@ public class AuditBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         // Only audit commands
         if (request is not ICommand)
         {
-            return await next();
+            return await next(cancellationToken);
         }
 
         var requestName = typeof(TRequest).Name;
@@ -41,7 +38,7 @@ public class AuditBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         _logger.LogInformation("Audit: User {UserId} executing command {CommandName} at {Timestamp}",
             userId, requestName, DateTime.UtcNow);
 
-        var response = await next();
+        var response = await next(cancellationToken);
 
         _logger.LogInformation("Audit: Command {CommandName} completed successfully for user {UserId}",
             requestName, userId);

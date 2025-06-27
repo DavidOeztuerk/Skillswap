@@ -12,20 +12,6 @@ interface SearchParams extends SkillSearchParams {
 }
 
 // Async Thunk für die allgemeine Skill-Suche
-export const fetchSearchResults = createAsyncThunk(
-  'search/fetchSearchResults',
-  async (params: SearchParams, { rejectWithValue }) => {
-    try {
-      const response = await skillService.searchSkills(params);
-      return response;
-    } catch (error) {
-      console.error('Search results thunk error:', error);
-      return rejectWithValue(
-        error instanceof Error ? error.message : 'Suche fehlgeschlagen'
-      );
-    }
-  }
-);
 
 // Async Thunk für die Benutzer-Skill-Suche
 export const fetchUserSearchResults = createAsyncThunk(
@@ -56,7 +42,7 @@ export const fetchAllSkills = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await skillService.getAllSkills(page, pageSize);
+      const response = await skillService.getAllSkills({ page, pageSize });
       return response;
     } catch (error) {
       console.error('All skills search thunk error:', error);
@@ -249,30 +235,6 @@ const searchSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Main search results cases
-      .addCase(fetchSearchResults.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchSearchResults.fulfilled, (state, action) => {
-        state.loading = false;
-        state.results = action.payload.data;
-        state.pagination = {
-          page: action.payload.pageNumber,
-          pageSize: action.payload.pageSize,
-          totalItems: action.payload.totalRecords,
-          totalPages: Math.ceil(
-            action.payload.totalPages / action.payload.pageSize
-          ),
-        };
-        state.error = null;
-      })
-      .addCase(fetchSearchResults.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-        state.results = [];
-      })
-
       // User search results cases
       .addCase(fetchUserSearchResults.pending, (state) => {
         state.userLoading = true;

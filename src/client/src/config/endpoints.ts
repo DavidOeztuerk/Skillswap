@@ -27,8 +27,7 @@ export const AUTH_ENDPOINTS = {
  */
 export const SKILL_ENDPOINTS = {
   GET_SKILLS: '/api/skills',
-  GET_MY_SKILLS: '/api/my/skills',
-  GET_USER_SKILLS: '/api/users', // + /{userId}/skills
+  GET_USER_SKILLS: '/api/skills/my-skills', // + /{userId}
   CREATE_SKILL: '/api/skills',
   UPDATE_SKILL: '/api/skills',
   DELETE_SKILL: '/api/skills',

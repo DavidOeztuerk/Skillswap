@@ -175,45 +175,6 @@ const SkillsPage: React.FC = () => {
 
   const pageSizeOptions = [12, 24, 48, 96];
 
-  // Load initial data on mount
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        console.log('🚀 Loading initial data...');
-
-        // Load categories and proficiency levels first
-        const [categoriesSuccess, proficiencySuccess] = await Promise.all([
-          fetchCategories(),
-          fetchProficiencyLevels(),
-        ]);
-
-        if (!categoriesSuccess || !proficiencySuccess) {
-          setNotification({
-            open: true,
-            message: [
-              'Fehler beim Laden der Kategorien oder Fertigkeitsstufen',
-            ],
-            severity: 'warning',
-          });
-        }
-
-        // Load initial skills based on active tab
-        await loadTabData();
-
-        console.log('✅ Initial data loaded');
-      } catch (error) {
-        console.error('❌ Error loading initial data:', error);
-        setNotification({
-          open: true,
-          message: ['Fehler beim Laden der Daten'],
-          severity: 'error',
-        });
-      }
-    };
-
-    loadInitialData();
-  }, []); // Only run once on mount
-
   // Load data for specific tab
   const loadTabData = useCallback(async () => {
     try {
@@ -230,10 +191,7 @@ const SkillsPage: React.FC = () => {
             pagination.pageSize
           );
         } else {
-          success = await fetchAllSkills(
-            pagination.pageNumber,
-            pagination.pageSize
-          );
+          success = await fetchAllSkills(pagination);
         }
       } else {
         // User skills tab
@@ -261,23 +219,121 @@ const SkillsPage: React.FC = () => {
     activeTab,
     isSearchActive,
     searchQuery,
-    pagination.pageNumber,
-    pagination.pageSize,
     searchSkillsByQuery,
+    pagination,
     fetchAllSkills,
     searchUserSkills,
     fetchUserSkills,
   ]);
 
-  // Handle tab or pagination changes
-  useEffect(() => {
-    // Only load data if we have categories and proficiency levels
-    if (categories.length > 0 && proficiencyLevels.length > 0) {
-      loadTabData();
-    }
-  }, [loadTabData, categories.length, proficiencyLevels.length]);
+  // ✅ FIXED: useEffect hooks ohne Object Dependencies
 
-  // Handle errors
+  // 1. Load initial data ONCE on mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        console.log('🚀 Loading initial data...');
+
+        // Load categories and proficiency levels first
+        const [categoriesSuccess, proficiencySuccess] = await Promise.all([
+          fetchCategories(),
+          fetchProficiencyLevels(),
+        ]);
+
+        if (!categoriesSuccess || !proficiencySuccess) {
+          setNotification({
+            open: true,
+            message: [
+              'Fehler beim Laden der Kategorien oder Fertigkeitsstufen',
+            ],
+            severity: 'warning',
+          });
+        }
+
+        console.log('✅ Initial metadata loaded');
+      } catch (error) {
+        console.error('❌ Error loading initial data:', error);
+        setNotification({
+          open: true,
+          message: ['Fehler beim Laden der Daten'],
+          severity: 'error',
+        });
+      }
+    };
+
+    loadInitialData();
+  }, [fetchCategories, fetchProficiencyLevels]); // ✅ Stabile Callbacks
+
+  // 2. Load tab data when dependencies change
+  useEffect(() => {
+    // Only load if we have the required metadata
+    if (categories.length === 0 || proficiencyLevels.length === 0) {
+      console.log('⏳ Waiting for categories and proficiency levels...');
+      return;
+    }
+
+    const loadTabData = async () => {
+      try {
+        console.log(`📊 Loading data for tab ${activeTab}`);
+
+        let success = false;
+
+        if (activeTab === 0) {
+          // All skills tab
+          if (isSearchActive && searchQuery) {
+            success = await searchSkillsByQuery(
+              searchQuery,
+              pagination.pageNumber,
+              pagination.pageSize
+            );
+          } else {
+            // ✅ Use primitive values instead of pagination object
+            success = await fetchAllSkills({
+              page: pagination.pageNumber,
+              pageSize: pagination.pageSize,
+            });
+          }
+        } else {
+          // User skills tab
+          if (isSearchActive && searchQuery) {
+            success = await searchUserSkills(
+              searchQuery,
+              pagination.pageNumber,
+              pagination.pageSize
+            );
+          } else {
+            success = await fetchUserSkills(
+              pagination.pageNumber,
+              pagination.pageSize
+            );
+          }
+        }
+
+        if (!success) {
+          console.warn('⚠️ Loading tab data returned false');
+        }
+      } catch (error) {
+        console.error('❌ Error loading tab data:', error);
+      }
+    };
+
+    loadTabData();
+  }, [
+    // ✅ ONLY primitive values and stable callbacks
+    activeTab,
+    isSearchActive,
+    searchQuery,
+    pagination.pageNumber, // ✅ Primitive value
+    pagination.pageSize, // ✅ Primitive value
+    categories.length, // ✅ Primitive value
+    proficiencyLevels.length, // ✅ Primitive value
+    searchSkillsByQuery, // ✅ Stable useCallback
+    fetchAllSkills, // ✅ Stable useCallback
+    searchUserSkills, // ✅ Stable useCallback
+    fetchUserSkills, // ✅ Stable useCallback
+  ]);
+
+  // 3. Handle errors separately (unchanged)
   useEffect(() => {
     if (errors && errors.length > 0) {
       setNotification({
@@ -347,8 +403,8 @@ const SkillsPage: React.FC = () => {
 
       const success =
         activeTab === 0
-          ? await fetchAllSkills(1, pagination.pageSize)
-          : await fetchUserSkills(1, pagination.pageSize);
+          ? await fetchAllSkills(pagination)
+          : await fetchUserSkills(pagination.pageNumber, pagination.pageSize);
 
       if (!success) {
         setNotification({
@@ -414,7 +470,7 @@ const SkillsPage: React.FC = () => {
   // Delete handler with confirmation
   const handleDeleteSkill = (skillId: string) => {
     const currentSkills = getCurrentSkills(activeTab);
-    const skill = currentSkills.find((s) => s.id === skillId);
+    const skill = currentSkills.find((s) => s.skillId === skillId);
     const skillName = skill?.name || 'diesen Skill';
 
     console.log('🗑️ Initiating delete for skill:', skillName);

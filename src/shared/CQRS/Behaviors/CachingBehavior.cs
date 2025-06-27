@@ -11,19 +11,14 @@ namespace CQRS.Behaviors;
 /// </summary>
 /// <typeparam name="TRequest"></typeparam>
 /// <typeparam name="TResponse"></typeparam>
-public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public class CachingBehavior<TRequest, TResponse>(
+    IDistributedCache? cache,
+    ILogger<CachingBehavior<TRequest, TResponse>> logger) 
+    : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
-    private readonly IDistributedCache? _cache;
-    private readonly ILogger<CachingBehavior<TRequest, TResponse>> _logger;
-
-    public CachingBehavior(
-        IDistributedCache? cache,
-        ILogger<CachingBehavior<TRequest, TResponse>> logger)
-    {
-        _cache = cache;
-        _logger = logger;
-    }
+    private readonly IDistributedCache? _cache = cache;
+    private readonly ILogger<CachingBehavior<TRequest, TResponse>> _logger = logger;
 
     public async Task<TResponse> Handle(
         TRequest request,
@@ -33,7 +28,7 @@ public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         // Only cache if it's a cacheable query and cache is available
         if (_cache == null || request is not ICacheableQuery cacheableQuery)
         {
-            return await next();
+            return await next(cancellationToken);
         }
 
         var cacheKey = cacheableQuery.CacheKey;
@@ -54,7 +49,7 @@ public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         _logger.LogInformation("Cache miss for key {CacheKey}", cacheKey);
 
         // Execute handler and cache result
-        var response = await next();
+        var response = await next(cancellationToken);
 
         if (response != null)
         {

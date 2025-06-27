@@ -1,21 +1,22 @@
 export interface Skill {
-  id: string;
+  skillId: string;
   name: string;
   description: string;
   isOffering: boolean;
-  skillCategoryId: string;
-  proficiencyLevelId: string;
-  skillCategory?: SkillCategory;
+  category?: SkillCategory;
   proficiencyLevel?: ProficiencyLevel;
 }
 
 export interface SkillCategory {
   categoryId: string;
   name: string;
+  iconName?: string;
+  color?: string;
 }
 
 export interface ProficiencyLevel {
   levelId: string;
   level: string;
   rank: number;
+  color?: string;
 }

@@ -18,11 +18,11 @@ public static class MediatorExtensions
 
         if (result != null && ((dynamic)result).Success == true)
         {
-            return Results.Ok(result);
+            return TypedResults.Ok(result);
         }
         else
         {
-            return Results.BadRequest(result);
+            return TypedResults.BadRequest(result);
         }
     }
 
@@ -36,11 +36,11 @@ public static class MediatorExtensions
 
         if (result != null && ((dynamic)result).Success == true)
         {
-            return Results.Ok(result);
+            return TypedResults.Ok(result);
         }
         else
         {
-            return Results.BadRequest(result);
+            return TypedResults.BadRequest(result);
         }
     }
 
@@ -54,11 +54,11 @@ public static class MediatorExtensions
 
         if (result != null && ((dynamic)result).Success == true)
         {
-            return Results.Ok(result);
+            return TypedResults.Ok(result);
         }
         else
         {
-            return Results.BadRequest(result);
+            return TypedResults.BadRequest(result);
         }
     }
 }

@@ -285,7 +285,7 @@ const DashboardPage: React.FC = () => {
               {teachingSkills.length > 0 ? (
                 <List disablePadding>
                   {teachingSkills.slice(0, 5).map((userSkill) => (
-                    <React.Fragment key={userSkill.id}>
+                    <React.Fragment key={userSkill.skillId}>
                       <ListItem sx={{ px: 0 }}>
                         <ListItemIcon>
                           <SkillsIcon color="primary" />
@@ -329,7 +329,7 @@ const DashboardPage: React.FC = () => {
               {userSkills.length > 0 ? (
                 <List disablePadding>
                   {userSkills.slice(0, 5).map((userSkill) => (
-                    <React.Fragment key={userSkill.id}>
+                    <React.Fragment key={userSkill.skillId}>
                       <ListItem sx={{ px: 0 }}>
                         <ListItemIcon>
                           <SkillsIcon color="secondary" />

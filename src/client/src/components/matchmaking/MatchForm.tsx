@@ -77,7 +77,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
   // Default-Werte
   const defaultValues = useMemo(() => {
     return {
-      skillId: skill.id,
+      skillId: skill.skillId,
       isOffering: !skill.isOffering,
       preferredDays: ['Montag', 'Dienstag', 'Mittwoch'],
       preferredTimes: ['18:00', '19:00'],

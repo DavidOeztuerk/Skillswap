@@ -61,23 +61,12 @@ export interface SkillRecommendation {
 }
 
 const skillService = {
-  searchSkills: async (
-    params: SkillSearchParams = {}
-  ): Promise<PaginatedResponse<Skill>> => {
-    const response = await apiClient.get<PaginatedResponse<Skill>>(
-      SKILL_ENDPOINTS.GET_SKILLS,
-      params
-    );
-    return response.data;
-  },
-
   getAllSkills: async (
-    page = 1,
-    pageSize = 12
+    params: SkillSearchParams
   ): Promise<PaginatedResponse<Skill>> => {
     const response = await apiClient.get<PaginatedResponse<Skill>>(
       SKILL_ENDPOINTS.GET_SKILLS,
-      { PageNumber: page, PageSize: pageSize }
+      { ...params }
     );
     return response.data;
   },
@@ -95,16 +84,8 @@ const skillService = {
     pageSize = 12
   ): Promise<PaginatedResponse<Skill>> => {
     const response = await apiClient.get<PaginatedResponse<Skill>>(
-      SKILL_ENDPOINTS.GET_MY_SKILLS,
+      `${SKILL_ENDPOINTS.GET_USER_SKILLS}`,
       { PageNumber: page, PageSize: pageSize }
-    );
-    return response.data;
-  },
-
-  getUserSkillById: async (skillId: string): Promise<Skill> => {
-    if (!skillId.trim()) throw new Error('Skill-ID ist erforderlich');
-    const response = await apiClient.get<Skill>(
-      `${SKILL_ENDPOINTS.GET_SKILLS}/${skillId}`
     );
     return response.data;
   },
@@ -142,10 +123,10 @@ const skillService = {
     rating: number,
     review?: string
   ): Promise<void> => {
-    await apiClient.post(
-      `${SKILL_ENDPOINTS.RATE_SKILL}/${skillId}/rate`,
-      { rating, review }
-    );
+    await apiClient.post(`${SKILL_ENDPOINTS.RATE_SKILL}/${skillId}/rate`, {
+      rating,
+      review,
+    });
   },
 
   endorseSkill: async (skillId: string, message?: string): Promise<void> => {

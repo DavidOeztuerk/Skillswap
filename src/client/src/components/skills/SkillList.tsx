@@ -27,12 +27,14 @@ const SkillList: React.FC<SkillListProps> = ({
     loading,
     hasErrors: !!errors?.length,
     skills: skills.map((s) =>
-      s ? { id: s.id, name: s.name } : 'undefined skill'
+      s ? { skillId: s.skillId, name: s.name } : 'undefined skill'
     ),
   });
 
   // Filter out any undefined or null skills
-  const validSkills = skills.filter((skill) => skill && skill.id && skill.name);
+  const validSkills = skills.filter(
+    (skill) => skill && skill.skillId && skill.name
+  );
 
   if (validSkills.length !== skills.length) {
     console.warn('⚠️ Found invalid skills in list:', {
@@ -93,7 +95,7 @@ const SkillList: React.FC<SkillListProps> = ({
   return (
     <Grid container spacing={3}>
       {validSkills.map((skill) => (
-        <Grid key={skill.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+        <Grid key={skill.skillId} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <SkillCard
             skill={skill}
             onEdit={onEditSkill}
