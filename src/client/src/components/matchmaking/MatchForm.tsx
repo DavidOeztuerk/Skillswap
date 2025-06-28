@@ -21,8 +21,8 @@ import {
   OutlinedInput,
   ListItemText,
   InputAdornment,
+  Grid,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
 import CloseIcon from '@mui/icons-material/Close';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';

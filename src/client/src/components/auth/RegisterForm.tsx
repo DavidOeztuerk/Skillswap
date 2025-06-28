@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Link, IconButton, Alert, Stack } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import { Box, Typography, Link, IconButton, Alert, Stack, Grid } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';

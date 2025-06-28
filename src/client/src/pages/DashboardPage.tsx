@@ -16,8 +16,8 @@ import {
   ListItemIcon,
   Divider,
   Chip,
+  Grid,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2'; // <-- Grid2 statt altem Grid
 import {
   Person as PersonIcon,
   EmojiObjects as SkillsIcon,

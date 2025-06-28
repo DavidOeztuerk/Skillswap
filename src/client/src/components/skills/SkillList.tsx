@@ -1,7 +1,6 @@
 // src/components/skills/SkillList.tsx
 import React from 'react';
-import Grid from '@mui/material/Grid2';
-import { Box, Typography, CircularProgress, Alert } from '@mui/material';
+import { Box, Typography, CircularProgress, Alert, Grid } from '@mui/material';
 import SkillCard from './SkillCard';
 import { Skill } from '../../types/models/Skill';
 

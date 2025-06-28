@@ -37,7 +37,7 @@ const SearchResultsPage: React.FC = () => {
 
       <Grid container spacing={4} sx={{ mt: 2 }}>
         {results.map((skill) => (
-          <Grid item xs={12} sm={6} md={4} key={skill.skillId}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={skill.skillId}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
