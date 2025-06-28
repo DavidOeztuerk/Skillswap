@@ -14,8 +14,8 @@ import {
   Divider,
   Pagination,
   SelectChangeEvent,
+  Grid,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
 import {
   Search as SearchIcon,
   RestartAlt as ResetIcon,

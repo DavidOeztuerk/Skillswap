@@ -43,6 +43,7 @@ import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRe
 import AlertMessage from '../../components/ui/AlertMessage';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import { useNavigate } from 'react-router-dom';
 
 // Tab panel component
 interface TabPanelProps {
@@ -172,6 +173,8 @@ const SkillsPage: React.FC = () => {
     message: '',
     onConfirm: () => {},
   });
+
+  const navigate = useNavigate();
 
   const pageSizeOptions = [12, 24, 48, 96];
 
@@ -465,6 +468,7 @@ const SkillsPage: React.FC = () => {
     console.log('👁️ Viewing skill details:', skill.name);
     selectSkill(skill);
     // Could navigate to details page here
+    navigate(`/skills/${skill.skillId}`);
   };
 
   // Delete handler with confirmation

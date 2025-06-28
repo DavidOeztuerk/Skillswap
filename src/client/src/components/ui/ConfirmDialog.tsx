@@ -54,21 +54,27 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   disableEscapeKeyDown = false,
   showCloseButton = true,
 }) => {
-  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (disableBackdropClick) {
-      event.stopPropagation();
+  const handleClose = (
+    _: object,
+    reason: 'backdropClick' | 'escapeKeyDown'
+  ) => {
+    if (
+      (reason === 'backdropClick' && disableBackdropClick) ||
+      (reason === 'escapeKeyDown' && disableEscapeKeyDown)
+    ) {
+      return;
     }
+    onCancel();
   };
 
   return (
     <Dialog
       open={open}
-      onClose={disableBackdropClick ? undefined : onCancel}
+      onClose={handleClose}
       aria-labelledby="confirm-dialog-title"
       aria-describedby="confirm-dialog-description"
       fullWidth={fullWidth}
       maxWidth={maxWidth}
-      onBackdropClick={handleBackdropClick}
       disableEscapeKeyDown={disableEscapeKeyDown}
     >
       <DialogTitle id="confirm-dialog-title">

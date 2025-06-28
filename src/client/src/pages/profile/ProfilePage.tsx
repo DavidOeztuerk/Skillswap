@@ -9,8 +9,8 @@ import {
   Divider,
   IconButton,
   InputAdornment,
+  Grid,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2'; // <-- NEUES Grid2
 import {
   Edit as EditIcon,
   Save as SaveIcon,

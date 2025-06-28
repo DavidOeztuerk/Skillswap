@@ -9,10 +9,10 @@ import {
   Box,
   Typography,
   IconButton,
-  InputAdornment,
   Divider,
+  Grid,
+  InputAdornment,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';

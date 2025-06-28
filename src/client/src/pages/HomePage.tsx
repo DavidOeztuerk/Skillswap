@@ -13,8 +13,8 @@ import {
   Divider,
   useTheme,
   useMediaQuery,
+  Grid,
 } from '@mui/material';
-import Grid from '@mui/material/Grid2'; // <-- Grid2-Import!
 import {
   School as SchoolIcon,
   EmojiObjects as SkillsIcon,
