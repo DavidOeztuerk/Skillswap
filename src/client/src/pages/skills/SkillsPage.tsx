@@ -48,8 +48,12 @@ import { useNavigate } from 'react-router-dom';
 // Tab panel component
 interface TabPanelProps {
   children?: React.ReactNode;
-  index: number;
-  value: number;
+  index: string;
+  value: string;
+}
+
+interface SkillsPageProps {
+  showOnly: 'mine' | 'others';
 }
 
 const TabPanel: React.FC<TabPanelProps> = ({
@@ -100,7 +104,7 @@ interface FilterState {
 /**
  * Skills Page with improved state management and error handling
  */
-const SkillsPage: React.FC = () => {
+const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -136,7 +140,7 @@ const SkillsPage: React.FC = () => {
   } = useSkills();
 
   // Local state
-  const [activeTab, setActiveTab] = useState(0);
+  // const [activeTab, setActiveTab] = useState(0);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedSkillForEdit, setSelectedSkillForEdit] = useState<
     Skill | undefined
@@ -181,11 +185,11 @@ const SkillsPage: React.FC = () => {
   // Load data for specific tab
   const loadTabData = useCallback(async () => {
     try {
-      console.log(`📊 Loading data for tab ${activeTab}`);
+      console.log(`📊 Loading data for tab ${showOnly}`);
 
       let success = false;
 
-      if (activeTab === 0) {
+      if (showOnly === 'others') {
         // All skills tab
         if (isSearchActive && searchQuery) {
           success = await searchSkillsByQuery(
@@ -219,7 +223,7 @@ const SkillsPage: React.FC = () => {
       console.error('❌ Error loading tab data:', error);
     }
   }, [
-    activeTab,
+    showOnly,
     isSearchActive,
     searchQuery,
     searchSkillsByQuery,
@@ -277,11 +281,11 @@ const SkillsPage: React.FC = () => {
 
     const loadTabData = async () => {
       try {
-        console.log(`📊 Loading data for tab ${activeTab}`);
+        console.log(`📊 Loading data for tab ${showOnly}`);
 
         let success = false;
 
-        if (activeTab === 0) {
+        if (showOnly === 'others') {
           // All skills tab
           if (isSearchActive && searchQuery) {
             success = await searchSkillsByQuery(
@@ -323,7 +327,7 @@ const SkillsPage: React.FC = () => {
     loadTabData();
   }, [
     // ✅ ONLY primitive values and stable callbacks
-    activeTab,
+    showOnly,
     isSearchActive,
     searchQuery,
     pagination.pageNumber, // ✅ Primitive value
@@ -350,7 +354,7 @@ const SkillsPage: React.FC = () => {
   // Tab change handler
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     console.log(`🔄 Switching to tab ${newValue}`);
-    setActiveTab(newValue);
+    // setActiveTab(newValue);
     updatePagination({ pageNumber: 1 });
     clearSearch();
     setLocalSearchQuery('');
@@ -374,7 +378,7 @@ const SkillsPage: React.FC = () => {
       updatePagination({ pageNumber: 1 });
 
       const success =
-        activeTab === 0
+        showOnly === 'others'
           ? await searchSkillsByQuery(localSearchQuery, 1, pagination.pageSize)
           : await searchUserSkills(localSearchQuery, 1, pagination.pageSize);
 
@@ -405,7 +409,7 @@ const SkillsPage: React.FC = () => {
       updatePagination({ pageNumber: 1 });
 
       const success =
-        activeTab === 0
+        showOnly === 'others'
           ? await fetchAllSkills(pagination)
           : await fetchUserSkills(pagination.pageNumber, pagination.pageSize);
 
@@ -473,7 +477,7 @@ const SkillsPage: React.FC = () => {
 
   // Delete handler with confirmation
   const handleDeleteSkill = (skillId: string) => {
-    const currentSkills = getCurrentSkills(activeTab);
+    const currentSkills = getCurrentSkills(showOnly);
     const skill = currentSkills.find((s) => s.skillId === skillId);
     const skillName = skill?.name || 'diesen Skill';
 
@@ -556,7 +560,7 @@ const SkillsPage: React.FC = () => {
           setIsFormOpen(false);
 
           // Switch to user skills tab
-          setActiveTab(1);
+          // setActiveTab(1);
           updatePagination({ pageNumber: 1 });
 
           // Force reload user skills with cache bypass
@@ -660,7 +664,7 @@ const SkillsPage: React.FC = () => {
   };
 
   // Get current skills array based on active tab
-  const currentSkills = getCurrentSkills(activeTab);
+  const currentSkills = getCurrentSkills(showOnly);
   const currentSkillsCount = currentSkills.length;
 
   // Loading states
@@ -670,7 +674,7 @@ const SkillsPage: React.FC = () => {
 
   // Debug logging
   console.log('🔍 SkillsPage State:', {
-    activeTab,
+    showOnly,
     isSearchActive,
     searchQuery,
     localSearchQuery,
@@ -892,7 +896,7 @@ const SkillsPage: React.FC = () => {
 
         {/* Tabs */}
         <Tabs
-          value={activeTab}
+          value={showOnly}
           onChange={handleTabChange}
           aria-label="Skills-Tabs"
           variant={isMobile ? 'fullWidth' : 'standard'}
@@ -919,7 +923,7 @@ const SkillsPage: React.FC = () => {
         />
       ) : (
         <>
-          <TabPanel value={activeTab} index={0}>
+          <TabPanel value={showOnly} index={'others'}>
             <SkillList
               skills={currentSkills}
               loading={isLoading}
@@ -930,7 +934,7 @@ const SkillsPage: React.FC = () => {
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={1}>
+          <TabPanel value={showOnly} index={'mine'}>
             <SkillList
               skills={currentSkills}
               loading={isLoading}

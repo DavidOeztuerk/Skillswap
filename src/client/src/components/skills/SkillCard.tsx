@@ -29,6 +29,7 @@ import { Skill } from '../../types/models/Skill';
 
 interface SkillCardProps {
   skill: Skill;
+  // isOwner: boolean;
   onEdit: (skill: Skill) => void;
   onDelete: (skillId: string) => void;
   onViewDetails: (skill: Skill) => void;

@@ -11,6 +11,7 @@ const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'));
 const SkillsPage = lazy(() => import('../pages/skills/SkillsPage'));
 const SkillDetailPage = lazy(() => import('../pages/skills/SkillDetailPage'));
+const SkillEditPage = lazy(() => import('../pages/skills/SkillEditPage'));
 const MatchmakingPage = lazy(
   () => import('../pages/matchmaking/MatchmakingPage')
 );
@@ -85,12 +86,39 @@ const routes: RouteObject[] = [
                 <LoadingSpinner fullPage message="Seite wird geladen..." />
               }
             >
-              <SkillsPage />
+              <SkillsPage showOnly="others" />
             </Suspense>
           </PrivateRoute>
         ),
       },
-
+      {
+        path: 'skills/my-skills',
+        element: (
+          <PrivateRoute>
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Seite wird geladen..." />
+              }
+            >
+              <SkillsPage showOnly="mine" />
+            </Suspense>
+          </PrivateRoute>
+        ),
+      },
+      {
+        path: 'skills/:skillId/edit',
+        element: (
+          <PrivateRoute>
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Seite wird geladen..." />
+              }
+            >
+              <SkillEditPage />
+            </Suspense>
+          </PrivateRoute>
+        ),
+      },
       {
         path: 'skills/:skillId',
         element: (
@@ -105,7 +133,6 @@ const routes: RouteObject[] = [
           </PrivateRoute>
         ),
       },
-
       {
         path: 'matchmaking',
         element: (

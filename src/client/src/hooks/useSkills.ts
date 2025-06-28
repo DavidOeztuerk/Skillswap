@@ -97,11 +97,11 @@ export const useSkills = () => {
    * @returns Current skills array to display
    */
   const getCurrentSkills = useCallback(
-    (tab: number = 0): Skill[] => {
+    (showOnly: string = 'others'): Skill[] => {
       if (isSearchActive && searchResults.length > 0) {
         return searchResults;
       }
-      return tab === 0 ? allSkills : userSkills;
+      return showOnly === 'others' ? allSkills : userSkills;
     },
     [isSearchActive, searchResults, allSkills, userSkills]
   );
