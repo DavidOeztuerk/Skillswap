@@ -4,6 +4,7 @@ using CQRS.Interfaces;
 namespace SkillService.Application.Queries;
 
 public record SearchSkillsQuery(
+    string? UserId = null,
     string? Query = null,
     string? CategoryId = null,
     string? ProficiencyLevelId = null,

@@ -100,6 +100,7 @@ const SkillList: React.FC<SkillListProps> = ({
             onEdit={onEditSkill}
             onDelete={onDeleteSkill}
             onViewDetails={onViewSkillDetails}
+            // isOwner={}
           />
         </Grid>
       ))}

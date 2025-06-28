@@ -246,9 +246,10 @@ skills.MapPost("/{id}/endorse", EndorseSkill)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
-static async Task<IResult> SearchSkills(IMediator mediator, [AsParameters] SearchSkillsQuery query)
+static async Task<IResult> SearchSkills(IMediator mediator, HttpContext ctx, [AsParameters] SearchSkillsQuery query)
 {
-    return await mediator.SendQuery(query);
+    var uid = ctx.User.FindFirst("user_id")?.Value;
+    return await mediator.SendQuery(query with { UserId = uid });
 }
 
 static async Task<IResult> GetSkillById(IMediator mediator, string id, bool review = false, bool endors = false)

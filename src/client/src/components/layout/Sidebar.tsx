@@ -78,13 +78,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           text: 'Meine Skills',
           icon: <SkillsIcon fontSize="small" />,
-          path: '/skills',
+          path: '/skills/my-skills',
           authRequired: true,
         },
         {
           text: 'Skills entdecken',
           icon: <SkillsIcon fontSize="small" />,
-          path: '/skills/discover',
+          path: '/skills',
           authRequired: true,
         },
       ],

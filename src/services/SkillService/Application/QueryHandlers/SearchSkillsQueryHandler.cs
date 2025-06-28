@@ -28,7 +28,7 @@ public class SearchSkillsQueryHandler(
             var query = _dbContext.Skills
                 .Include(s => s.SkillCategory)
                 .Include(s => s.ProficiencyLevel)
-                .Where(s => s.IsActive && !s.IsDeleted);
+                .Where(s => s.UserId != request.UserId && s.IsActive && !s.IsDeleted);
 
             // Apply filters
             if (!string.IsNullOrEmpty(request.Query))
