@@ -1,5 +1,5 @@
-// src/pages/skills/SkillsPage.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+// src/pages/skills/SkillsPage.tsx - KOMPLETT KORRIGIERTE VERSION
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -9,15 +9,10 @@ import {
   TextField,
   InputAdornment,
   IconButton,
-  Tabs,
-  Tab,
-  Divider,
   Fab,
   Tooltip,
   Snackbar,
   Alert,
-  useTheme,
-  useMediaQuery,
   Chip,
   Stack,
   FormControl,
@@ -36,49 +31,19 @@ import {
 import { useSkills } from '../../hooks/useSkills';
 import SkillList from '../../components/skills/SkillList';
 import SkillForm from '../../components/skills/SkillForm';
+// import MatchForm from '../../components/matchmaking/MatchForm';
 import { Skill } from '../../types/models/Skill';
 import PaginationControls from '../../components/pagination/PaginationControls';
 import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
 import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+// import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 import AlertMessage from '../../components/ui/AlertMessage';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { useNavigate } from 'react-router-dom';
-
-// Tab panel component
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: string;
-  value: string;
-}
-
-interface SkillsPageProps {
-  showOnly: 'mine' | 'others';
-}
-
-const TabPanel: React.FC<TabPanelProps> = ({
-  children,
-  value,
-  index,
-  ...other
-}) => (
-  <div
-    role="tabpanel"
-    hidden={value !== index}
-    id={`skills-tabpanel-${index}`}
-    aria-labelledby={`skills-tab-${index}`}
-    {...other}
-  >
-    {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
-  </div>
-);
-
-function a11yProps(index: number) {
-  return {
-    id: `skills-tab-${index}`,
-    'aria-controls': `skills-tabpanel-${index}`,
-  };
-}
+// import { useMatchmaking } from '../../hooks/useMatchmaking';
+// import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
+// import { useUserById } from '../../hooks/useUserById';
 
 // Form data interfaces
 interface SkillFormData extends CreateSkillRequest {
@@ -101,17 +66,19 @@ interface FilterState {
   tags: string[];
 }
 
+interface SkillsPageProps {
+  showOnly: 'mine' | 'others';
+}
+
 /**
- * Skills Page with improved state management and error handling
+ * Skills Page - Vereinfacht ohne Tabs, gesteuert über Routing
  */
 const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const navigate = useNavigate();
 
-  // Skills hook with improved state management
+  // Skills hook
   const {
     getCurrentSkills,
-    allSkills,
     userSkills,
     categories,
     proficiencyLevels,
@@ -140,11 +107,14 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   } = useSkills();
 
   // Local state
-  // const [activeTab, setActiveTab] = useState(0);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  // const [isMatchFormOpen, setIsMatchFormOpen] = useState(false); // ✅ HINZUGEFÜGT
   const [selectedSkillForEdit, setSelectedSkillForEdit] = useState<
     Skill | undefined
   >();
+  // const [selectedSkillForMatch, setSelectedSkillForMatch] = useState<
+  //   Skill | undefined
+  // >(); // ✅ HINZUGEFÜGT
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -178,70 +148,21 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     onConfirm: () => {},
   });
 
-  const navigate = useNavigate();
-
   const pageSizeOptions = [12, 24, 48, 96];
 
-  // Load data for specific tab
-  const loadTabData = useCallback(async () => {
-    try {
-      console.log(`📊 Loading data for tab ${showOnly}`);
+  // Determine view properties based on showOnly prop
+  const isOwnerView = showOnly === 'mine';
 
-      let success = false;
+  // const { sendMatchRequest } = useMatchmaking();
 
-      if (showOnly === 'others') {
-        // All skills tab
-        if (isSearchActive && searchQuery) {
-          success = await searchSkillsByQuery(
-            searchQuery,
-            pagination.pageNumber,
-            pagination.pageSize
-          );
-        } else {
-          success = await fetchAllSkills(pagination);
-        }
-      } else {
-        // User skills tab
-        if (isSearchActive && searchQuery) {
-          success = await searchUserSkills(
-            searchQuery,
-            pagination.pageNumber,
-            pagination.pageSize
-          );
-        } else {
-          success = await fetchUserSkills(
-            pagination.pageNumber,
-            pagination.pageSize
-          );
-        }
-      }
+  // const { user } = useUserById(?.userId);
 
-      if (!success) {
-        console.warn('⚠️ Loading tab data returned false');
-      }
-    } catch (error) {
-      console.error('❌ Error loading tab data:', error);
-    }
-  }, [
-    showOnly,
-    isSearchActive,
-    searchQuery,
-    searchSkillsByQuery,
-    pagination,
-    fetchAllSkills,
-    searchUserSkills,
-    fetchUserSkills,
-  ]);
-
-  // ✅ FIXED: useEffect hooks ohne Object Dependencies
-
-  // 1. Load initial data ONCE on mount
+  // Load initial data
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         console.log('🚀 Loading initial data...');
 
-        // Load categories and proficiency levels first
         const [categoriesSuccess, proficiencySuccess] = await Promise.all([
           fetchCategories(),
           fetchProficiencyLevels(),
@@ -269,24 +190,22 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     };
 
     loadInitialData();
-  }, [fetchCategories, fetchProficiencyLevels]); // ✅ Stabile Callbacks
+  }, [fetchCategories, fetchProficiencyLevels]);
 
-  // 2. Load tab data when dependencies change
+  // Load page-specific data
   useEffect(() => {
-    // Only load if we have the required metadata
     if (categories.length === 0 || proficiencyLevels.length === 0) {
       console.log('⏳ Waiting for categories and proficiency levels...');
       return;
     }
 
-    const loadTabData = async () => {
+    const loadPageData = async () => {
       try {
-        console.log(`📊 Loading data for tab ${showOnly}`);
+        console.log(`📊 Loading data for ${showOnly} skills`);
 
         let success = false;
 
         if (showOnly === 'others') {
-          // All skills tab
           if (isSearchActive && searchQuery) {
             success = await searchSkillsByQuery(
               searchQuery,
@@ -294,14 +213,12 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
               pagination.pageSize
             );
           } else {
-            // ✅ Use primitive values instead of pagination object
             success = await fetchAllSkills({
               page: pagination.pageNumber,
               pageSize: pagination.pageSize,
             });
           }
         } else {
-          // User skills tab
           if (isSearchActive && searchQuery) {
             success = await searchUserSkills(
               searchQuery,
@@ -317,30 +234,29 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
         }
 
         if (!success) {
-          console.warn('⚠️ Loading tab data returned false');
+          console.warn('⚠️ Loading page data returned false');
         }
       } catch (error) {
-        console.error('❌ Error loading tab data:', error);
+        console.error('❌ Error loading page data:', error);
       }
     };
 
-    loadTabData();
+    loadPageData();
   }, [
-    // ✅ ONLY primitive values and stable callbacks
     showOnly,
     isSearchActive,
     searchQuery,
-    pagination.pageNumber, // ✅ Primitive value
-    pagination.pageSize, // ✅ Primitive value
-    categories.length, // ✅ Primitive value
-    proficiencyLevels.length, // ✅ Primitive value
-    searchSkillsByQuery, // ✅ Stable useCallback
-    fetchAllSkills, // ✅ Stable useCallback
-    searchUserSkills, // ✅ Stable useCallback
-    fetchUserSkills, // ✅ Stable useCallback
+    pagination.pageNumber,
+    pagination.pageSize,
+    categories.length,
+    proficiencyLevels.length,
+    searchSkillsByQuery,
+    fetchAllSkills,
+    searchUserSkills,
+    fetchUserSkills,
   ]);
 
-  // 3. Handle errors separately (unchanged)
+  // Handle errors
   useEffect(() => {
     if (errors && errors.length > 0) {
       setNotification({
@@ -350,16 +266,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
       });
     }
   }, [errors]);
-
-  // Tab change handler
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    console.log(`🔄 Switching to tab ${newValue}`);
-    // setActiveTab(newValue);
-    updatePagination({ pageNumber: 1 });
-    clearSearch();
-    setLocalSearchQuery('');
-    dismissError();
-  };
 
   // Search handlers
   const handleSearch = async () => {
@@ -388,8 +294,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
           message: ['Suche fehlgeschlagen. Bitte versuche es erneut.'],
           severity: 'error',
         });
-      } else {
-        console.log('✅ Search completed successfully');
       }
     } catch (error) {
       console.error('❌ Search error:', error);
@@ -410,8 +314,8 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
 
       const success =
         showOnly === 'others'
-          ? await fetchAllSkills(pagination)
-          : await fetchUserSkills(pagination.pageNumber, pagination.pageSize);
+          ? await fetchAllSkills({ page: 1, pageSize: pagination.pageSize })
+          : await fetchUserSkills(1, pagination.pageSize);
 
       if (!success) {
         setNotification({
@@ -422,13 +326,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
       }
     } catch (error) {
       console.error('❌ Clear search error:', error);
-    }
-  };
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSearch();
     }
   };
 
@@ -445,6 +342,17 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
 
   // Form handlers
   const handleOpenCreateForm = () => {
+    if (showOnly === 'others') {
+      setNotification({
+        open: true,
+        message: [
+          'Du kannst nur in der "Meine Skills" Sektion neue Skills erstellen',
+        ],
+        severity: 'info',
+      });
+      return;
+    }
+
     console.log('➕ Opening create form');
     setSelectedSkillForEdit(undefined);
     clearSkill();
@@ -453,11 +361,16 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   };
 
   const handleEditSkill = (skill: Skill) => {
-    console.log('✏️ Opening edit form for skill:', skill.name);
-    setSelectedSkillForEdit(skill);
-    selectSkill(skill);
-    setIsFormOpen(true);
-    dismissError();
+    if (showOnly === 'others') {
+      // Für fremde Skills -> zur Detail-Page navigieren
+      console.log('👁️ Viewing foreign skill details:', skill.name);
+      navigate(`/skills/${skill.skillId}`);
+      return;
+    }
+
+    // Für eigene Skills -> zur Edit-Page navigieren
+    console.log('✏️ Navigating to edit page for own skill:', skill.name);
+    navigate(`/skills/${skill.skillId}/edit`);
   };
 
   const handleCloseForm = () => {
@@ -471,14 +384,96 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   const handleViewSkillDetails = (skill: Skill) => {
     console.log('👁️ Viewing skill details:', skill.name);
     selectSkill(skill);
-    // Could navigate to details page here
     navigate(`/skills/${skill.skillId}`);
   };
 
-  // Delete handler with confirmation
+  // ✅ HINZUGEFÜGT: Match functionality für andere Users Skills
+  const handleMatchSkill = (skill: Skill) => {
+    if (showOnly === 'mine') {
+      setNotification({
+        open: true,
+        message: ['Du kannst kein Match mit deinen eigenen Skills erstellen'],
+        severity: 'info',
+      });
+      return;
+    }
+
+    console.log('🤝 Opening match form for skill:', skill.name);
+    // setSelectedSkillForMatch(skill);
+    // setIsMatchFormOpen(true);
+  };
+
+  // ✅ HINZUGEFÜGT: Close match form
+  // const handleCloseMatchForm = () => {
+  //   console.log('❌ Closing match form');
+  //   // setIsMatchFormOpen(false);
+  //   setSelectedSkillForMatch(undefined);
+  // };
+
+  // // ✅ HINZUGEFÜGT: Submit match request
+  // const handleSubmitMatch = async (matchData: MatchRequest) => {
+  //   if (!selectedSkillForMatch) {
+  //     setNotification({
+  //       open: true,
+  //       message: ['Fehler: Kein Skill ausgewählt'],
+  //       severity: 'error',
+  //     });
+  //     return;
+  //   }
+
+  //   try {
+  //     console.log('🤝 Submitting match request:', matchData);
+  //     console.log('📋 Selected skill for match:', selectedSkillForMatch);
+
+  //     // ✅ Konvertiere MatchRequest zu CreateMatchRequestCommand
+  //     const command: CreateMatchRequest = {
+  //       targetUserId: selectedSkillForMatch.userId, // ✅ User-ID vom Skill-Besitzer!
+  //       skillId: selectedSkillForMatch.skillId,
+  //       message: matchData.message || 'Ich bin interessiert an diesem Skill!',
+  //       isLearningMode: selectedSkillForMatch.isOffering, // ✅ Wenn Skill angeboten wird, will ich lernen
+  //     };
+
+  //     console.log('📤 Sending CreateMatchRequestCommand:', command);
+
+  //     const success = await sendMatchRequest(command);
+
+  //     if (success) {
+  //       setNotification({
+  //         open: true,
+  //         message: ['Match-Anfrage erfolgreich erstellt'],
+  //         severity: 'success',
+  //       });
+
+  //       handleCloseMatchForm();
+  //     } else {
+  //       setNotification({
+  //         open: true,
+  //         message: ['Fehler beim Erstellen der Match-Anfrage'],
+  //         severity: 'error',
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error('❌ Match submission error:', error);
+  //     setNotification({
+  //       open: true,
+  //       message: ['Fehler beim Erstellen der Match-Anfrage'],
+  //       severity: 'error',
+  //     });
+  //   }
+  // };
+
+  // Delete handler (nur für eigene Skills)
   const handleDeleteSkill = (skillId: string) => {
-    const currentSkills = getCurrentSkills(showOnly);
-    const skill = currentSkills.find((s) => s.skillId === skillId);
+    if (showOnly === 'others') {
+      setNotification({
+        open: true,
+        message: ['Du kannst nur deine eigenen Skills löschen'],
+        severity: 'warning',
+      });
+      return;
+    }
+
+    const skill = userSkills.find((s) => s.skillId === skillId);
     const skillName = skill?.name || 'diesen Skill';
 
     console.log('🗑️ Initiating delete for skill:', skillName);
@@ -504,9 +499,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
           message: ['Skill erfolgreich gelöscht'],
           severity: 'success',
         });
-
-        // Reload current tab data
-        await loadTabData();
       } else {
         setNotification({
           open: true,
@@ -544,7 +536,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
             severity: 'success',
           });
           setIsFormOpen(false);
-          await loadTabData();
         }
       } else {
         // Create new skill
@@ -559,26 +550,9 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
           });
           setIsFormOpen(false);
 
-          // Switch to user skills tab
-          // setActiveTab(1);
-          updatePagination({ pageNumber: 1 });
-
-          // Force reload user skills with cache bypass
-          console.log('🔄 Force reloading user skills after creation...');
-
-          // Wait a moment for the backend to process, then reload
+          // Reload user skills
           setTimeout(async () => {
-            // Clear any existing cache and reload
-            dismissError();
-            const reloadSuccess = await fetchUserSkills(1, pagination.pageSize);
-
-            if (!reloadSuccess) {
-              console.warn('⚠️ Failed to reload user skills after creation');
-              // Fallback: try to reload again
-              setTimeout(() => {
-                fetchUserSkills(1, pagination.pageSize);
-              }, 1000);
-            }
+            await fetchUserSkills(1, pagination.pageSize);
           }, 500);
         }
       }
@@ -646,13 +620,18 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
       setLocalSearchQuery('');
       updatePagination({ pageNumber: 1 });
 
-      await loadTabData();
+      const success =
+        showOnly === 'others'
+          ? await fetchAllSkills({ page: 1, pageSize: pagination.pageSize })
+          : await fetchUserSkills(1, pagination.pageSize);
 
-      setNotification({
-        open: true,
-        message: ['Skills erfolgreich aktualisiert'],
-        severity: 'success',
-      });
+      if (success) {
+        setNotification({
+          open: true,
+          message: ['Skills erfolgreich aktualisiert'],
+          severity: 'success',
+        });
+      }
     } catch (error) {
       console.error('❌ Refresh error:', error);
       setNotification({
@@ -663,7 +642,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     }
   };
 
-  // Get current skills array based on active tab
+  // Get current skills array based on page type
   const currentSkills = getCurrentSkills(showOnly);
   const currentSkillsCount = currentSkills.length;
 
@@ -672,20 +651,12 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   const hasError = !!errors;
   const hasData = currentSkillsCount > 0;
 
-  // Debug logging
-  console.log('🔍 SkillsPage State:', {
-    showOnly,
-    isSearchActive,
-    searchQuery,
-    localSearchQuery,
-    allSkillsCount: allSkills.length,
-    userSkillsCount: userSkills.length,
-    currentSkillsCount,
-    isLoading,
-    hasError,
-    hasData,
-    pagination,
-  });
+  // Page titles
+  const pageTitle = showOnly === 'mine' ? 'Meine Skills' : 'Alle Skills';
+  const pageDescription =
+    showOnly === 'mine'
+      ? 'Verwalte und bearbeite deine Skills'
+      : 'Entdecke Skills von anderen Nutzern und finde Lernpartner';
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 5 }}>
@@ -702,10 +673,10 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
       >
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
-            Skills
+            {pageTitle}
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Verwalte deine Fähigkeiten und entdecke neue Skills
+            {pageDescription}
           </Typography>
         </Box>
 
@@ -716,16 +687,18 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
             </IconButton>
           </Tooltip>
 
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreateForm}
-            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
-            disabled={isLoading}
-          >
-            Neuen Skill erstellen
-          </Button>
+          {isOwnerView && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreateForm}
+              sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+              disabled={isLoading}
+            >
+              Neuen Skill erstellen
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -746,10 +719,10 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
           {/* Search bar */}
           <TextField
             fullWidth
-            placeholder="Skills durchsuchen..."
+            placeholder={`${pageTitle} durchsuchen...`}
             value={localSearchQuery}
             onChange={(e) => setLocalSearchQuery(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             disabled={isLoading}
             InputProps={{
               startAdornment: (
@@ -763,7 +736,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
                     <IconButton
                       onClick={handleClearSearch}
                       edge="end"
-                      aria-label="Suche zurücksetzen"
                       disabled={isLoading}
                     >
                       <ClearIcon />
@@ -891,27 +863,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
             </Box>
           )}
         </Box>
-
-        <Divider />
-
-        {/* Tabs */}
-        <Tabs
-          value={showOnly}
-          onChange={handleTabChange}
-          aria-label="Skills-Tabs"
-          variant={isMobile ? 'fullWidth' : 'standard'}
-        >
-          <Tab
-            label={`Alle Skills (${allSkills.length})`}
-            {...a11yProps(0)}
-            disabled={isLoading}
-          />
-          <Tab
-            label={`Meine Skills (${userSkills.length})`}
-            {...a11yProps(1)}
-            disabled={isLoading}
-          />
-        </Tabs>
       </Paper>
 
       {/* Content area */}
@@ -922,29 +873,17 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
           sx={{ py: 8 }}
         />
       ) : (
-        <>
-          <TabPanel value={showOnly} index={'others'}>
-            <SkillList
-              skills={currentSkills}
-              loading={isLoading}
-              errors={errors || undefined}
-              onEditSkill={handleEditSkill}
-              onDeleteSkill={handleDeleteSkill}
-              onViewSkillDetails={handleViewSkillDetails}
-            />
-          </TabPanel>
-
-          <TabPanel value={showOnly} index={'mine'}>
-            <SkillList
-              skills={currentSkills}
-              loading={isLoading}
-              errors={errors || undefined}
-              onEditSkill={handleEditSkill}
-              onDeleteSkill={handleDeleteSkill}
-              onViewSkillDetails={handleViewSkillDetails}
-            />
-          </TabPanel>
-        </>
+        <SkillList
+          skills={currentSkills}
+          loading={isLoading}
+          errors={errors || undefined}
+          isOwnerView={showOnly === 'mine'} // ✅ Korrekt
+          showMatchButtons={showOnly === 'others'} // ✅ Direkt berechnet
+          onEditSkill={handleEditSkill}
+          onDeleteSkill={handleDeleteSkill}
+          onViewSkillDetails={handleViewSkillDetails}
+          onMatchSkill={handleMatchSkill} // ✅ Verwendet
+        />
       )}
 
       {/* Pagination */}
@@ -961,37 +900,52 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
         </Box>
       )}
 
-      {/* Mobile floating action button */}
-      <Tooltip title="Neuen Skill erstellen">
-        <Fab
-          color="primary"
-          aria-label="Neuen Skill erstellen"
-          sx={{
-            position: 'fixed',
-            bottom: 16,
-            right: 16,
-            display: { xs: 'inline-flex', sm: 'none' },
-          }}
-          onClick={handleOpenCreateForm}
-          disabled={isLoading}
-        >
-          <AddIcon />
-        </Fab>
-      </Tooltip>
+      {/* Mobile floating action button - nur für eigene Skills */}
+      {isOwnerView && (
+        <Tooltip title="Neuen Skill erstellen">
+          <Fab
+            color="primary"
+            aria-label="Neuen Skill erstellen"
+            sx={{
+              position: 'fixed',
+              bottom: 16,
+              right: 16,
+              display: { xs: 'inline-flex', sm: 'none' },
+            }}
+            onClick={handleOpenCreateForm}
+            disabled={isLoading}
+          >
+            <AddIcon />
+          </Fab>
+        </Tooltip>
+      )}
 
-      {/* Skill form modal */}
-      <SkillForm
-        open={isFormOpen}
-        onClose={handleCloseForm}
-        onSubmit={handleSubmitSkill}
-        categories={categories}
-        proficiencyLevels={proficiencyLevels}
-        loading={isCreating || isUpdating}
-        skill={selectedSkillForEdit}
-        title={
-          selectedSkillForEdit ? 'Skill bearbeiten' : 'Neuen Skill erstellen'
-        }
-      />
+      {/* Skill form modal - nur für eigene Skills */}
+      {isOwnerView && (
+        <SkillForm
+          open={isFormOpen}
+          onClose={handleCloseForm}
+          onSubmit={handleSubmitSkill}
+          categories={categories}
+          proficiencyLevels={proficiencyLevels}
+          loading={isCreating || isUpdating}
+          skill={selectedSkillForEdit}
+          title={
+            selectedSkillForEdit ? 'Skill bearbeiten' : 'Neuen Skill erstellen'
+          }
+        />
+      )}
+
+      {/* ✅ HINZUGEFÜGT: Match form modal - nur für fremde Skills */}
+      {/* {selectedSkillForMatch && showOnly === 'others' && (
+        <MatchForm
+          open={isMatchFormOpen}
+          onClose={handleCloseMatchForm}
+          onSubmit={handleSubmitMatch} // ✅ Wird verwendet
+          skill={selectedSkillForMatch}
+          isLoading={isMatchmakingLoading}
+        />
+      )} */}
 
       {/* Confirmation dialog */}
       <ConfirmDialog

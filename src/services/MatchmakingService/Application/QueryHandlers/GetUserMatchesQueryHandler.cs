@@ -1,6 +1,6 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Contracts.Users;
+using Infrastructure.Services;
 using MatchmakingService.Application.Queries;
 using MatchmakingService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -53,7 +53,6 @@ public class GetUserMatchesQueryHandler(
                 matches.Add(new UserMatchResponse(
                     m.Id,
                     m.OfferedSkillName + " ↔ " + m.RequestedSkillName,
-                    otherUser?.FullName ?? string.Empty,
                     m.Status,
                     m.CompatibilityScore,
                     true,

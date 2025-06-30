@@ -235,11 +235,16 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
   ) => {
     try {
       const matchRequest: MatchRequest = {
-        skillId: data.skillId,
+        matchId: '', // Wird vom Backend generiert
+        requesterId: '', // Muss ggf. im Parent/Context gesetzt werden
+        targetUserId: skill.userId || '', // Annahme: Skill enthält userId
+        skillId: skill.skillId,
+        skillName: skill.name,
+        message: data.learningGoals || '',
         isOffering: data.requestType === 'teach',
-        preferredDays: data.preferredDays,
-        preferredTimes: data.preferredTimes,
-        additionalNotes: data.additionalNotes || '',
+        status: 'Pending',
+        createdAt: new Date().toISOString(),
+        // respondedAt und expiresAt optional, werden ggf. vom Backend gesetzt
       };
 
       await onSubmit(matchRequest);

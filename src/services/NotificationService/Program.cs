@@ -11,7 +11,6 @@ using CQRS.Extensions;
 using NotificationService.Infrastructure.Data;
 using NotificationService.Infrastructure.Services;
 using NotificationService.Application.Consumers;
-using Contracts.Models;
 using Infrastructure.Models;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
@@ -21,10 +20,6 @@ using NotificationService.Application.Queries;
 using NotificationService.Domain.ResponseModels;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// ============================================================================
-// CONFIGURATION SETUP
-// ============================================================================
 
 var serviceName = "NotificationService";
 var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";

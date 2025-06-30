@@ -25,7 +25,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../shared/Contracts/Contracts.csproj" />
-    <ProjectReference Include="../../shared/CQRS/CQRS.csproj" />
     <ProjectReference Include="../../shared/Events/Events.csproj" />
     <ProjectReference Include="../../shared/EventSourcing/EventSourcing.csproj" />
     <ProjectReference Include="../../shared/Infrastructure/Infrastructure.csproj" />

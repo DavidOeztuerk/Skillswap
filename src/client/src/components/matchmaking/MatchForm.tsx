@@ -29,11 +29,18 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
 import LoadingButton from '../ui/LoadingButton';
-import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
+import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { Skill } from '../../types/models/Skill';
+import { User } from '../../types/models/User';
 
+// Schema angepasst für CreateMatchRequest
 const matchFormSchema = z.object({
+  targetUserId: z.string().nonempty('Zielbenutzer muss ausgewählt werden'),
   skillId: z.string().nonempty('Skill muss ausgewählt werden'),
+  message: z
+    .string()
+    .max(500, 'Nachricht darf maximal 500 Zeichen enthalten')
+    .optional(),
   isOffering: z.boolean(),
   preferredDays: z.array(z.string()).min(1, 'Wähle mindestens einen Tag'),
   preferredTimes: z.array(z.string()).min(1, 'Wähle mindestens eine Zeit'),
@@ -48,8 +55,9 @@ type MatchFormValues = z.infer<typeof matchFormSchema>;
 interface MatchFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: MatchRequest) => Promise<void>;
+  onSubmit: (data: CreateMatchRequest) => Promise<void>;
   skill: Skill;
+  targetUser?: User;
   isLoading?: boolean;
 }
 
@@ -72,15 +80,18 @@ const MatchForm: React.FC<MatchFormProps> = ({
   onClose,
   onSubmit,
   skill,
+  targetUser,
   isLoading = false,
 }) => {
   // Default-Werte
   const defaultValues = useMemo(() => {
     return {
+      targetUserId: skill?.userId || '',
       skillId: skill.skillId,
-      isOffering: !skill.isOffering,
+      isOffering: !skill.isOffering, // Umgekehrt: wenn der Nutzer den Skill anbietet, will er ihn hier lernen
       preferredDays: ['Montag', 'Dienstag', 'Mittwoch'],
       preferredTimes: ['18:00', '19:00'],
+      message: '',
       additionalNotes: '',
     };
   }, [skill]);
@@ -96,22 +107,30 @@ const MatchForm: React.FC<MatchFormProps> = ({
     defaultValues,
   });
 
-  // const isLearningMode = watch('isLearningMode');
-  // const additionalNotes = watch('additionalNotes');
-
   // Reset beim Öffnen
   React.useEffect(() => {
     if (open) {
-      reset({
-        ...defaultValues,
-        isOffering: skill.isOffering,
-      });
+      reset(defaultValues);
     }
-  }, [defaultValues, open, reset, skill]);
+  }, [defaultValues, open, reset]);
 
   const handleFormSubmit: SubmitHandler<MatchFormValues> = async (data) => {
     try {
-      await onSubmit(data);
+      // Transformiere die Daten in das CreateMatchRequest Format
+      const matchRequest: CreateMatchRequest = {
+        targetUserId: data.targetUserId,
+        skillId: data.skillId,
+        message: data.message || '',
+        isLearningMode: data.isOffering,
+        // preferredSchedule: {
+        //   preferredDays: data.preferredDays,
+        //   preferredTimes: data.preferredTimes,
+        //   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Automatisch die lokale Zeitzone
+        // },
+        // additionalNotes: data.additionalNotes,
+      };
+
+      await onSubmit(matchRequest);
       onClose();
     } catch (error) {
       console.error('Failed to create match request:', error);
@@ -137,7 +156,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
 
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <DialogContent dividers>
-          <Grid container columns={12} spacing={3}>
+          <Grid container spacing={3}>
             <Grid size={{ xs: 12 }}>
               <Box bgcolor="action.hover" p={2} borderRadius={1} mb={2}>
                 <Typography variant="subtitle1" gutterBottom>
@@ -148,39 +167,90 @@ const MatchForm: React.FC<MatchFormProps> = ({
                 </Typography>
               </Box>
 
-              {skill.isOffering && (
-                <>
-                  <FormControl
-                    component="fieldset"
-                    sx={{ width: '100%', mb: 2 }}
-                  >
-                    <FormLabel component="legend">
-                      Möchtest du diesen Skill lehren oder lernen?
-                    </FormLabel>
-                    <Controller
-                      name="isOffering"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={field.value}
-                              onChange={(e) => field.onChange(e.target.checked)}
-                              disabled={isLoading}
-                            />
-                          }
-                          label={
-                            field.value
-                              ? 'Ich möchte diesen Skill lernen'
-                              : 'Ich möchte diesen Skill lehren'
-                          }
-                        />
-                      )}
-                    />
-                  </FormControl>
-                  <Divider sx={{ my: 2 }} />
-                </>
+              {targetUser && (
+                <Box
+                  bgcolor="primary.main"
+                  color="primary.contrastText"
+                  p={2}
+                  borderRadius={1}
+                  mb={2}
+                >
+                  <Typography variant="subtitle1" gutterBottom>
+                    Anfrage an:{' '}
+                    {targetUser.userName ||
+                      targetUser.firstName + ' ' + targetUser.lastName}
+                  </Typography>
+                  {/* <Typography variant="body2">
+                    {targetUser.bio || 'Keine Beschreibung verfügbar'}
+                  </Typography> */}
+                </Box>
               )}
+
+              {!targetUser && (
+                <Controller
+                  name="targetUserId"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Zielbenutzer ID"
+                      fullWidth
+                      error={!!errors.targetUserId}
+                      helperText={errors.targetUserId?.message}
+                      disabled={isLoading}
+                      placeholder="Benutzer-ID eingeben"
+                    />
+                  )}
+                />
+              )}
+
+              <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
+                <FormLabel component="legend">
+                  Was möchtest du mit diesem Skill machen?
+                </FormLabel>
+                <Controller
+                  name="isOffering"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          disabled={isLoading}
+                        />
+                      }
+                      label={
+                        field.value
+                          ? 'Ich möchte diesen Skill anbieten (lehren)'
+                          : 'Ich möchte diesen Skill lernen'
+                      }
+                    />
+                  )}
+                />
+              </FormControl>
+              <Divider sx={{ my: 2 }} />
+            </Grid>
+
+            {/* Message */}
+            <Grid size={{ xs: 12 }}>
+              <Controller
+                name="message"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Persönliche Nachricht (optional)"
+                    multiline
+                    rows={3}
+                    fullWidth
+                    error={!!errors.message}
+                    helperText={errors.message?.message}
+                    disabled={isLoading}
+                    placeholder="Stelle dich kurz vor und erkläre, warum du dich für diesen Skill-Austausch interessierst..."
+                  />
+                )}
+              />
             </Grid>
 
             {/* PreferredDays */}
@@ -284,8 +354,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     disabled={isLoading}
                     placeholder={
                       watch('isOffering')
-                        ? 'Beschreibe, was du gerne lernen möchtest...'
-                        : 'Beschreibe, was du unterrichten kannst...'
+                        ? 'Beschreibe, was du unterrichten kannst und wie du den Austausch gestalten möchtest...'
+                        : 'Beschreibe, was du gerne lernen möchtest und welche Vorkenntnisse du hast...'
                     }
                     slotProps={{
                       input: {

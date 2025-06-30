@@ -526,6 +526,7 @@ const skillsSlice = createSlice({
             if (index !== -1) {
               array[index] = {
                 skillId: data.skillId,
+                userId: data.userId,
                 name: data.name ?? '',
                 description: data.description ?? '',
                 isOffering: data.isOffering ?? false,
@@ -609,6 +610,7 @@ const skillsSlice = createSlice({
           // Ensure we have all required fields for the Skill interface
           const newSkill: Skill = {
             skillId: skillData.id,
+            userId: skillData.userId,
             name: skillData.name || '',
             description: skillData.description || '',
             isOffering: skillData.isOffering || false,
@@ -662,6 +664,7 @@ const skillsSlice = createSlice({
             if (index !== -1) {
               array[index] = {
                 skillId: skill?.skillId ?? array[index].skillId,
+                userId: skill?.userId ?? array[index].userId,
                 name: data.name ?? array[index].name,
                 description: data.description ?? array[index].description,
                 isOffering: data.isOffering ?? array[index].isOffering,

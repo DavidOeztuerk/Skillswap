@@ -13,12 +13,12 @@ namespace UserService.Application.CommandHandlers;
 
 public class RefreshTokenCommandHandler(
     UserDbContext dbContext,
-    IEnhancedJwtService jwtService,
+    IJwtService jwtService,
     ILogger<RefreshTokenCommandHandler> logger)
     : BaseCommandHandler<RefreshTokenCommand, RefreshTokenResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
-    private readonly IEnhancedJwtService _jwtService = jwtService;
+    private readonly IJwtService _jwtService = jwtService;
 
     public override async Task<ApiResponse<RefreshTokenResponse>> Handle(
         RefreshTokenCommand request,

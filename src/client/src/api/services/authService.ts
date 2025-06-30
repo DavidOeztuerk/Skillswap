@@ -227,6 +227,24 @@ const authService = {
   },
 
   /**
+   * Holt das öffentliche Profil eines Nutzers anhand der ID
+   * @param userId - Die ID des Nutzers
+   * @returns Öffentliches User-Profil (ohne sensible Daten)
+   */
+  getUserById: async (userId: string): Promise<Partial<User>> => {
+    try {
+      if (!userId) throw new Error('UserId ist erforderlich');
+      const response = await apiClient.get<Partial<User>>(
+        `/api/users/${userId}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Fehler beim Laden des Nutzerprofils:', error);
+      throw new Error('Nutzerprofil konnte nicht geladen werden.');
+    }
+  },
+
+  /**
    * Fetches current user profile
    * @returns User profile data
    */

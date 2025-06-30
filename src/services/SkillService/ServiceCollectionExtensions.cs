@@ -1,5 +1,5 @@
 using System.Text;
-using Contracts.Models;
+using Infrastructure.Models;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;

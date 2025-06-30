@@ -2,7 +2,7 @@ using System.Security.Claims;
 
 namespace Infrastructure.Security;
 
-public interface IEnhancedJwtService
+public interface IJwtService
 {
     Task<TokenResult> GenerateTokenAsync(UserClaims user);
     Task<string> GenerateRefreshTokenAsync();

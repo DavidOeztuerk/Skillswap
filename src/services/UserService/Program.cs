@@ -12,7 +12,6 @@ using EventSourcing;
 using CQRS.Extensions;
 using UserService.Application.Commands;
 using UserService.Application.Queries;
-using Contracts.Models;
 using UserService;
 using Infrastructure.Models;
 using Microsoft.OpenApi.Models;
@@ -114,7 +113,7 @@ builder.Services.Configure<JwtSettings>(options =>
 });
 
 // Register enhanced JWT service
-builder.Services.AddScoped<IEnhancedJwtService, EnhancedJwtService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddSingleton<ITotpService, TotpService>();
 
 // Configure JWT authentication
@@ -388,6 +387,19 @@ app.MapPost("/change-password", async (IMediator mediator, ChangePasswordCommand
 // ============================================================================
 // API ENDPOINTS - USER PROFILE
 // ============================================================================
+app.MapGet("/users/{userId}", async (IMediator mediator, string userId) =>
+{
+    // Hole das öffentliche Profil eines Nutzers (ohne sensible Daten)
+    var query = new GetUserProfileQuery(userId);
+    return await mediator.SendQuery(query);
+})
+.WithName("GetUserById")
+.WithSummary("Get public user profile by ID")
+.WithDescription("Retrieves a user's public profile information by userId (auth required)")
+.WithTags("User Profile")
+.RequireAuthorization()
+.Produces(200)
+.Produces(404);
 
 app.MapGet("/profile", async (IMediator mediator, HttpContext context) =>
 {

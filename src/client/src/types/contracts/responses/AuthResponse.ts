@@ -5,6 +5,7 @@ export interface RegisterResponse {
   email: string;
   firstName: string;
   lastName: string;
+  userName: string;
   tokens: Tokens;
   emailVerificationRequired: boolean;
 }

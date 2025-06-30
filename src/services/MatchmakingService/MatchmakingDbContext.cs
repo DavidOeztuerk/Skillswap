@@ -9,6 +9,7 @@ public class MatchmakingDbContext(
 {
     public DbSet<Match> Matches { get; set; }
     public DbSet<MatchRequest> MatchRequests { get; set; }
+    // public DbSet<DirectMatchRequest> DirectMatchRequests { get; set; } // ✅ NEU
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,15 +35,23 @@ public class MatchmakingDbContext(
         modelBuilder.Entity<MatchRequest>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.UserId);
-            entity.HasIndex(e => e.SkillId);
-            entity.HasIndex(e => e.IsOffering);
-            entity.HasIndex(e => e.Status);
-            entity.HasIndex(e => new { e.IsOffering, e.Status });
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
 
-            entity.Property(e => e.SkillName).HasMaxLength(100);
+            entity.HasIndex(e => e.RequesterId);
+            // entity.HasIndex(e => new { e.TargetUserId, e.Status });
+            entity.HasIndex(e => e.SkillId);
+            // entity.HasIndex(e => e.IsOffering);
+            entity.HasIndex(e => e.Status);
+            // entity.HasIndex(e => new { e.IsOffering, e.Status });
+
+            // entity.Property(e => e.SkillName).HasMaxLength(100);
             entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("Active");
-            entity.Property(e => e.PreferredLocation).HasMaxLength(200);
+            // entity.Property(e => e.PreferredLocation).HasMaxLength(200);
+
+            entity.HasIndex(e => new { e.RequesterId, e.SkillId, e.Status })
+                .HasFilter("Status = 'Pending' AND IsDeleted = 0")
+                .IsUnique()
+                .HasDatabaseName("IX_DirectMatchRequest_Unique_Pending");
 
             // Convert lists to JSON
             entity.Property(e => e.PreferredTags)
@@ -57,5 +66,25 @@ public class MatchmakingDbContext(
 
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
+
+        // DirectMatchRequest Configuration
+        // modelBuilder.Entity<DirectMatchRequest>(entity =>
+        // {
+        //     entity.HasKey(e => e.Id);
+        //     entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+        //     // Performance indexes
+        //     entity.HasIndex(e => new { e.RequesterId, e.Status });
+        //     entity.HasIndex(e => new { e.TargetUserId, e.Status });
+        //     entity.HasIndex(e => new { e.SkillId, e.Status });
+        //     entity.HasIndex(e => e.ExpiresAt);
+        //     entity.HasIndex(e => e.CreatedAt);
+
+        //     // Unique constraint for pending requests
+        //     entity.HasIndex(e => new { e.RequesterId, e.TargetUserId, e.SkillId, e.Status })
+        //         .HasFilter("Status = 'Pending' AND IsDeleted = 0")
+        //         .IsUnique()
+        //         .HasDatabaseName("IX_DirectMatchRequest_Unique_Pending");
+        // });
     }
 }

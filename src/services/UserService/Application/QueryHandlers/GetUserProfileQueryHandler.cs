@@ -48,6 +48,7 @@ public class GetUserProfileQueryHandler(
                 user.Email,
                 user.FirstName,
                 user.LastName,
+                user.UserName,
                 user.PhoneNumber,
                 user.Bio,
                 user.TimeZone,

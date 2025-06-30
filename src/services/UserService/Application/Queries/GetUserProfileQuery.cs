@@ -20,6 +20,7 @@ public record UserProfileResponse(
     string Email,
     string FirstName,
     string LastName,
+    string UserName,
     string? PhoneNumber,
     string? Bio,
     string? TimeZone,

@@ -1,4 +1,4 @@
-namespace Contracts.Models;
+namespace Infrastructure.Models;
 
 public class JwtSettings
 {

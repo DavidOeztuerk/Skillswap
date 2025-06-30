@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Contracts.Users;
 using SkillService.Application.Queries;
 using System.Text.Json;
+using Infrastructure.Services;
 
 namespace SkillService.Application.QueryHandlers;
 
@@ -152,7 +152,6 @@ public class SearchSkillsQueryHandler(
                 skills.Add(new SkillSearchResultResponse(
                     s.Id,
                     s.UserId,
-                    user?.FullName ?? string.Empty,
                     s.Name,
                     s.Description,
                     s.IsOffering,

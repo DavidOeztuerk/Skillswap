@@ -3,7 +3,6 @@ using Infrastructure.Models;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
 using MatchmakingService.Domain.Events;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using EventSourcing;
 
@@ -80,14 +79,14 @@ public class FindMatchCommandHandler(
                 // Create match request for future matching
                 var matchRequest = new MatchRequest
                 {
-                    UserId = request.UserId!,
+                    RequesterId = request.UserId!,
                     SkillId = request.SkillId,
-                    SkillName = request.SkillName,
-                    IsOffering = request.IsOffering,
+                    // SkillName = request.SkillName,
+                    // IsOffering = request.IsOffering,
                     PreferredTags = request.PreferredTags ?? new List<string>(),
-                    PreferredLocation = request.PreferredLocation,
-                    RemoteOnly = request.RemoteOnly,
-                    MaxDistanceKm = request.MaxDistanceKm,
+                    // PreferredLocation = request.PreferredLocation,
+                    // RemoteOnly = request.RemoteOnly,
+                    // MaxDistanceKm = request.MaxDistanceKm,
                     ExpiresAt = DateTime.UtcNow.AddDays(30),
                     CreatedBy = request.UserId
                 };
@@ -119,8 +118,8 @@ public class FindMatchCommandHandler(
 
         // Find opposite type matches (if offering, find requesting and vice versa)
         var oppositeRequests = await _dbContext.MatchRequests
-            .Where(mr => mr.UserId != request.UserId &&
-                        mr.IsOffering != request.IsOffering &&
+            .Where(mr => mr.RequesterId != request.UserId &&
+                        // mr.IsOffering != request.IsOffering &&
                         mr.Status == "Active" &&
                         !mr.IsDeleted)
             .ToListAsync(cancellationToken);
@@ -134,9 +133,9 @@ public class FindMatchCommandHandler(
                 compatibleMatches.Add(new CompatibleMatch
                 {
                     Id = oppositeRequest.Id,
-                    UserId = oppositeRequest.UserId,
+                    UserId = oppositeRequest.RequesterId,
                     SkillId = oppositeRequest.SkillId,
-                    SkillName = oppositeRequest.SkillName,
+                    // SkillName = oppositeRequest.SkillName,
                     CompatibilityScore = compatibility.Score,
                     MatchReason = compatibility.Reason
                 });
@@ -154,17 +153,17 @@ public class FindMatchCommandHandler(
         var reasons = new List<string>();
 
         // Exact skill name match
-        if (string.Equals(request.SkillName, oppositeRequest.SkillName, StringComparison.OrdinalIgnoreCase))
-        {
-            score += 0.6;
-            reasons.Add("Exact skill match");
-        }
-        else if (request.SkillName.Contains(oppositeRequest.SkillName, StringComparison.OrdinalIgnoreCase) ||
-                 oppositeRequest.SkillName.Contains(request.SkillName, StringComparison.OrdinalIgnoreCase))
-        {
-            score += 0.4;
-            reasons.Add("Similar skill match");
-        }
+        // if (string.Equals(request.SkillName, oppositeRequest.SkillName, StringComparison.OrdinalIgnoreCase))
+        // {
+        //     score += 0.6;
+        //     reasons.Add("Exact skill match");
+        // }
+        // else if (request.SkillName.Contains(oppositeRequest.SkillName, StringComparison.OrdinalIgnoreCase) ||
+        //          oppositeRequest.SkillName.Contains(request.SkillName, StringComparison.OrdinalIgnoreCase))
+        // {
+        //     score += 0.4;
+        //     reasons.Add("Similar skill match");
+        // }
 
         // Tag compatibility
         if (request.PreferredTags != null && oppositeRequest.PreferredTags.Any())
@@ -178,22 +177,22 @@ public class FindMatchCommandHandler(
         }
 
         // Location compatibility
-        if (!request.RemoteOnly && !oppositeRequest.RemoteOnly)
-        {
-            if (!string.IsNullOrEmpty(request.PreferredLocation) && !string.IsNullOrEmpty(oppositeRequest.PreferredLocation))
-            {
-                if (string.Equals(request.PreferredLocation, oppositeRequest.PreferredLocation, StringComparison.OrdinalIgnoreCase))
-                {
-                    score += 0.2;
-                    reasons.Add("Same location");
-                }
-            }
-        }
-        else if (request.RemoteOnly && oppositeRequest.RemoteOnly)
-        {
-            score += 0.1;
-            reasons.Add("Both prefer remote");
-        }
+        // if (!request.RemoteOnly && !oppositeRequest.RemoteOnly)
+        // {
+        //     if (!string.IsNullOrEmpty(request.PreferredLocation) && !string.IsNullOrEmpty(oppositeRequest.PreferredLocation))
+        //     {
+        //         if (string.Equals(request.PreferredLocation, oppositeRequest.PreferredLocation, StringComparison.OrdinalIgnoreCase))
+        //         {
+        //             score += 0.2;
+        //             reasons.Add("Same location");
+        //         }
+        //     }
+        // }
+        // else if (request.RemoteOnly && oppositeRequest.RemoteOnly)
+        // {
+        //     score += 0.1;
+        //     reasons.Add("Both prefer remote");
+        // }
 
         return (Math.Round(score, 2), string.Join(", ", reasons));
     }

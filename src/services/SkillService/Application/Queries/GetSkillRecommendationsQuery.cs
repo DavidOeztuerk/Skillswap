@@ -11,7 +11,7 @@ public record GetSkillRecommendationsQuery(
     string UserId,
     int MaxRecommendations = 10,
     bool OnlyRemote = false,
-    string? PreferredLocation = null) 
+    string? PreferredLocation = null)
     : IQuery<List<SkillRecommendationResponse>>, ICacheableQuery
 {
     public string CacheKey => $"skill-recommendations:{UserId}:{MaxRecommendations}:{OnlyRemote}:{PreferredLocation}";
@@ -21,7 +21,6 @@ public record GetSkillRecommendationsQuery(
 public record SkillRecommendationResponse(
     string SkillId,
     string UserId,
-    string UserName,
     string Name,
     string Description,
     SkillCategoryResponse Category,

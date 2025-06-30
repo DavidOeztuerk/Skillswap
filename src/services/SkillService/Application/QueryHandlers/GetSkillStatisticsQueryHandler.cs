@@ -1,12 +1,6 @@
-// ============================================================================
-// SKILL SERVICE QUERY HANDLERS - COMPLETE IMPLEMENTATION
-// src/services/SkillService/Application/QueryHandlers/
-// ============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Contracts.Users;
 using Infrastructure.Services;
 using SkillService.Application.Queries;
 
@@ -100,7 +94,6 @@ public class GetSkillStatisticsQueryHandler(
                 topRatedSkills.Add(new TopSkillResponse(
                     s.Id,
                     s.Name,
-                    user?.FullName ?? string.Empty,
                     s.AverageRating!.Value,
                     s.ReviewCount));
             }

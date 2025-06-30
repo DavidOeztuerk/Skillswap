@@ -1,7 +1,6 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
 using Infrastructure.Security;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
@@ -16,14 +15,14 @@ namespace UserService.Application.CommandHandlers;
 
 public class LoginUserCommandHandler(
     UserDbContext dbContext,
-    IEnhancedJwtService jwtService,
+    IJwtService jwtService,
     ITotpService totpService,
     IDomainEventPublisher eventPublisher,
     ILogger<LoginUserCommandHandler> logger)
     : BaseCommandHandler<LoginUserCommand, LoginUserResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
-    private readonly IEnhancedJwtService _jwtService = jwtService;
+    private readonly IJwtService _jwtService = jwtService;
     private readonly ITotpService _totpService = totpService;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 

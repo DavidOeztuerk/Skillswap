@@ -1,5 +1,6 @@
 export interface Skill {
   skillId: string;
+  userId: string;
   name: string;
   description: string;
   isOffering: boolean;

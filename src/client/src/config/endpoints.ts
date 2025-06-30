@@ -1,5 +1,3 @@
-// src/config/endpoints.ts
-
 /**
  * API-Basispfad aus den Umgebungsvariablen
  */
@@ -19,7 +17,7 @@ export const AUTH_ENDPOINTS = {
   CHANGE_PASSWORD: '/api/users/change-password',
   FORGOT_PASSWORD: '/api/users/request-password-reset',
   RESET_PASSWORD: '/api/users/reset-password',
-  REFRESH_TOKEN: '/api/users/refresh-token'
+  REFRESH_TOKEN: '/api/users/refresh-token',
 };
 
 /**
@@ -43,15 +41,20 @@ export const SKILL_ENDPOINTS = {
 /**
  * Matchmaking-Endpunkte
  */
+
 export const MATCHMAKING_ENDPOINTS = {
   FIND_MATCH: '/api/matches/find',
-  GET_MATCH: '/api/matches', // + /{matchId}
-  ACCEPT_MATCH: '/api/matches', // + /{matchId}/accept
-  REJECT_MATCH: '/api/matches', // + /{matchId}/reject
-  GET_MY_MATCHES: '/api/my/matches',
-  STATISTICS: '/api/matches/statistics',
-};
+  GET_MATCH: '/api/matches',
+  ACCEPT_MATCH: '/api/matches',
+  REJECT_MATCH: '/api/matches',
+  GET_USER_MATCHES: '/api/matches/my',
 
+  CREATE_MATCH_REQUEST: '/api/matches/requests',
+  GET_INCOMING_REQUESTS: '/api/matches/requests/incoming',
+  GET_OUTGOING_REQUESTS: '/api/matches/requests/outgoing',
+  ACCEPT_MATCH_REQUEST: '/api/matches/requests',
+  REJECT_MATCH_REQUEST: '/api/matches/requests',
+};
 /**
  * Termin-Endpunkte
  */

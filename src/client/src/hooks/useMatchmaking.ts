@@ -5,10 +5,16 @@ import {
   findMatch,
   acceptMatch,
   rejectMatch,
+  fetchIncomingMatchRequests,
+  fetchOutgoingMatchRequests,
+  createMatchRequest,
+  acceptMatchRequest,
+  rejectMatchRequest,
 } from '../features/matchmaking/matchmakingSlice';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { MatchRequest } from '../types/contracts/requests/MatchRequest';
 import { Match, MatchStatus } from '../types/models/Match';
+import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
 
 /**
  * Hook für Matchmaking-Funktionalität
@@ -20,6 +26,8 @@ export const useMatchmaking = () => {
     matches,
     matchResults,
     activeMatch,
+    incomingRequests,
+    outgoingRequests,
     isLoading,
     error,
     matchRequestSent,
@@ -30,16 +38,46 @@ export const useMatchmaking = () => {
    */
   const loadMatches = useCallback(async (): Promise<void> => {
     // await dispatch(fetchMatches(null));
+  }, []);
+
+  /**
+   * ✅ NEU: Lädt alle eingehenden Match-Anfragen
+   */
+  const loadIncomingRequests = useCallback(async (): Promise<boolean> => {
+    const resultAction = await dispatch(fetchIncomingMatchRequests());
+    return fetchIncomingMatchRequests.fulfilled.match(resultAction);
+  }, [dispatch]);
+
+  /**
+   * ✅ NEU: Lädt alle ausgehenden Match-Anfragen
+   */
+  const loadOutgoingRequests = useCallback(async (): Promise<boolean> => {
+    const resultAction = await dispatch(fetchOutgoingMatchRequests());
+    return fetchOutgoingMatchRequests.fulfilled.match(resultAction);
   }, [dispatch]);
 
   // Lade Matches beim ersten Rendern
   useEffect(() => {
     void loadMatches();
-  }, [loadMatches]);
+    void loadIncomingRequests();
+    void loadOutgoingRequests();
+  }, [loadMatches, loadIncomingRequests, loadOutgoingRequests]);
 
   /**
-   * Sucht nach passenden Nutzern für einen bestimmten Skill
-   * @param matchRequest - Anfragedaten für das Matching
+   * ✅ NEU: Erstellt eine manuelle Match-Anfrage (das was wir brauchen!)
+   * @param matchRequest - Anfragedaten für die direkte Match-Anfrage
+   * @returns true bei Erfolg, false bei Fehler
+   */
+  const sendMatchRequest = async (
+    matchRequest: CreateMatchRequest
+  ): Promise<boolean> => {
+    const resultAction = await dispatch(createMatchRequest(matchRequest));
+    return createMatchRequest.fulfilled.match(resultAction);
+  };
+
+  /**
+   * Sucht nach passenden Nutzern für einen bestimmten Skill (automatisch)
+   * @param matchRequest - Anfragedaten für das automatische Matching
    * @returns true bei Erfolg, false bei Fehler
    */
   const searchMatches = async (
@@ -50,7 +88,40 @@ export const useMatchmaking = () => {
   };
 
   /**
-   * Akzeptiert ein Match
+   * ✅ NEU: Akzeptiert eine eingehende Match-Anfrage
+   * @param requestId - ID der zu akzeptierenden Match-Anfrage
+   * @returns Das resultierende Match oder null bei Fehler
+   */
+  const approveMatchRequest = async (
+    requestId: string
+  ): Promise<Match | null> => {
+    const resultAction = await dispatch(acceptMatchRequest(requestId));
+
+    if (acceptMatchRequest.fulfilled.match(resultAction)) {
+      return resultAction.payload;
+    }
+
+    return null;
+  };
+
+  /**
+   * ✅ NEU: Lehnt eine eingehende Match-Anfrage ab
+   * @param requestId - ID der abzulehnenden Match-Anfrage
+   * @param reason - Optionaler Ablehnungsgrund
+   * @returns true bei Erfolg, false bei Fehler
+   */
+  const declineMatchRequest = async (
+    requestId: string,
+    reason?: string
+  ): Promise<boolean> => {
+    const resultAction = await dispatch(
+      rejectMatchRequest({ requestId, reason })
+    );
+    return rejectMatchRequest.fulfilled.match(resultAction);
+  };
+
+  /**
+   * Akzeptiert ein Match (bestehende Funktionalität)
    * @param matchId - ID des zu akzeptierenden Matches
    * @returns Das aktualisierte Match oder null bei Fehler
    */
@@ -65,7 +136,7 @@ export const useMatchmaking = () => {
   };
 
   /**
-   * Lehnt ein Match ab
+   * Lehnt ein Match ab (bestehende Funktionalität)
    * @param matchId - ID des abzulehnenden Matches
    * @returns Das aktualisierte Match oder null bei Fehler
    */
@@ -93,7 +164,6 @@ export const useMatchmaking = () => {
    * @param isRequester - true für Anforderer, false für Antwortender
    * @returns Gefilterte Matches
    */
-
   const userId = useAppSelector((state) => state.auth.user?.id);
 
   const getMatchesByRole = (isRequester: boolean): Match[] => {
@@ -102,6 +172,20 @@ export const useMatchmaking = () => {
     return matches.filter((match) =>
       isRequester ? match.requesterId === userId : match.responderId === userId
     );
+  };
+
+  /**
+   * ✅ NEU: Filtert Match-Anfragen nach Status
+   * @param status - Zu filternder Status
+   * @param incoming - true für eingehende, false für ausgehende Anfragen
+   * @returns Gefilterte Match-Anfragen
+   */
+  const getRequestsByStatus = (
+    status: string,
+    incoming: boolean = true
+  ): MatchRequest[] => {
+    const requests = incoming ? incomingRequests : outgoingRequests;
+    return requests.filter((request) => request.status === status);
   };
 
   /**
@@ -119,19 +203,27 @@ export const useMatchmaking = () => {
     matches,
     matchResults,
     activeMatch,
+    incomingRequests,
+    outgoingRequests,
     isLoading,
     error,
     matchRequestSent,
 
     // Aktionen
     loadMatches,
+    loadIncomingRequests,
+    loadOutgoingRequests,
+    sendMatchRequest,
     searchMatches,
     approveMatch,
     declineMatch,
+    approveMatchRequest,
+    declineMatchRequest,
 
     // Hilfsfunktionen
     getMatchesByStatus,
     getMatchesByRole,
+    getRequestsByStatus,
     isMatchPending,
   };
 };
