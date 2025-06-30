@@ -10,7 +10,7 @@ namespace SkillService.Application.Queries;
 public record GetSkillDetailsQuery(
     string SkillId,
     bool IncludeReviews = false,
-    bool IncludeEndorsements = false) 
+    bool IncludeEndorsements = false)
     : IQuery<SkillDetailsResponse>, ICacheableQuery
 {
     public string CacheKey => $"skill-details:{SkillId}:{IncludeReviews}:{IncludeEndorsements}";
@@ -20,8 +20,6 @@ public record GetSkillDetailsQuery(
 public record SkillDetailsResponse(
     string SkillId,
     string UserId,
-    string UserName,
-    string UserProfilePicture,
     string Name,
     string Description,
     bool IsOffering,
@@ -45,7 +43,6 @@ public record SkillDetailsResponse(
 public record SkillReviewResponse(
     string ReviewId,
     string ReviewerUserId,
-    string ReviewerName,
     int Rating,
     string? Comment,
     List<string> Tags,
@@ -54,7 +51,6 @@ public record SkillReviewResponse(
 public record SkillEndorsementResponse(
     string EndorsementId,
     string EndorserUserId,
-    string EndorserName,
     string? Message,
     DateTime CreatedAt);
 

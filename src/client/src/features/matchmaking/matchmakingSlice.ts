@@ -1,10 +1,9 @@
-// src/features/matchmaking/matchmakingSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import matchmakingService from '../../api/services/matchmakingService';
 import { MatchmakingState } from '../../types/states/MatchmakingState';
-// import { MatchFilter } from '../../types/models/MatchFilter';
 import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 import { Match } from '../../types/models/Match';
+import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 
 // Initialer State für den Matchmaking-Reducer
 const initialState: MatchmakingState = {
@@ -12,6 +11,8 @@ const initialState: MatchmakingState = {
   activeMatch: null,
   matchResults: [],
   matchRequestSent: false,
+  incomingRequests: [], // ✅ NEU
+  outgoingRequests: [], // ✅ NEU
   isLoading: false,
   error: undefined,
 };
@@ -160,6 +161,93 @@ export const searchPotentialMatches = createAsyncThunk(
   }
 );
 
+export const createMatchRequest = createAsyncThunk(
+  'matchmaking/createMatchRequest',
+  async (request: CreateMatchRequest, { rejectWithValue }) => {
+    try {
+      const response = await matchmakingService.createMatchRequest(request);
+      return response;
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error
+          ? error.message
+          : 'Match-Anfrage konnte nicht erstellt werden'
+      );
+    }
+  }
+);
+
+// ✅ NEU: Eingehende Match-Anfragen laden
+export const fetchIncomingMatchRequests = createAsyncThunk(
+  'matchmaking/fetchIncomingMatchRequests',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await matchmakingService.getIncomingMatchRequests();
+      return response;
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error
+          ? error.message
+          : 'Eingehende Anfragen konnten nicht geladen werden'
+      );
+    }
+  }
+);
+
+// ✅ NEU: Ausgehende Match-Anfragen laden
+export const fetchOutgoingMatchRequests = createAsyncThunk(
+  'matchmaking/fetchOutgoingMatchRequests',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await matchmakingService.getOutgoingMatchRequests();
+      return response;
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error
+          ? error.message
+          : 'Ausgehende Anfragen konnten nicht geladen werden'
+      );
+    }
+  }
+);
+
+// ✅ NEU: Match-Anfrage akzeptieren
+export const acceptMatchRequest = createAsyncThunk(
+  'matchmaking/acceptMatchRequest',
+  async (requestId: string, { rejectWithValue }) => {
+    try {
+      const response = await matchmakingService.acceptMatchRequest(requestId);
+      return response;
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error
+          ? error.message
+          : 'Match-Anfrage konnte nicht akzeptiert werden'
+      );
+    }
+  }
+);
+
+// ✅ NEU: Match-Anfrage ablehnen
+export const rejectMatchRequest = createAsyncThunk(
+  'matchmaking/rejectMatchRequest',
+  async (
+    { requestId, reason }: { requestId: string; reason?: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      await matchmakingService.rejectMatchRequest(requestId, reason);
+      return requestId;
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error
+          ? error.message
+          : 'Match-Anfrage konnte nicht abgelehnt werden'
+      );
+    }
+  }
+);
+
 // Matchmaking Slice
 const matchmakingSlice = createSlice({
   name: 'matchmaking',
@@ -176,6 +264,10 @@ const matchmakingSlice = createSlice({
     },
     resetMatchRequestSent: (state) => {
       state.matchRequestSent = false;
+    },
+    clearMatchRequests: (state) => {
+      state.incomingRequests = [];
+      state.outgoingRequests = [];
     },
   },
   extraReducers: (builder) => {
@@ -273,6 +365,83 @@ const matchmakingSlice = createSlice({
       .addCase(searchPotentialMatches.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      .addCase(createMatchRequest.pending, (state) => {
+        state.isLoading = true;
+        state.error = undefined;
+      })
+      .addCase(createMatchRequest.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.matchRequestSent = true;
+        state.outgoingRequests.push(action.payload);
+      })
+      .addCase(createMatchRequest.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+
+      // ✅ NEU: Fetch Incoming Requests Cases
+      .addCase(fetchIncomingMatchRequests.pending, (state) => {
+        state.isLoading = true;
+        state.error = undefined;
+      })
+      .addCase(fetchIncomingMatchRequests.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.incomingRequests = action.payload;
+      })
+      .addCase(fetchIncomingMatchRequests.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+
+      // ✅ NEU: Fetch Outgoing Requests Cases
+      .addCase(fetchOutgoingMatchRequests.pending, (state) => {
+        state.isLoading = true;
+        state.error = undefined;
+      })
+      .addCase(fetchOutgoingMatchRequests.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.outgoingRequests = action.payload;
+      })
+      .addCase(fetchOutgoingMatchRequests.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+
+      // ✅ NEU: Accept Match Request Cases
+      .addCase(acceptMatchRequest.pending, (state) => {
+        state.isLoading = true;
+        state.error = undefined;
+      })
+      .addCase(acceptMatchRequest.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.activeMatch = action.payload;
+        state.matches.push(action.payload);
+        // Entferne aus eingehenden Anfragen
+        state.incomingRequests = state.incomingRequests.filter(
+          (req) => req.matchId !== action.payload.id
+        );
+      })
+      .addCase(acceptMatchRequest.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+
+      // ✅ NEU: Reject Match Request Cases
+      .addCase(rejectMatchRequest.pending, (state) => {
+        state.isLoading = true;
+        state.error = undefined;
+      })
+      .addCase(rejectMatchRequest.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Entferne aus eingehenden Anfragen
+        state.incomingRequests = state.incomingRequests.filter(
+          (req) => req.matchId !== action.payload
+        );
+      })
+      .addCase(rejectMatchRequest.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
   },
 });
@@ -282,5 +451,6 @@ export const {
   setActiveMatch,
   clearMatchResults,
   resetMatchRequestSent,
+  clearMatchRequests, // ✅ NEU
 } = matchmakingSlice.actions;
 export default matchmakingSlice.reducer;

@@ -1,12 +1,6 @@
-// ============================================================================
-// SKILL SERVICE QUERY HANDLERS - COMPLETE IMPLEMENTATION
-// src/services/SkillService/Application/QueryHandlers/
-// ============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Contracts.Users;
 using Infrastructure.Services;
 using SkillService.Application.Queries;
 using System.Text.Json;
@@ -151,7 +145,6 @@ public class GetSkillRecommendationsQueryHandler(
                     recommendations.Add(new SkillRecommendationResponse(
                         skill.Id,
                         skill.UserId,
-                        owner?.FullName ?? string.Empty,
                         skill.Name,
                         skill.Description,
                         new SkillCategoryResponse(

@@ -10,7 +10,8 @@ public record FindMatchCommand(
     List<string>? PreferredTags = null,
     string? PreferredLocation = null,
     bool RemoteOnly = false,
-    int? MaxDistanceKm = null) : ICommand<FindMatchResponse>, IAuditableCommand
+    int? MaxDistanceKm = null)
+    : ICommand<FindMatchResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;

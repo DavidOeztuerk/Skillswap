@@ -4,18 +4,18 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using Contracts.Models;
 using Microsoft.Extensions.Logging;
+using Infrastructure.Models;
 
 namespace Infrastructure.Security;
 
-public class EnhancedJwtService(
+public class JwtService(
     IOptions<JwtSettings> jwtSettings,
-    ILogger<EnhancedJwtService> logger) 
-    : IEnhancedJwtService
+    ILogger<JwtService> logger) 
+    : IJwtService
 {
     private readonly JwtSettings _jwtSettings = jwtSettings.Value;
-    private readonly ILogger<EnhancedJwtService> _logger = logger;
+    private readonly ILogger<JwtService> _logger = logger;
     private static readonly HashSet<string> RevokedTokens = new();
 
     public async Task<TokenResult> GenerateTokenAsync(UserClaims user)

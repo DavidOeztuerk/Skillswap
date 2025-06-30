@@ -32,7 +32,6 @@ public record SkillStatisticsResponse(
 public record TopSkillResponse(
     string SkillId,
     string Name,
-    string UserName,
     double AverageRating,
     int ReviewCount);
 

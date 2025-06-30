@@ -14,7 +14,7 @@ using MatchmakingService;
 using MatchmakingService.Consumer;
 using Infrastructure.Services;
 using EventSourcing;
-using Contracts.Users;
+using Infrastructure.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -66,7 +66,7 @@ builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAs
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<SkillCreatedConsumer>();
-    
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(rabbitHost, "/", h =>
@@ -74,7 +74,7 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
-        
+
         cfg.ReceiveEndpoint("matchmaking-skill-queue", e =>
         {
             e.ConfigureConsumer<SkillCreatedConsumer>(context);
@@ -108,13 +108,13 @@ builder.Services.AddSkillSwapAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
-    { 
-        Title = "SkillSwap MatchmakingService API", 
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "SkillSwap MatchmakingService API",
         Version = "v1",
         Description = "Intelligent skill matching service with CQRS architecture"
     });
-    
+
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme",
@@ -123,7 +123,7 @@ builder.Services.AddSwaggerGen(c =>
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-    
+
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
         {
@@ -158,76 +158,187 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-// API Endpoints
-app.MapPost("/matches/find", async (IMediator mediator, HttpContext context, FindMatchCommand command) =>
-{
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+#region Match Requests Endpoints
+RouteGroupBuilder matchRequests = app.MapGroup("/matches/requests").RequireAuthorization();
 
-    command.UserId = userId;
-    return await mediator.SendCommand(command);
-})
-.WithName("FindMatch")
-.WithSummary("Find skill matches")
-.WithTags("Matching")
-.RequireAuthorization();
+matchRequests.MapPost("/", CreateMatchRequest)
+    .WithName("CreateMatchRequest")
+    .WithSummary("Create a direct match request to another user")
+    .WithDescription("Send a match request to another user for a specific skill")
+    .WithTags("Match Requests")
+    .WithOpenApi()
+    .Produces<MatchRequestResponse>(StatusCodes.Status201Created)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status400BadRequest);
 
-app.MapPost("/matches/{matchId}/accept", async (IMediator mediator, HttpContext context, string matchId) =>
+matchRequests.MapGet("/incoming", GetIncomingMatchRequests)
+    .WithName("GetIncomingMatchRequests")
+    .WithSummary("Get incoming match requests")
+    .WithDescription("Retrieve all incoming match requests for the current user")
+    .WithTags("Match Requests")
+    .WithOpenApi()
+    .Produces<PagedResponse<MatchRequestResponse>>(StatusCodes.Status200OK);
+
+matchRequests.MapGet("/outgoing", GetOutgoingMatchRequests)
+    .WithName("GetOutgoingMatchRequests")
+    .WithSummary("Get outgoing match requests")
+    .WithDescription("Retrieve all outgoing match requests from the current user")
+    .WithTags("Match Requests")
+    .WithOpenApi()
+    .Produces<PagedResponse<MatchRequestResponse>>(StatusCodes.Status200OK);
+
+matchRequests.MapPost("/{requestId}/accept", AcceptMatchRequest)
+    .WithName("AcceptMatchRequest")
+    .WithSummary("Accept a direct match request")
+    .WithDescription("Accept an incoming match request and create a match")
+    .WithTags("Match Requests")
+    .WithOpenApi()
+    .Produces<AcceptDirectMatchRequestResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
+
+matchRequests.MapPost("/{requestId}/reject", RejectMatchRequest)
+    .WithName("RejectMatchRequest")
+    .WithSummary("Reject a direct match request")
+    .WithDescription("Reject an incoming match request with optional reason")
+    .WithTags("Match Requests")
+    .WithOpenApi()
+    .Produces<RejectMatchRequestResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
+
+// Helper functions for match requests
+static async Task<IResult> CreateMatchRequest(IMediator mediator, HttpContext ctx, CreateMatchRequestCommand command)
 {
-    var userId = ExtractUserIdFromContext(context);
+    var userId = ctx.User.FindFirst("user_id")?.Value;
+    return string.IsNullOrEmpty(userId) ? Results.Unauthorized() : await mediator.SendCommand(command with { UserId = userId });
+}
+
+static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, HttpContext ctx, [AsParameters] GetIncomingMatchRequestsQuery query)
+{
+    var userId = ctx.User.FindFirst("user_id")?.Value;
+    return string.IsNullOrEmpty(userId) ? Results.Unauthorized() : await mediator.SendQuery(query with { UserId = userId });
+}
+
+static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, HttpContext ctx, [AsParameters] GetOutgoingMatchRequestsQuery query)
+{
+    var userId = ctx.User.FindFirst("user_id")?.Value;
+    return string.IsNullOrEmpty(userId) ? Results.Unauthorized() : await mediator.SendQuery(query with { UserId = userId });
+}
+
+static async Task<IResult> AcceptMatchRequest(IMediator mediator, HttpContext ctx, string requestId, AcceptMatchRequestCommand command)
+{
+    var userId = ctx.User.FindFirst("user_id")?.Value;
+    return string.IsNullOrEmpty(userId) ? Results.Unauthorized() : await mediator.SendCommand(command with { UserId = userId, RequestId = requestId });
+}
+
+static async Task<IResult> RejectMatchRequest(IMediator mediator, HttpContext ctx, string requestId, RejectMatchRequestCommand command)
+{
+    var userId = ctx.User.FindFirst("user_id")?.Value;
+    return string.IsNullOrEmpty(userId) ? Results.Unauthorized() : await mediator.SendCommand(command with { UserId = userId, RequestId = requestId });
+}
+#endregion
+
+#region Matching Endpoints
+RouteGroupBuilder matches = app.MapGroup("/matches").RequireAuthorization();
+
+matches.MapPost("/find", FindMatch)
+    .WithName("FindMatch")
+    .WithSummary("Find skill matches")
+    .WithDescription("Search for automated skill matches based on compatibility")
+    .WithTags("Matching")
+    .WithOpenApi()
+    .Produces<FindMatchResponse>(StatusCodes.Status200OK);
+
+matches.MapPost("/{matchId}/accept", AcceptMatch)
+    .WithName("AcceptMatch")
+    .WithSummary("Accept a match")
+    .WithDescription("Accept an existing match proposal")
+    .WithTags("Matching")
+    .WithOpenApi()
+    .Produces<AcceptMatchResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
+
+matches.MapPost("/{matchId}/reject", RejectMatch)
+    .WithName("RejectMatch")
+    .WithSummary("Reject a match")
+    .WithDescription("Reject an existing match proposal with optional reason")
+    .WithTags("Matching")
+    .WithOpenApi()
+    .Produces<RejectMatchResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
+
+matches.MapGet("/{matchId}", GetMatchDetails)
+    .WithName("GetMatchDetails")
+    .WithSummary("Get match details")
+    .WithDescription("Retrieve detailed information about a specific match")
+    .WithTags("Matching")
+    .WithOpenApi()
+    .Produces<MatchDetailsResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
+
+matches.MapGet("/my", GetUserMatches)
+    .WithName("GetMyMatches")
+    .WithSummary("Get my matches")
+    .WithDescription("Retrieve all matches for the current user")
+    .WithTags("Matching")
+    .WithOpenApi()
+    .Produces<PagedResponse<UserMatchResponse>>(StatusCodes.Status200OK);
+
+// Helper functions for matches
+static async Task<IResult> FindMatch(IMediator mediator, HttpContext ctx, FindMatchCommand command)
+{
+    var userId = ctx.User.FindFirst("user_id")?.Value;
+    return string.IsNullOrEmpty(userId) ? Results.Unauthorized() : await mediator.SendCommand(command with { UserId = userId });
+}
+
+static async Task<IResult> AcceptMatch(IMediator mediator, HttpContext ctx, string matchId)
+{
+    var userId = ctx.User.FindFirst("user_id")?.Value;
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
     var command = new AcceptMatchCommand(matchId) { UserId = userId };
     return await mediator.SendCommand(command);
-})
-.WithName("AcceptMatch")
-.WithSummary("Accept a match")
-.WithTags("Matching")
-.RequireAuthorization();
+}
 
-app.MapPost("/matches/{matchId}/reject", async (IMediator mediator, HttpContext context, string matchId, string? reason = null) =>
+static async Task<IResult> RejectMatch(IMediator mediator, HttpContext ctx, string matchId, string? reason = null)
 {
-    var userId = ExtractUserIdFromContext(context);
+    var userId = ctx.User.FindFirst("user_id")?.Value;
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
     var command = new RejectMatchCommand(matchId, reason) { UserId = userId };
     return await mediator.SendCommand(command);
-})
-.WithName("RejectMatch")
-.WithSummary("Reject a match")
-.WithTags("Matching")
-.RequireAuthorization();
+}
 
-app.MapGet("/matches/{matchId}", async (IMediator mediator, string matchId) =>
+static async Task<IResult> GetMatchDetails(IMediator mediator, string matchId)
 {
     var query = new GetMatchDetailsQuery(matchId);
     return await mediator.SendQuery(query);
-})
-.WithName("GetMatchDetails")
-.WithSummary("Get match details")
-.WithTags("Matching");
+}
 
-app.MapGet("/my/matches", async (IMediator mediator, HttpContext context, [AsParameters] GetUserMatchesQuery query) =>
+static async Task<IResult> GetUserMatches(IMediator mediator, HttpContext ctx, [AsParameters] GetUserMatchesQuery query)
 {
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    var userId = ctx.User.FindFirst("user_id")?.Value;
+    return string.IsNullOrEmpty(userId) ? Results.Unauthorized() : await mediator.SendQuery(query with { UserId = userId });
+}
+#endregion
 
-    return await mediator.SendQuery(query);
-})
-.WithName("GetMyMatches")
-.WithSummary("Get my matches")
-.WithTags("Matching")
-.RequireAuthorization();
+#region Analytics Endpoints
+RouteGroupBuilder analytics = app.MapGroup("/analytics");
 
-app.MapGet("/statistics", async (IMediator mediator, [AsParameters] GetMatchStatisticsQuery query) =>
+analytics.MapGet("/statistics", GetMatchStatistics)
+    .WithName("GetMatchStatistics")
+    .WithSummary("Get matching statistics")
+    .WithDescription("Retrieve overall matching statistics and insights")
+    .WithTags("Analytics")
+    .WithOpenApi()
+    .Produces<MatchStatisticsResponse>(StatusCodes.Status200OK);
+
+static async Task<IResult> GetMatchStatistics(IMediator mediator, [AsParameters] GetMatchStatisticsQuery query)
 {
     return await mediator.SendQuery(query);
-})
-.WithName("GetMatchStatistics")
-.WithSummary("Get matching statistics")
-.WithTags("Analytics");
+}
+#endregion
 
-// Health checks
+#region Health Checks
 app.MapGet("/health/ready", async (MatchmakingDbContext dbContext) =>
 {
     try
@@ -246,16 +357,9 @@ app.MapGet("/health/ready", async (MatchmakingDbContext dbContext) =>
 app.MapGet("/health/live", () => Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }))
 .WithName("HealthLive")
 .WithTags("Health");
+#endregion
 
-// Helper method
-static string? ExtractUserIdFromContext(HttpContext context)
-{
-    return context.User.FindFirst("user_id")?.Value
-           ?? context.User.FindFirst("sub")?.Value
-           ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-}
-
-// Initialize database
+// Database initialization - ✅ ERWEITERT für neue Entity
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MatchmakingDbContext>();

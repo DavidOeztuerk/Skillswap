@@ -367,6 +367,7 @@ const authSlice = createSlice({
           email: action.payload.email,
           firstName: action.payload.firstName,
           lastName: action.payload.lastName,
+          userName : action.payload.userName,
           token: action.payload.tokens.accessToken,
         };
         state.token = action.payload.tokens.accessToken;

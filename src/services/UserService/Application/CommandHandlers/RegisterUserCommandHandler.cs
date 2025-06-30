@@ -1,9 +1,7 @@
 using CQRS.Handlers;
 using CQRS.Interfaces;
-using Events;
 using Infrastructure.Models;
 using Infrastructure.Security;
-using MediatR;
 using EventSourcing;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
@@ -18,13 +16,13 @@ namespace UserService.Application.CommandHandlers;
 
 public class RegisterUserCommandHandler(
     UserDbContext dbContext,
-    IEnhancedJwtService jwtService,
+    IJwtService jwtService,
     IDomainEventPublisher eventPublisher,
     ILogger<RegisterUserCommandHandler> logger)
     : BaseCommandHandler<RegisterUserCommand, RegisterUserResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
-    private readonly IEnhancedJwtService _jwtService = jwtService;
+    private readonly IJwtService _jwtService = jwtService;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<RegisterUserResponse>> Handle(
@@ -116,6 +114,7 @@ public class RegisterUserCommandHandler(
                 user.Email,
                 user.FirstName,
                 user.LastName,
+                user.UserName,
                 tokens,
                 true);
 

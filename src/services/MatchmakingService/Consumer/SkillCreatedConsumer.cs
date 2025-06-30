@@ -19,11 +19,11 @@ public class SkillCreatedConsumer(
             // Create a match request for the new skill
             var matchRequest = new MatchRequest
             {
-                UserId = context.Message.SkillCreatorId,
+                RequesterId = context.Message.SkillCreatorId,
                 SkillId = context.Message.SkillId,
-                SkillName = context.Message.Name,
+                // SkillName = context.Message.Name,
                 Description = context.Message.Description,
-                IsOffering = context.Message.IsOffering,
+                // IsOffering = context.Message.IsOffering,
                 ExpiresAt = DateTime.UtcNow.AddDays(30),
                 CreatedBy = "system"
             };

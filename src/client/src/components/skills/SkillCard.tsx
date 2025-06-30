@@ -1,4 +1,4 @@
-// src/components/skills/SkillCard.tsx
+// src/components/skills/SkillCard.tsx - KORRIGIERTE VERSION
 import React from 'react';
 import {
   Card,
@@ -24,22 +24,29 @@ import {
   Palette as PaletteIcon,
   Business as BusinessIcon,
   School as SchoolIcon,
+  Visibility as VisibilityIcon,
+  Message as MessageIcon,
 } from '@mui/icons-material';
 import { Skill } from '../../types/models/Skill';
 
 interface SkillCardProps {
   skill: Skill;
-  // isOwner: boolean;
+  isOwner?: boolean; // Indicates if this is the owner's view page
+  showMatchButton?: boolean; // Controls if match functionality should be available
   onEdit: (skill: Skill) => void;
   onDelete: (skillId: string) => void;
   onViewDetails: (skill: Skill) => void;
+  onMatch?: (skill: Skill) => void;
 }
 
 const SkillCard: React.FC<SkillCardProps> = ({
   skill,
+  isOwner = false,
+  showMatchButton = false,
   onEdit,
   onDelete,
   onViewDetails,
+  onMatch,
 }) => {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -49,6 +56,8 @@ const SkillCard: React.FC<SkillCardProps> = ({
   console.log('🎴 SkillCard render:', {
     id: skill.skillId,
     name: skill.name,
+    isOwner,
+    showMatchButton,
     hasCategory: !!skill.category,
     hasProficiencyLevel: !!skill.proficiencyLevel,
   });
@@ -74,6 +83,20 @@ const SkillCard: React.FC<SkillCardProps> = ({
     e.stopPropagation();
     handleMenuClose();
     onDelete(skill.skillId);
+  };
+
+  const handleViewDetails = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    handleMenuClose();
+    onViewDetails(skill);
+  };
+
+  const handleMatch = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    handleMenuClose();
+    if (onMatch) {
+      onMatch(skill);
+    }
   };
 
   const handleCardClick = () => {
@@ -204,6 +227,23 @@ const SkillCard: React.FC<SkillCardProps> = ({
           }}
         />
 
+        {/* Owner chip - nur anzeigen wenn es wirklich der Owner ist */}
+        {isOwner && (
+          <Chip
+            label="Mein Skill"
+            color="primary"
+            variant="outlined"
+            size="small"
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 50,
+              fontWeight: 'bold',
+              bgcolor: 'rgba(255, 255, 255, 0.9)',
+            }}
+          />
+        )}
+
         {/* Menu button */}
         <IconButton
           aria-label="Optionen"
@@ -241,23 +281,45 @@ const SkillCard: React.FC<SkillCardProps> = ({
             },
           }}
         >
-          <MenuItem onClick={handleEdit}>
-            <EditIcon fontSize="small" sx={{ mr: 1 }} />
-            Bearbeiten
+          {/* Details immer verfügbar */}
+          <MenuItem onClick={handleViewDetails}>
+            <VisibilityIcon fontSize="small" sx={{ mr: 1 }} />
+            Details ansehen
           </MenuItem>
-          <Divider />
-          <MenuItem
-            onClick={handleDelete}
-            sx={{
-              color: theme.palette.error.main,
-              '&:hover': {
-                bgcolor: theme.palette.error.light + '20',
-              },
-            }}
-          >
-            <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-            Löschen
-          </MenuItem>
+          
+          {/* Match-Funktionalität nur für fremde Skills */}
+          {showMatchButton && !isOwner && onMatch && (
+            <>
+              <Divider />
+              <MenuItem onClick={handleMatch}>
+                <MessageIcon fontSize="small" sx={{ mr: 1 }} />
+                {skill.isOffering ? 'Lernen anfragen' : 'Hilfe anbieten'}
+              </MenuItem>
+            </>
+          )}
+
+          {/* Edit/Delete nur für eigene Skills */}
+          {isOwner && (
+            <>
+              <Divider />
+              <MenuItem onClick={handleEdit}>
+                <EditIcon fontSize="small" sx={{ mr: 1 }} />
+                Bearbeiten
+              </MenuItem>
+              <MenuItem
+                onClick={handleDelete}
+                sx={{
+                  color: theme.palette.error.main,
+                  '&:hover': {
+                    bgcolor: theme.palette.error.light + '20',
+                  },
+                }}
+              >
+                <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+                Löschen
+              </MenuItem>
+            </>
+          )}
         </Menu>
       </Box>
 
@@ -382,24 +444,49 @@ const SkillCard: React.FC<SkillCardProps> = ({
           </Typography>
         </Box>
 
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewDetails(skill);
-          }}
-          sx={{
-            borderColor: categoryColor,
-            color: categoryColor,
-            '&:hover': {
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {/* Match button nur für fremde Skills */}
+          {showMatchButton && !isOwner && onMatch && (
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              onClick={handleMatch}
+              startIcon={<MessageIcon />}
+              sx={{
+                fontSize: '0.75rem',
+                py: 0.5,
+                px: 1,
+              }}
+            >
+              {skill.isOffering ? 'Lernen' : 'Helfen'}
+            </Button>
+          )}
+
+          {/* Details/Edit button */}
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isOwner) {
+                onEdit(skill); // Für eigene Skills -> Edit
+              } else {
+                onViewDetails(skill); // Für fremde Skills -> Details
+              }
+            }}
+            sx={{
               borderColor: categoryColor,
-              bgcolor: categoryColor + '10',
-            },
-          }}
-        >
-          Details
-        </Button>
+              color: categoryColor,
+              '&:hover': {
+                borderColor: categoryColor,
+                bgcolor: categoryColor + '10',
+              },
+            }}
+          >
+            {isOwner ? 'Bearbeiten' : 'Details'}
+          </Button>
+        </Box>
       </CardActions>
     </Card>
   );

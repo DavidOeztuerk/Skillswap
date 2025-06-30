@@ -74,6 +74,16 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/users/{userId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/{userId}",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
       "DownstreamPathTemplate": "/profile",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
@@ -337,12 +347,12 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/my/matches",
+      "DownstreamPathTemplate": "/matches/my",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "matchmakingservice", "Port": 5003 }
       ],
-      "UpstreamPathTemplate": "/api/my/matches",
+      "UpstreamPathTemplate": "/api/matches/my",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
@@ -351,7 +361,7 @@
       "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/statistics",
+      "DownstreamPathTemplate": "/analytics/statistics",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "matchmakingservice", "Port": 5003 }
@@ -359,6 +369,74 @@
       "UpstreamPathTemplate": "/api/matches/statistics",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
+    },
+
+    {
+      "DownstreamPathTemplate": "/matches/requests",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/matches/requests",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/matches/requests/incoming",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/matches/requests/incoming",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/matches/requests/outgoing",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/matches/requests/outgoing",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/matches/requests/{requestId}/accept",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/matches/requests/{requestId}/accept",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/matches/requests/{requestId}/reject",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/matches/requests/{requestId}/reject",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
     },
     {
       "DownstreamPathTemplate": "/appointments",

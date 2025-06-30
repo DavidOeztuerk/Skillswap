@@ -31,7 +31,6 @@ public record SearchSkillsQuery(
 public record SkillSearchResultResponse(
     string SkillId,
     string UserId,
-    string UserName,
     string Name,
     string Description,
     bool IsOffering,

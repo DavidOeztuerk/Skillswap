@@ -3,6 +3,7 @@ using CQRS.Interfaces;
 namespace MatchmakingService.Application.Queries;
 
 public record GetUserMatchesQuery(
+    string UserId,
     string? Status = null,
     bool IncludeCompleted = true,
     int PageNumber = 1,
@@ -18,7 +19,6 @@ public record GetUserMatchesQuery(
 public record UserMatchResponse(
     string MatchId,
     string SkillName,
-    string OtherUserName,
     string Status,
     double CompatibilityScore,
     bool IsOffering,

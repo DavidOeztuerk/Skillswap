@@ -1,4 +1,6 @@
-namespace Contracts.Users;
+using Infrastructure.Models;
+
+namespace Infrastructure.Services;
 
 public interface IUserLookupService
 {

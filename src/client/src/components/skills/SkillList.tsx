@@ -8,23 +8,31 @@ interface SkillListProps {
   skills: Skill[];
   loading: boolean;
   errors?: string[];
+  isOwnerView?: boolean; // New prop to determine if showing owner's skills
+  showMatchButtons?: boolean; // New prop to control match button display
   onEditSkill: (skill: Skill) => void;
   onDeleteSkill: (skillId: string) => void;
   onViewSkillDetails: (skill: Skill) => void;
+  onMatchSkill?: (skill: Skill) => void; // New optional prop for match functionality
 }
 
 const SkillList: React.FC<SkillListProps> = ({
   skills,
   loading,
   errors,
+  isOwnerView = false,
+  showMatchButtons = false,
   onEditSkill,
   onDeleteSkill,
   onViewSkillDetails,
+  onMatchSkill,
 }) => {
   console.log('📋 SkillList render:', {
     skillsCount: skills.length,
     loading,
     hasErrors: !!errors?.length,
+    isOwnerView,
+    showMatchButtons,
     skills: skills.map((s) =>
       s ? { skillId: s.skillId, name: s.name } : 'undefined skill'
     ),
@@ -81,11 +89,12 @@ const SkillList: React.FC<SkillListProps> = ({
     return (
       <Box sx={{ textAlign: 'center', py: 8 }}>
         <Typography variant="h5" gutterBottom sx={{ opacity: 0.7 }}>
-          Keine Skills gefunden
+          {isOwnerView ? 'Keine eigenen Skills gefunden' : 'Keine Skills gefunden'}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Versuche, die Suchkriterien zu ändern oder einen neuen Skill
-          anzulegen.
+          {isOwnerView 
+            ? 'Du hast noch keine Skills erstellt. Erstelle deinen ersten Skill!'
+            : 'Versuche, die Suchkriterien zu ändern oder schaue später wieder vorbei.'}
         </Typography>
       </Box>
     );
@@ -97,10 +106,12 @@ const SkillList: React.FC<SkillListProps> = ({
         <Grid key={skill.skillId} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <SkillCard
             skill={skill}
+            isOwner={isOwnerView}
+            showMatchButton={showMatchButtons && !isOwnerView}
             onEdit={onEditSkill}
             onDelete={onDeleteSkill}
             onViewDetails={onViewSkillDetails}
-            // isOwner={}
+            onMatch={onMatchSkill}
           />
         </Grid>
       ))}

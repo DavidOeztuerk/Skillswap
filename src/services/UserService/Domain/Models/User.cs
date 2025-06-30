@@ -25,6 +25,10 @@ public class User : AuditableEntity
     [MaxLength(100)]
     public string LastName { get; set; } = string.Empty;
 
+    [Required]
+    [MaxLength(100)]
+    public string UserName { get; set; } = string.Empty;
+
     [MaxLength(20)]
     public string? PhoneNumber { get; set; }
 

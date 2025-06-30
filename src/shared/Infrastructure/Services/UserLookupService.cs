@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using Contracts.Users;
 using Infrastructure.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;

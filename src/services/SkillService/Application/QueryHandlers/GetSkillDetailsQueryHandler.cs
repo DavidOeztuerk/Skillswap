@@ -1,12 +1,6 @@
-// ============================================================================
-// SKILL SERVICE QUERY HANDLERS - COMPLETE IMPLEMENTATION
-// src/services/SkillService/Application/QueryHandlers/
-// ============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Contracts.Users;
 using Infrastructure.Services;
 using SkillService.Application.Queries;
 
@@ -56,7 +50,6 @@ public class GetSkillDetailsQueryHandler(
                     reviews.Add(new SkillReviewResponse(
                         r.Id,
                         r.ReviewerUserId,
-                        reviewer?.FullName ?? string.Empty,
                         r.Rating,
                         r.Comment,
                         r.Tags,
@@ -74,7 +67,6 @@ public class GetSkillDetailsQueryHandler(
                     endorsements.Add(new SkillEndorsementResponse(
                         e.Id,
                         e.EndorserUserId,
-                        endorser?.FullName ?? string.Empty,
                         e.Message,
                         e.CreatedAt));
                 }
@@ -85,8 +77,6 @@ public class GetSkillDetailsQueryHandler(
             var response = new SkillDetailsResponse(
                 skill.Id,
                 skill.UserId,
-                owner?.FullName ?? string.Empty,
-                owner?.ProfilePictureUrl ?? string.Empty,
                 skill.Name,
                 skill.Description,
                 skill.IsOffering,

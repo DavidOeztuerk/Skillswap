@@ -13,6 +13,7 @@ public record RegisterUserCommand(
     string Password,
     string FirstName,
     string LastName,
+    string UserName,
     string? ReferralCode = null)
     : ICommand<RegisterUserResponse>, IAuditableCommand
 {
@@ -25,6 +26,7 @@ public record RegisterUserResponse(
     string Email,
     string FirstName,
     string LastName,
+    string UserName,
     TokenResult Tokens,
     bool EmailVerificationRequired);
 

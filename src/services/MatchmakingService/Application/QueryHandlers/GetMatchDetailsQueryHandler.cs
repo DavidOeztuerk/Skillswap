@@ -1,6 +1,5 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Contracts.Users;
 using Infrastructure.Services;
 using MatchmakingService.Application.Queries;
 using Microsoft.EntityFrameworkCore;
@@ -39,9 +38,7 @@ public class GetMatchDetailsQueryHandler(
                 match.RequestedSkillId,
                 match.RequestedSkillName,
                 match.OfferingUserId,
-                offeringUser?.FullName ?? string.Empty,
                 match.RequestingUserId,
-                requestingUser?.FullName ?? string.Empty,
                 match.Status,
                 match.CompatibilityScore,
                 match.MatchReason,
