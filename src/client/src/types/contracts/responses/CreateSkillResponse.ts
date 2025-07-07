@@ -1,9 +1,8 @@
+
 export interface CreateSkillResponse {
-  id: string;
-  userId: string;
+  skillId: string;
   name: string;
   description: string;
   isOffering: boolean;
-  skillCategoryId: string;
-  proficiencyLevelId: string;
+  createdAt: string;
 }

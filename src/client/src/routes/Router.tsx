@@ -86,7 +86,7 @@ const routes: RouteObject[] = [
                 <LoadingSpinner fullPage message="Seite wird geladen..." />
               }
             >
-              <SkillsPage showOnly="others" />
+              <SkillsPage showOnly="all" />
             </Suspense>
           </PrivateRoute>
         ),
@@ -101,6 +101,20 @@ const routes: RouteObject[] = [
               }
             >
               <SkillsPage showOnly="mine" />
+            </Suspense>
+          </PrivateRoute>
+        ),
+      },
+      {
+        path: 'skills/my-skills',
+        element: (
+          <PrivateRoute>
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Seite wird geladen..." />
+              }
+            >
+              <SkillsPage showOnly="favorite" />
             </Suspense>
           </PrivateRoute>
         ),

@@ -8,12 +8,11 @@ namespace UserService.Application.Commands;
 // ============================================================================
 
 public record ChangePasswordCommand(
-    string UserId,
     string CurrentPassword,
     string NewPassword)
     : ICommand<ChangePasswordResponse>, IAuditableCommand
 {
-    string? IAuditableCommand.UserId { get; set; }
+    public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 

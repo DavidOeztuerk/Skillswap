@@ -39,6 +39,7 @@ interface ApiResponse<T> {
   traceId?: string;
 }
 
+
 // Unified Skills State
 interface SkillsState {
   // All skills (from search/browse)
@@ -46,6 +47,9 @@ interface SkillsState {
 
   // User's own skills
   userSkills: Skill[];
+
+  // Favoriten (IDs)
+  favoriteSkillIds: string[];
 
   // Currently selected skill for details
   selectedSkill: Skill | null;
@@ -83,6 +87,7 @@ interface SkillsState {
 const initialState: SkillsState = {
   allSkills: [],
   userSkills: [],
+  favoriteSkillIds: [],
   selectedSkill: null,
   searchQuery: '',
   searchResults: [],
@@ -104,6 +109,45 @@ const initialState: SkillsState = {
   isDeleting: false,
   errors: null,
 };
+// FAVORITES: Async Thunks
+export const fetchFavoriteSkills = createAsyncThunk(
+  'skills/fetchFavoriteSkills',
+  async (userId: string, { rejectWithValue }) => {
+    try {
+      const response = await skillService.getFavoriteSkills(userId);
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Favoriten konnten nicht geladen werden';
+      return rejectWithValue([errorMessage]);
+    }
+  }
+);
+
+export const addFavoriteSkill = createAsyncThunk(
+  'skills/addFavoriteSkill',
+  async ({ userId, skillId }: { userId: string; skillId: string }, { rejectWithValue }) => {
+    try {
+      await skillService.addFavoriteSkill(userId, skillId);
+      return skillId;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Skill konnte nicht favorisiert werden';
+      return rejectWithValue([errorMessage]);
+    }
+  }
+);
+
+export const removeFavoriteSkill = createAsyncThunk(
+  'skills/removeFavoriteSkill',
+  async ({ userId, skillId }: { userId: string; skillId: string }, { rejectWithValue }) => {
+    try {
+      await skillService.removeFavoriteSkill(userId, skillId);
+      return skillId;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Skill konnte nicht entfernt werden';
+      return rejectWithValue([errorMessage]);
+    }
+  }
+);
 
 /**
  * Helper function to extract data from API response
@@ -483,7 +527,32 @@ const skillsSlice = createSlice({
     resetState: () => initialState,
   },
   extraReducers: (builder) => {
+    // FAVORITES
     builder
+      .addCase(fetchFavoriteSkills.fulfilled, (state, action) => {
+        state.favoriteSkillIds = action.payload || [];
+        state.errors = null;
+      })
+      .addCase(fetchFavoriteSkills.rejected, (state, action) => {
+        state.errors = action.payload as string[];
+        state.favoriteSkillIds = [];
+      })
+      .addCase(addFavoriteSkill.fulfilled, (state, action) => {
+        if (!state.favoriteSkillIds.includes(action.payload)) {
+          state.favoriteSkillIds.push(action.payload);
+        }
+        state.errors = null;
+      })
+      .addCase(addFavoriteSkill.rejected, (state, action) => {
+        state.errors = action.payload as string[];
+      })
+      .addCase(removeFavoriteSkill.fulfilled, (state, action) => {
+        state.favoriteSkillIds = state.favoriteSkillIds.filter(id => id !== action.payload);
+        state.errors = null;
+      })
+      .addCase(removeFavoriteSkill.rejected, (state, action) => {
+        state.errors = action.payload as string[];
+      })
       // Fetch all skills cases
       .addCase(fetchAllSkills.pending, (state) => {
         state.isLoading = true;
@@ -531,8 +600,10 @@ const skillsSlice = createSlice({
                 description: data.description ?? '',
                 isOffering: data.isOffering ?? false,
                 category: data.category ?? array[index].category,
-                proficiencyLevel:
-                  data.proficiencyLevel ?? array[index].proficiencyLevel,
+                proficiencyLevel: data.proficiencyLevel ?? array[index].proficiencyLevel,
+                tagsJson: data.tagsJson ?? array[index].tagsJson ?? "",
+                isRemoteAvailable: data.isRemoteAvailable ?? array[index].isRemoteAvailable ?? false,
+                createdAt: data.createdAt ?? array[index].createdAt ?? '',
               };
             }
           };
@@ -600,32 +671,25 @@ const skillsSlice = createSlice({
         //   }
         // }
 
-        const skill = state.allSkills.find(
-          (skill) =>
-            skill.category?.categoryId === skillData.skillCategoryId &&
-            skill.proficiencyLevel?.levelId === skillData.proficiencyLevelId
-        );
 
+        // Map API response to Skill model (minimal, extend as needed)
         if (skillData) {
-          // Ensure we have all required fields for the Skill interface
+          // CreateSkillResponse does not have userId, skillCategoryId, proficiencyLevelId, updatedAt, tags, etc.
+          // We'll fill with minimal info and empty/defaults for missing fields
           const newSkill: Skill = {
-            skillId: skillData.id,
-            userId: skillData.userId,
+            skillId: skillData.skillId,
+            userId: '',
             name: skillData.name || '',
             description: skillData.description || '',
             isOffering: skillData.isOffering || false,
-            category: skill?.category || undefined,
-            proficiencyLevel: skill?.proficiencyLevel || undefined,
-            // Add other fields if available
-            // createdAt: skillData.,
-            // updatedAt: skillData.updatedAt,
+            category: { categoryId: '', name: '', isActive: true, createdAt: '' },
+            proficiencyLevel: { levelId: '', level: '', rank: 0, isActive: true, createdAt: '' },
+            tagsJson: "",
+            isRemoteAvailable: false,
+            createdAt: skillData.createdAt || '',
           };
-
-          // Add to user skills (at the beginning)
           state.userSkills.unshift(newSkill);
-          // Also add to all skills
           state.allSkills.unshift(newSkill);
-
           console.log('✅ New skill added to state:', newSkill);
         } else {
           console.warn('⚠️ No skill data found in response:', response);
@@ -649,28 +713,20 @@ const skillsSlice = createSlice({
         const { skillId, updatedSkill } = action.payload;
         const data = extractApiData(updatedSkill);
 
-        const skill = state.allSkills.find(
-          (skill) =>
-            skill.category?.categoryId ===
-              action.payload.updatedSkill.skillCategoryId &&
-            skill.proficiencyLevel?.levelId ===
-              action.payload.updatedSkill.proficiencyLevelId
-        );
 
         if (data) {
-          // Update in all relevant arrays
+          // UpdateSkillResponse does not have userId, only id, name, description, isOffering, skillCategoryId, proficiencyLevelId
           const updateInArray = (array: Skill[]) => {
             const index = array.findIndex((skill) => skill.skillId === skillId);
             if (index !== -1) {
               array[index] = {
-                skillId: skill?.skillId ?? array[index].skillId,
-                userId: skill?.userId ?? array[index].userId,
+                ...array[index],
+                skillId: data.id || array[index].skillId,
                 name: data.name ?? array[index].name,
                 description: data.description ?? array[index].description,
                 isOffering: data.isOffering ?? array[index].isOffering,
-                category: skill?.category ?? array[index].category,
-                proficiencyLevel:
-                  skill?.proficiencyLevel ?? array[index].proficiencyLevel,
+                category: { categoryId: data.skillCategoryId || '', name: '', isActive: true, createdAt: '' },
+                proficiencyLevel: { levelId: data.proficiencyLevelId || '', level: '', rank: 0, isActive: true, createdAt: '' },
               };
             }
           };
@@ -680,7 +736,7 @@ const skillsSlice = createSlice({
           updateInArray(state.searchResults);
 
           if (state.selectedSkill?.skillId === skillId) {
-            state.selectedSkill = skill || null;
+            state.selectedSkill = state.allSkills.find((s) => s.skillId === skillId) || null;
           }
 
           console.log('✅ Skill updated:', data.name);
@@ -704,6 +760,7 @@ const skillsSlice = createSlice({
         const deletedSkillId = action.payload;
 
         // Remove from all arrays
+
         state.allSkills = state.allSkills.filter(
           (skill) => skill.skillId !== deletedSkillId
         );

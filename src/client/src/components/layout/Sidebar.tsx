@@ -76,13 +76,19 @@ const Sidebar: React.FC<SidebarProps> = ({
       authRequired: true,
       children: [
         {
+          text: 'Skills entdecken',
+          icon: <SkillsIcon fontSize="small" />,
+          path: '/skills',
+          authRequired: true,
+        },
+        {
           text: 'Meine Skills',
           icon: <SkillsIcon fontSize="small" />,
           path: '/skills/my-skills',
           authRequired: true,
         },
         {
-          text: 'Skills entdecken',
+          text: 'Meine Favoriten',
           icon: <SkillsIcon fontSize="small" />,
           path: '/skills',
           authRequired: true,

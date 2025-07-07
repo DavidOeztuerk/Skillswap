@@ -8,12 +8,16 @@ interface SkillListProps {
   skills: Skill[];
   loading: boolean;
   errors?: string[];
-  isOwnerView?: boolean; // New prop to determine if showing owner's skills
-  showMatchButtons?: boolean; // New prop to control match button display
+  isOwnerView?: boolean;
+  showMatchButtons?: boolean;
   onEditSkill: (skill: Skill) => void;
   onDeleteSkill: (skillId: string) => void;
   onViewSkillDetails: (skill: Skill) => void;
-  onMatchSkill?: (skill: Skill) => void; // New optional prop for match functionality
+  onMatchSkill?: (skill: Skill) => void;
+  // FAVORITES
+  favoriteSkillIds?: string[];
+  isFavorite?: (skillId: string) => boolean;
+  onToggleFavorite?: (skill: Skill) => void;
 }
 
 const SkillList: React.FC<SkillListProps> = ({
@@ -26,6 +30,9 @@ const SkillList: React.FC<SkillListProps> = ({
   onDeleteSkill,
   onViewSkillDetails,
   onMatchSkill,
+  // favoriteSkillIds,
+  isFavorite,
+  onToggleFavorite,
 }) => {
   console.log('📋 SkillList render:', {
     skillsCount: skills.length,
@@ -40,7 +47,7 @@ const SkillList: React.FC<SkillListProps> = ({
 
   // Filter out any undefined or null skills
   const validSkills = skills.filter(
-    (skill) => skill && skill.skillId && skill.name
+    (skill) => skill && (skill.skillId || skill.skillId) && skill.name
   );
 
   if (validSkills.length !== skills.length) {
@@ -112,6 +119,9 @@ const SkillList: React.FC<SkillListProps> = ({
             onDelete={onDeleteSkill}
             onViewDetails={onViewSkillDetails}
             onMatch={onMatchSkill}
+            // FAVORITES
+            isFavorite={isFavorite}
+            onToggleFavorite={onToggleFavorite}
           />
         </Grid>
       ))}

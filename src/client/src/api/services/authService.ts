@@ -1,14 +1,15 @@
 // src/api/services/authService.ts
 import { AUTH_ENDPOINTS, PROFILE_ENDPOINTS } from '../../config/endpoints';
 import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
-import {
-  RegisterResponse,
-  LoginResponse,
-} from '../../types/contracts/responses/AuthResponse';
+import { RegisterResponse, LoginResponse } from '../../types/contracts/responses/AuthResponse';
 import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
 import { User } from '../../types/models/User';
 import { UpdateProfileRequest } from '../../types/contracts/requests/UpdateProfileRequest';
 import { ChangePasswordRequest } from '../../types/contracts/requests/ChangePasswordRequest';
+import { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRequest';
+import { GenerateTwoFactorSecretResponse } from '../../types/contracts/responses/GenerateTwoFactorSecretResponse';
+import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
+import { VerifyTwoFactorCodeResponse } from '../../types/contracts/responses/VerifyTwoFactorCodeResponse';
 import {
   getRefreshToken,
   getToken,
@@ -129,7 +130,7 @@ const authService = {
           email: userData.email.trim().toLowerCase(),
           firstName: userData.firstName.trim(),
           lastName: userData.lastName.trim(),
-          username: userData.username?.trim(),
+          userName: userData.userName?.trim(),
         }
       );
 
@@ -352,9 +353,7 @@ const authService = {
       if (!passwordData.newPassword?.trim()) {
         throw new Error('Neues Passwort ist erforderlich');
       }
-      if (passwordData.newPassword !== passwordData.confirmNewPassword) {
-        throw new Error('Neue Passwörter stimmen nicht überein');
-      }
+      // If you want to check for confirmNewPassword, do it in the form, not here
       if (passwordData.newPassword.length < 8) {
         throw new Error('Neues Passwort muss mindestens 8 Zeichen lang sein');
       }
@@ -536,22 +535,22 @@ const authService = {
     }
   },
 
+
   /**
    * Verifies email address
-   * @param token - Email verification token
+   * @param request - { email, verificationToken }
    */
-  verifyEmail: async (token: string): Promise<void> => {
+  verifyEmail: async (request: VerifyEmailRequest): Promise<void> => {
     try {
-      if (!token?.trim()) {
-        throw new Error('Verifizierungs-Token ist erforderlich');
+      if (!request.email?.trim() || !request.verificationToken?.trim()) {
+        throw new Error('E-Mail und Verifizierungs-Token sind erforderlich');
       }
-
       await apiClient.post<void>(AUTH_ENDPOINTS.VERIFY_EMAIL, {
-        token: token.trim(),
+        email: request.email.trim().toLowerCase(),
+        verificationToken: request.verificationToken.trim(),
       });
     } catch (error) {
       console.error('Email verification failed:', error);
-
       if (error instanceof Error) {
         if (error.message.includes('Token')) {
           throw error;
@@ -563,53 +562,40 @@ const authService = {
           throw new Error('Verifizierungs-Token ist ungültig oder abgelaufen');
         }
       }
-
       throw new Error('E-Mail-Verifizierung fehlgeschlagen.');
     }
   },
 
+
   /**
-   * Enables two-factor authentication
-   * @returns QR code data for 2FA setup
+   * Generates a two-factor authentication secret (returns QR code and backup codes)
    */
-  enable2FA: async (): Promise<{ qrCode: string; backupCodes: string[] }> => {
+  generateTwoFactorSecret: async (): Promise<GenerateTwoFactorSecretResponse> => {
     try {
-      const response = await apiClient.post<{
-        qrCode: string;
-        backupCodes: string[];
-      }>(AUTH_ENDPOINTS.GENERATE_2FA);
+      const response = await apiClient.post<GenerateTwoFactorSecretResponse>(AUTH_ENDPOINTS.GENERATE_2FA);
       return response.data;
     } catch (error) {
-      console.error('2FA setup failed:', error);
-      throw new Error(
-        'Zwei-Faktor-Authentifizierung konnte nicht eingerichtet werden.'
-      );
+      console.error('2FA secret generation failed:', error);
+      throw new Error('Zwei-Faktor-Authentifizierung konnte nicht eingerichtet werden.');
     }
   },
 
   /**
-   * Verifies 2FA code
-   * @param code - 2FA verification code
+   * Verifies a two-factor authentication code
+   * @param request - { userId, code }
    */
-  verify2FA: async (code: string): Promise<void> => {
+  verifyTwoFactorCode: async (request: VerifyTwoFactorCodeRequest): Promise<VerifyTwoFactorCodeResponse> => {
     try {
-      if (!code?.trim()) {
-        throw new Error('Verifizierungscode ist erforderlich');
+      if (!request.userId?.trim() || !request.code?.trim()) {
+        throw new Error('UserId und Verifizierungscode sind erforderlich');
       }
-
-      await apiClient.post<void>(AUTH_ENDPOINTS.VERIFY_2FA, {
-        code: code.trim(),
+      const response = await apiClient.post<VerifyTwoFactorCodeResponse>(AUTH_ENDPOINTS.VERIFY_2FA, {
+        userId: request.userId.trim(),
+        code: request.code.trim(),
       });
+      return response.data;
     } catch (error) {
       console.error('2FA verification failed:', error);
-
-      if (
-        error instanceof Error &&
-        error.message.includes('Verifizierungscode')
-      ) {
-        throw error;
-      }
-
       throw new Error('2FA-Verifizierung fehlgeschlagen.');
     }
   },

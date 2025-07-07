@@ -1,3 +1,4 @@
+using Infrastructure.Models;
 using Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using UserService.Domain.Models;
@@ -8,13 +9,13 @@ public class UserDbContext(
     DbContextOptions<UserDbContext> options) 
     : DbContext(options)
 {
-
     // DbSets
     public DbSet<User> Users => Set<User>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserActivity> UserActivities => Set<UserActivity>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<BlockedUser> BlockedUsers => Set<BlockedUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +26,7 @@ public class UserDbContext(
         ConfigureRefreshTokenEntity(modelBuilder);
         ConfigureUserActivityEntity(modelBuilder);
         ConfigureUserSessionEntity(modelBuilder);
+        ConfigureBlockedUserEntity(modelBuilder);
         SeedDefaultData(modelBuilder);
     }
 
@@ -35,22 +37,37 @@ public class UserDbContext(
             // Primary key
             entity.HasKey(e => e.Id);
 
-            // Indexes
-            entity.HasIndex(e => e.Email).IsUnique();
-            entity.HasIndex(e => e.AccountStatus);
-            entity.HasIndex(e => e.CreatedAt);
-            entity.HasIndex(e => e.LastLoginAt);
-            entity.HasIndex(e => e.EmailVerificationToken);
-            entity.HasIndex(e => e.PasswordResetToken);
-
             // Properties
             entity.Property(e => e.Id)
                 .HasMaxLength(450)
                 .ValueGeneratedOnAdd();
 
+            entity.Property(e => e.UserName)
+                .HasColumnName("Username")
+                .HasMaxLength(100)
+                .IsRequired();
+
             entity.Property(e => e.Email)
-                .IsRequired()
-                .HasMaxLength(256);
+                .HasColumnName("Email")
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(e => e.PhoneNumber)
+                .HasColumnName("PhoneNumber")
+                .HasMaxLength(20)
+                .IsRequired(false);
+
+            // Indexes
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.UserName).IsUnique();
+            entity.HasIndex(e => e.AccountStatus);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => e.LastLoginAt);
+            entity.HasIndex(e => e.EmailVerificationToken);
+            entity.HasIndex(e => e.PasswordResetToken);
+            entity.HasIndex(e => e.EmailVerified);
+            entity.HasIndex(e => e.TwoFactorEnabled);
+            entity.HasIndex(e => e.IsDeleted);
 
             entity.Property(e => e.PasswordHash)
                 .IsRequired()
@@ -63,9 +80,6 @@ public class UserDbContext(
             entity.Property(e => e.LastName)
                 .IsRequired()
                 .HasMaxLength(100);
-
-            entity.Property(e => e.PhoneNumber)
-                .HasMaxLength(20);
 
             entity.Property(e => e.Bio)
                 .HasMaxLength(1000);
@@ -87,10 +101,19 @@ public class UserDbContext(
             entity.Property(e => e.LastLoginIp)
                 .HasMaxLength(45);
 
-            entity.Property(e => e.ProfilePictureUrl)
+            entity.Property(e => e.AvatarUrl)
                 .HasMaxLength(500);
 
             entity.Property(e => e.PreferencesJson)
+                .HasColumnType("text");
+
+            entity.Property(e => e.AvailabilityJson)
+                .HasColumnType("text");
+
+            entity.Property(e => e.BlockedDatesJson)
+                .HasColumnType("text");
+
+            entity.Property(e => e.NotificationPreferencesJson)
                 .HasColumnType("text");
 
             // Default values
@@ -134,6 +157,61 @@ public class UserDbContext(
 
             entity.HasMany(e => e.Sessions)
                 .WithOne(e => e.User)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.BlockedUsers)
+                .WithOne(e => e.User)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // FavoriteSkillIds as JSON/text column
+            entity.Property(e => e.FavoriteSkillIds)
+                .HasColumnType("text")
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>()
+                );
+        });
+    }
+
+    private static void ConfigureBlockedUserEntity(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<BlockedUser>(entity =>
+        {
+            // Primary key
+            entity.HasKey(e => e.Id);
+
+            // Properties
+            entity.Property(e => e.Id)
+                .HasMaxLength(450)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.UserId)
+                .IsRequired()
+                .HasMaxLength(450);
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(1000);
+
+            // Indexes
+            entity.HasIndex(e => new { e.UserId }).IsUnique();
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.BlockedAt);
+
+            // Default values
+            entity.Property(e => e.BlockedAt)
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.IsDeleted)
+                .HasDefaultValue(false);
+
+            // Relationships
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.BlockedUsers)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
@@ -340,71 +418,76 @@ public class UserDbContext(
     {
         // Seed default admin user
         var adminUserId = Guid.NewGuid().ToString();
-        var adminUser = new User
+        
+        modelBuilder.Entity<User>().HasData(new
         {
             Id = adminUserId,
             Email = "admin@skillswap.com",
+            UserName = "admin",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
             FirstName = "System",
             LastName = "Administrator",
-            AccountStatus = AccountStatus.Active,
+            PhoneNumber = "",
+            AccountStatus = "Active",
             EmailVerified = true,
+            PhoneVerified = false,
+            TwoFactorEnabled = false,
+            FailedLoginAttempts = 0,
+            IsDeleted = false,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = "System",
-            IsDeleted = false
-        };
-
-        modelBuilder.Entity<User>().HasData(adminUser);
+            FavoriteSkillIds = new List<string>()
+        });
 
         // Seed admin role
         var adminRoleId = Guid.NewGuid().ToString();
-        var adminRole = new UserRole
+        modelBuilder.Entity<UserRole>().HasData(new
         {
             Id = adminRoleId,
             UserId = adminUserId,
-            Role = Roles.Admin,
+            Role = "Admin",
             AssignedBy = "System",
             AssignedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = "System",
             IsDeleted = false
-        };
-
-        modelBuilder.Entity<UserRole>().HasData(adminRole);
+        });
 
         // Seed demo user
         var demoUserId = Guid.NewGuid().ToString();
-        var demoUser = new User
+        modelBuilder.Entity<User>().HasData(new
         {
             Id = demoUserId,
             Email = "demo@skillswap.com",
+            UserName = "demo",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Demo123!"),
             FirstName = "Demo",
             LastName = "User",
-            AccountStatus = AccountStatus.Active,
+            PhoneNumber = "",
+            AccountStatus = "Active",
             EmailVerified = true,
+            PhoneVerified = false,
+            TwoFactorEnabled = false,
+            FailedLoginAttempts = 0,
+            IsDeleted = false,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = "System",
-            IsDeleted = false
-        };
-
-        modelBuilder.Entity<User>().HasData(demoUser);
+            FavoriteSkillIds = new List<string>()
+        });
 
         // Seed demo user role
         var demoRoleId = Guid.NewGuid().ToString();
-        var demoRole = new UserRole
+        modelBuilder.Entity<UserRole>().HasData(new
         {
             Id = demoRoleId,
             UserId = demoUserId,
-            Role = Roles.User,
+            Role = "User",
             AssignedBy = "System",
             AssignedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = "System",
             IsDeleted = false
-        };
-
-        modelBuilder.Entity<UserRole>().HasData(demoRole);
+        });
     }
 
     // Helper methods for auditing
@@ -423,12 +506,12 @@ public class UserDbContext(
     private void UpdateAuditFields()
     {
         var entries = ChangeTracker.Entries()
-            .Where(e => e.Entity is IAuditableEntity && 
+            .Where(e => e.Entity is AuditableEntity && 
                        (e.State == EntityState.Added || e.State == EntityState.Modified));
 
         foreach (var entry in entries)
         {
-            var entity = (IAuditableEntity)entry.Entity;
+            var entity = (AuditableEntity)entry.Entity;
             var now = DateTime.UtcNow;
 
             if (entry.State == EntityState.Added)
@@ -443,13 +526,4 @@ public class UserDbContext(
             }
         }
     }
-}
-
-// Interface for auditable entities
-public interface IAuditableEntity
-{
-    DateTime CreatedAt { get; set; }
-    DateTime? UpdatedAt { get; set; }
-    string? CreatedBy { get; set; }
-    string? UpdatedBy { get; set; }
 }

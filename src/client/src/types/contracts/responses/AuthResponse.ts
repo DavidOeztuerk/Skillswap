@@ -16,7 +16,7 @@ export interface LoginResponse {
   tokens: Tokens;
   requiresEmailVerification: boolean;
   requiredTwoFactor: boolean;
-  lastLogout: Date | null;
+  lastLogout: string | null;
 }
 
 // export interface LoginResponse {

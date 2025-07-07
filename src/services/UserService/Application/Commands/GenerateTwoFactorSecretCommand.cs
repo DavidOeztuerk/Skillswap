@@ -3,13 +3,14 @@ using FluentValidation;
 
 namespace UserService.Application.Commands;
 
-public record GenerateTwoFactorSecretCommand(string UserId) : ICommand<GenerateTwoFactorSecretResponse>, IAuditableCommand
+public record GenerateTwoFactorSecretCommand() : ICommand<GenerateTwoFactorSecretResponse>, IAuditableCommand
 {
-    string? IAuditableCommand.UserId { get; set; }
+    public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
-public record GenerateTwoFactorSecretResponse(string Secret);
+public record GenerateTwoFactorSecretResponse(
+    string Secret);
 
 public class GenerateTwoFactorSecretCommandValidator : AbstractValidator<GenerateTwoFactorSecretCommand>
 {

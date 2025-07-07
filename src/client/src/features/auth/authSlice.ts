@@ -12,6 +12,7 @@ import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest'
 import { UpdateProfileRequest } from '../../types/contracts/requests/UpdateProfileRequest';
 import { ChangePasswordRequest } from '../../types/contracts/requests/ChangePasswordRequest';
 import { User } from '../../types/models/User';
+import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
 
 // Extended interfaces for enhanced functionality
 interface ExtendedLoginRequest extends LoginRequest {
@@ -222,11 +223,13 @@ export const logout = createAsyncThunk(
 /**
  * Verify email async thunk
  */
+import { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRequest';
+
 export const verifyEmail = createAsyncThunk(
   'auth/verifyEmail',
-  async (token: string, { rejectWithValue }) => {
+  async (request: VerifyEmailRequest, { rejectWithValue }) => {
     try {
-      await authService.verifyEmail(token);
+      await authService.verifyEmail(request);
       return true;
     } catch (error) {
       console.error('Email verification thunk error:', error);
@@ -234,6 +237,38 @@ export const verifyEmail = createAsyncThunk(
         error instanceof Error
           ? error.message
           : 'E-Mail-Verifizierung fehlgeschlagen'
+      );
+    }
+  }
+);
+// 2FA: Generate secret
+export const generateTwoFactorSecret = createAsyncThunk(
+  'auth/generateTwoFactorSecret',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await authService.generateTwoFactorSecret();
+      return response;
+    } catch (error) {
+      console.error('2FA secret generation thunk error:', error);
+      return rejectWithValue(
+        error instanceof Error ? error.message : '2FA-Secret konnte nicht generiert werden'
+      );
+    }
+  }
+);
+
+// 2FA: Verify code
+
+export const verifyTwoFactorCode = createAsyncThunk(
+  'auth/verifyTwoFactorCode',
+  async (request: VerifyTwoFactorCodeRequest, { rejectWithValue }) => {
+    try {
+      const response = await authService.verifyTwoFactorCode(request);
+      return response;
+    } catch (error) {
+      console.error('2FA verification thunk error:', error);
+      return rejectWithValue(
+        error instanceof Error ? error.message : '2FA-Verifizierung fehlgeschlagen'
       );
     }
   }
@@ -367,8 +402,11 @@ const authSlice = createSlice({
           email: action.payload.email,
           firstName: action.payload.firstName,
           lastName: action.payload.lastName,
-          userName : action.payload.userName,
-          token: action.payload.tokens.accessToken,
+          userName: action.payload.userName,
+          roles: [],
+          emailVerified: false,
+          accountStatus: '',
+          createdAt: '',
         };
         state.token = action.payload.tokens.accessToken;
         state.refreshToken = action.payload.tokens.refreshToken;

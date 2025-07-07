@@ -299,175 +299,155 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// ============================================================================
-// API ENDPOINTS - NOTIFICATION MANAGEMENT
-// ============================================================================
 
-app.MapPost("/notifications/send", async (IMediator mediator, SendNotificationCommand command) =>
+// Grouped endpoints for notifications
+var notifications = app.MapGroup("/notifications").WithTags("Notifications");
+
+notifications.MapPost("/send", async (IMediator mediator, SendNotificationCommand command) =>
 {
     return await mediator.SendCommand(command);
 })
-.WithName("SendNotification")
-.WithSummary("Send a notification")
-.WithDescription("Sends a single notification via email, SMS, or push")
-.WithTags("Notifications")
-.RequireAuthorization()
-.Produces<SendNotificationResponse>(200)
-.Produces(400);
+    .WithName("SendNotification")
+    .WithSummary("Send a notification")
+    .WithDescription("Sends a single notification via email, SMS, or push")
+    .RequireAuthorization()
+    .Produces<SendNotificationResponse>(200)
+    .Produces(400);
 
-app.MapPost("/notifications/bulk", async (IMediator mediator, SendBulkNotificationCommand command) =>
+notifications.MapPost("/bulk", async (IMediator mediator, SendBulkNotificationCommand command) =>
 {
     return await mediator.SendCommand(command);
 })
-.WithName("SendBulkNotification")
-.WithSummary("Send bulk notifications")
-.WithDescription("Sends notifications to multiple users")
-.WithTags("Notifications")
-.RequireAuthorization(Policies.RequireAdminRole)
-.Produces<SendBulkNotificationResponse>(200)
-.Produces(400);
+    .WithName("SendBulkNotification")
+    .WithSummary("Send bulk notifications")
+    .WithDescription("Sends notifications to multiple users")
+    .RequireAuthorization(Policies.RequireAdminRole)
+    .Produces<SendBulkNotificationResponse>(200)
+    .Produces(400);
 
-app.MapPost("/notifications/{notificationId}/cancel", async (IMediator mediator, string notificationId, CancelNotificationCommand command) =>
+notifications.MapPost("/{notificationId}/cancel", async (IMediator mediator, string notificationId, CancelNotificationCommand command) =>
 {
     var updatedCommand = command with { NotificationId = notificationId };
     return await mediator.SendCommand(updatedCommand);
 })
-.WithName("CancelNotification")
-.WithSummary("Cancel a notification")
-.WithDescription("Cancels a pending notification")
-.WithTags("Notifications")
-.RequireAuthorization()
-.Produces<CancelNotificationResponse>(200);
+    .WithName("CancelNotification")
+    .WithSummary("Cancel a notification")
+    .WithDescription("Cancels a pending notification")
+    .RequireAuthorization()
+    .Produces<CancelNotificationResponse>(200);
 
-app.MapPost("/notifications/{notificationId}/retry", async (IMediator mediator, string notificationId, RetryFailedNotificationCommand command) =>
+notifications.MapPost("/{notificationId}/retry", async (IMediator mediator, string notificationId, RetryFailedNotificationCommand command) =>
 {
     var updatedCommand = command with { NotificationId = notificationId };
     return await mediator.SendCommand(updatedCommand);
 })
-.WithName("RetryNotification")
-.WithSummary("Retry failed notification")
-.WithDescription("Retries a failed notification")
-.WithTags("Notifications")
-.RequireAuthorization()
-.Produces<RetryFailedNotificationResponse>(200);
+    .WithName("RetryNotification")
+    .WithSummary("Retry failed notification")
+    .WithDescription("Retries a failed notification")
+    .RequireAuthorization()
+    .Produces<RetryFailedNotificationResponse>(200);
 
-app.MapPost("/notifications/{notificationId}/read", async (IMediator mediator, string notificationId, HttpContext context) =>
+notifications.MapPost("/{notificationId}/read", async (IMediator mediator, string notificationId, HttpContext context) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     var command = new MarkNotificationAsReadCommand(notificationId, userId);
     return await mediator.SendCommand(command);
 })
-.WithName("MarkNotificationAsRead")
-.WithSummary("Mark notification as read")
-.WithDescription("Marks a notification as read by the user")
-.WithTags("Notifications")
-.RequireAuthorization()
-.Produces<MarkNotificationAsReadResponse>(200);
+    .WithName("MarkNotificationAsRead")
+    .WithSummary("Mark notification as read")
+    .WithDescription("Marks a notification as read by the user")
+    .RequireAuthorization()
+    .Produces<MarkNotificationAsReadResponse>(200);
 
-// ============================================================================
-// API ENDPOINTS - USER PREFERENCES
-// ============================================================================
+// Grouped endpoints for user preferences
+var preferences = app.MapGroup("/preferences").WithTags("Preferences");
 
-app.MapGet("/preferences", async (IMediator mediator, HttpContext context) =>
+preferences.MapGet("/", async (IMediator mediator, HttpContext context) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     var query = new GetNotificationPreferencesQuery(userId);
     return await mediator.SendQuery(query);
 })
-.WithName("GetNotificationPreferences")
-.WithSummary("Get user notification preferences")
-.WithDescription("Retrieves the authenticated user's notification preferences")
-.WithTags("Preferences")
-.RequireAuthorization()
-.Produces<NotificationPreferencesResponse>(200);
+    .WithName("GetNotificationPreferences")
+    .WithSummary("Get user notification preferences")
+    .WithDescription("Retrieves the authenticated user's notification preferences")
+    .RequireAuthorization()
+    .Produces<NotificationPreferencesResponse>(200);
 
-app.MapPut("/preferences", async (IMediator mediator, HttpContext context, UpdateNotificationPreferencesCommand command) =>
+preferences.MapPut("/", async (IMediator mediator, HttpContext context, UpdateNotificationPreferencesCommand command) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     var updatedCommand = command with { UserId = userId };
     return await mediator.SendCommand(updatedCommand);
 })
-.WithName("UpdateNotificationPreferences")
-.WithSummary("Update notification preferences")
-.WithDescription("Updates the authenticated user's notification preferences")
-.WithTags("Preferences")
-.RequireAuthorization()
-.Produces<UpdateNotificationPreferencesResponse>(200);
+    .WithName("UpdateNotificationPreferences")
+    .WithSummary("Update notification preferences")
+    .WithDescription("Updates the authenticated user's notification preferences")
+    .RequireAuthorization()
+    .Produces<UpdateNotificationPreferencesResponse>(200);
 
-// ============================================================================
-// API ENDPOINTS - TEMPLATES (Admin)
-// ============================================================================
+// Grouped endpoints for templates (Admin)
+var templates = app.MapGroup("/templates").WithTags("Templates");
 
-app.MapPost("/templates", async (IMediator mediator, CreateEmailTemplateCommand command) =>
+templates.MapPost("/", async (IMediator mediator, CreateEmailTemplateCommand command) =>
 {
     return await mediator.SendCommand(command);
 })
-.WithName("CreateEmailTemplate")
-.WithSummary("Create email template (Admin)")
-.WithDescription("Creates a new email template - Admin access required")
-.WithTags("Templates")
-.RequireAuthorization(Policies.RequireAdminRole)
-.Produces<CreateEmailTemplateResponse>(201);
+    .WithName("CreateEmailTemplate")
+    .WithSummary("Create email template (Admin)")
+    .WithDescription("Creates a new email template - Admin access required")
+    .RequireAuthorization(Policies.RequireAdminRole)
+    .Produces<CreateEmailTemplateResponse>(201);
 
-app.MapPut("/templates/{templateId}", async (IMediator mediator, string templateId, UpdateEmailTemplateCommand command) =>
+templates.MapPut("/{templateId}", async (IMediator mediator, string templateId, UpdateEmailTemplateCommand command) =>
 {
     var updatedCommand = command with { TemplateId = templateId };
     return await mediator.SendCommand(updatedCommand);
 })
-.WithName("UpdateEmailTemplate")
-.WithSummary("Update email template (Admin)")
-.WithDescription("Updates an existing email template - Admin access required")
-.WithTags("Templates")
-.RequireAuthorization(Policies.RequireAdminRole)
-.Produces<UpdateEmailTemplateResponse>(200);
+    .WithName("UpdateEmailTemplate")
+    .WithSummary("Update email template (Admin)")
+    .WithDescription("Updates an existing email template - Admin access required")
+    .RequireAuthorization(Policies.RequireAdminRole)
+    .Produces<UpdateEmailTemplateResponse>(200);
 
-app.MapGet("/templates", async (IMediator mediator, [AsParameters] GetEmailTemplatesQuery query) =>
+templates.MapGet("/", async (IMediator mediator, [AsParameters] GetEmailTemplatesQuery query) =>
 {
     return await mediator.SendQuery(query);
 })
-.WithName("GetEmailTemplates")
-.WithSummary("Get email templates (Admin)")
-.WithDescription("Retrieves all email templates - Admin access required")
-.WithTags("Templates")
-.RequireAuthorization(Policies.RequireAdminRole)
-.Produces<PagedResponse<EmailTemplateResponse>>(200);
+    .WithName("GetEmailTemplates")
+    .WithSummary("Get email templates (Admin)")
+    .WithDescription("Retrieves all email templates - Admin access required")
+    .RequireAuthorization(Policies.RequireAdminRole)
+    .Produces<PagedResponse<EmailTemplateResponse>>(200);
 
-// ============================================================================
-// API ENDPOINTS - ANALYTICS & REPORTING (Admin)
-// ============================================================================
+// Grouped endpoints for analytics (Admin)
+var analytics = app.MapGroup("/analytics").WithTags("Analytics");
 
-app.MapGet("/analytics/statistics", async (IMediator mediator, [AsParameters] GetNotificationStatisticsQuery query) =>
+analytics.MapGet("/statistics", async (IMediator mediator, [AsParameters] GetNotificationStatisticsQuery query) =>
 {
     return await mediator.SendQuery(query);
 })
-.WithName("GetNotificationStatistics")
-.WithSummary("Get notification statistics (Admin)")
-.WithDescription("Retrieves comprehensive notification statistics - Admin access required")
-.WithTags("Analytics")
-.RequireAuthorization(Policies.RequireAdminRole)
-.Produces<NotificationStatisticsResponse>(200);
+    .WithName("GetNotificationStatistics")
+    .WithSummary("Get notification statistics (Admin)")
+    .WithDescription("Retrieves comprehensive notification statistics - Admin access required")
+    .RequireAuthorization(Policies.RequireAdminRole)
+    .Produces<NotificationStatisticsResponse>(200);
 
-// ============================================================================
-// HEALTH CHECK ENDPOINTS
-// ============================================================================
+// Grouped endpoints for health
+var health = app.MapGroup("/health").WithTags("Health");
 
-app.MapGet("/health/ready", async (NotificationDbContext dbContext, IEmailService emailService) =>
+health.MapGet("/ready", async (NotificationDbContext dbContext, IEmailService emailService) =>
 {
     try
     {
         // Check database connectivity
         await dbContext.Database.CanConnectAsync();
-        
         // Could add more health checks here (SMTP, SMS, etc.)
-        
-        return Results.Ok(new { 
-            status = "ready", 
+        return Results.Ok(new {
+            status = "ready",
             timestamp = DateTime.UtcNow,
             services = new {
                 database = "healthy",
@@ -481,17 +461,15 @@ app.MapGet("/health/ready", async (NotificationDbContext dbContext, IEmailServic
         return Results.Problem($"Health check failed: {ex.Message}");
     }
 })
-.WithName("HealthReady")
-.WithSummary("Readiness check")
-.WithTags("Health");
+    .WithName("HealthReady")
+    .WithSummary("Readiness check");
 
-app.MapGet("/health/live", () =>
+health.MapGet("/live", () =>
 {
     return Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow });
 })
-.WithName("HealthLive")
-.WithSummary("Liveness check")
-.WithTags("Health");
+    .WithName("HealthLive")
+    .WithSummary("Liveness check");
 
 // ============================================================================
 // HELPER METHODS

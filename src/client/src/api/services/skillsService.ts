@@ -11,6 +11,7 @@ import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRe
 import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkillResponse';
 import { PaginatedResponse } from '../../types/common/PaginatedResponse';
 import apiClient from '../apiClient';
+import { FAVORITE_ENDPOINTS } from '../../config/endpoints';
 
 /**
  * Index signature erlaubt flexible Parameter
@@ -231,6 +232,20 @@ const skillService = {
       { limit }
     );
     return response.data;
+  },
+
+  /** FAVORITES API */
+  getFavoriteSkills: async (userId: string): Promise<string[]> => {
+    const response = await apiClient.get<string[]>(FAVORITE_ENDPOINTS.GET_FAVORITES(userId));
+    return response.data;
+  },
+
+  addFavoriteSkill: async (userId: string, skillId: string): Promise<void> => {
+    await apiClient.post(FAVORITE_ENDPOINTS.ADD_FAVORITE(userId, skillId));
+  },
+
+  removeFavoriteSkill: async (userId: string, skillId: string): Promise<void> => {
+    await apiClient.delete(FAVORITE_ENDPOINTS.REMOVE_FAVORITE(userId, skillId));
   },
 };
 

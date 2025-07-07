@@ -1,6 +1,5 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
@@ -27,8 +26,10 @@ public class ResetPasswordCommandHandler(
     {
         try
         {
+
+            var email = request.Email;
             var user = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email 
+                .FirstOrDefaultAsync(u => u.Email == email
                                         && u.PasswordResetToken == request.ResetToken, cancellationToken);
 
             if (user == null || user.PasswordResetTokenExpiresAt < DateTime.UtcNow)
@@ -57,6 +58,7 @@ public class ResetPasswordCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
+
             await _eventPublisher.Publish(new PasswordResetCompletedDomainEvent(
                 user.Id,
                 user.Email), cancellationToken);

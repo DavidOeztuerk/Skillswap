@@ -15,6 +15,10 @@ using UserService.Application.Queries;
 using UserService;
 using Infrastructure.Models;
 using Microsoft.OpenApi.Models;
+using UserService.Application.Queries.Favorites;
+using UserService.Application.Commands.Favorites;
+using System.Security.Claims;
+using UserService.Extensioons;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,7 +68,6 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 
 // Event sourcing setup
 builder.Services.AddEventSourcing("UserServiceEventStore");
-builder.Services.AddScoped<EventReplayService>();
 
 // ============================================================================
 // CQRS & MEDIATR SETUP
@@ -173,7 +176,6 @@ builder.Services.AddSkillSwapAuthorization();
 
 // Configure rate limiting
 builder.Services.Configure<RateLimitingOptions>(builder.Configuration.GetSection("RateLimiting"));
-// builder.Services.AddMemoryCache(); // Required for rate limiting
 
 // ============================================================================
 // API DOCUMENTATION
@@ -268,285 +270,782 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+RouteGroupBuilder users = app.MapGroup("/users");
+
+#region Auth
+
 // ============================================================================
 // API ENDPOINTS - AUTHENTICATION
 // ============================================================================
 
-app.MapPost("/register", async (IMediator mediator, RegisterUserCommand command) =>
-{
-    return await mediator.SendCommand(command);
-})
-.WithName("RegisterUser")
-.WithSummary("Register a new user")
-.WithDescription("Creates a new user account with email verification")
-.WithTags("Authentication")
-.Produces<RegisterUserResponse>(201)
-.Produces(400);
+RouteGroupBuilder auth = users.MapGroup("/auth");
 
-app.MapPost("/login", async (IMediator mediator, LoginUserCommand command) =>
-{
-    return await mediator.SendCommand(command);
-})
-.WithName("LoginUser")
-.WithSummary("Authenticate user")
-.WithDescription("Authenticates user credentials and returns JWT tokens")
-.WithTags("Authentication")
-.Produces<LoginUserResponse>(200)
-.Produces(401);
+auth.MapPost("/register", HandleRegisterUser)
+    .WithName("RegisterUser")
+    .WithSummary("Register a new user")
+    .WithDescription("Creates a new user account with email verification")
+    .WithTags("Authentication")
+    .Produces<RegisterUserResponse>(201)
+    .Produces(400)
+    .Produces(409); // Conflict for existing email
 
-app.MapPost("/refresh-token", async (IMediator mediator, RefreshTokenCommand command) =>
-{
-    return await mediator.SendCommand(command);
-})
-.WithName("RefreshToken")
-.WithSummary("Refresh access token")
-.WithDescription("Refreshes an expired access token using a valid refresh token")
-.WithTags("Authentication")
-.Produces<RefreshTokenResponse>(200)
-.Produces(400);
+auth.MapPost("/login", HandleLoginUser)
+    .WithName("LoginUser")
+    .WithSummary("Authenticate user")
+    .WithDescription("Authenticates user credentials and returns JWT tokens")
+    .WithTags("Authentication")
+    .Produces<LoginUserResponse>(200)
+    .Produces(401)
+    .Produces(403); // For 2FA required
 
-app.MapPost("/verify-email", async (IMediator mediator, VerifyEmailCommand command) =>
-{
-    return await mediator.SendCommand(command);
-})
-.WithName("VerifyEmail")
-.WithSummary("Verify email address")
-.WithDescription("Verifies user's email address using verification token")
-.WithTags("Authentication")
-.Produces<VerifyEmailResponse>(200)
-.Produces(400);
+auth.MapPost("/refresh-token", HandleRefreshToken)
+    .WithName("RefreshToken")
+    .WithSummary("Refresh access token")
+    .WithDescription("Refreshes an expired access token using a valid refresh token")
+    .WithTags("Authentication")
+    .Produces<RefreshTokenResponse>(200)
+    .Produces(400)
+    .Produces(401);
 
-app.MapPost("/2fa/generate", async (IMediator mediator, HttpContext context) =>
-{
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+auth.MapPost("/verify-email", HandleVerifyEmail)
+    .WithName("VerifyEmail")
+    .WithSummary("Verify email address")
+    .WithDescription("Verifies user's email address using verification token")
+    .WithTags("Authentication")
+    .Produces<VerifyEmailResponse>(200)
+    .Produces(400)
+    .Produces(404);
 
-    var cmd = new GenerateTwoFactorSecretCommand(userId);
-    return await mediator.SendCommand(cmd);
-})
-.WithName("GenerateTwoFactorSecret")
-.WithSummary("Generate 2FA secret")
-.WithDescription("Generates a secret key for two-factor authentication")
-.WithTags("Authentication")
-.RequireAuthorization()
-.Produces<GenerateTwoFactorSecretResponse>(200);
+auth.MapPost("/resend-verification", HandleResendVerification)
+    .WithName("ResendVerification")
+    .WithSummary("Resend email verification")
+    .WithDescription("Resends email verification token")
+    .WithTags("Authentication")
+    .Produces<ResendVerificationResponse>(200)
+    .Produces(400)
+    .Produces(429); // Rate limited
 
-app.MapPost("/2fa/verify", async (IMediator mediator, HttpContext context, VerifyTwoFactorCodeCommand command) =>
-{
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+auth.MapPost("/request-password-reset", HandleRequestPasswordReset)
+    .WithName("RequestPasswordReset")
+    .WithSummary("Request password reset")
+    .WithDescription("Sends password reset email to user")
+    .WithTags("Password Management")
+    .Produces<RequestPasswordResetResponse>(200)
+    .Produces(429); // Rate limited
 
-    var updated = command with { UserId = userId };
-    return await mediator.SendCommand(updated);
-})
-.WithName("VerifyTwoFactorCode")
-.WithSummary("Verify 2FA code")
-.WithDescription("Verifies a TOTP code and enables two-factor authentication")
-.WithTags("Authentication")
-.RequireAuthorization()
-.Produces<VerifyTwoFactorCodeResponse>(200)
-.Produces(400);
+users.MapPost("/reset-password", HandleResetPassword)
+    .WithName("ResetPassword")
+    .WithSummary("Reset password")
+    .WithDescription("Resets user password using reset token")
+    .WithTags("Password Management")
+    .Produces<ResetPasswordResponse>(200)
+    .Produces(400)
+    .Produces(404);
+
+#endregion
+
+#region Profile
+
+RouteGroupBuilder profile = users.MapGroup("/profile");
+
+// ============================================================================
+// API ENDPOINTS - TWO-FACTOR AUTHENTICATION
+// ============================================================================
+
+profile.MapPost("/2fa/generate", HandleGenerateTwoFactorSecret)
+    .WithName("GenerateTwoFactorSecret")
+    .WithSummary("Generate 2FA secret")
+    .WithDescription("Generates a secret key for two-factor authentication")
+    .WithTags("Two-Factor Authentication")
+    .RequireAuthorization()
+    .Produces<GenerateTwoFactorSecretResponse>(200)
+    .Produces(401);
+
+profile.MapPost("/2fa/verify", HandleVerifyTwoFactorCode)
+    .WithName("VerifyTwoFactorCode")
+    .WithSummary("Verify 2FA code")
+    .WithDescription("Verifies a TOTP code and enables two-factor authentication")
+    .WithTags("Two-Factor Authentication")
+    .RequireAuthorization()
+    .Produces<VerifyTwoFactorCodeResponse>(200)
+    .Produces(400)
+    .Produces(401);
+
+profile.MapPost("/2fa/disable", HandleDisableTwoFactor)
+    .WithName("DisableTwoFactor")
+    .WithSummary("Disable 2FA")
+    .WithDescription("Disables two-factor authentication for the user")
+    .WithTags("Two-Factor Authentication")
+    .RequireAuthorization()
+    .Produces<DisableTwoFactorResponse>(200)
+    .Produces(400)
+    .Produces(401);
+
+profile.MapGet("/2fa/status", HandleGetTwoFactorStatus)
+    .WithName("GetTwoFactorStatus")
+    .WithSummary("Get 2FA status")
+    .WithDescription("Gets the current two-factor authentication status")
+    .WithTags("Two-Factor Authentication")
+    .RequireAuthorization()
+    .Produces<TwoFactorStatusResponse>(200)
+    .Produces(401);
 
 // ============================================================================
 // API ENDPOINTS - PASSWORD MANAGEMENT
 // ============================================================================
 
-app.MapPost("/request-password-reset", async (IMediator mediator, RequestPasswordResetCommand command) =>
-{
-    return await mediator.SendCommand(command);
-})
-.WithName("RequestPasswordReset")
-.WithSummary("Request password reset")
-.WithDescription("Sends password reset email to user")
-.WithTags("Password Management")
-.Produces<RequestPasswordResetResponse>(200);
-
-app.MapPost("/reset-password", async (IMediator mediator, ResetPasswordCommand command) =>
-{
-    return await mediator.SendCommand(command);
-})
-.WithName("ResetPassword")
-.WithSummary("Reset password")
-.WithDescription("Resets user password using reset token")
-.WithTags("Password Management")
-.Produces<ResetPasswordResponse>(200)
-.Produces(400);
-
-app.MapPost("/change-password", async (IMediator mediator, ChangePasswordCommand command) =>
-{
-    return await mediator.SendCommand(command);
-})
-.WithName("ChangePassword")
-.WithSummary("Change password")
-.WithDescription("Changes user password (requires authentication)")
-.WithTags("Password Management")
-.RequireAuthorization()
-.Produces<ChangePasswordResponse>(200)
-.Produces(400);
+profile.MapPost("/change-password", HandleChangePassword)
+    .WithName("ChangePassword")
+    .WithSummary("Change password")
+    .WithDescription("Changes user password (requires authentication)")
+    .WithTags("Password Management")
+    .RequireAuthorization()
+    .Produces<ChangePasswordResponse>(200)
+    .Produces(400)
+    .Produces(401);
 
 // ============================================================================
 // API ENDPOINTS - USER PROFILE
 // ============================================================================
-app.MapGet("/users/{userId}", async (IMediator mediator, string userId) =>
-{
-    // Hole das öffentliche Profil eines Nutzers (ohne sensible Daten)
-    var query = new GetUserProfileQuery(userId);
-    return await mediator.SendQuery(query);
-})
-.WithName("GetUserById")
-.WithSummary("Get public user profile by ID")
-.WithDescription("Retrieves a user's public profile information by userId (auth required)")
-.WithTags("User Profile")
-.RequireAuthorization()
-.Produces(200)
-.Produces(404);
 
-app.MapGet("/profile", async (IMediator mediator, HttpContext context) =>
-{
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+profile.MapGet("/", HandleGetUserProfile)
+    .WithName("GetUserProfile")
+    .WithSummary("Get user profile")
+    .WithDescription("Retrieves the authenticated user's profile information")
+    .WithTags("User Profile")
+    .RequireAuthorization()
+    .Produces<UserProfileResponse>(200)
+    .Produces(401)
+    .Produces(404);
 
-    var query = new GetUserProfileQuery(userId);
-    return await mediator.SendQuery(query);
-})
-.WithName("GetUserProfile")
-.WithSummary("Get user profile")
-.WithDescription("Retrieves the authenticated user's profile information")
-.WithTags("User Profile")
-.RequireAuthorization()
-.Produces<UserProfileResponse>(200)
-.Produces(404);
+profile.MapPut("/", HandleUpdateUserProfile)
+    .WithName("UpdateUserProfile")
+    .WithSummary("Update user profile")
+    .WithDescription("Updates the authenticated user's profile information")
+    .WithTags("User Profile")
+    .RequireAuthorization()
+    .Produces<UpdateUserProfileResponse>(200)
+    .Produces(400)
+    .Produces(401);
 
-app.MapPut("/users/profile", async (IMediator mediator, HttpContext context, UpdateUserProfileCommand command) =>
-{
-    var userId = ExtractUserIdFromContext(context);
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+profile.MapPost("/avatar", HandleUploadAvatar)
+    .WithName("UploadAvatar")
+    .WithSummary("Upload user avatar")
+    .WithDescription("Uploads a new avatar image for the user")
+    .WithTags("User Profile")
+    .RequireAuthorization()
+    .Produces<UploadAvatarResponse>(200)
+    .Produces(400)
+    .Produces(401);
 
-    // Ensure user can only update their own profile
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
-})
-.WithName("UpdateUserProfile")
-.WithSummary("Update user profile")
-.WithDescription("Updates the authenticated user's profile information")
-.WithTags("User Profile")
-.RequireAuthorization()
-.Produces<UpdateUserProfileResponse>(200)
-.Produces(400);
+profile.MapDelete("/avatar", HandleDeleteAvatar)
+    .WithName("DeleteAvatar")
+    .WithSummary("Delete user avatar")
+    .WithDescription("Removes the user's avatar image")
+    .WithTags("User Profile")
+    .RequireAuthorization()
+    .Produces<DeleteAvatarResponse>(200)
+    .Produces(401);
 
 // ============================================================================
-// API ENDPOINTS - USER MANAGEMENT (Admin)
+// API ENDPOINTS - USER AVAILABILITY
 // ============================================================================
 
-app.MapGet("/users/search", async (IMediator mediator, [AsParameters] SearchUsersQuery query) =>
-{
-    return await mediator.SendQuery(query);
-})
-.WithName("SearchUsers")
-.WithSummary("Search users (Admin)")
-.WithDescription("Search and filter users - Admin access required")
-.WithTags("User Management")
-.RequireAuthorization(Policies.RequireAdminRole)
-.Produces<PagedResponse<UserSearchResultResponse>>(200);
+profile.MapGet("/availability", HandleGetUserAvailability)
+    .WithName("GetUserAvailability")
+    .WithSummary("Get user availability")
+    .WithDescription("Retrieves the user's availability schedule")
+    .WithTags("User Availability")
+    .RequireAuthorization()
+    .Produces<UserAvailabilityResponse>(200)
+    .Produces(401);
 
-app.MapGet("/users/statistics", async (IMediator mediator, [AsParameters] GetUserStatisticsQuery query) =>
-{
-    return await mediator.SendQuery(query);
-})
-.WithName("GetUserStatistics")
-.WithSummary("Get user statistics (Admin)")
-.WithDescription("Retrieves comprehensive user statistics - Admin access required")
-.WithTags("User Management")
-.RequireAuthorization(Policies.RequireAdminRole)
-.Produces<UserStatisticsResponse>(200);
+profile.MapPut("/availability", HandleUpdateUserAvailability)
+    .WithName("UpdateUserAvailability")
+    .WithSummary("Update user availability")
+    .WithDescription("Updates the user's availability schedule")
+    .WithTags("User Availability")
+    .RequireAuthorization()
+    .Produces<UpdateUserAvailabilityResponse>(200)
+    .Produces(400)
+    .Produces(401);
 
-app.MapGet("/users/{userId}/activity", async (IMediator mediator, string userId, [AsParameters] GetUserActivityLogQuery query) =>
-{
-    // Update query with userId from route
-    var updatedQuery = query with { UserId = userId };
-    return await mediator.SendQuery(updatedQuery);
-})
-.WithName("GetUserActivity")
-.WithSummary("Get user activity log")
-.WithDescription("Retrieves user activity log - Admin access or own data required")
-.WithTags("User Management")
-.RequireAuthorization()
-.Produces<PagedResponse<UserActivityResponse>>(200);
+// ============================================================================
+// API ENDPOINTS - NOTIFICATION PREFERENCES
+// ============================================================================
+
+profile.MapGet("/notifications", HandleGetNotificationPreferences)
+    .WithName("GetNotificationPreferences")
+    .WithSummary("Get notification preferences")
+    .WithDescription("Retrieves the user's notification preferences")
+    .WithTags("Notifications")
+    .RequireAuthorization()
+    .Produces<NotificationPreferencesResponse>(200)
+    .Produces(401);
+
+profile.MapPut("/notifications", HandleUpdateNotificationPreferences)
+    .WithName("UpdateNotificationPreferences")
+    .WithSummary("Update notification preferences")
+    .WithDescription("Updates the user's notification preferences")
+    .WithTags("Notifications")
+    .RequireAuthorization()
+    .Produces<UpdateNotificationPreferencesResponse>(200)
+    .Produces(400)
+    .Produces(401);
+
+// ============================================================================
+// API ENDPOINTS - USER BLOCKING
+// ============================================================================
+
+profile.MapPost("/block", HandleBlockUser)
+    .WithName("BlockUser")
+    .WithSummary("Block a user")
+    .WithDescription("Blocks a user from interacting with the current user")
+    .WithTags("User Management")
+    .RequireAuthorization()
+    .Produces(200)
+    .Produces(400)
+    .Produces(401);
+
+profile.MapDelete("/block", HandleUnblockUser)
+    .WithName("UnblockUser")
+    .WithSummary("Unblock a user")
+    .WithDescription("Unblocks a previously blocked user")
+    .WithTags("User Management")
+    .RequireAuthorization()
+    .Produces(200)
+    .Produces(400)
+    .Produces(401);
+
+profile.MapGet("/blocked", HandleGetBlockedUsers)
+    .WithName("GetBlockedUsers")
+    .WithSummary("Get blocked users")
+    .WithDescription("Retrieves a list of users blocked by the current user")
+    .WithTags("User Management")
+    .RequireAuthorization()
+    .Produces<GetBlockedUsersResponse>(200)
+    .Produces(401);
+
+#endregion
+
+#region Users
+
+// ============================================================================
+// API ENDPOINTS - FAVORITE SKILLS
+// ============================================================================
+
+users.MapGet("/favorites", HandleGetFavoriteSkills)
+    .WithName("GetFavoriteSkills")
+    .WithSummary("Get user's favorite skills")
+    .WithDescription("Retrieves a list of skill IDs that the user has marked as favorite")
+    .WithTags("Favorites")
+    .RequireAuthorization()
+    .Produces<List<string>>(200)
+    .Produces(401);
+
+users.MapPost("/favorites", HandleAddFavoriteSkill)
+    .WithName("AddFavoriteSkill")
+    .WithSummary("Add a skill to user's favorites")
+    .WithDescription("Adds a skill to the user's list of favorites")
+    .WithTags("Favorites")
+    .RequireAuthorization()
+    .Produces<bool>(200)
+    .Produces(400)
+    .Produces(401);
+
+users.MapDelete("/favorites", HandleRemoveFavoriteSkill)
+    .WithName("RemoveFavoriteSkill")
+    .WithSummary("Remove a skill from user's favorites")
+    .WithDescription("Removes a skill from the user's list of favorites")
+    .WithTags("Favorites")
+    .RequireAuthorization()
+    .Produces<bool>(200)
+    .Produces(400)
+    .Produces(401);
+
+// ============================================================================
+// API ENDPOINTS - USER DISCOVERY
+// ============================================================================
+
+users.MapGet("/", HandleGetUserById)
+    .WithName("GetUserById")
+    .WithSummary("Get public user profile by ID")
+    .WithDescription("Retrieves a user's public profile information by userId")
+    .WithTags("User Discovery")
+    .RequireAuthorization()
+    .Produces<PublicUserProfileResponse>(200)
+    .Produces(401)
+    .Produces(404);
+
+users.MapGet("/search", HandleSearchUsers)
+    .WithName("SearchUsers")
+    .WithSummary("Search users")
+    .WithDescription("Search for users by various criteria")
+    .WithTags("User Discovery")
+    .RequireAuthorization()
+    .Produces<PagedResponse<UserSearchResultResponse>>(200)
+    .Produces(401);
 
 // ============================================================================
 // API ENDPOINTS - UTILITY
 // ============================================================================
 
-app.MapGet("/users/email-availability", async (IMediator mediator, string email) =>
-{
-    var query = new CheckEmailAvailabilityQuery(email);
-    return await mediator.SendQuery(query);
-})
-.WithName("CheckEmailAvailability")
-.WithSummary("Check email availability")
-.WithDescription("Checks if an email address is available for registration")
-.WithTags("Utility")
-.Produces<EmailAvailabilityResponse>(200);
+users.MapGet("/email-availability", HandleCheckEmailAvailability)
+    .WithName("CheckEmailAvailability")
+    .WithSummary("Check email availability")
+    .WithDescription("Checks if an email address is available for registration")
+    .WithTags("Utility")
+    .Produces<EmailAvailabilityResponse>(200)
+    .Produces(400);
 
-app.MapGet("/users/{userId}/roles", async (IMediator mediator, string userId) =>
-{
-    var query = new GetUserRolesQuery(userId);
-    return await mediator.SendQuery(query);
-})
-.WithName("GetUserRoles")
-.WithSummary("Get user roles")
-.WithDescription("Retrieves user roles and permissions")
-.WithTags("User Management")
-.RequireAuthorization()
-.Produces<UserRolesResponse>(200);
+users.MapGet("/roles", HandleGetUserRoles)
+    .WithName("GetUserRoles")
+    .WithSummary("Get user roles")
+    .WithDescription("Retrieves user roles and permissions")
+    .WithTags("User Management")
+    .RequireAuthorization()
+    .Produces<UserRolesResponse>(200)
+    .Produces(401)
+    .Produces(403);
 
-app.MapPost("/events/replay", async (EventReplayService replayService) =>
-{
-    await replayService.ReplayAsync();
-    return Results.Ok();
-})
-.WithName("ReplayEvents")
-.WithSummary("Replay domain events")
-.WithTags("Events");
+#endregion
+
+#region Admin
+
+RouteGroupBuilder admin = app.MapGroup("/admin")
+    .RequireAuthorization(Policies.RequireAdminRole);
 
 // ============================================================================
-// HEALTH CHECK ENDPOINTS
+// API ENDPOINTS - ADMIN USER MANAGEMENT
 // ============================================================================
 
-app.MapGet("/health/ready", async (UserDbContext dbContext) =>
+admin.MapGet("/users", HandleGetAllUsers)
+    .WithName("GetAllUsers")
+    .WithSummary("Get all users (Admin)")
+    .WithDescription("Retrieves all users with filtering and pagination - Admin access required")
+    .WithTags("Admin")
+    .Produces<PagedResponse<UserAdminResponse>>(200)
+    .Produces(401)
+    .Produces(403);
+
+admin.MapGet("/users/statistics", HandleGetUserStatistics)
+    .WithName("GetUserStatistics")
+    .WithSummary("Get user statistics (Admin)")
+    .WithDescription("Retrieves comprehensive user statistics - Admin access required")
+    .WithTags("Admin")
+    .RequireAuthorization(Policies.RequireAdminRole)
+    .Produces<UserStatisticsResponse>(200)
+    .Produces(401)
+    .Produces(403);
+
+admin.MapPut("/users/status", HandleUpdateUserStatus)
+    .WithName("UpdateUserStatus")
+    .WithSummary("Update user status (Admin)")
+    .WithDescription("Updates a user's status (active, suspended, banned) - Admin access required")
+    .WithTags("Admin")
+    .RequireAuthorization(Policies.RequireAdminRole)
+    .Produces(200)
+    .Produces(400)
+    .Produces(401)
+    .Produces(403);
+
+admin.MapGet("/admin/users/activity", HandleGetUserActivity)
+    .WithName("GetUserActivity")
+    .WithSummary("Get user activity log (Admin)")
+    .WithDescription("Retrieves user activity log - Admin access required")
+    .WithTags("Admin")
+    .RequireAuthorization(Policies.RequireAdminRole)
+    .Produces<PagedResponse<UserActivityResponse>>(200)
+    .Produces(401)
+    .Produces(403);
+
+#endregion
+
+#region Health
+
+RouteGroupBuilder health = app.MapGroup("/health");
+
+// ============================================================================
+// API ENDPOINTS - HEALTH CHECK
+// ============================================================================
+
+health.MapGet("/ready", HandleHealthReady)
+    .WithName("HealthReady")
+    .WithSummary("Readiness check")
+    .WithTags("Health");
+
+health.MapGet("/live", HandleHealthLive)
+    .WithName("HealthLive")
+    .WithSummary("Liveness check")
+    .WithTags("Health");
+
+#endregion
+
+#region Events
+
+RouteGroupBuilder events = app.MapGroup("/events");
+
+// ============================================================================
+// API ENDPOINTS - EVENTS (Development)
+// ============================================================================
+
+events.MapPost("/replay", HandleReplayEvents)
+    .WithName("ReplayEvents")
+    .WithSummary("Replay domain events")
+    .WithTags("Events");
+
+#endregion
+
+#region Auth Methods
+
+// ============================================================================
+// HANDLER METHODS - AUTHENTICATION
+// ============================================================================
+
+static async Task<IResult> HandleRegisterUser(IMediator mediator, RegisterUserCommand command)
+{
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> HandleLoginUser(IMediator mediator, LoginUserCommand command)
+{
+    
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> HandleRefreshToken(IMediator mediator, RefreshTokenCommand command)
+{
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> HandleVerifyEmail(IMediator mediator, VerifyEmailCommand command)
+{
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> HandleResendVerification(IMediator mediator, ResendVerificationCommand command)
+{
+    return await mediator.SendCommand(command);
+}
+
+#endregion
+
+// ============================================================================
+// HANDLER METHODS - TWO-FACTOR AUTHENTICATION
+// ============================================================================
+
+static async Task<IResult> HandleGenerateTwoFactorSecret(IMediator mediator, ClaimsPrincipal user, GenerateTwoFactorSecretCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+static async Task<IResult> HandleVerifyTwoFactorCode(IMediator mediator, ClaimsPrincipal user, VerifyTwoFactorCodeCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+static async Task<IResult> HandleDisableTwoFactor(IMediator mediator, ClaimsPrincipal user, DisableTwoFactorCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+static async Task<IResult> HandleGetTwoFactorStatus(IMediator mediator, ClaimsPrincipal user, GetTwoFactorStatusQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(query);
+}
+
+// ============================================================================
+// HANDLER METHODS - PASSWORD MANAGEMENT
+// ============================================================================
+
+static async Task<IResult> HandleRequestPasswordReset(IMediator mediator, RequestPasswordResetCommand command)
+{
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> HandleResetPassword(IMediator mediator, ResetPasswordCommand command)
+{
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> HandleChangePassword(IMediator mediator, ClaimsPrincipal user, ChangePasswordCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+// ============================================================================
+// HANDLER METHODS - USER PROFILE
+// ============================================================================
+
+static async Task<IResult> HandleGetUserProfile(IMediator mediator, ClaimsPrincipal user, GetUserProfileQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> HandleUpdateUserProfile(IMediator mediator, ClaimsPrincipal user, UpdateUserProfileCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+static async Task<IResult> HandleUploadAvatar(IMediator mediator, ClaimsPrincipal user, UploadAvatarCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+static async Task<IResult> HandleDeleteAvatar(IMediator mediator, ClaimsPrincipal user, DeleteAvatarCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+// ============================================================================
+// HANDLER METHODS - USER AVAILABILITY
+// ============================================================================
+
+static async Task<IResult> HandleGetUserAvailability(IMediator mediator, ClaimsPrincipal user, GetUserAvailabilityQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> HandleUpdateUserAvailability(IMediator mediator, ClaimsPrincipal user, UpdateUserAvailabilityCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+// ============================================================================
+// HANDLER METHODS - NOTIFICATION PREFERENCES
+// ============================================================================
+
+static async Task<IResult> HandleGetNotificationPreferences(IMediator mediator, ClaimsPrincipal user, GetNotificationPreferencesQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> HandleUpdateNotificationPreferences(IMediator mediator, ClaimsPrincipal user, UpdateNotificationPreferencesCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+// ============================================================================
+// HANDLER METHODS - FAVORITE SKILLS
+// ============================================================================
+
+static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetFavoriteSkillsQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> HandleAddFavoriteSkill(IMediator mediator, ClaimsPrincipal user, AddFavoriteSkillCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+static async Task<IResult> HandleRemoveFavoriteSkill(IMediator mediator, ClaimsPrincipal user, RemoveFavoriteSkillCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+// ============================================================================
+// HANDLER METHODS - USER DISCOVERY
+// ============================================================================
+
+static async Task<IResult> HandleGetUserById(IMediator mediator, ClaimsPrincipal user, GetPublicUserProfileQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> HandleSearchUsers(IMediator mediator, ClaimsPrincipal user, [AsParameters] SearchUsersQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    return await mediator.SendQuery(query);
+}
+
+// ============================================================================
+// HANDLER METHODS - USER BLOCKING
+// ============================================================================
+
+static async Task<IResult> HandleBlockUser(IMediator mediator, ClaimsPrincipal user, BlockUserCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+static async Task<IResult> HandleUnblockUser(IMediator mediator, ClaimsPrincipal user, UnblockUserCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+static async Task<IResult> HandleGetBlockedUsers(IMediator mediator, ClaimsPrincipal user, GetBlockedUsersQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(query);
+}
+
+// ============================================================================
+// HANDLER METHODS - ADMIN USER MANAGEMENT
+// ============================================================================
+
+static async Task<IResult> HandleGetAllUsers(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetAllUsersQuery query)
+{
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> HandleGetUserStatistics(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserStatisticsQuery query)
+{
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> HandleUpdateUserStatus(IMediator mediator, ClaimsPrincipal user, UpdateUserStatusCommand command)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+}
+
+static async Task<IResult> HandleGetUserActivity(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserActivityLogQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(updatedQuery);
+}
+
+// ============================================================================
+// HANDLER METHODS - UTILITY
+// ============================================================================
+
+static async Task<IResult> HandleCheckEmailAvailability(IMediator mediator, CheckEmailAvailabilityQuery query)
+{
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> HandleGetUserRoles(IMediator mediator, ClaimsPrincipal user, GetUserRolesQuery query)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    // Users can only see their own roles unless they are admin
+    if (!user.IsInRole("Admin"))
+    {
+        return Results.Forbid();
+    }
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(updatedQuery);
+}
+
+// ============================================================================
+// HANDLER METHODS - HEALTH CHECK
+// ============================================================================
+
+static async Task<IResult> HandleHealthReady(UserDbContext dbContext)
+{
+    var canConnect = await dbContext.Database.CanConnectAsync();
+    return Results.Ok(new { status = canConnect ? "ready" : "not ready", timestamp = DateTime.UtcNow });
+}
+
+static Task<IResult> HandleHealthLive()
+{
+    return Task.FromResult(Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }));
+}
+
+// ============================================================================
+// HANDLER METHODS - EVENTS
+// ============================================================================
+
+static async Task<IResult> HandleReplayEvents(EventReplayService replayService)
 {
     try
     {
-        // Simple database connectivity check
-        await dbContext.Database.CanConnectAsync();
-        return Results.Ok(new { status = "ready", timestamp = DateTime.UtcNow });
+        await replayService.ReplayAsync();
+        return Results.Ok(new { message = "Events replayed successfully" });
     }
-    catch (Exception ex)
+    catch (Exception)
     {
-        return Results.Problem($"Database connection failed: {ex.Message}");
+        return Results.Problem("An error occurred while replaying events", statusCode: 500);
     }
-})
-.WithName("HealthReady")
-.WithSummary("Readiness check")
-.WithTags("Health");
-
-app.MapGet("/health/live", () =>
-{
-    return Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow });
-})
-.WithName("HealthLive")
-.WithSummary("Liveness check")
-.WithTags("Health");
-
-// ============================================================================
-// HELPER METHODS
-// ============================================================================
-
-static string? ExtractUserIdFromContext(HttpContext context)
-{
-    return context.User.FindFirst("user_id")?.Value
-           ?? context.User.FindFirst("sub")?.Value
-           ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 }
 
 // ============================================================================

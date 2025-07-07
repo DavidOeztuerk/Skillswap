@@ -26,8 +26,10 @@ public class RequestPasswordResetCommandHandler(
     {
         try
         {
+
+            var email = request.Email;
             var user = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
+                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
             // Always return success for security reasons (don't reveal if email exists)
             var response = new RequestPasswordResetResponse(
@@ -48,6 +50,7 @@ public class RequestPasswordResetCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event for email sending
+
             await _eventPublisher.Publish(new PasswordResetRequestedDomainEvent(
                 user.Id,
                 user.Email,

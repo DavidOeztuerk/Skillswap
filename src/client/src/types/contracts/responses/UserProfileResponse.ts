@@ -1,0 +1,16 @@
+export interface UserProfileResponse {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  userName: string;
+  phoneNumber?: string;
+  bio?: string;
+  timeZone?: string;
+  roles: string[];
+  emailVerified: boolean;
+  accountStatus: string;
+  createdAt: string;
+  lastLoginAt?: string;
+  preferences?: Record<string, string>;
+}

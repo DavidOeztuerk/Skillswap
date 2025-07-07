@@ -157,68 +157,71 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // API Endpoints
-app.MapPost("/appointments", async (IMediator mediator, HttpContext context, CreateAppointmentCommand command) =>
+                                                             
+// Grouped endpoints for appointments
+var appointments = app.MapGroup("/appointments").WithTags("Appointments");
+
+appointments.MapPost("/", async (IMediator mediator, HttpContext context, CreateAppointmentCommand command) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     command.UserId = userId;
     return await mediator.SendCommand(command);
 })
-.WithName("CreateAppointment")
-.WithSummary("Create a new appointment")
-.WithTags("Appointments")
-.RequireAuthorization();
+    .WithName("CreateAppointment")
+    .WithSummary("Create a new appointment")
+    .WithDescription("Creates a new appointment for the authenticated user.")
+    .RequireAuthorization();
 
-app.MapPost("/appointments/{appointmentId}/accept", async (IMediator mediator, HttpContext context, string appointmentId) =>
+appointments.MapPost("/{appointmentId}/accept", async (IMediator mediator, HttpContext context, string appointmentId) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     var command = new AcceptAppointmentCommand(appointmentId) { UserId = userId };
     return await mediator.SendCommand(command);
 })
-.WithName("AcceptAppointment")
-.WithSummary("Accept an appointment")
-.WithTags("Appointments")
-.RequireAuthorization();
+    .WithName("AcceptAppointment")
+    .WithSummary("Accept an appointment")
+    .WithDescription("Accepts an appointment for the authenticated user.")
+    .RequireAuthorization();
 
-app.MapPost("/appointments/{appointmentId}/cancel", async (IMediator mediator, HttpContext context, string appointmentId, string? reason = null) =>
+appointments.MapPost("/{appointmentId}/cancel", async (IMediator mediator, HttpContext context, string appointmentId, string? reason = null) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     var command = new CancelAppointmentCommand(appointmentId, reason) { UserId = userId };
     return await mediator.SendCommand(command);
 })
-.WithName("CancelAppointment")
-.WithSummary("Cancel an appointment")
-.WithTags("Appointments")
-.RequireAuthorization();
+    .WithName("CancelAppointment")
+    .WithSummary("Cancel an appointment")
+    .WithDescription("Cancels an appointment for the authenticated user.")
+    .RequireAuthorization();
 
-app.MapGet("/appointments/{appointmentId}", async (IMediator mediator, string appointmentId) =>
+appointments.MapGet("/{appointmentId}", async (IMediator mediator, string appointmentId) =>
 {
     var query = new GetAppointmentDetailsQuery(appointmentId);
     return await mediator.SendQuery(query);
 })
-.WithName("GetAppointmentDetails")
-.WithSummary("Get appointment details")
-.WithTags("Appointments");
+    .WithName("GetAppointmentDetails")
+    .WithSummary("Get appointment details")
+    .WithDescription("Retrieves details for a specific appointment.");
 
-app.MapGet("/my/appointments", async (IMediator mediator, HttpContext context, [AsParameters] GetUserAppointmentsQuery query) =>
+// Grouped endpoints for user appointments
+var myAppointments = app.MapGroup("/my/appointments").WithTags("Appointments");
+myAppointments.MapGet("/", async (IMediator mediator, HttpContext context, [AsParameters] GetUserAppointmentsQuery query) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     return await mediator.SendQuery(query);
 })
-.WithName("GetMyAppointments")
-.WithSummary("Get my appointments")
-.WithTags("Appointments")
-.RequireAuthorization();
+    .WithName("GetMyAppointments")
+    .WithSummary("Get my appointments")
+    .WithDescription("Retrieves all appointments for the authenticated user.")
+    .RequireAuthorization();
 
-// Health checks
-app.MapGet("/health/ready", async (AppointmentDbContext dbContext) =>
+// Grouped endpoints for health
+var health = app.MapGroup("/health").WithTags("Health");
+health.MapGet("/ready", async (AppointmentDbContext dbContext) =>
 {
     try
     {
@@ -230,12 +233,12 @@ app.MapGet("/health/ready", async (AppointmentDbContext dbContext) =>
         return Results.Problem($"Health check failed: {ex.Message}");
     }
 })
-.WithName("HealthReady")
-.WithTags("Health");
+    .WithName("HealthReady")
+    .WithSummary("Readiness check");
 
-app.MapGet("/health/live", () => Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }))
-.WithName("HealthLive")
-.WithTags("Health");
+health.MapGet("/live", () => Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }))
+    .WithName("HealthLive")
+    .WithSummary("Liveness check");
 
 // Helper method
 static string? ExtractUserIdFromContext(HttpContext context)

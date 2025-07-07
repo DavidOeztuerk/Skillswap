@@ -12,15 +12,10 @@ import {
   Typography,
   Switch,
   FormControlLabel,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  useTheme,
+  // useTheme,
   CircularProgress,
 } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
+import FormDialog from '../ui/FormDialog';
 import { SelectChangeEvent } from '@mui/material';
 import {
   Skill,
@@ -57,7 +52,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
   skill,
   title,
 }) => {
-  const theme = useTheme();
+  // const theme = useTheme();
 
   const [formValues, setFormValues] = useState<SkillRequest>({
     name: '',
@@ -212,180 +207,14 @@ const SkillForm: React.FC<SkillFormProps> = ({
   });
 
   return (
-    <Dialog
+    <FormDialog
       open={open}
       onClose={handleDialogClose}
+      title={title || (skill ? 'Skill bearbeiten' : 'Neuen Skill erstellen')}
       maxWidth="sm"
       fullWidth
-      aria-labelledby="skill-form-dialog-title"
-    >
-      <DialogTitle id="skill-form-dialog-title">
-        {title || (skill ? 'Skill bearbeiten' : 'Neuen Skill erstellen')}
-        <IconButton
-          aria-label="Schließen"
-          onClick={handleDialogClose}
-          disabled={loading}
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-            color: theme.palette.grey[500],
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <form onSubmit={handleSubmit}>
-        <DialogContent dividers>
-          <Box sx={{ mb: 3 }}>
-            <TextField
-              fullWidth
-              label="Name"
-              name="name"
-              value={formValues.name}
-              onChange={handleTextChange}
-              error={!!errors.name}
-              helperText={errors.name}
-              disabled={loading}
-              autoFocus
-              margin="normal"
-              required
-            />
-
-            <TextField
-              fullWidth
-              label="Beschreibung"
-              name="description"
-              value={formValues.description}
-              onChange={handleTextChange}
-              error={!!errors.description}
-              helperText={
-                errors.description || 'Mindestens 10 Zeichen erforderlich'
-              }
-              multiline
-              rows={4}
-              disabled={loading}
-              margin="normal"
-              required
-              inputProps={{
-                maxLength: 2000,
-              }}
-            />
-
-            <FormControl
-              fullWidth
-              error={!!errors.skillCategoryId}
-              disabled={loading || !hasCategories}
-              margin="normal"
-              required
-            >
-              <InputLabel id="category-select-label">Kategorie</InputLabel>
-              <Select
-                labelId="category-select-label"
-                name="skillCategoryId"
-                value={formValues.skillCategoryId}
-                onChange={handleSelectChange}
-                label="Kategorie"
-              >
-                {hasCategories ? (
-                  categories.map((category) => {
-                    const categoryId = getCategoryId(category);
-                    return (
-                      <MenuItem key={categoryId} value={categoryId}>
-                        {category.name}
-                      </MenuItem>
-                    );
-                  })
-                ) : (
-                  <MenuItem disabled>Kategorien werden geladen...</MenuItem>
-                )}
-              </Select>
-              {errors.skillCategoryId && (
-                <FormHelperText>{errors.skillCategoryId}</FormHelperText>
-              )}
-              {!hasCategories && (
-                <FormHelperText>Kategorien werden geladen...</FormHelperText>
-              )}
-            </FormControl>
-
-            <FormControl
-              fullWidth
-              error={!!errors.proficiencyLevelId}
-              disabled={loading || !hasProficiencyLevels}
-              margin="normal"
-              required
-            >
-              <InputLabel id="proficiency-select-label">
-                Fertigkeitsstufe
-              </InputLabel>
-              <Select
-                labelId="proficiency-select-label"
-                name="proficiencyLevelId"
-                value={formValues.proficiencyLevelId}
-                onChange={handleSelectChange}
-                label="Fertigkeitsstufe"
-              >
-                {hasProficiencyLevels ? (
-                  [...proficiencyLevels]
-                    .sort(
-                      (a, b) =>
-                        getProficiencyLevelRank(a) - getProficiencyLevelRank(b)
-                    )
-                    .map((level) => {
-                      const levelId = getProficiencyLevelId(level);
-                      const rank = getProficiencyLevelRank(level);
-                      return (
-                        <MenuItem key={levelId} value={levelId}>
-                          {level.level} {rank > 0 && `(${'★'.repeat(rank)})`}
-                        </MenuItem>
-                      );
-                    })
-                ) : (
-                  <MenuItem disabled>
-                    Fertigkeitsstufen werden geladen...
-                  </MenuItem>
-                )}
-              </Select>
-              {errors.proficiencyLevelId && (
-                <FormHelperText>{errors.proficiencyLevelId}</FormHelperText>
-              )}
-              {!hasProficiencyLevels && (
-                <FormHelperText>
-                  Fertigkeitsstufen werden geladen...
-                </FormHelperText>
-              )}
-            </FormControl>
-
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formValues.isOffering}
-                  onChange={handleSwitchChange}
-                  name="isOffering"
-                  color="primary"
-                  disabled={loading}
-                />
-              }
-              label={
-                <Typography>
-                  {formValues.isOffering ? 'Angeboten' : 'Gesucht'}
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ ml: 1 }}
-                  >
-                    {formValues.isOffering
-                      ? '(Ich biete diese Fähigkeit an)'
-                      : '(Ich suche jemanden mit dieser Fähigkeit)'}
-                  </Typography>
-                </Typography>
-              }
-              sx={{ mt: 2 }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
+      actions={
+        <>
           <Button onClick={handleDialogClose} disabled={loading}>
             Abbrechen
           </Button>
@@ -395,6 +224,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
             color="primary"
             disabled={loading || !hasCategories || !hasProficiencyLevels}
             startIcon={loading ? <CircularProgress size={20} /> : undefined}
+            form="skill-form"
           >
             {loading
               ? 'Wird gespeichert...'
@@ -402,9 +232,159 @@ const SkillForm: React.FC<SkillFormProps> = ({
                 ? 'Aktualisieren'
                 : 'Erstellen'}
           </Button>
-        </DialogActions>
+        </>
+      }
+    >
+      <form id="skill-form" onSubmit={handleSubmit}>
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            fullWidth
+            label="Name"
+            name="name"
+            value={formValues.name}
+            onChange={handleTextChange}
+            error={!!errors.name}
+            helperText={errors.name}
+            disabled={loading}
+            autoFocus
+            margin="normal"
+            required
+          />
+
+          <TextField
+            fullWidth
+            label="Beschreibung"
+            name="description"
+            value={formValues.description}
+            onChange={handleTextChange}
+            error={!!errors.description}
+            helperText={
+              errors.description || 'Mindestens 10 Zeichen erforderlich'
+            }
+            multiline
+            rows={4}
+            disabled={loading}
+            margin="normal"
+            required
+            inputProps={{
+              maxLength: 2000,
+            }}
+          />
+
+          <FormControl
+            fullWidth
+            error={!!errors.skillCategoryId}
+            disabled={loading || !hasCategories}
+            margin="normal"
+            required
+          >
+            <InputLabel id="category-select-label">Kategorie</InputLabel>
+            <Select
+              labelId="category-select-label"
+              name="skillCategoryId"
+              value={formValues.skillCategoryId}
+              onChange={handleSelectChange}
+              label="Kategorie"
+            >
+              {hasCategories ? (
+                categories.map((category) => {
+                  const categoryId = getCategoryId(category);
+                  return (
+                    <MenuItem key={categoryId} value={categoryId}>
+                      {category.name}
+                    </MenuItem>
+                  );
+                })
+              ) : (
+                <MenuItem disabled>Kategorien werden geladen...</MenuItem>
+              )}
+            </Select>
+            {errors.skillCategoryId && (
+              <FormHelperText>{errors.skillCategoryId}</FormHelperText>
+            )}
+            {!hasCategories && (
+              <FormHelperText>Kategorien werden geladen...</FormHelperText>
+            )}
+          </FormControl>
+
+          <FormControl
+            fullWidth
+            error={!!errors.proficiencyLevelId}
+            disabled={loading || !hasProficiencyLevels}
+            margin="normal"
+            required
+          >
+            <InputLabel id="proficiency-select-label">
+              Fertigkeitsstufe
+            </InputLabel>
+            <Select
+              labelId="proficiency-select-label"
+              name="proficiencyLevelId"
+              value={formValues.proficiencyLevelId}
+              onChange={handleSelectChange}
+              label="Fertigkeitsstufe"
+            >
+              {hasProficiencyLevels ? (
+                [...proficiencyLevels]
+                  .sort(
+                    (a, b) =>
+                      getProficiencyLevelRank(a) - getProficiencyLevelRank(b)
+                  )
+                  .map((level) => {
+                    const levelId = getProficiencyLevelId(level);
+                    const rank = getProficiencyLevelRank(level);
+                    return (
+                      <MenuItem key={levelId} value={levelId}>
+                        {level.level} {rank > 0 && `(${'★'.repeat(rank)})`}
+                      </MenuItem>
+                    );
+                  })
+              ) : (
+                <MenuItem disabled>
+                  Fertigkeitsstufen werden geladen...
+                </MenuItem>
+              )}
+            </Select>
+            {errors.proficiencyLevelId && (
+              <FormHelperText>{errors.proficiencyLevelId}</FormHelperText>
+            )}
+            {!hasProficiencyLevels && (
+              <FormHelperText>
+                Fertigkeitsstufen werden geladen...
+              </FormHelperText>
+            )}
+          </FormControl>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formValues.isOffering}
+                onChange={handleSwitchChange}
+                name="isOffering"
+                color="primary"
+                disabled={loading}
+              />
+            }
+            label={
+              <Typography>
+                {formValues.isOffering ? 'Angeboten' : 'Gesucht'}
+                <Typography
+                  component="span"
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ ml: 1 }}
+                >
+                  {formValues.isOffering
+                    ? '(Ich biete diese Fähigkeit an)'
+                    : '(Ich suche jemanden mit dieser Fähigkeit)'}
+                </Typography>
+              </Typography>
+            }
+            sx={{ mt: 2 }}
+          />
+        </Box>
       </form>
-    </Dialog>
+    </FormDialog>
   );
 };
 
