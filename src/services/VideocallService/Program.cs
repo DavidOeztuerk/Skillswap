@@ -190,108 +190,111 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // API Endpoints
-app.MapPost("/calls/create", async (IMediator mediator, HttpContext context, CreateCallSessionCommand command) =>
+
+// Grouped endpoints for calls
+var calls = app.MapGroup("/calls").WithTags("VideoCalls");
+
+calls.MapPost("/create", async (IMediator mediator, HttpContext context, CreateCallSessionCommand command) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     command.UserId = userId;
     return await mediator.SendCommand(command);
 })
-.WithName("CreateCallSession")
-.WithSummary("Create a new video call session")
-.WithTags("VideoCalls")
-.RequireAuthorization();
+    .WithName("CreateCallSession")
+    .WithSummary("Create a new video call session")
+    .WithDescription("Creates a new video call session for the authenticated user.")
+    .RequireAuthorization();
 
-app.MapPost("/calls/{sessionId}/join", async (IMediator mediator, HttpContext context, string sessionId, JoinCallCommand command) =>
+calls.MapPost("/{sessionId}/join", async (IMediator mediator, HttpContext context, string sessionId, JoinCallCommand command) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     command.UserId = userId;
     var updatedCommand = command with { SessionId = sessionId };
     return await mediator.SendCommand(updatedCommand);
 })
-.WithName("JoinCall")
-.WithSummary("Join a video call session")
-.WithTags("VideoCalls")
-.RequireAuthorization();
+    .WithName("JoinCall")
+    .WithSummary("Join a video call session")
+    .WithDescription("Joins a video call session for the authenticated user.")
+    .RequireAuthorization();
 
-app.MapPost("/calls/{sessionId}/leave", async (IMediator mediator, HttpContext context, string sessionId, string? reason = null) =>
+calls.MapPost("/{sessionId}/leave", async (IMediator mediator, HttpContext context, string sessionId, string? reason = null) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     var command = new LeaveCallCommand(sessionId, reason) { UserId = userId };
     return await mediator.SendCommand(command);
 })
-.WithName("LeaveCall")
-.WithSummary("Leave a video call session")
-.WithTags("VideoCalls")
-.RequireAuthorization();
+    .WithName("LeaveCall")
+    .WithSummary("Leave a video call session")
+    .WithDescription("Leaves a video call session for the authenticated user.")
+    .RequireAuthorization();
 
-app.MapPost("/calls/{sessionId}/start", async (IMediator mediator, HttpContext context, string sessionId) =>
+calls.MapPost("/{sessionId}/start", async (IMediator mediator, HttpContext context, string sessionId) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     var command = new StartCallCommand(sessionId) { UserId = userId };
     return await mediator.SendCommand(command);
 })
-.WithName("StartCall")
-.WithSummary("Start a video call session")
-.WithTags("VideoCalls")
-.RequireAuthorization();
+    .WithName("StartCall")
+    .WithSummary("Start a video call session")
+    .WithDescription("Starts a video call session for the authenticated user.")
+    .RequireAuthorization();
 
-app.MapPost("/calls/{sessionId}/end", async (IMediator mediator, HttpContext context, string sessionId, EndCallCommand command) =>
+calls.MapPost("/{sessionId}/end", async (IMediator mediator, HttpContext context, string sessionId, EndCallCommand command) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     command.UserId = userId;
     var updatedCommand = command with { SessionId = sessionId };
     return await mediator.SendCommand(updatedCommand);
 })
-.WithName("EndCall")
-.WithSummary("End a video call session")
-.WithTags("VideoCalls")
-.RequireAuthorization();
+    .WithName("EndCall")
+    .WithSummary("End a video call session")
+    .WithDescription("Ends a video call session for the authenticated user.")
+    .RequireAuthorization();
 
-app.MapGet("/calls/{sessionId}", async (IMediator mediator, string sessionId) =>
+calls.MapGet("/{sessionId}", async (IMediator mediator, string sessionId) =>
 {
     var query = new GetCallSessionQuery(sessionId);
     return await mediator.SendQuery(query);
 })
-.WithName("GetCallSession")
-.WithSummary("Get call session details")
-.WithTags("VideoCalls");
+    .WithName("GetCallSession")
+    .WithSummary("Get call session details")
+    .WithDescription("Retrieves details for a specific call session.");
 
-app.MapGet("/my/calls", async (IMediator mediator, HttpContext context, [AsParameters] GetUserCallHistoryQuery query) =>
+// Grouped endpoints for user call history
+var myCalls = app.MapGroup("/my/calls").WithTags("VideoCalls");
+myCalls.MapGet("/", async (IMediator mediator, HttpContext context, [AsParameters] GetUserCallHistoryQuery query) =>
 {
     var userId = ExtractUserIdFromContext(context);
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     return await mediator.SendQuery(query);
 })
-.WithName("GetMyCallHistory")
-.WithSummary("Get my call history")
-.WithTags("VideoCalls")
-.RequireAuthorization();
+    .WithName("GetMyCallHistory")
+    .WithSummary("Get my call history")
+    .WithDescription("Retrieves the authenticated user's call history.")
+    .RequireAuthorization();
 
-app.MapGet("/statistics", async (IMediator mediator, [AsParameters] GetCallStatisticsQuery query) =>
+// Grouped endpoints for analytics
+var analytics = app.MapGroup("/statistics").WithTags("Analytics");
+analytics.MapGet("/", async (IMediator mediator, [AsParameters] GetCallStatisticsQuery query) =>
 {
     return await mediator.SendQuery(query);
 })
-.WithName("GetCallStatistics")
-.WithSummary("Get call statistics")
-.WithTags("Analytics");
+    .WithName("GetCallStatistics")
+    .WithSummary("Get call statistics")
+    .WithDescription("Retrieves call statistics.");
 
 // SignalR Hub for real-time video calling
 app.MapHub<VideoCallHub>("/videocall")
     .RequireAuthorization();
 
-// Health checks
-app.MapGet("/health/ready", async (VideoCallDbContext dbContext) =>
+// Grouped endpoints for health
+var health = app.MapGroup("/health").WithTags("Health");
+health.MapGet("/ready", async (VideoCallDbContext dbContext) =>
 {
     try
     {
@@ -308,12 +311,12 @@ app.MapGet("/health/ready", async (VideoCallDbContext dbContext) =>
         return Results.Problem($"Health check failed: {ex.Message}");
     }
 })
-.WithName("HealthReady")
-.WithTags("Health");
+    .WithName("HealthReady")
+    .WithSummary("Readiness check");
 
-app.MapGet("/health/live", () => Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }))
-.WithName("HealthLive")
-.WithTags("Health");
+health.MapGet("/live", () => Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }))
+    .WithName("HealthLive")
+    .WithSummary("Liveness check");
 
 // Helper method
 static string? ExtractUserIdFromContext(HttpContext context)

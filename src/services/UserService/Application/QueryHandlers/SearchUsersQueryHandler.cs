@@ -32,9 +32,9 @@ public class SearchUsersQueryHandler(
             {
                 var searchTerm = request.SearchTerm.ToLower();
                 query = query.Where(u =>
-                    u.FirstName.ToLower().Contains(searchTerm) ||
-                    u.LastName.ToLower().Contains(searchTerm) ||
-                    u.Email.ToLower().Contains(searchTerm));
+                    u.FirstName.Contains(searchTerm, StringComparison.CurrentCultureIgnoreCase) ||
+                    u.LastName.Contains(searchTerm, StringComparison.CurrentCultureIgnoreCase) ||
+                    u.Email.Contains(searchTerm, StringComparison.CurrentCultureIgnoreCase));
             }
 
             if (!string.IsNullOrEmpty(request.Role))

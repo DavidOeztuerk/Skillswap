@@ -32,8 +32,11 @@ public class RegisterUserCommandHandler(
         try
         {
             // Check if email already exists
+
+            var email = request.Email;
+            var userName = request.UserName;
             var existingUser = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
+                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
             if (existingUser != null)
             {
@@ -41,9 +44,11 @@ public class RegisterUserCommandHandler(
             }
 
             // Create new user
+
             var user = new User
             {
-                Email = request.Email,
+                Email = email,
+                UserName = userName,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 FirstName = request.FirstName,
                 LastName = request.LastName,
@@ -68,13 +73,14 @@ public class RegisterUserCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Generate JWT tokens
+
             var userClaims = new UserClaims
             {
                 UserId = user.Id,
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Roles = new List<string> { Roles.User },
+                Roles = [Roles.User],
                 EmailVerified = false,
                 AccountStatus = user.AccountStatus
             };
@@ -94,20 +100,24 @@ public class RegisterUserCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
+
             await _eventPublisher.Publish(new UserRegisteredEvent(
                 user.Email,
                 user.FirstName,
                 user.LastName), cancellationToken);
 
             // Publish verification email event
+
             await _eventPublisher.Publish(new EmailVerificationRequestedDomainEvent(
                 user.Id,
                 user.Email,
                 user.EmailVerificationToken!,
                 user.FirstName), cancellationToken);
 
+
             Logger.LogInformation("User {Email} registered successfully with ID {UserId}",
-                request.Email, user.Id);
+                user.Email, user.Id);
+
 
             var response = new RegisterUserResponse(
                 user.Id,

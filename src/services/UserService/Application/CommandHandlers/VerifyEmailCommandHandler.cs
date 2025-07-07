@@ -1,6 +1,5 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
@@ -27,8 +26,10 @@ public class VerifyEmailCommandHandler(
     {
         try
         {
+
+            var email = request.Email;
             var user = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email 
+                .FirstOrDefaultAsync(u => u.Email == email
                                         && u.EmailVerificationToken == request.VerificationToken, cancellationToken);
 
             if (user == null || user.EmailVerificationTokenExpiresAt < DateTime.UtcNow)
@@ -51,11 +52,13 @@ public class VerifyEmailCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
+
             await _eventPublisher.Publish(new EmailVerifiedDomainEvent(
                 user.Id,
                 user.Email), cancellationToken);
 
-            Logger.LogInformation("Email verified for user {Email}", request.Email);
+
+            Logger.LogInformation("Email verified for user {Email}", user.Email);
 
             var response = new VerifyEmailResponse(true, "Email verified successfully");
             return Success(response);

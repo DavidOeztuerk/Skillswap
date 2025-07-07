@@ -9,7 +9,6 @@ namespace UserService.Domain.Models;
 public class User : AuditableEntity
 {
     [Required]
-    [EmailAddress]
     [MaxLength(256)]
     public string Email { get; set; } = string.Empty;
 
@@ -30,7 +29,7 @@ public class User : AuditableEntity
     public string UserName { get; set; } = string.Empty;
 
     [MaxLength(20)]
-    public string? PhoneNumber { get; set; }
+    public string PhoneNumber { get; set; } = string.Empty;
 
     [MaxLength(1000)]
     public string? Bio { get; set; }
@@ -66,9 +65,16 @@ public class User : AuditableEntity
     public int FailedLoginAttempts { get; set; } = 0;
     public DateTime? AccountLockedUntil { get; set; }
 
-    // Profile picture
+    // Avatar URL (replaces ProfilePictureUrl)
     [MaxLength(500)]
-    public string? ProfilePictureUrl { get; set; }
+    public string? AvatarUrl { get; set; }
+
+    // Availability and scheduling (stored as JSON)
+    public string? AvailabilityJson { get; set; }
+    public string? BlockedDatesJson { get; set; }
+
+    // Notification preferences (stored as JSON)
+    public string? NotificationPreferencesJson { get; set; }
 
     // Preferences (stored as JSON)
     public string? PreferencesJson { get; set; }
@@ -78,6 +84,12 @@ public class User : AuditableEntity
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public virtual ICollection<UserActivity> Activities { get; set; } = new List<UserActivity>();
     public virtual ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();
+    public virtual ICollection<BlockedUser> BlockedUsers { get; set; } = new List<BlockedUser>();
+
+    /// <summary>
+    /// List of Skill IDs that this user has marked as favorite
+    /// </summary>
+    public List<string> FavoriteSkillIds { get; set; } = new();
 
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();

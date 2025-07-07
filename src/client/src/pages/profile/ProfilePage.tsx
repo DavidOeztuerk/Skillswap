@@ -91,7 +91,7 @@ const ProfilePage: React.FC = () => {
       firstName: user?.firstName || '',
       lastName: user?.lastName || '',
       email: user?.email || '',
-      // bio: user?.bio || '',
+      bio: user?.bio || '',
     },
   });
 
@@ -129,7 +129,10 @@ const ProfilePage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const success = await updateProfile(data);
+      const success = await updateProfile({
+        userId: user?.id || '',
+        ...data,
+      });
 
       if (success) {
         setStatusMessage({

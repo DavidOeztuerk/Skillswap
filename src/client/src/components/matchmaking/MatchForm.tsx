@@ -1,9 +1,5 @@
 import React, { useMemo } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   FormControl,
   FormControlLabel,
@@ -12,7 +8,6 @@ import {
   TextField,
   Box,
   Typography,
-  IconButton,
   Divider,
   FormHelperText,
   Select,
@@ -23,7 +18,7 @@ import {
   InputAdornment,
   Grid,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import FormDialog from '../ui/FormDialog';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -138,247 +133,14 @@ const MatchForm: React.FC<MatchFormProps> = ({
   };
 
   return (
-    <Dialog
+    <FormDialog
       open={open}
       onClose={onClose}
-      fullWidth
+      title="Match-Anfrage erstellen"
       maxWidth="md"
-      aria-labelledby="match-form-title"
-    >
-      <DialogTitle id="match-form-title">
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Typography variant="h6">Match-Anfrage erstellen</Typography>
-          <IconButton aria-label="close" onClick={onClose} size="small">
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-
-      <form onSubmit={handleSubmit(handleFormSubmit)}>
-        <DialogContent dividers>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12 }}>
-              <Box bgcolor="action.hover" p={2} borderRadius={1} mb={2}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Skill: {skill.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {skill.description}
-                </Typography>
-              </Box>
-
-              {targetUser && (
-                <Box
-                  bgcolor="primary.main"
-                  color="primary.contrastText"
-                  p={2}
-                  borderRadius={1}
-                  mb={2}
-                >
-                  <Typography variant="subtitle1" gutterBottom>
-                    Anfrage an:{' '}
-                    {targetUser.userName ||
-                      targetUser.firstName + ' ' + targetUser.lastName}
-                  </Typography>
-                  {/* <Typography variant="body2">
-                    {targetUser.bio || 'Keine Beschreibung verfügbar'}
-                  </Typography> */}
-                </Box>
-              )}
-
-              {!targetUser && (
-                <Controller
-                  name="targetUserId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Zielbenutzer ID"
-                      fullWidth
-                      error={!!errors.targetUserId}
-                      helperText={errors.targetUserId?.message}
-                      disabled={isLoading}
-                      placeholder="Benutzer-ID eingeben"
-                    />
-                  )}
-                />
-              )}
-
-              <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
-                <FormLabel component="legend">
-                  Was möchtest du mit diesem Skill machen?
-                </FormLabel>
-                <Controller
-                  name="isOffering"
-                  control={control}
-                  render={({ field }) => (
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                          disabled={isLoading}
-                        />
-                      }
-                      label={
-                        field.value
-                          ? 'Ich möchte diesen Skill anbieten (lehren)'
-                          : 'Ich möchte diesen Skill lernen'
-                      }
-                    />
-                  )}
-                />
-              </FormControl>
-              <Divider sx={{ my: 2 }} />
-            </Grid>
-
-            {/* Message */}
-            <Grid size={{ xs: 12 }}>
-              <Controller
-                name="message"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Persönliche Nachricht (optional)"
-                    multiline
-                    rows={3}
-                    fullWidth
-                    error={!!errors.message}
-                    helperText={errors.message?.message}
-                    disabled={isLoading}
-                    placeholder="Stelle dich kurz vor und erkläre, warum du dich für diesen Skill-Austausch interessierst..."
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* PreferredDays */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="preferredDays"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.preferredDays}>
-                    <FormLabel component="legend">Bevorzugte Tage</FormLabel>
-                    <Select
-                      multiple
-                      value={field.value}
-                      onChange={(event) => field.onChange(event.target.value)}
-                      input={<OutlinedInput id="select-multiple-days" />}
-                      renderValue={(selected) => (
-                        <Box
-                          sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
-                        >
-                          {(selected as string[]).map((value) => (
-                            <Chip key={value} label={value} />
-                          ))}
-                        </Box>
-                      )}
-                      MenuProps={MenuProps}
-                      disabled={isLoading}
-                    >
-                      {WEEKDAYS.map((day) => (
-                        <MenuItem key={day} value={day}>
-                          <Checkbox checked={field.value.indexOf(day) > -1} />
-                          <ListItemText primary={day} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.preferredDays && (
-                      <FormHelperText>
-                        {errors.preferredDays.message}
-                      </FormHelperText>
-                    )}
-                  </FormControl>
-                )}
-              />
-            </Grid>
-
-            {/* PreferredTimes */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="preferredTimes"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.preferredTimes}>
-                    <FormLabel component="legend">Bevorzugte Zeiten</FormLabel>
-                    <Select
-                      multiple
-                      value={field.value}
-                      onChange={(event) => field.onChange(event.target.value)}
-                      input={<OutlinedInput id="select-multiple-times" />}
-                      renderValue={(selected) => (
-                        <Box
-                          sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
-                        >
-                          {(selected as string[]).map((value) => (
-                            <Chip key={value} label={value} />
-                          ))}
-                        </Box>
-                      )}
-                      MenuProps={MenuProps}
-                      disabled={isLoading}
-                    >
-                      {TIME_SLOTS.map((time) => (
-                        <MenuItem key={time} value={time}>
-                          <Checkbox checked={field.value.indexOf(time) > -1} />
-                          <ListItemText primary={time} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.preferredTimes && (
-                      <FormHelperText>
-                        {errors.preferredTimes.message}
-                      </FormHelperText>
-                    )}
-                  </FormControl>
-                )}
-              />
-            </Grid>
-
-            {/* AdditionalNotes */}
-            <Grid size={{ xs: 12 }}>
-              <Controller
-                name="additionalNotes"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Zusätzliche Notizen (optional)"
-                    multiline
-                    rows={4}
-                    fullWidth
-                    error={!!errors.additionalNotes}
-                    helperText={errors.additionalNotes?.message}
-                    disabled={isLoading}
-                    placeholder={
-                      watch('isOffering')
-                        ? 'Beschreibe, was du unterrichten kannst und wie du den Austausch gestalten möchtest...'
-                        : 'Beschreibe, was du gerne lernen möchtest und welche Vorkenntnisse du hast...'
-                    }
-                    slotProps={{
-                      input: {
-                        endAdornment: field.value ? (
-                          <InputAdornment position="end">
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {field.value.length}/500
-                            </Typography>
-                          </InputAdornment>
-                        ) : null,
-                      },
-                    }}
-                  />
-                )}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-
-        <DialogActions>
+      fullWidth
+      actions={
+        <>
           <Button onClick={onClose} color="inherit" disabled={isLoading}>
             Abbrechen
           </Button>
@@ -390,9 +152,232 @@ const MatchForm: React.FC<MatchFormProps> = ({
           >
             Match-Anfrage senden
           </LoadingButton>
-        </DialogActions>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit(handleFormSubmit)}>
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12 }}>
+            <Box bgcolor="action.hover" p={2} borderRadius={1} mb={2}>
+              <Typography variant="subtitle1" gutterBottom>
+                Skill: {skill.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {skill.description}
+              </Typography>
+            </Box>
+
+            {targetUser && (
+              <Box
+                bgcolor="primary.main"
+                color="primary.contrastText"
+                p={2}
+                borderRadius={1}
+                mb={2}
+              >
+                <Typography variant="subtitle1" gutterBottom>
+                  Anfrage an:{' '}
+                  {targetUser.userName ||
+                    targetUser.firstName + ' ' + targetUser.lastName}
+                </Typography>
+                {/* <Typography variant="body2">
+                  {targetUser.bio || 'Keine Beschreibung verfügbar'}
+                </Typography> */}
+              </Box>
+            )}
+
+            {!targetUser && (
+              <Controller
+                name="targetUserId"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Zielbenutzer ID"
+                    fullWidth
+                    error={!!errors.targetUserId}
+                    helperText={errors.targetUserId?.message}
+                    disabled={isLoading}
+                    placeholder="Benutzer-ID eingeben"
+                  />
+                )}
+              />
+            )}
+
+            <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
+              <FormLabel component="legend">
+                Was möchtest du mit diesem Skill machen?
+              </FormLabel>
+              <Controller
+                name="isOffering"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        disabled={isLoading}
+                      />
+                    }
+                    label={
+                      field.value
+                        ? 'Ich möchte diesen Skill anbieten (lehren)'
+                        : 'Ich möchte diesen Skill lernen'
+                    }
+                  />
+                )}
+              />
+            </FormControl>
+            <Divider sx={{ my: 2 }} />
+          </Grid>
+
+          {/* Message */}
+          <Grid size={{ xs: 12 }}>
+            <Controller
+              name="message"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Persönliche Nachricht (optional)"
+                  multiline
+                  rows={3}
+                  fullWidth
+                  error={!!errors.message}
+                  helperText={errors.message?.message}
+                  disabled={isLoading}
+                  placeholder="Stelle dich kurz vor und erkläre, warum du dich für diesen Skill-Austausch interessierst..."
+                />
+              )}
+            />
+          </Grid>
+
+          {/* PreferredDays */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Controller
+              name="preferredDays"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth error={!!errors.preferredDays}>
+                  <FormLabel component="legend">Bevorzugte Tage</FormLabel>
+                  <Select
+                    multiple
+                    value={field.value}
+                    onChange={(event) => field.onChange(event.target.value)}
+                    input={<OutlinedInput id="select-multiple-days" />}
+                    renderValue={(selected) => (
+                      <Box
+                        sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+                      >
+                        {(selected as string[]).map((value) => (
+                          <Chip key={value} label={value} />
+                        ))}
+                      </Box>
+                    )}
+                    MenuProps={MenuProps}
+                    disabled={isLoading}
+                  >
+                    {WEEKDAYS.map((day) => (
+                      <MenuItem key={day} value={day}>
+                        <Checkbox checked={field.value.indexOf(day) > -1} />
+                        <ListItemText primary={day} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {errors.preferredDays && (
+                    <FormHelperText>
+                      {errors.preferredDays.message}
+                    </FormHelperText>
+                  )}
+                </FormControl>
+              )}
+            />
+          </Grid>
+
+          {/* PreferredTimes */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Controller
+              name="preferredTimes"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth error={!!errors.preferredTimes}>
+                  <FormLabel component="legend">Bevorzugte Zeiten</FormLabel>
+                  <Select
+                    multiple
+                    value={field.value}
+                    onChange={(event) => field.onChange(event.target.value)}
+                    input={<OutlinedInput id="select-multiple-times" />}
+                    renderValue={(selected) => (
+                      <Box
+                        sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+                      >
+                        {(selected as string[]).map((value) => (
+                          <Chip key={value} label={value} />
+                        ))}
+                      </Box>
+                    )}
+                    MenuProps={MenuProps}
+                    disabled={isLoading}
+                  >
+                    {TIME_SLOTS.map((time) => (
+                      <MenuItem key={time} value={time}>
+                        <Checkbox checked={field.value.indexOf(time) > -1} />
+                        <ListItemText primary={time} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {errors.preferredTimes && (
+                    <FormHelperText>
+                      {errors.preferredTimes.message}
+                    </FormHelperText>
+                  )}
+                </FormControl>
+              )}
+            />
+          </Grid>
+
+          {/* AdditionalNotes */}
+          <Grid size={{ xs: 12 }}>
+            <Controller
+              name="additionalNotes"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Zusätzliche Notizen (optional)"
+                  multiline
+                  rows={4}
+                  fullWidth
+                  error={!!errors.additionalNotes}
+                  helperText={errors.additionalNotes?.message}
+                  disabled={isLoading}
+                  placeholder={
+                    watch('isOffering')
+                      ? 'Beschreibe, was du unterrichten kannst und wie du den Austausch gestalten möchtest...'
+                      : 'Beschreibe, was du gerne lernen möchtest und welche Vorkenntnisse du hast...'
+                  }
+                  slotProps={{
+                    input: {
+                      endAdornment: field.value ? (
+                        <InputAdornment position="end">
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                          >
+                            {field.value.length}/500
+                          </Typography>
+                        </InputAdornment>
+                      ) : null,
+                    },
+                  }}
+                />
+              )}
+            />
+          </Grid>
+        </Grid>
       </form>
-    </Dialog>
+    </FormDialog>
   );
 };
 

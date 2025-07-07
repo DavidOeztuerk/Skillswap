@@ -1,6 +1,5 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using MediatR;
 using EventSourcing;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
@@ -61,6 +60,7 @@ public class ChangePasswordCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
+
             await _eventPublisher.Publish(new PasswordChangedDomainEvent(
                 user.Id,
                 user.Email), cancellationToken);

@@ -1,6 +1,5 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using UserService.Domain.Events;
@@ -35,7 +34,8 @@ public class UpdateUserProfileCommandHandler(
 
             user.FirstName = request.FirstName ?? "";
             user.LastName = request.LastName ?? "";
-            user.PhoneNumber = request.PhoneNumber;
+            user.UserName = request.UserName ?? "";
+            user.PhoneNumber = request.PhoneNumber ?? "";
             user.Bio = request.Bio;
             user.TimeZone = request.TimeZone;
             user.UpdatedAt = DateTime.UtcNow;
@@ -43,6 +43,7 @@ public class UpdateUserProfileCommandHandler(
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // Publish domain event
+
             await _eventPublisher.Publish(new UserProfileUpdatedDomainEvent(
                 user.Id,
                 user.Email,
@@ -50,6 +51,7 @@ public class UpdateUserProfileCommandHandler(
                 {
                     { "FirstName", user.FirstName },
                     { "LastName", user.LastName },
+                    { "UserName", user.UserName ?? "" },
                     { "PhoneNumber", user.PhoneNumber ?? "" },
                     { "Bio", user.Bio ?? "" },
                     { "TimeZone", user.TimeZone ?? "" }
@@ -62,6 +64,7 @@ public class UpdateUserProfileCommandHandler(
                 user.Id,
                 user.FirstName,
                 user.LastName,
+                user.UserName,
                 user.PhoneNumber,
                 user.Bio,
                 user.TimeZone,

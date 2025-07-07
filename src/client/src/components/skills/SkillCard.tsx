@@ -31,12 +31,15 @@ import { Skill } from '../../types/models/Skill';
 
 interface SkillCardProps {
   skill: Skill;
-  isOwner?: boolean; // Indicates if this is the owner's view page
-  showMatchButton?: boolean; // Controls if match functionality should be available
+  isOwner?: boolean;
+  showMatchButton?: boolean;
   onEdit: (skill: Skill) => void;
   onDelete: (skillId: string) => void;
   onViewDetails: (skill: Skill) => void;
   onMatch?: (skill: Skill) => void;
+  // FAVORITES
+  isFavorite?: (skillId: string) => boolean;
+  onToggleFavorite?: (skill: Skill) => void;
 }
 
 const SkillCard: React.FC<SkillCardProps> = ({
@@ -47,6 +50,8 @@ const SkillCard: React.FC<SkillCardProps> = ({
   onDelete,
   onViewDetails,
   onMatch,
+  isFavorite,
+  onToggleFavorite,
 }) => {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -244,6 +249,30 @@ const SkillCard: React.FC<SkillCardProps> = ({
           />
         )}
 
+        {/* Favorite button */}
+        {onToggleFavorite && (
+          <IconButton
+            aria-label={isFavorite && isFavorite(skill.skillId) ? 'Favorit entfernen' : 'Als Favorit markieren'}
+            onClick={e => {
+              e.stopPropagation();
+              onToggleFavorite(skill);
+            }}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 44,
+              bgcolor: 'rgba(255,255,255,0.9)',
+              zIndex: 2,
+              '&:hover': {
+                bgcolor: 'rgba(255,255,255,1)',
+                transform: 'scale(1.1)',
+              },
+              color: isFavorite && isFavorite(skill.skillId) ? theme.palette.warning.main : theme.palette.action.active,
+            }}
+          >
+            {isFavorite && isFavorite(skill.skillId) ? <StarIcon /> : <StarBorderIcon />}
+          </IconButton>
+        )}
         {/* Menu button */}
         <IconButton
           aria-label="Optionen"
@@ -440,7 +469,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {/* Skill ID for debugging (can be removed in production) */}
           <Typography variant="caption" color="text.disabled">
-            #{skill.skillId.slice(-6)}
+            #{(skill.skillId || skill.skillId || '').slice(-6)}
           </Typography>
         </Box>
 

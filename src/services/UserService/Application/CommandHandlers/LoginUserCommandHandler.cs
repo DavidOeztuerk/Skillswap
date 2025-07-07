@@ -32,18 +32,21 @@ public class LoginUserCommandHandler(
     {
         try
         {
+
+            var email = request.Email;
             var user = await _dbContext.Users
                 .Include(u => u.UserRoles)
-                .FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
+                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
                 Logger.LogWarning("Failed login attempt for email {Email} from IP {IpAddress}", 
-                    request.Email, request.IpAddress);
+                    email, request.IpAddress);
 
                 // Track failed login attempt
                 await _eventPublisher.Publish(new LoginAttemptFailedDomainEvent(
-                    request.Email,
+                    email,
                     request.IpAddress ?? "Unknown",
                     "Invalid credentials"), cancellationToken);
 
@@ -67,11 +70,13 @@ public class LoginUserCommandHandler(
             {
                 if (string.IsNullOrWhiteSpace(request.TwoFactorCode))
                 {
+
                     var profileOnly = new UserProfileData(
                         user.Id,
                         user.Email,
                         user.FirstName,
                         user.LastName,
+                        user.UserName,
                         user.UserRoles.Select(ur => ur.Role).ToList(),
                         user.EmailVerified,
                         user.AccountStatus,
@@ -99,6 +104,7 @@ public class LoginUserCommandHandler(
             user.LastLoginIp = request.IpAddress;
 
             // Generate JWT tokens
+
             var userClaims = new UserClaims
             {
                 UserId = user.Id,
@@ -130,13 +136,16 @@ public class LoginUserCommandHandler(
                 request.IpAddress ?? "Unknown",
                 request.DeviceInfo), cancellationToken);
 
-            Logger.LogInformation("User {Email} logged in successfully", request.Email);
+
+            Logger.LogInformation("User {Email} logged in successfully", user.Email);
+
 
             var profileData = new UserProfileData(
                 user.Id,
                 user.Email,
                 user.FirstName,
                 user.LastName,
+                user.UserName,
                 userClaims.Roles,
                 user.EmailVerified,
                 user.AccountStatus,

@@ -4,4 +4,8 @@ export interface CreateSkillRequest {
   isOffering: boolean;
   skillCategoryId: string;
   proficiencyLevelId: string;
+  tags?: string[];
+  estimatedDurationMinutes?: number;
+  location?: string;
+  isRemoteAvailable?: boolean;
 }

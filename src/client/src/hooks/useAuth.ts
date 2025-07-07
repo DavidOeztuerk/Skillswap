@@ -13,6 +13,8 @@ import {
   verifyEmail as verifyEmailAction,
   requestPasswordReset as requestPasswordResetAction,
   resetPassword as resetPasswordAction,
+  generateTwoFactorSecret as generateTwoFactorSecretAction,
+  verifyTwoFactorCode as verifyTwoFactorCodeAction,
   clearError,
   updateUser,
   setLoading,
@@ -23,6 +25,10 @@ import { LoginRequest } from '../types/contracts/requests/LoginRequest';
 import { RegisterRequest } from '../types/contracts/requests/RegisterRequest';
 import { UpdateProfileRequest } from '../types/contracts/requests/UpdateProfileRequest';
 import { ChangePasswordRequest } from '../types/contracts/requests/ChangePasswordRequest';
+import { VerifyEmailRequest } from '../types/contracts/requests/VerifyEmailRequest';
+import { GenerateTwoFactorSecretResponse } from '../types/contracts/responses/GenerateTwoFactorSecretResponse';
+import { VerifyTwoFactorCodeRequest } from '../types/contracts/requests/VerifyTwoFactorCodeRequest';
+import { VerifyTwoFactorCodeResponse } from '../types/contracts/responses/VerifyTwoFactorCodeResponse';
 import { User } from '../types/models/User';
 
 // Extended login interface
@@ -233,14 +239,13 @@ export const useAuth = () => {
 
   /**
    * Verify email address
-   * @param token - Email verification token
+   * @param request - { email, verificationToken }
    * @returns Promise<boolean> - Success status
    */
   const verifyEmail = useCallback(
-    async (token: string): Promise<boolean> => {
+    async (request: VerifyEmailRequest): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(verifyEmailAction(token));
-
+        const resultAction = await dispatch(verifyEmailAction(request));
         if (verifyEmailAction.fulfilled.match(resultAction)) {
           return true;
         } else {
@@ -353,8 +358,7 @@ export const useAuth = () => {
       // Implement role/permission checking logic based on your auth system
       // This is a placeholder implementation
       console.log(`Checking permission for role: ${requiredRole}`);
-      
-      return user?.token ? true : false;
+      return user?.roles?.includes(requiredRole) ?? false;
     },
     [user]
   );
@@ -401,6 +405,42 @@ export const useAuth = () => {
     }
   }, [token]);
 
+    /**
+   * Generate 2FA secret (returns QR code and secret)
+   */
+  const generateTwoFactorSecret = useCallback(async (): Promise<GenerateTwoFactorSecretResponse | null> => {
+    try {
+      const resultAction = await dispatch(generateTwoFactorSecretAction());
+      if (generateTwoFactorSecretAction.fulfilled.match(resultAction)) {
+        return resultAction.payload;
+      } else {
+        console.error('2FA secret generation failed:', resultAction.payload);
+        return null;
+      }
+    } catch (error) {
+      console.error('2FA secret generation error:', error);
+      return null;
+    }
+  }, [dispatch]);
+
+  /**
+   * Verify 2FA code
+   */
+  const verifyTwoFactorCode = useCallback(async (request: VerifyTwoFactorCodeRequest): Promise<VerifyTwoFactorCodeResponse | null> => {
+    try {
+      const resultAction = await dispatch(verifyTwoFactorCodeAction(request));
+      if (verifyTwoFactorCodeAction.fulfilled.match(resultAction)) {
+        return resultAction.payload;
+      } else {
+        console.error('2FA verification failed:', resultAction.payload);
+        return null;
+      }
+    } catch (error) {
+      console.error('2FA verification error:', error);
+      return null;
+    }
+  }, [dispatch]);
+
   return {
     // Authentication state
     user,
@@ -428,6 +468,8 @@ export const useAuth = () => {
 
     // Email verification
     verifyEmail,
+    generateTwoFactorSecret,
+    verifyTwoFactorCode,
 
     // State management
     dismissError,

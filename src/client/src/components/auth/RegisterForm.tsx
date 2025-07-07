@@ -19,7 +19,7 @@ const registerSchema = z
     lastName: z
       .string()
       .min(2, 'Der Nachname muss mindestens 2 Zeichen lang sein'),
-    username: z
+    userName: z
       .string()
       .min(3, 'Der Benutzername muss mindestens 3 Zeichen lang sein')
       .max(20, 'Der Benutzername darf maximal 20 Zeichen lang sein')
@@ -66,7 +66,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     defaultValues: {
       firstName: '',
       lastName: '',
-      username: '',
+      userName: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -136,7 +136,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
         {/* Benutzername */}
         <Controller
-          name="username"
+          name="userName"
           control={control}
           render={({ field }) => (
             <TextField
@@ -145,8 +145,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="username"
-              error={!!errors.username}
-              helperText={errors.username?.message}
+              error={!!errors.userName}
+              helperText={errors.userName?.message}
               disabled={isLoading}
             />
           )}

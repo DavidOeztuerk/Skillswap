@@ -3,9 +3,11 @@ using FluentValidation;
 
 namespace UserService.Application.Commands;
 
-public record VerifyTwoFactorCodeCommand(string UserId, string Code) : ICommand<VerifyTwoFactorCodeResponse>, IAuditableCommand
+public record VerifyTwoFactorCodeCommand(
+    string Code) 
+    : ICommand<VerifyTwoFactorCodeResponse>, IAuditableCommand
 {
-    string? IAuditableCommand.UserId { get; set; }
+    public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 

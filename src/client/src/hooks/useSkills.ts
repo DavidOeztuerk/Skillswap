@@ -13,6 +13,9 @@ import {
   fetchSkillStatistics as fetchSkillStatisticsAction,
   fetchPopularTags as fetchPopularTagsAction,
   fetchSkillRecommendations as fetchSkillRecommendationsAction,
+  fetchFavoriteSkills as fetchFavoriteSkillsAction,
+  addFavoriteSkill as addFavoriteSkillAction,
+  removeFavoriteSkill as removeFavoriteSkillAction,
   clearError,
   setError,
   setSelectedSkill,
@@ -83,7 +86,80 @@ export const useSkills = () => {
     isUpdating,
     isDeleting,
     errors,
+    favoriteSkillIds,
   } = useAppSelector((state) => state.skills);
+
+  /** 
+   * FAVORITES: Fetch favorite skill IDs for user 
+  */
+  const fetchFavoriteSkills = useCallback(
+    async (userId: string): Promise<boolean> => {
+      try {
+        const resultAction = await dispatch(fetchFavoriteSkillsAction(userId));
+        if (fetchFavoriteSkillsAction.fulfilled.match(resultAction)) {
+          return true;
+        } else {
+          console.error('❌ Fetch favorite skills failed:', resultAction.payload);
+          return false;
+        }
+      } catch (error) {
+        console.error('❌ Fetch favorite skills error:', error);
+        return false;
+      }
+    },
+    [dispatch]
+  );
+
+  /** FAVORITES: Add a skill to favorites */
+  const addFavoriteSkill = useCallback(
+    async (userId: string, skillId: string): Promise<boolean> => {
+      try {
+        const resultAction = await dispatch(addFavoriteSkillAction({ userId, skillId }));
+        if (addFavoriteSkillAction.fulfilled.match(resultAction)) {
+          return true;
+        } else {
+          console.error('❌ Add favorite skill failed:', resultAction.payload);
+          return false;
+        }
+      } catch (error) {
+        console.error('❌ Add favorite skill error:', error);
+        return false;
+      }
+    },
+    [dispatch]
+  );
+
+  /** FAVORITES: Remove a skill from favorites */
+  const removeFavoriteSkill = useCallback(
+    async (userId: string, skillId: string): Promise<boolean> => {
+      try {
+        const resultAction = await dispatch(removeFavoriteSkillAction({ userId, skillId }));
+        if (removeFavoriteSkillAction.fulfilled.match(resultAction)) {
+          return true;
+        } else {
+          console.error('❌ Remove favorite skill failed:', resultAction.payload);
+          return false;
+        }
+      } catch (error) {
+        console.error('❌ Remove favorite skill error:', error);
+        return false;
+      }
+    },
+    [dispatch]
+  );
+
+  /** FAVORITES: Check if a skill is a favorite */
+  const isFavoriteSkill = useCallback(
+    (skillId: string): boolean => {
+      return favoriteSkillIds.includes(skillId);
+    },
+    [favoriteSkillIds]
+  );
+
+  /** FAVORITES: Get all favorite skills (Skill objects) */
+  const getFavoriteSkills = useCallback((): Skill[] => {
+    return allSkills.filter((skill) => favoriteSkillIds.includes(skill.skillId));
+  }, [allSkills, favoriteSkillIds]);
 
   // Categories and proficiency levels from separate slices
   const { categories } = useAppSelector((state) => state.category);
@@ -757,6 +833,7 @@ export const useSkills = () => {
     skills: allSkills, // Backward compatibility
     allSkills,
     userSkills,
+    favoriteSkillIds,
     selectedSkill,
     categories,
     proficiencyLevels,
@@ -784,6 +861,13 @@ export const useSkills = () => {
     createSkill,
     updateSkill,
     deleteSkill,
+
+    // Favorites
+    fetchFavoriteSkills,
+    addFavoriteSkill,
+    removeFavoriteSkill,
+    isFavoriteSkill,
+    getFavoriteSkills,
 
     // Skill interactions
     rateSkill,

@@ -33,6 +33,7 @@ public record UserProfileData(
     string Email,
     string FirstName,
     string LastName,
+    string UserName,
     List<string> Roles,
     bool EmailVerified,
     string AccountStatus,

@@ -57,6 +57,7 @@ public class RefreshTokenCommandHandler(
             refreshToken.RevokedAt = DateTime.UtcNow;
 
             // Generate new tokens
+
             var userClaims = new UserClaims
             {
                 UserId = refreshToken.User.Id,
