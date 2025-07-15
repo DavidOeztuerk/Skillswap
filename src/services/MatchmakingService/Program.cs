@@ -48,7 +48,9 @@ builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
 // Add database
 builder.Services.AddDbContext<MatchmakingDbContext>(options =>
 {
-    options.UseInMemoryDatabase("MatchmakingServiceDb");
+    var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
+        ?? "Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;";
+    options.UseNpgsql(connectionString);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
 });
 

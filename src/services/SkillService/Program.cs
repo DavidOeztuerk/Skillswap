@@ -44,7 +44,9 @@ builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
 
 builder.Services.AddDbContext<SkillDbContext>(options =>
 {
-    options.UseInMemoryDatabase("SkillServiceDb");
+    var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
+        ?? "Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;";
+    options.UseNpgsql(connectionString);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     options.EnableDetailedErrors(builder.Environment.IsDevelopment());
 });

@@ -58,10 +58,14 @@ builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environm
 // DATABASE SETUP
 // ============================================================================
 
-// Configure Entity Framework with InMemory for development
+// Configure Entity Framework with PostgreSQL
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;";
+
 builder.Services.AddDbContext<UserDbContext>(options =>
 {
-    options.UseInMemoryDatabase("UserServiceDb");
+    options.UseNpgsql(connectionString);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     options.EnableDetailedErrors(builder.Environment.IsDevelopment());
 });
