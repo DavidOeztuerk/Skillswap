@@ -96,6 +96,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     ports:
       - '5001:5001'
     environment:
@@ -107,6 +109,7 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
+      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5001/health/live']
@@ -125,6 +128,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     ports:
       - '5002:5002'
     environment:
@@ -136,6 +141,7 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
+      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5002/health/live']
@@ -152,6 +158,8 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     ports:
       - '5003:5003'
     environment:
@@ -163,6 +171,7 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
+      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5003/health/live']
@@ -179,6 +188,8 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     ports:
       - '5004:5004'
     environment:
@@ -190,6 +201,7 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
+      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5004/health/live']
@@ -206,6 +218,8 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     ports:
       - '5005:5005'
     environment:
@@ -217,6 +231,7 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
+      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5005/health/live']
@@ -235,6 +250,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     ports:
       - '5006:5006'
     environment:
@@ -246,6 +263,7 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
+      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
       # SMTP-Konfiguration für E-Mail-Versand
       - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-587}
@@ -265,23 +283,24 @@ services:
       retries: 3
       start_period: 40s
 
-  # Optional: PostgreSQL für Production Database
-  # postgres:
-  #   image: postgres:15-alpine
-  #   container_name: 'postgres'
-  #   ports:
-  #     - '5432:5432'
-  #   environment:
-  #     POSTGRES_DB: skillswap
-  #     POSTGRES_USER: ${POSTGRES_USER:-skillswap}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skillswap}"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  # PostgreSQL für Production Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: 'postgres'
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: skillswap
+      POSTGRES_USER: ${POSTGRES_USER:-skillswap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skillswap123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skillswap}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   # Optional: Elasticsearch für Advanced Search
   # elasticsearch:
@@ -310,5 +329,5 @@ services:
 volumes:
   redis_data:
   rabbitmq_data:
-  # postgres_data:
+  postgres_data:
   # elasticsearch_data:

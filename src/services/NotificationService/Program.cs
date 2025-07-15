@@ -50,7 +50,9 @@ builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environm
 // Configure Entity Framework with InMemory for development
 builder.Services.AddDbContext<NotificationDbContext>(options =>
 {
-    options.UseInMemoryDatabase("NotificationServiceDb");
+    var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
+        ?? "Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;";
+    options.UseNpgsql(connectionString);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     options.EnableDetailedErrors(builder.Environment.IsDevelopment());
 });

@@ -40,7 +40,9 @@ builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environm
 // Add database
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
 {
-    options.UseInMemoryDatabase("AppointmentServiceDb");
+    var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
+        ?? "Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;";
+    options.UseNpgsql(connectionString);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
 });
 
