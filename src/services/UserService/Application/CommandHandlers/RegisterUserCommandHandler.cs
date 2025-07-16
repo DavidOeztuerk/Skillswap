@@ -5,8 +5,8 @@ using Infrastructure.Security;
 using EventSourcing;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
-using UserService.Domain.Events;
-using UserService.Domain.Models;
+using Events.Domain.User;
+using Microsoft.Extensions.Logging;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -101,7 +101,8 @@ public class RegisterUserCommandHandler(
 
             // Publish domain event
 
-            await _eventPublisher.Publish(new UserRegisteredEvent(
+            await _eventPublisher.Publish(new UserRegisteredDomainEvent(
+                user.Id,
                 user.Email,
                 user.FirstName,
                 user.LastName), cancellationToken);
@@ -144,7 +145,3 @@ public class RegisterUserCommandHandler(
 }
 
 
-public record UserRegisteredEvent(
-    string Email,
-    string FirstName,
-    string LastName) : DomainEvent;
