@@ -26,9 +26,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../shared/Contracts/Contracts.csproj" />
-    <ProjectReference Include="../../shared/Events/Events.csproj" />
-    <ProjectReference Include="../../shared/EventSourcing/EventSourcing.csproj" />
+    <ProjectReference Include="../../shared/Contracts/Common/Contracts.csproj" />
+    <ProjectReference Include="../../shared/Core/Events/Events.csproj" />
+    <ProjectReference Include="../../shared/Core/EventSourcing/EventSourcing.csproj" />
   </ItemGroup>
 
 </Project>

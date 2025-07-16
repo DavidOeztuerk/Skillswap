@@ -23,9 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../shared/CQRS/CQRS.csproj" />
-    <ProjectReference Include="../../shared/Events/Events.csproj" />
-    <ProjectReference Include="../../shared/Infrastructure/Infrastructure.csproj" />
+    <ProjectReference Include="../../shared/Core/CQRS/CQRS.csproj" />
+    <ProjectReference Include="../../shared/Core/Events/Events.csproj" />
+    <ProjectReference Include="../../shared/Infrastructure/Common/Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

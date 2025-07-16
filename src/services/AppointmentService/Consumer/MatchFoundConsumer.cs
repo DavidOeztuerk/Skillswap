@@ -1,5 +1,5 @@
 using AppointmentService.Domain.Entities;
-using Events;
+using Events.Integration.Communication;
 using MassTransit;
 
 namespace AppointmentService.Consumer;

@@ -11,6 +11,11 @@ using Infrastructure.Middleware;
 using CQRS.Extensions;
 using SkillService.Application.Commands;
 using SkillService.Application.Queries;
+using Contracts.Skill.Requests;
+using Contracts.Skill.Responses;
+using SkillService.Extensions;
+using SkillService.Application.Mappers;
+using System.Security.Claims;
 using Infrastructure.Models;
 using Infrastructure.Services;
 using MediatR;
@@ -58,6 +63,9 @@ var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION
     ?? builder.Configuration["ConnectionStrings:Redis"]
     ?? "localhost:6379";
 builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
+
+// Add SkillService-specific dependencies
+builder.Services.AddSkillServiceDependencies();
 
 builder.Services.AddMassTransit(x =>
 {
@@ -172,7 +180,7 @@ skills.MapGet("/", SearchSkills)
     .WithDescription("Search and filter skills with pagination")
     .WithTags("Skills")
     .WithOpenApi()
-    .Produces<PagedResponse<SkillSearchResultResponse>>(StatusCodes.Status200OK);
+    .Produces<Contracts.Skill.Responses.SearchSkillsResponse>(StatusCodes.Status200OK);
 
 skills.MapGet("/{id}", GetSkillById)
     .WithName("GetSkillDetails")
@@ -180,7 +188,7 @@ skills.MapGet("/{id}", GetSkillById)
     .WithDescription("Get detailed information about a specific skill")
     .WithTags("SkillDetail")
     .WithOpenApi()
-    .Produces<SkillDetailsResponse>(StatusCodes.Status200OK)
+    .Produces<Contracts.Skill.Responses.GetSkillDetailsResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .ProducesProblem(StatusCodes.Status400BadRequest);
 
@@ -190,7 +198,7 @@ skills.MapGet("/my-skills", GetUserSkills)
     .WithDescription("Retrieve all skills for a specific user with pagination")
     .WithTags("UserSkills")
     .WithOpenApi()
-    .Produces<PagedResponse<UserSkillResponse>>(StatusCodes.Status200OK)
+    .Produces<Contracts.Skill.Responses.GetUserSkillsResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -200,7 +208,7 @@ skills.MapPost("/", CreateNewSkill)
     .WithDescription("Create a new skill with the specified details")
     .WithTags("Skills")
     .WithOpenApi()
-    .Produces<CreateSkillResponse>(StatusCodes.Status201Created)
+    .Produces<Contracts.Skill.Responses.CreateSkillResponse>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization();
@@ -211,7 +219,7 @@ skills.MapPut("/{id}", UpdateSkill)
     .WithDescription("Update the details of an existing skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<UpdateSkillResponse>(StatusCodes.Status200OK)
+    .Produces<Contracts.Skill.Responses.UpdateSkillResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization();
@@ -222,7 +230,7 @@ skills.MapDelete("/{id}", DeleteSkill)
     .WithDescription("Delete a specific skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<DeleteSkillResponse>(StatusCodes.Status200OK)
+    .Produces<Contracts.Skill.Responses.DeleteSkillResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -232,7 +240,7 @@ skills.MapPost("/{id}/rate", RateSkill)
     .WithDescription("Rate a specific skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<RateSkillResponse>(StatusCodes.Status200OK)
+    .Produces<Contracts.Skill.Responses.RateSkillResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -242,55 +250,79 @@ skills.MapPost("/{id}/endorse", EndorseSkill)
     .WithDescription("Endorse a specific skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<EndorseSkillResponse>(StatusCodes.Status200OK)
+    .Produces<Contracts.Skill.Responses.EndorseSkillResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
-static async Task<IResult> SearchSkills(IMediator mediator, HttpContext ctx, [AsParameters] SearchSkillsQuery query)
+static async Task<IResult> SearchSkills(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, [AsParameters] SearchSkillsRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return await mediator.SendQuery(query with { UserId = uid });
+    var userId = user.GetUserId();
+    var command = mapper.MapToQuery(request, userId);
+    return await mediator.SendQuery(command);
 }
 
-static async Task<IResult> GetSkillById(IMediator mediator, string id, bool review = false, bool endors = false)
+static async Task<IResult> GetSkillById(IMediator mediator, ISkillContractMapper mapper, string id)
 {
-    return await mediator.SendQuery(new GetSkillDetailsQuery(id, review, endors));
+    var request = new GetSkillDetailsRequest(id);
+    var query = mapper.MapToQuery(request);
+    return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetUserSkills(IMediator mediator, HttpContext ctx, [AsParameters] GetUserSkillsQuery query)
+static async Task<IResult> GetUserSkills(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, [AsParameters] GetUserSkillsRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendQuery(query with { UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    var query = mapper.MapToQuery(request, userId);
+    return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> CreateNewSkill(IMediator mediator, HttpContext ctx, CreateSkillCommand command)
+static async Task<IResult> CreateNewSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, CreateSkillRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendCommand(command with { UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    var command = mapper.MapToCommand(request, userId);
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> UpdateSkill(IMediator mediator, HttpContext ctx, string id, UpdateSkillCommand command)
+static async Task<IResult> UpdateSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, UpdateSkillRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendCommand(command with { SkillId = id, UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    // Set the SkillId in the request before mapping
+    var requestWithId = request with { SkillId = id };
+    var command = mapper.MapToCommand(requestWithId, userId);
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> DeleteSkill(IMediator mediator, HttpContext ctx, string id, string? reason)
+static async Task<IResult> DeleteSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, string? reason = null)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendCommand(new DeleteSkillCommand(id, reason) { UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    var request = new DeleteSkillRequest(id, reason);
+    var command = mapper.MapToCommand(request, userId);
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> RateSkill(IMediator mediator, HttpContext ctx, string id, RateSkillCommand command)
+static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, RateSkillRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendCommand(command with { SkillId = id, UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    var command = mapper.MapToCommand(request, id, userId);
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> EndorseSkill(IMediator mediator, HttpContext ctx, string id, EndorseSkillCommand command)
+static async Task<IResult> EndorseSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, EndorseSkillRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendCommand(command with { SkillId = id, UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    var command = mapper.MapToCommand(request, id, userId);
+    return await mediator.SendCommand(command);
 }
 
 #endregion
@@ -304,7 +336,7 @@ categories.MapGet("/", GetCategories)
     .WithDescription("Retrieve all skill categories with pagination")
     .WithTags("SkillCategories")
     .WithOpenApi()
-    .Produces<PagedResponse<SkillCategoryResponse>>(StatusCodes.Status200OK);
+    .Produces<Contracts.Skill.Responses.GetSkillCategoriesResponse>(StatusCodes.Status200OK);
 
 categories.MapPost("/", CreateNewCategory)
     .WithName("CreateSkillCategory")
@@ -312,7 +344,7 @@ categories.MapPost("/", CreateNewCategory)
     .WithDescription("Create a new skill category with the specified details")
     .WithTags("SkillCategories")
     .WithOpenApi()
-    .Produces<CreateSkillCategoryResponse>(StatusCodes.Status201Created)
+    .Produces<Contracts.Skill.Responses.CreateSkillCategoryResponse>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization(Policies.RequireAdminRole);
@@ -323,26 +355,33 @@ categories.MapPut("/{id}", UpdateCategory)
     .WithDescription("Update an existing skill category with the specified details")
     .WithTags("SkillCategories")
     .WithOpenApi()
-    .Produces<UpdateSkillCategoryResponse>(StatusCodes.Status200OK)
+    .Produces<Contracts.Skill.Responses.UpdateSkillCategoryResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization(Policies.RequireAdminRole);
 
-static async Task<IResult> GetCategories(IMediator mediator, [AsParameters] GetSkillCategoriesQuery query)
+static async Task<IResult> GetCategories(IMediator mediator, ISkillContractMapper mapper, [AsParameters] GetSkillCategoriesRequest request)
 {
+    var query = mapper.MapToQuery(request);w
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> CreateNewCategory(IMediator mediator, HttpContext ctx, CreateSkillCategoryCommand command)
+static async Task<IResult> CreateNewCategory(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, CreateSkillCategoryRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendCommand(command with { UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    var command = mapper.MapToCommand(request, userId);
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> UpdateCategory(IMediator mediator, HttpContext ctx, string id, UpdateSkillCategoryCommand command)
+static async Task<IResult> UpdateCategory(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, UpdateSkillCategoryRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendCommand(command with { CategoryId = id, UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    var command = mapper.MapToCommand(request, id, userId);
+    return await mediator.SendCommand(command);
 }
 #endregion
 
@@ -355,7 +394,7 @@ levels.MapGet("/", GetProficiencyLevels)
     .WithDescription("Retrieve all proficiency levels with pagination")
     .WithTags("ProficiencyLevels")
     .WithOpenApi()
-    .Produces<PagedResponse<ProficiencyLevelResponse>>(StatusCodes.Status200OK);
+    .Produces<Contracts.Skill.Responses.GetProficiencyLevelsResponse>(StatusCodes.Status200OK);
 
 levels.MapPost("/", CreateNewProficiencyLevel)
     .WithName("CreateProficiencyLevel")
@@ -363,20 +402,24 @@ levels.MapPost("/", CreateNewProficiencyLevel)
     .WithDescription("Create a new proficiency level with the specified details")
     .WithTags("ProficiencyLevels")
     .WithOpenApi()
-    .Produces<CreateProficiencyLevelResponse>(StatusCodes.Status201Created)
+    .Produces<Contracts.Skill.Responses.CreateProficiencyLevelResponse>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization(Policies.RequireAdminRole);
 
-static async Task<IResult> GetProficiencyLevels(IMediator mediator, [AsParameters] GetProficiencyLevelsQuery query)
+static async Task<IResult> GetProficiencyLevels(IMediator mediator, ISkillContractMapper mapper, [AsParameters] GetProficiencyLevelsRequest request)
 {
+    var query = mapper.MapToQuery(request);
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> CreateNewProficiencyLevel(IMediator mediator, HttpContext ctx, CreateProficiencyLevelCommand command)
+static async Task<IResult> CreateNewProficiencyLevel(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, CreateProficiencyLevelRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendCommand(command with { UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    var command = mapper.MapToCommand(request, userId);
+    return await mediator.SendCommand(command);
 }
 #endregion
 
@@ -389,7 +432,7 @@ analytics.MapGet("/statistics", GetSkillStatistics)
     .WithDescription("Retrieve overall skill statistics including counts, ratings, and endorsements")
     .WithTags("Analytics")
     .WithOpenApi()
-    .Produces<SkillStatisticsResponse>(StatusCodes.Status200OK);
+    .Produces<Contracts.Skill.Responses.GetSkillStatisticsResponse>(StatusCodes.Status200OK);
 
 analytics.MapGet("/popular-tags", GetPopularTags)
     .WithName("GetPopularTags")
@@ -397,7 +440,7 @@ analytics.MapGet("/popular-tags", GetPopularTags)
     .WithDescription("Retrieve a list of popular tags based on user interactions")
     .WithTags("Analytics")
     .WithOpenApi()
-    .Produces<PopularTagResponse>(StatusCodes.Status200OK);
+    .Produces<Contracts.Skill.Responses.GetPopularTagsResponse>(StatusCodes.Status200OK);
 
 RouteGroupBuilder rec = app.MapGroup("/recommendations").RequireAuthorization();
 rec.MapGet("/", GetSkillRecommendations)
@@ -406,26 +449,31 @@ rec.MapGet("/", GetSkillRecommendations)
     .WithDescription("Retrieve personalized skill recommendations for the user")
     .WithTags("Recommendations")
     .WithOpenApi()
-    .Produces<SkillRecommendationResponse>(StatusCodes.Status200OK);
+    .Produces<Contracts.Skill.Responses.GetSkillRecommendationsResponse>(StatusCodes.Status200OK);
 
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = _ => true });
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Name == "self" });
 
-static async Task<IResult> GetSkillStatistics(IMediator mediator, [AsParameters] GetSkillStatisticsQuery query)
+static async Task<IResult> GetSkillStatistics(IMediator mediator, ISkillContractMapper mapper, [AsParameters] GetSkillStatisticsRequest request)
 {
+    var query = mapper.MapToQuery(request);
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetPopularTags(IMediator mediator, [AsParameters] GetPopularTagsQuery query)
+static async Task<IResult> GetPopularTags(IMediator mediator, ISkillContractMapper mapper, [AsParameters] GetPopularTagsRequest request)
 {
+    var query = mapper.MapToQuery(request);
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetSkillRecommendations(IMediator mediator, HttpContext ctx, [AsParameters] GetSkillRecommendationsQuery query)
+static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, [AsParameters] GetSkillRecommendationsRequest request)
 {
-    var uid = ctx.User.FindFirst("user_id")?.Value;
-    return string.IsNullOrEmpty(uid) ? Results.Unauthorized() : await mediator.SendQuery(query with { UserId = uid });
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    var query = mapper.MapToQuery(request, userId);
+    return await mediator.SendQuery(query);
 }
 
 #endregion
