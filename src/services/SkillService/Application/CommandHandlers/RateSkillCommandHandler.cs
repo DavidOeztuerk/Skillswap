@@ -1,10 +1,9 @@
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
-using SkillService.Domain.Events;
+using Events.Domain.Skill;
 using EventSourcing;
 
 namespace SkillService.Application.CommandHandlers;

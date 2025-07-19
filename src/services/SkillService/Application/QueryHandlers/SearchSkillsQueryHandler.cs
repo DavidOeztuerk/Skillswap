@@ -28,12 +28,12 @@ public class SearchSkillsQueryHandler(
             var query = _dbContext.Skills
                 .Include(s => s.SkillCategory)
                 .Include(s => s.ProficiencyLevel)
-                .Where(s => s.UserId != request.UserId && s.IsActive && !s.IsDeleted);
+                .Where(s => s.IsActive && !s.IsDeleted);
 
             // Apply filters
-            if (!string.IsNullOrEmpty(request.Query))
+            if (!string.IsNullOrEmpty(request.SearchTerm))
             {
-                var searchTerm = request.Query.ToLower();
+                var searchTerm = request.SearchTerm.ToLower();
                 query = query.Where(s =>
                     s.Name.ToLower().Contains(searchTerm) ||
                     s.Description.ToLower().Contains(searchTerm) ||
@@ -50,27 +50,27 @@ public class SearchSkillsQueryHandler(
                 query = query.Where(s => s.ProficiencyLevelId == request.ProficiencyLevelId);
             }
 
-            if (request.IsOffering.HasValue)
+            if (request.IsOffered.HasValue)
             {
-                query = query.Where(s => s.IsOffering == request.IsOffering.Value);
+                query = query.Where(s => s.IsOffering == request.IsOffered.Value);
             }
 
-            if (request.RemoteOnly == true)
-            {
-                query = query.Where(s => s.IsRemoteAvailable);
-            }
+            //if (request.RemoteOnly == true)
+            //{
+            //    query = query.Where(s => s.IsRemoteAvailable);
+            //}
 
             if (request.MinRating.HasValue)
             {
-                query = query.Where(s => s.AverageRating >= request.MinRating.Value);
+                query = query.Where(s => s.AverageRating >= (double)request.MinRating.Value);
             }
 
-            if (request.TagsJson != null)
+            if (request.Tags != null)
             {
 
-                var tags = string.IsNullOrEmpty(request.TagsJson)
+                var tags = string.IsNullOrEmpty(JsonSerializer.Serialize(request.Tags))
                     ? []
-                    : JsonSerializer.Deserialize<List<string>>(request.TagsJson) ?? new List<string>();
+                    : request.Tags ?? new List<string>();
 
                 foreach (var tag in tags)
                 {
@@ -82,19 +82,19 @@ public class SearchSkillsQueryHandler(
             // Apply sorting
             query = request.SortBy?.ToLower() switch
             {
-                "name" => request.SortDirection == "desc"
+                "name" => request.SortDescending == true
                     ? query.OrderByDescending(s => s.Name)
                     : query.OrderBy(s => s.Name),
-                "rating" => request.SortDirection == "desc"
+                "rating" => request.SortDescending == true
                     ? query.OrderByDescending(s => s.AverageRating)
                     : query.OrderBy(s => s.AverageRating),
-                "created" => request.SortDirection == "desc"
+                "created" => request.SortDescending == true
                     ? query.OrderByDescending(s => s.CreatedAt)
                     : query.OrderBy(s => s.CreatedAt),
-                "updated" => request.SortDirection == "desc"
+                "updated" => request.SortDescending == true
                     ? query.OrderByDescending(s => s.UpdatedAt)
                     : query.OrderBy(s => s.UpdatedAt),
-                "popularity" => request.SortDirection == "desc"
+                "popularity" => request.SortDescending == true
                     ? query.OrderByDescending(s => s.ViewCount + s.MatchCount)
                     : query.OrderBy(s => s.ViewCount + s.MatchCount),
                 _ => query.OrderByDescending(s => s.SearchRelevanceScore)
@@ -189,7 +189,7 @@ public class SearchSkillsQueryHandler(
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error searching skills with query: {Query}", request.Query);
+            Logger.LogError(ex, "Error searching skills with query: {Query}", request.SearchTerm);
             return Error("An error occurred while searching skills");
         }
     }

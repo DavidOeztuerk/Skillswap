@@ -1,5 +1,5 @@
-using FluentValidation;
 using CQRS.Interfaces;
+using FluentValidation;
 
 namespace SkillService.Application.Commands;
 
@@ -10,14 +10,12 @@ namespace SkillService.Application.Commands;
 public record CreateSkillCommand(
     string Name,
     string Description,
-    bool IsOffering,
-    string SkillCategoryId,
+    string CategoryId,
     string ProficiencyLevelId,
-    List<string>? Tags = null,
-    int? EstimatedDurationMinutes = null,
-    string? Requirements = null,
-    string? Location = null,
-    bool IsRemoteAvailable = true) 
+    List<string> Tags,
+    bool IsOffered,
+    int? AvailableHours = null,
+    int? PreferredSessionDuration = 60) 
     : ICommand<CreateSkillResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
@@ -44,7 +42,7 @@ public class CreateSkillCommandValidator : AbstractValidator<CreateSkillCommand>
             .NotEmpty().WithMessage("Description is required")
             .Length(10, 2000).WithMessage("Description must be between 10 and 2000 characters");
 
-        RuleFor(x => x.SkillCategoryId)
+        RuleFor(x => x.CategoryId)
             .NotEmpty().WithMessage("Skill category is required");
 
         RuleFor(x => x.ProficiencyLevelId)
@@ -56,17 +54,17 @@ public class CreateSkillCommandValidator : AbstractValidator<CreateSkillCommand>
             .Must(tags => tags == null || tags.All(tag => tag.Length <= 50))
             .WithMessage("Each tag must be 50 characters or less");
 
-        RuleFor(x => x.EstimatedDurationMinutes)
+        RuleFor(x => x.AvailableHours)
             .GreaterThan(0).WithMessage("Duration must be greater than 0")
             .LessThanOrEqualTo(480).WithMessage("Duration cannot exceed 8 hours")
-            .When(x => x.EstimatedDurationMinutes.HasValue);
+            .When(x => x.AvailableHours.HasValue);
 
-        RuleFor(x => x.Requirements)
-            .MaximumLength(1000).WithMessage("Requirements must not exceed 1000 characters")
-            .When(x => !string.IsNullOrEmpty(x.Requirements));
+        //RuleFor(x => x.Requirements)
+        //    .MaximumLength(1000).WithMessage("Requirements must not exceed 1000 characters")
+        //    .When(x => !string.IsNullOrEmpty(x.Requirements));
 
-        RuleFor(x => x.Location)
-            .MaximumLength(200).WithMessage("Location must not exceed 200 characters")
-            .When(x => !string.IsNullOrEmpty(x.Location));
+        //RuleFor(x => x.Location)
+        //    .MaximumLength(200).WithMessage("Location must not exceed 200 characters")
+        //    .When(x => !string.IsNullOrEmpty(x.Location));
     }
 }

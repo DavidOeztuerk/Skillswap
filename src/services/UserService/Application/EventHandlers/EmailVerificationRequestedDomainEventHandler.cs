@@ -1,8 +1,10 @@
 using CQRS.Handlers;
-using UserService.Domain.Events;
 using Events;
 using MassTransit;
 using UserService.Domain.Models;
+using Events.Domain.User;
+using Events.Security.Authentication;
+using Events.Notification;
 
 namespace UserService.Application.EventHandlers;
 

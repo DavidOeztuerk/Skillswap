@@ -3,9 +3,9 @@ using Infrastructure.Models;
 using Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
-using UserService.Domain.Events;
 using UserService.Domain.Models;
 using EventSourcing;
+using Events.Domain.User;
 
 namespace UserService.Application.CommandHandlers;
 

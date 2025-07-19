@@ -12,7 +12,6 @@ using MatchmakingService.Application.Queries;
 using Contracts.Matchmaking.Requests;
 using Contracts.Matchmaking.Responses;
 using MatchmakingService.Extensions;
-using MatchmakingService.Application.Mappers;
 using System.Security.Claims;
 using MediatR;
 using MatchmakingService;
@@ -219,48 +218,69 @@ matchRequests.MapPost("/{requestId}/reject", RejectMatchRequest)
 // HANDLER METHODS - MATCH REQUESTS
 // ============================================================================
 
-static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipal user, IMatchmakingContractMapper mapper, CreateMatchRequestRequest request)
+static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipal user, CreateMatchRequestRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, userId);
+
+
+    var command = new CreateMatchRequestCommand(request.SkillId, request.Description, request.Messagm)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, IMatchmakingContractMapper mapper, [AsParameters] GetIncomingMatchRequestsRequest request)
+static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetIncomingMatchRequestsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var query = mapper.MapToQuery(request, userId);
+
+    var query = new GetIncomingMatchRequestsQuery(request.PageNumber, request.PageNumber)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, IMatchmakingContractMapper mapper, [AsParameters] GetOutgoingMatchRequestsRequest request)
+static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetOutgoingMatchRequestsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var query = mapper.MapToQuery(request, userId);
+
+    var query = new GetOutgoingMatchRequestsQuery(request.PageNumber, request.PageSize)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, IMatchmakingContractMapper mapper, string requestId, AcceptMatchRequestRequest request)
+static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, AcceptMatchRequestRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, requestId, userId);
+
+    var command = new AcceptMatchRequestCommand(request.RequestId, request.ResponseMessage)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> RejectMatchRequest(IMediator mediator, ClaimsPrincipal user, IMatchmakingContractMapper mapper, string requestId, RejectMatchRequestRequest request)
+static async Task<IResult> RejectMatchRequest(IMediator mediator, ClaimsPrincipal user, RejectMatchRequestRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new RejectMatchRequestCommand(request.RequestId, request.ResponseMessage)
+    {
+        UserId = userId
+    };
     
-    var command = mapper.MapToCommand(request, requestId, userId);
     return await mediator.SendCommand(command);
 }
 #endregion
@@ -315,47 +335,62 @@ matches.MapGet("/my", GetUserMatches)
 // HANDLER METHODS - MATCHES
 // ============================================================================
 
-static async Task<IResult> FindMatch(IMediator mediator, ClaimsPrincipal user, IMatchmakingContractMapper mapper, FindMatchRequest request)
+static async Task<IResult> FindMatch(IMediator mediator, ClaimsPrincipal user, FindMatchRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, userId);
+
+    var command = new FindMatchCommand(request.SkillId, request.SkillName, request.IsOffering, request.PreferredTags, request.PreferredLocation, request.RemoteOnly, request.MaxDistanceKm)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> AcceptMatch(IMediator mediator, ClaimsPrincipal user, IMatchmakingContractMapper mapper, string matchId)
+static async Task<IResult> AcceptMatch(IMediator mediator, ClaimsPrincipal user, AcceptMatchRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var request = new AcceptMatchRequest();
-    var command = mapper.MapToCommand(request, matchId, userId);
+
+    var command = new AcceptMatchCommand(request.MatchId)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> RejectMatch(IMediator mediator, ClaimsPrincipal user, IMatchmakingContractMapper mapper, string matchId, RejectMatchRequest request)
+static async Task<IResult> RejectMatch(IMediator mediator, ClaimsPrincipal user, RejectMatchRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new RejectMatchCommand(request.MatchId, request.Reason)
+    {
+        UserId = userId
+    };
     
-    var command = mapper.MapToCommand(request, matchId, userId);
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> GetMatchDetails(IMediator mediator, IMatchmakingContractMapper mapper, string matchId)
+static async Task<IResult> GetMatchDetails(IMediator mediator, ClaimsPrincipal user, GetMatchDetailsRequest request)
 {
-    var request = new GetMatchDetailsRequest(matchId);
-    var query = mapper.MapToQuery(request);
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var query = new GetMatchDetailsQuery(request.MatchId);
+
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal user, IMatchmakingContractMapper mapper, [AsParameters] GetUserMatchesRequest request)
+static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserMatchesRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var query = new GetUserMatchesQuery(userId, request.Status, request.IncludeCompleted, request.PageNumber, request.PageSize);
     
-    var query = mapper.MapToQuery(request, userId);
     return await mediator.SendQuery(query);
 }
 #endregion
@@ -375,9 +410,13 @@ analytics.MapGet("/statistics", GetMatchStatistics)
 // HANDLER METHODS - ANALYTICS
 // ============================================================================
 
-static async Task<IResult> GetMatchStatistics(IMediator mediator, IMatchmakingContractMapper mapper, [AsParameters] GetMatchStatisticsRequest request)
+static async Task<IResult> GetMatchStatistics(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetMatchStatisticsRequest request)
 {
-    var query = mapper.MapToQuery(request);
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var query = new GetMatchStatisticsQuery(request.FromDate, request.ToDate);
+
     return await mediator.SendQuery(query);
 }
 #endregion

@@ -1,7 +1,7 @@
 using CQRS.Handlers;
-using Events;
+using Events.Domain.User;
+using Events.Security.ThreatDetection;
 using MassTransit;
-using UserService.Domain.Events;
 using UserService.Domain.Models;
 
 namespace UserService.Application.EventHandlers;

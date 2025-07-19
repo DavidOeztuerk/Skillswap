@@ -4,8 +4,8 @@ using CQRS.Handlers;
 using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
-using SkillService.Domain.Events;
 using EventSourcing;
+using Events.Domain.Skill;
 
 namespace SkillService.Application.CommandHandlers;
 

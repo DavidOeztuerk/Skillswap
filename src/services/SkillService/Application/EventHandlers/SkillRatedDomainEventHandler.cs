@@ -1,11 +1,6 @@
-// ============================================================================
-// SKILL SERVICE DOMAIN EVENT HANDLERS
-// src/services/SkillService/Application/DomainEventHandlers/
-// ============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using SkillService.Domain.Events;
+using Events.Domain.Skill;
 
 namespace SkillService.Application.EventHandlers;
 

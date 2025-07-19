@@ -36,6 +36,7 @@ public class GetUserByEmailQueryHandler(
                 user.Email,
                 user.FirstName,
                 user.LastName,
+                user.UserName,
                 user.UserRoles.Select(ur => ur.Role).ToList(),
                 user.EmailVerified,
                 user.AccountStatus);

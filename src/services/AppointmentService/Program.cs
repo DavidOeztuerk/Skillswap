@@ -9,17 +9,15 @@ using Infrastructure.Security;
 using Infrastructure.Middleware;
 using CQRS.Extensions;
 using EventSourcing;
-using AppointmentService.Application.Commands;
-using AppointmentService.Application.Queries;
 using Contracts.Appointment.Requests;
-using Contracts.Appointment.Responses;
 using AppointmentService.Extensions;
-using AppointmentService.Application.Mappers;
 using System.Security.Claims;
 using Infrastructure.Models;
 using MediatR;
 using AppointmentService;
 using AppointmentService.Consumer;
+using AppointmentService.Application.Commands;
+using AppointmentService.Application.Queries;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -227,47 +225,75 @@ health.MapGet("/live", () => Results.Ok(new { status = "alive", timestamp = Date
 // HANDLER METHODS
 // ============================================================================
 
-static async Task<IResult> HandleCreateAppointment(IMediator mediator, ClaimsPrincipal user, IAppointmentContractMapper mapper, CreateAppointmentRequest request)
+static async Task<IResult> HandleCreateAppointment(IMediator mediator, ClaimsPrincipal user, CreateAppointmentRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, userId);
+
+    var command = new CreateAppointmentCommand(
+        request.Title,
+        request.Description,
+        request.ScheduledDate,
+        request.DurationMinutes,
+        request.ParticipantUserId,
+        request.SkillId,
+        request.MeetingType,
+        request.Location)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleAcceptAppointment(IMediator mediator, ClaimsPrincipal user, IAppointmentContractMapper mapper, string appointmentId)
+static async Task<IResult> HandleAcceptAppointment(IMediator mediator, ClaimsPrincipal user, AcceptAppointmentRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var request = new AcceptAppointmentRequest();
-    var command = mapper.MapToCommand(request, appointmentId, userId);
+
+    var command = new AcceptAppointmentCommand(request.AppointmentId)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleCancelAppointment(IMediator mediator, ClaimsPrincipal user, IAppointmentContractMapper mapper, string appointmentId, CancelAppointmentRequest request)
+static async Task<IResult> HandleCancelAppointment(IMediator mediator, ClaimsPrincipal user, CancelAppointmentRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, appointmentId, userId);
+
+    var command = new CancelAppointmentCommand(request.AppointmentId)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleGetAppointmentDetails(IMediator mediator, IAppointmentContractMapper mapper, string appointmentId)
+static async Task<IResult> HandleGetAppointmentDetails(IMediator mediator, ClaimsPrincipal user, GetAppointmentDetailsRequest request)
 {
-    var request = new GetAppointmentDetailsRequest(appointmentId);
-    var query = mapper.MapToQuery(request);
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var query = new GetAppointmentDetailsQuery(request.AppointmentId);
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> HandleGetUserAppointments(IMediator mediator, ClaimsPrincipal user, IAppointmentContractMapper mapper, [AsParameters] GetUserAppointmentsRequest request)
+static async Task<IResult> HandleGetUserAppointments(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserAppointmentsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
     
-    var query = mapper.MapToQuery(request, userId);
+    var query = new GetUserAppointmentsQuery(
+        request.Status,
+        request.FromDate,
+        request.ToDate,
+        request.IncludePast,
+        request.PageNumber,
+        request.PageSize);
+
     return await mediator.SendQuery(query);
 }
 

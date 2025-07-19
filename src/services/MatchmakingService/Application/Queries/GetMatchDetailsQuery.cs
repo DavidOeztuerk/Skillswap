@@ -3,7 +3,8 @@ using CQRS.Interfaces;
 namespace MatchmakingService.Application.Queries;
 
 public record GetMatchDetailsQuery(
-    string MatchId) : IQuery<MatchDetailsResponse>, ICacheableQuery
+    string MatchId) 
+    : IQuery<MatchDetailsResponse>, ICacheableQuery
 {
     public string CacheKey => $"match-details:{MatchId}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);

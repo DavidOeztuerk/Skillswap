@@ -1,4 +1,3 @@
-using AppointmentService.Application.Mappers;
 
 namespace AppointmentService.Extensions;
 
@@ -13,7 +12,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppointmentServiceDependencies(this IServiceCollection services)
     {
         // Register contract mappers
-        services.AddScoped<IAppointmentContractMapper, AppointmentContractMapper>();
+        //services.AddScoped<IAppointmentContractMapper, AppointmentContractMapper>();
 
         return services;
     }

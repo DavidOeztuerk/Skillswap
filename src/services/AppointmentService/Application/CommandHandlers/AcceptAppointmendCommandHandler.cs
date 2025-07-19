@@ -1,7 +1,7 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
-using AppointmentService.Domain.Events;
 using CQRS.Handlers;
+using Events.Domain.Appointment;
 using EventSourcing;
 using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;

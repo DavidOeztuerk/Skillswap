@@ -2,8 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
 using SkillService.Application.Commands;
-using SkillService.Domain.Events;
 using EventSourcing;
+using Events.Domain.Skill;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -56,17 +56,17 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
                 skill.Description = request.Description.Trim();
             }
 
-            if (request.IsOffering.HasValue && request.IsOffering.Value != skill.IsOffering)
+            if (request.IsOffered && request.IsOffered != skill.IsOffering)
             {
-                changedFields["IsOffering"] = $"{skill.IsOffering} -> {request.IsOffering.Value}";
-                skill.IsOffering = request.IsOffering.Value;
+                changedFields["IsOffering"] = $"{skill.IsOffering} -> {request.IsOffered}";
+                skill.IsOffering = request.IsOffered;
             }
 
-            if (!string.IsNullOrEmpty(request.SkillCategoryId) && request.SkillCategoryId != skill.SkillCategoryId)
+            if (!string.IsNullOrEmpty(request.CategoryId) && request.CategoryId != skill.SkillCategoryId)
             {
                 // Validate new category
                 var newCategory = await _dbContext.SkillCategories
-                    .FirstOrDefaultAsync(c => c.Id == request.SkillCategoryId && c.IsActive, cancellationToken);
+                    .FirstOrDefaultAsync(c => c.Id == request.CategoryId && c.IsActive, cancellationToken);
 
                 if (newCategory == null)
                 {
@@ -87,7 +87,7 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
                 newCategory.ActiveSkillCount++;
 
                 changedFields["Category"] = $"{oldCategory?.Name} -> {newCategory.Name}";
-                skill.SkillCategoryId = request.SkillCategoryId;
+                skill.SkillCategoryId = request.CategoryId;
             }
 
             if (!string.IsNullOrEmpty(request.ProficiencyLevelId) && request.ProficiencyLevelId != skill.ProficiencyLevelId)
@@ -111,29 +111,29 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
                 skill.Tags = request.Tags;
             }
 
-            if (request.EstimatedDurationMinutes.HasValue)
+            if (request.AvailableHours.HasValue)
             {
-                changedFields["Duration"] = $"{skill.EstimatedDurationMinutes} -> {request.EstimatedDurationMinutes}";
-                skill.EstimatedDurationMinutes = request.EstimatedDurationMinutes;
+                changedFields["Duration"] = $"{skill.EstimatedDurationMinutes} -> {request.AvailableHours}";
+                skill.EstimatedDurationMinutes = request.AvailableHours;
             }
 
-            if (!string.IsNullOrEmpty(request.Requirements))
-            {
-                changedFields["Requirements"] = "Updated";
-                skill.Requirements = request.Requirements.Trim();
-            }
+            //if (!string.IsNullOrEmpty(request.Requirements))
+            //{
+            //    changedFields["Requirements"] = "Updated";
+            //    skill.Requirements = request.Requirements.Trim();
+            //}
 
-            if (!string.IsNullOrEmpty(request.Location))
-            {
-                changedFields["Location"] = $"{skill.Location} -> {request.Location}";
-                skill.Location = request.Location.Trim();
-            }
+            //if (!string.IsNullOrEmpty(request.Location))
+            //{
+            //    changedFields["Location"] = $"{skill.Location} -> {request.Location}";
+            //    skill.Location = request.Location.Trim();
+            //}
 
-            if (request.IsRemoteAvailable.HasValue)
-            {
-                changedFields["RemoteAvailability"] = $"{skill.IsRemoteAvailable} -> {request.IsRemoteAvailable}";
-                skill.IsRemoteAvailable = request.IsRemoteAvailable.Value;
-            }
+            //if (request.IsRemoteAvailable.HasValue)
+            //{
+            //    changedFields["RemoteAvailability"] = $"{skill.IsRemoteAvailable} -> {request.IsRemoteAvailable}";
+            //    skill.IsRemoteAvailable = request.IsRemoteAvailable.Value;
+            //}
 
             if (request.IsActive.HasValue && request.IsActive.Value != skill.IsActive)
             {

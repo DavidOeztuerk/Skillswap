@@ -3,8 +3,8 @@ using CQRS.Handlers;
 using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
-using SkillService.Domain.Events;
 using EventSourcing;
+using Events.Domain.Skill;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -29,7 +29,7 @@ public class CreateSkillCommandHandler(
         {
             // Validate category exists
             var category = await _dbContext.SkillCategories
-                .FirstOrDefaultAsync(c => c.Id == request.SkillCategoryId && c.IsActive, cancellationToken);
+                .FirstOrDefaultAsync(c => c.Id == request.CategoryId && c.IsActive, cancellationToken);
 
             if (category == null)
             {
@@ -49,7 +49,7 @@ public class CreateSkillCommandHandler(
             var existingSkill = await _dbContext.Skills
                 .FirstOrDefaultAsync(s => s.UserId == request.UserId &&
                                          s.Name.ToLower() == request.Name.ToLower() &&
-                                         s.IsOffering == request.IsOffering &&
+                                         s.IsOffering == request.IsOffered &&
                                          !s.IsDeleted, cancellationToken);
 
             if (existingSkill != null)
@@ -63,13 +63,9 @@ public class CreateSkillCommandHandler(
                 UserId = request.UserId!,
                 Name = request.Name.Trim(),
                 Description = request.Description.Trim(),
-                IsOffering = request.IsOffering,
-                SkillCategoryId = request.SkillCategoryId,
+                IsOffering = request.IsOffered,
+                SkillCategoryId = request.CategoryId,
                 ProficiencyLevelId = request.ProficiencyLevelId,
-                Requirements = request.Requirements?.Trim(),
-                Location = request.Location?.Trim(),
-                IsRemoteAvailable = request.IsRemoteAvailable,
-                EstimatedDurationMinutes = request.EstimatedDurationMinutes,
                 Tags = request.Tags ?? new List<string>(),
                 IsActive = true,
                 SearchKeywords = GenerateSearchKeywords(request.Name, request.Description, request.Tags),

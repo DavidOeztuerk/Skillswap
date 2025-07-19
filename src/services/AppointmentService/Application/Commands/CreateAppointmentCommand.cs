@@ -11,8 +11,9 @@ public record CreateAppointmentCommand(
     string ParticipantUserId,
     string? SkillId = null,
     string? MatchId = null,
-    string MeetingType = "VideoCall",
-    string? Location = null) : ICommand<CreateAppointmentResponse>, IAuditableCommand
+    string? MeetingType = "VideoCall",
+    string? Location = null) 
+    : ICommand<CreateAppointmentResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;

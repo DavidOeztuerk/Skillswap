@@ -1,7 +1,5 @@
-
 using CQRS.Interfaces;
 using FluentValidation;
-using UserService.Application.Commands;
 
 namespace UserService.Application.Queries;
 
@@ -15,9 +13,9 @@ public record GetNotificationPreferencesQuery(
 
 public record NotificationPreferencesResponse(
     string UserId,
-    EmailNotificationSettings EmailSettings,
-    PushNotificationSettings PushSettings,
-    InAppNotificationSettings InAppSettings,
+    //EmailNotificationSettings EmailSettings,
+    //PushNotificationSettings PushSettings,
+    //InAppNotificationSettings InAppSettings,
     DateTime? LastUpdated);
 
 public class GetNotificationPreferencesQueryValidator : AbstractValidator<GetNotificationPreferencesQuery>

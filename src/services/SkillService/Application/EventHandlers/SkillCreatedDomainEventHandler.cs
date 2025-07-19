@@ -1,9 +1,8 @@
 using CQRS.Handlers;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using SkillService;
-using SkillService.Domain.Entities;
-using SkillService.Domain.Events;
+using Events.Domain.Skill;
+
+namespace SkillService.Application.EventHandlers;
 
 public class SkillCreatedDomainEventHandler(
     SkillDbContext dbContext,
@@ -16,6 +15,7 @@ public class SkillCreatedDomainEventHandler(
 
     protected override async Task HandleDomainEvent(SkillCreatedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
+        await Task.CompletedTask;
         // Create activity log entry
         // var activityLog = new SkillView
         // {

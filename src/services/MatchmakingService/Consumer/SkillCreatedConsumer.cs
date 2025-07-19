@@ -1,4 +1,4 @@
-using Events;
+using Events.Integration.SkillManagement;
 using MassTransit;
 using MatchmakingService.Domain.Entities;
 

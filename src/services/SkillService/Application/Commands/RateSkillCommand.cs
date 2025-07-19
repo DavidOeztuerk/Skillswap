@@ -15,7 +15,7 @@ public record RateSkillCommand(
     List<string>? Tags = null)
     : ICommand<RateSkillResponse>, IAuditableCommand
 {
-    public string? UserId { get; set; } // User giving the rating
+    public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 

@@ -1,21 +1,21 @@
-using FluentValidation;
 using CQRS.Interfaces;
+using FluentValidation;
 
 namespace SkillService.Application.Queries;
 
 public record SearchSkillsQuery(
-    string? UserId = null,
-    string? Query = null,
+    string? SearchTerm = null,
     string? CategoryId = null,
+    List<string>? Tags = null,
     string? ProficiencyLevelId = null,
-    bool? IsOffering = null,
-    string? TagsJson = null,
+    bool? IsOffered = null,
+    bool? IsWanted = null,
     string? Location = null,
-    int? MaxDistance = null,
-    bool? RemoteOnly = null,
-    int? MinRating = null,
-    string? SortBy = "relevance",
-    string? SortDirection = "desc",
+    bool? IsRemote = null,
+    decimal? MinRating = null,
+    decimal? MaxRating = null,
+    string? SortBy = "CreatedAt",
+    bool SortDescending = true,
     int PageNumber = 1,
     int PageSize = 20)
     : IPagedQuery<SkillSearchResultResponse>,
@@ -24,7 +24,7 @@ public record SearchSkillsQuery(
     int IPagedQuery<SkillSearchResultResponse>.PageNumber { get; set; } = PageNumber;
     int IPagedQuery<SkillSearchResultResponse>.PageSize { get; set; } = PageSize;
 
-    public string CacheKey => $"skills-search:{Query}:{CategoryId}:{ProficiencyLevelId}:{IsOffering}:{string.Join(",", TagsJson)}:{PageNumber}:{PageSize}";
+    public string CacheKey => $"skills-search:{SearchTerm}:{CategoryId}:{ProficiencyLevelId}:{IsOffered}:{string.Join(",", Tags != null ? Tags : "")}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 
@@ -50,18 +50,18 @@ public class SearchSkillsQueryValidator : AbstractValidator<SearchSkillsQuery>
 {
     public SearchSkillsQueryValidator()
     {
-        RuleFor(x => x.Query)
+        RuleFor(x => x.SearchTerm)
             .MaximumLength(200).WithMessage("Search query must not exceed 200 characters")
-            .When(x => !string.IsNullOrEmpty(x.Query));
+            .When(x => !string.IsNullOrEmpty(x.SearchTerm));
 
-        RuleFor(x => x.TagsJson)
+        RuleFor(x => x.Tags)
             .Must(tags => tags == null)
             .WithMessage("Maximum 10 tags allowed in search");
 
-        RuleFor(x => x.MaxDistance)
-            .GreaterThan(0).WithMessage("Max distance must be greater than 0")
-            .LessThanOrEqualTo(10000).WithMessage("Max distance cannot exceed 10000 km")
-            .When(x => x.MaxDistance.HasValue);
+        //RuleFor(x => x.M)
+        //    .GreaterThan(0).WithMessage("Max distance must be greater than 0")
+        //    .LessThanOrEqualTo(10000).WithMessage("Max distance cannot exceed 10000 km")
+        //    .When(x => x.MaxDistance.HasValue);
 
         RuleFor(x => x.MinRating)
             .InclusiveBetween(1, 5).WithMessage("Min rating must be between 1 and 5")

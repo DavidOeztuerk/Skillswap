@@ -1,4 +1,4 @@
-using UserService.Application.Mappers;
+//using UserService.Application.Mappers;
 
 namespace UserService.Extensions;
 
@@ -13,7 +13,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddUserServiceDependencies(this IServiceCollection services)
     {
         // Register contract mappers
-        services.AddScoped<IUserContractMapper, UserContractMapper>();
+        //services.AddScoped<IUserContractMapper, UserContractMapper>();
 
         return services;
     }

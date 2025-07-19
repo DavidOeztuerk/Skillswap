@@ -9,16 +9,14 @@ namespace SkillService.Application.Commands;
 
 public record UpdateSkillCommand(
     string SkillId,
-    string? Name = null,
-    string? Description = null,
-    bool? IsOffering = null,
-    string? SkillCategoryId = null,
-    string? ProficiencyLevelId = null,
-    List<string>? Tags = null,
-    int? EstimatedDurationMinutes = null,
-    string? Requirements = null,
-    string? Location = null,
-    bool? IsRemoteAvailable = null,
+    string Name,
+    string Description,
+    string CategoryId,
+    string ProficiencyLevelId,
+    List<string> Tags,
+    bool IsOffered,
+    int? AvailableHours = null,
+    int? PreferredSessionDuration = 60,
     bool? IsActive = null)
     : ICommand<UpdateSkillResponse>, IAuditableCommand
 {
@@ -51,9 +49,9 @@ public class UpdateSkillCommandValidator : AbstractValidator<UpdateSkillCommand>
             .WithMessage("Maximum 10 tags allowed")
             .When(x => x.Tags != null);
 
-        RuleFor(x => x.EstimatedDurationMinutes)
+        RuleFor(x => x.AvailableHours)
             .GreaterThan(0).WithMessage("Duration must be greater than 0")
             .LessThanOrEqualTo(480).WithMessage("Duration cannot exceed 8 hours")
-            .When(x => x.EstimatedDurationMinutes.HasValue);
+            .When(x => x.AvailableHours.HasValue);
     }
 }

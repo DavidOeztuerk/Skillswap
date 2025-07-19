@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using Events.Domain.User;
 using Microsoft.Extensions.Logging;
+using UserService.Domain.Models;
 
 namespace UserService.Application.CommandHandlers;
 

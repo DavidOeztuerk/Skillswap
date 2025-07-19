@@ -1,6 +1,7 @@
 using CQRS.Handlers;
-using Events;
-using MatchmakingService.Domain.Events;
+using Events.Domain.Matchmaking;
+using Events.Integration.Communication;
+
 using MediatR;
 
 namespace MatchmakingService.Application.EventHandlers;

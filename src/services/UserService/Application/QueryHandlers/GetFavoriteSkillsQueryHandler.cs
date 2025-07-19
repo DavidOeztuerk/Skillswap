@@ -2,7 +2,7 @@ using CQRS.Handlers;
 using Infrastructure.Models;
 using UserService.Application.Queries.Favorites;
 
-namespace UserService.Application.QueryHandlers.Favorites;
+namespace UserService.Application.QueryHandlers;
 
 public class GetFavoriteSkillsQueryHandler(
     UserDbContext dbContext,
