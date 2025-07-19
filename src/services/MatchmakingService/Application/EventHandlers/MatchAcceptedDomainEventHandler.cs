@@ -1,5 +1,5 @@
 using CQRS.Handlers;
-using MatchmakingService.Domain.Events;
+using Events.Domain.Matchmaking;
 
 namespace MatchmakingService.Application.EventHandlers;
 

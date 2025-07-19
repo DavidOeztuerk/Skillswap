@@ -1,5 +1,5 @@
 using CQRS.Handlers;
-using UserService.Domain.Events;
+using Events.Domain.User;
 using UserService.Domain.Models;
 
 namespace UserService.Application.EventHandlers;

@@ -1,4 +1,4 @@
-using Events;
+using Events.Integration.AppointmentManagement;
 using MassTransit;
 using VideocallService.Domain.Entities;
 

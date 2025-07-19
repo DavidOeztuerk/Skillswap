@@ -1,4 +1,4 @@
-using MatchmakingService.Application.Mappers;
+//using MatchmakingService.Application.Mappers;
 
 namespace MatchmakingService.Extensions;
 
@@ -13,7 +13,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddMatchmakingServiceDependencies(this IServiceCollection services)
     {
         // Register contract mappers
-        services.AddScoped<IMatchmakingContractMapper, MatchmakingContractMapper>();
+        //services.AddScoped<IMatchmakingContractMapper, MatchmakingContractMapper>();
 
         return services;
     }

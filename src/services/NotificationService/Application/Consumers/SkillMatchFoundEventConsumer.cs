@@ -1,4 +1,4 @@
-using Events;
+using Events.Integration.Communication;
 using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;
@@ -20,6 +20,7 @@ public class SkillMatchFoundEventConsumer(
 
     public async Task Consume(ConsumeContext<MatchFoundEvent> context)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Processing SkillMatchFoundEvent for skill {SkillName}", context.Message.SkillName);

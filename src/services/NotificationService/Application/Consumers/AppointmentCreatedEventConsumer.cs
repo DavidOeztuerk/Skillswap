@@ -1,4 +1,4 @@
-using Events;
+using Events.Integration.AppointmentManagement;
 using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;
@@ -20,6 +20,7 @@ public class AppointmentCreatedEventConsumer(
 
     public async Task Consume(ConsumeContext<AppointmentCreatedEvent> context)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Processing AppointmentCreatedEvent for appointment {AppointmentId}", context.Message.Id);

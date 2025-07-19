@@ -1,4 +1,6 @@
-using Events;
+using Events.Integration.AppointmentManagement;
+using Events.Integration.Communication;
+using Events.Integration.SkillManagement;
 using MassTransit;
 
 namespace NotificationService.Application.Consumers;

@@ -1,4 +1,4 @@
-using Events;
+using Events.Notification;
 using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;

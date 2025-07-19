@@ -3,6 +3,7 @@ using UserService.Application.Queries;
 using System.Text.Json;
 using CQRS.Handlers;
 using Infrastructure.Models;
+
 namespace UserService.Application.QueryHandlers;
 
 // ============================================================================

@@ -1,4 +1,4 @@
-using Events;
+using Events.Security.ThreatDetection;
 using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;

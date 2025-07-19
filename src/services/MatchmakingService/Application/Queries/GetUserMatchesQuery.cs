@@ -7,7 +7,8 @@ public record GetUserMatchesQuery(
     string? Status = null,
     bool IncludeCompleted = true,
     int PageNumber = 1,
-    int PageSize = 20) : IPagedQuery<UserMatchResponse>, ICacheableQuery
+    int PageSize = 20) 
+    : IPagedQuery<UserMatchResponse>, ICacheableQuery
 {
     int IPagedQuery<UserMatchResponse>.PageNumber { get; set; } = PageNumber;
     int IPagedQuery<UserMatchResponse>.PageSize { get; set; } = PageSize;

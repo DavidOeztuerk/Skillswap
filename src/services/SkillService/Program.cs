@@ -14,13 +14,14 @@ using SkillService.Application.Queries;
 using Contracts.Skill.Requests;
 using Contracts.Skill.Responses;
 using SkillService.Extensions;
-using SkillService.Application.Mappers;
+//using SkillService.Application.Mappers;
 using System.Security.Claims;
 using Infrastructure.Models;
 using Infrastructure.Services;
 using MediatR;
 using SkillService;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -254,74 +255,129 @@ skills.MapPost("/{id}/endorse", EndorseSkill)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
-static async Task<IResult> SearchSkills(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, [AsParameters] SearchSkillsRequest request)
+static async Task<IResult> SearchSkills(IMediator mediator, ClaimsPrincipal user, [AsParameters] SearchSkillsRequest request)
 {
     var userId = user.GetUserId();
-    var command = mapper.MapToQuery(request, userId);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new SearchSkillsQuery(
+        request.SearchTerm,
+        request.CategoryId,
+        request.Tags,
+        request.ProficiencyLevelId,
+        request.IsOffered,
+        request.IsWanted,
+        request.Location,
+        request.IsRemote,
+        request.MinRating,
+        request.MaxRating,
+        request.SortBy,
+        request.SortDescending,
+        request.PageNumber,
+        request.PageSize);
+
     return await mediator.SendQuery(command);
 }
 
-static async Task<IResult> GetSkillById(IMediator mediator, ISkillContractMapper mapper, string id)
+static async Task<IResult> GetSkillById(IMediator mediator, ClaimsPrincipal user, GetSkillDetailsRequest request)
 {
-    var request = new GetSkillDetailsRequest(id);
-    var query = mapper.MapToQuery(request);
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var query = new GetSkillDetailsQuery(request.SkillId, request.IncludeReviews, request.IncludeEndorsements);
+
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetUserSkills(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, [AsParameters] GetUserSkillsRequest request)
+static async Task<IResult> GetUserSkills(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserSkillsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
     
-    var query = mapper.MapToQuery(request, userId);
+    var query = new GetUserSkillsQuery(request.IsOffering, request.CategoryId, request.IncludeInactive, request.PageNumber, request.PageSize);
+
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> CreateNewSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, CreateSkillRequest request)
+static async Task<IResult> CreateNewSkill(IMediator mediator, ClaimsPrincipal user, CreateSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, userId);
+
+    var command = new CreateSkillCommand(
+        request.Name,
+        request.Description,
+        request.CategoryId,
+        request.ProficiencyLevelId,
+        request.Tags,
+        request.IsOffered,
+        request.AvailableHours,
+        request.PreferredSessionDuration)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> UpdateSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, UpdateSkillRequest request)
+static async Task<IResult> UpdateSkill(IMediator mediator, ClaimsPrincipal user, UpdateSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
     
-    // Set the SkillId in the request before mapping
-    var requestWithId = request with { SkillId = id };
-    var command = mapper.MapToCommand(requestWithId, userId);
+    var command = new UpdateSkillCommand(
+        request.SkillId,
+        request.Name,
+        request.Description,
+        request.CategoryId,
+        request.ProficiencyLevelId,
+        request.Tags,
+        request.IsOffered,
+        request.AvailableHours,
+        request.PreferredSessionDuration)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> DeleteSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, string? reason = null)
+static async Task<IResult> DeleteSkill(IMediator mediator, ClaimsPrincipal user, DeleteSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var request = new DeleteSkillRequest(id, reason);
-    var command = mapper.MapToCommand(request, userId);
+
+    var command = new DeleteSkillCommand(request.SkillId, request.Reason)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, RateSkillRequest request)
+static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, RateSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, id, userId);
+
+    var command = new RateSkillCommand(request.SkillId, request.RatedUserId, request.Rating, request.Comment, request.Tags)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> EndorseSkill(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, EndorseSkillRequest request)
+static async Task<IResult> EndorseSkill(IMediator mediator, ClaimsPrincipal user, EndorseSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, id, userId);
+
+    var command = new EndorseSkillCommand(request.SkillId, request.EndorsedUserId, request.Comment)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
@@ -360,27 +416,39 @@ categories.MapPut("/{id}", UpdateCategory)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization(Policies.RequireAdminRole);
 
-static async Task<IResult> GetCategories(IMediator mediator, ISkillContractMapper mapper, [AsParameters] GetSkillCategoriesRequest request)
+static async Task<IResult> GetCategories(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetSkillCategoriesRequest request)
 {
-    var query = mapper.MapToQuery(request);w
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var query = new GetSkillCategoriesQuery(request.IncludeInactive, request.IncludeSkillCounts);
+
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> CreateNewCategory(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, CreateSkillCategoryRequest request)
+static async Task<IResult> CreateNewCategory(IMediator mediator, ClaimsPrincipal user, CreateSkillCategoryRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, userId);
+
+    var command = new CreateSkillCategoryCommand(request.Name, request.Description, request.IconName, request.Color, request.SortOrder, request.IsActive)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> UpdateCategory(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, string id, UpdateSkillCategoryRequest request)
+static async Task<IResult> UpdateCategory(IMediator mediator, ClaimsPrincipal user, UpdateSkillCategoryRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, id, userId);
+
+    var command = new UpdateSkillCategoryCommand(request.CategoryId, request.Name, request.Description, request.IconName, request.Color, request.SortOrder, request.IsActive)
+    {
+        UserId = userId
+    };  
+        
     return await mediator.SendCommand(command);
 }
 #endregion
@@ -407,18 +475,26 @@ levels.MapPost("/", CreateNewProficiencyLevel)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization(Policies.RequireAdminRole);
 
-static async Task<IResult> GetProficiencyLevels(IMediator mediator, ISkillContractMapper mapper, [AsParameters] GetProficiencyLevelsRequest request)
-{
-    var query = mapper.MapToQuery(request);
-    return await mediator.SendQuery(query);
-}
-
-static async Task<IResult> CreateNewProficiencyLevel(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, CreateProficiencyLevelRequest request)
+static async Task<IResult> GetProficiencyLevels(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetProficiencyLevelsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var command = mapper.MapToCommand(request, userId);
+
+    var query = new GetProficiencyLevelsQuery(request.IncludeInactive, request.IncludeSkillCounts);
+
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> CreateNewProficiencyLevel(IMediator mediator, ClaimsPrincipal user, CreateProficiencyLevelRequest request)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new CreateProficiencyLevelCommand(request.Level, request.Description, request.Rank, request.Color, request.IsActive)
+    {
+        UserId = userId
+    };
+
     return await mediator.SendCommand(command);
 }
 #endregion
@@ -455,24 +531,33 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = _ => t
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Name == "self" });
 
-static async Task<IResult> GetSkillStatistics(IMediator mediator, ISkillContractMapper mapper, [AsParameters] GetSkillStatisticsRequest request)
-{
-    var query = mapper.MapToQuery(request);
-    return await mediator.SendQuery(query);
-}
-
-static async Task<IResult> GetPopularTags(IMediator mediator, ISkillContractMapper mapper, [AsParameters] GetPopularTagsRequest request)
-{
-    var query = mapper.MapToQuery(request);
-    return await mediator.SendQuery(query);
-}
-
-static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPrincipal user, ISkillContractMapper mapper, [AsParameters] GetSkillRecommendationsRequest request)
+static async Task<IResult> GetSkillStatistics(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetSkillStatisticsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
-    var query = mapper.MapToQuery(request, userId);
+
+    var query = new GetSkillStatisticsQuery(request.FromDate, request.ToDate, request.CategoryId, request.UserId);
+
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> GetPopularTags(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetPopularTagsRequest request)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var query = new GetPopularTagsQuery(request.CategoryId, request.MaxTags, request.MinUsageCount);
+
+    return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetSkillRecommendationsRequest request)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var query = new GetSkillRecommendationsQuery(request.UserId, request.MaxRecommendations, request.OnlyRemote, request.PreferredLocation);
+
     return await mediator.SendQuery(query);
 }
 

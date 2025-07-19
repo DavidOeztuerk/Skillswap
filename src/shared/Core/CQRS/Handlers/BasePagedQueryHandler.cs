@@ -9,15 +9,12 @@ namespace CQRS.Handlers;
 /// </summary>
 /// <typeparam name="TQuery">Query type</typeparam>
 /// <typeparam name="TResponse">Response item type</typeparam>
-public abstract class BasePagedQueryHandler<TQuery, TResponse> : IPagedQueryHandler<TQuery, TResponse>
+public abstract class BasePagedQueryHandler<TQuery, TResponse>(
+    ILogger logger) 
+    : IPagedQueryHandler<TQuery, TResponse>
     where TQuery : IPagedQuery<TResponse>
 {
-    protected readonly ILogger Logger;
-
-    protected BasePagedQueryHandler(ILogger logger)
-    {
-        Logger = logger;
-    }
+    protected readonly ILogger Logger = logger;
 
     public abstract Task<PagedResponse<TResponse>> Handle(TQuery request, CancellationToken cancellationToken);
 

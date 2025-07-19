@@ -2,9 +2,9 @@ using CQRS.Handlers;
 using Infrastructure.Models;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
-using MatchmakingService.Domain.Events;
 using Microsoft.EntityFrameworkCore;
 using EventSourcing;
+using Events.Domain.Matchmaking;
 
 namespace MatchmakingService.Application.CommandHandlers;
 

@@ -18,7 +18,6 @@ using Microsoft.OpenApi.Models;
 using UserService.Application.Queries.Favorites;
 using UserService.Application.Commands.Favorites;
 using System.Security.Claims;
-using UserService.Extensioons;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -455,24 +454,24 @@ profile.MapDelete("/avatar", HandleDeleteAvatar)
 // API ENDPOINTS - USER AVAILABILITY
 // ============================================================================
 
-profile.MapGet("/availability", HandleGetUserAvailability)
-    .WithName("GetUserAvailability")
-    .WithSummary("Get user availability")
-    .WithDescription("Retrieves the user's availability schedule")
-    .WithTags("User Availability")
-    .RequireAuthorization()
-    .Produces<UserAvailabilityResponse>(200)
-    .Produces(401);
+//profile.MapGet("/availability", HandleGetUserAvailability)
+//    .WithName("GetUserAvailability")
+//    .WithSummary("Get user availability")
+//    .WithDescription("Retrieves the user's availability schedule")
+//    .WithTags("User Availability")
+//    .RequireAuthorization()
+//    .Produces<UserAvailabilityResponse>(200)
+//    .Produces(401);
 
-profile.MapPut("/availability", HandleUpdateUserAvailability)
-    .WithName("UpdateUserAvailability")
-    .WithSummary("Update user availability")
-    .WithDescription("Updates the user's availability schedule")
-    .WithTags("User Availability")
-    .RequireAuthorization()
-    .Produces<UpdateUserAvailabilityResponse>(200)
-    .Produces(400)
-    .Produces(401);
+//profile.MapPut("/availability", HandleUpdateUserAvailability)
+//    .WithName("UpdateUserAvailability")
+//    .WithSummary("Update user availability")
+//    .WithDescription("Updates the user's availability schedule")
+//    .WithTags("User Availability")
+//    .RequireAuthorization()
+//    .Produces<UpdateUserAvailabilityResponse>(200)
+//    .Produces(400)
+//    .Produces(401);
 
 // ============================================================================
 // API ENDPOINTS - NOTIFICATION PREFERENCES
@@ -841,23 +840,23 @@ static async Task<IResult> HandleDeleteAvatar(IMediator mediator, ClaimsPrincipa
 // HANDLER METHODS - USER AVAILABILITY
 // ============================================================================
 
-static async Task<IResult> HandleGetUserAvailability(IMediator mediator, ClaimsPrincipal user, GetUserAvailabilityQuery query)
-{
-    var userId = user.GetUserId();
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+//static async Task<IResult> HandleGetUserAvailability(IMediator mediator, ClaimsPrincipal user, GetUserAvailabilityQuery query)
+//{
+//    var userId = user.GetUserId();
+//    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedQuery = query with { UserId = userId };
-    return await mediator.SendQuery(query);
-}
+//    var updatedQuery = query with { UserId = userId };
+//    return await mediator.SendQuery(query);
+//}
 
-static async Task<IResult> HandleUpdateUserAvailability(IMediator mediator, ClaimsPrincipal user, UpdateUserAvailabilityCommand command)
-{
-    var userId = user.GetUserId();
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+//static async Task<IResult> HandleUpdateUserAvailability(IMediator mediator, ClaimsPrincipal user, UpdateUserAvailabilityCommand command)
+//{
+//    var userId = user.GetUserId();
+//    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
-}
+//    var updatedCommand = command with { UserId = userId };
+//    return await mediator.SendCommand(updatedCommand);
+//}
 
 // ============================================================================
 // HANDLER METHODS - NOTIFICATION PREFERENCES

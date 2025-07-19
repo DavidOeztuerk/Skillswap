@@ -1,7 +1,7 @@
 {
   "Routes": [
     {
-      "DownstreamPathTemplate": "/users/register",
+      "DownstreamPathTemplate": "/users/auth/register",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/register",
@@ -15,7 +15,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/users/login",
+      "DownstreamPathTemplate": "/users/auth/login",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/login",
@@ -29,21 +29,21 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/users/refresh-token",
+      "DownstreamPathTemplate": "/users/auth/refresh-token",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/refresh-token",
       "UpstreamHttpMethod": ["POST"]
     },
     {
-      "DownstreamPathTemplate": "/users/verify-email",
+      "DownstreamPathTemplate": "/users/auth/verify-email",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/verify-email",
       "UpstreamHttpMethod": ["POST"]
     },
     {
-      "DownstreamPathTemplate": "/users/request-password-reset",
+      "DownstreamPathTemplate": "/users/auth/request-password-reset",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/request-password-reset",

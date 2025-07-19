@@ -3,8 +3,8 @@ using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using VideocallService.Application.Commands;
 using VideocallService.Domain.Entities;
-using VideocallService.Domain.Events;
 using EventSourcing;
+using Events.Domain.VideoCall;
 
 namespace VideocallService.Application.CommandHandlers;
 

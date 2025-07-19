@@ -21,9 +21,9 @@
     <PackageReference Include="Bogus" Version="35.2.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../shared/Infrastructure/Common/Infrastructure.csproj" />
     <ProjectReference Include="../../../shared/Core/CQRS/CQRS.csproj" />
     <ProjectReference Include="../../../shared/Core/Events/Events.csproj" />
-    <ProjectReference Include="../../../shared/Contracts/Common/Contracts.csproj" />
+    <ProjectReference Include="..\..\..\shared\Contracts\Contracts.csproj" />
+    <ProjectReference Include="..\..\..\shared\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
 </Project>

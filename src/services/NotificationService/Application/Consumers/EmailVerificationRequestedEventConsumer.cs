@@ -1,4 +1,4 @@
-using Events;
+using Events.Security.Authentication;
 using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;

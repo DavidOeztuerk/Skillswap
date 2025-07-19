@@ -1,3 +1,4 @@
+using Contracts.Matchmaking.Responses;
 using CQRS.Handlers;
 using EventSourcing;
 using Infrastructure.Models;

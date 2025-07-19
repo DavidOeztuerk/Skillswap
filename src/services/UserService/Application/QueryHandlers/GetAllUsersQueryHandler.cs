@@ -1,8 +1,6 @@
 using CQRS.Handlers;
-using CQRS.Interfaces;
 using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using UserService.Application.Queries;
 
 namespace UserService.Application.QueryHandlers;
@@ -14,11 +12,11 @@ namespace UserService.Application.QueryHandlers;
 public class GetAllUsersQueryHandler(
     UserDbContext dbContext,
     ILogger<GetAllUsersQueryHandler> logger)
-    : BasePagedQueryHandler<GetAllUsersQuery, UserSummaryResponse>(logger)
+    : BasePagedQueryHandler<GetAllUsersQuery, UserAdminResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
 
-    public override async Task<ApiResponse<PagedResponse<UserSummaryResponse>>> Handle(
+    public override async Task<PagedResponse<UserAdminResponse>> Handle(
         GetAllUsersQuery request,
         CancellationToken cancellationToken)
     {
@@ -57,25 +55,25 @@ public class GetAllUsersQueryHandler(
             }
 
             // Apply sorting
-            query = request.SortBy?.ToLower() switch
-            {
-                "firstname" => request.SortDescending ? 
-                    query.OrderByDescending(u => u.FirstName) : 
-                    query.OrderBy(u => u.FirstName),
-                "lastname" => request.SortDescending ? 
-                    query.OrderByDescending(u => u.LastName) : 
-                    query.OrderBy(u => u.LastName),
-                "email" => request.SortDescending ? 
-                    query.OrderByDescending(u => u.Email) : 
-                    query.OrderBy(u => u.Email),
-                "createdat" => request.SortDescending ? 
-                    query.OrderByDescending(u => u.CreatedAt) : 
-                    query.OrderBy(u => u.CreatedAt),
-                "lastloginat" => request.SortDescending ? 
-                    query.OrderByDescending(u => u.LastLoginAt) : 
-                    query.OrderBy(u => u.LastLoginAt),
-                _ => query.OrderBy(u => u.CreatedAt)
-            };
+            //query = request..ToLower() switch
+            //{
+            //    "firstname" => request.SortDescending ? 
+            //        query.OrderByDescending(u => u.FirstName) : 
+            //        query.OrderBy(u => u.FirstName),
+            //    "lastname" => request.SortDescending ? 
+            //        query.OrderByDescending(u => u.LastName) :+
+            //        query.OrderBy(u => u.LastName),
+            //    "email" => request.SortDescending ? 
+            //        query.OrderByDescending(u => u.Email) : 
+            //        query.OrderBy(u => u.Email),
+            //    "createdat" => request.SortDescending ? 
+            //        query.OrderByDescending(u => u.CreatedAt) : 
+            //        query.OrderBy(u => u.CreatedAt),
+            //    "lastloginat" => request.SortDescending ? 
+            //        query.OrderByDescending(u => u.LastLoginAt) : 
+            //        query.OrderBy(u => u.LastLoginAt),
+            //    _ => query.OrderBy(u => u.CreatedAt)
+            //};
 
             // Get total count
             var totalCount = await query.CountAsync(cancellationToken);
@@ -85,7 +83,7 @@ public class GetAllUsersQueryHandler(
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .Include(u => u.UserRoles)
-                .Select(u => new UserSummaryResponse(
+                .Select(u => new UserAdminResponse(
                     u.Id,
                     u.Email,
                     u.FirstName,
@@ -95,27 +93,31 @@ public class GetAllUsersQueryHandler(
                     u.EmailVerified,
                     u.AccountStatus,
                     u.CreatedAt,
-                    u.LastLoginAt))
+                    u.LastLoginAt,
+                    u.LastLoginIp,
+                    u.FailedLoginAttempts,
+                    u.IsAccountLocked,
+                    u.AccountLockedUntil))
                 .ToListAsync(cancellationToken);
 
             var totalPages = (int)Math.Ceiling((double)totalCount / request.PageSize);
 
-            var pagedResponse = new PagedResponse<UserSummaryResponse>(
-                users,
-                request.PageNumber,
-                request.PageSize,
-                totalCount,
-                totalPages);
+            //var pagedResponse = new UserSummaryResponse(
+            //    users,
+            //    request.PageNumber,
+            //    request.PageSize,
+            //    totalCount,
+            //    totalPages);
 
             Logger.LogInformation("Retrieved {Count} users (page {Page} of {TotalPages})", 
                 users.Count, request.PageNumber, totalPages);
 
-            return Success(pagedResponse);
+            return Success(users, request.PageNumber, request.PageSize, totalCount);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error retrieving users");
-            return Error<PagedResponse<UserSummaryResponse>>("An error occurred while retrieving users");
+            return Error("An error occurred while retrieving users");
         }
     }
 }

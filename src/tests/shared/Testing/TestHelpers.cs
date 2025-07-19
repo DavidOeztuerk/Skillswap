@@ -1,8 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
@@ -52,7 +50,7 @@ public static class TestHelpers
     public static string GenerateJwtToken(
         string userId = "test-user-id",
         string email = "test@example.com",
-        string[] roles = null,
+        string[]? roles = null,
         string secret = "test-secret-key-for-jwt-token-generation-12345")
     {
         var tokenHandler = new JwtSecurityTokenHandler();
@@ -169,7 +167,7 @@ public static class TestHelpers
             {
                 return await operation();
             }
-            catch (Exception ex) when (i < maxRetries - 1)
+            catch (Exception) when (i < maxRetries - 1)
             {
                 var delay = TimeSpan.FromMilliseconds(baseDelay.Value.TotalMilliseconds * Math.Pow(2, i));
                 await Task.Delay(delay);

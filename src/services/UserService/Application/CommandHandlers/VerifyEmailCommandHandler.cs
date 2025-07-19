@@ -2,8 +2,8 @@ using CQRS.Handlers;
 using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
-using UserService.Domain.Events;
 using EventSourcing;
+using Events.Domain.User;
 
 namespace UserService.Application.CommandHandlers;
 
