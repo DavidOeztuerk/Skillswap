@@ -1,261 +1,53 @@
-//using Contracts.User.Requests;
-//using Contracts.User.Responses;
-//using Contracts.Common;
-//using UserService.Application.Commands;
-//using UserService.Application.Queries;
-//using Infrastructure.Security;
+using AutoMapper;
+using Contracts.Common;
+using Contracts.User.Requests;
+using Contracts.User.Responses;
+using Infrastructure.Security;
+using UserService.Application.Commands;
+using UserService.Application.Queries;
 
-//namespace UserService.Application.Mappers;
+namespace UserService.Application.Mappers;
 
-///// <summary>
-///// Maps between User API contracts and CQRS commands/queries
-///// </summary>
-//public class UserContractMapper : IUserContractMapper
-//{
-//    public RegisterUserCommand MapToCommand(RegisterUserRequest request, string? userId = null)
-//    {
-//        ArgumentNullException.ThrowIfNull(request);
+public class UserMappingProfile : Profile
+{
+    public UserMappingProfile()
+    {
+        // Request to Command mappings
+        CreateMap<RegisterUserRequest, RegisterUserCommand>()
+            .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => Guid.NewGuid()))
+            .ForMember(dest => dest.Timestamp, opt => opt.MapFrom(src => DateTime.UtcNow));
 
-//        return new RegisterUserCommand(
-//            request.Email,
-//            request.Password,
-//            request.FirstName,
-//            request.LastName,
-//            request.UserName,
-//            request.ReferralCode)
-//        {
-//            UserId = userId,
-//            Timestamp = DateTime.UtcNow
-//        };
-//    }
+        CreateMap<LoginRequest, LoginUserCommand>()
+            .ForMember(dest => dest.IpAddress, opt => opt.Ignore()); // Set from HTTP context
+            //.ForMember(dest => dest.UserAgent, opt => opt.Ignore());
 
-//    public RegisterUserResponse MapToResponse(RegisterUserCommandResponse commandResponse)
-//    {
-//        ArgumentNullException.ThrowIfNull(commandResponse);
+        CreateMap<UpdateUserProfileRequest, UpdateUserProfileCommand>()
+            .ForMember(dest => dest, opt => opt.MapFrom(src =>
+                GetUpdatedFields(src)));
 
-//        return new RegisterUserResponse(
-//            commandResponse.UserId,
-//            commandResponse.Email,
-//            commandResponse.FirstName,
-//            commandResponse.LastName,
-//            commandResponse.UserName,
-//            commandResponse.Tokens.AccessToken,
-//            commandResponse.Tokens.RefreshToken,
-//            commandResponse.Tokens.TokenType,
-//            commandResponse.Tokens.ExpiresAt,
-//            commandResponse.EmailVerificationRequired);
-//    }
+        // Command Response to Contract Response mappings
+        CreateMap<RegisterUserCommand, RegisterUserResponse>()
+            .ForMember(dest => dest.ApiVersion, opt => opt.MapFrom(src => "v1"));
 
-//    public LoginUserCommand MapToCommand(LoginUserRequest request, string? userId = null)
-//    {
-//        ArgumentNullException.ThrowIfNull(request);
+        CreateMap<LoginUserCommand, LoginResponse>()
+            .ForMember(dest => dest.TokenType, opt => opt.MapFrom(src => "Bearer"));
 
-//        return new LoginUserCommand(
-//            request.Email,
-//            request.Password,
-//            request.RememberMe,
-//            request.TwoFactorCode)
-//        {
-//            UserId = userId,
-//            Timestamp = DateTime.UtcNow
-//        };
-//    }
+        CreateMap<UserProfileData, UserProfileResponse>()
+            .ForMember(dest => dest.Roles, opt => opt.MapFrom(src =>
+                src.Roles.Select(ur => ur).ToList()));
+    }
 
-//    public LoginUserResponse MapToResponse(LoginUserCommandResponse commandResponse)
-//    {
-//        ArgumentNullException.ThrowIfNull(commandResponse);
+    private static Dictionary<string, string> GetUpdatedFields(UpdateUserProfileRequest request)
+    {
+        var fields = new Dictionary<string, string>();
 
-//        return new LoginUserResponse(
-//            commandResponse.UserId,
-//            commandResponse.Email,
-//            commandResponse.FirstName,
-//            commandResponse.LastName,
-//            commandResponse.UserName,
-//            commandResponse.Tokens.AccessToken,
-//            commandResponse.Tokens.RefreshToken,
-//            commandResponse.Tokens.TokenType,
-//            commandResponse.Tokens.ExpiresAt,
-//            commandResponse.Roles,
-//            commandResponse.TwoFactorRequired,
-//            commandResponse.EmailVerified);
-//    }
+        if (request.FirstName != null) fields["FirstName"] = request.FirstName;
+        if (request.LastName != null) fields["LastName"] = request.LastName;
+        if (request.PhoneNumber != null) fields["PhoneNumber"] = request.PhoneNumber;
+        if (request.Bio != null) fields["Bio"] = request.Bio;
+        if (request.Location != null) fields["Location"] = request.Location;
+        if (request.TimeZone != null) fields["TimeZone"] = request.TimeZone;
 
-//    public RefreshTokenCommand MapToCommand(RefreshTokenRequest request, string? userId = null)
-//    {
-//        ArgumentNullException.ThrowIfNull(request);
-
-//        return new RefreshTokenCommand(request.RefreshToken)
-//        {
-//            UserId = userId,
-//            Timestamp = DateTime.UtcNow
-//        };
-//    }
-
-//    public RefreshTokenResponse MapToResponse(RefreshTokenCommandResponse commandResponse)
-//    {
-//        ArgumentNullException.ThrowIfNull(commandResponse);
-
-//        return new RefreshTokenResponse(
-//            commandResponse.Tokens.AccessToken,
-//            commandResponse.Tokens.RefreshToken,
-//            commandResponse.Tokens.TokenType,
-//            commandResponse.Tokens.ExpiresAt);
-//    }
-
-//    public ChangePasswordCommand MapToCommand(ChangePasswordRequest request, string? userId = null)
-//    {
-//        ArgumentNullException.ThrowIfNull(request);
-//        ArgumentException.ThrowIfNullOrWhiteSpace(userId, nameof(userId));
-
-//        return new ChangePasswordCommand(
-//            request.CurrentPassword,
-//            request.NewPassword)
-//        {
-//            UserId = userId,
-//            Timestamp = DateTime.UtcNow
-//        };
-//    }
-
-//    public ChangePasswordResponse MapToResponse(ChangePasswordCommandResponse commandResponse)
-//    {
-//        ArgumentNullException.ThrowIfNull(commandResponse);
-
-//        return new ChangePasswordResponse(
-//            commandResponse.Success,
-//            commandResponse.Message ?? "Password changed successfully");
-//    }
-
-//    public GetUserProfileQuery MapToQuery(GetUserProfileRequest request, string? userId = null)
-//    {
-//        ArgumentNullException.ThrowIfNull(request);
-
-//        return new GetUserProfileQuery(request.UserId);
-//    }
-
-//    public UserProfileResponse MapToResponse(UserProfileQueryResponse queryResponse)
-//    {
-//        ArgumentNullException.ThrowIfNull(queryResponse);
-
-//        return new UserProfileResponse(
-//            queryResponse.UserId,
-//            queryResponse.Email,
-//            queryResponse.FirstName,
-//            queryResponse.LastName,
-//            queryResponse.UserName,
-//            queryResponse.PhoneNumber,
-//            queryResponse.Bio,
-//            queryResponse.TimeZone,
-//            queryResponse.Roles,
-//            queryResponse.EmailVerified,
-//            queryResponse.AccountStatus,
-//            queryResponse.CreatedAt,
-//            queryResponse.LastLoginAt,
-//            queryResponse.Preferences);
-//    }
-
-//    public SearchUsersQuery MapToQuery(SearchUsersRequest request, string? userId = null)
-//    {
-//        ArgumentNullException.ThrowIfNull(request);
-
-//        return new SearchUsersQuery(
-//            request.SearchTerm,
-//            request.Skills,
-//            request.Location,
-//            request.IsAvailable,
-//            request.MinRating,
-//            request.MaxRating,
-//            request.SortBy,
-//            request.SortDescending,
-//            request.PageNumber,
-//            request.PageSize);
-//    }
-
-//    public SearchUsersResponse MapToResponse(SearchUsersQueryResponse queryResponse)
-//    {
-//        ArgumentNullException.ThrowIfNull(queryResponse);
-
-//        var users = queryResponse.Users.Select(u => new UserSummaryResponse(
-//            u.UserId,
-//            u.FirstName,
-//            u.LastName,
-//            u.UserName,
-//            u.Skills,
-//            u.Location,
-//            u.Rating,
-//            u.ReviewCount,
-//            u.IsAvailable,
-//            u.JoinedAt)).ToList();
-
-//        return new SearchUsersResponse(
-//            users,
-//            queryResponse.PageNumber,
-//            queryResponse.PageSize,
-//            queryResponse.TotalCount,
-//            queryResponse.TotalPages,
-//            queryResponse.HasNextPage,
-//            queryResponse.HasPreviousPage);
-//    }
-
-//    public UpdateUserProfileCommand MapToCommand(UpdateUserProfileRequest request, string? userId = null)
-//    {
-//        ArgumentNullException.ThrowIfNull(request);
-//        ArgumentException.ThrowIfNullOrWhiteSpace(userId, nameof(userId));
-
-//        return new UpdateUserProfileCommand(
-//            request.FirstName,
-//            request.LastName,
-//            request.PhoneNumber,
-//            request.Bio,
-//            request.TimeZone,
-//            request.Location,
-//            request.Preferences)
-//        {
-//            UserId = userId,
-//            Timestamp = DateTime.UtcNow
-//        };
-//    }
-
-//    public UpdateUserProfileResponse MapToResponse(UpdateUserProfileCommandResponse commandResponse)
-//    {
-//        ArgumentNullException.ThrowIfNull(commandResponse);
-
-//        return new UpdateUserProfileResponse(
-//            commandResponse.UserId,
-//            commandResponse.Email,
-//            commandResponse.FirstName,
-//            commandResponse.LastName,
-//            commandResponse.UserName,
-//            commandResponse.PhoneNumber,
-//            commandResponse.Bio,
-//            commandResponse.TimeZone,
-//            commandResponse.Location,
-//            commandResponse.UpdatedAt);
-//    }
-//}
-
-/////// <summary>
-/////// Interface for User service contract mapping
-/////// </summary>
-////public interface IUserContractMapper
-////{
-////    RegisterUserCommand MapToCommand(RegisterUserRequest request, string? userId = null);
-////    RegisterUserResponse MapToResponse(RegisterUserCommandResponse commandResponse);
-    
-////    LoginUserCommand MapToCommand(LoginUserRequest request, string? userId = null);
-////    LoginUserResponse MapToResponse(LoginUserCommandResponse commandResponse);
-    
-////    RefreshTokenCommand MapToCommand(RefreshTokenRequest request, string? userId = null);
-////    RefreshTokenResponse MapToResponse(RefreshTokenCommandResponse commandResponse);
-    
-////    ChangePasswordCommand MapToCommand(ChangePasswordRequest request, string? userId = null);
-////    ChangePasswordResponse MapToResponse(ChangePasswordCommandResponse commandResponse);
-    
-////    GetUserProfileQuery MapToQuery(GetUserProfileRequest request, string? userId = null);
-////    UserProfileResponse MapToResponse(UserProfileQueryResponse queryResponse);
-    
-////    SearchUsersQuery MapToQuery(SearchUsersRequest request, string? userId = null);
-////    SearchUsersResponse MapToResponse(SearchUsersQueryResponse queryResponse);
-    
-////    UpdateUserProfileCommand MapToCommand(UpdateUserProfileRequest request, string? userId = null);
-////    UpdateUserProfileResponse MapToResponse(UpdateUserProfileCommandResponse commandResponse);
-////}
+        return fields;
+    }
+}
