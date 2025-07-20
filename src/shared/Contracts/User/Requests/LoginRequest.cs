@@ -9,7 +9,7 @@ namespace Contracts.User.Requests;
 /// <param name="Password">User's password</param>
 /// <param name="RememberMe">Whether to extend session duration</param>
 /// <param name="TwoFactorCode">Two-factor authentication code (if required)</param>
-public record LoginUserRequest(
+public record LoginRequest(
     [Required(ErrorMessage = "Email is required")]
     [EmailAddress(ErrorMessage = "Invalid email format")]
     string Email,
@@ -20,7 +20,11 @@ public record LoginUserRequest(
     bool RememberMe = false,
 
     [StringLength(10, ErrorMessage = "Two-factor code must not exceed 10 characters")]
-    string? TwoFactorCode = null)
+    string? TwoFactorCode = null,
+
+    string? DeviceId = null,
+
+    string? DeviceInfo = null)
 {
     /// <summary>
     /// API Version this request supports

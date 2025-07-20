@@ -8,7 +8,9 @@ namespace Contracts.User.Requests;
 /// <param name="RefreshToken">The refresh token to use for generating new tokens</param>
 public record RefreshTokenRequest(
     [Required(ErrorMessage = "Refresh token is required")]
-    string RefreshToken)
+    string RefreshToken,
+
+    string? DeviceId = null)
 {
     /// <summary>
     /// API Version this request supports

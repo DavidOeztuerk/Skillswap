@@ -1,6 +1,6 @@
 using FluentValidation;
 using CQRS.Interfaces;
-using Infrastructure.Security;
+using Contracts.User.Responses;
 
 namespace UserService.Application.Commands;
 
@@ -20,15 +20,6 @@ public record RegisterUserCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record RegisterUserResponse(
-    string UserId,
-    string Email,
-    string FirstName,
-    string LastName,
-    string UserName,
-    TokenResult Tokens,
-    bool EmailVerificationRequired);
 
 public class RegisterUserCommandValidator : AbstractValidator<RegisterUserCommand>
 {
