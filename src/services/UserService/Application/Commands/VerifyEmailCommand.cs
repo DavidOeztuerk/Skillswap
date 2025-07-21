@@ -1,11 +1,8 @@
+using Contracts.User.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace UserService.Application.Commands;
-
-// ============================================================================
-// VERIFY EMAIL COMMAND
-// ============================================================================
 
 public record VerifyEmailCommand(
     string Email,
@@ -15,10 +12,6 @@ public record VerifyEmailCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record VerifyEmailResponse(
-    bool Success,
-    string Message);
 
 public class VerifyEmailCommandValidator : AbstractValidator<VerifyEmailCommand>
 {

@@ -39,7 +39,7 @@ public record UserInfo(
     string Email,
     string FirstName,
     string LastName,
+    string UserName,
     List<string> Roles,
-    List<string> Permissions,
     bool EmailVerified,
     string AccountStatus);

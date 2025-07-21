@@ -12,6 +12,8 @@ using EventSourcing;
 using CQRS.Extensions;
 using UserService.Application.Commands;
 using UserService.Application.Queries;
+using Contracts.User.Requests;
+using Contracts.User.Responses;
 using UserService;
 using Infrastructure.Models;
 using Microsoft.OpenApi.Models;
@@ -297,7 +299,7 @@ auth.MapPost("/login", HandleLoginUser)
     .WithSummary("Authenticate user")
     .WithDescription("Authenticates user credentials and returns JWT tokens")
     .WithTags("Authentication")
-    .Produces<LoginUserResponse>(200)
+    .Produces<LoginResponse>(200)
     .Produces(401)
     .Produces(403); // For 2FA required
 
@@ -710,9 +712,9 @@ static async Task<IResult> HandleRegisterUser(IMediator mediator, RegisterUserCo
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleLoginUser(IMediator mediator, LoginUserCommand command)
+static async Task<IResult> HandleLoginUser(IMediator mediator, LoginRequest request)
 {
-    
+    var command = LoginUserCommand.FromRequest(request);
     return await mediator.SendCommand(command);
 }
 

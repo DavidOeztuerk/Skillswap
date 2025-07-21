@@ -20,6 +20,6 @@ public class CommonMappingProfile : Profile
         CreateMap<Dictionary<string, object>, Dictionary<string, string>>()
             .ConvertUsing(src => src.ToDictionary(
                 kvp => kvp.Key,
-                kvp => kvp.Value?.ToString() ?? string.Empty));
+                kvp => kvp.Value.ToString() ?? string.Empty));
     }
 }

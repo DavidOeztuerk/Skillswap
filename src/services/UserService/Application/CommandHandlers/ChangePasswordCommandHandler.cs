@@ -4,12 +4,9 @@ using EventSourcing;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using Events.Domain.User;
+using Contracts.User.Responses;
 
 namespace UserService.Application.CommandHandlers;
-
-// ============================================================================
-// CHANGE PASSWORD COMMAND HANDLER
-// ============================================================================
 
 public class ChangePasswordCommandHandler(
     UserDbContext dbContext,
@@ -67,7 +64,7 @@ public class ChangePasswordCommandHandler(
 
             Logger.LogInformation("Password changed successfully for user {UserId}", request.UserId);
 
-            var response = new ChangePasswordResponse(true, DateTime.UtcNow);
+            var response = new ChangePasswordResponse(true, "Password successfully changed");
             return Success(response, "Password changed successfully. Please login again.");
         }
         catch (Exception ex)

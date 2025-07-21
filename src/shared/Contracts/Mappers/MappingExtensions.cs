@@ -1,57 +1,49 @@
-﻿using System.ComponentModel.DataAnnotations;
-using AutoMapper;
+﻿//using System.ComponentModel.DataAnnotations;
+//using AutoMapper;
 
-namespace Contracts.Mappers;
-
-
+//namespace Contracts.Mappers;
 
 
-// src/shared/Contracts/Mapping/MappingExtensions.cs
-namespace Contracts.Mapping;
 
-/// <summary>
-/// Extension methods for mapping
-/// </summary>
-public static class MappingExtensions
-{
-    /// <summary>
-    /// Maps and validates the request
-    /// </summary>
-    public static TCommand MapToCommandWithValidation<TRequest, TCommand>(
-        this IContractMapper<TRequest, TCommand> mapper,
-        TRequest request,
-        string? userId = null)
-        where TRequest : class
-    {
-        if (request == null)
-            throw new ArgumentNullException(nameof(request));
 
-        // Perform validation if validator is available
-        var validationContext = new ValidationContext<TRequest>(request);
-        var validator = new DataAnnotationsValidator<TRequest>();
-        var validationResult = validator.Validate(validationContext);
+///// <summary>
+///// Extension methods for mapping
+///// </summary>
+//public static class MappingExtensions
+//{
+//    /// <summary>
+//    /// Maps and validates the request
+//    /// </summary>
+//    public static TCommand MapToCommandWithValidation<TRequest, TCommand>(
+//        this IContractMapper<TRequest, TCommand> mapper,
+//        TRequest request,
+//        string? userId = null)
+//        where TRequest : class
+//    {
+//        if (request == null)
+//            throw new ArgumentNullException(nameof(request));
 
-        if (!validationResult.IsValid)
-        {
-            throw new ValidationException(validationResult.Errors);
-        }
+//        // Perform validation if validator is available
+//        var validationContext = new ValidationContext(request);
+//        var validator = new DataAnnotationsValidator<TRequest>();
+//        var validationResult = validator.Validate<TRequest>(validationContext);
 
-        return mapper.MapToCommand(request, userId);
-    }
+//        if (!validationResult.IsValid)
+//        {
+//            throw new ValidationException(validationResult.Errors);
+//        }
 
-    /// <summary>
-    /// Maps with custom configuration
-    /// </summary>
-    public static TDestination MapWithConfig<TSource, TDestination>(
-        this IMapper mapper,
-        TSource source,
-        Action<IMappingOperationOptions> opts)
-    {
-        return mapper.Map<TDestination>(source, opts);
-    }
-}
+//        return mapper.MapToCommand(request, userId);
+//    }
 
-// src/shared/Contracts/Mapping/DataAnnotationsValidator.cs
-using System.ComponentModel.DataAnnotations;
-using FluentValidation;
-using FluentValidation.Results;
+//    /// <summary>
+//    /// Maps with custom configuration
+//    /// </summary>
+//    public static TDestination MapWithConfig<TSource, TDestination>(
+//        this IMapper mapper,
+//        TSource source,
+//        Action<IMappingOperationOptions> opts)
+//    {
+//        return mapper.Map<TDestination>(source, opts);
+//    }
+//}

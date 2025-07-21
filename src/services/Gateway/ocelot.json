@@ -738,6 +738,96 @@
         "AllowedScopes": []
       },
       "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/skills/export",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/export",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/skills/{skillId}/similar",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/{skillId}/similar",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/calls/{sessionId}/quality-metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/{sessionId}/quality-metrics",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/health/status",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/system/health/userservice",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/health/status",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/system/health/skillservice",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/health/status",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "matchmakingservice", "Port": 5003 }],
+      "UpstreamPathTemplate": "/api/system/health/matchmakingservice",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/health/status",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice", "Port": 5004 }],
+      "UpstreamPathTemplate": "/api/system/health/appointmentservice",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/health/status",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/system/health/videocallservice",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/health/status",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "notificationservice", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/system/health/notificationservice",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/analytics/service-metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "gateway", "Port": 8080 }],
+      "UpstreamPathTemplate": "/api/analytics/service-metrics",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
     }
   ],
   "GlobalConfiguration": {

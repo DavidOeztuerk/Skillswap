@@ -8,6 +8,7 @@ using UserService.Application.Commands;
 using Events.Domain.User;
 using Microsoft.Extensions.Logging;
 using UserService.Domain.Models;
+using Contracts.User.Responses;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -127,7 +128,10 @@ public class RegisterUserCommandHandler(
                 user.FirstName,
                 user.LastName,
                 user.UserName,
-                tokens,
+                tokens.AccessToken,
+                tokens.RefreshToken,
+                tokens.TokenType,
+                tokens.ExpiresAt,
                 true);
 
             return Success(response, "User registered successfully. Please check your email for verification.");

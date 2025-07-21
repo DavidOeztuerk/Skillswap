@@ -4,12 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using EventSourcing;
 using Events.Domain.User;
+using Contracts.User.Responses;
 
 namespace UserService.Application.CommandHandlers;
-
-// ============================================================================
-// VERIFY EMAIL COMMAND HANDLER
-// ============================================================================
 
 public class VerifyEmailCommandHandler(
     UserDbContext dbContext,

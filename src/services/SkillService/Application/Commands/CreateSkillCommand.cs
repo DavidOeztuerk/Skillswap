@@ -1,5 +1,7 @@
 using CQRS.Interfaces;
 using FluentValidation;
+using Contracts.Skill.Requests;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.Commands;
 
@@ -20,14 +22,17 @@ public record CreateSkillCommand(
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    
+    public static CreateSkillCommand FromRequest(CreateSkillRequest request) => new(
+        request.Name,
+        request.Description,
+        request.CategoryId,
+        request.ProficiencyLevelId,
+        request.Tags,
+        request.IsOffered,
+        request.AvailableHours,
+        request.PreferredSessionDuration);
 }
-
-public record CreateSkillResponse(
-    string SkillId,
-    string Name,
-    string Description,
-    bool IsOffering,
-    DateTime CreatedAt);
 
 public class CreateSkillCommandValidator : AbstractValidator<CreateSkillCommand>
 {

@@ -1,11 +1,8 @@
 using FluentValidation;
 using CQRS.Interfaces;
+using Contracts.User.Responses;
 
 namespace UserService.Application.Commands;
-
-// ============================================================================
-// CHANGE PASSWORD COMMAND
-// ============================================================================
 
 public record ChangePasswordCommand(
     string CurrentPassword,
@@ -15,10 +12,6 @@ public record ChangePasswordCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record ChangePasswordResponse(
-    bool Success,
-    DateTime ChangedAt);
 
 public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCommand>
 {

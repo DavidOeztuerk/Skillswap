@@ -1,5 +1,6 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
+using Contracts.Appointment.Responses;
 using CQRS.Handlers;
 using Events.Domain.Appointment;
 using EventSourcing;

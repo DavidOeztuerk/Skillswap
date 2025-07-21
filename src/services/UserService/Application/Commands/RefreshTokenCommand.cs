@@ -1,12 +1,8 @@
 using FluentValidation;
 using CQRS.Interfaces;
-using Infrastructure.Security;
+using Contracts.User.Responses;
 
 namespace UserService.Application.Commands;
-
-// ============================================================================
-// REFRESH TOKEN COMMAND
-// ============================================================================
 
 public record RefreshTokenCommand(
     string AccessToken,
@@ -16,9 +12,6 @@ public record RefreshTokenCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record RefreshTokenResponse(
-    TokenResult Tokens);
 
 public class RefreshTokenCommandValidator : AbstractValidator<RefreshTokenCommand>
 {

@@ -6,12 +6,9 @@ using UserService.Application.Commands;
 using UserService.Domain.Models;
 using EventSourcing;
 using Events.Domain.User;
+using Contracts.User.Responses;
 
 namespace UserService.Application.CommandHandlers;
-
-// ============================================================================
-// LOGIN USER COMMAND HANDLER
-// ============================================================================
 
 public class LoginUserCommandHandler(
     UserDbContext dbContext,
@@ -19,35 +16,33 @@ public class LoginUserCommandHandler(
     ITotpService totpService,
     IDomainEventPublisher eventPublisher,
     ILogger<LoginUserCommandHandler> logger)
-    : BaseCommandHandler<LoginUserCommand, LoginUserResponse>(logger)
+    : BaseCommandHandler<LoginUserCommand, LoginResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
     private readonly IJwtService _jwtService = jwtService;
     private readonly ITotpService _totpService = totpService;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
-    public override async Task<ApiResponse<LoginUserResponse>> Handle(
-        LoginUserCommand request, 
+    public override async Task<ApiResponse<LoginResponse>> Handle(
+        LoginUserCommand request,
         CancellationToken cancellationToken)
     {
         try
         {
-
             var email = request.Email;
             var user = await _dbContext.Users
                 .Include(u => u.UserRoles)
                 .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
-
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
-                Logger.LogWarning("Failed login attempt for email {Email} from IP {IpAddress}", 
-                    email, request.IpAddress);
+                Logger.LogWarning("Failed login attempt for email {Email} from IP {IpAddress}",
+                    email, request.DeviceInfo);
 
                 // Track failed login attempt
                 await _eventPublisher.Publish(new LoginAttemptFailedDomainEvent(
                     email,
-                    request.IpAddress ?? "Unknown",
+                    request.DeviceInfo ?? "Unknown",
                     "Invalid credentials"), cancellationToken);
 
                 return Error("Invalid email or password");
@@ -71,7 +66,7 @@ public class LoginUserCommandHandler(
                 if (string.IsNullOrWhiteSpace(request.TwoFactorCode))
                 {
 
-                    var profileOnly = new UserProfileData(
+                    var profileOnly = new UserInfo(
                         user.Id,
                         user.Email,
                         user.FirstName,
@@ -79,17 +74,17 @@ public class LoginUserCommandHandler(
                         user.UserName,
                         user.UserRoles.Select(ur => ur.Role).ToList(),
                         user.EmailVerified,
-                        user.AccountStatus,
-                        user.CreatedAt,
-                        user.LastLoginAt);
+                        user.AccountStatus);
 
-                    return Success(new LoginUserResponse(
-                        user.Id,
-                        null,
+                    return Success(new LoginResponse(
+                        "WaitCallback", // Assuming the first parameter is for token or userId
+                        "null", // Add appropriate value for the second parameter
+                        "null", // Add appropriate value for the third parameter
+                        0,    // Add appropriate value for the fourth parameter (int)
+                        user.LastLoginAt ?? DateTime.UtcNow,
                         profileOnly,
                         !user.EmailVerified,
-                        true,
-                        user.LastLoginAt ?? DateTime.UtcNow),
+                        null), // Add appropriate value for the last parameter (string?)
                         "Two-factor authentication required");
                 }
 
@@ -101,7 +96,7 @@ public class LoginUserCommandHandler(
 
             // Update last login
             user.LastLoginAt = DateTime.UtcNow;
-            user.LastLoginIp = request.IpAddress;
+            user.LastLoginIp = request.DeviceInfo;
 
             // Generate JWT tokens
 
@@ -133,14 +128,14 @@ public class LoginUserCommandHandler(
             // Publish successful login event
             await _eventPublisher.Publish(new UserLoggedInDomainEvent(
                 user.Id,
-                request.IpAddress ?? "Unknown",
+                request.DeviceInfo ?? "Unknown",
                 request.DeviceInfo), cancellationToken);
 
 
             Logger.LogInformation("User {Email} logged in successfully", user.Email);
 
 
-            var profileData = new UserProfileData(
+            var profileData = new UserInfo(
                 user.Id,
                 user.Email,
                 user.FirstName,
@@ -148,17 +143,18 @@ public class LoginUserCommandHandler(
                 user.UserName,
                 userClaims.Roles,
                 user.EmailVerified,
-                user.AccountStatus,
-                user.CreatedAt,
-                user.LastLoginAt);
+                user.AccountStatus);
 
-            var response = new LoginUserResponse(
-                user.Id,
-                tokens,
+            var response = new LoginResponse(
+                tokens.AccessToken,
+                tokens.RefreshToken,
+                tokens.TokenType,
+                tokens.ExpiresIn,
+                tokens.ExpiresAt,
                 profileData,
-                !user.EmailVerified,
-                false,
-                user.LastLoginAt ?? DateTime.UtcNow);
+                requiresTwoFactor,
+                null
+            );
 
             return Success(response, "Login successful");
         }

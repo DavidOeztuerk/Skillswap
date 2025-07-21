@@ -1,3 +1,4 @@
+using Contracts.User.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -13,11 +14,6 @@ public record UploadAvatarCommand(
     string? IAuditableCommand.UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record UploadAvatarResponse(
-    string UserId,
-    string AvatarUrl,
-    DateTime UploadedAt);
 
 public class UploadAvatarCommandValidator : AbstractValidator<UploadAvatarCommand>
 {

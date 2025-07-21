@@ -4,12 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using EventSourcing;
 using Events.Domain.User;
+using Contracts.User.Responses;
 
 namespace UserService.Application.CommandHandlers;
-
-// ============================================================================
-// UPDATE USER PROFILE COMMAND HANDLER
-// ============================================================================
 
 public class UpdateUserProfileCommandHandler(
     UserDbContext dbContext,
@@ -62,6 +59,7 @@ public class UpdateUserProfileCommandHandler(
 
             var response = new UpdateUserProfileResponse(
                 user.Id,
+                user.Email,
                 user.FirstName,
                 user.LastName,
                 user.UserName,

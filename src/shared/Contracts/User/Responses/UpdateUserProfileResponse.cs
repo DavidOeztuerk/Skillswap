@@ -11,18 +11,16 @@ namespace Contracts.User.Responses;
 /// <param name="PhoneNumber">Updated phone number</param>
 /// <param name="Bio">Updated biography</param>
 /// <param name="TimeZone">Updated timezone</param>
-/// <param name="Location">Updated location</param>
 /// <param name="UpdatedAt">When the profile was last updated</param>
 public record UpdateUserProfileResponse(
     string UserId,
     string Email,
     string FirstName,
     string LastName,
-    string UserName,
+    string? UserName,
     string? PhoneNumber,
     string? Bio,
     string? TimeZone,
-    string? Location,
     DateTime UpdatedAt)
 {
     /// <summary>

@@ -5,12 +5,9 @@ using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.Skill;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.CommandHandlers;
-
-// ============================================================================
-// 1. KORRIGIERTER COMMAND HANDLER
-// ============================================================================
 
 public class CreateSkillCommandHandler(
     SkillDbContext dbContext,
@@ -97,7 +94,12 @@ public class CreateSkillCommandHandler(
                 skill.Id,
                 skill.Name,
                 skill.Description,
+                skill.SkillCategoryId,
+                skill.ProficiencyLevelId,
+                skill.Tags,
                 skill.IsOffering,
+                skill.IsPopular,
+                "",
                 skill.CreatedAt);
 
             return Success(response, "Skill created successfully");

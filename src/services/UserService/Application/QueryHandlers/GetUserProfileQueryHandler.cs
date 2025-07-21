@@ -3,12 +3,10 @@ using UserService.Application.Queries;
 using System.Text.Json;
 using CQRS.Handlers;
 using Infrastructure.Models;
+using Contracts.User.Responses;
 
 namespace UserService.Application.QueryHandlers;
 
-// ============================================================================
-// GET USER PROFILE QUERY HANDLER
-// ============================================================================
 public class GetUserProfileQueryHandler(
     UserDbContext dbContext,
     ILogger<GetUserProfileQueryHandler> logger)
