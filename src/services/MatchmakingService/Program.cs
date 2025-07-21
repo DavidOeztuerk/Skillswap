@@ -224,7 +224,7 @@ static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipa
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
 
-    var command = new CreateMatchRequestCommand(request.SkillId, request.Description, request.Messagm)
+    var command = new CreateMatchRequestCommand(request.SkillId, request.Description, request.Message)
     {
         UserId = userId
     };
@@ -237,7 +237,7 @@ static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPr
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetIncomingMatchRequestsQuery(request.PageNumber, request.PageNumber)
+    var query = new GetIncomingMatchRequestsQuery(request.PageNumber, request.PageSize)
     {
         UserId = userId
     };

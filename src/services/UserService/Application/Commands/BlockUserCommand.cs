@@ -1,3 +1,4 @@
+using Contracts.User.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -12,12 +13,6 @@ public record BlockUserCommand(
     string? IAuditableCommand.UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record BlockUserResponse(
-    string UserId,
-    string BlockedUserId,
-    DateTime BlockedAt,
-    string Message);
 
 public class BlockUserCommandValidator : AbstractValidator<BlockUserCommand>
 {

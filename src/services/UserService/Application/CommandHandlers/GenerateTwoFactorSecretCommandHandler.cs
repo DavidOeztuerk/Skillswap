@@ -1,7 +1,7 @@
+using Contracts.User.Responses;
 using CQRS.Handlers;
 using Infrastructure.Models;
 using Infrastructure.Security;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 

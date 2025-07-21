@@ -1,3 +1,4 @@
+using Contracts.User.Responses;
 using CQRS.Handlers;
 using Infrastructure.Models;
 using Infrastructure.Security;
@@ -6,10 +7,6 @@ using UserService.Application.Commands;
 using UserService.Domain.Models;
 
 namespace UserService.Application.CommandHandlers;
-
-// ============================================================================
-// REFRESH TOKEN COMMAND HANDLER
-// ============================================================================
 
 public class RefreshTokenCommandHandler(
     UserDbContext dbContext,
@@ -85,7 +82,13 @@ public class RefreshTokenCommandHandler(
 
             Logger.LogInformation("Tokens refreshed for user {UserId}", userId);
 
-            var response = new RefreshTokenResponse(tokens);
+            var response = new RefreshTokenResponse(
+                tokens.AccessToken,
+                tokens.RefreshToken,
+                tokens.TokenType,
+                tokens.ExpiresIn,
+                tokens.ExpiresAt);
+
             return Success(response, "Tokens refreshed successfully");
         }
         catch (Exception ex)

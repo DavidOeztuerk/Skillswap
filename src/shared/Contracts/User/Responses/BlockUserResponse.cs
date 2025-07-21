@@ -4,8 +4,10 @@ namespace Contracts.User.Responses;
 /// API response for BlockUser operation
 /// </summary>
 public record BlockUserResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string UserId,
+    string BlockedUserId,
+    DateTime BlockedAt,
+    string Message)
 {
     /// <summary>
     /// API Version this response supports

@@ -1,3 +1,4 @@
+using Contracts.User.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -10,10 +11,6 @@ public record DisableTwoFactorCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record DisableTwoFactorResponse(
-    bool Success,
-    string Message);
 
 public class DisableTwoFactorCommandValidator : AbstractValidator<DisableTwoFactorCommand>
 {

@@ -1,3 +1,4 @@
+using Contracts.User.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -7,25 +8,11 @@ public record GetBlockedUsersQuery(
     string UserId,
     int PageNumber = 1,
     int PageSize = 20)
-    : IPagedQuery<BlockedUserResponse>
+    : IPagedQuery<GetBlockedUsersResponse>
 {
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
 }
-
-public record BlockedUserResponse(
-    string UserId,
-    string FirstName,
-    string LastName,
-    string? AvatarUrl,
-    DateTime BlockedAt,
-    string? Reason);
-
-public record GetBlockedUsersResponse(
-    List<BlockedUserResponse> BlockedUsers,
-    int TotalCount,
-    int PageNumber,
-    int PageSize);
 
 public class GetBlockedUsersQueryValidator : AbstractValidator<GetBlockedUsersQuery>
 {

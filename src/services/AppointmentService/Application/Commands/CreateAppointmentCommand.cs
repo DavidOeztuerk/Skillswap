@@ -1,5 +1,6 @@
 using CQRS.Interfaces;
 using FluentValidation;
+using Contracts.Appointment.Responses;
 
 namespace AppointmentService.Application.Commands;
 
@@ -19,12 +20,6 @@ public record CreateAppointmentCommand(
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
-public record CreateAppointmentResponse(
-    string AppointmentId,
-    string Title,
-    DateTime ScheduledDate,
-    string Status,
-    DateTime CreatedAt);
 
 public class CreateAppointmentCommandValidator : AbstractValidator<CreateAppointmentCommand>
 {

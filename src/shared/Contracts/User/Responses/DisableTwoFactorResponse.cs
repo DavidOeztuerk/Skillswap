@@ -4,8 +4,8 @@ namespace Contracts.User.Responses;
 /// API response for DisableTwoFactor operation
 /// </summary>
 public record DisableTwoFactorResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    bool Success,
+    string Message)
 {
     /// <summary>
     /// API Version this response supports

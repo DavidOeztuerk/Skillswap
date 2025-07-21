@@ -4,8 +4,7 @@ namespace Contracts.User.Responses;
 /// API response for GenerateTwoFactorSecret operation
 /// </summary>
 public record GenerateTwoFactorSecretResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string Secret)
 {
     /// <summary>
     /// API Version this response supports

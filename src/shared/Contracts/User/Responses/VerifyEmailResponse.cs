@@ -4,8 +4,8 @@ namespace Contracts.User.Responses;
 /// API response for VerifyEmail operation
 /// </summary>
 public record VerifyEmailResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    bool Success,
+    string Message)
 {
     /// <summary>
     /// API Version this response supports

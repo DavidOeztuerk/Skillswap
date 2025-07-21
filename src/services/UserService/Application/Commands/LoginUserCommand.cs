@@ -1,44 +1,29 @@
 using FluentValidation;
 using CQRS.Interfaces;
-using Infrastructure.Security;
+using Contracts.User.Requests;
+using Contracts.User.Responses;
 
 namespace UserService.Application.Commands;
 
-// ============================================================================
-// LOGIN USER COMMAND
-// ============================================================================
 
 public record LoginUserCommand(
     string Email,
     string Password,
-    string? DeviceInfo = null,
-    string? IpAddress = null,
-    string? TwoFactorCode = null)
-    : ICommand<LoginUserResponse>, IAuditableCommand
+    string? TwoFactorCode = null,
+    string? DeviceId = null,
+    string? DeviceInfo = null)
+    : ICommand<LoginResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    
+    public static LoginUserCommand FromRequest(LoginRequest request) => new(
+        request.Email,
+        request.Password,
+        request.TwoFactorCode,
+        request.DeviceId,
+        request.DeviceInfo);
 }
-
-public record LoginUserResponse(
-    string UserId,
-    TokenResult? Tokens,
-    UserProfileData Profile,
-    bool RequiresEmailVerification,
-    bool RequiresTwoFactor,
-    DateTime LastLoginAt);
-
-public record UserProfileData(
-    string UserId,
-    string Email,
-    string FirstName,
-    string LastName,
-    string UserName,
-    List<string> Roles,
-    bool EmailVerified,
-    string AccountStatus,
-    DateTime CreatedAt,
-    DateTime? LastLoginAt);
 
 public class LoginUserCommandValidator : AbstractValidator<LoginUserCommand>
 {

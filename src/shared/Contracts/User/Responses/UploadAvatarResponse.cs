@@ -4,8 +4,9 @@ namespace Contracts.User.Responses;
 /// API response for UploadAvatar operation
 /// </summary>
 public record UploadAvatarResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string UserId,
+    string AvatarUrl,
+    DateTime UploadedAt)
 {
     /// <summary>
     /// API Version this response supports

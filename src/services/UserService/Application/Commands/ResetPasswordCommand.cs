@@ -1,11 +1,8 @@
+using Contracts.User.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace UserService.Application.Commands;
-
-// ============================================================================
-// RESET PASSWORD COMMAND
-// ============================================================================
 
 public record ResetPasswordCommand(
     string Email,
@@ -16,10 +13,6 @@ public record ResetPasswordCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record ResetPasswordResponse(
-    bool Success,
-    string Message);
 
 public class ResetPasswordCommandValidator : AbstractValidator<ResetPasswordCommand>
 {

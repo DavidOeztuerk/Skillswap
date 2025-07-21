@@ -1,3 +1,4 @@
+using Contracts.User.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -10,10 +11,6 @@ public record ResendVerificationCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record ResendVerificationResponse(
-    bool Success,
-    string Message);
 
 public class ResendVerificationCommandValidator : AbstractValidator<ResendVerificationCommand>
 {

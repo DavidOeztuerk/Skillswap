@@ -1,11 +1,8 @@
 using FluentValidation;
 using CQRS.Interfaces;
+using Contracts.User.Responses;
 
 namespace UserService.Application.Commands;
-
-// ============================================================================
-// UPDATE USER PROFILE COMMAND
-// ============================================================================
 
 public record UpdateUserProfileCommand(
     string UserId,
@@ -21,16 +18,6 @@ public record UpdateUserProfileCommand(
     string? IAuditableCommand.UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record UpdateUserProfileResponse(
-    string UserId,
-    string FirstName,
-    string LastName,
-    string? UserName,
-    string? PhoneNumber,
-    string? Bio,
-    string? TimeZone,
-    DateTime UpdatedAt);
 
 public class UpdateUserProfileCommandValidator : AbstractValidator<UpdateUserProfileCommand>
 {

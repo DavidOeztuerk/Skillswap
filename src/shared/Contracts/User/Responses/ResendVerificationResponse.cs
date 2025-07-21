@@ -4,8 +4,8 @@ namespace Contracts.User.Responses;
 /// API response for ResendVerification operation
 /// </summary>
 public record ResendVerificationResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    bool Success,
+    string Message)
 {
     /// <summary>
     /// API Version this response supports

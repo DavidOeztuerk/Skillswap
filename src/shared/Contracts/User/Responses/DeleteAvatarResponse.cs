@@ -4,8 +4,9 @@ namespace Contracts.User.Responses;
 /// API response for DeleteAvatar operation
 /// </summary>
 public record DeleteAvatarResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string UserId,
+    bool Success,
+    string Message)
 {
     /// <summary>
     /// API Version this response supports

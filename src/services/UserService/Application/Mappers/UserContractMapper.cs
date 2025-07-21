@@ -1,10 +1,7 @@
 using AutoMapper;
-using Contracts.Common;
 using Contracts.User.Requests;
 using Contracts.User.Responses;
-using Infrastructure.Security;
 using UserService.Application.Commands;
-using UserService.Application.Queries;
 
 namespace UserService.Application.Mappers;
 
@@ -18,7 +15,7 @@ public class UserMappingProfile : Profile
             .ForMember(dest => dest.Timestamp, opt => opt.MapFrom(src => DateTime.UtcNow));
 
         CreateMap<LoginRequest, LoginUserCommand>()
-            .ForMember(dest => dest.IpAddress, opt => opt.Ignore()); // Set from HTTP context
+            .ForMember(dest => dest.DeviceId, opt => opt.Ignore()); // Set from HTTP context
             //.ForMember(dest => dest.UserAgent, opt => opt.Ignore());
 
         CreateMap<UpdateUserProfileRequest, UpdateUserProfileCommand>()
@@ -32,7 +29,7 @@ public class UserMappingProfile : Profile
         CreateMap<LoginUserCommand, LoginResponse>()
             .ForMember(dest => dest.TokenType, opt => opt.MapFrom(src => "Bearer"));
 
-        CreateMap<UserProfileData, UserProfileResponse>()
+        CreateMap<UserInfo, UserProfileResponse>()
             .ForMember(dest => dest.Roles, opt => opt.MapFrom(src =>
                 src.Roles.Select(ur => ur).ToList()));
     }

@@ -4,8 +4,8 @@ namespace Contracts.User.Responses;
 /// API response for RequestPasswordReset operation
 /// </summary>
 public record RequestPasswordResetResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    bool Success,
+    string Message)
 {
     /// <summary>
     /// API Version this response supports

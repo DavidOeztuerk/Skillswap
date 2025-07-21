@@ -4,8 +4,7 @@ namespace Contracts.User.Responses;
 /// API response for VerifyTwoFactorCode operation
 /// </summary>
 public record VerifyTwoFactorCodeResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    bool Success)
 {
     /// <summary>
     /// API Version this response supports

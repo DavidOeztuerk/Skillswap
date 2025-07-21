@@ -1,3 +1,4 @@
+using Contracts.Notification.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -12,13 +13,6 @@ public record UpdateNotificationPreferencesCommand()
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record UpdateNotificationPreferencesResponse(
-    string UserId,
-    //EmailNotificationSettings EmailSettings,
-    //PushNotificationSettings PushSettings,
-    //InAppNotificationSettings InAppSettings,
-    DateTime UpdatedAt);
 
 public class UpdateNotificationPreferencesCommandValidator : AbstractValidator<UpdateNotificationPreferencesCommand>
 {
