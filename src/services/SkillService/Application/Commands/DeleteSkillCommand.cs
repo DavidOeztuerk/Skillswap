@@ -1,11 +1,8 @@
+using Contracts.Skill.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace SkillService.Application.Commands;
-
-// ============================================================================
-// DELETE SKILL COMMAND
-// ============================================================================
 
 public record DeleteSkillCommand(
     string SkillId,
@@ -15,11 +12,6 @@ public record DeleteSkillCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record DeleteSkillResponse(
-    string SkillId,
-    bool Success,
-    DateTime DeletedAt);
 
 public class DeleteSkillCommandValidator : AbstractValidator<DeleteSkillCommand>
 {

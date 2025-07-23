@@ -13,6 +13,7 @@ import {
   MenuItem,
   Divider,
   useTheme,
+  Stack,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -28,6 +29,7 @@ import {
   Message as MessageIcon,
 } from '@mui/icons-material';
 import { Skill } from '../../types/models/Skill';
+import { useMobile, useMobileStyles } from '../../hooks/useMobile';
 
 interface SkillCardProps {
   skill: Skill;
@@ -54,12 +56,14 @@ const SkillCard: React.FC<SkillCardProps> = ({
   onToggleFavorite,
 }) => {
   const theme = useTheme();
+  const mobile = useMobile();
+  const mobileStyles = useMobileStyles();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
   // Debug logging
   console.log('🎴 SkillCard render:', {
-    id: skill.skillId,
+    id: skill.id,
     name: skill.name,
     isOwner,
     showMatchButton,
@@ -87,7 +91,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
   const handleDelete = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     handleMenuClose();
-    onDelete(skill.skillId);
+    onDelete(skill.id);
   };
 
   const handleViewDetails = (e: React.MouseEvent<HTMLElement>) => {
@@ -185,10 +189,12 @@ const SkillCard: React.FC<SkillCardProps> = ({
         flexDirection: 'column',
         height: '100%',
         cursor: 'pointer',
-        transition: 'all 0.3s ease',
+        transition: mobile.isMobile ? 'none' : 'all 0.3s ease',
         border: '1px solid',
         borderColor: 'divider',
-        '&:hover': {
+        margin: mobile.isMobile ? '4px 0' : 0,
+        ...mobileStyles.touchStyles,
+        '&:hover': mobile.isMobile ? {} : {
           transform: 'translateY(-8px)',
           boxShadow: theme.shadows[8],
           borderColor: categoryColor,
@@ -252,7 +258,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
         {/* Favorite button */}
         {onToggleFavorite && (
           <IconButton
-            aria-label={isFavorite && isFavorite(skill.skillId) ? 'Favorit entfernen' : 'Als Favorit markieren'}
+            aria-label={isFavorite && isFavorite(skill.id) ? 'Favorit entfernen' : 'Als Favorit markieren'}
             onClick={e => {
               e.stopPropagation();
               onToggleFavorite(skill);
@@ -267,10 +273,10 @@ const SkillCard: React.FC<SkillCardProps> = ({
                 bgcolor: 'rgba(255,255,255,1)',
                 transform: 'scale(1.1)',
               },
-              color: isFavorite && isFavorite(skill.skillId) ? theme.palette.warning.main : theme.palette.action.active,
+              color: isFavorite && isFavorite(skill.id) ? theme.palette.warning.main : theme.palette.action.active,
             }}
           >
-            {isFavorite && isFavorite(skill.skillId) ? <StarIcon /> : <StarBorderIcon />}
+            {isFavorite && isFavorite(skill.id) ? <StarIcon /> : <StarBorderIcon />}
           </IconButton>
         )}
         {/* Menu button */}
@@ -294,7 +300,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
 
         {/* Context menu */}
         <Menu
-          id={`skill-menu-${skill.skillId}`}
+          id={`skill-menu-${skill.id}`}
           anchorEl={anchorEl}
           open={open}
           onClose={handleMenuClose}
@@ -460,32 +466,42 @@ const SkillCard: React.FC<SkillCardProps> = ({
       {/* Actions */}
       <CardActions
         sx={{
-          justifyContent: 'space-between',
-          px: 2,
-          pb: 2,
+          justifyContent: mobile.isMobile ? 'center' : 'space-between',
+          flexDirection: mobile.isMobile ? 'column' : 'row',
+          px: mobile.isMobile ? 1 : 2,
+          pb: mobile.isMobile ? 1.5 : 2,
           pt: 0,
+          gap: mobile.isMobile ? 1 : 0,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {/* Skill ID for debugging (can be removed in production) */}
-          <Typography variant="caption" color="text.disabled">
-            #{(skill.skillId || skill.skillId || '').slice(-6)}
-          </Typography>
-        </Box>
+        {!mobile.isMobile && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {/* Skill ID for debugging (can be removed in production) */}
+            <Typography variant="caption" color="text.disabled">
+              #{(skill.id || skill.id || '').slice(-6)}
+            </Typography>
+          </Box>
+        )}
 
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Stack 
+          direction={mobile.isMobile ? 'column' : 'row'} 
+          spacing={mobile.isMobile ? 1 : 1}
+          sx={{ width: mobile.isMobile ? '100%' : 'auto' }}
+        >
           {/* Match button nur für fremde Skills */}
           {showMatchButton && !isOwner && onMatch && (
             <Button
-              size="small"
+              size={mobile.isMobile ? 'medium' : 'small'}
               variant="contained"
               color="primary"
               onClick={handleMatch}
               startIcon={<MessageIcon />}
+              fullWidth={mobile.isMobile}
               sx={{
-                fontSize: '0.75rem',
-                py: 0.5,
-                px: 1,
+                fontSize: mobile.isMobile ? '0.875rem' : '0.75rem',
+                py: mobile.isMobile ? 1.5 : 0.5,
+                px: mobile.isMobile ? 2 : 1,
+                minHeight: mobile.isMobile ? 48 : 'auto',
               }}
             >
               {skill.isOffering ? 'Lernen' : 'Helfen'}
@@ -494,7 +510,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
 
           {/* Details/Edit button */}
           <Button
-            size="small"
+            size={mobile.isMobile ? 'medium' : 'small'}
             variant="outlined"
             onClick={(e) => {
               e.stopPropagation();
@@ -504,7 +520,13 @@ const SkillCard: React.FC<SkillCardProps> = ({
                 onViewDetails(skill); // Für fremde Skills -> Details
               }
             }}
+            fullWidth={mobile.isMobile}
+            startIcon={isOwner ? <EditIcon /> : <VisibilityIcon />}
             sx={{
+              fontSize: mobile.isMobile ? '0.875rem' : '0.75rem',
+              py: mobile.isMobile ? 1.5 : 0.5,
+              px: mobile.isMobile ? 2 : 1,
+              minHeight: mobile.isMobile ? 48 : 'auto',
               borderColor: categoryColor,
               color: categoryColor,
               '&:hover': {
@@ -515,7 +537,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
           >
             {isOwner ? 'Bearbeiten' : 'Details'}
           </Button>
-        </Box>
+        </Stack>
       </CardActions>
     </Card>
   );

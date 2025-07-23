@@ -27,11 +27,12 @@ import MatchCard from './MatchCard';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import EmptyState from '../ui/EmptyState';
 import { Match } from '../../types/models/Match';
+import { SliceError } from '../../store/types';
 
 interface MatchListProps {
   matches: Match[];
   isLoading?: boolean;
-  error?: string | null;
+  error?: SliceError | null;
   isRequesterView?: boolean;
   onAccept?: (matchId: string) => void;
   onReject?: (matchId: string) => void;
@@ -164,7 +165,7 @@ const MatchList: React.FC<MatchListProps> = ({
     return (
       <EmptyState
         title="Keine Matches gefunden"
-        description="Du hast noch keine Matches erstellt oder erhalten."
+        description={{message:'Versuche, deine Suchkriterien anzupassen.'}}
         actionLabel="Zu meinen Skills"
         actionPath="/skills"
       />
@@ -289,7 +290,7 @@ const MatchList: React.FC<MatchListProps> = ({
       ) : (
         <EmptyState
           title="Keine passenden Matches gefunden"
-          description="Versuche, deine Suchkriterien anzupassen."
+          description={{message:'Versuche, deine Suchkriterien anzupassen.'}}
           actionLabel="Filter zurücksetzen"
           actionHandler={resetFilters}
         />

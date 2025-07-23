@@ -147,7 +147,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
   // Default values
   const defaultValues = useMemo(() => {
     return {
-      skillId: skill.skillId,
+      skillId: skill.id,
       requestType: skill.isOffering ? 'learn' : ('teach' as 'teach' | 'learn'),
       preferredDays: ['Montag', 'Mittwoch', 'Freitag'],
       preferredTimes: ['18:00', '19:00', '20:00'],
@@ -238,7 +238,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
         matchId: '', // Wird vom Backend generiert
         requesterId: '', // Muss ggf. im Parent/Context gesetzt werden
         targetUserId: skill.userId || '', // Annahme: Skill enthält userId
-        skillId: skill.skillId,
+        skillId: skill.id,
         skillName: skill.name,
         message: data.learningGoals || '',
         isOffering: data.requestType === 'teach',

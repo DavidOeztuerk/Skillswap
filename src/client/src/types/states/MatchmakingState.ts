@@ -10,6 +10,4 @@ export interface MatchmakingState extends RequestState {
   matchRequestSent: boolean;
   incomingRequests: MatchRequest[];
   outgoingRequests: MatchRequest[];
-  isLoading: boolean;
-  error: string | undefined;
 }

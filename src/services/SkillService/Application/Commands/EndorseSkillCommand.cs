@@ -1,3 +1,4 @@
+using Contracts.Skill.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -16,10 +17,6 @@ public record EndorseSkillCommand(
     public string? UserId { get; set; } // User giving the endorsement
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record EndorseSkillResponse(
-    string EndorsementId,
-    int TotalEndorsements);
 
 public class EndorseSkillCommandValidator : AbstractValidator<EndorseSkillCommand>
 {

@@ -35,25 +35,47 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
-      <Header
-        drawerWidth={DRAWER_WIDTH}
-        onDrawerToggle={handleDrawerToggle}
-        darkMode={darkMode}
-        onToggleTheme={onToggleTheme}
-      />
+      {/* Header with banner landmark */}
+      <Box component="header" role="banner">
+        <Header
+          drawerWidth={DRAWER_WIDTH}
+          onDrawerToggle={handleDrawerToggle}
+          darkMode={darkMode}
+          onToggleTheme={onToggleTheme}
+        />
+      </Box>
 
-      {/* Desktop Sidebar / Mobile Drawer */}
-      <Sidebar
-        drawerWidth={DRAWER_WIDTH}
-        mobileOpen={mobileOpen}
-        onDrawerToggle={handleDrawerToggle}
-      />
+      {/* Navigation landmark */}
+      <Box 
+        component="nav" 
+        role="navigation" 
+        aria-label="Primary navigation"
+        id="primary-navigation"
+      >
+        <Sidebar
+          drawerWidth={DRAWER_WIDTH}
+          mobileOpen={mobileOpen}
+          onDrawerToggle={handleDrawerToggle}
+        />
+      </Box>
 
-      {/* Mobile Tabbar - nur auf kleinen Bildschirmen anzeigen */}
-      {isMobile && <MobileTabbar />}
+      {/* Mobile navigation */}
+      {isMobile && (
+        <Box 
+          component="nav" 
+          role="navigation" 
+          aria-label="Mobile navigation"
+        >
+          <MobileTabbar />
+        </Box>
+      )}
 
+      {/* Main content landmark */}
       <Box
         component="main"
+        role="main"
+        id="main-content"
+        aria-label="Main content"
         sx={{
           flexGrow: 1,
           width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
@@ -67,7 +89,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             theme.transitions.create(['width', 'margin'], {
               duration: theme.transitions.duration.standard,
             }),
+          // Focus management for skip links
+          '&:focus': {
+            outline: '3px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: 2,
+          },
         }}
+        tabIndex={-1}
       >
         {children}
       </Box>

@@ -1,14 +1,14 @@
 // src/pages/videocall/VideoCallPage.tsx
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Box, Typography, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-// import CallControls from '../../components/videocall/CallControls';
+import CallControls from '../../components/videocall/CallControls';
 import LocalVideo from '../../components/videocall/LocalVideo';
 import RemoteVideo from '../../components/videocall/RemoteVideo';
 import ChatPanel from '../../components/videocall/ChatPanel';
-// import ConnectionStatus from '../../components/videocall/ConnectionStatus';
+import ConnectionStatus from '../../components/videocall/ConnectionStatus';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { useVideoCall } from '../../hooks/useVideoCall';
@@ -19,11 +19,11 @@ import { useAuth } from '../../hooks/useAuth';
  */
 const VideoCallPage: React.FC = () => {
   const navigate = useNavigate();
-  // const { appointmentId } = useParams<{ appointmentId: string }>();
+  const { appointmentId } = useParams<{ appointmentId: string }>();
   const { user } = useAuth();
 
   const {
-    // roomId,
+    roomId,
     isConnected,
     localStream,
     remoteStream,
@@ -34,10 +34,10 @@ const VideoCallPage: React.FC = () => {
     messages,
     isLoading,
     error,
-    // startVideoCall,
-    // toggleMicrophone,
-    // toggleCamera,
-    // toggleScreenSharing,
+    startVideoCall,
+    toggleMicrophone,
+    toggleCamera,
+    toggleScreenSharing,
     toggleChatPanel,
     sendChatMessage,
     hangUp,
@@ -45,23 +45,32 @@ const VideoCallPage: React.FC = () => {
 
   // Dialog-States
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
-  // const [connectionQuality, setConnectionQuality] = useState<
-  //   'connecting' | 'poor' | 'fair' | 'good' | 'excellent' | 'disconnected'
-  // >('connecting');
+  const [connectionQuality, setConnectionQuality] = useState<
+    'connecting' | 'poor' | 'fair' | 'good' | 'excellent' | 'disconnected'
+  >('connecting');
 
   // Bei Initialisierung Videoanruf starten
-  // useEffect(() => {
-  //   if (appointmentId) {
-  //     // startVideoCall(appointmentId);
+  useEffect(() => {
+    if (appointmentId) {
+      void startVideoCall(appointmentId);
 
-  //     // Simulierte Verbindungsqualität für Demo-Zwecke
-  //     const timeout = setTimeout(() => {
-  //       setConnectionQuality('good');
-  //     }, 3000);
+      // Simulierte Verbindungsqualität für Demo-Zwecke
+      const timeout = setTimeout(() => {
+        setConnectionQuality(isConnected ? 'good' : 'connecting');
+      }, 3000);
 
-  //     return () => clearTimeout(timeout);
-  //   }
-  // }, [appointmentId, startVideoCall]);
+      return () => clearTimeout(timeout);
+    }
+  }, [appointmentId, startVideoCall]);
+
+  // Connection Quality Updates basierend auf isConnected
+  useEffect(() => {
+    if (isConnected) {
+      setConnectionQuality('good');
+    } else if (roomId) {
+      setConnectionQuality('connecting');
+    }
+  }, [isConnected, roomId]);
 
   // Behandlung von Fehlern
   if (error) {
@@ -80,7 +89,7 @@ const VideoCallPage: React.FC = () => {
           Fehler beim Herstellen des Videoanrufs
         </Typography>
         <Typography variant="body1" gutterBottom>
-          {error}
+          {error.message}
         </Typography>
         <Button
           variant="contained"
@@ -100,12 +109,12 @@ const VideoCallPage: React.FC = () => {
   }
 
   // Bestätigungsdialog für das Verlassen des Anrufs
-  // const handleExitConfirm = () => {
-  //   setExitConfirmOpen(true);
-  // };
+  const handleExitConfirm = () => {
+    setExitConfirmOpen(true);
+  };
 
   const handleExit = () => {
-    hangUp();
+    void hangUp();
     navigate('/appointments');
   };
 
@@ -120,7 +129,7 @@ const VideoCallPage: React.FC = () => {
       }}
     >
       {/* Verbindungsstatus */}
-      {/* <ConnectionStatus quality={connectionQuality} /> */}
+      <ConnectionStatus quality={connectionQuality} hideWhenGood />
 
       {/* Haupt-Video (Remote) */}
       <Box sx={{ height: '100%', width: '100%' }}>
@@ -164,7 +173,7 @@ const VideoCallPage: React.FC = () => {
       )}
 
       {/* Steuerelemente */}
-      {/* <CallControls
+      <CallControls
         isMicEnabled={isMicEnabled}
         isVideoEnabled={isVideoEnabled}
         isScreenSharing={isScreenSharing}
@@ -174,7 +183,7 @@ const VideoCallPage: React.FC = () => {
         onToggleScreenShare={toggleScreenSharing}
         onToggleChat={toggleChatPanel}
         onEndCall={handleExitConfirm}
-      /> */}
+      />
 
       {/* Bestätigungsdialog für das Verlassen des Anrufs */}
       <ConfirmDialog

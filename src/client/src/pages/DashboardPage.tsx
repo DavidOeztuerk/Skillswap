@@ -16,6 +16,7 @@ import {
   Divider,
   Chip,
   Grid,
+  Badge,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -32,6 +33,8 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useAuth } from '../hooks/useAuth';
 import { useSkills } from '../hooks/useSkills';
 import { useAppointments } from '../hooks/useAppointments';
+import { useMatchmaking } from '../hooks/useMatchmaking';
+import { useNotifications } from '../hooks/useNotifications';
 import { formatDateTimeRange } from '../utils/dateUtils';
 
 /**
@@ -46,42 +49,73 @@ const DashboardPage: React.FC = () => {
     loadAppointments,
     isLoading: appointmentsLoading,
   } = useAppointments();
+  const {
+    matches,
+    incomingRequests,
+    // outgoingRequests,
+    loadMatches,
+    loadIncomingRequests,
+    loadOutgoingRequests,
+    isLoading: matchingLoading,
+  } = useMatchmaking();
+  const {
+    notifications,
+    unreadCount,
+    isLoading: notificationsLoading,
+  } = useNotifications();
 
-  // Daten laden
+  // Load data
   useEffect(() => {
-    fetchUserSkills();
-    loadAppointments();
-  }, [fetchUserSkills, loadAppointments]);
+    void fetchUserSkills();
+    void loadAppointments();
+    void loadMatches();
+    void loadIncomingRequests();
+    void loadOutgoingRequests();
+  }, [fetchUserSkills, loadAppointments, loadMatches, loadIncomingRequests, loadOutgoingRequests]);
 
-  // Dashboard-Karten
+  // Statistiken berechnen
+  const totalSkills = userSkills.length;
+  const teachingSkillsCount = userSkills.filter(skill => skill.isOffering).length;
+  const pendingAppointments = appointments.filter(appt => appt.status === 'Pending').length;
+  const totalMatches = matches.length;
+  const pendingMatchRequests = incomingRequests.filter(req => req.status === 'Pending').length;
+
+  // Dashboard-Karten mit echten Daten
   const dashboardCards = [
-    {
-      title: 'Mein Profil',
-      icon: <PersonIcon fontSize="large" />,
-      description: 'Bearbeite deine persönlichen Informationen',
-      action: () => navigate('/profile'),
-      color: '#3f51b5',
-    },
     {
       title: 'Skills',
       icon: <SkillsIcon fontSize="large" />,
-      description: 'Verwalte deine Fähigkeiten und entdecke neue',
+      description: `${totalSkills} Skills • ${teachingSkillsCount} zum Lehren`,
       action: () => navigate('/skills'),
       color: '#4caf50',
+      count: totalSkills,
     },
     {
       title: 'Matches',
       icon: <MatchmakingIcon fontSize="large" />,
-      description: 'Finde passende Lehrer oder Schüler',
+      description: `${totalMatches} active matches${pendingMatchRequests > 0 ? ` • ${pendingMatchRequests} new requests` : ''}`,
       action: () => navigate('/matchmaking'),
       color: '#ff9800',
+      count: totalMatches,
+      badge: pendingMatchRequests,
     },
     {
       title: 'Termine',
       icon: <AppointmentsIcon fontSize="large" />,
-      description: 'Verwalte deine Lehr- und Lerntermine',
+      description: `${appointments.length} Termine${pendingAppointments > 0 ? ` • ${pendingAppointments} ausstehend` : ''}`,
       action: () => navigate('/appointments'),
       color: '#e91e63',
+      count: appointments.length,
+      badge: pendingAppointments,
+    },
+    {
+      title: 'Benachrichtigungen',
+      icon: <PersonIcon fontSize="large" />,
+      description: `${notifications.length} messages${unreadCount > 0 ? ` • ${unreadCount} unread` : ''}`,
+      action: () => navigate('/profile'),
+      color: '#3f51b5',
+      count: notifications.length,
+      badge: unreadCount,
     },
   ];
 
@@ -102,17 +136,17 @@ const DashboardPage: React.FC = () => {
     )
     .slice(0, 3);
 
-  const isLoading = skillsLoading || appointmentsLoading;
+  const isLoading = skillsLoading || appointmentsLoading || matchingLoading || notificationsLoading;
 
   return (
     <PageContainer>
       <PageHeader
-        title={`Willkommen, ${user?.firstName || 'Benutzer'}!`}
-        subtitle="Hier findest du einen Überblick über deine Aktivitäten"
+        title={`Welcome, ${user?.firstName || 'User'}!`}
+        subtitle="Here you'll find an overview of your activities"
       />
 
       {isLoading ? (
-        <LoadingSpinner message="Dashboard wird geladen..." />
+        <LoadingSpinner message="Loading dashboard..." />
       ) : (
         <Grid container columns={12} spacing={3}>
           {/* Übersichtskarten */}
@@ -152,9 +186,22 @@ const DashboardPage: React.FC = () => {
                             backgroundColor: `${card.color}15`,
                             color: card.color,
                             mb: 2,
+                            position: 'relative',
                           }}
                         >
-                          {card.icon}
+                          <Badge 
+                            badgeContent={(card as typeof card & { badge?: number }).badge || 0} 
+                            color="error"
+                            invisible={!(card as typeof card & { badge?: number }).badge}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                top: -8,
+                                right: -8,
+                              },
+                            }}
+                          >
+                            {card.icon}
+                          </Badge>
                         </Box>
                         <Typography variant="h6" component="h2" align="center">
                           {card.title}
@@ -277,14 +324,14 @@ const DashboardPage: React.FC = () => {
           <Grid size={{ xs: 12, md: 6, lg: 3 }}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography variant="h6" gutterBottom>
-                Ich kann lehren
+                I can teach
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
               {teachingSkills.length > 0 ? (
                 <List disablePadding>
                   {teachingSkills.slice(0, 5).map((userSkill) => (
-                    <React.Fragment key={userSkill.skillId}>
+                    <React.Fragment key={userSkill.id}>
                       <ListItem sx={{ px: 0 }}>
                         <ListItemIcon>
                           <SkillsIcon color="primary" />
@@ -321,14 +368,14 @@ const DashboardPage: React.FC = () => {
           <Grid size={{ xs: 12, md: 6, lg: 3 }}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography variant="h6" gutterBottom>
-                Ich möchte lernen
+                I want to learn
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
               {userSkills.length > 0 ? (
                 <List disablePadding>
                   {userSkills.slice(0, 5).map((userSkill) => (
-                    <React.Fragment key={userSkill.skillId}>
+                    <React.Fragment key={userSkill.id}>
                       <ListItem sx={{ px: 0 }}>
                         <ListItemIcon>
                           <SkillsIcon color="secondary" />

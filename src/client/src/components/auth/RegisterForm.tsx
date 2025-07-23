@@ -90,7 +90,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       <Stack spacing={3}>
         {error && (
           <Alert severity="error" onClose={dismissError}>
-            {error}
+            {error.message}
           </Alert>
         )}
 

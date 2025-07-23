@@ -11,9 +11,9 @@ interface SearchParams extends SkillSearchParams {
   pageSize?: number;
 }
 
-// Async Thunk für die allgemeine Skill-Suche
+// Async Thunk for general skill search
 
-// Async Thunk für die Benutzer-Skill-Suche
+// Async Thunk for user skill search
 export const fetchUserSearchResults = createAsyncThunk(
   'search/fetchUserSearchResults',
   async (
@@ -28,13 +28,13 @@ export const fetchUserSearchResults = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Benutzer-Skills-Suche fehlgeschlagen'
+          : 'User skills search failed'
       );
     }
   }
 );
 
-// Async Thunk für die allgemeine Skills-Suche
+// Async Thunk for general skills search
 export const fetchAllSkills = createAsyncThunk(
   'search/fetchAllSkills',
   async (
@@ -47,7 +47,7 @@ export const fetchAllSkills = createAsyncThunk(
     } catch (error) {
       console.error('All skills search thunk error:', error);
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Skills-Suche fehlgeschlagen'
+        error instanceof Error ? error.message : 'Skills search failed'
       );
     }
   }

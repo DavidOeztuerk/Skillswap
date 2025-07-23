@@ -1,4 +1,6 @@
+import { SliceError } from '../../store/types';
+
 export interface RequestState {
   isLoading: boolean;
-  error: string | undefined;
+  error: SliceError | null;
 }

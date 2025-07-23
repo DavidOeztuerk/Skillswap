@@ -89,7 +89,7 @@ public class User : AuditableEntity
     /// <summary>
     /// List of Skill IDs that this user has marked as favorite
     /// </summary>
-    public List<string> FavoriteSkillIds { get; set; } = new();
+    public List<string> FavoriteSkillIds { get; set; } = [];
 
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();

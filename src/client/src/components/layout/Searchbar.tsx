@@ -228,9 +228,9 @@ const SearchBar: React.FC = () => {
                           .slice(0, MAX_SUGGESTIONS)
                           .map((skill) => (
                             <ListItem
-                              key={skill.skillId}
+                              key={skill.id}
                               component="button"
-                              onClick={() => handleSkillClick(skill.skillId)}
+                              onClick={() => handleSkillClick(skill.id)}
                               dense
                             >
                               <ListItemIcon sx={{ minWidth: 36 }}>

@@ -2,10 +2,11 @@
 import React from 'react';
 import { Box, Typography, Button, SxProps, Theme } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import { SliceError } from '../../store/types';
 
 interface EmptyStateProps {
   title: string;
-  description?: string;
+  description?: SliceError;
   icon?: React.ReactNode;
   actionLabel?: string;
   actionPath?: string;
@@ -69,7 +70,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           color="text.secondary"
           sx={{ maxWidth: 450, mb: actionLabel ? 3 : 0 }}
         >
-          {description}
+          {description.message}
         </Typography>
       )}
 

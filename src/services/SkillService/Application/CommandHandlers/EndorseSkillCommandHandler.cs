@@ -1,4 +1,3 @@
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
@@ -6,12 +5,9 @@ using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.Skill;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.CommandHandlers;
-
-// ============================================================================
-// ENDORSE SKILL COMMAND HANDLER
-// ============================================================================
 
 public class EndorseSkillCommandHandler : BaseCommandHandler<EndorseSkillCommand, EndorseSkillResponse>
 {

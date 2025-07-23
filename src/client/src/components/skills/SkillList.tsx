@@ -41,13 +41,13 @@ const SkillList: React.FC<SkillListProps> = ({
     isOwnerView,
     showMatchButtons,
     skills: skills.map((s) =>
-      s ? { skillId: s.skillId, name: s.name } : 'undefined skill'
+      s ? { skillId: s.id, name: s.name } : 'undefined skill'
     ),
   });
 
   // Filter out any undefined or null skills
   const validSkills = skills.filter(
-    (skill) => skill && (skill.skillId || skill.skillId) && skill.name
+    (skill) => skill && (skill.id || skill.id) && skill.name
   );
 
   if (validSkills.length !== skills.length) {
@@ -110,7 +110,7 @@ const SkillList: React.FC<SkillListProps> = ({
   return (
     <Grid container spacing={3}>
       {validSkills.map((skill) => (
-        <Grid key={skill.skillId} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+        <Grid key={skill.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <SkillCard
             skill={skill}
             isOwner={isOwnerView}

@@ -4,8 +4,8 @@ namespace Contracts.Skill.Responses;
 /// API response for EndorseSkill operation
 /// </summary>
 public record EndorseSkillResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string EndorsementId,
+    int TotalEndorsements)
 {
     /// <summary>
     /// API Version this response supports

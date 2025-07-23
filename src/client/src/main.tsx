@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { store } from './store/store.ts';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './routes/Router.tsx';
+import GlobalErrorBoundary from './components/error/GlobalErrorBoundary.tsx';
 
 import './styles/global.css';
 
@@ -17,8 +18,10 @@ const root = createRoot(container);
 
 root.render(
   <StrictMode>
-    <Provider store={store}>
-      <RouterProvider router={router} />
-    </Provider>
+    <GlobalErrorBoundary>
+      <Provider store={store}>
+        <RouterProvider router={router} />
+      </Provider>
+    </GlobalErrorBoundary>
   </StrictMode>
 );

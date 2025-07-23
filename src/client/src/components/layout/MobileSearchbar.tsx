@@ -183,8 +183,8 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
                     <List disablePadding>
                       {skills.slice(0, MAX_SUGGESTIONS).map((skill) => (
                         <ListItem
-                          key={skill.skillId}
-                          onClick={() => handleSkillClick(skill.skillId)}
+                          key={skill.id}
+                          onClick={() => handleSkillClick(skill.id)}
                           sx={{
                             py: 1.5,
                             borderBottom: '1px solid',

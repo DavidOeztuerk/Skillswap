@@ -1,12 +1,13 @@
 using Infrastructure.Models;
-using Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using UserService.Domain.Models;
+using System.Text.Json;
 
 namespace UserService;
 
 public class UserDbContext(
-    DbContextOptions<UserDbContext> options) 
+    DbContextOptions<UserDbContext> options)
     : DbContext(options)
 {
     // DbSets
@@ -27,7 +28,6 @@ public class UserDbContext(
         ConfigureUserActivityEntity(modelBuilder);
         ConfigureUserSessionEntity(modelBuilder);
         ConfigureBlockedUserEntity(modelBuilder);
-        SeedDefaultData(modelBuilder);
     }
 
     private static void ConfigureUserEntity(ModelBuilder modelBuilder)
@@ -116,7 +116,7 @@ public class UserDbContext(
             entity.Property(e => e.NotificationPreferencesJson)
                 .HasColumnType("text");
 
-            // Default values
+            // Default values - PostgreSQL specific
             entity.Property(e => e.EmailVerified)
                 .HasDefaultValue(false);
 
@@ -135,9 +135,9 @@ public class UserDbContext(
             entity.Property(e => e.IsDeleted)
                 .HasDefaultValue(false);
 
-            // Computed columns
+            // PostgreSQL specific default values
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             // Navigation properties
             entity.HasMany(e => e.UserRoles)
@@ -165,13 +165,24 @@ public class UserDbContext(
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // FavoriteSkillIds as JSON/text column
+            // FavoriteSkillIds configuration with Value Comparer
             entity.Property(e => e.FavoriteSkillIds)
-                .HasColumnType("text")
-                .HasConversion(
-                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>()
-                );
+            .HasColumnType("text")
+            .HasConversion(
+                // Value Converter: Wie wird die Liste in die DB gespeichert?
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>()
+            )
+            .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                // 1. Equals: Wie werden zwei Listen verglichen?
+                (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
+
+                // 2. GetHashCode: Wie wird der Hash-Code berechnet?
+                c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+
+                // 3. Snapshot: Wie wird eine Kopie erstellt?
+                c => c.ToList()
+            ));
         });
     }
 
@@ -179,10 +190,8 @@ public class UserDbContext(
     {
         modelBuilder.Entity<BlockedUser>(entity =>
         {
-            // Primary key
             entity.HasKey(e => e.Id);
 
-            // Properties
             entity.Property(e => e.Id)
                 .HasMaxLength(450)
                 .ValueGeneratedOnAdd();
@@ -194,22 +203,19 @@ public class UserDbContext(
             entity.Property(e => e.Reason)
                 .HasMaxLength(1000);
 
-            // Indexes
             entity.HasIndex(e => new { e.UserId }).IsUnique();
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.BlockedAt);
 
-            // Default values
             entity.Property(e => e.BlockedAt)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.IsDeleted)
                 .HasDefaultValue(false);
 
-            // Relationships
             entity.HasOne(e => e.User)
                 .WithMany(u => u.BlockedUsers)
                 .HasForeignKey(e => e.UserId)
@@ -221,14 +227,11 @@ public class UserDbContext(
     {
         modelBuilder.Entity<UserRole>(entity =>
         {
-            // Primary key
             entity.HasKey(e => e.Id);
 
-            // Indexes
             entity.HasIndex(e => new { e.UserId, e.Role, e.RevokedAt });
             entity.HasIndex(e => e.AssignedAt);
 
-            // Properties
             entity.Property(e => e.Id)
                 .HasMaxLength(450)
                 .ValueGeneratedOnAdd();
@@ -247,12 +250,11 @@ public class UserDbContext(
             entity.Property(e => e.RevokedBy)
                 .HasMaxLength(450);
 
-            // Default values
             entity.Property(e => e.AssignedAt)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.IsDeleted)
                 .HasDefaultValue(false);
@@ -263,16 +265,13 @@ public class UserDbContext(
     {
         modelBuilder.Entity<RefreshToken>(entity =>
         {
-            // Primary key
             entity.HasKey(e => e.Id);
 
-            // Indexes
             entity.HasIndex(e => e.Token).IsUnique();
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.ExpiryDate);
             entity.HasIndex(e => e.IsRevoked);
 
-            // Properties
             entity.Property(e => e.Id)
                 .HasMaxLength(450)
                 .ValueGeneratedOnAdd();
@@ -294,12 +293,11 @@ public class UserDbContext(
             entity.Property(e => e.UserAgent)
                 .HasMaxLength(500);
 
-            // Default values
             entity.Property(e => e.IsRevoked)
                 .HasDefaultValue(false);
 
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.IsDeleted)
                 .HasDefaultValue(false);
@@ -310,16 +308,13 @@ public class UserDbContext(
     {
         modelBuilder.Entity<UserActivity>(entity =>
         {
-            // Primary key
             entity.HasKey(e => e.Id);
 
-            // Indexes
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.ActivityType);
             entity.HasIndex(e => e.Timestamp);
             entity.HasIndex(e => new { e.UserId, e.ActivityType, e.Timestamp });
 
-            // Properties
             entity.Property(e => e.Id)
                 .HasMaxLength(450)
                 .ValueGeneratedOnAdd();
@@ -345,12 +340,11 @@ public class UserDbContext(
             entity.Property(e => e.MetadataJson)
                 .HasColumnType("text");
 
-            // Default values
             entity.Property(e => e.Timestamp)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.IsDeleted)
                 .HasDefaultValue(false);
@@ -361,17 +355,14 @@ public class UserDbContext(
     {
         modelBuilder.Entity<UserSession>(entity =>
         {
-            // Primary key
             entity.HasKey(e => e.Id);
 
-            // Indexes
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.SessionToken).IsUnique();
             entity.HasIndex(e => e.StartedAt);
             entity.HasIndex(e => e.LastActivity);
             entity.HasIndex(e => e.IsActive);
 
-            // Properties
             entity.Property(e => e.Id)
                 .HasMaxLength(450)
                 .ValueGeneratedOnAdd();
@@ -396,97 +387,20 @@ public class UserDbContext(
             entity.Property(e => e.Location)
                 .HasMaxLength(100);
 
-            // Default values
             entity.Property(e => e.StartedAt)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.LastActivity)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.IsActive)
                 .HasDefaultValue(true);
 
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("NOW()"); // PostgreSQL syntax
 
             entity.Property(e => e.IsDeleted)
                 .HasDefaultValue(false);
-        });
-    }
-
-    private static void SeedDefaultData(ModelBuilder modelBuilder)
-    {
-        // Seed default admin user
-        var adminUserId = Guid.NewGuid().ToString();
-        
-        modelBuilder.Entity<User>().HasData(new
-        {
-            Id = adminUserId,
-            Email = "admin@skillswap.com",
-            UserName = "admin",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
-            FirstName = "System",
-            LastName = "Administrator",
-            PhoneNumber = "",
-            AccountStatus = "Active",
-            EmailVerified = true,
-            PhoneVerified = false,
-            TwoFactorEnabled = false,
-            FailedLoginAttempts = 0,
-            IsDeleted = false,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = "System",
-            FavoriteSkillIds = new List<string>()
-        });
-
-        // Seed admin role
-        var adminRoleId = Guid.NewGuid().ToString();
-        modelBuilder.Entity<UserRole>().HasData(new
-        {
-            Id = adminRoleId,
-            UserId = adminUserId,
-            Role = "Admin",
-            AssignedBy = "System",
-            AssignedAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = "System",
-            IsDeleted = false
-        });
-
-        // Seed demo user
-        var demoUserId = Guid.NewGuid().ToString();
-        modelBuilder.Entity<User>().HasData(new
-        {
-            Id = demoUserId,
-            Email = "demo@skillswap.com",
-            UserName = "demo",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Demo123!"),
-            FirstName = "Demo",
-            LastName = "User",
-            PhoneNumber = "",
-            AccountStatus = "Active",
-            EmailVerified = true,
-            PhoneVerified = false,
-            TwoFactorEnabled = false,
-            FailedLoginAttempts = 0,
-            IsDeleted = false,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = "System",
-            FavoriteSkillIds = new List<string>()
-        });
-
-        // Seed demo user role
-        var demoRoleId = Guid.NewGuid().ToString();
-        modelBuilder.Entity<UserRole>().HasData(new
-        {
-            Id = demoRoleId,
-            UserId = demoUserId,
-            Role = "User",
-            AssignedBy = "System",
-            AssignedAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = "System",
-            IsDeleted = false
         });
     }
 
@@ -506,7 +420,7 @@ public class UserDbContext(
     private void UpdateAuditFields()
     {
         var entries = ChangeTracker.Entries()
-            .Where(e => e.Entity is AuditableEntity && 
+            .Where(e => e.Entity is AuditableEntity &&
                        (e.State == EntityState.Added || e.State == EntityState.Modified));
 
         foreach (var entry in entries)
@@ -517,12 +431,10 @@ public class UserDbContext(
             if (entry.State == EntityState.Added)
             {
                 entity.CreatedAt = now;
-                // CreatedBy would be set from the current user context in a real application
             }
             else if (entry.State == EntityState.Modified)
             {
                 entity.UpdatedAt = now;
-                // UpdatedBy would be set from the current user context in a real application
             }
         }
     }

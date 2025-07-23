@@ -10,6 +10,7 @@ import {
 } from '../utils/authHelpers';
 import { router } from '../routes/Router';
 import { ApiResponse } from '../types/common/ApiResponse';
+import { errorService } from '../services/errorService';
 
 // HTTP Response Interface
 export interface HttpResponse<T> {
@@ -65,7 +66,8 @@ class CustomHttpClient {
    * Handles fetch response and parses JSON
    */
   private async handleResponse<T>(
-    response: Response
+    response: Response,
+    method: string
   ): Promise<HttpResponse<T>> {
     let data: unknown = null;
 
@@ -98,6 +100,12 @@ class CustomHttpClient {
 
     if (!response.ok) {
       console.error('API Error:', result.message);
+      // Log error to centralized error service
+      errorService.handleApiError({
+        status: response.status,
+        message: result.message,
+        code: response.status,
+      }, `HTTP ${method} ${response.url}`);
     }
 
     return result;
@@ -109,7 +117,8 @@ class CustomHttpClient {
   private async fetchWithTimeout(
     url: string,
     options: RequestInit,
-    timeout: number = API_TIMEOUT
+    timeout: number = API_TIMEOUT,
+    method: string
   ): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -124,8 +133,11 @@ class CustomHttpClient {
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof DOMException && error.name === 'AbortError') {
-        throw new Error('Request timeout');
+        const timeoutError = new Error('Request timeout');
+        errorService.handleApiError(timeoutError, `Timeout for ${method} ${url}`);
+        throw timeoutError;
       }
+      errorService.handleApiError(error, `Network error for ${method} ${url}`);
       throw error;
     }
   }
@@ -197,8 +209,8 @@ class CustomHttpClient {
       }
     }
 
-    const response = await this.fetchWithTimeout(url, options, config?.timeout);
-    return this.handleResponse<T>(response);
+    const response = await this.fetchWithTimeout(url, options, config?.timeout, method);
+    return this.handleResponse<T>(response, method);
   }
 
   /**
@@ -282,6 +294,7 @@ class CustomHttpClient {
       return response;
     } catch (error) {
       // Handle network errors or other issues
+      errorService.handleApiError(error, `Request failed for ${method} ${endpoint}`);
       if (error instanceof Error) {
         throw error;
       }

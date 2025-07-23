@@ -7,6 +7,7 @@ import {
   getRefreshToken,
 } from '../../utils/authHelpers';
 import { AuthState } from '../../types/states/AuthState';
+import { SliceError, createSliceError } from '../../store/types';
 import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
 import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
 import { UpdateProfileRequest } from '../../types/contracts/requests/UpdateProfileRequest';
@@ -31,7 +32,7 @@ const initialState: AuthState = {
   refreshToken: getRefreshToken(),
   isAuthenticated: !!getToken(),
   isLoading: false,
-  error: undefined,
+  error: null,
 };
 
 /**
@@ -46,7 +47,10 @@ export const login = createAsyncThunk(
     } catch (error) {
       console.error('Login thunk error:', error);
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Login fehlgeschlagen'
+        createSliceError(
+          error instanceof Error ? error.message : 'Login failed',
+          error instanceof Error && 'code' in error ? (error as any).code : 'LOGIN_ERROR'
+        )
       );
     }
   }
@@ -64,7 +68,10 @@ export const register = createAsyncThunk(
     } catch (error) {
       console.error('Registration thunk error:', error);
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Registrierung fehlgeschlagen'
+        createSliceError(
+          error instanceof Error ? error.message : 'Registration failed',
+          error instanceof Error && 'code' in error ? (error as any).code : 'REGISTRATION_ERROR'
+        )
       );
     }
   }
@@ -80,14 +87,14 @@ export const refreshToken = createAsyncThunk(
       const response = await authService.refreshToken();
 
       if (!response) {
-        throw new Error('Token-Refresh fehlgeschlagen');
+        throw new Error('Token refresh failed');
       }
 
       return response;
     } catch (error) {
       console.error('Token refresh thunk error:', error);
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Token-Refresh fehlgeschlagen'
+        error instanceof Error ? error.message : 'Token refresh failed'
       );
     }
   }
@@ -107,7 +114,7 @@ export const getProfile = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Profil konnte nicht geladen werden'
+          : 'Profile could not be loaded'
       );
     }
   }
@@ -127,7 +134,7 @@ export const updateProfile = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Profil konnte nicht aktualisiert werden'
+          : 'Profile could not be updated'
       );
     }
   }
@@ -147,7 +154,7 @@ export const uploadProfilePicture = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Profilbild konnte nicht hochgeladen werden'
+          : 'Profile picture could not be uploaded'
       );
     }
   }
@@ -167,7 +174,7 @@ export const changePassword = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Passwort konnte nicht geändert werden'
+          : 'Password could not be changed'
       );
     }
   }
@@ -183,7 +190,7 @@ export const silentLogin = createAsyncThunk(
       const user = await authService.silentLogin();
 
       if (!user) {
-        throw new Error('Silent login fehlgeschlagen');
+        throw new Error('Silent login failed');
       }
 
       return {
@@ -193,7 +200,7 @@ export const silentLogin = createAsyncThunk(
     } catch (error) {
       console.error('Silent login thunk error:', error);
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Silent login fehlgeschlagen'
+        error instanceof Error ? error.message : 'Silent login failed'
       );
     }
   }
@@ -236,7 +243,7 @@ export const verifyEmail = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'E-Mail-Verifizierung fehlgeschlagen'
+          : 'Email verification failed'
       );
     }
   }
@@ -251,7 +258,7 @@ export const generateTwoFactorSecret = createAsyncThunk(
     } catch (error) {
       console.error('2FA secret generation thunk error:', error);
       return rejectWithValue(
-        error instanceof Error ? error.message : '2FA-Secret konnte nicht generiert werden'
+        error instanceof Error ? error.message : '2FA secret could not be generated'
       );
     }
   }
@@ -268,7 +275,7 @@ export const verifyTwoFactorCode = createAsyncThunk(
     } catch (error) {
       console.error('2FA verification thunk error:', error);
       return rejectWithValue(
-        error instanceof Error ? error.message : '2FA-Verifizierung fehlgeschlagen'
+        error instanceof Error ? error.message : '2FA verification failed'
       );
     }
   }
@@ -288,7 +295,7 @@ export const requestPasswordReset = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Passwort-Reset-Anfrage fehlgeschlagen'
+          : 'Password reset request failed'
       );
     }
   }
@@ -309,7 +316,7 @@ export const resetPassword = createAsyncThunk(
     } catch (error) {
       console.error('Password reset thunk error:', error);
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Passwort-Reset fehlgeschlagen'
+        error instanceof Error ? error.message : 'Password reset failed'
       );
     }
   }
@@ -326,7 +333,7 @@ const authSlice = createSlice({
      * Clear error state
      */
     clearError: (state) => {
-      state.error = undefined;
+      state.error = null;
     },
 
     /**
@@ -354,7 +361,7 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.isAuthenticated = false;
       state.isLoading = false;
-      state.error = undefined;
+      state.error = null;
       removeToken();
     },
 
@@ -370,7 +377,7 @@ const authSlice = createSlice({
       // Login cases
       .addCase(login.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -378,7 +385,7 @@ const authSlice = createSlice({
         state.user = action.payload.profile || null;
         state.token = action.payload.tokens.accessToken;
         state.refreshToken = action.payload.tokens.refreshToken;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
@@ -386,13 +393,13 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Registration cases
       .addCase(register.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(register.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -410,7 +417,7 @@ const authSlice = createSlice({
         };
         state.token = action.payload.tokens.accessToken;
         state.refreshToken = action.payload.tokens.refreshToken;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;
@@ -418,19 +425,19 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Refresh token cases
       .addCase(refreshToken.pending, (state) => {
         // Don't set loading for refresh - should be transparent
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(refreshToken.fulfilled, (state, action) => {
         state.token = action.payload.token;
         state.refreshToken = action.payload.refreshToken;
         state.isAuthenticated = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(refreshToken.rejected, (state, action) => {
         // On refresh failure, logout user
@@ -438,78 +445,78 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Get profile cases
       .addCase(getProfile.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(getProfile.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(getProfile.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Update profile cases
       .addCase(updateProfile.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Upload profile picture cases
       .addCase(uploadProfilePicture.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(uploadProfilePicture.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(uploadProfilePicture.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Change password cases
       .addCase(changePassword.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(changePassword.fulfilled, (state) => {
         state.isLoading = false;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(changePassword.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Silent login cases
       .addCase(silentLogin.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(silentLogin.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(silentLogin.rejected, (state, action) => {
         state.isLoading = false;
@@ -517,7 +524,7 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Logout cases
@@ -530,7 +537,7 @@ const authSlice = createSlice({
         state.refreshToken = null;
         state.isAuthenticated = false;
         state.isLoading = false;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(logout.rejected, (state) => {
         // Even if logout fails, clear state
@@ -539,50 +546,50 @@ const authSlice = createSlice({
         state.refreshToken = null;
         state.isAuthenticated = false;
         state.isLoading = false;
-        state.error = undefined;
+        state.error = null;
       })
 
       // Email verification cases
       .addCase(verifyEmail.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(verifyEmail.fulfilled, (state) => {
         state.isLoading = false;
-        state.error = undefined;
+        state.error = null;
         // Could update user.emailVerified = true if that field exists
       })
       .addCase(verifyEmail.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Password reset request cases
       .addCase(requestPasswordReset.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(requestPasswordReset.fulfilled, (state) => {
         state.isLoading = false;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(requestPasswordReset.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
 
       // Reset password cases
       .addCase(resetPassword.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(resetPassword.fulfilled, (state) => {
         state.isLoading = false;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(resetPassword.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       });
   },
 });

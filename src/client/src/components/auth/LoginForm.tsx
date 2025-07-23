@@ -26,6 +26,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../hooks/useAuth';
 import LoadingButton from '../ui/LoadingButton';
 import { isValidEmail } from '../../utils/validators';
+import { errorService } from '../../services/errorService';
 
 // Enhanced validation schema
 const loginSchema = z.object({
@@ -183,6 +184,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
       }
     } catch (error) {
       console.error('Login form error:', error);
+      errorService.handleError(error, 'Login failed', 'LoginForm');
       handleFailedAttempt();
     }
   };
@@ -232,7 +234,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
             onClose={dismissError}
             sx={{ animation: 'fadeIn 0.3s ease-in' }}
           >
-            {error || errors.root?.message}
+            {error?.message || errors.root?.message}
           </Alert>
         )}
 

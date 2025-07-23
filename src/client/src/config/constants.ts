@@ -1,33 +1,33 @@
 // src/config/constants.ts
 
 /**
- * Anwendungskonstanten
+ * Application constants
  */
 export const APP_NAME = 'SkillSwap Platform';
 export const APP_VERSION = '1.0.0';
 
 /**
- * Pagination-Standardwerte
+ * Pagination default values
  */
 export const DEFAULT_PAGE_SIZE = 12;
 export const DEFAULT_PAGE_NUMBER = 1;
 
 /**
- * Auth-bezogene Konstanten
+ * Auth-related constants
  */
 export const AUTH_TOKEN_STORAGE_KEY = 'skillswap_token';
 export const AUTH_USER_STORAGE_KEY = 'skillswap_user';
-export const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 Minuten in Millisekunden
+export const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 /**
- * API-bezogene Konstanten
+ * API-related constants
  */
-export const API_TIMEOUT = 15000; // 15 Sekunden
+export const API_TIMEOUT = 15000; // 15 seconds
 export const MAX_RETRY_ATTEMPTS = 3;
-export const RETRY_DELAY = 1000; // 1 Sekunde
+export const RETRY_DELAY = 1000; // 1 second
 
 /**
- * Validierungskonstanten
+ * Validation constants
  */
 export const MIN_PASSWORD_LENGTH = 8;
 export const MIN_USERNAME_LENGTH = 3;
@@ -35,7 +35,7 @@ export const MAX_USERNAME_LENGTH = 20;
 export const MAX_BIO_LENGTH = 500;
 
 /**
- * Feature-Konstanten
+ * Feature constants
  */
 export const MAX_LEARNABLE_SKILLS = 10;
 export const MAX_TEACHABLE_SKILLS = 10;
@@ -43,14 +43,14 @@ export const MAX_MATCH_RESULTS = 20;
 export const MAX_APPOINTMENTS_PER_WEEK = 10;
 
 /**
- * Zeitformatierungen
+ * Time formatting
  */
 export const DEFAULT_DATE_FORMAT = 'dd.MM.yyyy';
 export const DEFAULT_TIME_FORMAT = 'HH:mm';
 export const DEFAULT_DATE_TIME_FORMAT = 'dd.MM.yyyy HH:mm';
 
 /**
- * Skill-Kategorien
+ * Skill categories
  */
 export const SKILL_CATEGORIES = [
   'Programming',
@@ -64,7 +64,7 @@ export const SKILL_CATEGORIES = [
 ];
 
 /**
- * Kompetenzlevel
+ * Proficiency levels
  */
 export const PROFICIENCY_LEVELS = [
   'Beginner',
@@ -74,7 +74,7 @@ export const PROFICIENCY_LEVELS = [
 ];
 
 /**
- * Videoanruf-Konfiguration
+ * Video call configuration
  */
 export const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -93,38 +93,38 @@ export const AUDIO_CONSTRAINTS = {
 export const MAX_VIDEO_BITRATE = 1000000; // 1 Mbps
 
 /**
- * Fehlermeldungen
+ * Error messages
  */
 export const ERROR_MESSAGES = {
-  NETWORK_ERROR: 'Netzwerkfehler. Bitte überprüfe deine Verbindung.',
-  AUTH_FAILURE: 'Authentifizierung fehlgeschlagen. Bitte erneut anmelden.',
-  SESSION_EXPIRED: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.',
-  SERVER_ERROR: 'Serverfehler aufgetreten. Bitte versuche es später erneut.',
+  NETWORK_ERROR: 'Network error. Please check your connection.',
+  AUTH_FAILURE: 'Authentication failed. Please log in again.',
+  SESSION_EXPIRED: 'Your session has expired. Please log in again.',
+  SERVER_ERROR: 'Server error occurred. Please try again later.',
   PERMISSION_DENIED:
-    'Zugriff verweigert. Du hast keine Berechtigung für diese Aktion.',
-  NOT_FOUND: 'Ressource nicht gefunden.',
-  VALIDATION_ERROR: 'Überprüfe deine Eingaben.',
-  UNKNOWN_ERROR: 'Ein unbekannter Fehler ist aufgetreten.',
+    'Access denied. You do not have permission for this action.',
+  NOT_FOUND: 'Resource not found.',
+  VALIDATION_ERROR: 'Please check your input.',
+  UNKNOWN_ERROR: 'An unknown error has occurred.',
 };
 
 /**
- * Erfolgsmeldungen
+ * Success messages
  */
 export const SUCCESS_MESSAGES = {
-  PROFILE_UPDATED: 'Dein Profil wurde erfolgreich aktualisiert.',
-  SKILL_ADDED: 'Skill erfolgreich hinzugefügt.',
-  SKILL_REMOVED: 'Skill erfolgreich entfernt.',
-  MATCH_REQUESTED: 'Match-Anfrage wurde erfolgreich gesendet.',
-  MATCH_ACCEPTED: 'Match wurde erfolgreich akzeptiert.',
-  MATCH_REJECTED: 'Match wurde abgelehnt.',
-  APPOINTMENT_CREATED: 'Termin wurde erfolgreich erstellt.',
-  APPOINTMENT_CONFIRMED: 'Termin wurde bestätigt.',
-  APPOINTMENT_CANCELLED: 'Termin wurde abgesagt.',
-  PASSWORD_CHANGED: 'Dein Passwort wurde erfolgreich geändert.',
+  PROFILE_UPDATED: 'Your profile has been successfully updated.',
+  SKILL_ADDED: 'Skill successfully added.',
+  SKILL_REMOVED: 'Skill successfully removed.',
+  MATCH_REQUESTED: 'Match request successfully sent.',
+  MATCH_ACCEPTED: 'Match successfully accepted.',
+  MATCH_REJECTED: 'Match was rejected.',
+  APPOINTMENT_CREATED: 'Appointment successfully created.',
+  APPOINTMENT_CONFIRMED: 'Appointment confirmed.',
+  APPOINTMENT_CANCELLED: 'Appointment cancelled.',
+  PASSWORD_CHANGED: 'Your password has been successfully changed.',
 };
 
 /**
- * Zeitfenster-Optionen
+ * Time slot options
  */
 export const TIME_SLOTS = [
   '08:00',
@@ -143,14 +143,14 @@ export const TIME_SLOTS = [
 ];
 
 /**
- * Wochentage
+ * Weekdays
  */
 export const WEEKDAYS = [
-  'Montag',
-  'Dienstag',
-  'Mittwoch',
-  'Donnerstag',
-  'Freitag',
-  'Samstag',
-  'Sonntag',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
 ];

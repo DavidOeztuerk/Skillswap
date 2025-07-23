@@ -18,9 +18,14 @@ const MatchmakingPage = lazy(
 const AppointmentsPage = lazy(
   () => import('../pages/appointments/AppointmentsPage')
 );
+const AppointmentDetailPage = lazy(
+  () => import('../pages/appointments/AppointmentDetailPage')
+);
 const VideoCallPage = lazy(() => import('../pages/videocall/VideoCallPage'));
 const ProfilePage = lazy(() => import('../pages/profile/ProfilePage'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
+const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage'));
+const SearchResultsPage = lazy(() => import('../pages/search/SearchResultsPage'));
 
 const routes: RouteObject[] = [
   {
@@ -106,7 +111,7 @@ const routes: RouteObject[] = [
         ),
       },
       {
-        path: 'skills/my-skills',
+        path: 'skills/favorites',
         element: (
           <PrivateRoute>
             <Suspense
@@ -201,6 +206,44 @@ const routes: RouteObject[] = [
               <ProfilePage />
             </Suspense>
           </PrivateRoute>
+        ),
+      },
+      {
+        path: 'appointments/:appointmentId',
+        element: (
+          <PrivateRoute>
+            <Suspense
+              fallback={
+                <LoadingSpinner fullPage message="Loading appointment..." />
+              }
+            >
+              <AppointmentDetailPage />
+            </Suspense>
+          </PrivateRoute>
+        ),
+      },
+      {
+        path: 'search',
+        element: (
+          <Suspense
+            fallback={
+              <LoadingSpinner fullPage message="Loading search..." />
+            }
+          >
+            <SearchResultsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'forbidden',
+        element: (
+          <Suspense
+            fallback={
+              <LoadingSpinner fullPage message="Loading..." />
+            }
+          >
+            <ForbiddenPage />
+          </Suspense>
         ),
       },
       {

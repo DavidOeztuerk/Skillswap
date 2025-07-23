@@ -158,7 +158,7 @@ export const useSkills = () => {
 
   /** FAVORITES: Get all favorite skills (Skill objects) */
   const getFavoriteSkills = useCallback((): Skill[] => {
-    return allSkills.filter((skill) => favoriteSkillIds.includes(skill.skillId));
+    return allSkills.filter((skill) => favoriteSkillIds.includes(skill.id));
   }, [allSkills, favoriteSkillIds]);
 
   // Categories and proficiency levels from separate slices
@@ -779,9 +779,9 @@ export const useSkills = () => {
   const getSkillFromState = useCallback(
     (skillId: string): Skill | undefined => {
       return (
-        allSkills.find((skill) => skill.skillId === skillId) ||
-        userSkills.find((skill) => skill.skillId === skillId) ||
-        searchResults.find((skill) => skill.skillId === skillId)
+        allSkills.find((skill) => skill.id === skillId) ||
+        userSkills.find((skill) => skill.id === skillId) ||
+        searchResults.find((skill) => skill.id === skillId)
       );
     },
     [allSkills, userSkills, searchResults]
@@ -789,7 +789,7 @@ export const useSkills = () => {
 
   const getCategoryFromState = useCallback(
     (categoryId: string) => {
-      return categories.find((category) => category.categoryId === categoryId);
+      return categories.find((category) => category.id === categoryId);
     },
     [categories]
   );
@@ -805,7 +805,7 @@ export const useSkills = () => {
     (categoryId: string): Skill[] => {
       const currentSkills = isSearchActive ? searchResults : allSkills;
       return currentSkills.filter(
-        (skill) => skill.category?.categoryId === categoryId
+        (skill) => skill.category?.id === categoryId
       );
     },
     [allSkills, searchResults, isSearchActive]
@@ -823,7 +823,7 @@ export const useSkills = () => {
 
   const isUserSkill = useCallback(
     (skillId: string): boolean => {
-      return userSkills.some((skill) => skill.skillId === skillId);
+      return userSkills.some((skill) => skill.id === skillId);
     },
     [userSkills]
   );

@@ -49,7 +49,7 @@ public class ContractMigrationService
     /// <summary>
     /// Gets the latest version of a contract type
     /// </summary>
-    public string GetLatestVersion<T>() where T : IVersionedContract
+    public string? GetLatestVersion<T>() where T : IVersionedContract
     {
         var contractTypes = GetContractVersions<T>();
         return contractTypes.Max(kvp => kvp.Key);
@@ -99,7 +99,7 @@ public class ContractMigrationService
     {
         // Auto-discover migrations from assemblies
         var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-        
+
         foreach (var assembly in assemblies)
         {
             foreach (var type in assembly.GetTypes())
@@ -131,7 +131,7 @@ public class ContractMigrationService
         foreach (var backwardCompatibleInterface in backwardCompatibleInterfaces)
         {
             var nextType = backwardCompatibleInterface.GetGenericArguments()[0];
-            
+
             _migrationMap[(type, nextType)] = source =>
             {
                 var migrateToMethod = type.GetMethod("MigrateTo");

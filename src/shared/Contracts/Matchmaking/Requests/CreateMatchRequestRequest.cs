@@ -5,7 +5,7 @@ namespace Contracts.Matchmaking.Requests;
 /// <summary>
 /// API request for creating a match request to another user
 /// </summary>
-public record CreateMatchRequestRequest(
+public record CreateMatchRequest(
     [Required(ErrorMessage = "Target user ID is required")]
     string TargetUserId,
 

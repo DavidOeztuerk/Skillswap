@@ -1,11 +1,8 @@
+using Contracts.Skill.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace SkillService.Application.Commands;
-
-// ============================================================================
-// UPDATE SKILL COMMAND
-// ============================================================================
 
 public record UpdateSkillCommand(
     string SkillId,
@@ -23,11 +20,6 @@ public record UpdateSkillCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record UpdateSkillResponse(
-    string SkillId,
-    string Name,
-    DateTime UpdatedAt);
 
 public class UpdateSkillCommandValidator : AbstractValidator<UpdateSkillCommand>
 {

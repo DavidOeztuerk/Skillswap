@@ -12,14 +12,14 @@ import {
   Button,
   // Avatar,
   Tooltip,
-  Badge,
+  // Badge,
   useTheme,
   useMediaQuery,
   Divider,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Notifications as NotificationsIcon,
+  // Notifications as NotificationsIcon,
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
   AccountCircle,
@@ -29,6 +29,8 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import SearchBar from './Searchbar';
 import MobileSearchBar from './MobileSearchbar';
+import NotificationBell from '../notifications/NotificationBell';
+// import { useAnnouncements } from '../../hooks/useAnnouncements';
 
 interface HeaderProps {
   drawerWidth: number;
@@ -68,9 +70,9 @@ const Header: React.FC<HeaderProps> = ({
     setAnchorEl(event.currentTarget);
   };
 
-  const handleNotificationMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setNotificationAnchorEl(event.currentTarget);
-  };
+  // const handleNotificationMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+  //   setNotificationAnchorEl(event.currentTarget);
+  // };
 
   const handleMoreMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setMoreMenuAnchorEl(event.currentTarget);
@@ -128,17 +130,7 @@ const Header: React.FC<HeaderProps> = ({
             <SearchIcon />
           </IconButton>
 
-          {isAuthenticated && (
-            <IconButton
-              color="inherit"
-              onClick={handleNotificationMenuOpen}
-              aria-label="Benachrichtigungen"
-            >
-              <Badge badgeContent={3} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          )}
+          {isAuthenticated && <NotificationBell />}
 
           <IconButton
             color="inherit"
@@ -165,18 +157,7 @@ const Header: React.FC<HeaderProps> = ({
             {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
           </IconButton>
 
-          {isAuthenticated && (
-            <IconButton
-              color="inherit"
-              onClick={handleNotificationMenuOpen}
-              aria-label="Benachrichtigungen"
-              sx={{ ml: 1 }}
-            >
-              <Badge badgeContent={3} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          )}
+          {isAuthenticated && <NotificationBell />}
 
           <IconButton
             color="inherit"
@@ -206,16 +187,7 @@ const Header: React.FC<HeaderProps> = ({
 
           {isAuthenticated ? (
             <>
-              <IconButton
-                color="inherit"
-                onClick={handleNotificationMenuOpen}
-                sx={{ ml: 1 }}
-                aria-label="Benachrichtigungen"
-              >
-                <Badge badgeContent={3} color="error">
-                  <NotificationsIcon />
-                </Badge>
-              </IconButton>
+              <NotificationBell />
 
               <Tooltip title="Profil öffnen">
                 <IconButton
