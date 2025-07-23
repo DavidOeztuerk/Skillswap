@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Domain.Entities;
-using NotificationService.Infrastructure.Data;
 using NotificationService.Infrastructure.Services;
 
 namespace NotificationService.Infrastructure.BackgroundServices;

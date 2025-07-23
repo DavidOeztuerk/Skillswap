@@ -1,15 +1,8 @@
-
-// ============================================================================
-// QUERY HANDLERS
-// ============================================================================
-// File: src/services/NotificationService/Application/Handlers/GetNotificationPreferencesQueryHandler.cs
-
 using CQRS.Handlers;
 using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Queries;
 using NotificationService.Domain.ResponseModels;
-using NotificationService.Infrastructure.Data;
 
 namespace NotificationService.Application.QueryHandlers;
 

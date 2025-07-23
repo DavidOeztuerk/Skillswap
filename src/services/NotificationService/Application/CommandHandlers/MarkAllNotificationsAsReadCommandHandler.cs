@@ -1,13 +1,8 @@
-// ============================================================================
-// MARK ALL NOTIFICATIONS AS READ COMMAND HANDLER
-// ============================================================================
-
 using CQRS.Handlers;
 using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
-using NotificationService.Infrastructure.Data;
 
 namespace NotificationService.Application.CommandHandlers;
 
@@ -28,8 +23,8 @@ public class MarkAllNotificationsAsReadCommandHandler(
 
             // Get all unread notifications for the user
             var unreadNotifications = await _context.Notifications
-                .Where(n => n.UserId == request.UserId 
-                           && !n.ReadAt.HasValue 
+                .Where(n => n.UserId == request.UserId
+                           && !n.ReadAt.HasValue
                            && !n.IsDeleted)
                 .ToListAsync(cancellationToken);
 

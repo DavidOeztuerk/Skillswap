@@ -1,90 +1,19 @@
 // src/features/skills/skillsSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Skill } from '../../types/models/Skill';
-import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
-import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import skillService, {
   SkillSearchParams,
-  SkillStatistics,
-  SkillRecommendation,
 } from '../../api/services/skillsService';
 import { PaginatedResponse } from '../../types/common/PaginatedResponse';
+import { SkillState } from '../../types/states/SkillState';
+import { ApiResponse } from '../../types/common/ApiResponse';
+import { ExtendedCreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
+import { ExtendedUpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+import { SliceError } from '../../store/types';
 
 // Enhanced interfaces
-interface ExtendedCreateSkillRequest extends CreateSkillRequest {
-  tags?: string[];
-  remoteAvailable?: boolean;
-  location?: string;
-}
 
-interface ExtendedUpdateSkillRequest extends UpdateSkillRequest {
-  tags?: string[];
-  remoteAvailable?: boolean;
-  location?: string;
-}
-
-// API Response interface - adapted to your API
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-  errors?: string[];
-  pageNumber?: number;
-  pageSize?: number;
-  totalPages?: number;
-  totalRecords?: number;
-  hasNextPage?: boolean;
-  hasPreviousPage?: boolean;
-  timestamp?: string;
-  traceId?: string;
-}
-
-
-// Unified Skills State
-interface SkillsState {
-  // All skills (from search/browse)
-  allSkills: Skill[];
-
-  // User's own skills
-  userSkills: Skill[];
-
-  // Favorites (IDs)
-  favoriteSkillIds: string[];
-
-  // Currently selected skill for details
-  selectedSkill: Skill | null;
-
-  // Search & Filter
-  searchQuery: string;
-  searchResults: Skill[];
-  isSearchActive: boolean;
-
-  // Pagination
-  pagination: {
-    pageNumber: number;
-    pageSize: number;
-    totalPages: number;
-    totalRecords: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-
-  // Analytics
-  statistics: SkillStatistics | null;
-  recommendations: SkillRecommendation[];
-  popularTags: Array<{ tag: string; count: number }>;
-
-  // Loading states
-  isLoading: boolean;
-  isCreating: boolean;
-  isUpdating: boolean;
-  isDeleting: boolean;
-
-  // Error handling
-  errors: string[] | null;
-}
-
-const initialState: SkillsState = {
+const initialState: SkillState = {
   allSkills: [],
   userSkills: [],
   favoriteSkillIds: [],
@@ -107,45 +36,27 @@ const initialState: SkillsState = {
   isCreating: false,
   isUpdating: false,
   isDeleting: false,
-  errors: null,
+  error: null,
 };
-// FAVORITES: Async Thunks
+
 export const fetchFavoriteSkills = createAsyncThunk(
   'skills/fetchFavoriteSkills',
-  async (userId: string, { rejectWithValue }) => {
-    try {
-      const response = await skillService.getFavoriteSkills(userId);
-      return response;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Favorites could not be loaded';
-      return rejectWithValue([errorMessage]);
-    }
+  async (userId: string) => {
+    return await skillService.getFavoriteSkills(userId);
   }
 );
 
 export const addFavoriteSkill = createAsyncThunk(
   'skills/addFavoriteSkill',
-  async ({ userId, skillId }: { userId: string; skillId: string }, { rejectWithValue }) => {
-    try {
-      await skillService.addFavoriteSkill(userId, skillId);
-      return skillId;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Skill could not be favorited';
-      return rejectWithValue([errorMessage]);
-    }
+  async ({ userId, skillId }: { userId: string; skillId: string }) => {
+    return await skillService.addFavoriteSkill(userId, skillId);
   }
 );
 
 export const removeFavoriteSkill = createAsyncThunk(
   'skills/removeFavoriteSkill',
-  async ({ userId, skillId }: { userId: string; skillId: string }, { rejectWithValue }) => {
-    try {
-      await skillService.removeFavoriteSkill(userId, skillId);
-      return skillId;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Skill could not be removed';
-      return rejectWithValue([errorMessage]);
-    }
+  async ({ userId, skillId }: { userId: string; skillId: string }) => {
+    return await skillService.removeFavoriteSkill(userId, skillId);
   }
 );
 
@@ -185,236 +96,88 @@ const extractPagination = <T>(response: PaginatedResponse<T> | unknown) => {
 // Get all skills with pagination
 export const fetchAllSkills = createAsyncThunk(
   'skills/fetchAllSkills',
-  async (params: SkillSearchParams, { rejectWithValue }) => {
-    try {
-      const response = await skillService.getAllSkills(params);
-      console.log('📋 All skills response:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ Fetch all skills error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Skills could not be loaded';
-      return rejectWithValue([errorMessage]);
-    }
+  async (params: SkillSearchParams) => {
+    return await skillService.getAllSkills(params);
   }
 );
 
 // Get skill by ID
 export const fetchSkillById = createAsyncThunk(
   'skills/fetchSkillById',
-  async (skillId: string, { rejectWithValue }) => {
-    try {
-      console.log('🎯 Fetching skill by ID:', skillId);
-      const response = await skillService.getSkillById(skillId);
-      console.log('🎯 Skill by ID response:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ Fetch skill by ID error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Skill could not be loaded';
-      return rejectWithValue([errorMessage]);
-    }
+  async (skillId: string) => {
+    return  await skillService.getSkillById(skillId);
   }
 );
 
 // Get user skills
 export const fetchUserSkills = createAsyncThunk(
   'skills/fetchUserSkills',
-  async (
-    { page = 1, pageSize = 12 }: { page?: number; pageSize?: number } = {},
-    { rejectWithValue }
-  ) => {
-    try {
-      console.log(
-        '👤 Fetching user skills - page:',
-        page,
-        'pageSize:',
-        pageSize
-      );
-      const response = await skillService.getUserSkills(page, pageSize);
-      console.log('👤 User skills response:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ Fetch user skills error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Your skills could not be loaded';
-      return rejectWithValue([errorMessage]);
-    }
+  async ({ page = 1, pageSize = 12 }: { page?: number; pageSize?: number }) => {
+    return await skillService.getUserSkills(page, pageSize);
   }
 );
 
 // Create new skill
 export const createSkill = createAsyncThunk(
   'skills/createSkill',
-  async (skillData: ExtendedCreateSkillRequest, { rejectWithValue }) => {
-    try {
-      console.log('✨ Creating skill:', skillData);
-      const response = await skillService.createSkill(skillData);
-      console.log('✨ Create skill response:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ Create skill error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Skill could not be created';
-      return rejectWithValue([errorMessage]);
-    }
+  async (skillData: ExtendedCreateSkillRequest) => {
+    return await skillService.createSkill(skillData);
   }
 );
 
 // Update existing skill
 export const updateSkill = createAsyncThunk(
   'skills/updateSkill',
-  async (
-    {
-      skillId,
-      updateData,
-    }: { skillId: string; updateData: ExtendedUpdateSkillRequest },
-    { rejectWithValue }
-  ) => {
-    try {
-      console.log('📝 Updating skill:', skillId, updateData);
-      const response = await skillService.updateSkill(skillId, updateData);
-      console.log('📝 Update skill response:', response);
-      return { skillId, updatedSkill: response };
-    } catch (error) {
-      console.error('❌ Update skill error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Skill could not be updated';
-      return rejectWithValue([errorMessage]);
-    }
+  async ({skillId, updateData}: { skillId: string; updateData: ExtendedUpdateSkillRequest }) => {
+    return await skillService.updateSkill(skillId, updateData);
   }
 );
 
 // Delete skill
 export const deleteSkill = createAsyncThunk(
   'skills/deleteSkill',
-  async (
-    { skillId, reason }: { skillId: string; reason?: string },
-    { rejectWithValue }
-  ) => {
-    try {
-      console.log('🗑️ Deleting skill:', skillId, reason);
-      await skillService.deleteSkill(skillId, reason);
-      console.log('🗑️ Skill deleted successfully');
-      return skillId;
-    } catch (error) {
-      console.error('❌ Delete skill error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Skill could not be deleted';
-      return rejectWithValue([errorMessage]);
-    }
+  async ({ skillId, reason }: { skillId: string; reason?: string }) => {
+    return await skillService.deleteSkill(skillId, reason);
   }
 );
 
 // Rate skill
 export const rateSkill = createAsyncThunk(
   'skills/rateSkill',
-  async (
-    {
-      skillId,
-      rating,
-      review,
-    }: { skillId: string; rating: number; review?: string },
-    { rejectWithValue }
-  ) => {
-    try {
-      await skillService.rateSkill(skillId, rating, review);
-      return { skillId, rating, review };
-    } catch (error) {
-      console.error('❌ Rate skill error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Skill rating failed';
-      return rejectWithValue([errorMessage]);
-    }
+  async ({ skillId, rating, review }: { skillId: string; rating: number; review?: string }) => {
+    return await skillService.rateSkill(skillId, rating, review);
   }
 );
 
 // Endorse skill
 export const endorseSkill = createAsyncThunk(
   'skills/endorseSkill',
-  async (
-    { skillId, message }: { skillId: string; message?: string },
-    { rejectWithValue }
-  ) => {
-    try {
-      await skillService.endorseSkill(skillId, message);
-      return { skillId, message };
-    } catch (error) {
-      console.error('❌ Endorse skill error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Skill endorsement failed';
-      return rejectWithValue([errorMessage]);
-    }
+  async ({ skillId, message }: { skillId: string; message?: string }) => {
+      return await skillService.endorseSkill(skillId, message);
   }
 );
 
 // Fetch skill statistics
 export const fetchSkillStatistics = createAsyncThunk(
   'skills/fetchSkillStatistics',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await skillService.getSkillStatistics();
-      return response;
-    } catch (error) {
-      console.error('❌ Fetch skill statistics error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Skill statistics could not be loaded';
-      return rejectWithValue([errorMessage]);
-    }
+  async () => {
+    return  await skillService.getSkillStatistics();
   }
 );
 
 // Fetch popular tags
 export const fetchPopularTags = createAsyncThunk(
   'skills/fetchPopularTags',
-  async ({ limit = 20 }: { limit?: number } = {}, { rejectWithValue }) => {
-    try {
-      const response = await skillService.getPopularTags(limit);
-      return response;
-    } catch (error) {
-      console.error('❌ Fetch popular tags error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Popular tags could not be loaded';
-      return rejectWithValue([errorMessage]);
-    }
+  async ({ limit = 20 }: { limit?: number }) => {
+    return  await skillService.getPopularTags(limit);
   }
 );
 
 // Fetch skill recommendations
 export const fetchSkillRecommendations = createAsyncThunk(
   'skills/fetchSkillRecommendations',
-  async ({ limit = 10 }: { limit?: number } = {}, { rejectWithValue }) => {
-    try {
-      const response = await skillService.getSkillRecommendations(limit);
-      return response;
-    } catch (error) {
-      console.error('❌ Fetch skill recommendations error:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Skill recommendations could not be loaded';
-      return rejectWithValue([errorMessage]);
-    }
+  async ({ limit = 10 }: { limit?: number }) => {
+    return  await skillService.getSkillRecommendations(limit);
   }
 );
 
@@ -427,11 +190,11 @@ const skillsSlice = createSlice({
   reducers: {
     // Error handling
     clearError: (state) => {
-      state.errors = null;
+      state.error = null;
     },
 
-    setError: (state, action: PayloadAction<string[] | null>) => {
-      state.errors = action.payload;
+    setError: (state, action) => {
+      state.error = action.payload as SliceError;
     },
 
     // Selected skill management
@@ -531,32 +294,32 @@ const skillsSlice = createSlice({
     builder
       .addCase(fetchFavoriteSkills.fulfilled, (state, action) => {
         state.favoriteSkillIds = action.payload || [];
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchFavoriteSkills.rejected, (state, action) => {
-        state.errors = action.payload as string[];
+        state.error = action.error as SliceError;
         state.favoriteSkillIds = [];
       })
       .addCase(addFavoriteSkill.fulfilled, (state, action) => {
-        if (!state.favoriteSkillIds.includes(action.payload)) {
-          state.favoriteSkillIds.push(action.payload);
+        if (!state.favoriteSkillIds.includes(action.meta.arg.skillId)) {
+          state.favoriteSkillIds.push(action.meta.arg.skillId);
         }
-        state.errors = null;
+        state.error = null;
       })
       .addCase(addFavoriteSkill.rejected, (state, action) => {
-        state.errors = action.payload as string[];
+        state.error = action.error as SliceError;
       })
       .addCase(removeFavoriteSkill.fulfilled, (state, action) => {
-        state.favoriteSkillIds = state.favoriteSkillIds.filter(id => id !== action.payload);
-        state.errors = null;
+        state.favoriteSkillIds = state.favoriteSkillIds.filter(id => id !== action.meta.arg.skillId);
+        state.error = null;
       })
       .addCase(removeFavoriteSkill.rejected, (state, action) => {
-        state.errors = action.payload as string[];
+        state.error = action.error as SliceError;
       })
       // Fetch all skills cases
       .addCase(fetchAllSkills.pending, (state) => {
         state.isLoading = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchAllSkills.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -565,21 +328,18 @@ const skillsSlice = createSlice({
 
         state.allSkills = Array.isArray(data) ? data : [];
         state.pagination = pagination;
-        state.errors = null;
-
-        console.log('✅ All skills updated:', state.allSkills.length, 'skills');
+        state.error = null;
       })
       .addCase(fetchAllSkills.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors = action.payload as string[];
+        state.error = action.error as SliceError;
         state.allSkills = [];
-        console.log('❌ Fetch all skills failed:', action.payload);
       })
 
       // Fetch skill by ID cases
       .addCase(fetchSkillById.pending, (state) => {
         state.isLoading = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchSkillById.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -613,20 +373,18 @@ const skillsSlice = createSlice({
           updateInArray(state.searchResults);
         }
 
-        state.errors = null;
-        console.log('✅ Skill by ID updated:', data?.name);
+        state.error = null;
       })
       .addCase(fetchSkillById.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors = action.payload as string[];
+        state.error = action.error as SliceError;
         state.selectedSkill = null;
-        console.log('❌ Fetch skill by ID failed:', action.payload);
       })
 
       // Fetch user skills cases
       .addCase(fetchUserSkills.pending, (state) => {
         state.isLoading = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchUserSkills.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -635,25 +393,18 @@ const skillsSlice = createSlice({
 
         state.userSkills = Array.isArray(data) ? data : [];
         state.pagination = pagination;
-        state.errors = null;
-
-        console.log(
-          '✅ User skills updated:',
-          state.userSkills.length,
-          'skills'
-        );
+        state.error = null;
       })
       .addCase(fetchUserSkills.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors = action.payload as string[];
+        state.error = action.error as SliceError;
         state.userSkills = [];
-        console.log('❌ Fetch user skills failed:', action.payload);
       })
 
       // Create skill cases
       .addCase(createSkill.pending, (state) => {
         state.isCreating = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(createSkill.fulfilled, (state, action) => {
         state.isCreating = false;
@@ -695,29 +446,26 @@ const skillsSlice = createSlice({
           console.warn('⚠️ No skill data found in response:', response);
         }
 
-        state.errors = null;
+        state.error = null;
       })
       .addCase(createSkill.rejected, (state, action) => {
         state.isCreating = false;
-        state.errors = action.payload as string[];
-        console.log('❌ Create skill failed:', action.payload);
+        state.error = action.error as SliceError;
       })
 
       // Update skill cases
       .addCase(updateSkill.pending, (state) => {
         state.isUpdating = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(updateSkill.fulfilled, (state, action) => {
         state.isUpdating = false;
-        const { skillId, updatedSkill } = action.payload;
-        const data = extractApiData(updatedSkill);
-
+        const data = extractApiData(action.payload);
 
         if (data) {
           // UpdateSkillResponse does not have userId, only id, name, description, isOffering, skillCategoryId, proficiencyLevelId
           const updateInArray = (array: Skill[]) => {
-            const index = array.findIndex((skill) => skill.id === skillId);
+            const index = array.findIndex((skill) => skill.id === data.id);
             if (index !== -1) {
               array[index] = {
                 ...array[index],
@@ -735,29 +483,26 @@ const skillsSlice = createSlice({
           updateInArray(state.userSkills);
           updateInArray(state.searchResults);
 
-          if (state.selectedSkill?.id === skillId) {
-            state.selectedSkill = state.allSkills.find((s) => s.id === skillId) || null;
+          if (state.selectedSkill?.id === data.id) {
+            state.selectedSkill = state.allSkills.find((s) => s.id === data.id) || null;
           }
-
-          console.log('✅ Skill updated:', data.name);
         }
 
-        state.errors = null;
+        state.error = null;
       })
       .addCase(updateSkill.rejected, (state, action) => {
         state.isUpdating = false;
-        state.errors = action.payload as string[];
-        console.log('❌ Update skill failed:', action.payload);
+        state.error = action.error as SliceError;
       })
 
       // Delete skill cases
       .addCase(deleteSkill.pending, (state) => {
         state.isDeleting = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(deleteSkill.fulfilled, (state, action) => {
         state.isDeleting = false;
-        const deletedSkillId = action.payload;
+        const deletedSkillId = action.meta.arg.skillId;
 
         // Remove from all arrays
 
@@ -775,85 +520,83 @@ const skillsSlice = createSlice({
           state.selectedSkill = null;
         }
 
-        state.errors = null;
-        console.log('✅ Skill deleted:', deletedSkillId);
+        state.error = null;
       })
       .addCase(deleteSkill.rejected, (state, action) => {
         state.isDeleting = false;
-        state.errors = action.payload as string[];
-        console.log('❌ Delete skill failed:', action.payload);
+        state.error = action.error as SliceError;
       })
 
       // Rate/Endorse skill cases
       .addCase(rateSkill.pending, (state) => {
         state.isLoading = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(rateSkill.fulfilled, (state) => {
         state.isLoading = false;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(rateSkill.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors = action.payload as string[];
+        state.error = action.payload as SliceError;
       })
 
       .addCase(endorseSkill.pending, (state) => {
         state.isLoading = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(endorseSkill.fulfilled, (state) => {
         state.isLoading = false;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(endorseSkill.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors = action.payload as string[];
+        state.error = action.payload as SliceError;
       })
 
       // Statistics and analytics cases
       .addCase(fetchSkillStatistics.pending, (state) => {
         state.isLoading = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchSkillStatistics.fulfilled, (state, action) => {
         state.isLoading = false;
         state.statistics = extractApiData(action.payload);
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchSkillStatistics.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors = action.payload as string[];
+        state.error = action.error as SliceError;
         state.statistics = null;
       })
 
       .addCase(fetchPopularTags.pending, (state) => {
         state.isLoading = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchPopularTags.fulfilled, (state, action) => {
         state.isLoading = false;
         state.popularTags = extractApiData(action.payload) || [];
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchPopularTags.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors = action.payload as string[];
+        state.error = action.error as SliceError;
         state.popularTags = [];
       })
 
       .addCase(fetchSkillRecommendations.pending, (state) => {
         state.isLoading = true;
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchSkillRecommendations.fulfilled, (state, action) => {
         state.isLoading = false;
         state.recommendations = extractApiData(action.payload) || [];
-        state.errors = null;
+        state.error = null;
       })
       .addCase(fetchSkillRecommendations.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors = action.payload as string[];
+        state.error = action.error as SliceError;
         state.recommendations = [];
       });
   },

@@ -15,7 +15,7 @@ import { RootState } from '../../store/store';
 
 const SearchResultsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { results, loading, error } = useSelector(
+  const { results, isLoading, error } = useSelector(
     (state: RootState) => state.search
   );
 
@@ -25,11 +25,11 @@ const SearchResultsPage: React.FC = () => {
         Suchergebnisse
       </Typography>
 
-      {loading && (
+      {isLoading && (
         <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} />
       )}
-      {error && <Typography color="error">Fehler: {error}</Typography>}
-      {results.length === 0 && !loading && !error && (
+      {error && <Typography color="error">Fehler: {error.message}</Typography>}
+      {results.length === 0 && !isLoading && !error && (
         <Typography variant="h6" color="textSecondary">
           Keine Ergebnisse gefunden.
         </Typography>

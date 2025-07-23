@@ -21,7 +21,7 @@ const TOKEN_EXPIRY_BUFFER = 5 * 60 * 1000;
  */
 export const setToken = (
   token: string,
-  useSessionStorage: boolean = false
+  useSessionStorage: string = 'session'
 ): void => {
   try {
     if (!token?.trim()) {
@@ -31,7 +31,7 @@ export const setToken = (
 
     const timestamp = Date.now().toString();
 
-    if (useSessionStorage) {
+    if (useSessionStorage === 'session') {
       SessionStorage.setItem(TOKEN_KEY, token);
       SessionStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
       SessionStorage.setItem(REMEMBER_ME_KEY, 'false');
@@ -40,7 +40,7 @@ export const setToken = (
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
       localStorage.removeItem(REMEMBER_ME_KEY);
-    } else {
+    } else if (useSessionStorage === 'permanent') {
       localStorage.setItem(TOKEN_KEY, token);
       localStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
       localStorage.setItem(REMEMBER_ME_KEY, 'true');
@@ -96,7 +96,7 @@ export const getToken = (): string | null => {
  */
 export const setRefreshToken = (
   refreshToken: string,
-  useSessionStorage: boolean = false
+  useSessionStorage: string = 'session'
 ): void => {
   try {
     if (!refreshToken?.trim()) {
@@ -104,10 +104,10 @@ export const setRefreshToken = (
       return;
     }
 
-    if (useSessionStorage) {
+    if (useSessionStorage === 'session') {
       SessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
-    } else {
+    } else if (useSessionStorage === 'permanent') {
       localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
       SessionStorage.removeItem(REFRESH_TOKEN_KEY);
     }
@@ -307,7 +307,7 @@ export const isValidTokenFormat = (token: string): boolean => {
  * Migrates tokens between storage types
  * @param useSessionStorage - Target storage type
  */
-export const migrateTokenStorage = (useSessionStorage: boolean): void => {
+export const migrateTokenStorage = (useSessionStorage: string): void => {
   try {
     const token = getToken();
     const refreshToken = getRefreshToken();

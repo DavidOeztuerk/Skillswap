@@ -1,13 +1,8 @@
-// ============================================================================
-// UPDATE NOTIFICATION PREFERENCES COMMAND HANDLER
-// ============================================================================
-
 using CQRS.Handlers;
 using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
-using NotificationService.Infrastructure.Data;
 
 namespace NotificationService.Application.CommandHandlers;
 

@@ -47,7 +47,7 @@ import {
   createProficiencyLevel as createProficiencyLevelAction,
   updateProficiencyLevel as updateProficiencyLevelAction,
   deleteProficiencyLevel as deleteProficiencyLevelAction,
-} from '../features/skills/profiencyLevelSlice';
+} from '../features/skills/proficiencyLevelSlice';
 
 // Extended interfaces
 interface ExtendedCreateSkillRequest extends CreateSkillRequest {
@@ -85,8 +85,8 @@ export const useSkills = () => {
     isCreating,
     isUpdating,
     isDeleting,
-    errors,
     favoriteSkillIds,
+    error
   } = useAppSelector((state) => state.skills);
 
   /** 
@@ -263,7 +263,7 @@ export const useSkills = () => {
 
         const resultAction = await dispatch(
           fetchAllSkillsAction({
-            query: query.trim(),
+            searchTerm: query.trim(),
             page,
             pageSize,
           })
@@ -341,7 +341,7 @@ export const useSkills = () => {
         // Search in user skills specifically
         const resultAction = await dispatch(
           fetchAllSkillsAction({
-            query: query.trim(),
+            searchTerm: query.trim(),
             page,
             pageSize,
             // Add parameter to search only user's skills if your API supports it
@@ -850,7 +850,7 @@ export const useSkills = () => {
     isCreating,
     isUpdating,
     isDeleting,
-    errors,
+    error,
 
     // Core skill operations
     fetchAllSkills,

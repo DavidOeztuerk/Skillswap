@@ -19,7 +19,7 @@ import {
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useSearchParams } from 'react-router-dom';
-import { fetchUserSearchResults, fetchAllSkills } from '../../features/search/searchSlice';
+import { fetchUserSearchResults, fetchAllSkills, selectSearchError } from '../../features/search/searchSlice';
 import PageErrorBoundary from '../../components/error/PageErrorBoundary';
 import SkillCard from '../../components/skills/SkillCard';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
@@ -34,11 +34,7 @@ const SearchResultsPage: React.FC = () => {
   const {
     userResults,
     allSkills,
-    loading,
-    userLoading,
-    allSkillsLoading,
-    userError,
-    allSkillsError,
+    isLoading,
     userPagination,
     allSkillsPagination,
   } = useAppSelector((state) => state.search);
@@ -120,8 +116,8 @@ const SearchResultsPage: React.FC = () => {
     setSearchParams(new URLSearchParams());
   };
 
-  const isLoading = loading || userLoading || allSkillsLoading;
-  const hasError = userError || allSkillsError;
+  // const isLoading = loading || userLoading || allSkillsLoading;
+  const hasError = selectSearchError.length > 0;
   const hasResults = userResults.length > 0 || allSkills.length > 0;
 
   return (
@@ -210,7 +206,7 @@ const SearchResultsPage: React.FC = () => {
         {/* Error State */}
         {hasError && (
           <Alert severity="error" sx={{ mb: 3 }}>
-            {userError || allSkillsError}
+            {hasError}
           </Alert>
         )}
 

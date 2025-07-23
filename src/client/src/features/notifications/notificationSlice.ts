@@ -5,7 +5,6 @@ import { NotificationState } from '../../types/states/NotificationState';
 import { Notification, NotificationSettings } from '../../types/models/Notification';
 import { SliceError } from '../../store/types';
 
-// Initial state for the Notification reducer
 const initialState: NotificationState = {
   notifications: [],
   unreadCount: 0,
@@ -21,109 +20,53 @@ const initialState: NotificationState = {
   error: null,
 };
 
-// Async Thunk for loading all notifications
+// Async thunks
 export const fetchNotifications = createAsyncThunk(
   'notifications/fetchNotifications',
-  async (_, { rejectWithValue }) => {
-    try {
-      const notifications = await notificationService.getNotifications();
-      return notifications;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Could not load notifications'
-      );
-    }
+  async () => {
+    return await notificationService.getNotifications();
   }
 );
 
-// Async Thunk for marking a notification as read
 export const markNotificationAsRead = createAsyncThunk(
   'notifications/markAsRead',
-  async (notificationId: string, { rejectWithValue }) => {
-    try {
-      await notificationService.markAsRead(notificationId);
-      return notificationId;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Could not mark notification as read'
-      );
-    }
+  async (notificationId: string) => {
+    await notificationService.markAsRead(notificationId);
+    return notificationId;
   }
 );
 
-// Async Thunk for marking all notifications as read
 export const markAllNotificationsAsRead = createAsyncThunk(
   'notifications/markAllAsRead',
-  async (_, { rejectWithValue }) => {
-    try {
-      await notificationService.markAllAsRead();
-      return true;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Could not mark all notifications as read'
-      );
-    }
+  async () => {
+    await notificationService.markAllAsRead();
+    return true;
   }
 );
 
-// Async Thunk for loading notification settings
 export const fetchNotificationSettings = createAsyncThunk(
   'notifications/fetchSettings',
-  async (_, { rejectWithValue }) => {
-    try {
-      const settings = await notificationService.getSettings();
-      return settings;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Could not load notification settings'
-      );
-    }
+  async () => {
+    return await notificationService.getSettings();
   }
 );
 
-// Async Thunk for updating notification settings
 export const updateNotificationSettings = createAsyncThunk(
   'notifications/updateSettings',
-  async (settings: NotificationSettings, { rejectWithValue }) => {
-    try {
-      const updatedSettings = await notificationService.updateSettings(settings);
-      return updatedSettings;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Could not update notification settings'
-      );
-    }
+  async (settings: NotificationSettings) => {
+    return await notificationService.updateSettings(settings);
   }
 );
 
-// Async Thunk for deleting a notification
 export const deleteNotification = createAsyncThunk(
   'notifications/deleteNotification',
-  async (notificationId: string, { rejectWithValue }) => {
-    try {
-      await notificationService.deleteNotification(notificationId);
-      return notificationId;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Could not delete notification'
-      );
-    }
+  async (notificationId: string) => {
+    await notificationService.deleteNotification(notificationId);
+    return notificationId;
   }
 );
 
-// Notification Slice
+// Slice
 const notificationSlice = createSlice({
   name: 'notifications',
   initialState,
@@ -157,13 +100,10 @@ const notificationSlice = createSlice({
         state.isLoading = false;
         state.error = action.error as SliceError;
       })
-      // Mark Notification as Read
-      .addCase(markNotificationAsRead.pending, (state) => {
-        state.error = null;
-      })
+
+      // Mark as Read
       .addCase(markNotificationAsRead.fulfilled, (state, action) => {
-        const notificationId = action.payload;
-        const notification = state.notifications.find(n => n.id === notificationId);
+        const notification = state.notifications.find(n => n.id === action.payload);
         if (notification && !notification.isRead) {
           notification.isRead = true;
           notification.readAt = new Date().toISOString();
@@ -173,10 +113,8 @@ const notificationSlice = createSlice({
       .addCase(markNotificationAsRead.rejected, (state, action) => {
         state.error = action.error as SliceError;
       })
-      // Mark All Notifications as Read
-      .addCase(markAllNotificationsAsRead.pending, (state) => {
-        state.error = null;
-      })
+
+      // Mark All as Read
       .addCase(markAllNotificationsAsRead.fulfilled, (state) => {
         const now = new Date().toISOString();
         state.notifications.forEach(notification => {
@@ -190,7 +128,8 @@ const notificationSlice = createSlice({
       .addCase(markAllNotificationsAsRead.rejected, (state, action) => {
         state.error = action.error as SliceError;
       })
-      // Fetch Notification Settings
+
+      // Fetch Settings
       .addCase(fetchNotificationSettings.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -203,7 +142,8 @@ const notificationSlice = createSlice({
         state.isLoading = false;
         state.error = action.error as SliceError;
       })
-      // Update Notification Settings
+
+      // Update Settings
       .addCase(updateNotificationSettings.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -216,13 +156,10 @@ const notificationSlice = createSlice({
         state.isLoading = false;
         state.error = action.error as SliceError;
       })
+
       // Delete Notification
-      .addCase(deleteNotification.pending, (state) => {
-        state.error = null;
-      })
       .addCase(deleteNotification.fulfilled, (state, action) => {
-        const notificationId = action.payload;
-        const index = state.notifications.findIndex(n => n.id === notificationId);
+        const index = state.notifications.findIndex(n => n.id === action.payload);
         if (index !== -1) {
           const notification = state.notifications[index];
           if (!notification.isRead) {
@@ -232,15 +169,10 @@ const notificationSlice = createSlice({
         }
       })
       .addCase(deleteNotification.rejected, (state, action) => {
-        state.error = action.error as SliceError
+        state.error = action.error as SliceError;
       });
   },
 });
 
-export const {
-  addNotification,
-  clearError,
-  setLoading,
-} = notificationSlice.actions;
-
+export const { addNotification, clearError, setLoading } = notificationSlice.actions;
 export default notificationSlice.reducer;

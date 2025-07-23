@@ -1,6 +1,6 @@
 // src/api/httpClient.ts
 import { API_BASE_URL, AUTH_ENDPOINTS } from '../config/endpoints';
-import { API_TIMEOUT } from '../config/constants';
+import { API_TIMEOUT, MAX_RETRY_ATTEMPTS, RETRY_DELAY } from '../config/constants';
 import {
   getToken,
   getRefreshToken,
@@ -9,24 +9,15 @@ import {
   removeToken,
 } from '../utils/authHelpers';
 import { router } from '../routes/Router';
-import { ApiResponse } from '../types/common/ApiResponse';
 import { errorService } from '../services/errorService';
 
-// HTTP Response Interface
-export interface HttpResponse<T> {
-  data: T;
-  status: number;
-  ok: boolean;
-  message?: string;
-  headers?: Record<string, string>;
-}
-
 // Request Configuration Interface
-interface RequestConfig {
+export interface RequestConfig {
   headers?: Record<string, string>;
   timeout?: number;
   retries?: number;
   retryDelay?: number;
+  params?: Record<string, unknown>;
   _retry?: boolean;
 }
 
@@ -36,7 +27,7 @@ interface TokenRefreshResponse {
   refreshToken: string;
 }
 
-class CustomHttpClient {
+class HttpClient {
   private baseUrl: string;
   private isRefreshing = false;
   private refreshSubscribers: Array<(token: string) => void> = [];
@@ -63,52 +54,27 @@ class CustomHttpClient {
   }
 
   /**
-   * Handles fetch response and parses JSON
+   * Builds URL with query parameters
    */
-  private async handleResponse<T>(
-    response: Response,
-    method: string
-  ): Promise<HttpResponse<T>> {
-    let data: unknown = null;
-
-    try {
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        data = await response.text();
-      }
-    } catch {
-      // Response might not contain JSON/text
+  private buildUrl(endpoint: string, params?: Record<string, unknown>): string {
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
+    
+    if (!params || Object.keys(params).length === 0) {
+      return url;
     }
 
-    // Convert headers to plain object
-    const headersObj: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headersObj[key] = value;
+    const urlObj = new URL(url);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (Array.isArray(value)) {
+          value.forEach(v => urlObj.searchParams.append(key, String(v)));
+        } else {
+          urlObj.searchParams.append(key, String(value));
+        }
+      }
     });
 
-    const result: HttpResponse<T> = {
-      data: data as T,
-      status: response.status,
-      ok: response.ok,
-      message: response.ok
-        ? 'Success'
-        : (data as { message?: string })?.message || response.statusText,
-      headers: headersObj,
-    };
-
-    if (!response.ok) {
-      console.error('API Error:', result.message);
-      // Log error to centralized error service
-      errorService.handleApiError({
-        status: response.status,
-        message: result.message,
-        code: response.status,
-      }, `HTTP ${method} ${response.url}`);
-    }
-
-    return result;
+    return urlObj.toString();
   }
 
   /**
@@ -117,8 +83,7 @@ class CustomHttpClient {
   private async fetchWithTimeout(
     url: string,
     options: RequestInit,
-    timeout: number = API_TIMEOUT,
-    method: string
+    timeout: number = API_TIMEOUT
   ): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -133,329 +98,204 @@ class CustomHttpClient {
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof DOMException && error.name === 'AbortError') {
-        const timeoutError = new Error('Request timeout');
-        errorService.handleApiError(timeoutError, `Timeout for ${method} ${url}`);
-        throw timeoutError;
+        throw new Error('Request timeout');
       }
-      errorService.handleApiError(error, `Network error for ${method} ${url}`);
       throw error;
     }
   }
 
   /**
-   * Adds a subscriber to token refresh queue
+   * Handles fetch response and parses data
    */
-  private subscribeTokenRefresh(cb: (token: string) => void): void {
-    this.refreshSubscribers.push(cb);
-  }
+  private async handleResponse<T>(response: Response): Promise<T> {
+    const contentType = response.headers.get('content-type');
+    let data: unknown;
 
-  /**
-   * Notifies all subscribers about successful token refresh
-   */
-  private onRefreshed(token: string): void {
-    this.refreshSubscribers.forEach((cb) => cb(token));
-    this.refreshSubscribers = [];
+    try {
+      if (contentType?.includes('application/json')) {
+        data = await response.json();
+      } else if (contentType?.includes('text/')) {
+        data = await response.text();
+      } else if (response.status === 204) {
+        data = null; // No content
+      } else {
+        data = await response.blob();
+      }
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      const error = {
+        status: response.status,
+        statusText: response.statusText,
+        message: (data as any)?.message || response.statusText,
+        data,
+      };
+      
+      errorService.handleApiError(error, `${response.status} ${response.url}`);
+      throw error;
+    }
+
+    return data as T;
   }
 
   /**
    * Refreshes the access token
    */
-  private async refreshAccessToken(): Promise<TokenRefreshResponse> {
-    const response = await this.requestWithoutInterceptor<
-      ApiResponse<TokenRefreshResponse>
-    >('POST', AUTH_ENDPOINTS.REFRESH_TOKEN, {
-      token: getToken(),
-      refreshToken: getRefreshToken(),
-    });
-
-    if (!response.ok || !response.data.data) {
-      throw new Error('Token refresh failed');
+  private async refreshAccessToken(): Promise<string> {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
     }
 
-    const tokenData = response.data.data;
+    const response = await this.request<{ data: TokenRefreshResponse }>(
+      'POST',
+      AUTH_ENDPOINTS.REFRESH_TOKEN,
+      { token: getToken(), refreshToken },
+      { _retry: true }
+    );
+
+    const tokenData = response.data;
     setToken(tokenData.token);
     setRefreshToken(tokenData.refreshToken);
-    return tokenData;
+    
+    return tokenData.token;
   }
 
   /**
-   * Performs HTTP request without authentication interceptors
+   * Handles 401 errors with token refresh
    */
-  private async requestWithoutInterceptor<T>(
+  private async handle401Error<T>(
     method: string,
     endpoint: string,
-    body?: unknown,
+    data?: unknown,
     config?: RequestConfig
-  ): Promise<HttpResponse<T>> {
-    const url = endpoint.startsWith('http')
-      ? endpoint
-      : `${this.baseUrl}${endpoint}`;
-
-    const options: RequestInit = {
-      method,
-      headers: this.getHeaders(config?.headers),
-    };
-
-    // Add body for non-GET requests
-    if (body && method !== 'GET') {
-      if (body instanceof FormData) {
-        // Remove Content-Type for FormData (browser will set it with boundary)
-        const headers = { ...options.headers } as Record<string, string>;
-        delete headers['Content-Type'];
-        options.headers = headers;
-        options.body = body;
-      } else {
-        options.body = JSON.stringify(body);
-      }
+  ): Promise<T> {
+    if (config?._retry) {
+      // Already retried, logout
+      removeToken();
+      router.navigate('/login');
+      throw new Error('Authentication failed');
     }
 
-    const response = await this.fetchWithTimeout(url, options, config?.timeout, method);
-    return this.handleResponse<T>(response, method);
-  }
-
-  /**
-   * Handles HTTP errors and implements retry logic for 401 errors
-   */
-  private async handleError<T>(
-    error: unknown,
-    method: string,
-    endpoint: string,
-    body?: unknown,
-    config?: RequestConfig
-  ): Promise<HttpResponse<T>> {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'status' in error &&
-      (error as { status?: number }).status === 401 &&
-      !config?._retry
-    ) {
-      const retryConfig = { ...config, _retry: true };
-
-      if (!this.isRefreshing) {
-        this.isRefreshing = true;
-        try {
-          const tokenData = await this.refreshAccessToken();
-          this.onRefreshed(tokenData.token);
-          this.isRefreshing = false;
-
-          // Retry original request with new token
-          return this.request<T>(method, endpoint, body, retryConfig);
-        } catch (refreshError) {
-          this.isRefreshing = false;
-          this.refreshSubscribers = [];
-          removeToken();
-          router.navigate('/login');
-          throw refreshError;
-        }
-      }
-
-      // Queue the request if token refresh is in progress
-      return new Promise<HttpResponse<T>>((resolve, reject) => {
-        this.subscribeTokenRefresh(() => {
-          this.request<T>(method, endpoint, body, retryConfig)
-            .then(resolve)
-            .catch(reject);
-        });
-      });
-    }
-
-    throw error;
-  }
-
-  /**
-   * Performs HTTP request with authentication and retry logic
-   */
-  private async request<T>(
-    method: string,
-    endpoint: string,
-    body?: unknown,
-    config?: RequestConfig
-  ): Promise<HttpResponse<T>> {
-    try {
-      const response = await this.requestWithoutInterceptor<T>(
-        method,
-        endpoint,
-        body,
-        config
-      );
-
-      // Handle 401 errors for token refresh
-      if (response.status === 401) {
-        return this.handleError<T>(
-          { status: response.status },
-          method,
-          endpoint,
-          body,
-          config
-        );
-      }
-
-      return response;
-    } catch (error) {
-      // Handle network errors or other issues
-      errorService.handleApiError(error, `Request failed for ${method} ${endpoint}`);
-      if (error instanceof Error) {
+    if (!this.isRefreshing) {
+      this.isRefreshing = true;
+      
+      try {
+        const newToken = await this.refreshAccessToken();
+        this.refreshSubscribers.forEach(cb => cb(newToken));
+        this.refreshSubscribers = [];
+        this.isRefreshing = false;
+        
+        // Retry original request
+        return this.request<T>(method, endpoint, data, { ...config, _retry: true });
+      } catch (error) {
+        this.isRefreshing = false;
+        this.refreshSubscribers = [];
+        removeToken();
+        router.navigate('/login');
         throw error;
       }
-      throw new Error('Network error occurred');
     }
-  }
 
-  /**
-   * GET request
-   */
-  public async get<T>(
-    endpoint: string,
-    params?: Record<string, unknown>,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    let url = endpoint;
-
-    if (params) {
-      const queryParams = new URLSearchParams();
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          queryParams.append(key, String(value));
-        }
+    // Wait for token refresh
+    return new Promise<T>((resolve, reject) => {
+      this.refreshSubscribers.push(() => {
+        this.request<T>(method, endpoint, data, { ...config, _retry: true })
+          .then(resolve)
+          .catch(reject);
       });
-      const queryString = queryParams.toString();
-      if (queryString) {
-        url += url.includes('?') ? `&${queryString}` : `?${queryString}`;
-      }
-    }
-
-    const response = await this.request<ApiResponse<T>>(
-      'GET',
-      url,
-      undefined,
-      config
-    );
-    return response.data;
+    });
   }
 
   /**
-   * POST request
+   * Main request method with retry logic
    */
-  public async post<T>(
-    endpoint: string,
-    body?: unknown,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    const response = await this.request<ApiResponse<T>>(
-      'POST',
-      endpoint,
-      body,
-      config
-    );
-    return response.data;
-  }
-
-  /**
-   * PUT request
-   */
-  public async put<T>(
-    endpoint: string,
-    body?: unknown,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    const response = await this.request<ApiResponse<T>>(
-      'PUT',
-      endpoint,
-      body,
-      config
-    );
-    return response.data;
-  }
-
-  /**
-   * PATCH request
-   */
-  public async patch<T>(
-    endpoint: string,
-    body?: unknown,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    const response = await this.request<ApiResponse<T>>(
-      'PATCH',
-      endpoint,
-      body,
-      config
-    );
-    return response.data;
-  }
-
-  /**
-   * DELETE request
-   */
-  public async delete<T>(
-    endpoint: string,
-    body?: unknown,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    const response = await this.request<ApiResponse<T>>(
-      'DELETE',
-      endpoint,
-      body,
-      config
-    );
-    return response.data;
-  }
-
-  /**
-   * Performs request with retry logic
-   */
-  public async requestWithRetry<T>(
+  async request<T>(
     method: string,
     endpoint: string,
-    body?: unknown,
+    data?: unknown,
     config?: RequestConfig
-  ): Promise<HttpResponse<T>> {
-    const maxRetries = config?.retries || 3;
-    const retryDelay = config?.retryDelay || 1000;
-    let lastError: Error;
-
-    interface StatusError extends Error {
-      status?: number;
-    }
+  ): Promise<T> {
+    const maxRetries = config?.retries ?? (method === 'GET' ? MAX_RETRY_ATTEMPTS : 0);
+    const retryDelay = config?.retryDelay ?? RETRY_DELAY;
+    let lastError: any;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await this.request<T>(method, endpoint, body, config);
-      } catch (error) {
-        lastError = error as Error;
+        const url = this.buildUrl(endpoint, method === 'GET' ? config?.params : undefined);
+        const headers = this.getHeaders(config?.headers);
+        
+        const options: RequestInit = {
+          method,
+          headers,
+        };
 
-        // Don't retry on client errors (4xx) except 401
-        const status = (error as StatusError)?.status;
-        if (
-          status !== undefined &&
-          status >= 400 &&
-          status < 500 &&
-          status !== 401
-        ) {
+        // Add body for non-GET requests
+        if (data && method !== 'GET') {
+          if (data instanceof FormData) {
+            delete (headers as any)['Content-Type'];
+            options.body = data;
+          } else {
+            options.body = JSON.stringify(data);
+          }
+        }
+
+        const response = await this.fetchWithTimeout(url, options, config?.timeout);
+        
+        // Handle 401 specifically
+        if (response.status === 401 && !config?._retry) {
+          return this.handle401Error<T>(method, endpoint, data, config);
+        }
+
+        return await this.handleResponse<T>(response);
+      } catch (error: any) {
+        lastError = error;
+
+        // Don't retry on client errors (except 401) or if already retrying
+        if (error.status >= 400 && error.status < 500 && error.status !== 401) {
           throw error;
         }
 
-        // Wait before retry (except on last attempt)
+        // Don't retry on last attempt
         if (attempt < maxRetries) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, retryDelay * (attempt + 1))
+          await new Promise(resolve => 
+            setTimeout(resolve, retryDelay * Math.pow(2, attempt))
           );
+          continue;
         }
       }
     }
 
-    throw lastError!;
+    throw lastError;
+  }
+
+  // Convenience methods
+  async get<T>(endpoint: string, config?: RequestConfig): Promise<T> {
+    return this.request<T>('GET', endpoint, undefined, config);
+  }
+
+  async post<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
+    return this.request<T>('POST', endpoint, data, config);
+  }
+
+  async put<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
+    return this.request<T>('PUT', endpoint, data, config);
+  }
+
+  async patch<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
+    return this.request<T>('PATCH', endpoint, data, config);
+  }
+
+  async delete<T>(endpoint: string, config?: RequestConfig): Promise<T> {
+    return this.request<T>('DELETE', endpoint, undefined, config);
   }
 
   /**
    * Downloads a file
    */
-  public async downloadFile(
-    endpoint: string,
-    filename?: string,
-    config?: RequestConfig
-  ): Promise<void> {
+  async downloadFile(endpoint: string, filename?: string, config?: RequestConfig): Promise<void> {
     const response = await this.request<Blob>('GET', endpoint, undefined, {
       ...config,
       headers: {
@@ -464,41 +304,65 @@ class CustomHttpClient {
       },
     });
 
-    // Create download link
-    const blob = new Blob([response.data]);
-    const downloadUrl = window.URL.createObjectURL(blob);
+    const blob = new Blob([response]);
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = downloadUrl;
+    link.href = url;
     link.download = filename || 'download';
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(downloadUrl);
+    window.URL.revokeObjectURL(url);
   }
 
   /**
-   * Uploads a file
+   * Uploads a file with progress tracking
    */
-  public async uploadFile<T>(
+  async uploadFile<T>(
     endpoint: string,
     formData: FormData,
     config?: RequestConfig,
-    onProgress?: (progressEvent: ProgressEvent) => void
-  ): Promise<ApiResponse<T>> {
-    // Note: Progress tracking with fetch API requires additional implementation
+    onProgress?: (progress: number) => void
+  ): Promise<T> {
     if (onProgress) {
-      console.warn('Progress tracking not implemented with fetch API');
+      // Use XMLHttpRequest for progress tracking
+      return new Promise<T>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            onProgress((e.loaded / e.total) * 100);
+          }
+        });
+
+        xhr.addEventListener('load', async () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data);
+            } catch {
+              resolve(xhr.responseText as T);
+            }
+          } else {
+            reject({ status: xhr.status, message: xhr.statusText });
+          }
+        });
+
+        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+
+        const url = this.buildUrl(endpoint);
+        xhr.open('POST', url);
+        
+        const token = getToken();
+        if (token) {
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+        
+        xhr.send(formData);
+      });
     }
 
-    const response = await this.request<ApiResponse<T>>(
-      'POST',
-      endpoint,
-      formData,
-      config
-    );
-    return response.data;
+    return this.post<T>(endpoint, formData, config);
   }
 }
 
-// Create and export singleton instance
-export default new CustomHttpClient(API_BASE_URL);
+export default new HttpClient(API_BASE_URL);

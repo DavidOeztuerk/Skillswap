@@ -2,7 +2,7 @@ using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Domain.Entities;
 
-namespace NotificationService.Infrastructure.Data;
+namespace NotificationService;
 
 public class NotificationDbContext(
     DbContextOptions<NotificationDbContext> options)

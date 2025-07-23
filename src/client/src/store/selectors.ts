@@ -38,7 +38,7 @@ export const selectSkillsLoading = createSelector(
 
 export const selectSkillsError = createSelector(
   [selectSkillsState],
-  (skillsState) => skillsState.errors
+  (skillsState) => skillsState.error
 );
 
 export const selectSelectedSkill = createSelector(
@@ -287,7 +287,7 @@ export const selectSearchResults = createSelector(
 
 export const selectSearchLoading = createSelector(
   [selectSearchState],
-  (searchState) => searchState.loading
+  (searchState) => searchState.isLoading
 );
 
 export const selectSearchPagination = createSelector(

@@ -1,12 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Domain.Entities;
-using NotificationService.Infrastructure.Data;
 
 namespace NotificationService.Infrastructure.BackgroundServices;
-
-// ============================================================================
-// NOTIFICATION CLEANUP SERVICE
-// ============================================================================
 
 public class NotificationCleanupService : BackgroundService
 {

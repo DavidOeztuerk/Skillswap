@@ -1,13 +1,8 @@
-// ============================================================================
-// SEND NOTIFICATION COMMAND HANDLER
-// ============================================================================
-
 using CQRS.Handlers;
 using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
-using NotificationService.Infrastructure.Data;
 using System.Text.Json;
 
 namespace NotificationService.Application.CommandHandlers;

@@ -60,7 +60,7 @@ const SkillDetailPage: React.FC = () => {
     rateSkill,
     endorseSkill,
     isLoading,
-    errors,
+    error,
     dismissError,
   } = useSkills();
 
@@ -283,7 +283,7 @@ const SkillDetailPage: React.FC = () => {
   }
 
   // Error state
-  if (errors && !selectedSkill) {
+  if (error && !selectedSkill) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
@@ -341,9 +341,9 @@ const SkillDetailPage: React.FC = () => {
       )}
 
       {/* Error messages */}
-      {errors && (
+      {error && (
         <AlertMessage
-          message={errors}
+          message={error.message ? [error.message] : ['Ein unerwarteter Fehler ist aufgetreten']}
           severity="error"
           onClose={dismissError}
         />

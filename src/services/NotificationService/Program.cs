@@ -8,18 +8,19 @@ using Infrastructure.Extensions;
 using Infrastructure.Security;
 using Infrastructure.Middleware;
 using CQRS.Extensions;
-using NotificationService.Infrastructure.Data;
 using NotificationService.Infrastructure.Services;
 using NotificationService.Application.Consumers;
 using Infrastructure.Models;
 using NotificationService.Application.Commands;
-using NotificationService.Domain.Entities;
 using NotificationService.Infrastructure.BackgroundServices;
 using MediatR;
 using NotificationService.Application.Queries;
 using NotificationService.Domain.ResponseModels;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
+using NotificationService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -105,6 +106,26 @@ builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAs
 // ============================================================================
 
 // Register notification services
+builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<SmsConfiguration>(builder.Configuration.GetSection("SMS"));
+// builder.Services.Configure<PushNotificationConfiguration>(builder.Configuration.GetSection("PushNotifications"));
+
+// var path = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS")
+//     ?? builder.Configuration["Firebase:CredentialsPath"];
+
+// System.Console.WriteLine(path);
+
+// if (!File.Exists(path))
+//     throw new FileNotFoundException($"Firebase credentials file not found at path: {path}");
+
+// if (FirebaseApp.DefaultInstance == null)
+// {
+//     FirebaseApp.Create(new AppOptions()
+//     {
+//         Credential = GoogleCredential.FromFile(path)
+//     });
+// }
+
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
@@ -513,9 +534,9 @@ var analytics = app.MapGroup("/analytics").WithTags("Analytics");
 
 analytics.MapGet("/statistics", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetNotificationStatisticsQuery query) =>
 {
-     var userId = claims.GetUserId();
+    var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
+
     return await mediator.SendQuery(query);
 })
 .WithName("GetNotificationStatistics")
