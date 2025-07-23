@@ -1,5 +1,6 @@
 // src/api/services/authService.ts
 import { AUTH_ENDPOINTS, PROFILE_ENDPOINTS } from '../../config/endpoints';
+import { MIN_PASSWORD_LENGTH } from '../../config/constants';
 import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
 import { RegisterResponse, LoginResponse } from '../../types/contracts/responses/AuthResponse';
 import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
@@ -19,586 +20,433 @@ import {
 } from '../../utils/authHelpers';
 import apiClient from '../apiClient';
 
+// Helper functions for validation
+const validateEmail = (email: string): string => {
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed) throw new Error('E-Mail-Adresse ist erforderlich');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    throw new Error('Ungültige E-Mail-Adresse');
+  }
+  return trimmed;
+};
+
+const validatePassword = (password: string, fieldName = 'Passwort'): string => {
+  if (!password?.trim()) throw new Error(`${fieldName} ist erforderlich`);
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`${fieldName} muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein`);
+  }
+  return password;
+};
+
+const validateRequired = (value: string | undefined, fieldName: string): string => {
+  const trimmed = value?.trim();
+  if (!trimmed) throw new Error(`${fieldName} ist erforderlich`);
+  return trimmed;
+};
+
 // Extended Login Request with rememberMe option
 interface ExtendedLoginRequest extends LoginRequest {
   rememberMe?: boolean;
 }
 
-// Token Refresh Response Interface
-interface TokenRefreshApiResponse {
-  token: string;
-  refreshToken: string;
-}
-
 /**
- * Perfect Authentication Service with comprehensive error handling,
- * token management, and type safety
+ * Authentication Service with improved error handling and validation
  */
 const authService = {
   /**
-   * Performs user login with enhanced token management
-   * @param credentials - Login credentials with optional rememberMe flag
-   * @returns Authentication response with user data and tokens
+   * Login with credentials
    */
-  login: async (credentials: ExtendedLoginRequest): Promise<LoginResponse> => {
-    try {
-      const response = await apiClient.post<LoginResponse>(
-        AUTH_ENDPOINTS.LOGIN,
-        {
-          email: credentials.email.trim().toLowerCase(),
-          password: credentials.password,
-        }
-      );
+  async login(credentials: ExtendedLoginRequest): Promise<LoginResponse> {
+    const email = validateEmail(credentials.email);
+    const password = validateRequired(credentials.password, 'Passwort');
 
-      const loginData = response.data;
+    const response = await apiClient.post<LoginResponse>(
+      AUTH_ENDPOINTS.LOGIN,
+      { email, password }
+    );
 
-      // Validate response structure
-      if (!loginData.tokens?.accessToken) {
-        throw new Error('Invalid login response: missing access token');
-      }
-
-      // Store tokens with appropriate storage strategy
-      const useSessionStorage = !credentials.rememberMe;
-
-      setToken(loginData.tokens.accessToken, useSessionStorage);
-
-      if (loginData.tokens.refreshToken) {
-        setRefreshToken(loginData.tokens.refreshToken, useSessionStorage);
-      }
-
-      return loginData;
-    } catch (error) {
-      console.error('Login failed:', error);
-
-      // Enhanced error handling with specific messages
-      if (error instanceof Error) {
-        if (
-          error.message.includes('401') ||
-          error.message.includes('Unauthorized')
-        ) {
-          throw new Error(
-            'Ungültige Anmeldedaten. Bitte überprüfe E-Mail und Passwort.'
-          );
-        }
-        if (
-          error.message.includes('429') ||
-          error.message.includes('Too Many Requests')
-        ) {
-          throw new Error(
-            'Zu viele Anmeldeversuche. Bitte warte einen Moment.'
-          );
-        }
-        if (
-          error.message.includes('network') ||
-          error.message.includes('fetch')
-        ) {
-          throw new Error(
-            'Netzwerkfehler. Bitte überprüfe deine Internetverbindung.'
-          );
-        }
-      }
-
-      throw new Error('Anmeldung fehlgeschlagen. Bitte versuche es erneut.');
+    if (!response.tokens?.accessToken) {
+      throw new Error('Ungültige Antwort vom Server');
     }
+
+    const useSessionStorage = credentials.rememberMe ? 'session' : 'permanent';
+    setToken(response.tokens.accessToken, useSessionStorage);
+    
+    if (response.tokens.refreshToken) {
+      setRefreshToken(response.tokens.refreshToken, useSessionStorage);
+    }
+
+    return response;
   },
 
   /**
-   * Registers a new user with comprehensive validation
-   * @param userData - Registration data
-   * @returns Registration response with user data and tokens
+   * Register new user
    */
-  register: async (userData: RegisterRequest): Promise<RegisterResponse> => {
-    try {
-      // Client-side validation
-      if (!userData.email?.trim()) {
-        throw new Error('E-Mail-Adresse ist erforderlich');
-      }
-      if (!userData.password?.trim()) {
-        throw new Error('Passwort ist erforderlich');
-      }
-      if (!userData.firstName?.trim()) {
-        throw new Error('Vorname ist erforderlich');
-      }
-      if (!userData.lastName?.trim()) {
-        throw new Error('Nachname ist erforderlich');
-      }
+  async register(userData: RegisterRequest): Promise<RegisterResponse> {
+    const validatedData = {
+      email: validateEmail(userData.email),
+      password: validatePassword(userData.password),
+      firstName: validateRequired(userData.firstName, 'Vorname'),
+      lastName: validateRequired(userData.lastName, 'Nachname'),
+      userName: userData.userName?.trim(),
+    };
 
-      const response = await apiClient.post<RegisterResponse>(
-        AUTH_ENDPOINTS.REGISTER,
-        {
-          ...userData,
-          email: userData.email.trim().toLowerCase(),
-          firstName: userData.firstName.trim(),
-          lastName: userData.lastName.trim(),
-          userName: userData.userName?.trim(),
-        }
-      );
+    const response = await apiClient.post<RegisterResponse>(
+      AUTH_ENDPOINTS.REGISTER,
+      validatedData
+    );
 
-      const registerData = response.data;
-
-      // Store tokens immediately after successful registration
-      if (registerData.tokens?.accessToken) {
-        setToken(registerData.tokens.accessToken);
+    if (response.tokens?.accessToken) {
+      setToken(response.tokens.accessToken);
+      if (response.tokens.refreshToken) {
+        setRefreshToken(response.tokens.refreshToken);
       }
-
-      if (registerData.tokens?.refreshToken) {
-        setRefreshToken(registerData.tokens.refreshToken);
-      }
-
-      return registerData;
-    } catch (error) {
-      console.error('Registration failed:', error);
-
-      // Enhanced error handling for registration
-      if (error instanceof Error) {
-        if (
-          error.message.includes('409') ||
-          error.message.includes('Conflict')
-        ) {
-          throw new Error(
-            'Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.'
-          );
-        }
-        if (
-          error.message.includes('400') ||
-          error.message.includes('Bad Request')
-        ) {
-          throw new Error(
-            'Ungültige Eingabedaten. Bitte überprüfe deine Angaben.'
-          );
-        }
-        if (
-          error.message.includes('network') ||
-          error.message.includes('fetch')
-        ) {
-          throw new Error(
-            'Netzwerkfehler. Bitte überprüfe deine Internetverbindung.'
-          );
-        }
-      }
-
-      throw new Error(
-        'Registrierung fehlgeschlagen. Bitte versuche es erneut.'
-      );
     }
+
+    return response;
   },
 
   /**
-   * Refreshes access token using refresh token
-   * @returns New tokens or null if refresh fails
+   * Get current user profile
    */
-  refreshToken: async (): Promise<TokenRefreshApiResponse | null> => {
-    const currentToken = getToken();
-    const currentRefreshToken = getRefreshToken();
-
-    // Validate tokens exist
-    if (!currentToken || !currentRefreshToken) {
-      console.warn('No tokens available for refresh');
-      return null;
-    }
-
-    try {
-      const response = await apiClient.post<TokenRefreshApiResponse>(
-        AUTH_ENDPOINTS.REFRESH_TOKEN,
-        {
-          token: currentToken,
-          refreshToken: currentRefreshToken,
-        }
-      );
-
-      const tokenData = response.data;
-
-      // Validate refresh response
-      if (!tokenData.token || !tokenData.refreshToken) {
-        throw new Error('Invalid refresh response: missing tokens');
-      }
-
-      // Update stored tokens
-      setToken(tokenData.token);
-      setRefreshToken(tokenData.refreshToken);
-
-      return tokenData;
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-
-      // Clean up invalid tokens
-      await authService.logout();
-      return null;
-    }
+  async getProfile(): Promise<User> {
+    return apiClient.get<User>(AUTH_ENDPOINTS.PROFILE);
   },
 
   /**
-   * Holt das öffentliche Profil eines Nutzers anhand der ID
-   * @param userId - Die ID des Nutzers
-   * @returns Öffentliches User-Profil (ohne sensible Daten)
+   * Get user by ID (public profile)
    */
-  getUserById: async (userId: string): Promise<Partial<User>> => {
-    try {
-      if (!userId) throw new Error('UserId ist erforderlich');
-      const response = await apiClient.get<Partial<User>>(
-        `/api/users/${userId}`
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Fehler beim Laden des Nutzerprofils:', error);
-      throw new Error('Nutzerprofil konnte nicht geladen werden.');
+  async getUserById(userId: string): Promise<Partial<User>> {
+    if (!userId) throw new Error('User ID ist erforderlich');
+    return apiClient.get<Partial<User>>(`/api/users/${userId}`);
+  },
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(profileData: UpdateProfileRequest): Promise<User> {
+    const cleanedData = {
+      ...profileData,
+      firstName: profileData.firstName?.trim(),
+      lastName: profileData.lastName?.trim(),
+      bio: profileData.bio?.trim(),
+    };
+
+    return apiClient.post<User>(PROFILE_ENDPOINTS.UPDATE, cleanedData);
+  },
+
+  /**
+   * Upload profile picture
+   */
+  async uploadProfilePicture(file: File): Promise<User> {
+    if (!file) throw new Error('Keine Datei ausgewählt');
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Nur JPEG, PNG und WebP Dateien sind erlaubt');
     }
-  },
 
-  /**
-   * Fetches current user profile
-   * @returns User profile data
-   */
-  getProfile: async (): Promise<User> => {
-    try {
-      const response = await apiClient.get<User>(AUTH_ENDPOINTS.PROFILE);
-      return response.data;
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-
-      if (error instanceof Error && error.message.includes('401')) {
-        throw new Error('Sitzung abgelaufen. Bitte melde dich erneut an.');
-      }
-
-      throw new Error('Profil konnte nicht geladen werden.');
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      throw new Error('Datei ist zu groß. Maximum 5MB erlaubt.');
     }
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    return apiClient.uploadFile<User>(PROFILE_ENDPOINTS.UPLOAD_AVATAR, formData);
   },
 
   /**
-   * Updates user profile
-   * @param profileData - Updated profile data
-   * @returns Updated user profile
+   * Change password
    */
-  updateProfile: async (profileData: UpdateProfileRequest): Promise<User> => {
+  async changePassword(passwordData: ChangePasswordRequest): Promise<void> {
+    const validatedData = {
+      currentPassword: validateRequired(passwordData.currentPassword, 'Aktuelles Passwort'),
+      newPassword: validatePassword(passwordData.newPassword, 'Neues Passwort'),
+    };
+
+    await apiClient.post<void>(AUTH_ENDPOINTS.CHANGE_PASSWORD, validatedData);
+  },
+
+  /**
+   * Request password reset
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const validatedEmail = validateEmail(email);
+    await apiClient.post<void>(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email: validatedEmail });
+  },
+
+  /**
+   * Reset password with token
+   */
+  async resetPassword(token: string, password: string): Promise<void> {
+    const validatedToken = validateRequired(token, 'Reset-Token');
+    const validatedPassword = validatePassword(password, 'Neues Passwort');
+
+    await apiClient.post<void>(AUTH_ENDPOINTS.RESET_PASSWORD, {
+      token: validatedToken,
+      password: validatedPassword,
+    });
+  },
+
+  /**
+   * Verify email
+   */
+  async verifyEmail(request: VerifyEmailRequest): Promise<void> {
+    const validatedData = {
+      email: validateEmail(request.email),
+      verificationToken: validateRequired(request.verificationToken, 'Verifizierungs-Token'),
+    };
+
+    await apiClient.post<void>(AUTH_ENDPOINTS.VERIFY_EMAIL, validatedData);
+  },
+
+  /**
+   * Generate 2FA secret
+   */
+  async generateTwoFactorSecret(): Promise<GenerateTwoFactorSecretResponse> {
+    return apiClient.post<GenerateTwoFactorSecretResponse>(AUTH_ENDPOINTS.GENERATE_2FA);
+  },
+
+  /**
+   * Verify 2FA code
+   */
+  async verifyTwoFactorCode(request: VerifyTwoFactorCodeRequest): Promise<VerifyTwoFactorCodeResponse> {
+    const validatedData = {
+      userId: validateRequired(request.userId, 'User ID'),
+      code: validateRequired(request.code, 'Verifizierungscode'),
+    };
+
+    return apiClient.post<VerifyTwoFactorCodeResponse>(
+      AUTH_ENDPOINTS.VERIFY_2FA,
+      validatedData
+    );
+  },
+
+  /**
+   * Check if authenticated
+   */
+  isAuthenticated(): boolean {
+    return !!getToken();
+  },
+
+  /**
+   * Validate current token
+   */
+  async validateToken(): Promise<boolean> {
     try {
-      // Client-side validation
-      const cleanedData = {
-        ...profileData,
-        firstName: profileData.firstName?.trim(),
-        lastName: profileData.lastName?.trim(),
-        bio: profileData.bio?.trim(),
-      };
-
-      const response = await apiClient.post<User>(
-        PROFILE_ENDPOINTS.UPDATE,
-        cleanedData
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Profile update failed:', error);
-      throw new Error('Profil konnte nicht aktualisiert werden.');
-    }
-  },
-
-  /**
-   * Uploads user profile picture
-   * @param file - Profile picture file
-   * @returns Updated user profile
-   */
-  uploadProfilePicture: async (file: File): Promise<User> => {
-    try {
-      // Validate file
-      if (!file) {
-        throw new Error('Keine Datei ausgewählt');
-      }
-
-      // Check file type
-      const allowedTypes = [
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/webp',
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error('Nur JPEG, PNG und WebP Dateien sind erlaubt');
-      }
-
-      // Check file size (5MB max)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (file.size > maxSize) {
-        throw new Error('Datei ist zu groß. Maximum 5MB erlaubt.');
-      }
-
-      const formData = new FormData();
-      formData.append('avatar', file);
-
-      const response = await apiClient.uploadFile<User>(
-        PROFILE_ENDPOINTS.UPLOAD_AVATAR,
-        formData
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Profile picture upload failed:', error);
-
-      if (error instanceof Error) {
-        throw error; // Re-throw validation errors
-      }
-
-      throw new Error('Profilbild konnte nicht hochgeladen werden.');
-    }
-  },
-
-  /**
-   * Changes user password with validation
-   * @param passwordData - Password change data
-   */
-  changePassword: async (
-    passwordData: ChangePasswordRequest
-  ): Promise<void> => {
-    try {
-      // Client-side validation
-      if (!passwordData.currentPassword?.trim()) {
-        throw new Error('Aktuelles Passwort ist erforderlich');
-      }
-      if (!passwordData.newPassword?.trim()) {
-        throw new Error('Neues Passwort ist erforderlich');
-      }
-      // If you want to check for confirmNewPassword, do it in the form, not here
-      if (passwordData.newPassword.length < 8) {
-        throw new Error('Neues Passwort muss mindestens 8 Zeichen lang sein');
-      }
-
-      await apiClient.post<void>(AUTH_ENDPOINTS.CHANGE_PASSWORD, passwordData);
-    } catch (error) {
-      console.error('Password change failed:', error);
-
-      if (error instanceof Error) {
-        if (
-          error.message.includes('401') ||
-          error.message.includes('current password')
-        ) {
-          throw new Error('Aktuelles Passwort ist incorrect');
-        }
-        if (
-          error.message.includes('validation') ||
-          error.message.includes('8 Zeichen')
-        ) {
-          throw error; // Re-throw validation errors
-        }
-      }
-
-      throw new Error('Passwort konnte nicht geändert werden.');
-    }
-  },
-
-  /**
-   * Requests password reset
-   * @param email - User email address
-   */
-  forgotPassword: async (email: string): Promise<void> => {
-    try {
-      if (!email?.trim()) {
-        throw new Error('E-Mail-Adresse ist erforderlich');
-      }
-
-      await apiClient.post<void>(AUTH_ENDPOINTS.FORGOT_PASSWORD, {
-        email: email.trim().toLowerCase(),
-      });
-    } catch (error) {
-      console.error('Forgot password request failed:', error);
-
-      if (
-        error instanceof Error &&
-        error.message.includes('E-Mail-Adresse ist erforderlich')
-      ) {
-        throw error;
-      }
-
-      throw new Error('Passwort-Reset-Anfrage fehlgeschlagen.');
-    }
-  },
-
-  /**
-   * Resets password using reset token
-   * @param token - Reset token
-   * @param password - New password
-   */
-  resetPassword: async (token: string, password: string): Promise<void> => {
-    try {
-      if (!token?.trim()) {
-        throw new Error('Reset-Token ist erforderlich');
-      }
-      if (!password?.trim()) {
-        throw new Error('Neues Passwort ist erforderlich');
-      }
-      if (password.length < 8) {
-        throw new Error('Passwort muss mindestens 8 Zeichen lang sein');
-      }
-
-      await apiClient.post<void>(AUTH_ENDPOINTS.RESET_PASSWORD, {
-        token: token.trim(),
-        password,
-      });
-    } catch (error) {
-      console.error('Password reset failed:', error);
-
-      if (error instanceof Error) {
-        if (
-          error.message.includes('Token') ||
-          error.message.includes('Passwort')
-        ) {
-          throw error; // Re-throw validation errors
-        }
-        if (
-          error.message.includes('expired') ||
-          error.message.includes('invalid')
-        ) {
-          throw new Error('Reset-Token ist ungültig oder abgelaufen');
-        }
-      }
-
-      throw new Error('Passwort konnte nicht zurückgesetzt werden.');
-    }
-  },
-
-  /**
-   * Checks if user is authenticated
-   * @returns true if user has valid token
-   */
-  isAuthenticated: (): boolean => {
-    const token = getToken();
-    return !!token;
-  },
-
-  /**
-   * Validates current token by making authenticated request
-   * @returns true if token is valid
-   */
-  validateToken: async (): Promise<boolean> => {
-    try {
-      await apiClient.get<User>(AUTH_ENDPOINTS.PROFILE);
+      await this.getProfile();
       return true;
-    } catch (error) {
-      console.warn('Token validation failed:', error);
+    } catch {
       return false;
     }
   },
 
   /**
-   * Performs logout with cleanup
+   * Logout
    */
-  logout: async (): Promise<void> => {
-    try {
-      // Clear cache and stored data
-      removeToken();
-
-      // Could make logout API call here if backend supports it
-      // await apiClient.post('/api/auth/logout');
-
-      return Promise.resolve();
-    } catch (error) {
-      console.error('Logout error:', error);
-
-      // Ensure cleanup happens even if API call fails
-      removeToken();
-      return Promise.resolve();
-    }
+  async logout(): Promise<void> {
+    removeToken();
+    // Optional: Call logout endpoint if backend supports it
+    // await apiClient.post('/api/auth/logout');
   },
 
   /**
-   * Performs silent login using stored tokens
-   * @returns User data if successful, null if failed
+   * Silent login with stored token
    */
-  silentLogin: async (): Promise<User | null> => {
-    try {
-      const token = getToken();
-      if (!token) {
-        return null;
-      }
+  async silentLogin(): Promise<User | null> {
+    if (!this.isAuthenticated()) return null;
 
-      // Try to get profile with current token
+    try {
+      return await this.getProfile();
+    } catch {
+      // Token might be expired, try refresh
+      const refreshToken = getRefreshToken();
+      if (!refreshToken) return null;
+
       try {
-        const user = await authService.getProfile();
-        return user;
+        // Refresh will be handled by httpClient automatically
+        return await this.getProfile();
       } catch {
-        // If profile fetch fails, try token refresh
-        console.info('Profile fetch failed, attempting token refresh...');
-
-        const refreshResult = await authService.refreshToken();
-        if (refreshResult) {
-          try {
-            const user = await authService.getProfile();
-            return user;
-          } catch (secondProfileError) {
-            console.error(
-              'Profile fetch failed after token refresh:',
-              secondProfileError
-            );
-            return null;
-          }
-        }
         return null;
       }
-    } catch (error) {
-      console.error('Silent login failed:', error);
-      return null;
-    }
-  },
-
-
-  /**
-   * Verifies email address
-   * @param request - { email, verificationToken }
-   */
-  verifyEmail: async (request: VerifyEmailRequest): Promise<void> => {
-    try {
-      if (!request.email?.trim() || !request.verificationToken?.trim()) {
-        throw new Error('E-Mail und Verifizierungs-Token sind erforderlich');
-      }
-      await apiClient.post<void>(AUTH_ENDPOINTS.VERIFY_EMAIL, {
-        email: request.email.trim().toLowerCase(),
-        verificationToken: request.verificationToken.trim(),
-      });
-    } catch (error) {
-      console.error('Email verification failed:', error);
-      if (error instanceof Error) {
-        if (error.message.includes('Token')) {
-          throw error;
-        }
-        if (
-          error.message.includes('expired') ||
-          error.message.includes('invalid')
-        ) {
-          throw new Error('Verifizierungs-Token ist ungültig oder abgelaufen');
-        }
-      }
-      throw new Error('E-Mail-Verifizierung fehlgeschlagen.');
-    }
-  },
-
-
-  /**
-   * Generates a two-factor authentication secret (returns QR code and backup codes)
-   */
-  generateTwoFactorSecret: async (): Promise<GenerateTwoFactorSecretResponse> => {
-    try {
-      const response = await apiClient.post<GenerateTwoFactorSecretResponse>(AUTH_ENDPOINTS.GENERATE_2FA);
-      return response.data;
-    } catch (error) {
-      console.error('2FA secret generation failed:', error);
-      throw new Error('Zwei-Faktor-Authentifizierung konnte nicht eingerichtet werden.');
-    }
-  },
-
-  /**
-   * Verifies a two-factor authentication code
-   * @param request - { userId, code }
-   */
-  verifyTwoFactorCode: async (request: VerifyTwoFactorCodeRequest): Promise<VerifyTwoFactorCodeResponse> => {
-    try {
-      if (!request.userId?.trim() || !request.code?.trim()) {
-        throw new Error('UserId und Verifizierungscode sind erforderlich');
-      }
-      const response = await apiClient.post<VerifyTwoFactorCodeResponse>(AUTH_ENDPOINTS.VERIFY_2FA, {
-        userId: request.userId.trim(),
-        code: request.code.trim(),
-      });
-      return response.data;
-    } catch (error) {
-      console.error('2FA verification failed:', error);
-      throw new Error('2FA-Verifizierung fehlgeschlagen.');
     }
   },
 };
 
 export default authService;
+
+// src/api/services/authService.ts
+
+
+// import apiClient from '../apiClient';
+// import {
+//   setToken,
+//   removeToken,
+//   getToken,
+//   setRefreshToken,
+//   getRefreshToken,
+// } from '../../utils/authHelpers';
+// import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
+// import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
+// import { User } from '../../types/models/User';
+// import { LoginResponse, RegisterResponse } from '../../types/contracts/responses/AuthResponse';
+
+// class AuthService {
+//   private refreshTokenPromise: Promise<any> | null = null;
+
+//   async login(credentials: LoginRequest & { rememberMe?: boolean }): Promise<LoginResponse> {
+//     try {
+//       const response = await apiClient.post<LoginResponse>('/auth/login', {
+//         email: credentials.email,
+//         password: credentials.password,
+//       });
+
+//       if (response.tokens) {
+//         // Store tokens based on rememberMe flag
+//         const storage = credentials.rememberMe ? 'permanent' : 'session';
+//         setToken(response.tokens.accessToken, storage);
+//         setRefreshToken(response.tokens.refreshToken, storage);
+//       }
+
+//       return response;
+//     } catch (error: any) {
+//       console.error('Login error:', error);
+//       throw new Error(error.response?.data?.message || 'Login failed');
+//     }
+//   }
+
+//   async register(userData: RegisterRequest): Promise<RegisterResponse> {
+//     try {
+//       const response = await apiClient.post<RegisterResponse>('/auth/register', userData);
+
+//       if (response.tokens) {
+//         setToken(response.tokens.accessToken);
+//         setRefreshToken(response.tokens.refreshToken);
+//       }
+
+//       return response;
+//     } catch (error: any) {
+//       console.error('Registration error:', error);
+//       throw new Error(error.response?.data?.message || 'Registration failed');
+//     }
+//   }
+
+//   async logout(): Promise<void> {
+//     try {
+//       const token = getToken();
+//       if (token) {
+//         await apiClient.post('/auth/logout');
+//       }
+//     } catch (error) {
+//       console.error('Logout error:', error);
+//     } finally {
+//       // Always clear tokens, even if logout request fails
+//       removeToken();
+      
+//       // Clear any cached data
+//       sessionStorage.clear();
+      
+//       // Redirect will be handled by the hook
+//     }
+//   }
+
+//   async refreshToken(): Promise<{ token: string; refreshToken: string } | null> {
+//     try {
+//       // Prevent multiple simultaneous refresh requests
+//       if (this.refreshTokenPromise) {
+//         return await this.refreshTokenPromise;
+//       }
+
+//       const refreshToken = getRefreshToken();
+//       if (!refreshToken) {
+//         throw new Error('No refresh token available');
+//       }
+
+//       this.refreshTokenPromise = apiClient.post<{
+//         accessToken: string;
+//         refreshToken: string;
+//       }>('/auth/refresh-token', { refreshToken });
+
+//       const response = await this.refreshTokenPromise;
+      
+//       if (response.data) {
+//         setToken(response.data.accessToken);
+//         setRefreshToken(response.data.refreshToken);
+        
+//         return {
+//           token: response.data.accessToken,
+//           refreshToken: response.data.refreshToken,
+//         };
+//       }
+
+//       return null;
+//     } catch (error) {
+//       console.error('Token refresh error:', error);
+//       removeToken();
+//       return null;
+//     } finally {
+//       this.refreshTokenPromise = null;
+//     }
+//   }
+
+//   async getProfile(): Promise<User> {
+//     try {
+//       const response = await apiClient.get<User>('/auth/profile');
+//       return response;
+//     } catch (error: any) {
+//       console.error('Get profile error:', error);
+//       throw new Error(error.response?.data?.message || 'Failed to get profile');
+//     }
+//   }
+
+//   async silentLogin(): Promise<User | null> {
+//     try {
+//       const token = getToken();
+//       if (!token) {
+//         return null;
+//       }
+
+//       // Try to get profile with existing token
+//       const user = await this.getProfile();
+//       return user;
+//     } catch (error: any) {
+//       // If token is expired, try to refresh
+//       if (error.response?.status === 401) {
+//         const refreshResult = await this.refreshToken();
+//         if (refreshResult) {
+//           // Retry getting profile with new token
+//           try {
+//             const user = await this.getProfile();
+//             return user;
+//           } catch (retryError) {
+//             console.error('Silent login retry failed:', retryError);
+//             return null;
+//           }
+//         }
+//       }
+      
+//       console.error('Silent login error:', error);
+//       return null;
+//     }
+//   }
+
+//   async verifyEmail(request: { token: string; userId: string }): Promise<void> {
+//     await apiClient.post('/auth/verify-email', request);
+//   }
+
+//   async forgotPassword(email: string): Promise<void> {
+//     await apiClient.post('/auth/forgot-password', { email });
+//   }
+
+//   async resetPassword(token: string, newPassword: string): Promise<void> {
+//     await apiClient.post('/auth/reset-password', { token, newPassword });
+//   }
+
+//   isAuthenticated(): boolean {
+//     return !!getToken();
+//   }
+// }
+
+// export default new AuthService();

@@ -9,3 +9,9 @@ export interface CreateSkillRequest {
   location?: string;
   isRemoteAvailable?: boolean;
 }
+
+export interface ExtendedCreateSkillRequest extends CreateSkillRequest {
+  tags?: string[];
+  remoteAvailable?: boolean;
+  location?: string;
+}

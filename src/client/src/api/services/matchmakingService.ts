@@ -1,171 +1,110 @@
+// src/api/services/matchmakingService.ts
 import { MATCHMAKING_ENDPOINTS } from '../../config/endpoints';
 import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
+import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { User } from '../../types/models/User';
 import { Match } from '../../types/models/Match';
 import apiClient from '../apiClient';
-import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
+
+interface MatchFilter {
+  status?: string;
+  role?: string;
+}
 
 /**
- * Service für Matchmaking-Operationen
+ * Service for matchmaking operations
  */
 const matchmakingService = {
   /**
-   * Sucht nach passenden Nutzern für einen Skill
-   * @param request - Anfragedaten für das Matching
-   * @returns Match-Objekt
+   * Find matches for a skill
    */
-  findMatch: async (request: MatchRequest): Promise<Match> => {
-    const response = await apiClient.post<Match>(
-      MATCHMAKING_ENDPOINTS.FIND_MATCH,
-      request
-    );
-    return response.data;
+  async findMatch(request: MatchRequest): Promise<Match> {
+    if (!request.skillId) throw new Error('Skill-ID ist erforderlich');
+    return apiClient.post<Match>(MATCHMAKING_ENDPOINTS.FIND_MATCH, request);
   },
 
   /**
-   * Holt alle Matches für den aktuellen Benutzer
-   * @param filter - Optionaler Filter für Matches
-   * @returns Liste von Matches
+   * Get all matches for current user
    */
-  getMatches: async (filter?: {
-    status?: string;
-    role?: string;
-  }): Promise<Match[]> => {
-    const params = filter
-      ? {
-          status: filter.status,
-          role: filter.role,
-        }
-      : {};
-
-    const response = await apiClient.get<Match[]>(
-      MATCHMAKING_ENDPOINTS.GET_USER_MATCHES,
-      { params }
-    );
-    return response.data;
+  async getMatches(filter?: MatchFilter): Promise<Match[]> {
+    return apiClient.get<Match[]>(MATCHMAKING_ENDPOINTS.GET_USER_MATCHES, { filter });
   },
 
   /**
-   * Holt ein spezifisches Match anhand seiner ID
-   * @param matchSessionId - ID des Matches
-   * @returns Das angeforderte Match
+   * Get specific match by ID
    */
-  getMatch: async (matchSessionId: string): Promise<Match> => {
-    const response = await apiClient.get<Match>(
-      `${MATCHMAKING_ENDPOINTS.GET_MATCH}/${matchSessionId}`
-    );
-    return response.data;
+  async getMatch(matchSessionId: string): Promise<Match> {
+    if (!matchSessionId?.trim()) throw new Error('Match-Session-ID ist erforderlich');
+    return apiClient.get<Match>(`${MATCHMAKING_ENDPOINTS.GET_MATCH}/${matchSessionId}`);
   },
 
   /**
-   * Akzeptiert ein Match
-   * @param matchSessionId - ID des zu akzeptierenden Matches
-   * @returns Das aktualisierte Match
+   * Accept a match
    */
-  acceptMatch: async (matchSessionId: string): Promise<Match> => {
-    const response = await apiClient.post<Match>(
-      `${MATCHMAKING_ENDPOINTS.ACCEPT_MATCH}/${matchSessionId}/accept`
-    );
-    return response.data;
+  async acceptMatch(matchSessionId: string): Promise<Match> {
+    if (!matchSessionId?.trim()) throw new Error('Match-Session-ID ist erforderlich');
+    return apiClient.post<Match>(`${MATCHMAKING_ENDPOINTS.ACCEPT_MATCH}/${matchSessionId}/accept`);
   },
 
   /**
-   * Lehnt ein Match ab
-   * @param matchSessionId - ID des abzulehnenden Matches
-   * @returns Das aktualisierte Match
+   * Reject a match
    */
-  rejectMatch: async (matchSessionId: string): Promise<Match> => {
-    const response = await apiClient.post<Match>(
-      `${MATCHMAKING_ENDPOINTS.REJECT_MATCH}/${matchSessionId}/reject`
-    );
-    return response.data;
+  async rejectMatch(matchSessionId: string): Promise<Match> {
+    if (!matchSessionId?.trim()) throw new Error('Match-Session-ID ist erforderlich');
+    return apiClient.post<Match>(`${MATCHMAKING_ENDPOINTS.REJECT_MATCH}/${matchSessionId}/reject`);
   },
 
   /**
-   * ✅ NEU: Erstellt eine manuelle Match-Anfrage an einen bestimmten User
-   * @param request - Anfragedaten für die direkte Match-Anfrage
-   * @returns MatchRequestRecord
+   * Create direct match request to specific user
    */
-  createMatchRequest: async (
-    request: CreateMatchRequest
-  ): Promise<MatchRequest> => {
-    const response = await apiClient.post<MatchRequest>(
-      MATCHMAKING_ENDPOINTS.CREATE_MATCH_REQUEST,
-      request
-    );
-    return response.data;
+  async createMatchRequest(request: CreateMatchRequest): Promise<MatchRequest> {
+    if (!request.targetUserId) throw new Error('Ziel-User-ID ist erforderlich');
+    if (!request.skillId) throw new Error('Skill-ID ist erforderlich');
+    return apiClient.post<MatchRequest>(MATCHMAKING_ENDPOINTS.CREATE_MATCH_REQUEST, request);
   },
 
   /**
-   * ✅ NEU: Holt alle eingehenden Match-Anfragen
-   * @returns Liste von eingehenden Match-Anfragen
+   * Get incoming match requests
    */
-  getIncomingMatchRequests: async (): Promise<MatchRequest[]> => {
-    const response = await apiClient.get<MatchRequest[]>(
-      MATCHMAKING_ENDPOINTS.GET_INCOMING_REQUESTS
-    );
-    return response.data;
+  async getIncomingMatchRequests(): Promise<MatchRequest[]> {
+    return apiClient.get<MatchRequest[]>(MATCHMAKING_ENDPOINTS.GET_INCOMING_REQUESTS);
   },
 
   /**
-   * ✅ NEU: Holt alle ausgehenden Match-Anfragen
-   * @returns Liste von ausgehenden Match-Anfragen
+   * Get outgoing match requests
    */
-  getOutgoingMatchRequests: async (): Promise<MatchRequest[]> => {
-    const response = await apiClient.get<MatchRequest[]>(
-      MATCHMAKING_ENDPOINTS.GET_OUTGOING_REQUESTS
-    );
-    return response.data;
+  async getOutgoingMatchRequests(): Promise<MatchRequest[]> {
+    return apiClient.get<MatchRequest[]>(MATCHMAKING_ENDPOINTS.GET_OUTGOING_REQUESTS);
   },
 
   /**
-   * ✅ NEU: Akzeptiert eine eingehende Match-Anfrage
-   * @param requestId - ID der Match-Anfrage
-   * @returns Das resultierende Match
+   * Accept match request
    */
-  acceptMatchRequest: async (requestId: string): Promise<Match> => {
-    const response = await apiClient.post<Match>(
-      `${MATCHMAKING_ENDPOINTS.ACCEPT_MATCH_REQUEST}/${requestId}/accept`
-    );
-    return response.data;
+  async acceptMatchRequest(requestId: string): Promise<Match> {
+    if (!requestId?.trim()) throw new Error('Anfrage-ID ist erforderlich');
+    return apiClient.post<Match>(`${MATCHMAKING_ENDPOINTS.ACCEPT_MATCH_REQUEST}/${requestId}/accept`);
   },
 
   /**
-   * ✅ NEU: Lehnt eine eingehende Match-Anfrage ab
-   * @param requestId - ID der Match-Anfrage
-   * @param reason - Optionaler Ablehnungsgrund
-   * @returns Bestätigung
+   * Reject match request
    */
-  rejectMatchRequest: async (
-    requestId: string,
-    reason?: string
-  ): Promise<void> => {
-    await apiClient.post(
+  async rejectMatchRequest(requestId: string, reason?: string): Promise<void> {
+    if (!requestId?.trim()) throw new Error('Anfrage-ID ist erforderlich');
+    return apiClient.post<void>(
       `${MATCHMAKING_ENDPOINTS.REJECT_MATCH_REQUEST}/${requestId}/reject`,
       { reason }
     );
   },
 
   /**
-   * Sucht potentielle Matching-Partner ohne eine formelle Anfrage zu stellen
-   * @param skillId - ID des Skills
-   * @param isLearningMode - true, wenn der Benutzer lernen möchte
-   * @returns Liste potentieller Matching-Partner
+   * Search potential matches without creating request
    */
-  searchPotentialMatches: async (
-    skillId: string,
-    isLearningMode: boolean
-  ): Promise<User[]> => {
-    const response = await apiClient.get<User[]>(
-      `${MATCHMAKING_ENDPOINTS.FIND_MATCH}/potential`,
-      {
-        params: {
-          skillId: skillId,
-          isLearningMode: isLearningMode,
-        },
-      }
-    );
-    return response.data;
+  async searchPotentialMatches(skillId: string, isLearningMode: boolean): Promise<User[]> {
+    if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
+    return apiClient.get<User[]>(`${MATCHMAKING_ENDPOINTS.FIND_MATCH}/potential`, {
+      skillId,
+      isLearningMode,
+    });
   },
 };
 

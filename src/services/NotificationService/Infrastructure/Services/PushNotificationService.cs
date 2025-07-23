@@ -1,6 +1,5 @@
 using FirebaseAdmin;
 using FirebaseAdmin.Messaging;
-using NotificationService.Domain.Entities;
 
 namespace NotificationService.Infrastructure.Services;
 
@@ -29,12 +28,12 @@ public class PushNotificationService : IPushNotificationService
             var message = new Message()
             {
                 Token = deviceToken,
-                Notification = new FirebaseAdmin.Messaging.Notification()
+                Notification = new Notification()
                 {
                     Title = title,
                     Body = body
                 },
-                Data = data ?? new Dictionary<string, string>()
+                Data = data ?? []
             };
 
             var response = await _messaging.SendAsync(message);
@@ -56,12 +55,12 @@ public class PushNotificationService : IPushNotificationService
             var message = new Message()
             {
                 Topic = topic,
-                Notification = new FirebaseAdmin.Messaging.Notification()
+                Notification = new Notification()
                 {
                     Title = title,
                     Body = body
                 },
-                Data = data ?? new Dictionary<string, string>()
+                Data = data ?? []
             };
 
             var response = await _messaging.SendAsync(message);

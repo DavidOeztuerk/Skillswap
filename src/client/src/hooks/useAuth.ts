@@ -1,6 +1,6 @@
 // src/hooks/useAuth.ts
 import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   login as loginAction,
   register as registerAction,
@@ -31,9 +31,8 @@ import { VerifyTwoFactorCodeRequest } from '../types/contracts/requests/VerifyTw
 import { VerifyTwoFactorCodeResponse } from '../types/contracts/responses/VerifyTwoFactorCodeResponse';
 import { User } from '../types/models/User';
 
-// Extended login interface
-interface ExtendedLoginRequest extends LoginRequest {
-  rememberMe?: boolean;
+interface LocationState {
+  from?: { pathname: string };
 }
 
 /**
@@ -42,11 +41,19 @@ interface ExtendedLoginRequest extends LoginRequest {
  * loading states, and navigation
  */
 export const useAuth = () => {
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
+    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const authState = useAppSelector((state) => state.auth);
 
-  const { user, isAuthenticated, isLoading, error, token, refreshToken } =
-    useAppSelector((state) => state.auth);
+  const { user, isAuthenticated, isLoading, error, token, refreshToken } = authState
+
+  // Attempt silent login on mount
+  // useEffect(() => {
+  //   if (!isAuthenticated && !isLoading && !error) {
+  //     dispatch(silentLogin());
+  //   }
+  // }, [dispatch, isAuthenticated, isLoading, error]);
 
   /**
    * Enhanced login with comprehensive error handling and navigation
@@ -55,26 +62,32 @@ export const useAuth = () => {
    * @returns Promise<boolean> - Success status
    */
   const login = useCallback(
-    async (
-      credentials: ExtendedLoginRequest,
-      redirectPath = '/dashboard'
-    ): Promise<boolean> => {
+    async (credentials: LoginRequest & { rememberMe?: boolean }, redirectPath?: string) => {
       try {
-        const resultAction = await dispatch(loginAction(credentials));
-
-        if (loginAction.fulfilled.match(resultAction)) {
-          navigate(redirectPath, { replace: true });
+        const result = await dispatch(loginAction(credentials)).unwrap();
+        
+        if (result) {
+          // Get redirect path from location state or use provided/default
+          const state = location.state as LocationState;
+          const from = state?.from?.pathname || redirectPath || '/dashboard';
+          
+          // Clear any previous errors
+          dispatch(clearError());
+          
+          // Navigate after successful login
+          setTimeout(() => {
+            navigate(from, { replace: true });
+          }, 100);
+          
           return true;
-        } else {
-          console.error('Login failed:', resultAction.payload);
-          return false;
         }
+        return false;
       } catch (error) {
-        console.error('Login error:', error);
+        console.error('Login failed:', error);
         return false;
       }
     },
-    [dispatch, navigate]
+    [dispatch, navigate, location]
   );
 
   /**
@@ -83,23 +96,26 @@ export const useAuth = () => {
    * @param redirectPath - Path to navigate after successful registration
    * @returns Promise<boolean> - Success status
    */
-  const register = useCallback(
-    async (
-      userData: RegisterRequest,
-      redirectPath = '/dashboard'
-    ): Promise<boolean> => {
+    const register = useCallback(
+    async (userData: RegisterRequest, redirectPath?: string) => {
       try {
-        const resultAction = await dispatch(registerAction(userData));
-
-        if (registerAction.fulfilled.match(resultAction)) {
-          navigate(redirectPath, { replace: true });
+        const result = await dispatch(registerAction(userData)).unwrap();
+        
+        if (result) {
+          // Clear any previous errors
+          dispatch(clearError());
+          
+          // Navigate after successful registration
+          const path = redirectPath || '/dashboard';
+          setTimeout(() => {
+            navigate(path, { replace: true });
+          }, 100);
+          
           return true;
-        } else {
-          console.error('Registration failed:', resultAction.payload);
-          return false;
         }
+        return false;
       } catch (error) {
-        console.error('Registration error:', error);
+        console.error('Registration failed:', error);
         return false;
       }
     },
@@ -110,20 +126,16 @@ export const useAuth = () => {
    * Enhanced logout with cleanup and navigation
    * @param redirectPath - Path to navigate after logout
    */
-  const logout = useCallback(
-    async (redirectPath = '/login'): Promise<void> => {
-      try {
-        await dispatch(logoutAction());
-        navigate(redirectPath, { replace: true });
-      } catch (error) {
-        console.error('Logout error:', error);
-        // Force logout even if API call fails
-        dispatch(forceLogout());
-        navigate(redirectPath, { replace: true });
-      }
-    },
-    [dispatch, navigate]
-  );
+  const logout = useCallback(async () => {
+    try {
+      await dispatch(logoutAction()).unwrap();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Even if logout fails, redirect to login
+      navigate('/login', { replace: true });
+    }
+  }, [dispatch, navigate]);
 
   /**
    * Load user profile data

@@ -6,7 +6,6 @@ import { VideoCallConfig } from '../../types/models/VideoCallConfig';
 import { ChatMessage } from '../../types/models/ChatMessage';
 import { SliceError } from '../../store/types';
 
-// Initial state for the VideoCall reducer
 const initialState: VideoCallState = {
   roomId: null,
   isConnected: false,
@@ -22,61 +21,31 @@ const initialState: VideoCallState = {
   error: null,
 };
 
-// Async thunk for loading video call configuration
+// Async thunks
 export const getCallConfig = createAsyncThunk(
   'videoCall/getCallConfig',
-  async (appointmentId: string, { rejectWithValue }) => {
-    try {
-      const response = await videoCallService.getCallConfig(appointmentId);
-      return response;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Video call configuration could not be loaded'
-      );
-    }
+  async (appointmentId: string) => {
+    return await videoCallService.getCallConfig(appointmentId);
   }
 );
 
-// Async thunk for ending a video call
 export const endVideoCall = createAsyncThunk(
   'videoCall/endVideoCall',
-  async (roomId: string, { rejectWithValue }) => {
-    try {
-      await videoCallService.endCall(roomId);
-      return roomId;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Video call could not be ended'
-      );
-    }
+  async (roomId: string) => {
+    await videoCallService.endCall(roomId);
+    return roomId;
   }
 );
 
-// Async thunk for saving call information
 export const saveCallInfo = createAsyncThunk(
   'videoCall/saveCallInfo',
-  async (
-    { roomId, duration }: { roomId: string; duration: number },
-    { rejectWithValue }
-  ) => {
-    try {
-      await videoCallService.saveCallInfo(roomId, duration);
-      return { roomId, duration };
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Call information could not be saved'
-      );
-    }
+  async ({ roomId, duration }: { roomId: string; duration: number }) => {
+    await videoCallService.saveCallInfo(roomId, duration);
+    return { roomId, duration };
   }
 );
 
-// VideoCall slice
+// Slice
 const videoCallSlice = createSlice({
   name: 'videoCall',
   initialState,
@@ -117,30 +86,17 @@ const videoCallSlice = createSlice({
     clearMessages: (state) => {
       state.messages = [];
     },
-    setError: (state, action: PayloadAction<SliceError | null>) => {
-      state.error = action.payload;
-      ;
+    setError: (state, action) => {
+        state.error = action.payload as SliceError;
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
-    resetCall: (state) => {
-      state.roomId = null;
-      state.isConnected = false;
-      state.peerId = null;
-      state.localStream = null;
-      state.remoteStream = null;
-      state.isMicEnabled = true;
-      state.isVideoEnabled = true;
-      state.isScreenSharing = false;
-      state.isChatOpen = false;
-      state.messages = [];
-      state.error = null;
-    },
+    resetCall: () => initialState,
   },
   extraReducers: (builder) => {
     builder
-      // Get call config
+      // Get Call Config
       .addCase(getCallConfig.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -153,9 +109,10 @@ const videoCallSlice = createSlice({
       })
       .addCase(getCallConfig.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as SliceError;
+        state.error = action.error as SliceError;
       })
-      // End video call
+
+      // End Video Call
       .addCase(endVideoCall.pending, (state) => {
         state.isLoading = true;
       })
@@ -168,9 +125,10 @@ const videoCallSlice = createSlice({
       })
       .addCase(endVideoCall.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as SliceError;
+        state.error = action.error as SliceError;
       })
-      // Save call info
+
+      // Save Call Info
       .addCase(saveCallInfo.pending, (state) => {
         state.isLoading = true;
       })
@@ -180,7 +138,7 @@ const videoCallSlice = createSlice({
       })
       .addCase(saveCallInfo.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as SliceError;
+        state.error = action.error as SliceError;
       });
   },
 });

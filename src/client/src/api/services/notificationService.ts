@@ -4,101 +4,52 @@ import { Notification, NotificationSettings } from '../../types/models/Notificat
 import apiClient from '../apiClient';
 
 /**
- * Service für Benachrichtigungen-Operationen
+ * Service for notification operations
  */
 const notificationService = {
   /**
-   * Holt alle Benachrichtigungen des Benutzers
-   * @returns Liste der Benachrichtigungen
+   * Get all user notifications
    */
-  getNotifications: async (): Promise<Notification[]> => {
-    try {
-      const response = await apiClient.get<Notification[]>(
-        NOTIFICATION_ENDPOINTS.GET_ALL
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Failed to get notifications:', error);
-      throw new Error('Benachrichtigungen konnten nicht geladen werden.');
-    }
+  async getNotifications(): Promise<Notification[]> {
+    return apiClient.get<Notification[]>(NOTIFICATION_ENDPOINTS.GET_ALL);
   },
 
   /**
-   * Markiert eine Benachrichtigung als gelesen
-   * @param notificationId - ID der Benachrichtigung
+   * Mark notification as read
    */
-  markAsRead: async (notificationId: string): Promise<void> => {
-    try {
-      await apiClient.post<void>(
-        `${NOTIFICATION_ENDPOINTS.MARK_READ}/${notificationId}`
-      );
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
-      throw new Error('Benachrichtigung konnte nicht als gelesen markiert werden.');
-    }
+  async markAsRead(notificationId: string): Promise<void> {
+    if (!notificationId?.trim()) throw new Error('Benachrichtigungs-ID ist erforderlich');
+    return apiClient.post<void>(`${NOTIFICATION_ENDPOINTS.MARK_READ}/${notificationId}`);
   },
 
   /**
-   * Markiert alle Benachrichtigungen als gelesen
+   * Mark all notifications as read
    */
-  markAllAsRead: async (): Promise<void> => {
-    try {
-      await apiClient.post<void>(NOTIFICATION_ENDPOINTS.MARK_ALL_READ);
-    } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
-      throw new Error('Alle Benachrichtigungen konnten nicht als gelesen markiert werden.');
-    }
+  async markAllAsRead(): Promise<void> {
+    return apiClient.post<void>(NOTIFICATION_ENDPOINTS.MARK_ALL_READ);
   },
 
   /**
-   * Holt die Benachrichtigungseinstellungen des Benutzers
-   * @returns Benachrichtigungseinstellungen
+   * Get notification settings
    */
-  getSettings: async (): Promise<NotificationSettings> => {
-    try {
-      const response = await apiClient.get<NotificationSettings>(
-        NOTIFICATION_ENDPOINTS.SETTINGS
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Failed to get notification settings:', error);
-      throw new Error('Benachrichtigungseinstellungen konnten nicht geladen werden.');
-    }
+  async getSettings(): Promise<NotificationSettings> {
+    return apiClient.get<NotificationSettings>(NOTIFICATION_ENDPOINTS.SETTINGS);
   },
 
   /**
-   * Aktualisiert die Benachrichtigungseinstellungen
-   * @param settings - Neue Einstellungen
-   * @returns Aktualisierte Einstellungen
+   * Update notification settings
    */
-  updateSettings: async (
-    settings: NotificationSettings
-  ): Promise<NotificationSettings> => {
-    try {
-      const response = await apiClient.put<NotificationSettings>(
-        NOTIFICATION_ENDPOINTS.SETTINGS,
-        settings
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Failed to update notification settings:', error);
-      throw new Error('Benachrichtigungseinstellungen konnten nicht aktualisiert werden.');
-    }
+  async updateSettings(settings: NotificationSettings): Promise<NotificationSettings> {
+    if (!settings) throw new Error('Einstellungen sind erforderlich');
+    return apiClient.put<NotificationSettings>(NOTIFICATION_ENDPOINTS.SETTINGS, settings);
   },
 
   /**
-   * Löscht eine Benachrichtigung
-   * @param notificationId - ID der zu löschenden Benachrichtigung
+   * Delete notification
    */
-  deleteNotification: async (notificationId: string): Promise<void> => {
-    try {
-      await apiClient.delete<void>(
-        `${NOTIFICATION_ENDPOINTS.GET_ALL}/${notificationId}`
-      );
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-      throw new Error('Benachrichtigung konnte nicht gelöscht werden.');
-    }
+  async deleteNotification(notificationId: string): Promise<void> {
+    if (!notificationId?.trim()) throw new Error('Benachrichtigungs-ID ist erforderlich');
+    return apiClient.delete<void>(`${NOTIFICATION_ENDPOINTS.GET_ALL}/${notificationId}`);
   },
 };
 

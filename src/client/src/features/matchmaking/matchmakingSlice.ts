@@ -1,3 +1,4 @@
+// src/features/matchmaking/matchmakingSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import matchmakingService from '../../api/services/matchmakingService';
 import { MatchmakingState } from '../../types/states/MatchmakingState';
@@ -6,229 +7,90 @@ import { Match } from '../../types/models/Match';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { SliceError } from '../../store/types';
 
-// Initial state for the Matchmaking reducer
 const initialState: MatchmakingState = {
   matches: [],
   activeMatch: null,
   matchResults: [],
   matchRequestSent: false,
-  incomingRequests: [], // ✅ NEW
-  outgoingRequests: [], // ✅ NEW
+  incomingRequests: [],
+  outgoingRequests: [],
   isLoading: false,
   error: null,
 };
 
-// Async thunk for loading all matches (implementation pending)
-
-// Async thunk for finding a match
+// Async thunks
 export const findMatch = createAsyncThunk(
   'matchmaking/findMatch',
-  async (request: MatchRequest, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.findMatch(request);
-      return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Match could not be found'
-      // );
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Match could not be found'
-      );
-    }
+  async (request: MatchRequest) => {
+    return await matchmakingService.findMatch(request);
   }
 );
 
-// Async Thunk for loading a single match
 export const getMatch = createAsyncThunk(
   'matchmaking/getMatch',
-  async (matchSessionId: string, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.getMatch(matchSessionId);
-      return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Match could not be loaded'
-      // );
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Match could not be loaded'
-      );
-    }
+  async (matchSessionId: string) => {
+    return await matchmakingService.getMatch(matchSessionId);
   }
 );
 
-// Async Thunk for accepting a match
 export const acceptMatch = createAsyncThunk(
   'matchmaking/acceptMatch',
-  async (matchSessionId: string, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.acceptMatch(matchSessionId);
-      return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Match could not be accepted'
-      // );
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Match could not be accepted'
-      );
-    }
+  async (matchSessionId: string) => {
+    return await matchmakingService.acceptMatch(matchSessionId);
   }
 );
 
-// Async Thunk for rejecting a match
 export const rejectMatch = createAsyncThunk(
   'matchmaking/rejectMatch',
-  async (matchSessionId: string, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.rejectMatch(matchSessionId);
-      return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Match could not be rejected'
-      // );
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Match could not be rejected'
-      );
-    }
+  async (matchSessionId: string) => {
+    return await matchmakingService.rejectMatch(matchSessionId);
   }
 );
 
-// Async Thunk for searching potential matching partners
 export const searchPotentialMatches = createAsyncThunk(
   'matchmaking/searchPotentialMatches',
-  async (
-    { skillId, isLearningMode }: { skillId: string; isLearningMode: boolean },
-    { rejectWithValue }
-  ) => {
-    try {
-      const response = await matchmakingService.searchPotentialMatches(
-        skillId,
-        isLearningMode
-      );
-      return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Potential matches could not be found'
-      // );
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Potential matches could not be found'
-      );
-    }
+  async ({ skillId, isLearningMode }: { skillId: string; isLearningMode: boolean }) => {
+    return await matchmakingService.searchPotentialMatches(skillId, isLearningMode);
   }
 );
 
 export const createMatchRequest = createAsyncThunk(
   'matchmaking/createMatchRequest',
-  async (request: CreateMatchRequest, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.createMatchRequest(request);
-      return response;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Match request could not be created'
-      );
-    }
+  async (request: CreateMatchRequest) => {
+    return await matchmakingService.createMatchRequest(request);
   }
 );
 
-// ✅ NEW: Load incoming match requests
 export const fetchIncomingMatchRequests = createAsyncThunk(
   'matchmaking/fetchIncomingMatchRequests',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.getIncomingMatchRequests();
-      return response;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Incoming requests could not be loaded'
-      );
-    }
+  async () => {
+    return await matchmakingService.getIncomingMatchRequests();
   }
 );
 
-// ✅ NEW: Load outgoing match requests
 export const fetchOutgoingMatchRequests = createAsyncThunk(
   'matchmaking/fetchOutgoingMatchRequests',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.getOutgoingMatchRequests();
-      return response;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Outgoing requests could not be loaded'
-      );
-    }
+  async () => {
+    return await matchmakingService.getOutgoingMatchRequests();
   }
 );
 
-// ✅ NEW: Accept match request
 export const acceptMatchRequest = createAsyncThunk(
   'matchmaking/acceptMatchRequest',
-  async (requestId: string, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.acceptMatchRequest(requestId);
-      return response;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Match request could not be accepted'
-      );
-    }
+  async (requestId: string) => {
+    return await matchmakingService.acceptMatchRequest(requestId);
   }
 );
 
-// ✅ NEW: Reject match request
 export const rejectMatchRequest = createAsyncThunk(
   'matchmaking/rejectMatchRequest',
-  async (
-    { requestId, reason }: { requestId: string; reason?: string },
-    { rejectWithValue }
-  ) => {
-    try {
-      await matchmakingService.rejectMatchRequest(requestId, reason);
-      return requestId;
-    } catch (error) {
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Match request could not be rejected'
-      );
-    }
+  async ({ requestId, reason }: { requestId: string; reason?: string }) => {
+    await matchmakingService.rejectMatchRequest(requestId, reason);
+    return requestId;
   }
 );
 
-// Matchmaking Slice
+// Slice
 const matchmakingSlice = createSlice({
   name: 'matchmaking',
   initialState,
@@ -251,20 +113,15 @@ const matchmakingSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    // Helper function to update match in list
+    const updateMatchInList = (state: MatchmakingState, match: Match) => {
+      const index = state.matches.findIndex(m => m.id === match.id);
+      if (index !== -1) {
+        state.matches[index] = match;
+      }
+    };
+
     builder
-      // Fetch Matches
-      // .addCase(fetchMatches.pending, (state) => {
-      //   state.isLoading = true;
-      //   state.error = undefined;
-      // })
-      // .addCase(fetchMatches.fulfilled, (state, action) => {
-      //   state.isLoading = false;
-      //   // state.matches = action.payload;
-      // })
-      // .addCase(fetchMatches.rejected, (state, action) => {
-      //   state.isLoading = false;
-      //   state.error = action.payload as string;
-      // })
       // Find Match
       .addCase(findMatch.pending, (state) => {
         state.isLoading = true;
@@ -280,6 +137,7 @@ const matchmakingSlice = createSlice({
         state.isLoading = false;
         state.error = action.error as SliceError;
       })
+
       // Get Match
       .addCase(getMatch.pending, (state) => {
         state.isLoading = true;
@@ -293,6 +151,7 @@ const matchmakingSlice = createSlice({
         state.isLoading = false;
         state.error = action.error as SliceError;
       })
+
       // Accept Match
       .addCase(acceptMatch.pending, (state) => {
         state.isLoading = true;
@@ -301,18 +160,13 @@ const matchmakingSlice = createSlice({
       .addCase(acceptMatch.fulfilled, (state, action) => {
         state.isLoading = false;
         state.activeMatch = action.payload;
-        // Also update the match in the list
-        const index = state.matches.findIndex(
-          (match) => match.id === action.payload.id
-        );
-        if (index !== -1) {
-          state.matches[index] = action.payload;
-        }
+        updateMatchInList(state, action.payload);
       })
       .addCase(acceptMatch.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error as SliceError;
       })
+
       // Reject Match
       .addCase(rejectMatch.pending, (state) => {
         state.isLoading = true;
@@ -321,18 +175,13 @@ const matchmakingSlice = createSlice({
       .addCase(rejectMatch.fulfilled, (state, action) => {
         state.isLoading = false;
         state.activeMatch = action.payload;
-        // Also update the match in the list
-        const index = state.matches.findIndex(
-          (match) => match.id === action.payload.id
-        );
-        if (index !== -1) {
-          state.matches[index] = action.payload;
-        }
+        updateMatchInList(state, action.payload);
       })
       .addCase(rejectMatch.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error as SliceError;
       })
+
       // Search Potential Matches
       .addCase(searchPotentialMatches.pending, (state) => {
         state.isLoading = true;
@@ -346,6 +195,8 @@ const matchmakingSlice = createSlice({
         state.isLoading = false;
         state.error = action.error as SliceError;
       })
+
+      // Create Match Request
       .addCase(createMatchRequest.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -360,7 +211,7 @@ const matchmakingSlice = createSlice({
         state.error = action.error as SliceError;
       })
 
-      // ✅ NEW: Fetch Incoming Requests Cases
+      // Fetch Incoming Requests
       .addCase(fetchIncomingMatchRequests.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -374,7 +225,7 @@ const matchmakingSlice = createSlice({
         state.error = action.error as SliceError;
       })
 
-      // ✅ NEW: Fetch Outgoing Requests Cases
+      // Fetch Outgoing Requests
       .addCase(fetchOutgoingMatchRequests.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -388,7 +239,7 @@ const matchmakingSlice = createSlice({
         state.error = action.error as SliceError;
       })
 
-      // ✅ NEW: Accept Match Request Cases
+      // Accept Match Request
       .addCase(acceptMatchRequest.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -399,7 +250,7 @@ const matchmakingSlice = createSlice({
         state.matches.push(action.payload);
         // Remove from incoming requests
         state.incomingRequests = state.incomingRequests.filter(
-          (req) => req.matchId !== action.payload.id
+          req => req.matchId !== action.payload.id
         );
       })
       .addCase(acceptMatchRequest.rejected, (state, action) => {
@@ -407,7 +258,7 @@ const matchmakingSlice = createSlice({
         state.error = action.error as SliceError;
       })
 
-      // ✅ NEW: Reject Match Request Cases
+      // Reject Match Request
       .addCase(rejectMatchRequest.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -416,7 +267,7 @@ const matchmakingSlice = createSlice({
         state.isLoading = false;
         // Remove from incoming requests
         state.incomingRequests = state.incomingRequests.filter(
-          (req) => req.matchId !== action.payload
+          req => req.matchId !== action.payload
         );
       })
       .addCase(rejectMatchRequest.rejected, (state, action) => {
@@ -431,6 +282,7 @@ export const {
   setActiveMatch,
   clearMatchResults,
   resetMatchRequestSent,
-  clearMatchRequests, // ✅ NEW
+  clearMatchRequests,
 } = matchmakingSlice.actions;
+
 export default matchmakingSlice.reducer;

@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Domain.Entities;
-using NotificationService.Infrastructure.Data;
 using System.Text.Json;
 
 namespace NotificationService.Infrastructure.Services;
@@ -10,7 +9,7 @@ public class NotificationOrchestrator(
     ISmsService smsService,
     IPushNotificationService pushService,
     ILogger<NotificationOrchestrator> logger,
-    NotificationDbContext dbContext) 
+    NotificationDbContext dbContext)
     : INotificationOrchestrator
 {
     private readonly IEmailService _emailService = emailService;

@@ -4,132 +4,79 @@ import apiClient from '../apiClient';
 import { VideoCallConfig } from '../../types/models/VideoCallConfig';
 
 /**
- * Service für Videoanruf-Operationen
+ * Service for video call operations
  */
 const videoCallService = {
   /**
-   * Holt die Konfiguration für einen Videoanruf
-   * @param appointmentId - ID des Termins, für den ein Anruf gestartet wird
-   * @returns Konfiguration für den Videoanruf
+   * Get video call configuration
    */
-  getCallConfig: async (appointmentId: string): Promise<VideoCallConfig> => {
-    try {
-      const response = await apiClient.get<VideoCallConfig>(
-        `${VIDEOCALL_ENDPOINTS.DETAILS}/${appointmentId}/config`
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Failed to get call config:', error);
-      throw new Error('Videoanruf-Konfiguration konnte nicht geladen werden.');
-    }
+  async getCallConfig(appointmentId: string): Promise<VideoCallConfig> {
+    if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
+    return apiClient.get<VideoCallConfig>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${appointmentId}/config`);
   },
 
   /**
-   * Erstellt einen neuen Videoanruf-Raum
-   * @param appointmentId - ID des Termins
-   * @returns Raum-Konfiguration
+   * Create new video call room
    */
-  createCallRoom: async (appointmentId: string): Promise<VideoCallConfig> => {
-    try {
-      const response = await apiClient.post<VideoCallConfig>(
-        VIDEOCALL_ENDPOINTS.CREATE,
-        { appointmentId }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Failed to create call room:', error);
-      throw new Error('Videoanruf-Raum konnte nicht erstellt werden.');
-    }
+  async createCallRoom(appointmentId: string): Promise<VideoCallConfig> {
+    if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
+    return apiClient.post<VideoCallConfig>(VIDEOCALL_ENDPOINTS.CREATE, { appointmentId });
   },
 
   /**
-   * Tritt einem Videoanruf-Raum bei
-   * @param roomId - ID des Raums
-   * @returns Raum-Informationen
+   * Join video call room
    */
-  joinCallRoom: async (roomId: string): Promise<VideoCallConfig> => {
-    try {
-      const response = await apiClient.post<VideoCallConfig>(
-        `${VIDEOCALL_ENDPOINTS.JOIN}/${roomId}/join`
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Failed to join call room:', error);
-      throw new Error('Videoanruf-Raum konnte nicht betreten werden.');
-    }
+  async joinCallRoom(roomId: string): Promise<VideoCallConfig> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    return apiClient.post<VideoCallConfig>(`${VIDEOCALL_ENDPOINTS.JOIN}/${roomId}/join`);
   },
 
   /**
-   * Verlässt einen Videoanruf-Raum
-   * @param roomId - ID des Raums
+   * Leave video call room
    */
-  leaveCallRoom: async (roomId: string): Promise<void> => {
-    try {
-      await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.LEAVE}/${roomId}/leave`);
-    } catch (error) {
-      console.error('Failed to leave call room:', error);
-      throw new Error('Videoanruf-Raum konnte nicht verlassen werden.');
-    }
+  async leaveCallRoom(roomId: string): Promise<void> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.LEAVE}/${roomId}/leave`);
   },
 
   /**
-   * Startet einen Videoanruf
-   * @param roomId - ID des Raums
+   * Start video call
    */
-  startCall: async (roomId: string): Promise<void> => {
-    try {
-      await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.START}/${roomId}/start`);
-    } catch (error) {
-      console.error('Failed to start call:', error);
-      throw new Error('Videoanruf konnte nicht gestartet werden.');
-    }
+  async startCall(roomId: string): Promise<void> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.START}/${roomId}/start`);
   },
 
   /**
-   * Beendet einen Videoanruf
-   * @param sessionId - ID des Anrufraums
-   * @returns Erfolg-/Fehlermeldung
+   * End video call
    */
-  endCall: async (sessionId: string): Promise<void> => {
-    const response = await apiClient.post<void>(
-      `${VIDEOCALL_ENDPOINTS.END_CALL}/${sessionId}/end`
-    );
-    return response.data;
+  async endCall(sessionId: string): Promise<void> {
+    if (!sessionId?.trim()) throw new Error('Session-ID ist erforderlich');
+    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.END_CALL}/${sessionId}/end`);
   },
 
   /**
-   * Speichert eine Anrufaufzeichnung (Information)
-   * @param roomId - ID des Anrufraums
-   * @param durationInSeconds - Dauer des Anrufs in Sekunden
-   * @returns Erfolg-/Fehlermeldung
+   * Save call information
    */
-  saveCallInfo: async (
-    roomId: string,
-    durationInSeconds: number
-  ): Promise<void> => {
-    const response = await apiClient.post<void>(
-      `${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/info`,
-      {
-        durationInSeconds,
-      }
-    );
-    return response.data;
+  async saveCallInfo(roomId: string, durationInSeconds: number): Promise<void> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    if (durationInSeconds < 0) throw new Error('Dauer muss positiv sein');
+    
+    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/info`, {
+      durationInSeconds,
+    });
   },
 
   /**
-   * Meldet ein technisches Problem während eines Anrufs
-   * @param roomId - ID des Anrufraums
-   * @param issue - Beschreibung des Problems
-   * @returns Erfolg-/Fehlermeldung
+   * Report technical issue
    */
-  reportIssue: async (roomId: string, issue: string): Promise<void> => {
-    const response = await apiClient.post<void>(
-      `${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/report`,
-      {
-        issue,
-      }
-    );
-    return response.data;
+  async reportIssue(roomId: string, issue: string): Promise<void> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    if (!issue?.trim()) throw new Error('Problembeschreibung ist erforderlich');
+    
+    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/report`, {
+      issue: issue.trim(),
+    });
   },
 };
 

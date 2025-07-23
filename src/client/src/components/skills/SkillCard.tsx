@@ -1,5 +1,5 @@
-// src/components/skills/SkillCard.tsx - KORRIGIERTE VERSION
-import React from 'react';
+// src/components/skills/SkillCard.tsx
+import React, { memo } from 'react';
 import {
   Card,
   CardContent,
@@ -39,12 +39,11 @@ interface SkillCardProps {
   onDelete: (skillId: string) => void;
   onViewDetails: (skill: Skill) => void;
   onMatch?: (skill: Skill) => void;
-  // FAVORITES
   isFavorite?: (skillId: string) => boolean;
   onToggleFavorite?: (skill: Skill) => void;
 }
 
-const SkillCard: React.FC<SkillCardProps> = ({
+const SkillCard: React.FC<SkillCardProps> = memo(({
   skill,
   isOwner = false,
   showMatchButton = false,
@@ -61,16 +60,6 @@ const SkillCard: React.FC<SkillCardProps> = ({
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
-  // Debug logging
-  console.log('🎴 SkillCard render:', {
-    id: skill.id,
-    name: skill.name,
-    isOwner,
-    showMatchButton,
-    hasCategory: !!skill.category,
-    hasProficiencyLevel: !!skill.proficiencyLevel,
-  });
-
   // Menu handlers
   const handleMenuClick = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -81,7 +70,6 @@ const SkillCard: React.FC<SkillCardProps> = ({
     setAnchorEl(null);
   };
 
-  // Action handlers
   const handleEdit = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     handleMenuClose();
@@ -103,20 +91,23 @@ const SkillCard: React.FC<SkillCardProps> = ({
   const handleMatch = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     handleMenuClose();
-    if (onMatch) {
-      onMatch(skill);
-    }
+    onMatch?.(skill);
   };
 
   const handleCardClick = () => {
     onViewDetails(skill);
   };
 
+  const handleToggleFavorite = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    onToggleFavorite?.(skill);
+  };
+
   // Utility functions
   const getCategoryIcon = () => {
-    if (!skill.category?.iconName) return <CodeIcon />;
-
-    switch (skill.category.iconName.toLowerCase()) {
+    const iconName = skill.category?.iconName?.toLowerCase();
+    
+    switch (iconName) {
       case 'code':
         return <CodeIcon />;
       case 'palette':
@@ -136,7 +127,6 @@ const SkillCard: React.FC<SkillCardProps> = ({
       return skill.category.color;
     }
 
-    // Fallback colors based on category name
     const categoryName = skill.category?.name?.toLowerCase() || '';
     if (categoryName.includes('programming') || categoryName.includes('code')) {
       return theme.palette.primary.main;
@@ -156,31 +146,22 @@ const SkillCard: React.FC<SkillCardProps> = ({
       return skill.proficiencyLevel.color;
     }
 
-    // Fallback colors based on rank
-    if (!skill.proficiencyLevel?.rank) return theme.palette.primary.main;
+    const rank = skill.proficiencyLevel?.rank || 1;
+    const colors = {
+      1: theme.palette.success.main,
+      2: theme.palette.info.main,
+      3: theme.palette.warning.main,
+      4: theme.palette.error.main,
+      5: theme.palette.error.main,
+    };
 
-    switch (skill.proficiencyLevel.rank) {
-      case 1:
-        return theme.palette.success.main; // Beginner - Green
-      case 2:
-        return theme.palette.info.main; // Intermediate - Blue
-      case 3:
-        return theme.palette.warning.main; // Advanced - Orange
-      case 4:
-      case 5:
-        return theme.palette.error.main; // Expert/Master - Red
-      default:
-        return theme.palette.primary.main;
-    }
-  };
-
-  const getStarsCount = () => {
-    return Math.min(skill.proficiencyLevel?.rank || 1, 5);
+    return colors[rank as keyof typeof colors] || theme.palette.primary.main;
   };
 
   const categoryColor = getCategoryColor();
   const proficiencyColor = getProficiencyColor();
-  const starsCount = getStarsCount();
+  const starsCount = Math.min(skill.proficiencyLevel?.rank || 1, 5);
+  const isFavorited = isFavorite?.(skill.id) || false;
 
   return (
     <Card
@@ -238,7 +219,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
           }}
         />
 
-        {/* Owner chip - nur anzeigen wenn es wirklich der Owner ist */}
+        {/* Owner chip */}
         {isOwner && (
           <Chip
             label="Mein Skill"
@@ -258,11 +239,8 @@ const SkillCard: React.FC<SkillCardProps> = ({
         {/* Favorite button */}
         {onToggleFavorite && (
           <IconButton
-            aria-label={isFavorite && isFavorite(skill.id) ? 'Favorit entfernen' : 'Als Favorit markieren'}
-            onClick={e => {
-              e.stopPropagation();
-              onToggleFavorite(skill);
-            }}
+            aria-label={isFavorited ? 'Favorit entfernen' : 'Als Favorit markieren'}
+            onClick={handleToggleFavorite}
             sx={{
               position: 'absolute',
               top: 8,
@@ -273,12 +251,13 @@ const SkillCard: React.FC<SkillCardProps> = ({
                 bgcolor: 'rgba(255,255,255,1)',
                 transform: 'scale(1.1)',
               },
-              color: isFavorite && isFavorite(skill.id) ? theme.palette.warning.main : theme.palette.action.active,
+              color: isFavorited ? theme.palette.warning.main : theme.palette.action.active,
             }}
           >
-            {isFavorite && isFavorite(skill.id) ? <StarIcon /> : <StarBorderIcon />}
+            {isFavorited ? <StarIcon /> : <StarBorderIcon />}
           </IconButton>
         )}
+
         {/* Menu button */}
         <IconButton
           aria-label="Optionen"
@@ -316,13 +295,11 @@ const SkillCard: React.FC<SkillCardProps> = ({
             },
           }}
         >
-          {/* Details immer verfügbar */}
           <MenuItem onClick={handleViewDetails}>
             <VisibilityIcon fontSize="small" sx={{ mr: 1 }} />
             Details ansehen
           </MenuItem>
           
-          {/* Match-Funktionalität nur für fremde Skills */}
           {showMatchButton && !isOwner && onMatch && (
             <>
               <Divider />
@@ -333,7 +310,6 @@ const SkillCard: React.FC<SkillCardProps> = ({
             </>
           )}
 
-          {/* Edit/Delete nur für eigene Skills */}
           {isOwner && (
             <>
               <Divider />
@@ -456,7 +432,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
             WebkitLineClamp: 3,
             WebkitBoxOrient: 'vertical',
             lineHeight: 1.4,
-            minHeight: '3.6em', // Reserve space for 3 lines
+            minHeight: '3.6em',
           }}
         >
           {skill.description || 'Keine Beschreibung vorhanden.'}
@@ -474,21 +450,11 @@ const SkillCard: React.FC<SkillCardProps> = ({
           gap: mobile.isMobile ? 1 : 0,
         }}
       >
-        {!mobile.isMobile && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            {/* Skill ID for debugging (can be removed in production) */}
-            <Typography variant="caption" color="text.disabled">
-              #{(skill.id || skill.id || '').slice(-6)}
-            </Typography>
-          </Box>
-        )}
-
         <Stack 
           direction={mobile.isMobile ? 'column' : 'row'} 
           spacing={mobile.isMobile ? 1 : 1}
           sx={{ width: mobile.isMobile ? '100%' : 'auto' }}
         >
-          {/* Match button nur für fremde Skills */}
           {showMatchButton && !isOwner && onMatch && (
             <Button
               size={mobile.isMobile ? 'medium' : 'small'}
@@ -508,16 +474,15 @@ const SkillCard: React.FC<SkillCardProps> = ({
             </Button>
           )}
 
-          {/* Details/Edit button */}
           <Button
             size={mobile.isMobile ? 'medium' : 'small'}
             variant="outlined"
             onClick={(e) => {
               e.stopPropagation();
               if (isOwner) {
-                onEdit(skill); // Für eigene Skills -> Edit
+                onEdit(skill);
               } else {
-                onViewDetails(skill); // Für fremde Skills -> Details
+                onViewDetails(skill);
               }
             }}
             fullWidth={mobile.isMobile}
@@ -541,6 +506,8 @@ const SkillCard: React.FC<SkillCardProps> = ({
       </CardActions>
     </Card>
   );
-};
+});
+
+SkillCard.displayName = 'SkillCard';
 
 export default SkillCard;

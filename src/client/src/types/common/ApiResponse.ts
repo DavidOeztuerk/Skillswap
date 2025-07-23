@@ -1,13 +1,14 @@
 export interface ApiResponse<T> {
-  data: T;
   success: boolean;
+  data: T;
   message?: string;
-  errors?: Array<string>;
-  timestamp?: Date;
+  errors?: string[];
+  pageNumber?: number;
+  pageSize?: number;
+  totalPages?: number;
+  totalRecords?: number;
+  hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
+  timestamp?: string;
   traceId?: string;
-}
-
-export interface ApiError {
-  message?: string;
-  errorCode?: number;
 }

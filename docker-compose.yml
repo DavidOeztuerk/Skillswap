@@ -278,6 +278,9 @@ services:
       - SMS_API_KEY=${SMS_API_KEY}
       - SMS_API_SECRET=${SMS_API_SECRET}
       - SMS_FROM_NUMBER=${SMS_FROM_NUMBER}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/firebase-key.json
+    volumes:
+      - ./secrets/firebase-key.json:/app/secrets/firebase-key.json:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5006/health/live"]

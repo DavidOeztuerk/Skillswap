@@ -1,4 +1,3 @@
-
 export interface UpdateSkillRequest {
   skillId: string;
   name?: string;
@@ -12,4 +11,10 @@ export interface UpdateSkillRequest {
   location?: string;
   isRemoteAvailable?: boolean;
   isActive?: boolean;
+}
+
+export interface ExtendedUpdateSkillRequest extends UpdateSkillRequest {
+  tags?: string[];
+  remoteAvailable?: boolean;
+  location?: string;
 }

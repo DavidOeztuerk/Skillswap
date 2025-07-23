@@ -2,17 +2,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ProficiencyLevel } from '../../types/models/Skill';
 import skillService from '../../api/services/skillsService';
-
-// Proficiency Levels State interface
-interface ProficiencyLevelsState {
-  proficiencyLevels: ProficiencyLevel[];
-  selectedProficiencyLevel: ProficiencyLevel | null;
-  isLoading: boolean;
-  isCreating: boolean;
-  isUpdating: boolean;
-  isDeleting: boolean;
-  error: string | null;
-}
+import { ProficiencyLevelsState } from '../../types/states/SkillState';
+import { SliceError } from '../../store/types';
 
 const initialState: ProficiencyLevelsState = {
   proficiencyLevels: [],
@@ -31,96 +22,32 @@ const initialState: ProficiencyLevelsState = {
 // Fetch proficiency levels
 export const fetchProficiencyLevels = createAsyncThunk(
   'proficiencyLevels/fetchProficiencyLevels',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await skillService.getProficiencyLevels();
-      return response;
-    } catch (error) {
-      console.error('Fetch proficiency levels thunk error:', error);
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Failed to load proficiency levels'
-      );
-    }
+  async () => {
+    return await skillService.getProficiencyLevels();;
   }
 );
 
 // Create proficiency level (Admin)
 export const createProficiencyLevel = createAsyncThunk(
   'proficiencyLevels/createProficiencyLevel',
-  async (
-    {
-      level,
-      rank,
-      description,
-    }: { level: string; rank: number; description?: string },
-    { rejectWithValue }
-  ) => {
-    try {
-      const response = await skillService.createProficiencyLevel(
-        level,
-        rank,
-        description
-      );
-      return response;
-    } catch (error) {
-      console.error('Create proficiency level thunk error:', error);
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Failed to create proficiency level'
-      );
-    }
+  async ({level, rank, description}: { level: string; rank: number; description?: string }) => {
+    return await skillService.createProficiencyLevel(level,rank, description)
   }
 );
 
 // Update proficiency level (Admin)
 export const updateProficiencyLevel = createAsyncThunk(
   'proficiencyLevels/updateProficiencyLevel',
-  async (
-    {
-      id,
-      level,
-      rank,
-      description,
-    }: { id: string; level: string; rank: number; description?: string },
-    { rejectWithValue }
-  ) => {
-    try {
-      const response = await skillService.updateProficiencyLevel(
-        id,
-        level,
-        rank,
-        description
-      );
-      return response;
-    } catch (error) {
-      console.error('Update proficiency level thunk error:', error);
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Failed to update proficiency level'
-      );
-    }
+  async ({id, level, rank, description}: { id: string; level: string; rank: number; description?: string }) => {
+    return await skillService.updateProficiencyLevel(id, level, rank, description)
   }
 );
 
 // Delete proficiency level (Admin)
 export const deleteProficiencyLevel = createAsyncThunk(
   'proficiencyLevels/deleteProficiencyLevel',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      await skillService.deleteProficiencyLevel(id);
-      return id;
-    } catch (error) {
-      console.error('Delete proficiency level thunk error:', error);
-      return rejectWithValue(
-        error instanceof Error
-          ? error.message
-          : 'Failed to delete proficiency level'
-      );
-    }
+  async (id: string) => {
+    return skillService.deleteProficiencyLevel(id)
   }
 );
 
@@ -196,7 +123,7 @@ const proficiencyLevelsSlice = createSlice({
       state.selectedProficiencyLevel = null;
     },
 
-    setError: (state, action: PayloadAction<string | null>) => {
+    setError: (state, action) => {
       state.error = action.payload;
     },
 
@@ -223,7 +150,7 @@ const proficiencyLevelsSlice = createSlice({
       })
       .addCase(fetchProficiencyLevels.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
         state.proficiencyLevels = [];
       })
 
@@ -243,7 +170,7 @@ const proficiencyLevelsSlice = createSlice({
       })
       .addCase(createProficiencyLevel.rejected, (state, action) => {
         state.isCreating = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
       })
 
       // Update proficiency level cases
@@ -275,7 +202,7 @@ const proficiencyLevelsSlice = createSlice({
       })
       .addCase(updateProficiencyLevel.rejected, (state, action) => {
         state.isUpdating = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
       })
 
       // Delete proficiency level cases
@@ -283,23 +210,14 @@ const proficiencyLevelsSlice = createSlice({
         state.isDeleting = true;
         state.error = null;
       })
-      .addCase(deleteProficiencyLevel.fulfilled, (state, action) => {
+      .addCase(deleteProficiencyLevel.fulfilled, (state) => {
         state.isDeleting = false;
-        const deletedLevelId = action.payload;
-
-        state.proficiencyLevels = state.proficiencyLevels.filter(
-          (level) => level.levelId !== deletedLevelId
-        );
-
-        if (state.selectedProficiencyLevel?.levelId === deletedLevelId) {
-          state.selectedProficiencyLevel = null;
-        }
-
+        state.selectedProficiencyLevel = null;
         state.error = null;
       })
       .addCase(deleteProficiencyLevel.rejected, (state, action) => {
         state.isDeleting = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
       });
   },
 });

@@ -1,55 +1,77 @@
 // src/api/apiClient.ts
-import httpClient from './httpClient';
+import httpClient, { RequestConfig } from './httpClient';
 import { ApiResponse } from '../types/common/ApiResponse';
 
-interface RequestConfig {
-  headers?: Record<string, string>;
-  timeout?: number;
-  retries?: number;
-  retryDelay?: number;
-}
-
+/**
+ * Simplified API Client that wraps httpClient
+ * Automatically handles ApiResponse wrapper
+ */
 class ApiClient {
+  /**
+   * GET request
+   */
   async get<T>(
     url: string,
     params?: Record<string, unknown>,
     config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    return httpClient.get<T>(url, params, config);
+  ): Promise<T> {
+    const response = await httpClient.get<ApiResponse<T>>(url, {
+      ...config,
+      params,
+    });
+    return response.data;
   }
 
+  /**
+   * POST request
+   */
   async post<T>(
     url: string,
     data?: unknown,
     config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    return httpClient.post<T>(url, data, config);
+  ): Promise<T> {
+    const response = await httpClient.post<ApiResponse<T>>(url, data, config);
+    return response.data;
   }
 
+  /**
+   * PUT request
+   */
   async put<T>(
     url: string,
     data?: unknown,
     config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    return httpClient.put<T>(url, data, config);
+  ): Promise<T> {
+    const response = await httpClient.put<ApiResponse<T>>(url, data, config);
+    return response.data;
   }
 
+  /**
+   * PATCH request
+   */
   async patch<T>(
     url: string,
     data?: unknown,
     config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    return httpClient.patch<T>(url, data, config);
+  ): Promise<T> {
+    const response = await httpClient.patch<ApiResponse<T>>(url, data, config);
+    return response.data;
   }
 
+  /**
+   * DELETE request
+   */
   async delete<T>(
     url: string,
-    data?: unknown,
     config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
-    return httpClient.delete<T>(url, data, config);
+  ): Promise<T> {
+    const response = await httpClient.delete<ApiResponse<T>>(url, config);
+    return response.data;
   }
 
+  /**
+   * Download file
+   */
   async downloadFile(
     url: string,
     filename?: string,
@@ -58,34 +80,27 @@ class ApiClient {
     return httpClient.downloadFile(url, filename, config);
   }
 
+  /**
+   * Upload file with progress
+   */
   async uploadFile<T>(
     url: string,
     formData: FormData,
     config?: RequestConfig,
-    onProgress?: (e: ProgressEvent) => void
-  ): Promise<ApiResponse<T>> {
-    return httpClient.uploadFile<T>(url, formData, config, onProgress);
-  }
-
-  async requestWithRetry<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
-    url: string,
-    data?: unknown,
-    options?: {
-      retries?: number;
-      retryDelay?: number;
-      headers?: Record<string, string>;
-    }
-  ): Promise<ApiResponse<T>> {
-    const response = await httpClient.requestWithRetry<ApiResponse<T>>(
-      method,
+    onProgress?: (progress: number) => void
+  ): Promise<T> {
+    const response = await httpClient.uploadFile<ApiResponse<T>>(
       url,
-      data,
-      options
+      formData,
+      config,
+      onProgress
     );
     return response.data;
   }
 
+  /**
+   * Health check
+   */
   async healthCheck(serviceName?: string): Promise<boolean> {
     try {
       const endpoint = serviceName ? `/health/${serviceName}` : '/health';
