@@ -2,11 +2,12 @@ import { configureStore } from '@reduxjs/toolkit';
 import auth from '../features/auth/authSlice';
 import skills from '../features/skills/skillsSlice';
 import category from '../features/skills/categorySlice';
-import proficiencyLevel from '../features/skills/profiencyLevelSlice';
+import proficiencyLevel from '../features/skills/proficiencyLevelSlice';
 import search from '../features/search/searchSlice';
 import matchmaking from '../features/matchmaking/matchmakingSlice';
 import appointments from '../features/appointments/appointmentsSlice';
 import videoCall from '../features/videocall/videoCallSlice';
+import notifications from '../features/notifications/notificationSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     matchmaking,
     appointments,
     videoCall,
+    notifications,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

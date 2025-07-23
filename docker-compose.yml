@@ -6,9 +6,9 @@ services:
       args:
         # API-URL für das Frontend auf das Gateway setzen
         - VITE_API_BASE_URL=http://localhost:8080
-    container_name: 'frontend'
+    container_name: "frontend"
     ports:
-      - '3000:3000'
+      - "3000:3000"
     depends_on:
       - gateway
     environment:
@@ -16,18 +16,18 @@ services:
       - VITE_SIGNALR_URL=http://localhost:8080/videocall
 
   rabbitmq:
-    image: 'rabbitmq:3-management'
-    container_name: 'rabbitmq'
+    image: "rabbitmq:3-management"
+    container_name: "rabbitmq"
     ports:
-      - '5672:5672'
-      - '15672:15672'
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ['CMD', 'rabbitmqctl', 'status']
+      test: ["CMD", "rabbitmqctl", "status"]
       interval: 10s
       timeout: 15s
       retries: 5
@@ -35,14 +35,14 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: 'redis'
+    container_name: "redis"
     ports:
-      - '6379:6379'
+      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 10s
       retries: 5
@@ -52,7 +52,7 @@ services:
     build:
       context: ./src
       dockerfile: services/Gateway/Dockerfile
-    container_name: 'gateway'
+    container_name: "gateway"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -69,7 +69,7 @@ services:
       notificationservice:
         condition: service_started
     ports:
-      - '8080:8080'
+      - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
@@ -90,7 +90,7 @@ services:
     build:
       context: ./src
       dockerfile: services/UserService/Dockerfile
-    container_name: 'userservice'
+    container_name: "userservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -99,20 +99,21 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - '5001:5001'
+      - "5001:5001"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5001
+      - DOTNET_RUNNING_IN_CONTAINER=true
       - RABBITMQ_HOST=rabbitmq
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ISSUER=${JWT_ISSUER}
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
-      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
+      - DefaultConnection=Host=localhost;Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5001/health/live']
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -122,16 +123,16 @@ services:
     build:
       context: ./src
       dockerfile: services/SkillService/Dockerfile
-    container_name: 'skillservice'
+    container_name: "skillservice"
     depends_on:
+      postgres:
+        condition: service_healthy # ✅ Warten bis PostgreSQL gesund ist
       rabbitmq:
         condition: service_healthy
       redis:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
     ports:
-      - '5002:5002'
+      - "5002:5002"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5002
@@ -141,27 +142,29 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
-      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
+      # ✅ Explizite DATABASE_URL für bessere Kontrolle
+      - DefaultConnection=Host=localhost;Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;
     restart: unless-stopped
+    # ✅ Längere Startzeit geben für DB-Initialisierung
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5002/health/live']
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health/live"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 60s # Erhöht von 40s auf 60s
 
   matchmakingservice:
     build:
       context: ./src
       dockerfile: services/MatchmakingService/Dockerfile
-    container_name: 'matchmakingservice'
+    container_name: "matchmakingservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
       postgres:
         condition: service_healthy
     ports:
-      - '5003:5003'
+      - "5003:5003"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5003
@@ -171,10 +174,10 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
-      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
+      - DefaultConnection=Host=localhost;Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5003/health/live']
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -184,14 +187,14 @@ services:
     build:
       context: ./src
       dockerfile: services/AppointmentService/Dockerfile
-    container_name: 'appointmentservice'
+    container_name: "appointmentservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
       postgres:
         condition: service_healthy
     ports:
-      - '5004:5004'
+      - "5004:5004"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5004
@@ -201,10 +204,10 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
-      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
+      - DefaultConnection=Host=localhost;Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5004/health/live']
+      test: ["CMD", "curl", "-f", "http://localhost:5004/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -214,14 +217,14 @@ services:
     build:
       context: ./src
       dockerfile: services/VideocallService/Dockerfile
-    container_name: 'videocallservice'
+    container_name: "videocallservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
       postgres:
         condition: service_healthy
     ports:
-      - '5005:5005'
+      - "5005:5005"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5005
@@ -231,10 +234,10 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
-      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
+      - DefaultConnection=Host=localhost;Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5005/health/live']
+      test: ["CMD", "curl", "-f", "http://localhost:5005/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -244,7 +247,7 @@ services:
     build:
       context: ./src
       dockerfile: services/NotificationService/Dockerfile
-    container_name: 'notificationservice'
+    container_name: "notificationservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -253,7 +256,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - '5006:5006'
+      - "5006:5006"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5006
@@ -263,7 +266,7 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - REDIS_CONNECTION_STRING=redis:6379
-      - DATABASE_CONNECTION_STRING=Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;
+      - DefaultConnection=Host=localhost;Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;
       # SMTP-Konfiguration für E-Mail-Versand
       - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-587}
@@ -277,7 +280,7 @@ services:
       - SMS_FROM_NUMBER=${SMS_FROM_NUMBER}
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5006/health/live']
+      test: ["CMD", "curl", "-f", "http://localhost:5006/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -286,13 +289,13 @@ services:
   # PostgreSQL für Production Database
   postgres:
     image: postgres:15-alpine
-    container_name: 'postgres'
+    container_name: "postgres"
     ports:
-      - '5432:5432'
+      - "5432:5432"
     environment:
       POSTGRES_DB: skillswap
       POSTGRES_USER: ${POSTGRES_USER:-skillswap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skillswap123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skillswap@ditss1990?!}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

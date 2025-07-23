@@ -40,7 +40,7 @@ export const fetchCategories = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Kategorien konnten nicht geladen werden'
+          : 'Categories could not be loaded'
       );
     }
   }
@@ -61,7 +61,7 @@ export const createCategory = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Kategorie konnte nicht erstellt werden'
+          : 'Category could not be created'
       );
     }
   }
@@ -86,7 +86,7 @@ export const updateCategory = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Kategorie konnte nicht aktualisiert werden'
+          : 'Category could not be updated'
       );
     }
   }
@@ -104,7 +104,7 @@ export const deleteCategory = createAsyncThunk(
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Kategorie konnte nicht gelöscht werden'
+          : 'Category could not be deleted'
       );
     }
   }
@@ -138,7 +138,7 @@ const categoriesSlice = createSlice({
 
     addCategory: (state, action: PayloadAction<SkillCategory>) => {
       const existingIndex = state.categories.findIndex(
-        (category) => category.categoryId === action.payload.categoryId
+        (category) => category.id === action.payload.id
       );
       if (existingIndex === -1) {
         state.categories.push(action.payload);
@@ -153,9 +153,9 @@ const categoriesSlice = createSlice({
 
     removeCategory: (state, action: PayloadAction<string>) => {
       state.categories = state.categories.filter(
-        (category) => category.categoryId !== action.payload
+        (category) => category.id !== action.payload
       );
-      if (state.selectedCategory?.categoryId === action.payload) {
+      if (state.selectedCategory?.id === action.payload) {
         state.selectedCategory = null;
       }
     },
@@ -163,13 +163,13 @@ const categoriesSlice = createSlice({
     updateCategoryInState: (state, action: PayloadAction<SkillCategory>) => {
       const updatedCategory = action.payload;
       const index = state.categories.findIndex(
-        (category) => category.categoryId === updatedCategory.categoryId
+        (category) => category.id === updatedCategory.id
       );
       if (index !== -1) {
         state.categories[index] = updatedCategory;
       }
 
-      if (state.selectedCategory?.categoryId === updatedCategory.categoryId) {
+      if (state.selectedCategory?.id === updatedCategory.id) {
         state.selectedCategory = updatedCategory;
       }
     },
@@ -242,7 +242,7 @@ const categoriesSlice = createSlice({
         state.isUpdating = false;
         if (action.payload) {
           const index = state.categories.findIndex(
-            (cat) => cat.categoryId === action.payload.categoryId
+            (cat) => cat.id === action.payload.id
           );
           if (index !== -1) {
             state.categories[index] = action.payload;
@@ -252,7 +252,7 @@ const categoriesSlice = createSlice({
             });
           }
 
-          if (state.selectedCategory?.categoryId === action.payload.categoryId) {
+          if (state.selectedCategory?.id === action.payload.id) {
             state.selectedCategory = action.payload;
           }
         }
@@ -273,10 +273,10 @@ const categoriesSlice = createSlice({
         const deletedCategoryId = action.payload;
 
         state.categories = state.categories.filter(
-          (cat) => cat.categoryId !== deletedCategoryId
+          (cat) => cat.id !== deletedCategoryId
         );
 
-        if (state.selectedCategory?.categoryId === deletedCategoryId) {
+        if (state.selectedCategory?.id === deletedCategoryId) {
           state.selectedCategory = null;
         }
 

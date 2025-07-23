@@ -18,6 +18,8 @@ using NotificationService.Infrastructure.BackgroundServices;
 using MediatR;
 using NotificationService.Application.Queries;
 using NotificationService.Domain.ResponseModels;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,10 +50,39 @@ builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environm
 // ============================================================================
 
 // Configure Entity Framework with InMemory for development
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    // ✅ Intelligente Host-Erkennung
+    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
+                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
+                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
+
+    var host = isRunningInContainer ? "postgres" : "localhost";
+
+    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
+        ?? builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
+
+    // Falls Environment Variable einen anderen Host enthält, korrigieren
+    if (connectionString.Contains("Host="))
+    {
+        connectionString = System.Text.RegularExpressions.Regex.Replace(
+            connectionString,
+            @"Host=[^;]+",
+            $"Host={host}"
+        );
+    }
+}
+
+// Debug-Ausgabe (ohne Passwort für Logs)
+var safeConnectionString = connectionString.Contains("Password=")
+    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
+    : connectionString;
+
 builder.Services.AddDbContext<NotificationDbContext>(options =>
 {
-    var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
-        ?? "Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;";
     options.UseNpgsql(connectionString);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     options.EnableDetailedErrors(builder.Environment.IsDevelopment());
@@ -66,6 +97,7 @@ var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
     ?? "localhost:6379"; // Default Redis connection string
+
 builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
 
 // ============================================================================
@@ -214,9 +246,9 @@ builder.Services.AddHostedService<NotificationCleanupService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
-    { 
-        Title = "SkillSwap NotificationService API", 
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "SkillSwap NotificationService API",
         Version = "v1",
         Description = "Comprehensive notification service with email, SMS, and push notifications"
     });
@@ -285,14 +317,11 @@ app.UseAuthorization();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
-    
+
     try
     {
         await context.Database.EnsureCreatedAsync();
-        
-        // Seed default notification preferences and templates
-        await SeedDefaultDataAsync(context);
-        
+
         app.Logger.LogInformation("NotificationService database initialized successfully");
     }
     catch (Exception ex)
@@ -301,142 +330,199 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-
 // Grouped endpoints for notifications
 var notifications = app.MapGroup("/notifications").WithTags("Notifications");
 
-notifications.MapPost("/send", async (IMediator mediator, SendNotificationCommand command) =>
+notifications.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetNotificationHistoryQuery query) =>
 {
-    return await mediator.SendCommand(command);
-})
-    .WithName("SendNotification")
-    .WithSummary("Send a notification")
-    .WithDescription("Sends a single notification via email, SMS, or push")
-    .RequireAuthorization()
-    .Produces<SendNotificationResponse>(200)
-    .Produces(400);
-
-notifications.MapPost("/bulk", async (IMediator mediator, SendBulkNotificationCommand command) =>
-{
-    return await mediator.SendCommand(command);
-})
-    .WithName("SendBulkNotification")
-    .WithSummary("Send bulk notifications")
-    .WithDescription("Sends notifications to multiple users")
-    .RequireAuthorization(Policies.RequireAdminRole)
-    .Produces<SendBulkNotificationResponse>(200)
-    .Produces(400);
-
-notifications.MapPost("/{notificationId}/cancel", async (IMediator mediator, string notificationId, CancelNotificationCommand command) =>
-{
-    var updatedCommand = command with { NotificationId = notificationId };
-    return await mediator.SendCommand(updatedCommand);
-})
-    .WithName("CancelNotification")
-    .WithSummary("Cancel a notification")
-    .WithDescription("Cancels a pending notification")
-    .RequireAuthorization()
-    .Produces<CancelNotificationResponse>(200);
-
-notifications.MapPost("/{notificationId}/retry", async (IMediator mediator, string notificationId, RetryFailedNotificationCommand command) =>
-{
-    var updatedCommand = command with { NotificationId = notificationId };
-    return await mediator.SendCommand(updatedCommand);
-})
-    .WithName("RetryNotification")
-    .WithSummary("Retry failed notification")
-    .WithDescription("Retries a failed notification")
-    .RequireAuthorization()
-    .Produces<RetryFailedNotificationResponse>(200);
-
-notifications.MapPost("/{notificationId}/read", async (IMediator mediator, string notificationId, HttpContext context) =>
-{
-    var userId = ExtractUserIdFromContext(context);
+    var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    var command = new MarkNotificationAsReadCommand(notificationId, userId);
-    return await mediator.SendCommand(command);
+
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(updatedQuery);
 })
-    .WithName("MarkNotificationAsRead")
-    .WithSummary("Mark notification as read")
-    .WithDescription("Marks a notification as read by the user")
-    .RequireAuthorization()
-    .Produces<MarkNotificationAsReadResponse>(200);
+.WithName("GetUserNotifications")
+.WithSummary("Get user notifications")
+.WithDescription("Retrieves all notifications for the authenticated user")
+.RequireAuthorization()
+.Produces<PagedResponse<GetNotificationHistoryQuery>>(200);
+
+notifications.MapPost("/read-all", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] MarkAllNotificationsAsReadCommand command) =>
+{
+    var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("MarkAllNotificationsAsRead")
+.WithSummary("Mark all notifications as read")
+.WithDescription("Marks all notifications as read for the authenticated user")
+.RequireAuthorization()
+.Produces<MarkAllNotificationsAsReadResponse>(200);
+
+notifications.MapPost("/send", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] SendNotificationCommand command) =>
+{
+    var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("SendNotification")
+.WithSummary("Send a notification")
+.WithDescription("Sends a single notification via email, SMS, or push")
+.RequireAuthorization()
+.Produces<SendNotificationResponse>(200)
+.Produces(400);
+
+notifications.MapPost("/bulk", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] SendBulkNotificationCommand command) =>
+{
+    var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("SendBulkNotification")
+.WithSummary("Send bulk notifications")
+.WithDescription("Sends notifications to multiple users")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<SendBulkNotificationResponse>(200)
+.Produces(400);
+
+notifications.MapPost("/cancel", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] CancelNotificationCommand command) =>
+{
+    var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("CancelNotification")
+.WithSummary("Cancel a notification")
+.WithDescription("Cancels a pending notification")
+.RequireAuthorization()
+.Produces<CancelNotificationResponse>(200);
+
+notifications.MapPost("/retry", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] RetryFailedNotificationCommand command) =>
+{
+    var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("RetryNotification")
+.WithSummary("Retry failed notification")
+.WithDescription("Retries a failed notification")
+.RequireAuthorization()
+.Produces<RetryFailedNotificationResponse>(200);
+
+notifications.MapPost("/{notificationId}/read", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] MarkNotificationAsReadCommand command) =>
+{
+    var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("MarkNotificationAsRead")
+.WithSummary("Mark notification as read")
+.WithDescription("Marks a notification as read by the user")
+.RequireAuthorization()
+.Produces<MarkNotificationAsReadResponse>(200);
 
 // Grouped endpoints for user preferences
 var preferences = app.MapGroup("/preferences").WithTags("Preferences");
 
-preferences.MapGet("/", async (IMediator mediator, HttpContext context) =>
+preferences.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetNotificationPreferencesQuery query) =>
 {
-    var userId = ExtractUserIdFromContext(context);
+    var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    var query = new GetNotificationPreferencesQuery(userId);
-    return await mediator.SendQuery(query);
-})
-    .WithName("GetNotificationPreferences")
-    .WithSummary("Get user notification preferences")
-    .WithDescription("Retrieves the authenticated user's notification preferences")
-    .RequireAuthorization()
-    .Produces<NotificationPreferencesResponse>(200);
 
-preferences.MapPut("/", async (IMediator mediator, HttpContext context, UpdateNotificationPreferencesCommand command) =>
+    var updatedQuery = query with { UserId = userId };
+    return await mediator.SendQuery(updatedQuery);
+})
+.WithName("GetNotificationPreferences")
+.WithSummary("Get user notification preferences")
+.WithDescription("Retrieves the authenticated user's notification preferences")
+.RequireAuthorization()
+.Produces<NotificationPreferencesResponse>(200);
+
+preferences.MapPut("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] UpdateNotificationPreferencesCommand command) =>
 {
-    var userId = ExtractUserIdFromContext(context);
+    var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
     var updatedCommand = command with { UserId = userId };
     return await mediator.SendCommand(updatedCommand);
 })
-    .WithName("UpdateNotificationPreferences")
-    .WithSummary("Update notification preferences")
-    .WithDescription("Updates the authenticated user's notification preferences")
-    .RequireAuthorization()
-    .Produces<UpdateNotificationPreferencesResponse>(200);
+.WithName("UpdateNotificationPreferences")
+.WithSummary("Update notification preferences")
+.WithDescription("Updates the authenticated user's notification preferences")
+.RequireAuthorization()
+.Produces<UpdateNotificationPreferencesResponse>(200);
 
 // Grouped endpoints for templates (Admin)
 var templates = app.MapGroup("/templates").WithTags("Templates");
 
-templates.MapPost("/", async (IMediator mediator, CreateEmailTemplateCommand command) =>
+templates.MapPost("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] CreateEmailTemplateCommand command) =>
 {
-    return await mediator.SendCommand(command);
-})
-    .WithName("CreateEmailTemplate")
-    .WithSummary("Create email template (Admin)")
-    .WithDescription("Creates a new email template - Admin access required")
-    .RequireAuthorization(Policies.RequireAdminRole)
-    .Produces<CreateEmailTemplateResponse>(201);
+    var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-templates.MapPut("/{templateId}", async (IMediator mediator, string templateId, UpdateEmailTemplateCommand command) =>
-{
-    var updatedCommand = command with { TemplateId = templateId };
+    var updatedCommand = command with { UserId = userId };
     return await mediator.SendCommand(updatedCommand);
 })
-    .WithName("UpdateEmailTemplate")
-    .WithSummary("Update email template (Admin)")
-    .WithDescription("Updates an existing email template - Admin access required")
-    .RequireAuthorization(Policies.RequireAdminRole)
-    .Produces<UpdateEmailTemplateResponse>(200);
+.WithName("CreateEmailTemplate")
+.WithSummary("Create email template (Admin)")
+.WithDescription("Creates a new email template - Admin access required")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<CreateEmailTemplateResponse>(201);
 
-templates.MapGet("/", async (IMediator mediator, [AsParameters] GetEmailTemplatesQuery query) =>
+templates.MapPut("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] UpdateEmailTemplateCommand command) =>
 {
+    var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var updatedCommand = command with { UserId = userId };
+    return await mediator.SendCommand(updatedCommand);
+})
+.WithName("UpdateEmailTemplate")
+.WithSummary("Update email template (Admin)")
+.WithDescription("Updates an existing email template - Admin access required")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<UpdateEmailTemplateResponse>(200);
+
+templates.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetEmailTemplatesQuery query) =>
+{
+    var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
     return await mediator.SendQuery(query);
 })
-    .WithName("GetEmailTemplates")
-    .WithSummary("Get email templates (Admin)")
-    .WithDescription("Retrieves all email templates - Admin access required")
-    .RequireAuthorization(Policies.RequireAdminRole)
-    .Produces<PagedResponse<EmailTemplateResponse>>(200);
+.WithName("GetEmailTemplates")
+.WithSummary("Get email templates (Admin)")
+.WithDescription("Retrieves all email templates - Admin access required")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<PagedResponse<EmailTemplateResponse>>(200);
 
 // Grouped endpoints for analytics (Admin)
 var analytics = app.MapGroup("/analytics").WithTags("Analytics");
 
-analytics.MapGet("/statistics", async (IMediator mediator, [AsParameters] GetNotificationStatisticsQuery query) =>
+analytics.MapGet("/statistics", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetNotificationStatisticsQuery query) =>
 {
+     var userId = claims.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
     return await mediator.SendQuery(query);
 })
-    .WithName("GetNotificationStatistics")
-    .WithSummary("Get notification statistics (Admin)")
-    .WithDescription("Retrieves comprehensive notification statistics - Admin access required")
-    .RequireAuthorization(Policies.RequireAdminRole)
-    .Produces<NotificationStatisticsResponse>(200);
+.WithName("GetNotificationStatistics")
+.WithSummary("Get notification statistics (Admin)")
+.WithDescription("Retrieves comprehensive notification statistics - Admin access required")
+.RequireAuthorization(Policies.RequireAdminRole)
+.Produces<NotificationStatisticsResponse>(200);
 
 // Grouped endpoints for health
 var health = app.MapGroup("/health").WithTags("Health");
@@ -448,10 +534,12 @@ health.MapGet("/ready", async (NotificationDbContext dbContext, IEmailService em
         // Check database connectivity
         await dbContext.Database.CanConnectAsync();
         // Could add more health checks here (SMTP, SMS, etc.)
-        return Results.Ok(new {
+        return Results.Ok(new
+        {
             status = "ready",
             timestamp = DateTime.UtcNow,
-            services = new {
+            services = new
+            {
                 database = "healthy",
                 email = "healthy",
                 messaging = "healthy"
@@ -472,51 +560,6 @@ health.MapGet("/live", () =>
 })
     .WithName("HealthLive")
     .WithSummary("Liveness check");
-
-// ============================================================================
-// HELPER METHODS
-// ============================================================================
-
-static string? ExtractUserIdFromContext(HttpContext context)
-{
-    return context.User.FindFirst("user_id")?.Value
-           ?? context.User.FindFirst("sub")?.Value
-           ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-}
-
-static async Task SeedDefaultDataAsync(NotificationDbContext context)
-{
-    // Seed default email templates if they don't exist
-    if (!await context.EmailTemplates.AnyAsync())
-    {
-        var defaultTemplates = new[]
-        {
-            new EmailTemplate
-            {
-                Name = EmailTemplateNames.Welcome,
-                Language = "en",
-                Subject = "Welcome to SkillSwap! 🎉",
-                HtmlContent = "<h1>Welcome {{FirstName}}!</h1><p>We're excited to have you join our community.</p>",
-                TextContent = "Welcome {{FirstName}}! We're excited to have you join our community.",
-                IsActive = true,
-                Version = "1.0"
-            },
-            new EmailTemplate
-            {
-                Name = EmailTemplateNames.EmailVerification,
-                Language = "en",
-                Subject = "Please verify your email address",
-                HtmlContent = "<h1>Verify your email</h1><p>Click <a href='{{VerificationUrl}}'>here</a> to verify.</p>",
-                TextContent = "Please verify your email by visiting: {{VerificationUrl}}",
-                IsActive = true,
-                Version = "1.0"
-            }
-        };
-
-        context.EmailTemplates.AddRange(defaultTemplates);
-        await context.SaveChangesAsync();
-    }
-}
 
 // ============================================================================
 // RUN APPLICATION

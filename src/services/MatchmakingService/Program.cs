@@ -19,6 +19,7 @@ using MatchmakingService.Consumer;
 using Infrastructure.Services;
 using EventSourcing;
 using Infrastructure.Models;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,12 +51,42 @@ builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
 });
 
 // Add database
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    // ✅ Intelligente Host-Erkennung
+    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
+                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
+                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
+
+    var host = isRunningInContainer ? "postgres" : "localhost";
+
+    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
+        ?? builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
+
+    // Falls Environment Variable einen anderen Host enthält, korrigieren
+    if (connectionString.Contains("Host="))
+    {
+        connectionString = System.Text.RegularExpressions.Regex.Replace(
+            connectionString,
+            @"Host=[^;]+",
+            $"Host={host}"
+        );
+    }
+}
+
+// Debug-Ausgabe (ohne Passwort für Logs)
+var safeConnectionString = connectionString.Contains("Password=")
+    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
+    : connectionString;
+
 builder.Services.AddDbContext<MatchmakingDbContext>(options =>
 {
-    var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
-        ?? "Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;";
     options.UseNpgsql(connectionString);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
 });
 
 // Event sourcing setup
@@ -196,7 +227,7 @@ matchRequests.MapGet("/outgoing", GetOutgoingMatchRequests)
     .WithOpenApi()
     .Produces<PagedResponse<MatchRequestResponse>>(StatusCodes.Status200OK);
 
-matchRequests.MapPost("/{requestId}/accept", AcceptMatchRequest)
+matchRequests.MapPost("/accept", AcceptMatchRequest)
     .WithName("AcceptMatchRequest")
     .WithSummary("Accept a direct match request")
     .WithDescription("Accept an incoming match request and create a match")
@@ -205,7 +236,7 @@ matchRequests.MapPost("/{requestId}/accept", AcceptMatchRequest)
     .Produces<AcceptDirectMatchRequestResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound);
 
-matchRequests.MapPost("/{requestId}/reject", RejectMatchRequest)
+matchRequests.MapPost("/reject", RejectMatchRequest)
     .WithName("RejectMatchRequest")
     .WithSummary("Reject a direct match request")
     .WithDescription("Reject an incoming match request with optional reason")
@@ -218,11 +249,10 @@ matchRequests.MapPost("/{requestId}/reject", RejectMatchRequest)
 // HANDLER METHODS - MATCH REQUESTS
 // ============================================================================
 
-static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipal user, CreateMatchRequestRequest request)
+static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromBody] CreateMatchRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
 
     var command = new CreateMatchRequestCommand(request.SkillId, request.Description, request.Message)
     {
@@ -232,7 +262,7 @@ static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipa
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetIncomingMatchRequestsRequest request)
+static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, [FromBody] GetIncomingMatchRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -245,7 +275,7 @@ static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPr
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetOutgoingMatchRequestsRequest request)
+static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, [FromBody] GetOutgoingMatchRequestsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -258,7 +288,7 @@ static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPr
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, AcceptMatchRequestRequest request)
+static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptMatchRequestRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -271,7 +301,7 @@ static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipa
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> RejectMatchRequest(IMediator mediator, ClaimsPrincipal user, RejectMatchRequestRequest request)
+static async Task<IResult> RejectMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromBody] RejectMatchRequestRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -280,7 +310,7 @@ static async Task<IResult> RejectMatchRequest(IMediator mediator, ClaimsPrincipa
     {
         UserId = userId
     };
-    
+
     return await mediator.SendCommand(command);
 }
 #endregion
@@ -335,7 +365,7 @@ matches.MapGet("/my", GetUserMatches)
 // HANDLER METHODS - MATCHES
 // ============================================================================
 
-static async Task<IResult> FindMatch(IMediator mediator, ClaimsPrincipal user, FindMatchRequest request)
+static async Task<IResult> FindMatch(IMediator mediator, ClaimsPrincipal user, [FromBody] FindMatchRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -348,7 +378,7 @@ static async Task<IResult> FindMatch(IMediator mediator, ClaimsPrincipal user, F
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> AcceptMatch(IMediator mediator, ClaimsPrincipal user, AcceptMatchRequest request)
+static async Task<IResult> AcceptMatch(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptMatchRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -370,11 +400,11 @@ static async Task<IResult> RejectMatch(IMediator mediator, ClaimsPrincipal user,
     {
         UserId = userId
     };
-    
+
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> GetMatchDetails(IMediator mediator, ClaimsPrincipal user, GetMatchDetailsRequest request)
+static async Task<IResult> GetMatchDetails(IMediator mediator, ClaimsPrincipal user, [FromBody] GetMatchDetailsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -384,13 +414,13 @@ static async Task<IResult> GetMatchDetails(IMediator mediator, ClaimsPrincipal u
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserMatchesRequest request)
+static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserMatchesRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
     var query = new GetUserMatchesQuery(userId, request.Status, request.IncludeCompleted, request.PageNumber, request.PageSize);
-    
+
     return await mediator.SendQuery(query);
 }
 #endregion
@@ -410,7 +440,7 @@ analytics.MapGet("/statistics", GetMatchStatistics)
 // HANDLER METHODS - ANALYTICS
 // ============================================================================
 
-static async Task<IResult> GetMatchStatistics(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetMatchStatisticsRequest request)
+static async Task<IResult> GetMatchStatistics(IMediator mediator, ClaimsPrincipal user, [FromBody] GetMatchStatisticsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();

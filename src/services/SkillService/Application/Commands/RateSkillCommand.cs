@@ -1,3 +1,4 @@
+using Contracts.Skill.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -18,12 +19,6 @@ public record RateSkillCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record RateSkillResponse(
-    string RatingId,
-    int Rating,
-    double NewAverageRating,
-    int TotalRatings);
 
 public class RateSkillCommandValidator : AbstractValidator<RateSkillCommand>
 {

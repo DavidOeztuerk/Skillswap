@@ -18,6 +18,7 @@ using AppointmentService;
 using AppointmentService.Consumer;
 using AppointmentService.Application.Commands;
 using AppointmentService.Application.Queries;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,12 +42,42 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
 // Add database
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    // ✅ Intelligente Host-Erkennung
+    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
+                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
+                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
+
+    var host = isRunningInContainer ? "postgres" : "localhost";
+
+    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
+        ?? builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
+
+    // Falls Environment Variable einen anderen Host enthält, korrigieren
+    if (connectionString.Contains("Host="))
+    {
+        connectionString = System.Text.RegularExpressions.Regex.Replace(
+            connectionString,
+            @"Host=[^;]+",
+            $"Host={host}"
+        );
+    }
+}
+
+// Debug-Ausgabe (ohne Passwort für Logs)
+var safeConnectionString = connectionString.Contains("Password=")
+    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
+    : connectionString;
+
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
 {
-    var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
-        ?? "Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;";
     options.UseNpgsql(connectionString);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
 });
 
 // Event sourcing setup
@@ -165,7 +196,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // API Endpoints
-                                                             
+
 // Grouped endpoints for appointments
 var appointments = app.MapGroup("/appointments").WithTags("Appointments");
 
@@ -225,7 +256,7 @@ health.MapGet("/live", () => Results.Ok(new { status = "alive", timestamp = Date
 // HANDLER METHODS
 // ============================================================================
 
-static async Task<IResult> HandleCreateAppointment(IMediator mediator, ClaimsPrincipal user, CreateAppointmentRequest request)
+static async Task<IResult> HandleCreateAppointment(IMediator mediator, ClaimsPrincipal user, [FromBody] CreateAppointmentRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -246,7 +277,7 @@ static async Task<IResult> HandleCreateAppointment(IMediator mediator, ClaimsPri
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleAcceptAppointment(IMediator mediator, ClaimsPrincipal user, AcceptAppointmentRequest request)
+static async Task<IResult> HandleAcceptAppointment(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptAppointmentRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -259,7 +290,7 @@ static async Task<IResult> HandleAcceptAppointment(IMediator mediator, ClaimsPri
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleCancelAppointment(IMediator mediator, ClaimsPrincipal user, CancelAppointmentRequest request)
+static async Task<IResult> HandleCancelAppointment(IMediator mediator, ClaimsPrincipal user, [FromBody] CancelAppointmentRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -272,7 +303,7 @@ static async Task<IResult> HandleCancelAppointment(IMediator mediator, ClaimsPri
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleGetAppointmentDetails(IMediator mediator, ClaimsPrincipal user, GetAppointmentDetailsRequest request)
+static async Task<IResult> HandleGetAppointmentDetails(IMediator mediator, ClaimsPrincipal user, [FromBody] GetAppointmentDetailsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -281,11 +312,11 @@ static async Task<IResult> HandleGetAppointmentDetails(IMediator mediator, Claim
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> HandleGetUserAppointments(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserAppointmentsRequest request)
+static async Task<IResult> HandleGetUserAppointments(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserAppointmentsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
+
     var query = new GetUserAppointmentsQuery(
         request.Status,
         request.FromDate,

@@ -92,7 +92,7 @@ const SkillDetailPage: React.FC = () => {
   // ✅ KORRIGIERTE OWNERSHIP-LOGIK: Prüft ob Skill in userSkills ist
   const isOwner =
     selectedSkill &&
-    userSkills.some((userSkill) => userSkill.skillId === selectedSkill.skillId);
+    userSkills.some((userSkill) => userSkill.id === selectedSkill.id);
 
   // ✅ HINZUGEFÜGT: Bestimme von welcher Seite der User kam
   const [cameFromMySkills, setCameFromMySkills] = useState(false);
@@ -227,7 +227,7 @@ const SkillDetailPage: React.FC = () => {
       // ✅ Konvertiere zu CreateMatchRequestCommand
       const command: CreateMatchRequest = {
         targetUserId: selectedSkill.userId, // ✅ User-ID vom Skill-Besitzer!
-        skillId: selectedSkill.skillId,
+        skillId: selectedSkill.id,
         message: data.message || 'Ich bin interessiert an diesem Skill!',
         isLearningMode: selectedSkill.isOffering, // ✅ Wenn Skill angeboten wird, will ich lernen
       };
@@ -288,7 +288,7 @@ const SkillDetailPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description="Der angeforderte Skill existiert nicht oder ist nicht verfügbar."
+          description={{message:"Der angeforderte Skill existiert nicht oder ist nicht verfügbar."}}
           actionLabel="Zurück zu Skills"
           actionHandler={() => navigate('/skills')}
         />
@@ -301,7 +301,7 @@ const SkillDetailPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description="Der angeforderte Skill existiert nicht oder ist nicht verfügbar."
+          description={{message:"Der angeforderte Skill existiert nicht oder ist nicht verfügbar."}}
           actionLabel="Zurück zu Skills"
           actionHandler={() => navigate('/skills')}
         />
@@ -322,7 +322,7 @@ const SkillDetailPage: React.FC = () => {
   console.log('🔍 SkillDetailPage Debug:', {
     skillId,
     isOwner,
-    selectedSkillId: selectedSkill?.skillId,
+    selectedSkillId: selectedSkill?.id,
     userSkillsCount: userSkills.length,
     cameFromMySkills,
   });

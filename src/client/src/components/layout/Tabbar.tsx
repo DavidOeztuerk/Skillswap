@@ -18,12 +18,16 @@ import {
   Person as ProfileIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
+import { useAppSelector } from '../../store/store.hooks';
 
 const Tabbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
   const { isAuthenticated } = useAuth();
+  
+  // Get dynamic badge counts from Redux store
+  const pendingMatches = useAppSelector((state) => state.matchmaking?.matches?.filter((match) => match.status === 'Pending') || []);
 
   // Bestimme den aktiven Pfad für die Navigation
   const getCurrentPath = () => {
@@ -65,7 +69,7 @@ const Tabbar: React.FC = () => {
       icon: <MatchmakingIcon />,
       path: '/matchmaking',
       authRequired: true,
-      badge: 2, // Beispielwert für Benachrichtigungen
+      badge: pendingMatches.length
     },
     {
       label: 'Termine',
@@ -116,13 +120,31 @@ const Tabbar: React.FC = () => {
           }}
           showLabels
           sx={{
-            height: 64,
+            height: { xs: 72, sm: 64 }, // Increased height for mobile
             '& .MuiBottomNavigationAction-root': {
               minWidth: 'auto',
-              padding: '6px 0',
+              minHeight: { xs: 72, sm: 64 },
+              padding: { xs: '8px 4px', sm: '6px 0' },
               color: theme.palette.text.secondary,
+              transition: 'all 0.2s ease-in-out',
               '&.Mui-selected': {
                 color: theme.palette.primary.main,
+                transform: { xs: 'scale(1.05)', sm: 'scale(1)' },
+              },
+              '&:active': {
+                transform: 'scale(0.95)',
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              },
+              '& .MuiSvgIcon-root': {
+                fontSize: { xs: '1.75rem', sm: '1.5rem' },
+              },
+              '& .MuiBottomNavigationAction-label': {
+                fontSize: { xs: '0.75rem', sm: '0.625rem' },
+                marginTop: { xs: '4px', sm: '2px' },
+                '&.Mui-selected': {
+                  fontSize: { xs: '0.8rem', sm: '0.75rem' },
+                  fontWeight: 600,
+                },
               },
             },
           }}

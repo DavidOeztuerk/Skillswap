@@ -22,11 +22,11 @@ import {
   EmojiObjects as SkillsIcon,
   People as MatchmakingIcon,
   Event as AppointmentsIcon,
-  VideoCall as VideoCallIcon,
   Person as ProfileIcon,
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
   Menu as MenuIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -90,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           text: 'Meine Favoriten',
           icon: <SkillsIcon fontSize="small" />,
-          path: '/skills',
+          path: '/skills/favorites',
           authRequired: true,
         },
       ],
@@ -108,10 +108,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       authRequired: true,
     },
     {
-      text: 'Videocalls',
-      icon: <VideoCallIcon />,
-      path: '/videocall',
-      authRequired: true,
+      text: 'Search',
+      icon: <SearchIcon />,
+      path: '/search',
+      authRequired: false,
     },
     {
       text: 'Profil',

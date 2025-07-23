@@ -1,3 +1,4 @@
+using Contracts.Skill.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -20,11 +21,6 @@ public record UpdateSkillCategoryCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record UpdateSkillCategoryResponse(
-    string CategoryId,
-    string Name,
-    DateTime UpdatedAt);
 
 public class UpdateSkillCategoryCommandValidator : AbstractValidator<UpdateSkillCategoryCommand>
 {

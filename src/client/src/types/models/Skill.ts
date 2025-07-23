@@ -1,5 +1,5 @@
 export interface Skill {
-  skillId: string;
+  id: string;
   userId: string;
   name: string;
   description: string;
@@ -18,7 +18,7 @@ export interface Skill {
 }
 
 export interface SkillCategory {
-  categoryId: string;
+  id: string;
   name: string;
   description?: string;
   iconName?: string;

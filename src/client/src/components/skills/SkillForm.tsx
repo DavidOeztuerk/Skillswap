@@ -67,7 +67,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
   // Helper function to get the correct ID field from categories
   const getCategoryId = (category: SkillCategory): string => {
     // Try different possible ID field names
-    return category.categoryId || category.categoryId || '';
+    return category.id || category.id || '';
   };
 
   // Helper function to get the correct ID field from proficiency levels
@@ -90,7 +90,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
         setFormValues({
           name: skill.name ?? '',
           description: skill.description ?? '',
-          skillCategoryId: skill.category?.categoryId ?? '',
+          skillCategoryId: skill.category?.id ?? '',
           proficiencyLevelId: skill.proficiencyLevel?.levelId ?? '',
           isOffering: skill.isOffering,
         });
@@ -182,7 +182,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
           skillCategoryId: formValues.skillCategoryId,
           proficiencyLevelId: formValues.proficiencyLevelId,
         },
-        skill?.skillId
+        skill?.id
       );
     }
   };

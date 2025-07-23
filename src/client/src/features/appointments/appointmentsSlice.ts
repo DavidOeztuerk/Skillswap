@@ -4,62 +4,51 @@ import appointmentService from '../../api/services/appointmentService';
 import { AppointmentsState } from '../../types/states/AppointmentsState';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
+import { SliceError } from '../../store/types';
 
-// Initialer State für den Appointments-Reducer
+// Initial state for the appointments reducer
 const initialState: AppointmentsState = {
   appointments: [],
   activeAppointment: undefined,
   isLoading: false,
-  error: undefined,
+  error: null,
 };
 
-// Async Thunk für das Laden aller Termine
+// Async thunk for loading all appointments
 export const fetchAppointments = createAsyncThunk(
   'appointments/fetchAppointments',
   async (_, { rejectWithValue }) => {
     try {
       const response = await appointmentService.getAppointments();
       return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Termine konnten nicht geladen werden'
-      // );
     } catch (error) {
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Termine konnten nicht geladen werden'
+          : 'Failed to load appointments'
       );
     }
   }
 );
 
-// Async Thunk für das Laden eines einzelnen Termins
+// Async thunk for loading a single appointment
 export const fetchAppointment = createAsyncThunk(
   'appointments/fetchAppointment',
   async (appointmentId: string, { rejectWithValue }) => {
     try {
       const response = await appointmentService.getAppointment(appointmentId);
       return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Termin konnte nicht geladen werden'
-      // );
     } catch (error) {
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Termin konnte nicht geladen werden'
+          : 'Failed to load appointment'
       );
     }
   }
 );
 
-// Async Thunk für das Erstellen eines Termins
+// Async thunk for creating an appointment
 export const createAppointment = createAsyncThunk(
   'appointments/createAppointment',
   async (appointmentData: AppointmentRequest, { rejectWithValue }) => {
@@ -67,23 +56,17 @@ export const createAppointment = createAsyncThunk(
       const response =
         await appointmentService.createAppointment(appointmentData);
       return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Termin konnte nicht erstellt werden'
-      // );
     } catch (error) {
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Termin konnte nicht erstellt werden'
+          : 'Failed to create appointment'
       );
     }
   }
 );
 
-// Async Thunk für das Antworten auf eine Terminanfrage
+// Async thunk for responding to an appointment request
 export const respondToAppointment = createAsyncThunk(
   'appointments/respondToAppointment',
   async (
@@ -99,28 +82,22 @@ export const respondToAppointment = createAsyncThunk(
         status
       );
       if (response) {
-        // Lade den aktualisierten Termin
+        // Load the updated appointment
         const updatedAppointment =
           await appointmentService.getAppointment(appointmentId);
         return updatedAppointment;
-        // if (updatedAppointment.success && updatedAppointment.data) {
-        //   return updatedAppointment.data;
-        // }
       }
-      // return rejectWithValue(
-      //   response.message || 'Antwort konnte nicht gesendet werden'
-      // );
     } catch (error) {
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Antwort konnte nicht gesendet werden'
+          : 'Failed to send response'
       );
     }
   }
 );
 
-// Async Thunk für das Absagen eines Termins
+// Async thunk for canceling an appointment
 export const cancelAppointment = createAsyncThunk(
   'appointments/cancelAppointment',
   async (appointmentId: string, { rejectWithValue }) => {
@@ -128,29 +105,23 @@ export const cancelAppointment = createAsyncThunk(
       const response =
         await appointmentService.cancelAppointment(appointmentId);
       if (response) {
-        // Lade den aktualisierten Termin
+        // Load the updated appointment
         const updatedAppointment =
           await appointmentService.getAppointment(appointmentId);
 
         return updatedAppointment;
-        // if (updatedAppointment.success && updatedAppointment.data) {
-        //   return updatedAppointment.data;
-        // }
       }
-      // return rejectWithValue(
-      //   response.message || 'Termin konnte nicht abgesagt werden'
-      // );
     } catch (error) {
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Termin konnte nicht abgesagt werden'
+          : 'Failed to cancel appointment'
       );
     }
   }
 );
 
-// Async Thunk für das Abschließen eines Termins
+// Async thunk for completing an appointment
 export const completeAppointment = createAsyncThunk(
   'appointments/completeAppointment',
   async (appointmentId: string, { rejectWithValue }) => {
@@ -158,22 +129,16 @@ export const completeAppointment = createAsyncThunk(
       const response =
         await appointmentService.completeAppointment(appointmentId);
       if (response) {
-        // Lade den aktualisierten Termin
+        // Load the updated appointment
         const updatedAppointment =
           await appointmentService.getAppointment(appointmentId);
-        // if (updatedAppointment.success && updatedAppointment.data) {
-        //   return updatedAppointment.data;
-        // }
         return updatedAppointment;
       }
-      // return rejectWithValue(
-      //   response.message || 'Termin konnte nicht abgeschlossen werden'
-      // );
     } catch (error) {
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Termin konnte nicht abgeschlossen werden'
+          : 'Failed to complete appointment'
       );
     }
   }
@@ -185,7 +150,7 @@ const appointmentsSlice = createSlice({
   initialState,
   reducers: {
     clearError: (state) => {
-      state.error = undefined;
+      state.error = null;
     },
     setActiveAppointment: (
       state,
@@ -199,7 +164,7 @@ const appointmentsSlice = createSlice({
       // Fetch Appointments
       .addCase(fetchAppointments.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(fetchAppointments.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -207,12 +172,12 @@ const appointmentsSlice = createSlice({
       })
       .addCase(fetchAppointments.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
       })
       // Fetch Appointment
       .addCase(fetchAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(fetchAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -220,12 +185,12 @@ const appointmentsSlice = createSlice({
       })
       .addCase(fetchAppointment.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
       })
       // Create Appointment
       .addCase(createAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(createAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -234,17 +199,17 @@ const appointmentsSlice = createSlice({
       })
       .addCase(createAppointment.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
       })
       // Respond To Appointment
       .addCase(respondToAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(respondToAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
         state.activeAppointment = action.payload;
-        // Aktualisiere auch den Termin in der Liste
+        // Update the appointment in the list as well
         const index = state.appointments.findIndex(
           (appointment) => appointment.id === action.payload?.id
         );
@@ -256,17 +221,17 @@ const appointmentsSlice = createSlice({
       })
       .addCase(respondToAppointment.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
       })
       // Cancel Appointment
       .addCase(cancelAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(cancelAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
         state.activeAppointment = action.payload;
-        // Aktualisiere auch den Termin in der Liste
+        // Update the appointment in the list as well
         const index = state.appointments.findIndex(
           (appointment) => appointment.id === action.payload?.id
         );
@@ -278,17 +243,17 @@ const appointmentsSlice = createSlice({
       })
       .addCase(cancelAppointment.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
       })
       // Complete Appointment
       .addCase(completeAppointment.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
       .addCase(completeAppointment.fulfilled, (state, action) => {
         state.isLoading = false;
         state.activeAppointment = action.payload;
-        // Aktualisiere auch den Termin in der Liste
+        // Update the appointment in the list as well
         const index = state.appointments.findIndex(
           (appointment) => appointment.id === action.payload?.id
         );
@@ -300,7 +265,7 @@ const appointmentsSlice = createSlice({
       })
       .addCase(completeAppointment.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.error as SliceError;
       });
   },
 });

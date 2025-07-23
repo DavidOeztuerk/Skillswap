@@ -301,7 +301,7 @@
       "DownstreamPathTemplate": "/analytics/statistics",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/analytics/statistics",
+      "UpstreamPathTemplate": "/api/skills/analytics/statistics",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
@@ -309,7 +309,7 @@
       "DownstreamPathTemplate": "/analytics/popular-tags",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/analytics/popular-tags",
+      "UpstreamPathTemplate": "/api/skills/analytics/popular-tags",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
@@ -317,7 +317,7 @@
       "DownstreamPathTemplate": "/recommendations",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/recommendations",
+      "UpstreamPathTemplate": "/api/skills/recommendations",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
@@ -699,6 +699,19 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/preferences",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/settings",
+      "UpstreamHttpMethod": ["GET", "PUT"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/templates",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -828,6 +841,73 @@
         "AllowedScopes": []
       },
       "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/notifications",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/notifications/read-all",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/read-all",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/profile/2fa/generate",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/2fa/generate",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/profile/2fa/verify",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/2fa/verify",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/profile/2fa/disable",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/2fa/disable",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/profile/2fa/status",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/2fa/status",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
     }
   ],
   "GlobalConfiguration": {

@@ -79,7 +79,7 @@ public static class ServiceCollectionExtensions
         services.AddValidatorsFromAssemblies(assemblies);
 
         // Add AutoMapper if needed
-        services.AddAutoMapper(assemblies);
+        // services.AddAutoMapper(assemblies);
 
         return services;
     }

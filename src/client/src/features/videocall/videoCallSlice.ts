@@ -4,8 +4,9 @@ import videoCallService from '../../api/services/videoCallService';
 import { VideoCallState } from '../../types/states/VideoCallState';
 import { VideoCallConfig } from '../../types/models/VideoCallConfig';
 import { ChatMessage } from '../../types/models/ChatMessage';
+import { SliceError } from '../../store/types';
 
-// Initialer State für den VideoCall-Reducer
+// Initial state for the VideoCall reducer
 const initialState: VideoCallState = {
   roomId: null,
   isConnected: false,
@@ -18,87 +19,64 @@ const initialState: VideoCallState = {
   isChatOpen: false,
   messages: [],
   isLoading: false,
-  error: undefined,
+  error: null,
 };
 
-// Async Thunk für das Laden der Videoanruf-Konfiguration
+// Async thunk for loading video call configuration
 export const getCallConfig = createAsyncThunk(
   'videoCall/getCallConfig',
   async (appointmentId: string, { rejectWithValue }) => {
     try {
-      console.log(appointmentId);
-
-      // const response = await videoCallService.getCallConfig(appointmentId);
-      // return response;
-      // if (response.success && response.data) {
-      //   return response.data;
-      // }
-      // return rejectWithValue(
-      //   response.message ||
-      //     'Videoanruf-Konfiguration konnte nicht geladen werden'
-      // );
+      const response = await videoCallService.getCallConfig(appointmentId);
+      return response;
     } catch (error) {
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Videoanruf-Konfiguration konnte nicht geladen werden'
+          : 'Video call configuration could not be loaded'
       );
     }
   }
 );
 
-// Async Thunk für das Beenden eines Videoanrufs
+// Async thunk for ending a video call
 export const endVideoCall = createAsyncThunk(
   'videoCall/endVideoCall',
   async (roomId: string, { rejectWithValue }) => {
     try {
       await videoCallService.endCall(roomId);
-      // if (response.success) {
-      //   return true;
-      // }
-      // return rejectWithValue(
-      //   response.message || 'Videoanruf konnte nicht beendet werden'
-      // );
+      return roomId;
     } catch (error) {
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Videoanruf konnte nicht beendet werden'
+          : 'Video call could not be ended'
       );
     }
   }
 );
 
-// Async Thunk für das Speichern von Anrufinformationen
+// Async thunk for saving call information
 export const saveCallInfo = createAsyncThunk(
   'videoCall/saveCallInfo',
   async (
-    {
-      roomId,
-      durationInSeconds,
-    }: { roomId: string; durationInSeconds: number },
+    { roomId, duration }: { roomId: string; duration: number },
     { rejectWithValue }
   ) => {
     try {
-      await videoCallService.saveCallInfo(roomId, durationInSeconds);
-      // if (response.success) {
-      //   return true;
-      // }
-      // return rejectWithValue(
-      //   response.message ||
-      //     'Anrufinformationen konnten nicht gespeichert werden'
-      // );
+      await videoCallService.saveCallInfo(roomId, duration);
+      return { roomId, duration };
     } catch (error) {
       return rejectWithValue(
         error instanceof Error
           ? error.message
-          : 'Anrufinformationen konnten nicht gespeichert werden'
+          : 'Call information could not be saved'
       );
     }
   }
 );
 
-// VideoCall Slice
+// VideoCall slice
 const videoCallSlice = createSlice({
   name: 'videoCall',
   initialState,
@@ -106,18 +84,14 @@ const videoCallSlice = createSlice({
     initializeCall: (state, action: PayloadAction<VideoCallConfig>) => {
       state.roomId = action.payload.roomId;
       state.peerId = action.payload.peerId;
-    },
-    joinRoom: (state, action: PayloadAction<string>) => {
-      state.roomId = action.payload;
-    },
-    leaveRoom: (state) => {
-      state.roomId = null;
       state.isConnected = false;
-      state.localStream = null;
-      state.remoteStream = null;
+      state.error = null;
     },
     setConnected: (state, action: PayloadAction<boolean>) => {
       state.isConnected = action.payload;
+    },
+    setPeerId: (state, action: PayloadAction<string>) => {
+      state.peerId = action.payload;
     },
     setLocalStream: (state, action: PayloadAction<MediaStream | null>) => {
       state.localStream = action.payload;
@@ -137,89 +111,95 @@ const videoCallSlice = createSlice({
     toggleChat: (state) => {
       state.isChatOpen = !state.isChatOpen;
     },
-    sendMessage: (state, action: PayloadAction<ChatMessage>) => {
-      state.messages.push(action.payload);
-    },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
       state.messages.push(action.payload);
     },
     clearMessages: (state) => {
       state.messages = [];
     },
-    endCall: (state) => {
+    setError: (state, action: PayloadAction<SliceError | null>) => {
+      state.error = action.payload;
+      ;
+    },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.isLoading = action.payload;
+    },
+    resetCall: (state) => {
       state.roomId = null;
       state.isConnected = false;
+      state.peerId = null;
       state.localStream = null;
       state.remoteStream = null;
+      state.isMicEnabled = true;
+      state.isVideoEnabled = true;
+      state.isScreenSharing = false;
+      state.isChatOpen = false;
       state.messages = [];
-    },
-    clearError: (state) => {
-      state.error = undefined;
+      state.error = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      // Get Call Config
+      // Get call config
       .addCase(getCallConfig.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
+        state.error = null;
       })
-      // .addCase(getCallConfig.fulfilled, (state, action) => {
-      //   state.isLoading = false;
-      //   state.roomId = action.payload.roomId;
-      //   state.peerId = action.payload.peerId;
-      // })
+      .addCase(getCallConfig.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.roomId = action.payload.roomId;
+        state.peerId = action.payload.peerId;
+        state.error = null;
+      })
       .addCase(getCallConfig.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
-      // End Video Call
+      // End video call
       .addCase(endVideoCall.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
       })
       .addCase(endVideoCall.fulfilled, (state) => {
         state.isLoading = false;
-        state.roomId = null;
         state.isConnected = false;
         state.localStream = null;
         state.remoteStream = null;
-        state.messages = [];
+        state.error = null;
       })
       .addCase(endVideoCall.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       })
-      // Save Call Info
+      // Save call info
       .addCase(saveCallInfo.pending, (state) => {
         state.isLoading = true;
-        state.error = undefined;
       })
       .addCase(saveCallInfo.fulfilled, (state) => {
         state.isLoading = false;
+        state.error = null;
       })
       .addCase(saveCallInfo.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload as SliceError;
       });
   },
 });
 
 export const {
   initializeCall,
-  joinRoom,
-  leaveRoom,
   setConnected,
+  setPeerId,
   setLocalStream,
   setRemoteStream,
   toggleMic,
   toggleVideo,
   toggleScreenShare,
   toggleChat,
-  sendMessage,
   addMessage,
   clearMessages,
-  endCall,
-  clearError,
+  setError,
+  setLoading,
+  resetCall,
 } = videoCallSlice.actions;
+
 export default videoCallSlice.reducer;

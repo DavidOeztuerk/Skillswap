@@ -4,8 +4,9 @@ namespace Contracts.Skill.Responses;
 /// API response for UpdateSkillCategory operation
 /// </summary>
 public record UpdateSkillCategoryResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string CategoryId,
+    string Name,
+    DateTime UpdatedAt)
 {
     /// <summary>
     /// API Version this response supports

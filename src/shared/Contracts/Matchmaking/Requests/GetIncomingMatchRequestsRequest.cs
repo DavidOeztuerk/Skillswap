@@ -5,7 +5,7 @@ namespace Contracts.Matchmaking.Requests;
 /// <summary>
 /// API request for GetIncomingMatchRequests operation
 /// </summary>
-public record GetIncomingMatchRequestsRequest(
+public record GetIncomingMatchRequest(
     int PageNumber = 1,
     int PageSize = 20)
 {

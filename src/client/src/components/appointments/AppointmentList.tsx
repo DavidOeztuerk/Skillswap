@@ -31,6 +31,7 @@ import AppointmentCard from './AppointmentCard';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import EmptyState from '../ui/EmptyState';
 import { Appointment } from '../../types/models/Appointment';
+import { SliceError } from '../../store/types';
 
 /**
  * Props für die Terminliste
@@ -38,7 +39,7 @@ import { Appointment } from '../../types/models/Appointment';
 interface AppointmentListProps {
   appointments: Appointment[];
   isLoading?: boolean;
-  error?: string | null;
+  error?: SliceError | null;
   userRole?: 'teacher' | 'student';
   onConfirm?: (appointmentId: string) => void;
   onCancel?: (appointmentId: string) => void;
@@ -194,7 +195,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
     return (
       <EmptyState
         title="Keine Termine gefunden"
-        description="Du hast noch keine Termine vereinbart."
+        description={{message:"Du hast noch keine Termine vereinbart."}}
         actionLabel="Zur Matchmaking-Seite"
         actionPath="/matchmaking"
       />
@@ -346,7 +347,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         ) : (
           <EmptyState
             title="Keine passenden Termine gefunden"
-            description="Versuche, deine Suchkriterien anzupassen."
+            description={{message:"Versuche deine Suche zu verfeinern."}}
             actionLabel="Filter zurücksetzen"
             actionHandler={resetFilters}
           />

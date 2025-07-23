@@ -5,12 +5,9 @@ using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
 using Events.Domain.Skill;
 using EventSourcing;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.CommandHandlers;
-
-// ============================================================================
-// RATE SKILL COMMAND HANDLER
-// ============================================================================
 
 public class RateSkillCommandHandler : BaseCommandHandler<RateSkillCommand, RateSkillResponse>
 {

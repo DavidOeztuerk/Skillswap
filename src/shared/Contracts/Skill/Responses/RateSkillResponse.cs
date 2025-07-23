@@ -4,8 +4,10 @@ namespace Contracts.Skill.Responses;
 /// API response for RateSkill operation
 /// </summary>
 public record RateSkillResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string RatingId,
+    int Rating,
+    double NewAverageRating,
+    int TotalRatings)
 {
     /// <summary>
     /// API Version this response supports

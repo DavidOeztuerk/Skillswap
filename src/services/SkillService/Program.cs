@@ -14,14 +14,13 @@ using SkillService.Application.Queries;
 using Contracts.Skill.Requests;
 using Contracts.Skill.Responses;
 using SkillService.Extensions;
-//using SkillService.Application.Mappers;
 using System.Security.Claims;
 using Infrastructure.Models;
 using Infrastructure.Services;
 using MediatR;
 using SkillService;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,10 +47,39 @@ builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
     client.BaseAddress = new Uri(userServiceUrl);
 });
 
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    // ✅ Intelligente Host-Erkennung
+    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
+                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
+                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
+
+    var host = isRunningInContainer ? "postgres" : "localhost";
+
+    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
+        ?? builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
+
+    // Falls Environment Variable einen anderen Host enthält, korrigieren
+    if (connectionString.Contains("Host="))
+    {
+        connectionString = System.Text.RegularExpressions.Regex.Replace(
+            connectionString,
+            @"Host=[^;]+",
+            $"Host={host}"
+        );
+    }
+}
+
+// Debug-Ausgabe (ohne Passwort für Logs)
+var safeConnectionString = connectionString.Contains("Password=")
+    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
+    : connectionString;
+
 builder.Services.AddDbContext<SkillDbContext>(options =>
 {
-    var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
-        ?? "Host=postgres;Database=skillswap;Username=skillswap;Password=skillswap123;Port=5432;";
     options.UseNpgsql(connectionString);
     options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     options.EnableDetailedErrors(builder.Environment.IsDevelopment());
@@ -63,6 +91,7 @@ var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
     ?? "localhost:6379";
+
 builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
 
 // Add SkillService-specific dependencies
@@ -164,13 +193,22 @@ app.UseMiddleware<RateLimitingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
-using var scope = app.Services.CreateScope();
-var logger = app.Logger;
-var cache = scope.ServiceProvider.GetService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>();
-logger.LogInformation("✅ Cache: {Type}", cache?.GetType().Name);
-var db = scope.ServiceProvider.GetRequiredService<SkillDbContext>();
-await db.Database.EnsureCreatedAsync();
-await SeedData.SeedDefaultDataAsync(db);
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<SkillDbContext>();
+
+    try
+    {
+        // Ensure database is created (for InMemory provider)
+        await context.Database.EnsureCreatedAsync();
+
+        app.Logger.LogInformation("Database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Error occurred while initializing database");
+    }
+}
 
 #region Skills Endpoints
 RouteGroupBuilder skills = app.MapGroup("/skills");
@@ -181,7 +219,7 @@ skills.MapGet("/", SearchSkills)
     .WithDescription("Search and filter skills with pagination")
     .WithTags("Skills")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.SearchSkillsResponse>(StatusCodes.Status200OK);
+    .Produces<SearchSkillsResponse>(StatusCodes.Status200OK);
 
 skills.MapGet("/{id}", GetSkillById)
     .WithName("GetSkillDetails")
@@ -189,7 +227,7 @@ skills.MapGet("/{id}", GetSkillById)
     .WithDescription("Get detailed information about a specific skill")
     .WithTags("SkillDetail")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.GetSkillDetailsResponse>(StatusCodes.Status200OK)
+    .Produces<GetSkillDetailsResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .ProducesProblem(StatusCodes.Status400BadRequest);
 
@@ -199,7 +237,7 @@ skills.MapGet("/my-skills", GetUserSkills)
     .WithDescription("Retrieve all skills for a specific user with pagination")
     .WithTags("UserSkills")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.GetUserSkillsResponse>(StatusCodes.Status200OK)
+    .Produces<GetUserSkillsResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -209,7 +247,7 @@ skills.MapPost("/", CreateNewSkill)
     .WithDescription("Create a new skill with the specified details")
     .WithTags("Skills")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.CreateSkillResponse>(StatusCodes.Status201Created)
+    .Produces<CreateSkillResponse>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization();
@@ -220,7 +258,7 @@ skills.MapPut("/{id}", UpdateSkill)
     .WithDescription("Update the details of an existing skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.UpdateSkillResponse>(StatusCodes.Status200OK)
+    .Produces<UpdateSkillResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization();
@@ -231,7 +269,7 @@ skills.MapDelete("/{id}", DeleteSkill)
     .WithDescription("Delete a specific skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.DeleteSkillResponse>(StatusCodes.Status200OK)
+    .Produces<DeleteSkillResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -241,7 +279,7 @@ skills.MapPost("/{id}/rate", RateSkill)
     .WithDescription("Rate a specific skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.RateSkillResponse>(StatusCodes.Status200OK)
+    .Produces<RateSkillResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -251,11 +289,11 @@ skills.MapPost("/{id}/endorse", EndorseSkill)
     .WithDescription("Endorse a specific skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.EndorseSkillResponse>(StatusCodes.Status200OK)
+    .Produces<EndorseSkillResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
-static async Task<IResult> SearchSkills(IMediator mediator, ClaimsPrincipal user, [AsParameters] SearchSkillsRequest request)
+static async Task<IResult> SearchSkills(IMediator mediator, ClaimsPrincipal user, [FromBody] SearchSkillsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -279,7 +317,7 @@ static async Task<IResult> SearchSkills(IMediator mediator, ClaimsPrincipal user
     return await mediator.SendQuery(command);
 }
 
-static async Task<IResult> GetSkillById(IMediator mediator, ClaimsPrincipal user, GetSkillDetailsRequest request)
+static async Task<IResult> GetSkillById(IMediator mediator, ClaimsPrincipal user, [FromBody] GetSkillDetailsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -289,17 +327,17 @@ static async Task<IResult> GetSkillById(IMediator mediator, ClaimsPrincipal user
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetUserSkills(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserSkillsRequest request)
+static async Task<IResult> GetUserSkills(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserSkillsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
+
     var query = new GetUserSkillsQuery(request.IsOffering, request.CategoryId, request.IncludeInactive, request.PageNumber, request.PageSize);
 
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> CreateNewSkill(IMediator mediator, ClaimsPrincipal user, CreateSkillRequest request)
+static async Task<IResult> CreateNewSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] CreateSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -320,11 +358,11 @@ static async Task<IResult> CreateNewSkill(IMediator mediator, ClaimsPrincipal us
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> UpdateSkill(IMediator mediator, ClaimsPrincipal user, UpdateSkillRequest request)
+static async Task<IResult> UpdateSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
+
     var command = new UpdateSkillCommand(
         request.SkillId,
         request.Name,
@@ -342,7 +380,7 @@ static async Task<IResult> UpdateSkill(IMediator mediator, ClaimsPrincipal user,
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> DeleteSkill(IMediator mediator, ClaimsPrincipal user, DeleteSkillRequest request)
+static async Task<IResult> DeleteSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] DeleteSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -355,7 +393,7 @@ static async Task<IResult> DeleteSkill(IMediator mediator, ClaimsPrincipal user,
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, RateSkillRequest request)
+static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] RateSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -368,7 +406,7 @@ static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, R
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> EndorseSkill(IMediator mediator, ClaimsPrincipal user, EndorseSkillRequest request)
+static async Task<IResult> EndorseSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] EndorseSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -392,7 +430,7 @@ categories.MapGet("/", GetCategories)
     .WithDescription("Retrieve all skill categories with pagination")
     .WithTags("SkillCategories")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.GetSkillCategoriesResponse>(StatusCodes.Status200OK);
+    .Produces<GetSkillCategoriesResponse>(StatusCodes.Status200OK);
 
 categories.MapPost("/", CreateNewCategory)
     .WithName("CreateSkillCategory")
@@ -400,7 +438,7 @@ categories.MapPost("/", CreateNewCategory)
     .WithDescription("Create a new skill category with the specified details")
     .WithTags("SkillCategories")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.CreateSkillCategoryResponse>(StatusCodes.Status201Created)
+    .Produces<CreateSkillCategoryResponse>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization(Policies.RequireAdminRole);
@@ -411,12 +449,12 @@ categories.MapPut("/{id}", UpdateCategory)
     .WithDescription("Update an existing skill category with the specified details")
     .WithTags("SkillCategories")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.UpdateSkillCategoryResponse>(StatusCodes.Status200OK)
+    .Produces<UpdateSkillCategoryResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization(Policies.RequireAdminRole);
 
-static async Task<IResult> GetCategories(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetSkillCategoriesRequest request)
+static async Task<IResult> GetCategories(IMediator mediator, ClaimsPrincipal user, [FromBody] GetSkillCategoriesRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -426,7 +464,7 @@ static async Task<IResult> GetCategories(IMediator mediator, ClaimsPrincipal use
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> CreateNewCategory(IMediator mediator, ClaimsPrincipal user, CreateSkillCategoryRequest request)
+static async Task<IResult> CreateNewCategory(IMediator mediator, ClaimsPrincipal user, [FromBody] CreateSkillCategoryRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -439,7 +477,7 @@ static async Task<IResult> CreateNewCategory(IMediator mediator, ClaimsPrincipal
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> UpdateCategory(IMediator mediator, ClaimsPrincipal user, UpdateSkillCategoryRequest request)
+static async Task<IResult> UpdateCategory(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateSkillCategoryRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -447,8 +485,8 @@ static async Task<IResult> UpdateCategory(IMediator mediator, ClaimsPrincipal us
     var command = new UpdateSkillCategoryCommand(request.CategoryId, request.Name, request.Description, request.IconName, request.Color, request.SortOrder, request.IsActive)
     {
         UserId = userId
-    };  
-        
+    };
+
     return await mediator.SendCommand(command);
 }
 #endregion
@@ -462,7 +500,7 @@ levels.MapGet("/", GetProficiencyLevels)
     .WithDescription("Retrieve all proficiency levels with pagination")
     .WithTags("ProficiencyLevels")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.GetProficiencyLevelsResponse>(StatusCodes.Status200OK);
+    .Produces<GetProficiencyLevelsResponse>(StatusCodes.Status200OK);
 
 levels.MapPost("/", CreateNewProficiencyLevel)
     .WithName("CreateProficiencyLevel")
@@ -470,12 +508,12 @@ levels.MapPost("/", CreateNewProficiencyLevel)
     .WithDescription("Create a new proficiency level with the specified details")
     .WithTags("ProficiencyLevels")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.CreateProficiencyLevelResponse>(StatusCodes.Status201Created)
+    .Produces<CreateProficiencyLevelResponse>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization(Policies.RequireAdminRole);
 
-static async Task<IResult> GetProficiencyLevels(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetProficiencyLevelsRequest request)
+static async Task<IResult> GetProficiencyLevels(IMediator mediator, ClaimsPrincipal user, [FromBody] GetProficiencyLevelsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -485,7 +523,7 @@ static async Task<IResult> GetProficiencyLevels(IMediator mediator, ClaimsPrinci
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> CreateNewProficiencyLevel(IMediator mediator, ClaimsPrincipal user, CreateProficiencyLevelRequest request)
+static async Task<IResult> CreateNewProficiencyLevel(IMediator mediator, ClaimsPrincipal user, [FromBody] CreateProficiencyLevelRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -508,7 +546,7 @@ analytics.MapGet("/statistics", GetSkillStatistics)
     .WithDescription("Retrieve overall skill statistics including counts, ratings, and endorsements")
     .WithTags("Analytics")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.GetSkillStatisticsResponse>(StatusCodes.Status200OK);
+    .Produces<GetSkillStatisticsResponse>(StatusCodes.Status200OK);
 
 analytics.MapGet("/popular-tags", GetPopularTags)
     .WithName("GetPopularTags")
@@ -516,7 +554,7 @@ analytics.MapGet("/popular-tags", GetPopularTags)
     .WithDescription("Retrieve a list of popular tags based on user interactions")
     .WithTags("Analytics")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.GetPopularTagsResponse>(StatusCodes.Status200OK);
+    .Produces<GetPopularTagsResponse>(StatusCodes.Status200OK);
 
 RouteGroupBuilder rec = app.MapGroup("/recommendations").RequireAuthorization();
 rec.MapGet("/", GetSkillRecommendations)
@@ -525,13 +563,13 @@ rec.MapGet("/", GetSkillRecommendations)
     .WithDescription("Retrieve personalized skill recommendations for the user")
     .WithTags("Recommendations")
     .WithOpenApi()
-    .Produces<Contracts.Skill.Responses.GetSkillRecommendationsResponse>(StatusCodes.Status200OK);
+    .Produces<GetSkillRecommendationsResponse>(StatusCodes.Status200OK);
 
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = _ => true });
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Name == "self" });
 
-static async Task<IResult> GetSkillStatistics(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetSkillStatisticsRequest request)
+static async Task<IResult> GetSkillStatistics(IMediator mediator, ClaimsPrincipal user, [FromBody] GetSkillStatisticsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -541,7 +579,7 @@ static async Task<IResult> GetSkillStatistics(IMediator mediator, ClaimsPrincipa
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetPopularTags(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetPopularTagsRequest request)
+static async Task<IResult> GetPopularTags(IMediator mediator, ClaimsPrincipal user, [FromBody] GetPopularTagsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -551,7 +589,7 @@ static async Task<IResult> GetPopularTags(IMediator mediator, ClaimsPrincipal us
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetSkillRecommendationsRequest request)
+static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPrincipal user, [FromBody] GetSkillRecommendationsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();

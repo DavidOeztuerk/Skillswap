@@ -4,8 +4,10 @@ namespace Contracts.Skill.Responses;
 /// API response for CreateProficiencyLevel operation
 /// </summary>
 public record CreateProficiencyLevelResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string LevelId,
+    string Level,
+    int Rank,
+    DateTime CreatedAt)
 {
     /// <summary>
     /// API Version this response supports

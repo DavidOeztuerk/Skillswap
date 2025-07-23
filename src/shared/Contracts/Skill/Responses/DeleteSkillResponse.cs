@@ -4,8 +4,9 @@ namespace Contracts.Skill.Responses;
 /// API response for DeleteSkill operation
 /// </summary>
 public record DeleteSkillResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string SkillId,
+    bool Success,
+    DateTime DeletedAt)
 {
     /// <summary>
     /// API Version this response supports

@@ -13,11 +13,11 @@ public static class ContractMappingExtensions
     /// </summary>
     public static IServiceCollection AddContractMapping(this IServiceCollection services, params Assembly[] assemblies)
     {
-        services.AddAutoMapper(config =>
-        {
-            config.AddMaps(assemblies);
-            config.AddProfile<CommonMappingProfile>();
-        }, assemblies);
+        // services.AddAutoMapper(config =>
+        // {
+        //     config.AddMaps(assemblies);
+        //     config.AddProfile<CommonMappingProfile>();
+        // }, assemblies);
 
         // Register mapper factories
         services.AddScoped(typeof(IContractMapper<,>), typeof(GenericContractMapper<,>));

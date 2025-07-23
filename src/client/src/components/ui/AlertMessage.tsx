@@ -14,7 +14,7 @@ interface AlertMessageProps {
 }
 
 /**
- * Wiederverwendbare Alarm-Komponente, die entweder als inline Alert oder als Snackbar angezeigt werden kann
+ * Reusable alert component that can be displayed either as an inline Alert or as a Snackbar
  */
 const AlertMessage: React.FC<AlertMessageProps> = ({
   message,

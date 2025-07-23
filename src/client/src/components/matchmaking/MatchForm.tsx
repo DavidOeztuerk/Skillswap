@@ -82,7 +82,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
   const defaultValues = useMemo(() => {
     return {
       targetUserId: skill?.userId || '',
-      skillId: skill.skillId,
+      skillId: skill.id,
       isOffering: !skill.isOffering, // Umgekehrt: wenn der Nutzer den Skill anbietet, will er ihn hier lernen
       preferredDays: ['Montag', 'Dienstag', 'Mittwoch'],
       preferredTimes: ['18:00', '19:00'],
