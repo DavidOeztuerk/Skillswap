@@ -4,8 +4,10 @@ namespace Contracts.User.Responses;
 /// API response for UnblockUser operation
 /// </summary>
 public record UnblockUserResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string UserId,
+    string UnblockedUserId,
+    DateTime UnblockedAt,
+    string Message)
 {
     /// <summary>
     /// API Version this response supports

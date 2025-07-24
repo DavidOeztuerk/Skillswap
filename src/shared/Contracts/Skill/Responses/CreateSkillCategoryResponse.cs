@@ -6,6 +6,8 @@ namespace Contracts.Skill.Responses;
 public record CreateSkillCategoryResponse(
     string CategoryId,
     string Name,
+    string? IconName,
+    string? Color,
     DateTime CreatedAt)
 {
     /// <summary>
