@@ -30,6 +30,7 @@ import { useAuth } from '../../hooks/useAuth';
 import SearchBar from './Searchbar';
 import MobileSearchBar from './MobileSearchbar';
 import NotificationBell from '../notifications/NotificationBell';
+import { useSearchNavigation } from '../../hooks/useSearchNavigation';
 // import { useAnnouncements } from '../../hooks/useAnnouncements';
 
 interface HeaderProps {
@@ -55,12 +56,12 @@ const Header: React.FC<HeaderProps> = ({
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   const { isAuthenticated, logout } = useAuth();
+  const { isOpen: searchOpen, openSearch, closeSearch } = useSearchNavigation();
 
   // States für Menüs
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationAnchorEl, setNotificationAnchorEl] =
     useState<null | HTMLElement>(null);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [moreMenuAnchorEl, setMoreMenuAnchorEl] = useState<null | HTMLElement>(
     null
   );
@@ -104,11 +105,11 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   const handleOpenMobileSearch = () => {
-    setMobileSearchOpen(true);
+    openSearch();
   };
 
   const handleCloseMobileSearch = () => {
-    setMobileSearchOpen(false);
+    closeSearch();
   };
 
   const handleThemeToggleFromMenu = () => {
@@ -317,7 +318,7 @@ const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Suchleiste als Overlay */}
       <MobileSearchBar
-        open={mobileSearchOpen}
+        open={searchOpen}
         onClose={handleCloseMobileSearch}
       />
 

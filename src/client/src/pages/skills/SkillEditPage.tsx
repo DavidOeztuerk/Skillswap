@@ -18,7 +18,7 @@ import {
 } from '@mui/icons-material';
 
 import SkillForm from '../../components/skills/SkillForm';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import PageLoader from '../../components/ui/PageLoader';
 import EmptyState from '../../components/ui/EmptyState';
 import { useSkills } from '../../hooks/useSkills';
 import { useAuth } from '../../hooks/useAuth';
@@ -180,7 +180,7 @@ const SkillEditPage: React.FC = () => {
 
   // Loading state
   if (isLoading && !selectedSkill) {
-    return <LoadingSpinner fullPage message="Skill wird geladen..." />;
+    return <PageLoader variant="form" message="Skill wird geladen..." />;
   }
 
   // Error state

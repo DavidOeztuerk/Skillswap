@@ -6,6 +6,7 @@ import MainLayout from './components/layout/MainLayout';
 import { getProfile } from './features/auth/authSlice';
 import { useAppDispatch, useAppSelector } from './store/store.hooks';
 import SkipLinks from './components/accessibility/SkipLinks';
+import NetworkStatusIndicator from './components/error/NetworkStatusIndicator';
 // import { useAnnouncements } from './hooks/useAnnouncements';
 import { useRouteAnnouncements } from './hooks/useRouteAnnouncements';
 
@@ -40,6 +41,7 @@ const App = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <SkipLinks />
+      <NetworkStatusIndicator position="top" compact />
       <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
         <Outlet />
       </MainLayout>

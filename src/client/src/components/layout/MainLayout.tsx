@@ -4,6 +4,7 @@ import { Box, useMediaQuery, Theme } from '@mui/material';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import MobileTabbar from './Tabbar';
+import NavigationProgress from '../ui/NavigationProgress';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -35,6 +36,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
+      {/* Navigation Progress Indicator */}
+      <NavigationProgress />
+      
       {/* Header with banner landmark */}
       <Box component="header" role="banner">
         <Header

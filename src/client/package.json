@@ -7,6 +7,8 @@
     "start": "vite",
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:analyze": "tsc -b && vite build --mode=analyze",
+    "analyze": "npm run build:analyze && npx vite preview",
     "lint": "eslint .",
     "preview": "vite preview"
   },

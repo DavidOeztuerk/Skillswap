@@ -39,7 +39,7 @@ import { de } from 'date-fns/locale';
 import { useNotifications } from '../../hooks/useNotifications';
 import { Notification, NotificationType } from '../../types/models/Notification';
 import EmptyState from '../ui/EmptyState';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import SkeletonLoader from '../ui/SkeletonLoader';
 
 interface NotificationCenterProps {
   open: boolean;
@@ -204,7 +204,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
           {/* Content */}
           <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
             {isLoading ? (
-              <LoadingSpinner message="Benachrichtigungen werden geladen..." />
+              <SkeletonLoader variant="list" count={5} />
             ) : notifications.length === 0 ? (
               <EmptyState
                 icon={<NotificationsIcon />}

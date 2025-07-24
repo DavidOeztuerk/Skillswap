@@ -69,11 +69,11 @@ const authService = {
       throw new Error('Ungültige Antwort vom Server');
     }
 
-    const useSessionStorage = credentials.rememberMe ? 'session' : 'permanent';
-    setToken(response.tokens.accessToken, useSessionStorage);
+    const storageType = credentials.rememberMe ? 'permanent' : 'session';
+    setToken(response.tokens.accessToken, storageType);
     
     if (response.tokens.refreshToken) {
-      setRefreshToken(response.tokens.refreshToken, useSessionStorage);
+      setRefreshToken(response.tokens.refreshToken, storageType);
     }
 
     return response;
@@ -253,6 +253,37 @@ const authService = {
   },
 
   /**
+   * Refresh access token using refresh token
+   */
+  async refreshToken(): Promise<{ accessToken: string; refreshToken: string } | null> {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    try {
+      const response = await apiClient.post<{ accessToken: string; refreshToken: string }>(
+        AUTH_ENDPOINTS.REFRESH_TOKEN,
+        { refreshToken }
+      );
+
+      if (response.accessToken) {
+        const storageType = 'session'; // Default to session storage for refresh tokens
+        setToken(response.accessToken, storageType);
+        if (response.refreshToken) {
+          setRefreshToken(response.refreshToken, storageType);
+        }
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      removeToken();
+      throw error;
+    }
+  },
+
+  /**
    * Silent login with stored token
    */
   async silentLogin(): Promise<User | null> {
@@ -262,11 +293,8 @@ const authService = {
       return await this.getProfile();
     } catch {
       // Token might be expired, try refresh
-      const refreshToken = getRefreshToken();
-      if (!refreshToken) return null;
-
       try {
-        // Refresh will be handled by httpClient automatically
+        await this.refreshToken();
         return await this.getProfile();
       } catch {
         return null;
@@ -276,177 +304,3 @@ const authService = {
 };
 
 export default authService;
-
-// src/api/services/authService.ts
-
-
-// import apiClient from '../apiClient';
-// import {
-//   setToken,
-//   removeToken,
-//   getToken,
-//   setRefreshToken,
-//   getRefreshToken,
-// } from '../../utils/authHelpers';
-// import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
-// import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
-// import { User } from '../../types/models/User';
-// import { LoginResponse, RegisterResponse } from '../../types/contracts/responses/AuthResponse';
-
-// class AuthService {
-//   private refreshTokenPromise: Promise<any> | null = null;
-
-//   async login(credentials: LoginRequest & { rememberMe?: boolean }): Promise<LoginResponse> {
-//     try {
-//       const response = await apiClient.post<LoginResponse>('/auth/login', {
-//         email: credentials.email,
-//         password: credentials.password,
-//       });
-
-//       if (response.tokens) {
-//         // Store tokens based on rememberMe flag
-//         const storage = credentials.rememberMe ? 'permanent' : 'session';
-//         setToken(response.tokens.accessToken, storage);
-//         setRefreshToken(response.tokens.refreshToken, storage);
-//       }
-
-//       return response;
-//     } catch (error: any) {
-//       console.error('Login error:', error);
-//       throw new Error(error.response?.data?.message || 'Login failed');
-//     }
-//   }
-
-//   async register(userData: RegisterRequest): Promise<RegisterResponse> {
-//     try {
-//       const response = await apiClient.post<RegisterResponse>('/auth/register', userData);
-
-//       if (response.tokens) {
-//         setToken(response.tokens.accessToken);
-//         setRefreshToken(response.tokens.refreshToken);
-//       }
-
-//       return response;
-//     } catch (error: any) {
-//       console.error('Registration error:', error);
-//       throw new Error(error.response?.data?.message || 'Registration failed');
-//     }
-//   }
-
-//   async logout(): Promise<void> {
-//     try {
-//       const token = getToken();
-//       if (token) {
-//         await apiClient.post('/auth/logout');
-//       }
-//     } catch (error) {
-//       console.error('Logout error:', error);
-//     } finally {
-//       // Always clear tokens, even if logout request fails
-//       removeToken();
-      
-//       // Clear any cached data
-//       sessionStorage.clear();
-      
-//       // Redirect will be handled by the hook
-//     }
-//   }
-
-//   async refreshToken(): Promise<{ token: string; refreshToken: string } | null> {
-//     try {
-//       // Prevent multiple simultaneous refresh requests
-//       if (this.refreshTokenPromise) {
-//         return await this.refreshTokenPromise;
-//       }
-
-//       const refreshToken = getRefreshToken();
-//       if (!refreshToken) {
-//         throw new Error('No refresh token available');
-//       }
-
-//       this.refreshTokenPromise = apiClient.post<{
-//         accessToken: string;
-//         refreshToken: string;
-//       }>('/auth/refresh-token', { refreshToken });
-
-//       const response = await this.refreshTokenPromise;
-      
-//       if (response.data) {
-//         setToken(response.data.accessToken);
-//         setRefreshToken(response.data.refreshToken);
-        
-//         return {
-//           token: response.data.accessToken,
-//           refreshToken: response.data.refreshToken,
-//         };
-//       }
-
-//       return null;
-//     } catch (error) {
-//       console.error('Token refresh error:', error);
-//       removeToken();
-//       return null;
-//     } finally {
-//       this.refreshTokenPromise = null;
-//     }
-//   }
-
-//   async getProfile(): Promise<User> {
-//     try {
-//       const response = await apiClient.get<User>('/auth/profile');
-//       return response;
-//     } catch (error: any) {
-//       console.error('Get profile error:', error);
-//       throw new Error(error.response?.data?.message || 'Failed to get profile');
-//     }
-//   }
-
-//   async silentLogin(): Promise<User | null> {
-//     try {
-//       const token = getToken();
-//       if (!token) {
-//         return null;
-//       }
-
-//       // Try to get profile with existing token
-//       const user = await this.getProfile();
-//       return user;
-//     } catch (error: any) {
-//       // If token is expired, try to refresh
-//       if (error.response?.status === 401) {
-//         const refreshResult = await this.refreshToken();
-//         if (refreshResult) {
-//           // Retry getting profile with new token
-//           try {
-//             const user = await this.getProfile();
-//             return user;
-//           } catch (retryError) {
-//             console.error('Silent login retry failed:', retryError);
-//             return null;
-//           }
-//         }
-//       }
-      
-//       console.error('Silent login error:', error);
-//       return null;
-//     }
-//   }
-
-//   async verifyEmail(request: { token: string; userId: string }): Promise<void> {
-//     await apiClient.post('/auth/verify-email', request);
-//   }
-
-//   async forgotPassword(email: string): Promise<void> {
-//     await apiClient.post('/auth/forgot-password', { email });
-//   }
-
-//   async resetPassword(token: string, newPassword: string): Promise<void> {
-//     await apiClient.post('/auth/reset-password', { token, newPassword });
-//   }
-
-//   isAuthenticated(): boolean {
-//     return !!getToken();
-//   }
-// }
-
-// export default new AuthService();

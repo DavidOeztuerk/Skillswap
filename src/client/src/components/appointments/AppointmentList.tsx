@@ -28,7 +28,7 @@ import { de } from 'date-fns/locale';
 import { startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
 
 import AppointmentCard from './AppointmentCard';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import SkeletonLoader from '../ui/SkeletonLoader';
 import EmptyState from '../ui/EmptyState';
 import { Appointment } from '../../types/models/Appointment';
 import { SliceError } from '../../store/types';
@@ -179,7 +179,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
 
   // Loading/Fehler
   if (isLoading) {
-    return <LoadingSpinner message="Termine werden geladen..." />;
+    return <SkeletonLoader variant="card" count={4} />;
   }
   if (error) {
     return (

@@ -12,12 +12,14 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
-      // Bundle-Analyse für Produktionsbuilds
-      mode === 'production' &&
+      // Bundle-Analyse für Produktions- und Analysebuilds
+      (mode === 'production' || mode === 'analyze') &&
         visualizer({
-          filename: './stats.html',
-          open: false,
+          filename: './dist/stats.html',
+          open: mode === 'analyze',
           gzipSize: true,
+          brotliSize: true,
+          template: 'treemap',
         }),
     ],
     resolve: {

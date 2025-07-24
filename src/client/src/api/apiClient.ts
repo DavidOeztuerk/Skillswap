@@ -8,65 +8,113 @@ import { ApiResponse } from '../types/common/ApiResponse';
  */
 class ApiClient {
   /**
-   * GET request
+   * GET request with automatic ApiResponse unwrapping
    */
   async get<T>(
     url: string,
     params?: Record<string, unknown>,
     config?: RequestConfig
   ): Promise<T> {
-    const response = await httpClient.get<ApiResponse<T>>(url, {
-      ...config,
-      params,
-    });
-    return response.data;
+    try {
+      const response = await httpClient.get<ApiResponse<T>>(url, {
+        ...config,
+        params,
+      });
+      
+      // Handle both wrapped and unwrapped responses
+      if (response && typeof response === 'object' && 'data' in response) {
+        return (response as ApiResponse<T>).data;
+      }
+      
+      return response as T;
+    } catch (error) {
+      // Re-throw with context
+      throw error;
+    }
   }
 
   /**
-   * POST request
+   * POST request with automatic ApiResponse unwrapping
    */
   async post<T>(
     url: string,
     data?: unknown,
     config?: RequestConfig
   ): Promise<T> {
-    const response = await httpClient.post<ApiResponse<T>>(url, data, config);
-    return response.data;
+    try {
+      const response = await httpClient.post<ApiResponse<T>>(url, data, config);
+      
+      // Handle both wrapped and unwrapped responses
+      if (response && typeof response === 'object' && 'data' in response) {
+        return (response as ApiResponse<T>).data;
+      }
+      
+      return response as T;
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
-   * PUT request
+   * PUT request with automatic ApiResponse unwrapping
    */
   async put<T>(
     url: string,
     data?: unknown,
     config?: RequestConfig
   ): Promise<T> {
-    const response = await httpClient.put<ApiResponse<T>>(url, data, config);
-    return response.data;
+    try {
+      const response = await httpClient.put<ApiResponse<T>>(url, data, config);
+      
+      if (response && typeof response === 'object' && 'data' in response) {
+        return (response as ApiResponse<T>).data;
+      }
+      
+      return response as T;
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
-   * PATCH request
+   * PATCH request with automatic ApiResponse unwrapping
    */
   async patch<T>(
     url: string,
     data?: unknown,
     config?: RequestConfig
   ): Promise<T> {
-    const response = await httpClient.patch<ApiResponse<T>>(url, data, config);
-    return response.data;
+    try {
+      const response = await httpClient.patch<ApiResponse<T>>(url, data, config);
+      
+      if (response && typeof response === 'object' && 'data' in response) {
+        return (response as ApiResponse<T>).data;
+      }
+      
+      return response as T;
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
-   * DELETE request
+   * DELETE request with automatic ApiResponse unwrapping
    */
   async delete<T>(
     url: string,
     config?: RequestConfig
   ): Promise<T> {
-    const response = await httpClient.delete<ApiResponse<T>>(url, config);
-    return response.data;
+    try {
+      const response = await httpClient.delete<ApiResponse<T>>(url, config);
+      
+      if (response && typeof response === 'object' && 'data' in response) {
+        return (response as ApiResponse<T>).data;
+      }
+      
+      return response as T;
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**

@@ -24,7 +24,7 @@ import {
 } from '@mui/icons-material';
 
 import MatchCard from './MatchCard';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import SkeletonLoader from '../ui/SkeletonLoader';
 import EmptyState from '../ui/EmptyState';
 import { Match } from '../../types/models/Match';
 import { SliceError } from '../../store/types';
@@ -149,7 +149,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
   // Zustand: Laden / Fehler / Keine Daten
   if (isLoading) {
-    return <LoadingSpinner message="Matches werden geladen..." />;
+    return <SkeletonLoader variant="card" count={3} />;
   }
   if (error) {
     return (
