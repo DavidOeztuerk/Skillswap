@@ -175,9 +175,9 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        state.user = action.payload.profile || null;
-        state.token = action.payload.tokens.accessToken;
-        state.refreshToken = action.payload.tokens.refreshToken;
+        // state.user = action.payload || null;
+        state.token = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken;
         state.error = null;
       })
       .addCase(login.rejected, (state, action) => {
@@ -208,8 +208,8 @@ const authSlice = createSlice({
           accountStatus: '',
           createdAt: '',
         };
-        state.token = action.payload.tokens.accessToken;
-        state.refreshToken = action.payload.tokens.refreshToken;
+        state.token = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken;
         state.error = null;
       })
       .addCase(register.rejected, (state, action) => {

@@ -65,15 +65,15 @@ const authService = {
       { email, password }
     );
 
-    if (!response.tokens?.accessToken) {
+    if (!response.accessToken) {
       throw new Error('Ungültige Antwort vom Server');
     }
 
     const storageType = credentials.rememberMe ? 'permanent' : 'session';
-    setToken(response.tokens.accessToken, storageType);
+    setToken(response.accessToken, storageType);
     
-    if (response.tokens.refreshToken) {
-      setRefreshToken(response.tokens.refreshToken, storageType);
+    if (response.refreshToken) {
+      setRefreshToken(response.refreshToken, storageType);
     }
 
     return response;
@@ -96,10 +96,10 @@ const authService = {
       validatedData
     );
 
-    if (response.tokens?.accessToken) {
-      setToken(response.tokens.accessToken);
-      if (response.tokens.refreshToken) {
-        setRefreshToken(response.tokens.refreshToken);
+    if (response.accessToken) {
+      setToken(response.accessToken);
+      if (response.refreshToken) {
+        setRefreshToken(response.refreshToken);
       }
     }
 
