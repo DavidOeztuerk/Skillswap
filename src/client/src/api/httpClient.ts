@@ -21,11 +21,7 @@ export interface RequestConfig {
   _retry?: boolean;
 }
 
-// Token Refresh Response Interface
-interface TokenRefreshResponse {
-  token: string;
-  refreshToken: string;
-}
+// Removed unused interface - Token refresh response is handled directly
 
 class HttpClient {
   private baseUrl: string;
@@ -144,23 +140,38 @@ class HttpClient {
    * Refreshes the access token
    */
   private async refreshAccessToken(): Promise<string> {
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) {
+    const refreshTokenValue = getRefreshToken();
+    if (!refreshTokenValue) {
       throw new Error('No refresh token available');
     }
 
-    const response = await this.request<{ data: TokenRefreshResponse }>(
-      'POST',
-      AUTH_ENDPOINTS.REFRESH_TOKEN,
-      { token: getToken(), refreshToken },
-      { _retry: true }
-    );
+    // Use direct fetch to avoid circular refresh calls
+    const response = await fetch(`${this.baseUrl}${AUTH_ENDPOINTS.REFRESH_TOKEN}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken: refreshTokenValue }),
+    });
 
-    const tokenData = response.data;
-    setToken(tokenData.token);
-    setRefreshToken(tokenData.refreshToken);
+    if (!response.ok) {
+      throw new Error('Token refresh failed');
+    }
+
+    const data = await response.json();
+    const tokenData = data.data || data;
+
+    if (!tokenData.accessToken) {
+      throw new Error('Invalid refresh response');
+    }
+
+    const storageType = localStorage.getItem('remember_me') === 'true' ? 'permanent' : 'session';
+    setToken(tokenData.accessToken, storageType);
+    if (tokenData.refreshToken) {
+      setRefreshToken(tokenData.refreshToken, storageType);
+    }
     
-    return tokenData.token;
+    return tokenData.accessToken;
   }
 
   /**

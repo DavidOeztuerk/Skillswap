@@ -56,7 +56,7 @@ import {
   TimelineOppositeContent,
 } from '@mui/lab';
 
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import PageLoader from '../../components/ui/PageLoader';
 import EmptyState from '../../components/ui/EmptyState';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
@@ -289,7 +289,7 @@ const AppointmentDetailPage: React.FC = () => {
 
   // Loading state
   if (isLoading && !appointment) {
-    return <LoadingSpinner fullPage message="Termin wird geladen..." />;
+    return <PageLoader variant="details" message="Termin wird geladen..." />;
   }
 
   // Error or not found

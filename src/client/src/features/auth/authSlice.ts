@@ -12,6 +12,13 @@ import { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRe
 import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
 import { SliceError } from '../../store/types';
 
+// Helper to create standardized error
+const createStandardError = (error: any): SliceError => ({
+  message: error?.message || error?.data?.message || 'Ein unbekannter Fehler ist aufgetreten',
+  code: error?.status || error?.code || 'UNKNOWN_ERROR',
+  details: error?.data || error
+});
+
 interface ExtendedLoginRequest extends LoginRequest {
   rememberMe?: boolean;
 }
@@ -40,14 +47,14 @@ export const register = createAsyncThunk(
   }
 );
 
-// export const refreshToken = createAsyncThunk(
-//   'auth/refreshToken',
-//   async () => {
-//     const response = await authService.refreshToken();
-//     if (!response) throw new Error('Token-Aktualisierung fehlgeschlagen');
-//     return response;
-//   }
-// );
+export const refreshToken = createAsyncThunk(
+  'auth/refreshToken',
+  async () => {
+    const response = await authService.refreshToken();
+    if (!response) throw new Error('Token-Aktualisierung fehlgeschlagen');
+    return response;
+  }
+);
 
 export const getProfile = createAsyncThunk(
   'auth/getProfile',
@@ -179,7 +186,7 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
-        state.error = action.error as SliceError
+        state.error = createStandardError(action.error)
       })
 
       // Register
@@ -211,21 +218,21 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
-        state.error = action.error as SliceError;
+        state.error = createStandardError(action.error);
       })
 
       // Token Refresh
-      // .addCase(refreshToken.fulfilled, (state, action) => {
-      //   state.token = action.payload.token;
-      //   state.refreshToken = action.payload.refreshToken;
-      //   state.isAuthenticated = true;
-      // })
-      // .addCase(refreshToken.rejected, (state) => {
-      //   state.isAuthenticated = false;
-      //   state.user = null;
-      //   state.token = null;
-      //   state.refreshToken = null;
-      // })
+      .addCase(refreshToken.fulfilled, (state, action) => {
+        state.token = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken;
+        state.isAuthenticated = true;
+      })
+      .addCase(refreshToken.rejected, (state) => {
+        state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
+        state.refreshToken = null;
+      })
 
       // Get Profile
       .addCase(getProfile.pending, (state) => {
@@ -239,7 +246,7 @@ const authSlice = createSlice({
       })
       .addCase(getProfile.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = createStandardError(action.error);
       })
 
       // Update Profile
@@ -254,7 +261,7 @@ const authSlice = createSlice({
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = createStandardError(action.error);
       })
 
       // Upload Profile Picture
@@ -269,7 +276,7 @@ const authSlice = createSlice({
       })
       .addCase(uploadProfilePicture.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = createStandardError(action.error);
       })
 
       // Change Password
@@ -283,7 +290,7 @@ const authSlice = createSlice({
       })
       .addCase(changePassword.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = createStandardError(action.error);
       })
 
       // Silent Login
@@ -329,7 +336,7 @@ const authSlice = createSlice({
       })
       .addCase(verifyEmail.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = createStandardError(action.error);
       })
 
       // Password Reset Request
@@ -343,7 +350,7 @@ const authSlice = createSlice({
       })
       .addCase(requestPasswordReset.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = createStandardError(action.error);
       })
 
       // Reset Password
@@ -357,7 +364,7 @@ const authSlice = createSlice({
       })
       .addCase(resetPassword.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = createStandardError(action.error);
       });
   },
 });

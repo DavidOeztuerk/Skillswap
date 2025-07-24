@@ -1,5 +1,5 @@
 // src/hooks/useAuth.ts
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   login as loginAction,
@@ -46,12 +46,59 @@ export const useAuth = () => {
     const location = useLocation();
     const authState = useAppSelector((state) => state.auth);
 
-  const { user, isAuthenticated, isLoading, error, token, refreshToken } = authState
+  const { user, isAuthenticated, isLoading, error, token, refreshToken } = authState;
+
+  // Memoized user display name
+  const userDisplayName = useMemo((): string => {
+    if (!user) return 'Benutzer';
+
+    const firstName = user.firstName?.trim();
+    const lastName = user.lastName?.trim();
+
+    if (firstName && lastName) {
+      return `${firstName} ${lastName}`;
+    }
+
+    if (firstName) return firstName;
+    if (lastName) return lastName;
+
+    return user.email || 'Benutzer';
+  }, [user]);
+
+  // Memoized token expiration check
+  const isTokenExpired = useMemo((): boolean => {
+    if (!token) return true;
+
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+
+      const payload = JSON.parse(atob(parts[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+
+      return payload.exp && payload.exp - currentTime < 300;
+    } catch {
+      return true;
+    }
+  }, [token]);
+
+  // Memoized permission checker
+  const permissionChecker = useMemo(() => ({
+    hasPermission: (requiredRole: string): boolean => {
+      return user?.roles?.includes(requiredRole) ?? false;
+    },
+    hasAnyRole: (roles: string[]): boolean => {
+      return roles.some(role => user?.roles?.includes(role)) ?? false;
+    },
+    hasAllRoles: (roles: string[]): boolean => {
+      return roles.every(role => user?.roles?.includes(role)) ?? false;
+    }
+  }), [user?.roles]);
 
   // Attempt silent login on mount
   // useEffect(() => {
   //   if (!isAuthenticated && !isLoading && !error) {
-  //     dispatch(silentLogin());
+  //     dispatch(silentLoginAction());
   //   }
   // }, [dispatch, isAuthenticated, isLoading, error]);
 
@@ -62,8 +109,11 @@ export const useAuth = () => {
    * @returns Promise<boolean> - Success status
    */
   const login = useCallback(
-    async (credentials: LoginRequest & { rememberMe?: boolean }, redirectPath?: string) => {
+    async (credentials: LoginRequest & { rememberMe?: boolean; csrfToken?: string }, redirectPath?: string) => {
       try {
+        // Set loading state manually for better UX
+        dispatch(setLoading(true));
+        
         const result = await dispatch(loginAction(credentials)).unwrap();
         
         if (result) {
@@ -75,9 +125,7 @@ export const useAuth = () => {
           dispatch(clearError());
           
           // Navigate after successful login
-          setTimeout(() => {
-            navigate(from, { replace: true });
-          }, 100);
+          navigate(from, { replace: true });
           
           return true;
         }
@@ -85,6 +133,8 @@ export const useAuth = () => {
       } catch (error) {
         console.error('Login failed:', error);
         return false;
+      } finally {
+        dispatch(setLoading(false));
       }
     },
     [dispatch, navigate, location]
@@ -99,6 +149,9 @@ export const useAuth = () => {
     const register = useCallback(
     async (userData: RegisterRequest, redirectPath?: string) => {
       try {
+        // Set loading state manually for better UX
+        dispatch(setLoading(true));
+        
         const result = await dispatch(registerAction(userData)).unwrap();
         
         if (result) {
@@ -107,9 +160,7 @@ export const useAuth = () => {
           
           // Navigate after successful registration
           const path = redirectPath || '/dashboard';
-          setTimeout(() => {
-            navigate(path, { replace: true });
-          }, 100);
+          navigate(path, { replace: true });
           
           return true;
         }
@@ -117,6 +168,8 @@ export const useAuth = () => {
       } catch (error) {
         console.error('Registration failed:', error);
         return false;
+      } finally {
+        dispatch(setLoading(false));
       }
     },
     [dispatch, navigate]
@@ -360,62 +413,6 @@ export const useAuth = () => {
     navigate('/login', { replace: true });
   }, [dispatch, navigate]);
 
-  /**
-   * Check if user has specific permissions/roles
-   * @param requiredRole - Required role or permission
-   * @returns boolean - Whether user has permission
-   */
-  const hasPermission = useCallback(
-    (requiredRole: string): boolean => {
-      // Implement role/permission checking logic based on your auth system
-      // This is a placeholder implementation
-      console.log(`Checking permission for role: ${requiredRole}`);
-      return user?.roles?.includes(requiredRole) ?? false;
-    },
-    [user]
-  );
-
-  /**
-   * Get user display name
-   * @returns string - Formatted user name
-   */
-  const getUserDisplayName = useCallback((): string => {
-    if (!user) return 'Benutzer';
-
-    const firstName = user.firstName?.trim();
-    const lastName = user.lastName?.trim();
-
-    if (firstName && lastName) {
-      return `${firstName} ${lastName}`;
-    }
-
-    if (firstName) return firstName;
-    if (lastName) return lastName;
-
-    return user.email || 'Benutzer';
-  }, [user]);
-
-  /**
-   * Check if token is likely expired (client-side check)
-   * @returns boolean - Whether token might be expired
-   */
-  const isTokenLikelyExpired = useCallback((): boolean => {
-    if (!token) return true;
-
-    try {
-      // Basic JWT token structure check
-      const parts = token.split('.');
-      if (parts.length !== 3) return true;
-
-      const payload = JSON.parse(atob(parts[1]));
-      const currentTime = Math.floor(Date.now() / 1000);
-
-      // Check if token expires within next 5 minutes
-      return payload.exp && payload.exp - currentTime < 300;
-    } catch {
-      return true;
-    }
-  }, [token]);
 
     /**
    * Generate 2FA secret (returns QR code and secret)
@@ -489,9 +486,9 @@ export const useAuth = () => {
     setLoadingState,
     forceLogoutUser,
 
-    // Utility methods
-    hasPermission,
-    getUserDisplayName,
-    isTokenLikelyExpired,
+    // Utility methods (memoized)
+    userDisplayName,
+    isTokenExpired,
+    ...permissionChecker,
   };
 };

@@ -250,7 +250,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         />
 
         <LoadingButton
-          to='/dashboard'
           type="submit"
           fullWidth
           variant="contained"

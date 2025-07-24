@@ -1,5 +1,6 @@
 // src/utils/authHelpers.ts
 import { SessionStorage } from './sessionStorage';
+import { encryptData, decryptData } from './cryptoHelpers';
 
 // Storage keys
 const TOKEN_KEY = 'access_token';
@@ -17,11 +18,11 @@ const TOKEN_EXPIRY_BUFFER = 5 * 60 * 1000;
 /**
  * Stores the access token with appropriate storage strategy
  * @param token - Access token
- * @param useSessionStorage - Whether to use session storage (default: false)
+ * @param storageType - Storage type: 'session' or 'permanent'
  */
 export const setToken = (
   token: string,
-  useSessionStorage: string = 'session'
+  storageType: 'session' | 'permanent' = 'session'
 ): void => {
   try {
     if (!token?.trim()) {
@@ -30,9 +31,10 @@ export const setToken = (
     }
 
     const timestamp = Date.now().toString();
+    const encryptedToken = encryptData(token);
 
-    if (useSessionStorage === 'session') {
-      SessionStorage.setItem(TOKEN_KEY, token);
+    if (storageType === 'session') {
+      SessionStorage.setItem(TOKEN_KEY, encryptedToken);
       SessionStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
       SessionStorage.setItem(REMEMBER_ME_KEY, 'false');
 
@@ -40,8 +42,8 @@ export const setToken = (
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
       localStorage.removeItem(REMEMBER_ME_KEY);
-    } else if (useSessionStorage === 'permanent') {
-      localStorage.setItem(TOKEN_KEY, token);
+    } else if (storageType === 'permanent') {
+      localStorage.setItem(TOKEN_KEY, encryptedToken);
       localStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
       localStorage.setItem(REMEMBER_ME_KEY, 'true');
 
@@ -62,16 +64,24 @@ export const setToken = (
 export const getToken = (): string | null => {
   try {
     // Check session storage first (priority for current session)
-    let token = SessionStorage.getItem(TOKEN_KEY);
+    let encryptedToken = SessionStorage.getItem(TOKEN_KEY);
     let timestamp = SessionStorage.getItem(TOKEN_TIMESTAMP_KEY);
 
     // If not in session storage, check localStorage
-    if (!token) {
-      token = localStorage.getItem(TOKEN_KEY);
+    if (!encryptedToken) {
+      encryptedToken = localStorage.getItem(TOKEN_KEY);
       timestamp = localStorage.getItem(TOKEN_TIMESTAMP_KEY);
     }
 
+    if (!encryptedToken) {
+      return null;
+    }
+
+    // Decrypt the token
+    const token = decryptData(encryptedToken);
     if (!token) {
+      console.warn('Failed to decrypt token, removing invalid data');
+      removeToken();
       return null;
     }
 
@@ -92,11 +102,11 @@ export const getToken = (): string | null => {
 /**
  * Stores the refresh token with same storage strategy as access token
  * @param refreshToken - Refresh token
- * @param useSessionStorage - Whether to use session storage (default: false)
+ * @param storageType - Storage type: 'session' or 'permanent'
  */
 export const setRefreshToken = (
   refreshToken: string,
-  useSessionStorage: string = 'session'
+  storageType: 'session' | 'permanent' = 'session'
 ): void => {
   try {
     if (!refreshToken?.trim()) {
@@ -104,11 +114,13 @@ export const setRefreshToken = (
       return;
     }
 
-    if (useSessionStorage === 'session') {
-      SessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    const encryptedRefreshToken = encryptData(refreshToken);
+
+    if (storageType === 'session') {
+      SessionStorage.setItem(REFRESH_TOKEN_KEY, encryptedRefreshToken);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
-    } else if (useSessionStorage === 'permanent') {
-      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    } else if (storageType === 'permanent') {
+      localStorage.setItem(REFRESH_TOKEN_KEY, encryptedRefreshToken);
       SessionStorage.removeItem(REFRESH_TOKEN_KEY);
     }
   } catch (error) {
@@ -123,11 +135,22 @@ export const setRefreshToken = (
 export const getRefreshToken = (): string | null => {
   try {
     // Check session storage first
-    let refreshToken = SessionStorage.getItem(REFRESH_TOKEN_KEY);
+    let encryptedRefreshToken = SessionStorage.getItem(REFRESH_TOKEN_KEY);
 
     // If not in session storage, check localStorage
+    if (!encryptedRefreshToken) {
+      encryptedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    }
+
+    if (!encryptedRefreshToken) {
+      return null;
+    }
+
+    // Decrypt the refresh token
+    const refreshToken = decryptData(encryptedRefreshToken);
     if (!refreshToken) {
-      refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+      console.warn('Failed to decrypt refresh token');
+      return null;
     }
 
     return refreshToken;
@@ -305,9 +328,9 @@ export const isValidTokenFormat = (token: string): boolean => {
 
 /**
  * Migrates tokens between storage types
- * @param useSessionStorage - Target storage type
+ * @param storageType - Target storage type
  */
-export const migrateTokenStorage = (useSessionStorage: string): void => {
+export const migrateTokenStorage = (storageType: 'session' | 'permanent'): void => {
   try {
     const token = getToken();
     const refreshToken = getRefreshToken();
@@ -318,10 +341,10 @@ export const migrateTokenStorage = (useSessionStorage: string): void => {
 
       // Re-store with new strategy
       if (token) {
-        setToken(token, useSessionStorage);
+        setToken(token, storageType);
       }
       if (refreshToken) {
-        setRefreshToken(refreshToken, useSessionStorage);
+        setRefreshToken(refreshToken, storageType);
       }
     }
   } catch (error) {

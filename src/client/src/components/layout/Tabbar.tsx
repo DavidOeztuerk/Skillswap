@@ -1,5 +1,5 @@
 // src/components/layout/MobileTabbar.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -8,6 +8,11 @@ import {
   BottomNavigationAction,
   Badge,
   useTheme,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
 } from '@mui/material';
 import {
   Home as HomeIcon,
@@ -16,6 +21,7 @@ import {
   People as MatchmakingIcon,
   Event as AppointmentsIcon,
   Person as ProfileIcon,
+  MoreHoriz as MoreIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppSelector } from '../../store/store.hooks';
@@ -25,24 +31,41 @@ const Tabbar: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const { isAuthenticated } = useAuth();
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
   
   // Get dynamic badge counts from Redux store
   const pendingMatches = useAppSelector((state) => state.matchmaking?.matches?.filter((match) => match.status === 'Pending') || []);
 
-  // Bestimme den aktiven Pfad für die Navigation
+  // Bestimme den aktiven Pfad für die Navigation mit verbesserter Logik
   const getCurrentPath = () => {
     const path = location.pathname;
 
-    // Genaue Pfadübereinstimmung
-    if (path === '/') return '/';
-    if (path === '/dashboard') return '/dashboard';
-    if (path.startsWith('/skills')) return '/skills';
-    if (path.startsWith('/matchmaking')) return '/matchmaking';
-    if (path.startsWith('/appointments')) return '/appointments';
-    if (path.startsWith('/profile')) return '/profile';
+    // Exakte Pfadübereinstimmung zuerst
+    const exactMatches = ['/', '/dashboard', '/skills', '/matchmaking', '/appointments', '/profile'];
+    if (exactMatches.includes(path)) {
+      return path;
+    }
 
-    // Standardwert, wenn kein Match
-    return '/';
+    // Intelligente Pfad-Zuordnung mit Priorität
+    if (path.startsWith('/skills/')) {
+      // Skills-Unterpfade werden zu /skills zugeordnet
+      return '/skills';
+    }
+    if (path.startsWith('/matchmaking/')) {
+      return '/matchmaking';
+    }
+    if (path.startsWith('/appointments/')) {
+      return '/appointments';
+    }
+    if (path.startsWith('/profile/') || path.startsWith('/users/')) {
+      return '/profile';
+    }
+    if (path.startsWith('/dashboard/')) {
+      return '/dashboard';
+    }
+
+    // Für unbekannte Pfade: prüfe ob authentifiziert, dann dashboard, sonst home
+    return isAuthenticated ? '/dashboard' : '/';
   };
 
   const menuItems = [
@@ -90,9 +113,24 @@ const Tabbar: React.FC = () => {
     (item) => !item.authRequired || (item.authRequired && isAuthenticated)
   );
 
-  // Beschränke die Anzahl der Menüpunkte für Mobile auf 5,
-  // auch wenn mehr verfügbar sind
-  const mobileMenuItems = filteredMenuItems.slice(0, 5);
+  // Intelligente Mobile Menu Verteilung
+  const MAX_VISIBLE_ITEMS = 4; // Reserve space for "More" button
+  const visibleMenuItems = filteredMenuItems.slice(0, MAX_VISIBLE_ITEMS);
+  const overflowMenuItems = filteredMenuItems.slice(MAX_VISIBLE_ITEMS);
+  const hasOverflow = overflowMenuItems.length > 0;
+
+  const handleMoreClick = (event: React.MouseEvent<HTMLElement>) => {
+    setMoreMenuAnchor(event.currentTarget);
+  };
+
+  const handleMoreClose = () => {
+    setMoreMenuAnchor(null);
+  };
+
+  const handleOverflowNavigation = (path: string) => {
+    navigate(path);
+    handleMoreClose();
+  };
 
   return (
     <Box
@@ -116,11 +154,13 @@ const Tabbar: React.FC = () => {
         <BottomNavigation
           value={getCurrentPath()}
           onChange={(_, newValue) => {
-            navigate(newValue);
+            if (newValue !== 'more') {
+              navigate(newValue);
+            }
           }}
           showLabels
           sx={{
-            height: { xs: 72, sm: 64 }, // Increased height for mobile
+            height: { xs: 72, sm: 64 },
             '& .MuiBottomNavigationAction-root': {
               minWidth: 'auto',
               minHeight: { xs: 72, sm: 64 },
@@ -149,7 +189,8 @@ const Tabbar: React.FC = () => {
             },
           }}
         >
-          {mobileMenuItems.map((item) => (
+          {/* Visible Menu Items */}
+          {visibleMenuItems.map((item) => (
             <BottomNavigationAction
               key={item.path}
               label={item.label}
@@ -165,8 +206,119 @@ const Tabbar: React.FC = () => {
               }
             />
           ))}
+          
+          {/* More Button for overflow items */}
+          {hasOverflow && (
+            <BottomNavigationAction
+              label="Mehr"
+              value="more"
+              icon={<MoreIcon />}
+              onClick={handleMoreClick}
+            />
+          )}
         </BottomNavigation>
       </Paper>
+
+      {/* Overflow Menu */}
+      <Menu
+        anchorEl={moreMenuAnchor}
+        open={Boolean(moreMenuAnchor)}
+        onClose={handleMoreClose}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        PaperProps={{
+          elevation: 8,
+          sx: {
+            minWidth: 200,
+            '&::before': {
+              content: '""',
+              display: 'block',
+              position: 'absolute',
+              bottom: -8,
+              left: '50%',
+              width: 0,
+              height: 0,
+              borderLeft: '8px solid transparent',
+              borderRight: '8px solid transparent',
+              borderTop: '8px solid',
+              borderTopColor: 'background.paper',
+              transform: 'translateX(-50%)',
+              zIndex: 0,
+            },
+          },
+        }}
+      >
+        {overflowMenuItems.map((item) => {
+          const isActive = getCurrentPath() === item.path;
+          
+          return (
+            <MenuItem
+              key={item.path}
+              onClick={() => handleOverflowNavigation(item.path)}
+              selected={isActive}
+              sx={{
+                py: 1.5,
+                px: 2,
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'action.selected',
+                  color: 'primary.main',
+                  '&:hover': {
+                    backgroundColor: 'action.selected',
+                  },
+                },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  color: isActive ? 'primary.main' : 'inherit',
+                  minWidth: 40,
+                }}
+              >
+                {item.badge ? (
+                  <Badge badgeContent={item.badge} color="error">
+                    {item.icon}
+                  </Badge>
+                ) : (
+                  item.icon
+                )}
+              </ListItemIcon>
+              <ListItemText
+                primary={item.label}
+                primaryTypographyProps={{
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? 'primary.main' : 'inherit',
+                }}
+              />
+            </MenuItem>
+          );
+        })}
+        
+        {overflowMenuItems.length > 0 && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <MenuItem
+              onClick={handleMoreClose}
+              sx={{
+                py: 1,
+                px: 2,
+                color: 'text.secondary',
+                fontSize: '0.875rem',
+              }}
+            >
+              Schließen
+            </MenuItem>
+          </>
+        )}
+      </Menu>
     </Box>
   );
 };

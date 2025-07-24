@@ -36,7 +36,7 @@ import {
   School as SchoolIcon,
 } from '@mui/icons-material';
 
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import PageLoader from '../../components/ui/PageLoader';
 import EmptyState from '../../components/ui/EmptyState';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
@@ -279,7 +279,7 @@ const SkillDetailPage: React.FC = () => {
 
   // Loading state
   if (isLoading && !selectedSkill) {
-    return <LoadingSpinner fullPage message="Skill wird geladen..." />;
+    return <PageLoader variant="details" message="Skill wird geladen..." />;
   }
 
   // Error state

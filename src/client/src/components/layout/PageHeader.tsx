@@ -11,18 +11,16 @@ import {
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-
-interface BreadcrumbItem {
-  label: string;
-  href?: string;
-}
+import { useBreadcrumbs, BreadcrumbItem } from '../../hooks/useBreadcrumbs';
 
 interface PageHeaderProps {
-  title: string;
+  title?: string; // Now optional - will be auto-generated if not provided
   subtitle?: string;
-  breadcrumbs?: BreadcrumbItem[];
+  breadcrumbs?: BreadcrumbItem[]; // Optional - will be auto-generated if not provided
   action?: React.ReactNode;
   sx?: SxProps<Theme>;
+  showBreadcrumbs?: boolean; // Control breadcrumb visibility
+  useAutoBreadcrumbs?: boolean; // Use automatic breadcrumb generation
 }
 
 /**
@@ -34,7 +32,20 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   breadcrumbs,
   action,
   sx = {},
+  showBreadcrumbs = true,
+  useAutoBreadcrumbs = true,
 }) => {
+  const autoBreadcrumbs = useBreadcrumbs();
+  
+  // Determine which breadcrumbs to use
+  const finalBreadcrumbs = useAutoBreadcrumbs 
+    ? (breadcrumbs || autoBreadcrumbs)
+    : breadcrumbs;
+    
+  // Auto-generate title from breadcrumbs if not provided
+  const finalTitle = title || (finalBreadcrumbs && finalBreadcrumbs.length > 0 
+    ? finalBreadcrumbs[finalBreadcrumbs.length - 1]?.label 
+    : 'Page');
   return (
     <Box
       sx={{
@@ -47,14 +58,14 @@ const PageHeader: React.FC<PageHeaderProps> = ({
       }}
     >
       <Box>
-        {breadcrumbs && breadcrumbs.length > 0 && (
+        {showBreadcrumbs && finalBreadcrumbs && finalBreadcrumbs.length > 1 && (
           <Breadcrumbs
             separator={<NavigateNextIcon fontSize="small" />}
             aria-label="Breadcrumb"
             sx={{ mb: 1 }}
           >
-            {breadcrumbs.map((item, index) => {
-              const isLast = index === breadcrumbs.length - 1;
+            {finalBreadcrumbs.map((item, index) => {
+              const isLast = index === finalBreadcrumbs.length - 1;
 
               return isLast || !item.href ? (
                 <Typography
@@ -87,7 +98,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
           fontWeight="medium"
           sx={{ mb: subtitle ? 1 : 0 }}
         >
-          {title}
+          {finalTitle}
         </Typography>
 
         {subtitle && (

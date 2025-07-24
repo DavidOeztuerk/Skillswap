@@ -27,6 +27,7 @@ import { useAuth } from '../../hooks/useAuth';
 import LoadingButton from '../ui/LoadingButton';
 import { isValidEmail } from '../../utils/validators';
 import { errorService } from '../../services/errorService';
+import { generateSecureToken, sanitizeInput } from '../../utils/cryptoHelpers';
 
 // Enhanced validation schema
 const loginSchema = z.object({
@@ -161,11 +162,19 @@ const LoginForm: React.FC<LoginFormProps> = ({
     try {
       clearErrors();
 
+      // Sanitize input data
+      const sanitizedEmail = sanitizeInput(data.email.trim().toLowerCase());
+      const sanitizedPassword = sanitizeInput(data.password);
+
+      // Generate CSRF token for additional security
+      const csrfToken = generateSecureToken(16);
+
       const success = await login(
         {
-          email: data.email.trim().toLowerCase(),
-          password: data.password,
+          email: sanitizedEmail,
+          password: sanitizedPassword,
           rememberMe: data.rememberMe,
+          csrfToken, // Add CSRF token to request
         },
         finalRedirectPath
       );

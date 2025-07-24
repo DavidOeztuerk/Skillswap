@@ -29,7 +29,9 @@ import {
 
 import PageHeader from '../components/layout/PageHeader';
 import PageContainer from '../components/layout/PageContainer';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import SkeletonLoader from '../components/ui/SkeletonLoader';
+import ApiErrorHandler from '../components/error/ApiErrorHandler';
+import { useApiErrorRecovery } from '../hooks/useApiErrorRecovery';
 import { useAuth } from '../hooks/useAuth';
 import { useSkills } from '../hooks/useSkills';
 import { useAppointments } from '../hooks/useAppointments';
@@ -64,14 +66,36 @@ const DashboardPage: React.FC = () => {
     isLoading: notificationsLoading,
   } = useNotifications();
 
+  const {
+    executeWithRecovery,
+    error,
+    isRetrying,
+    retryCount,
+    retry,
+    getErrorType,
+  } = useApiErrorRecovery();
+
+  // Daten laden mit Error Recovery
+  const loadDashboardData = async () => {
+    await executeWithRecovery(async () => {
+      await Promise.all([
+        fetchUserSkills(),
+        loadAppointments(),
+        loadMatches(),
+        loadIncomingRequests(),
+        loadOutgoingRequests(),
+      ]);
+    }, {
+      maxRetries: 2,
+      retryDelay: 1000,
+      exponentialBackoff: true,
+    });
+  };
+
   // Load data
   useEffect(() => {
-    void fetchUserSkills();
-    void loadAppointments();
-    void loadMatches();
-    void loadIncomingRequests();
-    void loadOutgoingRequests();
-  }, [fetchUserSkills, loadAppointments, loadMatches, loadIncomingRequests, loadOutgoingRequests]);
+    loadDashboardData();
+  }, []);
 
   // Statistiken berechnen
   const totalSkills = userSkills.length;
@@ -145,9 +169,23 @@ const DashboardPage: React.FC = () => {
         subtitle="Here you'll find an overview of your activities"
       />
 
-      {isLoading ? (
-        <LoadingSpinner message="Loading dashboard..." />
-      ) : (
+      {error && (
+        <ApiErrorHandler
+          error={{
+            type: getErrorType().toUpperCase() as any,
+            message: error.message,
+          }}
+          onRetry={retry}
+          isRetrying={isRetrying}
+          retryCount={retryCount}
+          maxRetries={3}
+          showNetworkStatus={true}
+        />
+      )}
+
+      {!error && isLoading ? (
+        <SkeletonLoader variant="card" count={6} />
+      ) : !error && (
         <Grid container columns={12} spacing={3}>
           {/* Übersichtskarten */}
           <Grid size={{ xs: 12 }}>

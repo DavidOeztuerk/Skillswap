@@ -1,31 +1,65 @@
 // src/routes/Router.tsx
-import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouteObject } from 'react-router-dom';
 import App from '../App';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import PrivateRoute from './PrivateRoute';
+import { withSuspense, withPrivateRoute } from '../components/routing/withSuspense';
 
-const HomePage = lazy(() => import('../pages/HomePage'));
-const DashboardPage = lazy(() => import('../pages/DashboardPage'));
-const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
-const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'));
-const SkillsPage = lazy(() => import('../pages/skills/SkillsPage'));
-const SkillDetailPage = lazy(() => import('../pages/skills/SkillDetailPage'));
-const SkillEditPage = lazy(() => import('../pages/skills/SkillEditPage'));
-const MatchmakingPage = lazy(
-  () => import('../pages/matchmaking/MatchmakingPage')
-);
-const AppointmentsPage = lazy(
-  () => import('../pages/appointments/AppointmentsPage')
-);
-const AppointmentDetailPage = lazy(
-  () => import('../pages/appointments/AppointmentDetailPage')
-);
-const VideoCallPage = lazy(() => import('../pages/videocall/VideoCallPage'));
-const ProfilePage = lazy(() => import('../pages/profile/ProfilePage'));
-const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
-const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage'));
-const SearchResultsPage = lazy(() => import('../pages/search/SearchResultsPage'));
+const HomePage = withSuspense(() => import('../pages/HomePage'), {
+  useSkeleton: true,
+  skeletonVariant: 'dashboard'
+});
+const DashboardPage = withPrivateRoute(() => import('../pages/DashboardPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'dashboard'
+});
+const LoginPage = withSuspense(() => import('../pages/auth/LoginPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'form'
+});
+const RegisterPage = withSuspense(() => import('../pages/auth/RegisterPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'form'
+});
+const SkillsPage = withPrivateRoute(() => import('../pages/skills/SkillsPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'list'
+});
+const SkillDetailPage = withPrivateRoute(() => import('../pages/skills/SkillDetailPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'details'
+});
+const SkillEditPage = withPrivateRoute(() => import('../pages/skills/SkillEditPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'form'
+});
+const MatchmakingPage = withPrivateRoute(() => import('../pages/matchmaking/MatchmakingPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'list'
+});
+const AppointmentsPage = withPrivateRoute(() => import('../pages/appointments/AppointmentsPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'list'
+});
+const AppointmentDetailPage = withPrivateRoute(() => import('../pages/appointments/AppointmentDetailPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'details',
+  loadingMessage: "Loading appointment..."
+});
+const VideoCallPage = withPrivateRoute(() => import('../pages/videocall/VideoCallPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'details'
+});
+const ProfilePage = withPrivateRoute(() => import('../pages/profile/ProfilePage'), {
+  useSkeleton: true,
+  skeletonVariant: 'profile'
+});
+const NotFoundPage = withSuspense(() => import('../pages/NotFoundPage'));
+const ForbiddenPage = withSuspense(() => import('../pages/ForbiddenPage'));
+const UnauthorizedPage = withSuspense(() => import('../pages/UnauthorizedPage'));
+const SearchResultsPage = withSuspense(() => import('../pages/search/SearchResultsPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'list',
+  loadingMessage: "Loading search..."
+});
 
 const routes: RouteObject[] = [
   {
@@ -34,229 +68,75 @@ const routes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: (
-          <Suspense
-            fallback={
-              <LoadingSpinner fullPage message="Seite wird geladen..." />
-            }
-          >
-            <HomePage />
-          </Suspense>
-        ),
+        element: <HomePage />,
       },
       {
         path: 'login',
-        element: (
-          <Suspense
-            fallback={
-              <LoadingSpinner fullPage message="Seite wird geladen..." />
-            }
-          >
-            <LoginPage />
-          </Suspense>
-        ),
+        element: <LoginPage />,
       },
       {
         path: 'register',
-        element: (
-          <Suspense
-            fallback={
-              <LoadingSpinner fullPage message="Seite wird geladen..." />
-            }
-          >
-            <RegisterPage />
-          </Suspense>
-        ),
+        element: <RegisterPage />,
       },
       {
         path: 'dashboard',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <DashboardPage />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <DashboardPage />,
       },
       {
         path: 'skills',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <SkillsPage showOnly="all" />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <SkillsPage showOnly="all" />,
       },
       {
         path: 'skills/my-skills',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <SkillsPage showOnly="mine" />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <SkillsPage showOnly="mine" />,
       },
       {
         path: 'skills/favorites',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <SkillsPage showOnly="favorite" />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <SkillsPage showOnly="favorite" />,
       },
       {
         path: 'skills/:skillId/edit',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <SkillEditPage />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <SkillEditPage />,
       },
       {
         path: 'skills/:skillId',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <SkillDetailPage />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <SkillDetailPage />,
       },
       {
         path: 'matchmaking',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <MatchmakingPage />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <MatchmakingPage />,
       },
       {
         path: 'appointments',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <AppointmentsPage />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <AppointmentsPage />,
       },
       {
         path: 'videocall/:appointmentId',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <VideoCallPage />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <VideoCallPage />,
       },
       {
         path: 'profile',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Seite wird geladen..." />
-              }
-            >
-              <ProfilePage />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <ProfilePage />,
       },
       {
         path: 'appointments/:appointmentId',
-        element: (
-          <PrivateRoute>
-            <Suspense
-              fallback={
-                <LoadingSpinner fullPage message="Loading appointment..." />
-              }
-            >
-              <AppointmentDetailPage />
-            </Suspense>
-          </PrivateRoute>
-        ),
+        element: <AppointmentDetailPage />,
       },
       {
         path: 'search',
-        element: (
-          <Suspense
-            fallback={
-              <LoadingSpinner fullPage message="Loading search..." />
-            }
-          >
-            <SearchResultsPage />
-          </Suspense>
-        ),
+        element: <SearchResultsPage />,
       },
       {
         path: 'forbidden',
-        element: (
-          <Suspense
-            fallback={
-              <LoadingSpinner fullPage message="Loading..." />
-            }
-          >
-            <ForbiddenPage />
-          </Suspense>
-        ),
+        element: <ForbiddenPage />,
+      },
+      {
+        path: 'unauthorized',
+        element: <UnauthorizedPage />,
       },
       {
         path: '*',
-        element: (
-          <Suspense
-            fallback={
-              <LoadingSpinner fullPage message="Seite wird geladen..." />
-            }
-          >
-            <NotFoundPage />
-          </Suspense>
-        ),
+        element: <NotFoundPage />,
       },
     ],
   },
