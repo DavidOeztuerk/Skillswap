@@ -602,15 +602,15 @@ users.MapDelete("/favorites", HandleRemoveFavoriteSkill)
 // API ENDPOINTS - USER DISCOVERY
 // ============================================================================
 
-users.MapGet("/", HandleGetUserById)
-    .WithName("GetUserById")
-    .WithSummary("Get public user profile by ID")
-    .WithDescription("Retrieves a user's public profile information by userId")
-    .WithTags("User Discovery")
-    .RequireAuthorization()
-    .Produces<PublicUserProfileResponse>(200)
-    .Produces(401)
-    .Produces(404);
+// users.MapGet("/", HandleGetUserById)
+//     .WithName("GetUserById")
+//     .WithSummary("Get public user profile by ID")
+//     .WithDescription("Retrieves a user's public profile information by userId")
+//     .WithTags("User Discovery")
+//     .RequireAuthorization()
+//     .Produces<PublicUserProfileResponse>(200)
+//     .Produces(401)
+//     .Produces(404);
 
 users.MapGet("/search", HandleSearchUsers)
     .WithName("SearchUsers")
@@ -947,14 +947,14 @@ static async Task<IResult> HandleRemoveFavoriteSkill(IMediator mediator, ClaimsP
 // HANDLER METHODS - USER DISCOVERY
 // ============================================================================
 
-static async Task<IResult> HandleGetUserById(IMediator mediator, ClaimsPrincipal user, [FromBody] GetPublicUserProfileQuery query)
-{
-    var userId = user.GetUserId();
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+// static async Task<IResult> HandleGetUserById(IMediator mediator, ClaimsPrincipal user, [FromBody] GetPublicUserProfileQuery query)
+// {
+//     var userId = user.GetUserId();
+//     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedQuery = query with { UserId = userId };
-    return await mediator.SendQuery(updatedQuery);
-}
+//     var updatedQuery = query with { UserId = userId };
+//     return await mediator.SendQuery(updatedQuery);
+// }
 
 static async Task<IResult> HandleSearchUsers(IMediator mediator, ClaimsPrincipal user, [FromBody] SearchUsersQuery query)
 {

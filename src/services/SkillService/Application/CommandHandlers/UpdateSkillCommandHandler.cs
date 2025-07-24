@@ -188,8 +188,7 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
                 skill.ProficiencyLevelId,
                 skill.Tags,
                 skill.IsOffering,
-                skill.IsPopular,
-                skill.IsActive ? "Active" : "Inactive",
+                skill.IsActive,
                 skill.UpdatedAt.Value);
 
             return Success(response, "Skill updated successfully");

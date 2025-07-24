@@ -10,8 +10,7 @@ namespace Contracts.Skill.Responses;
 /// <param name="ProficiencyLevelName">Updated name of the proficiency level</param>
 /// <param name="Tags">Updated associated tags for the skill</param>
 /// <param name="IsOffered">Updated: whether the user offers this skill</param>
-/// <param name="IsWanted">Updated: whether the user wants to learn this skill</param>
-/// <param name="Status">Current status of the skill</param>
+/// <param name="IsActive">Updated: whether the user wants to learn this skill</param>
 /// <param name="UpdatedAt">When the skill was last updated</param>
 public record UpdateSkillResponse(
     string SkillId,
@@ -21,9 +20,8 @@ public record UpdateSkillResponse(
     string ProficiencyLevelId,
     List<string> Tags,
     bool IsOffered,
-    bool IsWanted,
-    string Status,
-    DateTime UpdatedAt)
+    bool IsActive,
+    DateTime? UpdatedAt)
 {
     /// <summary>
     /// API Version this response supports

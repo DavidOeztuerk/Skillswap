@@ -175,7 +175,17 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        // state.user = action.payload || null;
+        state.user = {
+          id: action.payload.user.userId,
+          email: action.payload.user.email,
+          firstName: action.payload.user.firstName,
+          lastName: action.payload.user.lastName,
+          userName: action.payload.user.userName,
+          roles: action.payload.user.roles,
+          emailVerified: action.payload.user.emailVerified,
+          accountStatus: action.payload.user.accountStatus,
+          createdAt: '',
+        };
         state.token = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken;
         state.error = null;
