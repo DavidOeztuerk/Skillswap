@@ -1,22 +1,36 @@
-import { User } from '../../models/User';
-
 export interface RegisterResponse {
   userId: string;
   email: string;
   firstName: string;
   lastName: string;
   userName: string;
-  tokens: Tokens;
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresAt: Date;
   emailVerificationRequired: boolean;
 }
 
 export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  expiresAt: Date;
+  user: UserInfo;
+  requiresTwoFactor?: boolean;
+  twoFactorMethod?: string;
+}
+
+export interface UserInfo {
   userId: string;
-  profile: User;
-  tokens: Tokens;
-  requiresEmailVerification: boolean;
-  requiredTwoFactor: boolean;
-  lastLogout: string | null;
+  email: string;
+  firstName: string;
+  lastName: string;
+  userName: string;
+  roles: string[];
+  emailVerified: boolean;
+  accountStatus: string;
 }
 
 // export interface LoginResponse {
@@ -24,6 +38,7 @@ export interface LoginResponse {
 //   refreshToken: string;
 // }
 
+// Legacy interface - kept for backwards compatibility
 export interface Tokens {
   accessToken: string;
   refreshToken: string;
