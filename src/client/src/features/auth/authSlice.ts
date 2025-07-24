@@ -175,20 +175,31 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
+        
+        // Handle both nested user object and flat response
+        const userData = action.payload.user;
         state.user = {
-          id: action.payload.user.userId,
-          email: action.payload.user.email,
-          firstName: action.payload.user.firstName,
-          lastName: action.payload.user.lastName,
-          userName: action.payload.user.userName,
-          roles: action.payload.user.roles,
-          emailVerified: action.payload.user.emailVerified,
-          accountStatus: action.payload.user.accountStatus,
+          id: userData.userId,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          userName: userData.userName,
+          roles: userData.roles || [],
+          emailVerified: userData.emailVerified || false,
+          accountStatus: userData.accountStatus || 'active',
           createdAt: '',
         };
+        
         state.token = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken;
         state.error = null;
+        
+        console.log('✅ Login successful in authSlice, token set:', action.payload.accessToken ? 'Yes' : 'No');
+        console.log('🔍 AuthSlice received response:', {
+          hasAccessToken: !!action.payload.accessToken,
+          hasRefreshToken: !!action.payload.refreshToken,
+          hasUser: !!action.payload.user
+        });
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;

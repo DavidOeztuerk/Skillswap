@@ -1,6 +1,5 @@
 // src/utils/authHelpers.ts
 import { SessionStorage } from './sessionStorage';
-import { encryptData, decryptData } from './cryptoHelpers';
 
 // Storage keys
 const TOKEN_KEY = 'access_token';
@@ -25,15 +24,19 @@ export const setToken = (
   storageType: 'session' | 'permanent' = 'session'
 ): void => {
   try {
+    console.log('💾 setToken called with:', { tokenLength: token?.length, storageType });
+    
     if (!token?.trim()) {
       console.warn('Attempted to set empty token');
       return;
     }
 
     const timestamp = Date.now().toString();
-    const encryptedToken = encryptData(token);
+    // Temporarily disable encryption for debugging
+    const encryptedToken = token; // encryptData(token);
 
     if (storageType === 'session') {
+      console.log('💾 Storing in sessionStorage...');
       SessionStorage.setItem(TOKEN_KEY, encryptedToken);
       SessionStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
       SessionStorage.setItem(REMEMBER_ME_KEY, 'false');
@@ -42,7 +45,10 @@ export const setToken = (
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
       localStorage.removeItem(REMEMBER_ME_KEY);
+      
+      console.log('✅ Token stored in sessionStorage');
     } else if (storageType === 'permanent') {
+      console.log('💾 Storing in localStorage...');
       localStorage.setItem(TOKEN_KEY, encryptedToken);
       localStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
       localStorage.setItem(REMEMBER_ME_KEY, 'true');
@@ -51,6 +57,8 @@ export const setToken = (
       SessionStorage.removeItem(TOKEN_KEY);
       SessionStorage.removeItem(TOKEN_TIMESTAMP_KEY);
       SessionStorage.removeItem(REMEMBER_ME_KEY);
+      
+      console.log('✅ Token stored in localStorage');
     }
   } catch (error) {
     console.error('Error storing token:', error);
@@ -77,10 +85,10 @@ export const getToken = (): string | null => {
       return null;
     }
 
-    // Decrypt the token
-    const token = decryptData(encryptedToken);
+    // Temporarily disable decryption for debugging
+    const token = encryptedToken; // decryptData(encryptedToken);
     if (!token) {
-      console.warn('Failed to decrypt token, removing invalid data');
+      console.warn('No token found in storage');
       removeToken();
       return null;
     }
@@ -114,7 +122,8 @@ export const setRefreshToken = (
       return;
     }
 
-    const encryptedRefreshToken = encryptData(refreshToken);
+    // Temporarily disable encryption for debugging
+    const encryptedRefreshToken = refreshToken; // encryptData(refreshToken);
 
     if (storageType === 'session') {
       SessionStorage.setItem(REFRESH_TOKEN_KEY, encryptedRefreshToken);
@@ -146,10 +155,10 @@ export const getRefreshToken = (): string | null => {
       return null;
     }
 
-    // Decrypt the refresh token
-    const refreshToken = decryptData(encryptedRefreshToken);
+    // Temporarily disable decryption for debugging
+    const refreshToken = encryptedRefreshToken; // decryptData(encryptedRefreshToken);
     if (!refreshToken) {
-      console.warn('Failed to decrypt refresh token');
+      console.warn('No refresh token found in storage');
       return null;
     }
 
