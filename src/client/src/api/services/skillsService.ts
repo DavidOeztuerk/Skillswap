@@ -66,10 +66,18 @@ const skillService = {
   /**
    * Get current user's skills
    */
-  async getUserSkills(page = 1, pageSize = 12): Promise<PaginatedResponse<Skill>> {
-    return apiClient.get<PaginatedResponse<Skill>>(
+  async getUserSkills(page = 1, pageSize = 12, isOffering?: boolean, categoryId?: number, includeInactive = false): Promise<PaginatedResponse<Skill>> {
+    const requestData = {
+      pageNumber: page,
+      pageSize: pageSize,
+      isOffering: isOffering,
+      categoryId: categoryId,
+      includeInactive: includeInactive
+    };
+    
+    return apiClient.post<PaginatedResponse<Skill>>(
       SKILL_ENDPOINTS.GET_USER_SKILLS,
-      { PageNumber: page, PageSize: pageSize }
+      requestData
     );
   },
 

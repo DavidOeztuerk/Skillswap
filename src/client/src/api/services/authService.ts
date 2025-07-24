@@ -60,21 +60,51 @@ const authService = {
     const email = validateEmail(credentials.email);
     const password = validateRequired(credentials.password, 'Passwort');
 
+    const loginData: any = { email, password };
+    
+    // Add optional fields if provided
+    if (credentials.rememberMe !== undefined) {
+      loginData.rememberMe = credentials.rememberMe;
+    }
+    if (credentials.twoFactorCode) {
+      loginData.twoFactorCode = credentials.twoFactorCode;
+    }
+    if (credentials.deviceId) {
+      loginData.deviceId = credentials.deviceId;
+    }
+    if (credentials.deviceInfo) {
+      loginData.deviceInfo = credentials.deviceInfo;
+    }
+
     const response = await apiClient.post<LoginResponse>(
       AUTH_ENDPOINTS.LOGIN,
-      { email, password }
+      loginData
     );
+    
+    console.log('🔍 Login response received:', {
+      hasAccessToken: !!response.accessToken,
+      hasRefreshToken: !!response.refreshToken,
+      hasUser: !!response.user,
+      responseKeys: Object.keys(response)
+    });
 
     if (!response.accessToken) {
+      console.error('❌ No accessToken in response:', response);
       throw new Error('Ungültige Antwort vom Server');
     }
 
     const storageType = credentials.rememberMe ? 'permanent' : 'session';
+    console.log('💾 Storing token with type:', storageType);
+    
     setToken(response.accessToken, storageType);
     
     if (response.refreshToken) {
       setRefreshToken(response.refreshToken, storageType);
     }
+    
+    // Verify token was stored
+    const storedToken = getToken();
+    console.log('✅ Token stored successfully:', !!storedToken);
 
     return response;
   },

@@ -9,6 +9,7 @@ import SkipLinks from './components/accessibility/SkipLinks';
 import NetworkStatusIndicator from './components/error/NetworkStatusIndicator';
 // import { useAnnouncements } from './hooks/useAnnouncements';
 import { useRouteAnnouncements } from './hooks/useRouteAnnouncements';
+import './utils/debugHelpers'; // Enable debug helpers
 
 const App = () => {
   const { mode, theme, toggleTheme } = useTheme();
