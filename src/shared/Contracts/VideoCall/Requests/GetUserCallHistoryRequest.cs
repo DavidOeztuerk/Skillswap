@@ -6,8 +6,8 @@ namespace Contracts.VideoCall.Requests;
 /// API request for GetUserCallHistory operation
 /// </summary>
 public record GetUserCallHistoryRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    int PageNumber = 1,
+    int PageSize = 20)
 {
     /// <summary>
     /// API Version this request supports

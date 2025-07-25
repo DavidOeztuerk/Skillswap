@@ -4,8 +4,9 @@ namespace Contracts.Matchmaking.Responses;
 /// API response for CreateMatchRequest operation
 /// </summary>
 public record CreateMatchRequestResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string RequestId,
+    string Status,
+    DateTime CreatedAt)
 {
     /// <summary>
     /// API Version this response supports
