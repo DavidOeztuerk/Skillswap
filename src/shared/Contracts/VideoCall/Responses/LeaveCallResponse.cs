@@ -4,8 +4,8 @@ namespace Contracts.VideoCall.Responses;
 /// API response for LeaveCall operation
 /// </summary>
 public record LeaveCallResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string SessionId,
+    bool Success)
 {
     /// <summary>
     /// API Version this response supports

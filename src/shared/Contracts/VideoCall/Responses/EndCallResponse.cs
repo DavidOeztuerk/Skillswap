@@ -4,8 +4,10 @@ namespace Contracts.VideoCall.Responses;
 /// API response for EndCall operation
 /// </summary>
 public record EndCallResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string SessionId,
+    DateTime EndedAt,
+    int DurationSeconds,
+    int? Rating)
 {
     /// <summary>
     /// API Version this response supports
