@@ -72,6 +72,11 @@ public interface IRateLimitService
         TimeSpan? duration = null,
         string? reason = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieve all registered rate limit rules
+    /// </summary>
+    IEnumerable<RateLimitRule> GetRegisteredRules();
 }
 
 /// <summary>
