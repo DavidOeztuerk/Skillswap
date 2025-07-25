@@ -371,9 +371,9 @@ public class RateLimitService : IRateLimitService
     }
 
     public async Task BlacklistClientAsync(
-        string clientId, 
-        TimeSpan? duration = null, 
-        string? reason = null, 
+        string clientId,
+        TimeSpan? duration = null,
+        string? reason = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -398,6 +398,14 @@ public class RateLimitService : IRateLimitService
         {
             _logger.LogError(ex, "Error blacklisting client {ClientId}", clientId);
             throw;
+        }
+    }
+
+    public IEnumerable<RateLimitRule> GetRegisteredRules()
+    {
+        lock (_rulesLock)
+        {
+            return _rules.Select(r => r).ToList();
         }
     }
 
