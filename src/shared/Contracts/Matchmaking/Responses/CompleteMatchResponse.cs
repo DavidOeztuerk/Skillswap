@@ -4,8 +4,9 @@ namespace Contracts.Matchmaking.Responses;
 /// API response for CompleteMatch operation
 /// </summary>
 public record CompleteMatchResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string MatchId,
+    bool Success,
+    DateTime CompletedAt)
 {
     /// <summary>
     /// API Version this response supports

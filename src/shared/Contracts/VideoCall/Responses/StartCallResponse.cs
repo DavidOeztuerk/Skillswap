@@ -4,8 +4,8 @@ namespace Contracts.VideoCall.Responses;
 /// API response for StartCall operation
 /// </summary>
 public record StartCallResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string SessionId,
+    DateTime StartedAt)
 {
     /// <summary>
     /// API Version this response supports
