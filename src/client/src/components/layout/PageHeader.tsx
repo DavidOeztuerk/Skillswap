@@ -17,10 +17,11 @@ interface PageHeaderProps {
   title?: string; // Now optional - will be auto-generated if not provided
   subtitle?: string;
   breadcrumbs?: BreadcrumbItem[]; // Optional - will be auto-generated if not provided
-  action?: React.ReactNode;
+  actions?: React.ReactNode;
   sx?: SxProps<Theme>;
   showBreadcrumbs?: boolean; // Control breadcrumb visibility
   useAutoBreadcrumbs?: boolean; // Use automatic breadcrumb generation
+  icon?: React.ReactNode; // Icon for the header, if needed
 }
 
 /**
@@ -30,10 +31,11 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   title,
   subtitle,
   breadcrumbs,
-  action,
+  actions,
   sx = {},
   showBreadcrumbs = true,
   useAutoBreadcrumbs = true,
+  icon
 }) => {
   const autoBreadcrumbs = useBreadcrumbs();
   
@@ -91,15 +93,22 @@ const PageHeader: React.FC<PageHeaderProps> = ({
           </Breadcrumbs>
         )}
 
-        <Typography
-          variant="h4"
-          component="h1"
-          color="text.primary"
-          fontWeight="medium"
-          sx={{ mb: subtitle ? 1 : 0 }}
-        >
-          {finalTitle}
-        </Typography>
+        <Box display="flex" alignItems="center" gap={2}>
+          {icon && (
+            <Box>
+              {icon}
+            </Box>
+          )}
+          <Typography
+            variant="h4"
+            component="h1"
+            color="text.primary"
+            fontWeight="medium"
+            sx={{ mb: subtitle ? 1 : 0 }}
+          >
+            {finalTitle}
+          </Typography>
+        </Box>
 
         {subtitle && (
           <Typography variant="subtitle1" color="text.secondary">
@@ -108,14 +117,14 @@ const PageHeader: React.FC<PageHeaderProps> = ({
         )}
       </Box>
 
-      {action && (
+      {actions && (
         <Box
           sx={{
             mt: { xs: 2, sm: 0 },
             alignSelf: { xs: 'flex-start', sm: 'center' },
           }}
         >
-          {action}
+          {actions}
         </Box>
       )}
     </Box>

@@ -78,6 +78,115 @@ const videoCallService = {
       issue: issue.trim(),
     });
   },
+
+  /**
+   * Join call with updated endpoint
+   */
+  async joinCall(roomId: string): Promise<VideoCallConfig> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    return apiClient.post<VideoCallConfig>(`${VIDEOCALL_ENDPOINTS.JOIN}/${roomId}`);
+  },
+
+  /**
+   * Leave call with updated endpoint
+   */
+  async leaveCall(roomId: string): Promise<void> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.LEAVE}/${roomId}`);
+  },
+
+  /**
+   * Start recording
+   */
+  async startRecording(roomId: string): Promise<any> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    return apiClient.post<any>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/recording/start`);
+  },
+
+  /**
+   * Stop recording
+   */
+  async stopRecording(roomId: string): Promise<any> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    return apiClient.post<any>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/recording/stop`);
+  },
+
+  /**
+   * Get call statistics
+   */
+  async getCallStatistics(roomId: string): Promise<any> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    return apiClient.get<any>(`${VIDEOCALL_ENDPOINTS.STATISTICS}?roomId=${roomId}`);
+  },
+
+  /**
+   * Report technical issue with details
+   */
+  async reportTechnicalIssue(roomId: string, issue: string, description: string): Promise<void> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    if (!issue?.trim()) throw new Error('Problem-Typ ist erforderlich');
+    
+    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/report`, {
+      issue: issue.trim(),
+      description: description.trim(),
+      timestamp: new Date().toISOString(),
+    });
+  },
+
+  /**
+   * Get call history
+   */
+  async getCallHistory(params?: { page?: number; limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const url = `${VIDEOCALL_ENDPOINTS.MY_CALLS}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return apiClient.get<any>(url);
+  },
+
+  /**
+   * Test connection quality
+   */
+  async testConnection(): Promise<any> {
+    return apiClient.get<any>(`${VIDEOCALL_ENDPOINTS.DETAILS}/test-connection`);
+  },
+
+  /**
+   * Get supported features
+   */
+  async getSupportedFeatures(): Promise<any> {
+    return apiClient.get<any>(`${VIDEOCALL_ENDPOINTS.DETAILS}/features`);
+  },
+
+  /**
+   * Update call settings
+   */
+  async updateCallSettings(roomId: string, settings: any): Promise<void> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    await apiClient.put<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/settings`, settings);
+  },
+
+  /**
+   * Send chat message
+   */
+  async sendChatMessage(roomId: string, message: string): Promise<void> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    if (!message?.trim()) throw new Error('Nachricht ist erforderlich');
+    
+    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/chat`, {
+      message: message.trim(),
+      timestamp: new Date().toISOString(),
+    });
+  },
+
+  /**
+   * Get call participants
+   */
+  async getCallParticipants(roomId: string): Promise<any[]> {
+    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
+    return apiClient.get<any[]>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/participants`);
+  },
 };
 
 export default videoCallService;

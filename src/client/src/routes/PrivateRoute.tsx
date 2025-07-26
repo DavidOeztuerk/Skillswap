@@ -6,12 +6,14 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 interface PrivateRouteProps {
   children: React.ReactNode;
   requiredRoles?: string[];
+  requiredRole?: string;
   redirectTo?: string;
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({
   children,
   requiredRoles = [],
+  requiredRole,
   redirectTo = '/login',
 }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -28,13 +30,14 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
   }
 
   // Check role requirements if specified
-  if (requiredRoles.length > 0 && user) {
-    const hasRequiredRole = requiredRoles.some(role =>
+  const rolesToCheck = requiredRole ? [requiredRole] : requiredRoles;
+  if (rolesToCheck.length > 0 && user) {
+    const hasRequiredRole = rolesToCheck.some(role =>
       user.roles?.includes(role)
     );
 
     if (!hasRequiredRole) {
-      return <Navigate to="/unauthorized" replace />;
+      return <Navigate to="/forbidden" replace />;
     }
   }
 
