@@ -237,6 +237,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
       const matchRequest: MatchRequest = {
         matchId: '', // Wird vom Backend generiert
         requesterId: '', // Muss ggf. im Parent/Context gesetzt werden
+        requesterName: '', // Wird vom Backend gesetzt
         targetUserId: skill.userId || '', // Annahme: Skill enthält userId
         skillId: skill.id,
         skillName: skill.name,

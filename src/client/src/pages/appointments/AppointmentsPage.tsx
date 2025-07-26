@@ -143,7 +143,7 @@ const AppointmentsPage: React.FC = () => {
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Termine' },
         ]}
-        action={
+        actions={
           <PageHeaderAction
             label="Zum Matchmaking"
             onClick={() => navigate('/matchmaking')}

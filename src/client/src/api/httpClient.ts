@@ -18,6 +18,7 @@ export interface RequestConfig {
   retries?: number;
   retryDelay?: number;
   params?: Record<string, unknown>;
+  metadata?: Record<string, any>;
   _retry?: boolean;
 }
 

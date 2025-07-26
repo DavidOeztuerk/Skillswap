@@ -183,7 +183,7 @@ export const useMatchmaking = () => {
   const getRequestsByStatus = (
     status: string,
     incoming: boolean = true
-  ): MatchRequest[] => {
+  ) => {
     const requests = incoming ? incomingRequests : outgoingRequests;
     return requests.filter((request) => request.status === status);
   };

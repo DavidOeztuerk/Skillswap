@@ -264,7 +264,7 @@ const MatchmakingPage: React.FC = () => {
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Matchmaking' },
         ]}
-        action={
+        actions={
           <button onClick={matchButtonInfo.onClick}>
             {matchButtonInfo.label}
           </button>

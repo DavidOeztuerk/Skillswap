@@ -1,6 +1,5 @@
 // src/api/services/authService.ts
 import { AUTH_ENDPOINTS, PROFILE_ENDPOINTS } from '../../config/endpoints';
-import { MIN_PASSWORD_LENGTH } from '../../config/constants';
 import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
 import { RegisterResponse, LoginResponse } from '../../types/contracts/responses/AuthResponse';
 import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
@@ -20,35 +19,6 @@ import {
 } from '../../utils/authHelpers';
 import apiClient from '../apiClient';
 
-// Helper functions for validation
-const validateEmail = (email: string): string => {
-  const trimmed = email.trim().toLowerCase();
-  if (!trimmed) throw new Error('E-Mail-Adresse ist erforderlich');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-    throw new Error('Ungültige E-Mail-Adresse');
-  }
-  return trimmed;
-};
-
-const validatePassword = (password: string, fieldName = 'Passwort'): string => {
-  if (!password?.trim()) throw new Error(`${fieldName} ist erforderlich`);
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    throw new Error(`${fieldName} muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein`);
-  }
-  return password;
-};
-
-const validateRequired = (value: string | undefined, fieldName: string): string => {
-  const trimmed = value?.trim();
-  if (!trimmed) throw new Error(`${fieldName} ist erforderlich`);
-  return trimmed;
-};
-
-// Extended Login Request with rememberMe option
-interface ExtendedLoginRequest extends LoginRequest {
-  rememberMe?: boolean;
-}
-
 /**
  * Authentication Service with improved error handling and validation
  */
@@ -56,29 +26,10 @@ const authService = {
   /**
    * Login with credentials
    */
-  async login(credentials: ExtendedLoginRequest): Promise<LoginResponse> {
-    const email = validateEmail(credentials.email);
-    const password = validateRequired(credentials.password, 'Passwort');
-
-    const loginData: any = { email, password };
-    
-    // Add optional fields if provided
-    if (credentials.rememberMe !== undefined) {
-      loginData.rememberMe = credentials.rememberMe;
-    }
-    if (credentials.twoFactorCode) {
-      loginData.twoFactorCode = credentials.twoFactorCode;
-    }
-    if (credentials.deviceId) {
-      loginData.deviceId = credentials.deviceId;
-    }
-    if (credentials.deviceInfo) {
-      loginData.deviceInfo = credentials.deviceInfo;
-    }
-
+  async login(credentials: LoginRequest): Promise<LoginResponse> {
     const response = await apiClient.post<LoginResponse>(
       AUTH_ENDPOINTS.LOGIN,
-      loginData
+      credentials
     );
     
     console.log('🔍 Login response received:', {
@@ -112,18 +63,10 @@ const authService = {
   /**
    * Register new user
    */
-  async register(userData: RegisterRequest): Promise<RegisterResponse> {
-    const validatedData = {
-      email: validateEmail(userData.email),
-      password: validatePassword(userData.password),
-      firstName: validateRequired(userData.firstName, 'Vorname'),
-      lastName: validateRequired(userData.lastName, 'Nachname'),
-      userName: userData.userName?.trim(),
-    };
-
+  async register(credentials: RegisterRequest): Promise<RegisterResponse> {
     const response = await apiClient.post<RegisterResponse>(
       AUTH_ENDPOINTS.REGISTER,
-      validatedData
+      credentials
     );
 
     if (response.accessToken) {
@@ -191,32 +134,23 @@ const authService = {
    * Change password
    */
   async changePassword(passwordData: ChangePasswordRequest): Promise<void> {
-    const validatedData = {
-      currentPassword: validateRequired(passwordData.currentPassword, 'Aktuelles Passwort'),
-      newPassword: validatePassword(passwordData.newPassword, 'Neues Passwort'),
-    };
-
-    await apiClient.post<void>(AUTH_ENDPOINTS.CHANGE_PASSWORD, validatedData);
+    await apiClient.post<void>(AUTH_ENDPOINTS.CHANGE_PASSWORD, passwordData);
   },
 
   /**
    * Request password reset
    */
   async forgotPassword(email: string): Promise<void> {
-    const validatedEmail = validateEmail(email);
-    await apiClient.post<void>(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email: validatedEmail });
+    await apiClient.post<void>(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email: email });
   },
 
   /**
    * Reset password with token
    */
   async resetPassword(token: string, password: string): Promise<void> {
-    const validatedToken = validateRequired(token, 'Reset-Token');
-    const validatedPassword = validatePassword(password, 'Neues Passwort');
-
     await apiClient.post<void>(AUTH_ENDPOINTS.RESET_PASSWORD, {
-      token: validatedToken,
-      password: validatedPassword,
+      token: token,
+      password: password,
     });
   },
 
@@ -224,12 +158,7 @@ const authService = {
    * Verify email
    */
   async verifyEmail(request: VerifyEmailRequest): Promise<void> {
-    const validatedData = {
-      email: validateEmail(request.email),
-      verificationToken: validateRequired(request.verificationToken, 'Verifizierungs-Token'),
-    };
-
-    await apiClient.post<void>(AUTH_ENDPOINTS.VERIFY_EMAIL, validatedData);
+    await apiClient.post<void>(AUTH_ENDPOINTS.VERIFY_EMAIL, request);
   },
 
   /**
@@ -243,14 +172,9 @@ const authService = {
    * Verify 2FA code
    */
   async verifyTwoFactorCode(request: VerifyTwoFactorCodeRequest): Promise<VerifyTwoFactorCodeResponse> {
-    const validatedData = {
-      userId: validateRequired(request.userId, 'User ID'),
-      code: validateRequired(request.code, 'Verifizierungscode'),
-    };
-
     return apiClient.post<VerifyTwoFactorCodeResponse>(
       AUTH_ENDPOINTS.VERIFY_2FA,
-      validatedData
+      request
     );
   },
 

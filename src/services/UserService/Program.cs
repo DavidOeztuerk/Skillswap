@@ -832,12 +832,12 @@ static async Task<IResult> HandleChangePassword(IMediator mediator, ClaimsPrinci
 // HANDLER METHODS - USER PROFILE
 // ============================================================================
 
-static async Task<IResult> HandleGetUserProfile(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserProfileQuery query)
+static async Task<IResult> HandleGetUserProfile(IMediator mediator, ClaimsPrincipal user)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedQuery = query with { UserId = userId };
+    var updatedQuery = new GetUserProfileQuery(userId);
     return await mediator.SendQuery(updatedQuery);
 }
 

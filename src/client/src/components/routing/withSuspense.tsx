@@ -15,6 +15,7 @@ interface WithSuspenseOptions {
 
 interface WithPrivateRouteOptions extends WithSuspenseOptions {
   requiredRoles?: string[];
+  requiredRole?: string;
   redirectTo?: string;
 }
 
@@ -85,6 +86,7 @@ export function withPrivateRoute<T extends ComponentType<any>>(
     const ComponentWithAuth = (
       <PrivateRoute 
         requiredRoles={options.requiredRoles}
+        requiredRole={options.requiredRole}
         redirectTo={options.redirectTo}
       >
         <Suspense fallback={fallback}>

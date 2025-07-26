@@ -42,4 +42,5 @@ export interface NotificationSettings {
   appointmentReminders: boolean;
   skillEndorsements: boolean;
   systemUpdates: boolean;
+  desktopNotifications: boolean;
 }

@@ -10,8 +10,8 @@ const notificationService = {
   /**
    * Get all user notifications
    */
-  async getNotifications(): Promise<Notification[]> {
-    return apiClient.get<Notification[]>(NOTIFICATION_ENDPOINTS.GET_ALL);
+  async getNotifications(params?: { page?: number; limit?: number; filters?: any }): Promise<Notification[]> {
+    return apiClient.get<Notification[]>(NOTIFICATION_ENDPOINTS.GET_ALL, { params });
   },
 
   /**
@@ -50,6 +50,29 @@ const notificationService = {
   async deleteNotification(notificationId: string): Promise<void> {
     if (!notificationId?.trim()) throw new Error('Benachrichtigungs-ID ist erforderlich');
     return apiClient.delete<void>(`${NOTIFICATION_ENDPOINTS.GET_ALL}/${notificationId}`);
+  },
+
+  /**
+   * Subscribe to real-time notifications
+   */
+  async subscribeToRealTime(userId: string): Promise<void> {
+    // Implementation would use SignalR or similar
+    console.log('Subscribing to real-time notifications for user:', userId);
+  },
+
+  /**
+   * Unsubscribe from real-time notifications
+   */
+  async unsubscribeFromRealTime(): Promise<void> {
+    // Implementation would use SignalR or similar
+    console.log('Unsubscribing from real-time notifications');
+  },
+
+  /**
+   * Clear all notifications
+   */
+  async clearAllNotifications(): Promise<void> {
+    return apiClient.delete<void>(NOTIFICATION_ENDPOINTS.GET_ALL);
   },
 };
 

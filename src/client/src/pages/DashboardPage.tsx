@@ -102,7 +102,7 @@ const DashboardPage: React.FC = () => {
   const teachingSkillsCount = userSkills.filter(skill => skill.isOffering).length;
   const pendingAppointments = appointments.filter(appt => appt.status === 'Pending').length;
   const totalMatches = matches.length;
-  const pendingMatchRequests = incomingRequests.filter(req => req.status === 'Pending').length;
+  const pendingMatchRequests = incomingRequests.filter(req => req.status === 'pending').length;
 
   // Dashboard-Karten mit echten Daten
   const dashboardCards = [
