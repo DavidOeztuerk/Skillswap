@@ -1,4 +1,4 @@
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, type Middleware } from '@reduxjs/toolkit';
 import auth from '../features/auth/authSlice';
 import skills from '../features/skills/skillsSlice';
 import category from '../features/skills/categorySlice';
@@ -21,7 +21,7 @@ export const store = configureStore({
     videoCall,
     notifications,
   },
-  middleware: (getDefaultMiddleware) =>
+  middleware: (getDefaultMiddleware: (options?: any) => Middleware[]) =>
     getDefaultMiddleware({
       serializableCheck: {
         // Ignore non-serializable values in specific paths

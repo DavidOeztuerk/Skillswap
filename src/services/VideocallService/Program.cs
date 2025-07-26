@@ -228,76 +228,77 @@ app.UseAuthorization();
 // Grouped endpoints for calls
 var calls = app.MapGroup("/calls").WithTags("VideoCalls");
 
-calls.MapPost("/create", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] CreateCallSessionCommand command) =>
+calls.MapPost("/create", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] CreateCallSessionRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new CreateCallSessionCommand(userId, request.AppointmentId, null, false, request.MaxParticipants) { UserId = userId };
+    return await mediator.SendCommand(command);
 })
 .WithName("CreateCallSession")
 .WithSummary("Create a new video call session")
 .WithDescription("Creates a new video call session for the authenticated user.")
 .RequireAuthorization();
 
-calls.MapPost("/join", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] JoinCallCommand command) =>
+calls.MapPost("/join", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] JoinCallRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new JoinCallCommand(request.SessionId) { UserId = userId };
+    return await mediator.SendCommand(command);
 })
 .WithName("JoinCall")
 .WithSummary("Join a video call session")
 .WithDescription("Joins a video call session for the authenticated user.")
 .RequireAuthorization();
 
-calls.MapPost("/leave", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] LeaveCallCommand command) =>
+calls.MapPost("/leave", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] LeaveCallRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new LeaveCallCommand(request.SessionId) { UserId = userId };
+    return await mediator.SendCommand(command);
 })
 .WithName("LeaveCall")
 .WithSummary("Leave a video call session")
 .WithDescription("Leaves a video call session for the authenticated user.")
 .RequireAuthorization();
 
-calls.MapPost("/start", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] StartCallCommand command) =>
+calls.MapPost("/start", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] StartCallRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new StartCallCommand(request.SessionId) { UserId = userId };
+    return await mediator.SendCommand(command);
 })
 .WithName("StartCall")
 .WithSummary("Start a video call session")
 .WithDescription("Starts a video call session for the authenticated user.")
 .RequireAuthorization();
 
-calls.MapPost("/end", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] EndCallCommand command) =>
+calls.MapPost("/end", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] EndCallRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new EndCallCommand(request.SessionId, request.Rating, request.Feedback) { UserId = userId };
+    return await mediator.SendCommand(command);
 })
 .WithName("EndCall")
 .WithSummary("End a video call session")
 .WithDescription("Ends a video call session for the authenticated user.")
 .RequireAuthorization();
 
-calls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetCallSessionQuery query) =>
+calls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetCallSessionRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
+    var query = new GetCallSessionQuery(request.SessionId);
     return await mediator.SendQuery(query);
 })
 .WithName("GetCallSession")
@@ -306,11 +307,12 @@ calls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] 
 
 // Grouped endpoints for user call history
 var myCalls = app.MapGroup("/my/calls").WithTags("VideoCalls");
-myCalls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetUserCallHistoryQuery query) =>
+myCalls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetUserCallHistoryRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
+    var query = new GetUserCallHistoryQuery(userId, request.PageNumber, request.PageSize);
     return await mediator.SendQuery(query);
 })
 .WithName("GetMyCallHistory")
@@ -320,11 +322,12 @@ myCalls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody
 
 // Grouped endpoints for analytics
 var analytics = app.MapGroup("/statistics").WithTags("Analytics");
-analytics.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetCallStatisticsQuery query) =>
+analytics.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetCallStatisticsRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
+    var query = new GetCallStatisticsQuery(request.FromDate, request.ToDate);
     return await mediator.SendQuery(query);
 })
 .WithName("GetCallStatistics")
