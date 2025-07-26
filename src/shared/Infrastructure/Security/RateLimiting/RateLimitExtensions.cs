@@ -258,6 +258,9 @@ public class RateLimitMaintenanceService : BackgroundService
     private readonly IRateLimitService _rateLimitService;
     private readonly Microsoft.Extensions.Logging.ILogger<RateLimitMaintenanceService> _logger;
     private readonly TimeSpan _maintenanceInterval = TimeSpan.FromHours(1);
+    private const int BlacklistThreshold = 1000;
+    private const int RuleAdjustmentThreshold = 500;
+    private const double RuleAdjustmentFactor = 0.8;
 
     public RateLimitMaintenanceService(
         IRateLimitService rateLimitService,
@@ -322,9 +325,45 @@ public class RateLimitMaintenanceService : BackgroundService
                 }
             }
 
-            // TODO: Add automatic rule adjustment based on patterns
-            // TODO: Add automatic blacklisting for extreme violators
-            // TODO: Add performance optimization suggestions
+            foreach (var violator in statistics.TopViolatingClients.Where(v => v.Value > BlacklistThreshold))
+            {
+                await _rateLimitService.BlacklistClientAsync(
+                    violator.Key,
+                    TimeSpan.FromHours(24),
+                    "Automatic blacklist for excessive violations",
+                    cancellationToken);
+                _logger.LogWarning(
+                    "Automatically blacklisted {ClientId} for exceeding {Count} violations",
+                    violator.Key,
+                    violator.Value);
+            }
+
+            var rules = _rateLimitService.GetRegisteredRules();
+            foreach (var rule in rules)
+            {
+                if (statistics.ViolationsByRule.TryGetValue(rule.Id, out var count) && count > RuleAdjustmentThreshold)
+                {
+                    var newLimit = (long)Math.Max(1, rule.Configuration.RequestLimit * RuleAdjustmentFactor);
+                    if (newLimit < rule.Configuration.RequestLimit)
+                    {
+                        rule.Configuration.RequestLimit = newLimit;
+                        rule.ModifiedAt = DateTime.UtcNow;
+                        await _rateLimitService.RegisterRuleAsync(rule, cancellationToken);
+                        _logger.LogInformation(
+                            "Adjusted rule {RuleId} due to {Count} violations. New limit: {Limit}",
+                            rule.Id,
+                            count,
+                            newLimit);
+                    }
+                }
+            }
+
+            if (statistics.TotalViolations > BlacklistThreshold)
+            {
+                _logger.LogWarning(
+                    "High number of rate limit violations detected: {Count}. Review configuration for potential optimizations.",
+                    statistics.TotalViolations);
+            }
 
         }
         catch (Exception ex)
@@ -495,6 +534,14 @@ public class InMemoryRateLimitService : IRateLimitService
             _logger.LogWarning("Blacklisted client (in-memory): {ClientId}, Reason: {Reason}", clientId, reason);
         }
         return Task.CompletedTask;
+    }
+
+    public IEnumerable<RateLimitRule> GetRegisteredRules()
+    {
+        lock (_lock)
+        {
+            return _rules.Values.Select(r => r).ToList();
+        }
     }
 
     private RateLimitResult CheckRuleInMemory(RateLimitRequest request, RateLimitRule rule)

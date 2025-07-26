@@ -4,8 +4,9 @@ namespace Contracts.VideoCall.Responses;
 /// API response for CreateCallSession operation
 /// </summary>
 public record CreateCallSessionResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string SessionId,
+    string Status,
+    DateTime CreatedAt)
 {
     /// <summary>
     /// API Version this response supports
