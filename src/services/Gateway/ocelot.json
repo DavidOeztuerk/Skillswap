@@ -443,12 +443,12 @@
       "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/matches/requests/{requestId}/accept",
+      "DownstreamPathTemplate": "/matches/requests/accept",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "matchmakingservice", "Port": 5003 }
       ],
-      "UpstreamPathTemplate": "/api/matches/requests/{requestId}/accept",
+      "UpstreamPathTemplate": "/api/matches/requests/accept",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
@@ -456,12 +456,12 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/matches/requests/{requestId}/reject",
+      "DownstreamPathTemplate": "/matches/requests/reject",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "matchmakingservice", "Port": 5003 }
       ],
-      "UpstreamPathTemplate": "/api/matches/requests/{requestId}/reject",
+      "UpstreamPathTemplate": "/api/matches/requests/reject",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
@@ -546,10 +546,10 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/calls/{sessionId}/join",
+      "DownstreamPathTemplate": "/calls/join",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/{sessionId}/join",
+      "UpstreamPathTemplate": "/api/calls/join",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
@@ -557,10 +557,10 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/calls/{sessionId}/leave",
+      "DownstreamPathTemplate": "/calls/leave",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/{sessionId}/leave",
+      "UpstreamPathTemplate": "/api/calls/leave",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
@@ -568,10 +568,10 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/calls/{sessionId}/start",
+      "DownstreamPathTemplate": "/calls/start",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/{sessionId}/start",
+      "UpstreamPathTemplate": "/api/calls/start",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
@@ -579,10 +579,10 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/calls/{sessionId}/end",
+      "DownstreamPathTemplate": "/calls/end",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/{sessionId}/end",
+      "UpstreamPathTemplate": "/api/calls/end",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",

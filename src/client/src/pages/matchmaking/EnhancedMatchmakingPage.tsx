@@ -106,7 +106,7 @@ const EnhancedMatchmakingPage: React.FC = () => {
   };
 
   const handleRejectMatch = (matchId: string) => {
-    dispatch(rejectMatch(matchId));
+    dispatch(rejectMatch({ matchId }));
   };
 
   const handleSendRequest = (userId: string) => {

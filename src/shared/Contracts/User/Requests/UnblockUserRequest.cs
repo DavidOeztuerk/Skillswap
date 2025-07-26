@@ -6,8 +6,7 @@ namespace Contracts.User.Requests;
 /// API request for UnblockUser operation
 /// </summary>
 public record UnblockUserRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    string BlockedUserId)
 {
     /// <summary>
     /// API Version this request supports

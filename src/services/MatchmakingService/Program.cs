@@ -262,20 +262,17 @@ static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipa
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, [FromBody] GetIncomingMatchRequest request)
+static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetIncomingMatchRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetIncomingMatchRequestsQuery(request.PageNumber, request.PageSize)
-    {
-        UserId = userId
-    };
+    var query = new GetIncomingMatchRequestsQuery(userId, request.PageNumber, request.PageSize);
 
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, [FromBody] GetOutgoingMatchRequestsRequest request)
+static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetOutgoingMatchRequestsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -378,12 +375,12 @@ static async Task<IResult> FindMatch(IMediator mediator, ClaimsPrincipal user, [
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> AcceptMatch(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptMatchRequest request)
+static async Task<IResult> AcceptMatch(IMediator mediator, ClaimsPrincipal user, string matchId)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new AcceptMatchCommand(request.MatchId)
+    var command = new AcceptMatchCommand(matchId)
     {
         UserId = userId
     };
@@ -391,12 +388,12 @@ static async Task<IResult> AcceptMatch(IMediator mediator, ClaimsPrincipal user,
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> RejectMatch(IMediator mediator, ClaimsPrincipal user, RejectMatchRequest request)
+static async Task<IResult> RejectMatch(IMediator mediator, ClaimsPrincipal user, string matchId, [FromBody] RejectMatchRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new RejectMatchCommand(request.MatchId, request.Reason)
+    var command = new RejectMatchCommand(matchId, request.Reason)
     {
         UserId = userId
     };
@@ -404,17 +401,17 @@ static async Task<IResult> RejectMatch(IMediator mediator, ClaimsPrincipal user,
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> GetMatchDetails(IMediator mediator, ClaimsPrincipal user, [FromBody] GetMatchDetailsRequest request)
+static async Task<IResult> GetMatchDetails(IMediator mediator, ClaimsPrincipal user, string matchId)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetMatchDetailsQuery(request.MatchId);
+    var query = new GetMatchDetailsQuery(matchId);
 
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserMatchesRequest request)
+static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserMatchesRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();

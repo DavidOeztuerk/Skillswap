@@ -1,6 +1,6 @@
 // src/features/appointments/appointmentsSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import appointmentService from '../../api/services/appointmentService';
+import appointmentService, { GetUserAppointmentsRequest } from '../../api/services/appointmentService';
 import { AppointmentsState } from '../../types/states/AppointmentsState';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
@@ -31,8 +31,32 @@ const initialState: AppointmentsState = {
 // Async thunks
 export const fetchAppointments = createAsyncThunk(
   'appointments/fetchAppointments',
-  async () => {
-    return await appointmentService.getAppointments();
+  async (request?: GetUserAppointmentsRequest) => {
+    const response = await appointmentService.getAppointments(request || {});
+    // Transform backend response to frontend format
+    return {
+      appointments: response.Data.map(item => ({
+        id: item.AppointmentId,
+        teacherId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
+        teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: item.OtherPartyName } as any,
+        studentId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
+        studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: item.OtherPartyName } as any,
+        skillId: 'unknown-skill', // Not provided by backend
+        skill: { id: 'unknown-skill', name: 'Unknown Skill' } as any,
+        startTime: item.ScheduledDate.toString(),
+        endTime: new Date(new Date(item.ScheduledDate).getTime() + item.DurationMinutes * 60000).toISOString(),
+        status: item.Status as AppointmentStatus,
+        notes: item.Location || '',
+        videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
+        createdAt: new Date().toISOString(),
+      })),
+      pagination: {
+        page: response.PageNumber,
+        limit: response.PageSize,
+        total: response.TotalCount,
+        totalPages: response.TotalPages,
+      }
+    };
   }
 );
 
@@ -53,7 +77,11 @@ export const createAppointment = createAsyncThunk(
 export const respondToAppointment = createAsyncThunk(
   'appointments/respondToAppointment',
   async ({ appointmentId, status }: { appointmentId: string; status: AppointmentStatus }) => {
-    await appointmentService.respondToAppointment(appointmentId, status);
+    if (status === 'Confirmed') {
+      await appointmentService.acceptAppointment(appointmentId);
+    } else {
+      await appointmentService.cancelAppointment(appointmentId);
+    }
     // Fetch updated appointment after response
     return await appointmentService.getAppointment(appointmentId);
   }
@@ -70,67 +98,115 @@ export const cancelAppointment = createAsyncThunk(
 
 export const completeAppointment = createAsyncThunk(
   'appointments/completeAppointment',
-  async (appointmentId: string) => {
-    await appointmentService.completeAppointment(appointmentId);
-    // Fetch updated appointment after completion
-    return await appointmentService.getAppointment(appointmentId);
+  async (_: string) => {
+    // This endpoint doesn't exist in backend
+    console.warn('completeAppointment: Backend endpoint not implemented');
+    throw new Error('Complete appointment endpoint not implemented');
   }
 );
 
 export const fetchUpcomingAppointments = createAsyncThunk(
   'appointments/fetchUpcoming',
   async (params?: { limit?: number }) => {
-    return await appointmentService.getUpcomingAppointments(params?.limit);
+    const response = await appointmentService.getUpcomingAppointments(params?.limit);
+    // Transform backend response to frontend format
+    return response.Data.map(item => ({
+      id: item.AppointmentId,
+      teacherId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
+      teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: item.OtherPartyName } as any,
+      studentId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
+      studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: item.OtherPartyName } as any,
+      skillId: 'unknown-skill',
+      skill: { id: 'unknown-skill', name: 'Unknown Skill' } as any,
+      startTime: item.ScheduledDate.toString(),
+      endTime: new Date(new Date(item.ScheduledDate).getTime() + item.DurationMinutes * 60000).toISOString(),
+      status: item.Status as AppointmentStatus,
+      notes: item.Location || '',
+      videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
+      createdAt: new Date().toISOString(),
+    }));
   }
 );
 
 export const fetchPastAppointments = createAsyncThunk(
   'appointments/fetchPast',
   async (params?: { page?: number; limit?: number }) => {
-    return await appointmentService.getPastAppointments(params);
+    const response = await appointmentService.getPastAppointments(params);
+    return {
+      data: response.Data.map(item => ({
+        id: item.AppointmentId,
+        teacherId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
+        teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: item.OtherPartyName } as any,
+        studentId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
+        studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: item.OtherPartyName } as any,
+        skillId: 'unknown-skill',
+        skill: { id: 'unknown-skill', name: 'Unknown Skill' } as any,
+        startTime: item.ScheduledDate.toString(),
+        endTime: new Date(new Date(item.ScheduledDate).getTime() + item.DurationMinutes * 60000).toISOString(),
+        status: item.Status as AppointmentStatus,
+        notes: item.Location || '',
+        videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
+        createdAt: new Date().toISOString(),
+      })),
+      page: response.PageNumber,
+      limit: response.PageSize,
+      total: response.TotalCount,
+      totalPages: response.TotalPages,
+    };
   }
 );
 
 export const fetchAvailableSlots = createAsyncThunk(
   'appointments/fetchAvailableSlots',
-  async ({ userId, date }: { userId: string; date: string }) => {
-    return await appointmentService.getAvailableSlots(userId, date);
+  async (_: { userId: string; date: string }) => {
+    // This endpoint doesn't exist in backend - return empty array
+    console.warn('fetchAvailableSlots: Backend endpoint not implemented');
+    return [];
   }
 );
 
 export const updateAppointmentDetails = createAsyncThunk(
   'appointments/updateDetails',
-  async ({ appointmentId, updates }: { appointmentId: string; updates: Partial<Appointment> }) => {
-    return await appointmentService.updateAppointment(appointmentId, updates);
+  async (_: { appointmentId: string; updates: Partial<Appointment> }) => {
+    // This endpoint doesn't exist in backend
+    console.warn('updateAppointmentDetails: Backend endpoint not implemented');
+    throw new Error('Update appointment endpoint not implemented');
   }
 );
 
 export const rescheduleAppointment = createAsyncThunk(
   'appointments/reschedule',
-  async ({ appointmentId, newDateTime, reason }: { appointmentId: string; newDateTime: string; reason?: string }) => {
-    return await appointmentService.rescheduleAppointment(appointmentId, newDateTime, reason);
+  async (_: { appointmentId: string; newDateTime: string; reason?: string }) => {
+    // This endpoint doesn't exist in backend
+    console.warn('rescheduleAppointment: Backend endpoint not implemented');
+    throw new Error('Reschedule appointment endpoint not implemented');
   }
 );
 
 export const rateAppointment = createAsyncThunk(
   'appointments/rate',
-  async ({ appointmentId, rating, feedback }: { appointmentId: string; rating: number; feedback?: string }) => {
-    return await appointmentService.rateAppointment(appointmentId, rating, feedback);
+  async (_: { appointmentId: string; rating: number; feedback?: string }) => {
+    // This endpoint doesn't exist in backend
+    console.warn('rateAppointment: Backend endpoint not implemented');
+    throw new Error('Rate appointment endpoint not implemented');
   }
 );
 
 export const reportAppointment = createAsyncThunk(
   'appointments/report',
-  async ({ appointmentId, reason, description }: { appointmentId: string; reason: string; description: string }) => {
-    await appointmentService.reportAppointment(appointmentId, reason, description);
-    return appointmentId;
+  async (_: { appointmentId: string; reason: string; description: string }) => {
+    // This endpoint doesn't exist in backend
+    console.warn('reportAppointment: Backend endpoint not implemented');
+    throw new Error('Report appointment endpoint not implemented');
   }
 );
 
 export const getAppointmentStatistics = createAsyncThunk(
   'appointments/getStatistics',
-  async (timeRange?: string) => {
-    return await appointmentService.getAppointmentStatistics(timeRange);
+  async (_?: string) => {
+    // This endpoint doesn't exist in backend
+    console.warn('getAppointmentStatistics: Backend endpoint not implemented');
+    throw new Error('Appointment statistics endpoint not implemented');
   }
 );
 
@@ -183,7 +259,8 @@ const appointmentsSlice = createSlice({
       })
       .addCase(fetchAppointments.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.appointments = action.payload;
+        state.appointments = action.payload.appointments;
+        state.pagination = action.payload.pagination;
       })
       .addCase(fetchAppointments.rejected, (state, action) => {
         state.isLoading = false;
@@ -255,11 +332,6 @@ const appointmentsSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(completeAppointment.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.activeAppointment = action.payload;
-        updateAppointmentInList(state, action.payload);
-      })
       .addCase(completeAppointment.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error as SliceError
@@ -314,21 +386,33 @@ const appointmentsSlice = createSlice({
       })
       
       // Update Appointment Details
-      .addCase(updateAppointmentDetails.fulfilled, (state, action) => {
-        state.activeAppointment = action.payload;
-        updateAppointmentInList(state, action.payload);
+      .addCase(updateAppointmentDetails.rejected, (state, action) => {
+        state.error = { message: action.error.message || 'Update appointment failed' } as SliceError;
       })
       
       // Reschedule Appointment
-      .addCase(rescheduleAppointment.fulfilled, (state, action) => {
-        state.activeAppointment = action.payload;
-        updateAppointmentInList(state, action.payload);
+      .addCase(rescheduleAppointment.rejected, (state, action) => {
+        state.error = { message: action.error.message || 'Reschedule appointment failed' } as SliceError;
       })
       
       // Rate Appointment
-      .addCase(rateAppointment.fulfilled, (state, action) => {
-        state.activeAppointment = action.payload;
-        updateAppointmentInList(state, action.payload);
+      .addCase(rateAppointment.rejected, (state, action) => {
+        state.error = { message: action.error.message || 'Rate appointment failed' } as SliceError;
+      })
+      
+      // Report Appointment
+      .addCase(reportAppointment.rejected, (state, action) => {
+        state.error = { message: action.error.message || 'Report appointment failed' } as SliceError;
+      })
+      
+      // // Complete Appointment
+      // .addCase(completeAppointment.rejected, (state, action) => {
+      //   state.error = { message: action.error.message || 'Complete appointment failed' } as SliceError;
+      // })
+      
+      // Get Statistics
+      .addCase(getAppointmentStatistics.rejected, (state, action) => {
+        state.error = { message: action.error.message || 'Get statistics failed' } as SliceError;
       });
   },
 });

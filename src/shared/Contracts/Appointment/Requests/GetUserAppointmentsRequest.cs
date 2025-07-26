@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.Appointment.Requests;
 
@@ -25,7 +26,8 @@ public record GetUserAppointmentsRequest(
     int PageNumber = 1,
 
     [Range(1, 100, ErrorMessage = "Page size must be between 1 and 100")]
-    int PageSize = 20)
+    int PageSize = 20) 
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

@@ -1,6 +1,6 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using UserService.Application.Queries.Favorites;
+using UserService.Application.Queries;
 
 namespace UserService.Application.QueryHandlers;
 

@@ -1,8 +1,9 @@
 // src/features/matchmaking/matchmakingSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import matchmakingService from '../../api/services/matchmakingService';
+import matchmakingService, { 
+  FindMatchRequest
+} from '../../api/services/matchmakingService';
 import { MatchmakingState } from '../../types/states/MatchmakingState';
-import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 import { Match } from '../../types/models/Match';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { SliceError } from '../../store/types';
@@ -37,43 +38,68 @@ const initialState: MatchmakingState = {
 // Async thunks
 export const findMatch = createAsyncThunk(
   'matchmaking/findMatch',
-  async (request: MatchRequest) => {
+  async (request: FindMatchRequest) => {
     return await matchmakingService.findMatch(request);
   }
 );
 
 export const getMatch = createAsyncThunk(
   'matchmaking/getMatch',
-  async (matchSessionId: string) => {
-    return await matchmakingService.getMatch(matchSessionId);
+  async (matchId: string) => {
+    return await matchmakingService.getMatch(matchId);
   }
 );
 
 export const acceptMatch = createAsyncThunk(
   'matchmaking/acceptMatch',
-  async (matchSessionId: string) => {
-    return await matchmakingService.acceptMatch(matchSessionId);
+  async (matchId: string) => {
+    return await matchmakingService.acceptMatch(matchId);
   }
 );
 
 export const rejectMatch = createAsyncThunk(
   'matchmaking/rejectMatch',
-  async (matchSessionId: string) => {
-    return await matchmakingService.rejectMatch(matchSessionId);
+  async ({ matchId, reason }: { matchId: string; reason?: string }) => {
+    return await matchmakingService.rejectMatch(matchId, reason);
   }
 );
 
 export const searchPotentialMatches = createAsyncThunk(
   'matchmaking/searchPotentialMatches',
-  async ({ skillId, isLearningMode }: { skillId: string; isLearningMode: boolean }) => {
-    return await matchmakingService.searchPotentialMatches(skillId, isLearningMode);
+  async (_: { skillId: string; isLearningMode: boolean }) => {
+    // This endpoint doesn't exist in backend
+    console.warn('searchPotentialMatches: Backend endpoint not implemented');
+    return [];
   }
 );
 
 export const getUserMatches = createAsyncThunk(
   'matchmaking/getUserMatches',
   async (params?: { page?: number; limit?: number; status?: string }) => {
-    return await matchmakingService.getUserMatches(params);
+    const response = await matchmakingService.getUserMatches(params);
+    // Transform backend response to frontend format
+    return {
+      data: response.Data.map((item: any) => ({
+        id: item.MatchId,
+        requesterId: item.IsOffering ? 'current-user' : 'other-user',
+        requesterDetails: { id: item.IsOffering ? 'current-user' : 'other-user', name: 'User' } as any,
+        responderId: item.IsOffering ? 'other-user' : 'current-user',
+        responderDetails: { id: item.IsOffering ? 'other-user' : 'current-user', name: 'Other User' } as any,
+        skillId: 'unknown-skill',
+        skill: { id: 'unknown-skill', name: item.SkillName } as any,
+        isLearningMode: !item.IsOffering,
+        status: item.Status as any,
+        preferredDays: [],
+        preferredTimes: [],
+        additionalNotes: '',
+        createdAt: new Date(item.CreatedAt).toISOString(),
+        updatedAt: new Date(item.CreatedAt).toISOString(),
+      })),
+      page: response.PageNumber,
+      limit: response.PageSize,
+      total: response.TotalCount,
+      totalPages: response.TotalPages,
+    };
   }
 );
 
@@ -86,27 +112,33 @@ export const getMatchDetails = createAsyncThunk(
 
 export const cancelMatch = createAsyncThunk(
   'matchmaking/cancelMatch',
-  async ({ matchId, reason }: { matchId: string; reason?: string }) => {
-    return await matchmakingService.cancelMatch(matchId, reason);
+  async (_: { matchId: string; reason?: string }) => {
+    // This endpoint doesn't exist in backend
+    console.warn('cancelMatch: Backend endpoint not implemented');
+    throw new Error('Cancel match endpoint not implemented');
   }
 );
 
 export const updateMatchPreferences = createAsyncThunk(
   'matchmaking/updateMatchPreferences',
-  async (preferences: {
+  async (_: {
     availableHours: string[];
     preferredLanguages: string[];
     experienceLevel: string;
     learningGoals: string[];
   }) => {
-    return await matchmakingService.updateMatchPreferences(preferences);
+    // This endpoint doesn't exist in backend
+    console.warn('updateMatchPreferences: Backend endpoint not implemented');
+    throw new Error('Update match preferences endpoint not implemented');
   }
 );
 
 export const rateMatch = createAsyncThunk(
   'matchmaking/rateMatch',
-  async ({ matchId, rating, feedback }: { matchId: string; rating: number; feedback?: string }) => {
-    return await matchmakingService.rateMatch(matchId, rating, feedback);
+  async (_: { matchId: string; rating: number; feedback?: string }) => {
+    // This endpoint doesn't exist in backend
+    console.warn('rateMatch: Backend endpoint not implemented');
+    throw new Error('Rate match endpoint not implemented');
   }
 );
 
@@ -119,29 +151,39 @@ export const createMatchRequest = createAsyncThunk(
 
 export const fetchIncomingMatchRequests = createAsyncThunk(
   'matchmaking/fetchIncomingMatchRequests',
-  async () => {
-    return await matchmakingService.getIncomingMatchRequests();
+  async (params?: { page?: number; limit?: number }) => {
+    const response = await matchmakingService.getIncomingMatchRequests({
+      PageNumber: params?.page || 1,
+      PageSize: params?.limit || 20
+    });
+    // Transform response if it's paginated
+    return response.Data || response;
   }
 );
 
 export const fetchOutgoingMatchRequests = createAsyncThunk(
   'matchmaking/fetchOutgoingMatchRequests',
-  async () => {
-    return await matchmakingService.getOutgoingMatchRequests();
+  async (params?: { page?: number; limit?: number }) => {
+    const response = await matchmakingService.getOutgoingMatchRequests({
+      PageNumber: params?.page || 1,
+      PageSize: params?.limit || 20
+    });
+    // Transform response if it's paginated
+    return response.Data || response;
   }
 );
 
 export const acceptMatchRequest = createAsyncThunk(
   'matchmaking/acceptMatchRequest',
-  async (requestId: string) => {
-    return await matchmakingService.acceptMatchRequest(requestId);
+  async ({ requestId, responseMessage }: { requestId: string; responseMessage?: string }) => {
+    return await matchmakingService.acceptMatchRequest(requestId, responseMessage);
   }
 );
 
 export const rejectMatchRequest = createAsyncThunk(
   'matchmaking/rejectMatchRequest',
-  async ({ requestId, reason }: { requestId: string; reason?: string }) => {
-    await matchmakingService.rejectMatchRequest(requestId, reason);
+  async ({ requestId, responseMessage }: { requestId: string; responseMessage?: string }) => {
+    await matchmakingService.rejectMatchRequest(requestId, responseMessage);
     return requestId;
   }
 );
@@ -321,12 +363,14 @@ const matchmakingSlice = createSlice({
       })
       .addCase(acceptMatchRequest.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.activeMatch = action.payload;
-        state.matches.push(action.payload);
-        // Remove from incoming requests
-        state.incomingRequests = state.incomingRequests.filter(
-          req => req.matchId !== action.payload.id
-        );
+        if (action.payload) {
+          state.activeMatch = action.payload;
+          state.matches.push(action.payload);
+          // Remove from incoming requests (assuming we have requestId)
+          state.incomingRequests = state.incomingRequests.filter(
+            req => req.matchId !== action.payload.id
+          );
+        }
       })
       .addCase(acceptMatchRequest.rejected, (state, action) => {
         state.isLoading = false;
@@ -390,16 +434,9 @@ const matchmakingSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(cancelMatch.fulfilled, (state, action) => {
-        state.isLoading = false;
-        updateMatchInList(state, action.payload);
-        if (state.activeMatch?.id === action.payload.id) {
-          state.activeMatch = action.payload;
-        }
-      })
       .addCase(cancelMatch.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = { message: action.error.message || 'Cancel match failed' } as SliceError;
       })
 
       // Update Match Preferences
@@ -407,13 +444,9 @@ const matchmakingSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(updateMatchPreferences.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.matchPreferences = action.payload;
-      })
       .addCase(updateMatchPreferences.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = { message: action.error.message || 'Update preferences failed' } as SliceError;
       })
 
       // Rate Match
@@ -421,16 +454,9 @@ const matchmakingSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(rateMatch.fulfilled, (state, action) => {
-        state.isLoading = false;
-        updateMatchInList(state, action.payload);
-        if (state.activeMatch?.id === action.payload.id) {
-          state.activeMatch = action.payload;
-        }
-      })
       .addCase(rateMatch.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = { message: action.error.message || 'Rate match failed' } as SliceError;
       });
   },
 });

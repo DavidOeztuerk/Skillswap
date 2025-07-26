@@ -1,13 +1,13 @@
-using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.Notification.Requests;
 
 /// <summary>
-/// API request for GetNotificationPreferences operation
+/// API request for getting notification preferences
+/// This request typically doesn't need parameters as it gets preferences for the authenticated user
 /// </summary>
-public record GetNotificationPreferencesRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+public record GetNotificationPreferencesRequest() 
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

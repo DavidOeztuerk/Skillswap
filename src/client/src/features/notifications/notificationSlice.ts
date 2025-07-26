@@ -1,6 +1,6 @@
 // src/features/notifications/notificationSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import notificationService from '../../api/services/notificationService';
+import notificationService, { NotificationHistoryRequest } from '../../api/services/notificationService';
 import { NotificationState } from '../../types/states/NotificationState';
 import type { Notification, NotificationSettings } from '../../types/models/Notification';
 import { SliceError } from '../../store/types';
@@ -53,8 +53,8 @@ const initialState: NotificationState = {
 // Async thunks
 export const fetchNotifications = createAsyncThunk(
   'notifications/fetchNotifications',
-  async (params?: { page?: number; limit?: number; filters?: any }) => {
-    return await notificationService.getNotifications(params);
+  async (request?: NotificationHistoryRequest) => {
+    return await notificationService.getNotifications(request);
   }
 );
 

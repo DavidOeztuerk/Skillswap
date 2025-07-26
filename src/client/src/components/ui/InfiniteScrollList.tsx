@@ -118,7 +118,7 @@ function InfiniteScrollList<T>({
   );
 
   // Initial loading
-  if (isLoading && items.length === 0) {
+  if (isLoading && items?.length === 0) {
     return (
       <Box sx={containerSx}>
         <SkeletonLoader variant={skeletonVariant} count={skeletonCount} />
@@ -127,7 +127,7 @@ function InfiniteScrollList<T>({
   }
 
   // Error state
-  if (error && items.length === 0) {
+  if (error && items?.length === 0) {
     return (
       <Box sx={containerSx}>
         {renderError ? renderError(error, refresh) : defaultRenderError(error, refresh)}
@@ -136,7 +136,7 @@ function InfiniteScrollList<T>({
   }
 
   // Empty state
-  if (!isLoading && items.length === 0) {
+  if (!isLoading && items?.length === 0) {
     return (
       <Box sx={containerSx}>
         {renderEmpty ? renderEmpty() : defaultRenderEmpty()}
@@ -201,7 +201,7 @@ function InfiniteScrollList<T>({
       {totalCount > 0 && (
         <Box sx={{ textAlign: 'center', py: 1 }}>
           <Typography variant="caption" color="text.secondary">
-            {items.length} von {totalCount} Elementen
+            {items?.length} von {totalCount} Elementen
           </Typography>
         </Box>
       )}

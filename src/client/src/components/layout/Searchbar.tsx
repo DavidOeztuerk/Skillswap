@@ -222,7 +222,7 @@ const SearchBar: React.FC = () => {
                     >
                       Skills
                     </Typography>
-                    {searchResults.skills.items.length > 0 ? (
+                    {searchResults.skills.items?.length > 0 ? (
                       <List disablePadding>
                         {searchResults.skills.items
                           .slice(0, MAX_SUGGESTIONS)
@@ -269,7 +269,7 @@ const SearchBar: React.FC = () => {
                   </Box>
                 ) : (
                   <>
-                    {searchResults.users.items.length > 0 ? (
+                    {searchResults.users.items?.length > 0 ? (
                       <List disablePadding>
                         {searchResults.users.items
                           .slice(0, MAX_SUGGESTIONS)
@@ -305,7 +305,7 @@ const SearchBar: React.FC = () => {
             {/* Populäre Suchen anzeigen, wenn keine Eingabe vorhanden ist oder zu Beginn der Eingabe */}
             {(!searchQuery ||
               (searchQuery.length <= 2 &&
-                searchResults.skills.items.length === 0)) && (
+                searchResults.skills.items?.length === 0)) && (
               <>
                 <Typography
                   variant="subtitle2"

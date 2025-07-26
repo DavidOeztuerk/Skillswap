@@ -1,11 +1,11 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VideocallService.Application.Commands;
 using VideocallService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.VideoCall;
+using Contracts.VideoCall.Responses;
 
 namespace VideocallService.Application.CommandHandlers;
 

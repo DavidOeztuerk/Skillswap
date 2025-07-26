@@ -9,7 +9,8 @@ using NotificationService.Domain.ResponseModels;
 namespace NotificationService.Application.Queries;
 
 public record GetNotificationPreferencesQuery(
-    string UserId) : IQuery<NotificationPreferencesResponse>;
+    string UserId) 
+    : IQuery<NotificationPreferencesResponse>;
 
 public class GetNotificationPreferencesQueryValidator : AbstractValidator<GetNotificationPreferencesQuery>
 {

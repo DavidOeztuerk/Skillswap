@@ -45,13 +45,13 @@ public class MatchmakingDbContext(
             // entity.HasIndex(e => new { e.IsOffering, e.Status });
 
             // entity.Property(e => e.SkillName).HasMaxLength(100);
-            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("Active");
+            entity.Property(e => e.Status).HasMaxLength(50);
             // entity.Property(e => e.PreferredLocation).HasMaxLength(200);
 
-            entity.HasIndex(e => new { e.RequesterId, e.SkillId, e.Status })
-                .HasFilter("Status = 'Pending' AND IsDeleted = 0")
-                .IsUnique()
-                .HasDatabaseName("IX_DirectMatchRequest_Unique_Pending");
+            // entity.HasIndex(e => new { e.RequesterId, e.SkillId, e.Status })
+            //     .HasFilter("Status = 'Pending' AND IsDeleted = 0")
+            //     .IsUnique()
+            //     .HasDatabaseName("IX_DirectMatchRequest_Unique_Pending");
 
             // Convert lists to JSON
             entity.Property(e => e.PreferredTags)

@@ -7,7 +7,11 @@ namespace Contracts.VideoCall.Requests;
 /// </summary>
 public record JoinCallRequest(
     [Required(ErrorMessage = "Session ID is required")]
-    string SessionId)
+    string SessionId,
+    string ConnectionId,
+    bool CameraEnabled = true,
+    bool MicrophoneEnabled = true,
+    string? DeviceInfo = null)
 {
     /// <summary>
     /// API Version this request supports

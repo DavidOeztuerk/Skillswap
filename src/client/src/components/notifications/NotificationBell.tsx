@@ -103,7 +103,12 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
     if (lastNotification && lastNotification.id !== showingPreview) {
       // Play notification sound
       if (soundEnabled && audioRef.current) {
-        audioRef.current.play().catch(console.error);
+        audioRef.current.play().catch((error) => {
+          // Silently handle audio play errors (e.g., missing file, user interaction required)
+          if (error.name !== 'NotSupportedError' && error.name !== 'NotAllowedError') {
+            console.warn('Notification sound failed to play:', error);
+          }
+        });
       }
 
       // Show preview if enabled

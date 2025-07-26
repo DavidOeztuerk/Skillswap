@@ -3,13 +3,56 @@ import { MATCHMAKING_ENDPOINTS } from '../../config/endpoints';
 import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { User } from '../../types/models/User';
-import { Match } from '../../types/models/Match';
 import apiClient from '../apiClient';
 
-interface MatchFilter {
-  status?: string;
-  role?: string;
+// Backend request interfaces matching backend contracts
+export interface FindMatchRequest {
+  SkillId: string;
+  SkillName: string;
+  IsOffering: boolean;
+  PreferredTags?: string[];
+  PreferredLocation?: string;
+  RemoteOnly?: boolean;
+  MaxDistanceKm?: number;
 }
+
+export interface GetUserMatchesRequest {
+  Status?: string;
+  IncludeCompleted?: boolean;
+  PageNumber?: number;
+  PageSize?: number;
+}
+
+export interface GetIncomingMatchRequestsRequest {
+  PageNumber?: number;
+  PageSize?: number;
+}
+
+export interface GetOutgoingMatchRequestsRequest {
+  PageNumber?: number;
+  PageSize?: number;
+}
+
+export interface UserMatchResponse {
+  MatchId: string;
+  SkillName: string;
+  Status: string;
+  CompatibilityScore: number;
+  IsOffering: boolean;
+  CreatedAt: Date;
+  AcceptedAt?: Date;
+}
+
+export interface PagedUserMatchesResponse {
+  Data: UserMatchResponse[];
+  PageNumber: number;
+  PageSize: number;
+  TotalCount: number;
+  TotalPages: number;
+  HasNextPage: boolean;
+  HasPreviousPage: boolean;
+}
+
 
 /**
  * Service for matchmaking operations
@@ -18,40 +61,47 @@ const matchmakingService = {
   /**
    * Find matches for a skill
    */
-  async findMatch(request: MatchRequest): Promise<Match> {
-    if (!request.skillId) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.post<Match>(MATCHMAKING_ENDPOINTS.FIND_MATCHES, request);
+  async findMatch(request: FindMatchRequest): Promise<any> {
+    if (!request.SkillId) throw new Error('Skill-ID ist erforderlich');
+    return apiClient.post<any>(MATCHMAKING_ENDPOINTS.FIND_MATCHES, request);
   },
 
   /**
    * Get all matches for current user
    */
-  async getMatches(filter?: MatchFilter): Promise<Match[]> {
-    return apiClient.get<Match[]>(MATCHMAKING_ENDPOINTS.GET_USER_MATCHES, { filter });
+  async getMatches(request: GetUserMatchesRequest = {}): Promise<PagedUserMatchesResponse> {
+    const params = new URLSearchParams();
+    if (request.Status) params.append('Status', request.Status);
+    if (request.IncludeCompleted !== undefined) params.append('IncludeCompleted', request.IncludeCompleted.toString());
+    if (request.PageNumber) params.append('PageNumber', request.PageNumber.toString());
+    if (request.PageSize) params.append('PageSize', request.PageSize.toString());
+    
+    const url = params.toString() ? `${MATCHMAKING_ENDPOINTS.GET_USER_MATCHES}?${params.toString()}` : MATCHMAKING_ENDPOINTS.GET_USER_MATCHES;
+    return apiClient.get<PagedUserMatchesResponse>(url);
   },
 
   /**
    * Get specific match by ID
    */
-  async getMatch(matchSessionId: string): Promise<Match> {
-    if (!matchSessionId?.trim()) throw new Error('Match-Session-ID ist erforderlich');
-    return apiClient.get<Match>(`${MATCHMAKING_ENDPOINTS.GET_MATCH}/${matchSessionId}`);
+  async getMatch(matchId: string): Promise<any> {
+    if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
+    return apiClient.post<any>(`${MATCHMAKING_ENDPOINTS.GET_MATCH}/${matchId}`, { MatchId: matchId });
   },
 
   /**
    * Accept a match
    */
-  async acceptMatch(matchSessionId: string): Promise<Match> {
-    if (!matchSessionId?.trim()) throw new Error('Match-Session-ID ist erforderlich');
-    return apiClient.post<Match>(`${MATCHMAKING_ENDPOINTS.ACCEPT_MATCH}/${matchSessionId}/accept`);
+  async acceptMatch(matchId: string): Promise<any> {
+    if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
+    return apiClient.post<any>(`${MATCHMAKING_ENDPOINTS.ACCEPT_MATCH}/${matchId}/accept`, { MatchId: matchId });
   },
 
   /**
    * Reject a match
    */
-  async rejectMatch(matchSessionId: string): Promise<Match> {
-    if (!matchSessionId?.trim()) throw new Error('Match-Session-ID ist erforderlich');
-    return apiClient.post<Match>(`${MATCHMAKING_ENDPOINTS.REJECT_MATCH}/${matchSessionId}/reject`);
+  async rejectMatch(matchId: string, reason?: string): Promise<any> {
+    if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
+    return apiClient.post<any>(`${MATCHMAKING_ENDPOINTS.REJECT_MATCH}/${matchId}/reject`, { MatchId: matchId, Reason: reason });
   },
 
   /**
@@ -66,127 +116,138 @@ const matchmakingService = {
   /**
    * Get incoming match requests
    */
-  async getIncomingMatchRequests(): Promise<MatchRequest[]> {
-    return apiClient.get<MatchRequest[]>(MATCHMAKING_ENDPOINTS.REQUESTS.GET_INCOMING);
+  async getIncomingMatchRequests(request: GetIncomingMatchRequestsRequest = {}): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('PageNumber', (request.PageNumber || 1).toString());
+    params.append('PageSize', (request.PageSize || 20).toString());
+    
+    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_INCOMING}?${params.toString()}`;
+    return apiClient.get<any>(url);
   },
 
   /**
    * Get outgoing match requests
    */
-  async getOutgoingMatchRequests(): Promise<MatchRequest[]> {
-    return apiClient.get<MatchRequest[]>(MATCHMAKING_ENDPOINTS.REQUESTS.GET_OUTGOING);
+  async getOutgoingMatchRequests(request: GetOutgoingMatchRequestsRequest = {}): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('PageNumber', (request.PageNumber || 1).toString());
+    params.append('PageSize', (request.PageSize || 20).toString());
+    
+    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_OUTGOING}?${params.toString()}`;
+    return apiClient.get<any>(url);
   },
 
   /**
    * Accept match request
    */
-  async acceptMatchRequest(requestId: string): Promise<Match> {
+  async acceptMatchRequest(requestId: string, responseMessage?: string): Promise<any> {
     if (!requestId?.trim()) throw new Error('Anfrage-ID ist erforderlich');
-    return apiClient.post<Match>(`${MATCHMAKING_ENDPOINTS.REQUESTS.ACCEPT}/${requestId}/accept`);
+    return apiClient.post<any>(MATCHMAKING_ENDPOINTS.REQUESTS.ACCEPT, {
+      RequestId: requestId,
+      ResponseMessage: responseMessage
+    });
   },
 
   /**
    * Reject match request
    */
-  async rejectMatchRequest(requestId: string, reason?: string): Promise<void> {
+  async rejectMatchRequest(requestId: string, responseMessage?: string): Promise<any> {
     if (!requestId?.trim()) throw new Error('Anfrage-ID ist erforderlich');
-    return apiClient.post<void>(
-      `${MATCHMAKING_ENDPOINTS.REQUESTS.REJECT}/${requestId}/reject`,
-      { reason }
-    );
+    return apiClient.post<any>(MATCHMAKING_ENDPOINTS.REQUESTS.REJECT, {
+      RequestId: requestId,
+      ResponseMessage: responseMessage
+    });
   },
 
   /**
-   * Search potential matches without creating request
+   * Search potential matches without creating request - Note: This endpoint may not exist in backend
    */
-  async searchPotentialMatches(skillId: string, isLearningMode: boolean): Promise<User[]> {
+  async searchPotentialMatches(skillId: string, _: boolean): Promise<User[]> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.get<User[]>(`${MATCHMAKING_ENDPOINTS.FIND_MATCHES}/potential`, {
-      skillId,
-      isLearningMode,
-    });
+    // This endpoint doesn't exist in backend - would need to be implemented
+    throw new Error('Search potential matches endpoint not implemented in backend');
   },
 
   /**
-   * Get user matches with pagination
+   * Get user matches with pagination (uses getMatches internally)
    */
-  async getUserMatches(params?: { page?: number; limit?: number; status?: string }): Promise<any> {
-    const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    if (params?.status && params.status !== 'all') queryParams.append('status', params.status);
-    
-    const url = `${MATCHMAKING_ENDPOINTS.GET_USER_MATCHES}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return apiClient.get<any>(url);
+  async getUserMatches(params?: { page?: number; limit?: number; status?: string }): Promise<PagedUserMatchesResponse> {
+    const request: GetUserMatchesRequest = {
+      PageNumber: params?.page || 1,
+      PageSize: params?.limit || 20,
+      Status: params?.status && params.status !== 'all' ? params.status : undefined,
+      IncludeCompleted: true
+    };
+    return this.getMatches(request);
   },
 
   /**
-   * Get match details by ID
+   * Get match details by ID (uses getMatch internally)
    */
-  async getMatchDetails(matchId: string): Promise<Match> {
+  async getMatchDetails(matchId: string): Promise<any> {
+    return this.getMatch(matchId);
+  },
+
+  /**
+   * Cancel a match - Note: This endpoint may not exist in backend
+   */
+  async cancelMatch(matchId: string, _reason?: string): Promise<any> {
     if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
-    return apiClient.get<Match>(`${MATCHMAKING_ENDPOINTS.GET_MATCH}/${matchId}`);
+    // This endpoint doesn't exist in backend - would need to be implemented
+    throw new Error('Cancel match endpoint not implemented in backend');
   },
 
   /**
-   * Cancel a match
+   * Update match preferences - Note: This endpoint may not exist in backend
    */
-  async cancelMatch(matchId: string, reason?: string): Promise<Match> {
-    if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
-    return apiClient.post<Match>(`${MATCHMAKING_ENDPOINTS.GET_MATCH}/${matchId}/cancel`, {
-      reason,
-    });
-  },
-
-  /**
-   * Update match preferences
-   */
-  async updateMatchPreferences(preferences: {
+  async updateMatchPreferences(_: {
     availableHours: string[];
     preferredLanguages: string[];
     experienceLevel: string;
     learningGoals: string[];
   }): Promise<any> {
-    return apiClient.put<any>(`${MATCHMAKING_ENDPOINTS.GET_USER_MATCHES}/preferences`, preferences);
+    // This endpoint doesn't exist in backend - would need to be implemented
+    throw new Error('Update match preferences endpoint not implemented in backend');
   },
 
   /**
-   * Rate a completed match
+   * Rate a completed match - Note: This endpoint may not exist in backend
    */
-  async rateMatch(matchId: string, rating: number, feedback?: string): Promise<Match> {
+  async rateMatch(matchId: string, rating: number, _?: string): Promise<any> {
     if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
     if (rating < 1 || rating > 5) throw new Error('Bewertung muss zwischen 1 und 5 liegen');
-    return apiClient.post<Match>(`${MATCHMAKING_ENDPOINTS.GET_MATCH}/${matchId}/rate`, {
-      rating,
-      feedback,
-    });
+    // This endpoint doesn't exist in backend - would need to be implemented
+    throw new Error('Rate match endpoint not implemented in backend');
   },
 
   /**
    * Get match statistics
    */
-  async getMatchStatistics(): Promise<any> {
-    return apiClient.get<any>(`${MATCHMAKING_ENDPOINTS.GET_USER_MATCHES}/statistics`);
+  async getMatchStatistics(fromDate?: Date, toDate?: Date): Promise<any> {
+    const request = {
+      FromDate: fromDate,
+      ToDate: toDate
+    };
+    return apiClient.post<any>('/analytics/statistics', request);
   },
 
   /**
-   * Get recommended matches for a skill
+   * Get recommended matches for a skill - Note: This endpoint may not exist in backend
    */
-  async getRecommendedMatches(skillId: string): Promise<Match[]> {
+  async getRecommendedMatches(skillId: string): Promise<any[]> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.get<Match[]>(`${MATCHMAKING_ENDPOINTS.FIND_MATCHES}/recommendations?skillId=${skillId}`);
+    // This endpoint doesn't exist in backend - would need to be implemented
+    throw new Error('Recommended matches endpoint not implemented in backend');
   },
 
   /**
-   * Report a problematic match
+   * Report a problematic match - Note: This endpoint may not exist in backend
    */
-  async reportMatch(matchId: string, reason: string, description: string): Promise<void> {
+  async reportMatch(matchId: string, reason: string, _description: string): Promise<void> {
     if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
     if (!reason?.trim()) throw new Error('Grund ist erforderlich');
-    return apiClient.post<void>(`${MATCHMAKING_ENDPOINTS.GET_MATCH}/${matchId}/report`, {
-      reason,
-      description,
-    });
+    // This endpoint doesn't exist in backend - would need to be implemented
+    throw new Error('Report match endpoint not implemented in backend');
   },
 };
 

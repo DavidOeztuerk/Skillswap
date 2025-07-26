@@ -1,4 +1,4 @@
-import { configureStore, type Middleware } from '@reduxjs/toolkit';
+import { configureStore } from '@reduxjs/toolkit';
 import auth from '../features/auth/authSlice';
 import skills from '../features/skills/skillsSlice';
 import category from '../features/skills/categorySlice';
@@ -8,6 +8,7 @@ import matchmaking from '../features/matchmaking/matchmakingSlice';
 import appointments from '../features/appointments/appointmentsSlice';
 import videoCall from '../features/videocall/videoCallSlice';
 import notifications from '../features/notifications/notificationSlice';
+import admin from '../features/admin/adminSlice';
 
 export const store = configureStore({
   reducer: {
@@ -20,18 +21,8 @@ export const store = configureStore({
     appointments,
     videoCall,
     notifications,
-  },
-  middleware: (getDefaultMiddleware: (options?: any) => Middleware[]) =>
-    getDefaultMiddleware({
-      serializableCheck: {
-        // Ignore non-serializable values in specific paths
-        ignoredActions: [
-          'videoCall/setLocalStream',
-          'videoCall/setRemoteStream',
-        ],
-        ignoredPaths: ['videoCall.localStream', 'videoCall.remoteStream'],
-      },
-    }),
+    admin
+  }
 });
 
 export type RootState = ReturnType<typeof store.getState>;

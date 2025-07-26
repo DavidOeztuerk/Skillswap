@@ -6,8 +6,9 @@ namespace Contracts.User.Requests;
 /// API request for UploadAvatar operation
 /// </summary>
 public record UploadAvatarRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    byte[] ImageData,
+    string FileName,
+    string ContentType)
 {
     /// <summary>
     /// API Version this request supports

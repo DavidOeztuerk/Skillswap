@@ -21,6 +21,8 @@ public record UpdateUserProfileRequest(
     [RegularExpression(@"^[a-zA-ZäöüÄÖÜß\s\-']+$", ErrorMessage = "Last name contains invalid characters")]
     string? LastName = null,
 
+    string? UserName = null,
+
     [Phone(ErrorMessage = "Invalid phone number format")]
     string? PhoneNumber = null,
 

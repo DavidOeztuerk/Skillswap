@@ -11,7 +11,7 @@ public class ApiResponse<T>
     public string? Message { get; set; }
     public List<string>? Errors { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-    public string TraceId { get; set; } = Guid.NewGuid().ToString();
+    public string? TraceId { get; set; } = Guid.NewGuid().ToString();
 
     public static ApiResponse<T> SuccessResult(T? data, string? message = null)
     {
@@ -28,7 +28,7 @@ public class ApiResponse<T>
         return new ApiResponse<T>
         {
             Success = false,
-            Errors = new List<string> { error },
+            Errors = [error],
             TraceId = traceId
         };
     }

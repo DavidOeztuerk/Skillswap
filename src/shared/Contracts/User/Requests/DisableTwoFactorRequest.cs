@@ -6,8 +6,7 @@ namespace Contracts.User.Requests;
 /// API request for DisableTwoFactor operation
 /// </summary>
 public record DisableTwoFactorRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    string Password)
 {
     /// <summary>
     /// API Version this request supports
