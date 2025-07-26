@@ -737,8 +737,9 @@ events.MapPost("/replay", HandleReplayEvents)
 // HANDLER METHODS - AUTHENTICATION
 // ============================================================================
 
-static async Task<IResult> HandleRegisterUser(IMediator mediator, [FromBody] RegisterUserCommand command)
+static async Task<IResult> HandleRegisterUser(IMediator mediator, [FromBody] RegisterUserRequest request)
 {
+    var command = new RegisterUserCommand(request.Email, request.Password, request.FirstName, request.LastName, request.UserName, request.ReferralCode);
     return await mediator.SendCommand(command);
 }
 
@@ -748,18 +749,22 @@ static async Task<IResult> HandleLoginUser(IMediator mediator, [FromBody] LoginR
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleRefreshToken(IMediator mediator, [FromBody] RefreshTokenCommand command)
+static async Task<IResult> HandleRefreshToken(IMediator mediator, HttpRequest http, [FromBody] RefreshTokenRequest request)
 {
+    var accessToken = http.Headers["Authorization"].ToString().Replace("Bearer ", string.Empty);
+    var command = new RefreshTokenCommand(accessToken, request.RefreshToken) { UserId = null };
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleVerifyEmail(IMediator mediator, [FromBody] VerifyEmailCommand command)
+static async Task<IResult> HandleVerifyEmail(IMediator mediator, [FromBody] VerifyEmailRequest request)
 {
+    var command = new VerifyEmailCommand(request.Token, request.Email);
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleResendVerification(IMediator mediator, [FromBody] ResendVerificationCommand command)
+static async Task<IResult> HandleResendVerification(IMediator mediator, [FromBody] ResendVerificationRequest request)
 {
+    var command = new ResendVerificationCommand(request.Email);
     return await mediator.SendCommand(command);
 }
 
@@ -769,63 +774,65 @@ static async Task<IResult> HandleResendVerification(IMediator mediator, [FromBod
 // HANDLER METHODS - TWO-FACTOR AUTHENTICATION
 // ============================================================================
 
-static async Task<IResult> HandleGenerateTwoFactorSecret(IMediator mediator, ClaimsPrincipal user, [FromBody] GenerateTwoFactorSecretCommand command)
+static async Task<IResult> HandleGenerateTwoFactorSecret(IMediator mediator, ClaimsPrincipal user, [FromBody] GenerateTwoFactorSecretRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new GenerateTwoFactorSecretCommand { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleVerifyTwoFactorCode(IMediator mediator, ClaimsPrincipal user, [FromBody] VerifyTwoFactorCodeCommand command)
+static async Task<IResult> HandleVerifyTwoFactorCode(IMediator mediator, ClaimsPrincipal user, [FromBody] VerifyTwoFactorCodeRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new VerifyTwoFactorCodeCommand(request.Code) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleDisableTwoFactor(IMediator mediator, ClaimsPrincipal user, [FromBody] DisableTwoFactorCommand command)
+static async Task<IResult> HandleDisableTwoFactor(IMediator mediator, ClaimsPrincipal user, [FromBody] DisableTwoFactorRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new DisableTwoFactorCommand(request.Password) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleGetTwoFactorStatus(IMediator mediator, ClaimsPrincipal user, [FromBody] GetTwoFactorStatusQuery query)
+static async Task<IResult> HandleGetTwoFactorStatus(IMediator mediator, ClaimsPrincipal user, [FromBody] GetTwoFactorStatusRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedQuery = query with { UserId = userId };
-    return await mediator.SendQuery(updatedQuery);
+    var query = new GetTwoFactorStatusQuery { UserId = userId };
+    return await mediator.SendQuery(query);
 }
 
 // ============================================================================
 // HANDLER METHODS - PASSWORD MANAGEMENT
 // ============================================================================
 
-static async Task<IResult> HandleRequestPasswordReset(IMediator mediator, [FromBody] RequestPasswordResetCommand command)
+static async Task<IResult> HandleRequestPasswordReset(IMediator mediator, [FromBody] RequestPasswordResetRequest request)
 {
+    var command = new RequestPasswordResetCommand(request.PlaceholderParam);
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleResetPassword(IMediator mediator, [FromBody] ResetPasswordCommand command)
+static async Task<IResult> HandleResetPassword(IMediator mediator, [FromBody] ResetPasswordRequest request)
 {
+    var command = new ResetPasswordCommand(request.Email, request.Token, request.NewPassword);
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleChangePassword(IMediator mediator, ClaimsPrincipal user, [FromBody] ChangePasswordCommand command)
+static async Task<IResult> HandleChangePassword(IMediator mediator, ClaimsPrincipal user, [FromBody] ChangePasswordRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new ChangePasswordCommand(request.CurrentPassword, request.NewPassword) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
 // ============================================================================
@@ -841,31 +848,31 @@ static async Task<IResult> HandleGetUserProfile(IMediator mediator, ClaimsPrinci
     return await mediator.SendQuery(updatedQuery);
 }
 
-static async Task<IResult> HandleUpdateUserProfile(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateUserProfileCommand command)
+static async Task<IResult> HandleUpdateUserProfile(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateUserProfileRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new UpdateUserProfileCommand(request.FirstName, request.LastName, request.UserName, request.Bio, request.Location, request.Skills) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleUploadAvatar(IMediator mediator, ClaimsPrincipal user, [FromBody] UploadAvatarCommand command)
+static async Task<IResult> HandleUploadAvatar(IMediator mediator, ClaimsPrincipal user, [FromBody] UploadAvatarRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new UploadAvatarCommand(request.FileName, request.ContentType, request.FileContent) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleDeleteAvatar(IMediator mediator, ClaimsPrincipal user, [FromBody] DeleteAvatarCommand command)
+static async Task<IResult> HandleDeleteAvatar(IMediator mediator, ClaimsPrincipal user, [FromBody] DeleteAvatarRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new DeleteAvatarCommand { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
 // ============================================================================
@@ -894,53 +901,53 @@ static async Task<IResult> HandleDeleteAvatar(IMediator mediator, ClaimsPrincipa
 // HANDLER METHODS - NOTIFICATION PREFERENCES
 // ============================================================================
 
-static async Task<IResult> HandleGetNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] GetNotificationPreferencesQuery query)
+static async Task<IResult> HandleGetNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] GetNotificationPreferencesRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedQuery = query with { UserId = userId };
-    return await mediator.SendQuery(updatedQuery);
+    var query = new GetNotificationPreferencesQuery { UserId = userId };
+    return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> HandleUpdateNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateNotificationPreferencesCommand command)
+static async Task<IResult> HandleUpdateNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateNotificationPreferencesRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new UpdateNotificationPreferencesCommand(request.EmailEnabled, request.PushEnabled, request.SmsEnabled) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
 // ============================================================================
 // HANDLER METHODS - FAVORITE SKILLS
 // ============================================================================
 
-static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPrincipal user, [FromBody] GetFavoriteSkillsQuery query)
+static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPrincipal user, [FromBody] GetFavoriteSkillsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedQuery = query with { UserId = userId };
-    return await mediator.SendQuery(updatedQuery);
+    var query = new GetFavoriteSkillsQuery(request.PageNumber, request.PageSize) { UserId = userId };
+    return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> HandleAddFavoriteSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] AddFavoriteSkillCommand command)
+static async Task<IResult> HandleAddFavoriteSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] AddFavoriteSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new AddFavoriteSkillCommand(request.SkillId) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleRemoveFavoriteSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] RemoveFavoriteSkillCommand command)
+static async Task<IResult> HandleRemoveFavoriteSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] RemoveFavoriteSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new RemoveFavoriteSkillCommand(request.SkillId) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
 // ============================================================================
@@ -956,11 +963,12 @@ static async Task<IResult> HandleRemoveFavoriteSkill(IMediator mediator, ClaimsP
 //     return await mediator.SendQuery(updatedQuery);
 // }
 
-static async Task<IResult> HandleSearchUsers(IMediator mediator, ClaimsPrincipal user, [FromBody] SearchUsersQuery query)
+static async Task<IResult> HandleSearchUsers(IMediator mediator, ClaimsPrincipal user, [FromBody] SearchUsersRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
+    var query = new SearchUsersQuery(request.SearchTerm, request.Skills, request.Location, request.PageNumber, request.PageSize);
     return await mediator.SendQuery(query);
 }
 
@@ -968,75 +976,78 @@ static async Task<IResult> HandleSearchUsers(IMediator mediator, ClaimsPrincipal
 // HANDLER METHODS - USER BLOCKING
 // ============================================================================
 
-static async Task<IResult> HandleBlockUser(IMediator mediator, ClaimsPrincipal user, [FromBody] BlockUserCommand command)
+static async Task<IResult> HandleBlockUser(IMediator mediator, ClaimsPrincipal user, [FromBody] BlockUserRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new BlockUserCommand(request.TargetUserId) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleUnblockUser(IMediator mediator, ClaimsPrincipal user, [FromBody] UnblockUserCommand command)
+static async Task<IResult> HandleUnblockUser(IMediator mediator, ClaimsPrincipal user, [FromBody] UnblockUserRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new UnblockUserCommand(request.TargetUserId) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleGetBlockedUsers(IMediator mediator, ClaimsPrincipal user, [FromBody] GetBlockedUsersQuery query)
+static async Task<IResult> HandleGetBlockedUsers(IMediator mediator, ClaimsPrincipal user, [FromBody] GetBlockedUsersRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedQuery = query with { UserId = userId };
-    return await mediator.SendQuery(updatedQuery);
+    var query = new GetBlockedUsersQuery(request.PageNumber, request.PageSize) { UserId = userId };
+    return await mediator.SendQuery(query);
 }
 
 // ============================================================================
 // HANDLER METHODS - ADMIN USER MANAGEMENT
 // ============================================================================
 
-static async Task<IResult> HandleGetAllUsers(IMediator mediator, ClaimsPrincipal user, [FromBody] GetAllUsersQuery query)
+static async Task<IResult> HandleGetAllUsers(IMediator mediator, ClaimsPrincipal user, [FromBody] GetAllUsersRequest request)
 {
+    var query = new GetAllUsersQuery();
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> HandleGetUserStatistics(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserStatisticsQuery query)
+static async Task<IResult> HandleGetUserStatistics(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserStatisticsRequest request)
 {
+    var query = new GetUserStatisticsQuery();
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> HandleUpdateUserStatus(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateUserStatusCommand command)
+static async Task<IResult> HandleUpdateUserStatus(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateUserStatusRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedCommand = command with { UserId = userId };
-    return await mediator.SendCommand(updatedCommand);
+    var command = new UpdateUserStatusCommand(request.PlaceholderParam, "", null, userId) { UserId = userId };
+    return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleGetUserActivity(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserActivityLogQuery query)
+static async Task<IResult> HandleGetUserActivity(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserActivityRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedQuery = query with { UserId = userId };
-    return await mediator.SendQuery(updatedQuery);
+    var query = new GetUserActivityLogQuery(userId, 1, 20);
+    return await mediator.SendQuery(query);
 }
 
 // ============================================================================
 // HANDLER METHODS - UTILITY
 // ============================================================================
 
-static async Task<IResult> HandleCheckEmailAvailability(IMediator mediator, [FromBody] CheckEmailAvailabilityQuery query)
+static async Task<IResult> HandleCheckEmailAvailability(IMediator mediator, [FromBody] CheckEmailAvailabilityRequest request)
 {
+    var query = new CheckEmailAvailabilityQuery(request.PlaceholderParam);
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> HandleGetUserRoles(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserRolesQuery query)
+static async Task<IResult> HandleGetUserRoles(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserRolesRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -1047,8 +1058,8 @@ static async Task<IResult> HandleGetUserRoles(IMediator mediator, ClaimsPrincipa
         return Results.Forbid();
     }
 
-    var updatedQuery = query with { UserId = userId };
-    return await mediator.SendQuery(updatedQuery);
+    var query = new GetUserRolesQuery(userId);
+    return await mediator.SendQuery(query);
 }
 
 // ============================================================================

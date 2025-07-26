@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+using Microsoft.AspNetCore.Builder;
 
 namespace Infrastructure.Observability;
 
@@ -372,4 +373,12 @@ public class PerformanceSnapshot
     public int Gen1Collections { get; set; }
     public int Gen2Collections { get; set; }
     public double UptimeSeconds { get; set; }
+}
+
+public static class PerformanceMiddlewareExtensions
+{
+    public static IApplicationBuilder UsePerformanceMonitoring(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<PerformanceMiddleware>();
+    }
 }

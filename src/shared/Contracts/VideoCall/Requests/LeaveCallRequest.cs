@@ -6,8 +6,8 @@ namespace Contracts.VideoCall.Requests;
 /// API request for LeaveCall operation
 /// </summary>
 public record LeaveCallRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    [Required(ErrorMessage = "Session ID is required")]
+    string SessionId)
 {
     /// <summary>
     /// API Version this request supports

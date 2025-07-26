@@ -3,12 +3,15 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
+using Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
     ContentRootPath = Directory.GetCurrentDirectory()
 });
+
+var serviceName = "Gateway";
 
 builder.Configuration
     .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
@@ -26,6 +29,8 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
     });
 });
+
+builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -52,6 +57,8 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseCors("AllowOrigins");
+
+app.UseSharedInfrastructure();
 
 await app.UseOcelot();
 

@@ -6,8 +6,8 @@ namespace Contracts.VideoCall.Requests;
 /// API request for JoinCall operation
 /// </summary>
 public record JoinCallRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    [Required(ErrorMessage = "Session ID is required")]
+    string SessionId)
 {
     /// <summary>
     /// API Version this request supports

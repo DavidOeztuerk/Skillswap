@@ -150,6 +150,10 @@ const AdminSettingsPage = withPrivateRoute(() => import('../pages/admin/AdminSet
   loadingMessage: "Einstellungen werden geladen...",
   requiredRole: 'admin',
 });
+const AdminMetricsPage = withPrivateRoute(() => import('../pages/admin/AdminMetricsPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'list'
+});
 
 const routes: RouteObject[] = [
   {
@@ -203,6 +207,10 @@ const routes: RouteObject[] = [
       {
         path: 'videocall/:appointmentId',
         element: <VideoCallPage />,
+      },
+      {
+        path: 'admin/metrics',
+        element: <AdminMetricsPage />,
       },
       {
         path: 'profile',

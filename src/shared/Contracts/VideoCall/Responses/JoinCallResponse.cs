@@ -4,8 +4,8 @@ namespace Contracts.VideoCall.Responses;
 /// API response for JoinCall operation
 /// </summary>
 public record JoinCallResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string SessionId,
+    bool Success)
 {
     /// <summary>
     /// API Version this response supports

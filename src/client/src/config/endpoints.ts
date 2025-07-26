@@ -266,6 +266,16 @@ export const ADMIN_ENDPOINTS = {
 };
 
 /**
+ * System-/Admin-Endpunkte
+ */
+export const SYSTEM_ENDPOINTS = {
+  /**
+   * Liefert Metriken des angegebenen Service
+   */
+  METRICS: (service: string) => `/api/system/metrics/${service}`,
+};
+
+/**
  * Erstellt einen vollständigen API-Pfad
  * @param endpoint - Der relative Endpunkt
  * @returns Der vollständige API-Pfad

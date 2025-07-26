@@ -4,8 +4,9 @@ namespace Contracts.VideoCall.Responses;
 /// API response for GetCallStatistics operation
 /// </summary>
 public record GetCallStatisticsResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    int TotalCalls,
+    int ActiveCalls,
+    double AverageDurationSeconds)
 {
     /// <summary>
     /// API Version this response supports
