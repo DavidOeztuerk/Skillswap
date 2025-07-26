@@ -4,8 +4,10 @@ namespace Contracts.Matchmaking.Responses;
 /// API response for GetOutgoingMatchRequests operation
 /// </summary>
 public record GetOutgoingMatchRequestsResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    List<MatchRequestItem> Requests,
+    int TotalCount,
+    int PageNumber,
+    int PageSize)
 {
     /// <summary>
     /// API Version this response supports

@@ -4,8 +4,13 @@ namespace Contracts.VideoCall.Responses;
 /// API response for GetCallSession operation
 /// </summary>
 public record GetCallSessionResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string SessionId,
+    string AppointmentId,
+    string Status,
+    List<string> ParticipantUserIds,
+    DateTime CreatedAt,
+    DateTime? StartedAt,
+    DateTime? EndedAt)
 {
     /// <summary>
     /// API Version this response supports

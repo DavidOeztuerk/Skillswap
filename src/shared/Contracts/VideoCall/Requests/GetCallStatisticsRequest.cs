@@ -6,8 +6,8 @@ namespace Contracts.VideoCall.Requests;
 /// API request for GetCallStatistics operation
 /// </summary>
 public record GetCallStatisticsRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    DateTime? FromDate = null,
+    DateTime? ToDate = null)
 {
     /// <summary>
     /// API Version this request supports
