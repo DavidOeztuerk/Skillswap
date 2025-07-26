@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Infrastructure.Middleware;
 using Infrastructure.Logging;
+using Infrastructure.Observability;
 using Microsoft.Extensions.Configuration;
+using OpenTelemetry.Metrics;
 using Serilog;
 
 namespace Infrastructure.Extensions;
@@ -28,6 +30,16 @@ public static class ServiceCollectionExtensions
 
         // Add HTTP context accessor for correlation ID
         services.AddHttpContextAccessor();
+
+        // Add telemetry and performance monitoring
+        services
+            .AddTelemetry(serviceName, "1.0.0", builder => builder
+                .AddTracing()
+                .AddMetrics()
+                .AddLogging());
+
+        services.AddSingleton<IPerformanceMetrics, PerformanceMetrics>();
+        services.AddSingleton<IPerformanceMonitoringService, PerformanceMonitoringService>();
 
         // Add CORS with secure defaults
         services.AddCors(options =>
@@ -84,6 +96,11 @@ public static class ServiceCollectionExtensions
 
         // CORS
         app.UseCors();
+
+        // Telemetry and performance monitoring
+        app.UseTelemetry();
+        app.UseMiddleware<PerformanceMiddleware>();
+        app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
         // Health checks endpoint
         app.UseHealthChecks("/health");
