@@ -60,6 +60,10 @@ const SearchResultsPage = withSuspense(() => import('../pages/search/SearchResul
   skeletonVariant: 'list',
   loadingMessage: "Loading search..."
 });
+const AdminMetricsPage = withPrivateRoute(() => import('../pages/admin/AdminMetricsPage'), {
+  useSkeleton: true,
+  skeletonVariant: 'list'
+});
 
 const routes: RouteObject[] = [
   {
@@ -113,6 +117,10 @@ const routes: RouteObject[] = [
       {
         path: 'videocall/:appointmentId',
         element: <VideoCallPage />,
+      },
+      {
+        path: 'admin/metrics',
+        element: <AdminMetricsPage />,
       },
       {
         path: 'profile',

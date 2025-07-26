@@ -831,6 +831,48 @@
       "AddQueriesToRequest": true
     },
     {
+      "DownstreamPathTemplate": "/metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/system/metrics/userservice",
+      "UpstreamHttpMethod": ["GET"]
+    },
+    {
+      "DownstreamPathTemplate": "/metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/system/metrics/skillservice",
+      "UpstreamHttpMethod": ["GET"]
+    },
+    {
+      "DownstreamPathTemplate": "/metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "matchmakingservice", "Port": 5003 }],
+      "UpstreamPathTemplate": "/api/system/metrics/matchmakingservice",
+      "UpstreamHttpMethod": ["GET"]
+    },
+    {
+      "DownstreamPathTemplate": "/metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice", "Port": 5004 }],
+      "UpstreamPathTemplate": "/api/system/metrics/appointmentservice",
+      "UpstreamHttpMethod": ["GET"]
+    },
+    {
+      "DownstreamPathTemplate": "/metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/system/metrics/videocallservice",
+      "UpstreamHttpMethod": ["GET"]
+    },
+    {
+      "DownstreamPathTemplate": "/metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "notificationservice", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/system/metrics/notificationservice",
+      "UpstreamHttpMethod": ["GET"]
+    },
+    {
       "DownstreamPathTemplate": "/analytics/service-metrics",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "gateway", "Port": 8080 }],

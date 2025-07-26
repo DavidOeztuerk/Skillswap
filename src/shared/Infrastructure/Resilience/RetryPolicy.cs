@@ -384,14 +384,3 @@ namespace Infrastructure.Resilience
         }
     }
 }
-
-// Placeholder for SqlException - should reference actual SQL client library
-namespace System.Data.SqlClient
-{
-    public class SqlException : Exception
-    {
-        public int Number { get; set; }
-    }
-}
-
-// Removed placeholder for SocketException to avoid type conflict
