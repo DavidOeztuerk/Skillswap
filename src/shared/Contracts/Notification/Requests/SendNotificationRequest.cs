@@ -1,47 +1,40 @@
 using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.Notification.Requests;
 
 /// <summary>
 /// API request for sending a single notification
 /// </summary>
-/// <param name="RecipientId">ID of the notification recipient</param>
-/// <param name="Type">Type of notification</param>
-/// <param name="Title">Notification title</param>
-/// <param name="Message">Notification message</param>
-/// <param name="Channel">Delivery channel (email, push, sms)</param>
-/// <param name="Priority">Notification priority</param>
-/// <param name="ScheduledFor">Optional: schedule for later delivery</param>
-/// <param name="ExpiresAt">Optional: expiration time</param>
-/// <param name="Metadata">Additional metadata</param>
+/// <param name="Type">Type of notification (Email, SMS, Push)</param>
+/// <param name="Template">Template name to use</param>
+/// <param name="Recipient">Recipient identifier</param>
+/// <param name="Variables">Template variables</param>
+/// <param name="Priority">Priority level (Low, Normal, High, Urgent)</param>
+/// <param name="ScheduledAt">Optional: schedule for later delivery</param>
+/// <param name="CorrelationId">Optional: correlation ID for tracking</param>
 public record SendNotificationRequest(
-    [Required(ErrorMessage = "Recipient ID is required")]
-    string RecipientId,
-
-    [Required(ErrorMessage = "Notification type is required")]
-    [StringLength(50, ErrorMessage = "Type must not exceed 50 characters")]
+    [Required(ErrorMessage = "Type is required")]
+    [RegularExpression(@"^(Email|SMS|Push|InApp)$", ErrorMessage = "Type must be Email, SMS, Push, or InApp")]
     string Type,
 
-    [Required(ErrorMessage = "Title is required")]
-    [StringLength(200, ErrorMessage = "Title must not exceed 200 characters")]
-    string Title,
+    [Required(ErrorMessage = "Template is required")]
+    [StringLength(100, ErrorMessage = "Template must not exceed 100 characters")]
+    string Template,
 
-    [Required(ErrorMessage = "Message is required")]
-    [StringLength(2000, ErrorMessage = "Message must not exceed 2000 characters")]
-    string Message,
+    [Required(ErrorMessage = "Recipient is required")]
+    [StringLength(256, ErrorMessage = "Recipient must not exceed 256 characters")]
+    string Recipient,
 
-    [Required(ErrorMessage = "Channel is required")]
-    [RegularExpression(@"^(email|push|sms|in_app)$", ErrorMessage = "Channel must be email, push, sms, or in_app")]
-    string Channel,
+    [Required(ErrorMessage = "Variables are required")]
+    Dictionary<string, string> Variables,
 
-    [Range(1, 5, ErrorMessage = "Priority must be between 1 (lowest) and 5 (highest)")]
-    int Priority = 3,
+    [RegularExpression(@"^(Low|Normal|High|Urgent)$", ErrorMessage = "Priority must be Low, Normal, High, or Urgent")]
+    string Priority = "Normal",
 
-    DateTime? ScheduledFor = null,
+    DateTime? ScheduledAt = null,
 
-    DateTime? ExpiresAt = null,
-
-    Dictionary<string, string>? Metadata = null)
+    string? CorrelationId = null) : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

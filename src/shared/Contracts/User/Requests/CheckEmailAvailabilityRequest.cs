@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.User.Requests;
 
@@ -7,7 +7,7 @@ namespace Contracts.User.Requests;
 /// </summary>
 public record CheckEmailAvailabilityRequest(
     // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    string PlaceholderParam) : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

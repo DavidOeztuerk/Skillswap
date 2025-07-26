@@ -5,7 +5,9 @@ namespace Contracts.VideoCall.Responses;
 /// </summary>
 public record JoinCallResponse(
     string SessionId,
-    bool Success)
+    string RoomId,
+    bool Success,
+    List<string> OtherParticipants)
 {
     /// <summary>
     /// API Version this response supports

@@ -3,10 +3,6 @@ using FluentValidation;
 
 namespace UserService.Application.Queries;
 
-// ============================================================================
-// GET USER ACTIVITY LOG QUERY (Admin/Self)
-// ============================================================================
-
 public record GetUserActivityLogQuery(
     string UserId,
     DateTime? FromDate = null,
@@ -16,8 +12,8 @@ public record GetUserActivityLogQuery(
     int PageSize = 50)
     : IPagedQuery<UserActivityResponse>
 {
-    int IPagedQuery<UserActivityResponse>.PageNumber { get; set; } = PageNumber;
-    int IPagedQuery<UserActivityResponse>.PageSize { get; set; } = PageSize;
+    public int PageNumber { get; set; } = PageNumber;
+    public int PageSize { get; set; } = PageSize;
 }
 
 public record UserActivityResponse(

@@ -16,6 +16,7 @@ using VideocallService.Consumer;
 using VideocallService.Hubs;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Contracts.VideoCall.Requests;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -246,7 +247,7 @@ calls.MapPost("/join", async (IMediator mediator, ClaimsPrincipal claims, [FromB
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new JoinCallCommand(request.SessionId) { UserId = userId };
+    var command = new JoinCallCommand(request.SessionId, request.ConnectionId, request.CameraEnabled, request.MicrophoneEnabled, request.DeviceInfo) { UserId = userId };
     return await mediator.SendCommand(command);
 })
 .WithName("JoinCall")
@@ -285,7 +286,7 @@ calls.MapPost("/end", async (IMediator mediator, ClaimsPrincipal claims, [FromBo
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new EndCallCommand(request.SessionId, request.Rating, request.Feedback) { UserId = userId };
+    var command = new EndCallCommand(request.SessionId, request.DurationSeconds, request.Rating, request.Feedback) { UserId = userId };
     return await mediator.SendCommand(command);
 })
 .WithName("EndCall")
@@ -293,12 +294,12 @@ calls.MapPost("/end", async (IMediator mediator, ClaimsPrincipal claims, [FromBo
 .WithDescription("Ends a video call session for the authenticated user.")
 .RequireAuthorization();
 
-calls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetCallSessionRequest request) =>
+calls.MapGet("/{sessionId}", async (IMediator mediator, ClaimsPrincipal claims, string sessionId) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetCallSessionQuery(request.SessionId);
+    var query = new GetCallSessionQuery(sessionId);
     return await mediator.SendQuery(query);
 })
 .WithName("GetCallSession")
@@ -307,12 +308,12 @@ calls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] 
 
 // Grouped endpoints for user call history
 var myCalls = app.MapGroup("/my/calls").WithTags("VideoCalls");
-myCalls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetUserCallHistoryRequest request) =>
+myCalls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [AsParameters] GetUserCallHistoryRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetUserCallHistoryQuery(userId, request.PageNumber, request.PageSize);
+    var query = new GetUserCallHistoryQuery(userId, request.FromDate, request.ToDate, request.Status, request.PageNumber, request.PageSize);
     return await mediator.SendQuery(query);
 })
 .WithName("GetMyCallHistory")
@@ -322,7 +323,7 @@ myCalls.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody
 
 // Grouped endpoints for analytics
 var analytics = app.MapGroup("/statistics").WithTags("Analytics");
-analytics.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetCallStatisticsRequest request) =>
+analytics.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [AsParameters] GetCallStatisticsRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();

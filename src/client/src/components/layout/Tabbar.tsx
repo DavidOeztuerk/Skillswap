@@ -117,7 +117,7 @@ const Tabbar: React.FC = () => {
   const MAX_VISIBLE_ITEMS = 4; // Reserve space for "More" button
   const visibleMenuItems = filteredMenuItems.slice(0, MAX_VISIBLE_ITEMS);
   const overflowMenuItems = filteredMenuItems.slice(MAX_VISIBLE_ITEMS);
-  const hasOverflow = overflowMenuItems.length > 0;
+  const hasOverflow = overflowMenuItems?.length > 0;
 
   const handleMoreClick = (event: React.MouseEvent<HTMLElement>) => {
     setMoreMenuAnchor(event.currentTarget);
@@ -302,7 +302,7 @@ const Tabbar: React.FC = () => {
           );
         })}
         
-        {overflowMenuItems.length > 0 && (
+        {overflowMenuItems?.length > 0 && (
           <>
             <Divider sx={{ my: 1 }} />
             <MenuItem

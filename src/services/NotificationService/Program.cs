@@ -18,6 +18,7 @@ using NotificationService.Application.Queries;
 using NotificationService.Domain.ResponseModels;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using Contracts.Notification.Requests;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using NotificationService;
@@ -354,12 +355,12 @@ using (var scope = app.Services.CreateScope())
 // Grouped endpoints for notifications
 var notifications = app.MapGroup("/notifications").WithTags("Notifications");
 
-notifications.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetNotificationHistoryRequest request) =>
+notifications.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [AsParameters] GetNotificationHistoryRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetNotificationHistoryQuery(request.PageNumber, request.PageSize) { UserId = userId };
+    var query = new GetNotificationHistoryQuery(userId, request.Type, request.Status, request.StartDate, request.EndDate, request.Page, request.PageSize);
     return await mediator.SendQuery(query);
 })
 .WithName("GetUserNotifications")
@@ -368,12 +369,12 @@ notifications.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [Fr
 .RequireAuthorization()
 .Produces<PagedResponse<GetNotificationHistoryQuery>>(200);
 
-notifications.MapPost("/read-all", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] MarkAllNotificationsAsReadRequest request) =>
+notifications.MapPost("/read-all", async (IMediator mediator, ClaimsPrincipal claims) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new MarkAllNotificationsAsReadCommand() { UserId = userId };
+    var command = new MarkAllNotificationsAsReadCommand(userId);
     return await mediator.SendCommand(command);
 })
 .WithName("MarkAllNotificationsAsRead")
@@ -387,7 +388,7 @@ notifications.MapPost("/send", async (IMediator mediator, ClaimsPrincipal claims
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new SendNotificationCommand(request.RecipientId, request.Type, request.Title, request.Message, request.Channel, request.Priority, request.ScheduledFor, request.ExpiresAt, request.Metadata) { UserId = userId };
+    var command = new SendNotificationCommand(request.Type, request.Template, request.Recipient, request.Variables, request.Priority, request.ScheduledAt, request.CorrelationId) { UserId = userId };
     return await mediator.SendCommand(command);
 })
 .WithName("SendNotification")
@@ -397,12 +398,12 @@ notifications.MapPost("/send", async (IMediator mediator, ClaimsPrincipal claims
 .Produces<SendNotificationResponse>(200)
 .Produces(400);
 
-notifications.MapPost("/bulk", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] SendBulkNotificationRequest request) =>
+notifications.MapPost("/bulk", handler: async (IMediator mediator, ClaimsPrincipal claims, [FromBody] SendBulkNotificationRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new SendBulkNotificationCommand(request.RecipientIds, request.Type, request.Title, request.Message, request.Channel, request.Priority) { UserId = userId };
+    var command = new SendBulkNotificationCommand(request.UserIds, request.Type, request.Template, request.GlobalVariables, request.UserSpecificVariables, request.Priority, request.ScheduledAt) { UserId = userId };
     return await mediator.SendCommand(command);
 })
 .WithName("SendBulkNotification")
@@ -417,7 +418,7 @@ notifications.MapPost("/cancel", async (IMediator mediator, ClaimsPrincipal clai
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new CancelNotificationCommand(request.NotificationId) { UserId = userId };
+    var command = new CancelNotificationCommand(request.NotificationId, request.Reason) { UserId = userId };
     return await mediator.SendCommand(command);
 })
 .WithName("CancelNotification")
@@ -440,12 +441,12 @@ notifications.MapPost("/retry", async (IMediator mediator, ClaimsPrincipal claim
 .RequireAuthorization()
 .Produces<RetryFailedNotificationResponse>(200);
 
-notifications.MapPost("/{notificationId}/read", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] MarkNotificationAsReadRequest request) =>
+notifications.MapPost("/{notificationId}/read", async (IMediator mediator, ClaimsPrincipal claims, string notificationId) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new MarkNotificationAsReadCommand(request.NotificationId) { UserId = userId };
+    var command = new MarkNotificationAsReadCommand(notificationId, userId);
     return await mediator.SendCommand(command);
 })
 .WithName("MarkNotificationAsRead")
@@ -457,12 +458,12 @@ notifications.MapPost("/{notificationId}/read", async (IMediator mediator, Claim
 // Grouped endpoints for user preferences
 var preferences = app.MapGroup("/preferences").WithTags("Preferences");
 
-preferences.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetNotificationPreferencesRequest request) =>
+preferences.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetNotificationPreferencesQuery { UserId = userId };
+    var query = new GetNotificationPreferencesQuery(userId);
     return await mediator.SendQuery(query);
 })
 .WithName("GetNotificationPreferences")
@@ -476,7 +477,7 @@ preferences.MapPut("/", async (IMediator mediator, ClaimsPrincipal claims, [From
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new UpdateNotificationPreferencesCommand(request.EmailEnabled, request.PushEnabled, request.SmsEnabled) { UserId = userId };
+    var command = new UpdateNotificationPreferencesCommand(userId, request.EmailEnabled, request.EmailMarketing, request.EmailSecurity, request.EmailUpdates, request.SmsEnabled, request.SmsSecurity, request.SmsReminders, request.PushEnabled, request.PushMarketing, request.PushSecurity, request.PushUpdates, request.QuietHoursStart, request.QuietHoursEnd, request.TimeZone, request.DigestFrequency, request.Language);
     return await mediator.SendCommand(command);
 })
 .WithName("UpdateNotificationPreferences")
@@ -493,7 +494,7 @@ templates.MapPost("/", async (IMediator mediator, ClaimsPrincipal claims, [FromB
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new CreateEmailTemplateCommand(request.Name, request.Subject, request.Body) { UserId = userId };
+    var command = new CreateEmailTemplateCommand(request.Name, request.Language, request.Subject, request.HtmlContent, request.TextContent, request.Description, request.VariablesSchema) { UserId = userId };
     return await mediator.SendCommand(command);
 })
 .WithName("CreateEmailTemplate")
@@ -507,7 +508,7 @@ templates.MapPut("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBo
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new UpdateEmailTemplateCommand(request.TemplateId, request.Name, request.Subject, request.Body) { UserId = userId };
+    var command = new UpdateEmailTemplateCommand(request.TemplateId, request.Subject, request.HtmlContent, request.TextContent, request.Description, null, request.VariablesSchema) { UserId = userId };
     return await mediator.SendCommand(command);
 })
 .WithName("UpdateEmailTemplate")
@@ -516,12 +517,12 @@ templates.MapPut("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBo
 .RequireAuthorization(Policies.RequireAdminRole)
 .Produces<UpdateEmailTemplateResponse>(200);
 
-templates.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetEmailTemplatesRequest request) =>
+templates.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [AsParameters] GetEmailTemplatesRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetEmailTemplatesQuery(request.PageNumber, request.PageSize);
+    var query = new GetEmailTemplatesQuery(request.Language, request.IsActive, request.Page, request.PageSize);
     return await mediator.SendQuery(query);
 })
 .WithName("GetEmailTemplates")
@@ -533,12 +534,12 @@ templates.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [FromBo
 // Grouped endpoints for analytics (Admin)
 var analytics = app.MapGroup("/analytics").WithTags("Analytics");
 
-analytics.MapGet("/statistics", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] GetNotificationStatisticsRequest request) =>
+analytics.MapGet("/statistics", async (IMediator mediator, ClaimsPrincipal claims, [AsParameters] GetNotificationStatisticsRequest request) =>
 {
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetNotificationStatisticsQuery(request.FromDate, request.ToDate);
+    var query = new GetNotificationStatisticsQuery(request.StartDate, request.EndDate, request.Type, request.Template);
     return await mediator.SendQuery(query);
 })
 .WithName("GetNotificationStatistics")

@@ -225,6 +225,7 @@ appointments.MapGet("/{appointmentId}", HandleGetAppointmentDetails)
 
 // Grouped endpoints for user appointments
 var myAppointments = app.MapGroup("/my/appointments").WithTags("Appointments");
+
 myAppointments.MapGet("/", HandleGetUserAppointments)
     .WithName("GetMyAppointments")
     .WithSummary("Get my appointments")
@@ -303,16 +304,16 @@ static async Task<IResult> HandleCancelAppointment(IMediator mediator, ClaimsPri
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleGetAppointmentDetails(IMediator mediator, ClaimsPrincipal user, [FromBody] GetAppointmentDetailsRequest request)
+static async Task<IResult> HandleGetAppointmentDetails(IMediator mediator, ClaimsPrincipal user, string appointmentId)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetAppointmentDetailsQuery(request.AppointmentId);
+    var query = new GetAppointmentDetailsQuery(appointmentId);
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> HandleGetUserAppointments(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserAppointmentsRequest request)
+static async Task<IResult> HandleGetUserAppointments(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserAppointmentsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();

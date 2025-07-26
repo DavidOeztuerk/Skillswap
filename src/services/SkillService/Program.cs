@@ -327,12 +327,12 @@ static async Task<IResult> GetSkillById(IMediator mediator, ClaimsPrincipal user
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetUserSkills(IMediator mediator, ClaimsPrincipal user, [FromBody] GetUserSkillsRequest request)
+static async Task<IResult> GetUserSkills(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserSkillsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetUserSkillsQuery(request.IsOffering, request.CategoryId, request.IncludeInactive, request.PageNumber, request.PageSize);
+    var query = new GetUserSkillsQuery(userId, request.IsOffering, request.CategoryId, request.IncludeInactive, request.PageNumber, request.PageSize);
 
     return await mediator.SendQuery(query);
 }

@@ -5,7 +5,6 @@ using Infrastructure.Middleware;
 using Infrastructure.Logging;
 using Infrastructure.Observability;
 using Microsoft.Extensions.Configuration;
-using OpenTelemetry.Metrics;
 using Serilog;
 
 namespace Infrastructure.Extensions;
@@ -35,8 +34,8 @@ public static class ServiceCollectionExtensions
         services
             .AddTelemetry(serviceName, "1.0.0", builder => builder
                 .AddTracing()
-                .AddMetrics()
-                .AddLogging());
+                .AddMetrics());
+                // .AddLogging());
 
         services.AddSingleton<IPerformanceMetrics, PerformanceMetrics>();
         services.AddSingleton<IPerformanceMonitoringService, PerformanceMonitoringService>();
@@ -68,7 +67,7 @@ public static class ServiceCollectionExtensions
         app.UseMiddleware<SecurityHeadersMiddleware>();
 
         // Correlation ID (early in pipeline)
-        app.UseMiddleware<CorrelationIdMiddleware>();
+        app.UseMiddleware<Observability.CorrelationIdMiddleware>();
 
         // Request logging (after correlation ID)
         app.UseMiddleware<RequestLoggingMiddleware>();

@@ -1,13 +1,10 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Contracts.User.Requests;
 
 /// <summary>
 /// API request for AddFavoriteSkill operation
 /// </summary>
 public record AddFavoriteSkillRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    string SkillId)
 {
     /// <summary>
     /// API Version this request supports

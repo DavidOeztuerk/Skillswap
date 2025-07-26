@@ -5,17 +5,16 @@ using Contracts.User.Responses;
 namespace UserService.Application.Commands;
 
 public record UpdateUserProfileCommand(
-    string UserId,
     string? FirstName = null,
     string? LastName = null,
     string? UserName = null,
     string? PhoneNumber = null,
     string? Bio = null,
     string? TimeZone = null,
-    Dictionary<string, string>? Preferences = null) 
+    Dictionary<string, string>? Preferences = null)
     : ICommand<UpdateUserProfileResponse>, IAuditableCommand
 {
-    string? IAuditableCommand.UserId { get; set; }
+    public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
@@ -52,7 +51,7 @@ public class UpdateUserProfileCommandValidator : AbstractValidator<UpdateUserPro
     private static bool BeValidTimeZone(string? timeZone)
     {
         if (string.IsNullOrEmpty(timeZone)) return true;
-        
+
         try
         {
             TimeZoneInfo.FindSystemTimeZoneById(timeZone);

@@ -1,7 +1,6 @@
 // src/hooks/useMatchmaking.ts
 import { useEffect, useCallback } from 'react';
 import {
-  // fetchMatches,
   findMatch,
   acceptMatch,
   rejectMatch,
@@ -10,11 +9,12 @@ import {
   createMatchRequest,
   acceptMatchRequest,
   rejectMatchRequest,
+  getUserMatches,
 } from '../features/matchmaking/matchmakingSlice';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
-import { MatchRequest } from '../types/contracts/requests/MatchRequest';
 import { Match, MatchStatus } from '../types/models/Match';
 import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
+import { FindMatchRequest } from '../api/services/matchmakingService';
 
 /**
  * Hook für Matchmaking-Funktionalität
@@ -36,9 +36,10 @@ export const useMatchmaking = () => {
   /**
    * Lädt alle Matches für den aktuellen Benutzer
    */
-  const loadMatches = useCallback(async (): Promise<void> => {
-    // await dispatch(fetchMatches(null));
-  }, []);
+  const loadMatches = useCallback(async (params?: { page?: number; limit?: number; status?: string }): Promise<boolean> => {
+    const resultAction = await dispatch(getUserMatches(params));
+    return getUserMatches.fulfilled.match(resultAction);
+  }, [dispatch]);
 
   /**
    * ✅ NEU: Lädt alle eingehenden Match-Anfragen
@@ -81,7 +82,7 @@ export const useMatchmaking = () => {
    * @returns true bei Erfolg, false bei Fehler
    */
   const searchMatches = async (
-    matchRequest: MatchRequest
+    matchRequest: FindMatchRequest
   ): Promise<boolean> => {
     const resultAction = await dispatch(findMatch(matchRequest));
     return findMatch.fulfilled.match(resultAction);
@@ -90,12 +91,14 @@ export const useMatchmaking = () => {
   /**
    * ✅ NEU: Akzeptiert eine eingehende Match-Anfrage
    * @param requestId - ID der zu akzeptierenden Match-Anfrage
+   * @param responseMessage - Optionale Antwort-Nachricht
    * @returns Das resultierende Match oder null bei Fehler
    */
   const approveMatchRequest = async (
-    requestId: string
+    requestId: string,
+    responseMessage?: string
   ): Promise<Match | null> => {
-    const resultAction = await dispatch(acceptMatchRequest(requestId));
+    const resultAction = await dispatch(acceptMatchRequest({ requestId, responseMessage }));
 
     if (acceptMatchRequest.fulfilled.match(resultAction)) {
       return resultAction.payload;
@@ -107,15 +110,15 @@ export const useMatchmaking = () => {
   /**
    * ✅ NEU: Lehnt eine eingehende Match-Anfrage ab
    * @param requestId - ID der abzulehnenden Match-Anfrage
-   * @param reason - Optionaler Ablehnungsgrund
+   * @param responseMessage - Optionale Ablehnungs-Nachricht
    * @returns true bei Erfolg, false bei Fehler
    */
   const declineMatchRequest = async (
     requestId: string,
-    reason?: string
+    responseMessage?: string
   ): Promise<boolean> => {
     const resultAction = await dispatch(
-      rejectMatchRequest({ requestId, reason })
+      rejectMatchRequest({ requestId, responseMessage })
     );
     return rejectMatchRequest.fulfilled.match(resultAction);
   };
@@ -138,10 +141,11 @@ export const useMatchmaking = () => {
   /**
    * Lehnt ein Match ab (bestehende Funktionalität)
    * @param matchId - ID des abzulehnenden Matches
+   * @param reason - Optionaler Ablehnungsgrund
    * @returns Das aktualisierte Match oder null bei Fehler
    */
-  const declineMatch = async (matchId: string): Promise<Match | null> => {
-    const resultAction = await dispatch(rejectMatch(matchId));
+  const declineMatch = async (matchId: string, reason?: string): Promise<Match | null> => {
+    const resultAction = await dispatch(rejectMatch({ matchId, reason }));
 
     if (rejectMatch.fulfilled.match(resultAction)) {
       return resultAction.payload;

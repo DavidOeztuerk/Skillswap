@@ -3,6 +3,15 @@ import { NOTIFICATION_ENDPOINTS } from '../../config/endpoints';
 import { Notification, NotificationSettings } from '../../types/models/Notification';
 import apiClient from '../apiClient';
 
+export interface NotificationHistoryRequest {
+    Type?: string;
+    Status?: string;
+    StartDate?: Date;
+    EndDate?: Date;
+    Page?: number;
+    PageSize?: number;
+} 
+
 /**
  * Service for notification operations
  */
@@ -10,8 +19,17 @@ const notificationService = {
   /**
    * Get all user notifications
    */
-  async getNotifications(params?: { page?: number; limit?: number; filters?: any }): Promise<Notification[]> {
-    return apiClient.get<Notification[]>(NOTIFICATION_ENDPOINTS.GET_ALL, { params });
+  async getNotifications(request?: NotificationHistoryRequest): Promise<Notification[]> {
+    const queryParams = new URLSearchParams();
+    if (request?.Type) queryParams.append('Type', request.Type);
+    if (request?.Status) queryParams.append('Status', request.Status);
+    if (request?.StartDate) queryParams.append('StartDate', request.StartDate.toISOString());
+    if (request?.EndDate) queryParams.append('EndDate', request.EndDate.toISOString());
+    if (request?.Page) queryParams.append('Page', request.Page.toString());
+    if (request?.PageSize) queryParams.append('PageSize', request.PageSize.toString());
+    
+    const url = `${NOTIFICATION_ENDPOINTS.GET_ALL}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return apiClient.get<Notification[]>(url);
   },
 
   /**
@@ -19,14 +37,14 @@ const notificationService = {
    */
   async markAsRead(notificationId: string): Promise<void> {
     if (!notificationId?.trim()) throw new Error('Benachrichtigungs-ID ist erforderlich');
-    return apiClient.post<void>(`${NOTIFICATION_ENDPOINTS.MARK_READ}/${notificationId}`);
+    return apiClient.post<void>(`${NOTIFICATION_ENDPOINTS.GET_ALL}/${notificationId}/read`);
   },
 
   /**
    * Mark all notifications as read
    */
   async markAllAsRead(): Promise<void> {
-    return apiClient.post<void>(NOTIFICATION_ENDPOINTS.MARK_ALL_READ);
+    return apiClient.post<void>(`${NOTIFICATION_ENDPOINTS.GET_ALL}/read-all`);
   },
 
   /**

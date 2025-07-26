@@ -67,18 +67,15 @@ const skillService = {
    * Get current user's skills
    */
   async getUserSkills(page = 1, pageSize = 12, isOffering?: boolean, categoryId?: number, includeInactive = false): Promise<PaginatedResponse<Skill>> {
-    const requestData = {
-      pageNumber: page,
-      pageSize: pageSize,
-      isOffering: isOffering,
-      categoryId: categoryId,
-      includeInactive: includeInactive
-    };
+    const params = new URLSearchParams();
+    params.append('PageNumber', page.toString());
+    params.append('PageSize', pageSize.toString());
+    if (isOffering !== undefined) params.append('IsOffering', isOffering.toString());
+    if (categoryId !== undefined) params.append('CategoryId', categoryId.toString());
+    if (includeInactive !== undefined) params.append('IncludeInactive', includeInactive.toString());
     
-    return apiClient.post<PaginatedResponse<Skill>>(
-      SKILL_ENDPOINTS.GET_USER_SKILLS,
-      requestData
-    );
+    const url = `${SKILL_ENDPOINTS.GET_USER_SKILLS}?${params.toString()}`;
+    return apiClient.get<PaginatedResponse<Skill>>(url);
   },
 
   /**

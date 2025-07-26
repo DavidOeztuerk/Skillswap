@@ -1,9 +1,9 @@
 using System.Text;
+using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
-using Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -56,6 +56,7 @@ var app = builder.Build();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.UseCors("AllowOrigins");
 
 app.UseSharedInfrastructure();

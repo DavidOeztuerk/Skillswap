@@ -8,6 +8,7 @@ namespace SkillService.Application.Queries;
 // ============================================================================
 
 public record GetUserSkillsQuery(
+    string UserId,
     bool? IsOffering = null,
     string? CategoryId = null,
     bool IncludeInactive = false,
@@ -17,8 +18,6 @@ public record GetUserSkillsQuery(
 {
     int IPagedQuery<UserSkillResponse>.PageNumber { get; set; } = PageNumber;
     int IPagedQuery<UserSkillResponse>.PageSize { get; set; } = PageSize;
-
-    public string UserId { get; set; } = string.Empty;
 
     public string CacheKey => $"user-skills:{UserId}:{IsOffering}:{CategoryId}:{IncludeInactive}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);

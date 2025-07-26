@@ -1,13 +1,10 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Contracts.User.Requests;
 
 /// <summary>
 /// API request for RemoveFavoriteSkill operation
 /// </summary>
 public record RemoveFavoriteSkillRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    string SkillId)
 {
     /// <summary>
     /// API Version this request supports

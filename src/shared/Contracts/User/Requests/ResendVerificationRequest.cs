@@ -6,8 +6,7 @@ namespace Contracts.User.Requests;
 /// API request for ResendVerification operation
 /// </summary>
 public record ResendVerificationRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    string Email)
 {
     /// <summary>
     /// API Version this request supports

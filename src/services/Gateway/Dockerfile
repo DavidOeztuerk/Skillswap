@@ -1,6 +1,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
+COPY shared/ shared/
+
 # Dann kopiere das Gateway-Projekt
 COPY services/Gateway/ services/Gateway/
 

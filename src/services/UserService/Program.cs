@@ -20,7 +20,6 @@ using UserService;
 using UserService.Application.Commands;
 using UserService.Application.Commands.Favorites;
 using UserService.Application.Queries;
-using UserService.Application.Queries.Favorites;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -509,24 +508,24 @@ profile.MapDelete("/avatar", HandleDeleteAvatar)
 // API ENDPOINTS - NOTIFICATION PREFERENCES
 // ============================================================================
 
-profile.MapGet("/notifications", HandleGetNotificationPreferences)
-    .WithName("GetNotificationPreferences")
-    .WithSummary("Get notification preferences")
-    .WithDescription("Retrieves the user's notification preferences")
-    .WithTags("Notifications")
-    .RequireAuthorization()
-    .Produces<NotificationPreferencesResponse>(200)
-    .Produces(401);
+// profile.MapGet("/notifications", HandleGetNotificationPreferences)
+//     .WithName("GetNotificationPreferences")
+//     .WithSummary("Get notification preferences")
+//     .WithDescription("Retrieves the user's notification preferences")
+//     .WithTags("Notifications")
+//     .RequireAuthorization()
+//     .Produces<NotificationPreferencesResponse>(200)
+//     .Produces(401);
 
-profile.MapPut("/notifications", HandleUpdateNotificationPreferences)
-    .WithName("UpdateNotificationPreferences")
-    .WithSummary("Update notification preferences")
-    .WithDescription("Updates the user's notification preferences")
-    .WithTags("Notifications")
-    .RequireAuthorization()
-    .Produces<UpdateNotificationPreferencesResponse>(200)
-    .Produces(400)
-    .Produces(401);
+// profile.MapPut("/notifications", HandleUpdateNotificationPreferences)
+//     .WithName("UpdateNotificationPreferences")
+//     .WithSummary("Update notification preferences")
+//     .WithDescription("Updates the user's notification preferences")
+//     .WithTags("Notifications")
+//     .RequireAuthorization()
+//     .Produces<UpdateNotificationPreferencesResponse>(200)
+//     .Produces(400)
+//     .Produces(401);
 
 // ============================================================================
 // API ENDPOINTS - USER BLOCKING
@@ -806,7 +805,7 @@ static async Task<IResult> HandleGetTwoFactorStatus(IMediator mediator, ClaimsPr
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetTwoFactorStatusQuery { UserId = userId };
+    var query = new GetTwoFactorStatusQuery(userId);
     return await mediator.SendQuery(query);
 }
 
@@ -853,7 +852,7 @@ static async Task<IResult> HandleUpdateUserProfile(IMediator mediator, ClaimsPri
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new UpdateUserProfileCommand(request.FirstName, request.LastName, request.UserName, request.Bio, request.Location, request.Skills) { UserId = userId };
+    var command = new UpdateUserProfileCommand(request.FirstName, request.LastName, request.UserName, request.Bio, request.Location) { UserId = userId };
     return await mediator.SendCommand(command);
 }
 
@@ -862,7 +861,7 @@ static async Task<IResult> HandleUploadAvatar(IMediator mediator, ClaimsPrincipa
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new UploadAvatarCommand(request.FileName, request.ContentType, request.FileContent) { UserId = userId };
+    var command = new UploadAvatarCommand(request.ImageData, request.FileName, request.ContentType) { UserId = userId };
     return await mediator.SendCommand(command);
 }
 
@@ -901,23 +900,25 @@ static async Task<IResult> HandleDeleteAvatar(IMediator mediator, ClaimsPrincipa
 // HANDLER METHODS - NOTIFICATION PREFERENCES
 // ============================================================================
 
-static async Task<IResult> HandleGetNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] GetNotificationPreferencesRequest request)
-{
-    var userId = user.GetUserId();
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+// static async Task<IResult> HandleGetNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] GetNotificationPreferencesRequest request)
+// {
+//     var userId = user.GetUserId();
+//     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetNotificationPreferencesQuery { UserId = userId };
-    return await mediator.SendQuery(query);
-}
+//     var query = new GetNotificationPreferencesQuery(userId);
+//     return await mediator.SendQuery(query);
+// }
 
-static async Task<IResult> HandleUpdateNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateNotificationPreferencesRequest request)
-{
-    var userId = user.GetUserId();
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+// static async Task<IResult> HandleUpdateNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateNotificationPreferencesRequest request)
+// {
+//     var userId = user.GetUserId();
+//     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new UpdateNotificationPreferencesCommand(request.EmailEnabled, request.PushEnabled, request.SmsEnabled) { UserId = userId };
-    return await mediator.SendCommand(command);
-}
+//     // var command = new UpdateNotificationPreferencesCommand(request.EmailEnabled, request.PushEnabled, request.SmsEnabled) { UserId = userId };
+//     var command = new UpdateNotificationPreferencesCommand() { UserId = userId };
+
+//     return await mediator.SendCommand(command);
+// }
 
 // ============================================================================
 // HANDLER METHODS - FAVORITE SKILLS
@@ -928,7 +929,7 @@ static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPri
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetFavoriteSkillsQuery(request.PageNumber, request.PageSize) { UserId = userId };
+    var query = new GetFavoriteSkillsQuery(userId, request.PageNumber, request.PageSize);
     return await mediator.SendQuery(query);
 }
 
@@ -968,7 +969,7 @@ static async Task<IResult> HandleSearchUsers(IMediator mediator, ClaimsPrincipal
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new SearchUsersQuery(request.SearchTerm, request.Skills, request.Location, request.PageNumber, request.PageSize);
+    var query = new SearchUsersQuery(request.SearchTerm, request.IsAvailable, request.MinRating, request.SortBy, request.SortDescending, request.EmailVerified, request.Role, request.AccountStatus, request.CreatedAfter, request.CreatedBefore, request.PageNumber, request.PageSize);
     return await mediator.SendQuery(query);
 }
 
@@ -981,7 +982,7 @@ static async Task<IResult> HandleBlockUser(IMediator mediator, ClaimsPrincipal u
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new BlockUserCommand(request.TargetUserId) { UserId = userId };
+    var command = new BlockUserCommand(request.BlockedUserId, request.Reason) { UserId = userId };
     return await mediator.SendCommand(command);
 }
 
@@ -990,7 +991,7 @@ static async Task<IResult> HandleUnblockUser(IMediator mediator, ClaimsPrincipal
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new UnblockUserCommand(request.TargetUserId) { UserId = userId };
+    var command = new UnblockUserCommand(request.BlockedUserId) { UserId = userId };
     return await mediator.SendCommand(command);
 }
 
@@ -999,7 +1000,7 @@ static async Task<IResult> HandleGetBlockedUsers(IMediator mediator, ClaimsPrinc
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetBlockedUsersQuery(request.PageNumber, request.PageSize) { UserId = userId };
+    var query = new GetBlockedUsersQuery(userId, request.PageNumber, request.PageSize);
     return await mediator.SendQuery(query);
 }
 
@@ -1033,7 +1034,7 @@ static async Task<IResult> HandleGetUserActivity(IMediator mediator, ClaimsPrinc
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetUserActivityLogQuery(userId, 1, 20);
+    var query = new GetUserActivityLogQuery(userId, request.FromDate, request.ToDate, request.ActivityType, request.PageNumber, request.PageSize);
     return await mediator.SendQuery(query);
 }
 

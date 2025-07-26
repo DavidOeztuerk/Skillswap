@@ -8,7 +8,8 @@ namespace NotificationService.Application.Commands;
 // ============================================================================
 
 public record MarkAllNotificationsAsReadCommand(
-    string UserId) : ICommand<MarkAllNotificationsAsReadResponse>, IAuditableCommand
+    string UserId) 
+    : ICommand<MarkAllNotificationsAsReadResponse>, IAuditableCommand
 {
     string? IAuditableCommand.UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;

@@ -6,8 +6,7 @@ namespace Contracts.User.Requests;
 /// API request for VerifyTwoFactorCode operation
 /// </summary>
 public record VerifyTwoFactorCodeRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    string Code)
 {
     /// <summary>
     /// API Version this request supports

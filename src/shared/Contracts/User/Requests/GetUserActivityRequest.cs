@@ -1,13 +1,14 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Contracts.User.Requests;
 
 /// <summary>
 /// API request for GetUserActivity operation
 /// </summary>
 public record GetUserActivityRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    DateTime? FromDate = null,
+    DateTime? ToDate = null,
+    string? ActivityType = null,
+    int PageNumber = 1,
+    int PageSize = 50)
 {
     /// <summary>
     /// API Version this request supports

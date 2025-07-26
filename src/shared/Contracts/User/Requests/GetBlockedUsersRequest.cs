@@ -1,13 +1,11 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Contracts.User.Requests;
 
 /// <summary>
 /// API request for GetBlockedUsers operation
 /// </summary>
 public record GetBlockedUsersRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    int PageNumber = 1,
+    int PageSize = 12)
 {
     /// <summary>
     /// API Version this request supports

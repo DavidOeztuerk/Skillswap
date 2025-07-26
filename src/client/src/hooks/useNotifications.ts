@@ -11,6 +11,7 @@ import {
 } from '../features/notifications/notificationSlice';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { Notification, NotificationSettings, NotificationType } from '../types/models/Notification';
+import { NotificationHistoryRequest } from '../api/services/notificationService';
 
 /**
  * Hook für Benachrichtigungs-Funktionalität
@@ -29,8 +30,8 @@ export const useNotifications = () => {
   /**
    * Lädt alle Benachrichtigungen
    */
-  const loadNotifications = useCallback(async (): Promise<void> => {
-    await dispatch(fetchNotifications());
+  const loadNotifications = useCallback(async (request?: NotificationHistoryRequest): Promise<void> => {
+    await dispatch(fetchNotifications(request));
   }, [dispatch]);
 
   /**

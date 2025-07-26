@@ -1,13 +1,11 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Contracts.User.Requests;
 
 /// <summary>
 /// API request for GetFavoriteSkills operation
 /// </summary>
 public record GetFavoriteSkillsRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    string PageSize,
+    string PageNumber)
 {
     /// <summary>
     /// API Version this request supports
