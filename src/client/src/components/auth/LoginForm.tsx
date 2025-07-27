@@ -69,6 +69,15 @@ const LoginForm: React.FC<LoginFormProps> = ({
   showRegisterLink = true,
 }) => {
   const { login, isLoading, error, dismissError } = useAuth();
+  
+  // Clear errors when component mounts
+  useEffect(() => {
+    dismissError?.();
+    return () => {
+      // Clear errors when component unmounts
+      dismissError?.();
+    };
+  }, [dismissError]);
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
@@ -98,13 +107,18 @@ const LoginForm: React.FC<LoginFormProps> = ({
   });
 
   // Get redirect path from location state
-  const finalRedirectPath = location.state?.from?.pathname || redirectPath;
+  const finalRedirectPath = location?.state?.from?.pathname || redirectPath;
 
   // Handle rate limiting
   useEffect(() => {
-    const lockData = localStorage.getItem('loginLock');
+    const lockData = localStorage?.getItem('loginLock');
     if (lockData) {
-      const { timestamp, attempts } = JSON.parse(lockData);
+      try {
+        const { timestamp, attempts } = JSON.parse(lockData);
+        if (typeof timestamp !== 'number' || typeof attempts !== 'number') {
+          localStorage?.removeItem('loginLock');
+          return;
+        }
       const elapsed = Date.now() - timestamp;
 
       if (elapsed < LOCK_DURATION && attempts >= MAX_ATTEMPTS) {
@@ -113,10 +127,14 @@ const LoginForm: React.FC<LoginFormProps> = ({
         setAttemptCount(attempts);
       } else if (elapsed >= LOCK_DURATION) {
         // Clear lock if duration has passed
-        localStorage.removeItem('loginLock');
+        localStorage?.removeItem('loginLock');
         setAttemptCount(0);
       } else {
-        setAttemptCount(attempts);
+        setAttemptCount(attempts || 0);
+      }
+      } catch (error) {
+        console.error('Error parsing lock data:', error);
+        localStorage?.removeItem('loginLock');
       }
     }
   }, [LOCK_DURATION]);
@@ -129,7 +147,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
       setLockTimeRemaining((prev) => {
         if (prev <= 1000) {
           setIsLocked(false);
-          localStorage.removeItem('loginLock');
+          localStorage?.removeItem('loginLock');
           setAttemptCount(0);
           return 0;
         }
@@ -146,7 +164,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
 
   useEffect(() => {
     if (error && (watchedEmail || watchedPassword)) {
-      dismissError();
+      dismissError?.();
     }
   }, [watchedEmail, watchedPassword, error, dismissError]);
 
@@ -231,7 +249,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
   };
 
   // Check if form has any errors
-  const hasErrors = Object.keys(errors).length > 0;
+  const hasErrors = Object.keys(errors || {}).length > 0;
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>

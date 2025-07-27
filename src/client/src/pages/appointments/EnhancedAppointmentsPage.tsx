@@ -176,7 +176,7 @@ const EnhancedAppointmentsPage: React.FC = () => {
     }
   };
 
-  if (isLoading && appointments.length === 0) {
+  if (isLoading && appointments?.length === 0) {
     return <LoadingSpinner fullPage message="Lade Termine..." />;
   }
 
@@ -238,7 +238,7 @@ const EnhancedAppointmentsPage: React.FC = () => {
                 <Box display="flex" alignItems="center">
                   <TodayIcon sx={{ mr: 1 }} />
                   Anstehend
-                  {upcomingAppointments.length > 0 && (
+                  {upcomingAppointments?.length > 0 && (
                     <Badge badgeContent={upcomingAppointments.length} color="primary" sx={{ ml: 1 }} />
                   )}
                 </Box>
@@ -259,7 +259,7 @@ const EnhancedAppointmentsPage: React.FC = () => {
       {/* Upcoming Appointments Tab */}
       <TabPanel value={currentTab} index={0}>
         <Box display="flex" flexDirection="column" gap={3}>
-          {upcomingAppointments.length === 0 ? (
+          {upcomingAppointments?.length === 0 ? (
             <Box>
               <Box textAlign="center" py={4}>
                 <Typography variant="h6" color="textSecondary" gutterBottom>

@@ -51,7 +51,7 @@ export const isValidUsername = (username: string): boolean => {
  * @returns true, wenn der Text nicht leer ist
  */
 export const isNotEmpty = (text: string): boolean => {
-  return text.trim().length > 0;
+  return text?.trim().length > 0;
 };
 
 /**
@@ -61,7 +61,7 @@ export const isNotEmpty = (text: string): boolean => {
  * @returns true, wenn der Text die Mindestlänge erreicht
  */
 export const hasMinLength = (text: string, minLength = 3): boolean => {
-  return text.trim().length >= minLength;
+  return text?.trim()?.length >= minLength;
 };
 
 /**
@@ -71,7 +71,7 @@ export const hasMinLength = (text: string, minLength = 3): boolean => {
  * @returns true, wenn der Text die Maximallänge nicht überschreitet
  */
 export const hasMaxLength = (text: string, maxLength = 255): boolean => {
-  return text.trim().length <= maxLength;
+  return text?.trim()?.length <= maxLength;
 };
 
 /**
@@ -86,7 +86,7 @@ export const isValidLength = (
   minLength = 3,
   maxLength = 255
 ): boolean => {
-  const length = text.trim().length;
+  const length = text?.trim()?.length;
   return length >= minLength && length <= maxLength;
 };
 

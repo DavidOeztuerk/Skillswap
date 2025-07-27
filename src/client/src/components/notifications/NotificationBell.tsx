@@ -193,7 +193,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
   };
 
   const recentNotifications = notifications.slice(0, maxDisplayCount);
-  const hasMoreNotifications = notifications.length > maxDisplayCount;
+  const hasMoreNotifications = notifications?.length > maxDisplayCount;
 
   return (
     <>
@@ -353,7 +353,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
           {/* Notifications List */}
           {!isLoading && !error && (
             <List sx={{ maxHeight: 400, overflow: 'auto' }}>
-              {recentNotifications.length === 0 ? (
+              {recentNotifications?.length === 0 ? (
                 <Box textAlign="center" py={4}>
                   <NotificationsIcon color="disabled" sx={{ fontSize: 48, mb: 1 }} />
                   <Typography color="textSecondary">

@@ -49,7 +49,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
 
   // Effekt für die Suche
   React.useEffect(() => {
-    if (debouncedQuery.length > 2) {
+    if (debouncedQuery?.length > 2) {
       searchSkillsByQuery(debouncedQuery);
     }
   }, [debouncedQuery, searchSkillsByQuery]);
@@ -157,7 +157,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
 
       <Box sx={{ p: 0 }}>
         {/* Suchergebnisse zeigen */}
-        {searchQuery.length > 2 && (
+        {searchQuery?.length > 2 && (
           <>
             {/* Gefundene Skills */}
             <Box sx={{ mb: 2 }}>
@@ -179,7 +179,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
                 </Box>
               ) : (
                 <>
-                  {skills && skills.length > 0 ? (
+                  {skills && skills?.length > 0 ? (
                     <List disablePadding>
                       {skills.slice(0, MAX_SUGGESTIONS).map((skill) => (
                         <ListItem
@@ -239,7 +239,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
         )}
 
         {/* Beliebte Suchvorschläge anzeigen, wenn keine Ergebnisse oder am Anfang */}
-        {searchQuery.length <= 2 && (
+        {searchQuery?.length <= 2 && (
           <>
             <Typography
               variant="subtitle2"
@@ -274,7 +274,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
         )}
 
         {/* Kürzlich gesuchte Begriffe - optionaler Abschnitt */}
-        {searchQuery.length <= 2 && (
+        {searchQuery?.length <= 2 && (
           <>
             <Divider sx={{ my: 2 }} />
             <Typography

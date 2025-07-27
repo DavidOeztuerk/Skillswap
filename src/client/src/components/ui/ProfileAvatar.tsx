@@ -26,16 +26,16 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   const initials = useMemo(() => {
     if (!alt) return '';
 
-    const nameParts = alt.split(' ').filter((part) => part.length > 0);
-    if (nameParts.length === 0) return '';
+    const nameParts = alt.split(' ').filter((part) => part?.length > 0);
+    if (nameParts?.length === 0) return '';
 
-    if (nameParts.length === 1) {
+    if (nameParts?.length === 1) {
       return nameParts[0].charAt(0).toUpperCase();
     }
 
     return (
       nameParts[0].charAt(0).toUpperCase() +
-      nameParts[nameParts.length - 1].charAt(0).toUpperCase()
+      nameParts[nameParts?.length - 1].charAt(0).toUpperCase()
     );
   }, [alt]);
 

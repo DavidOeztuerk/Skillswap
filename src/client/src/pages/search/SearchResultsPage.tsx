@@ -117,8 +117,8 @@ const SearchResultsPage: React.FC = () => {
   };
 
   // const isLoading = loading || userLoading || allSkillsLoading;
-  const hasError = selectSearchError.length > 0;
-  const hasResults = userResults.length > 0 || allSkills.length > 0;
+  const hasError = selectSearchError?.length > 0;
+  const hasResults = userResults?.length > 0 || allSkills?.length > 0;
 
   return (
     <PageErrorBoundary pageName="Search Results">
@@ -226,7 +226,7 @@ const SearchResultsPage: React.FC = () => {
         {!isLoading && !hasError && hasResults && (
           <>
             {/* User Skills Results */}
-            {(searchType === 'all' || searchType === 'users') && userResults.length > 0 && (
+            {(searchType === 'all' || searchType === 'users') && userResults?.length > 0 && (
               <Box sx={{ mb: 4 }}>
                 <Typography variant="h5" gutterBottom>
                   Your Skills ({userResults.length})
@@ -258,7 +258,7 @@ const SearchResultsPage: React.FC = () => {
             )}
 
             {/* Skills Results */}
-            {(searchType === 'all' || searchType === 'skills') && allSkills.length > 0 && (
+            {(searchType === 'all' || searchType === 'skills') && allSkills?.length > 0 && (
               <Box sx={{ mb: 4 }}>
                 <Typography variant="h5" gutterBottom>
                   Skills ({allSkills.length})

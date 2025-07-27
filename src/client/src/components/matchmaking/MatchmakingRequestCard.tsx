@@ -206,7 +206,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
         {/* Preferences */}
         <Box sx={{ mb: 2 }}>
           {/* Days */}
-          {preferredDays.length > 0 && (
+          {preferredDays?.length > 0 && (
             <Box sx={{ mb: 1 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Bevorzugte Tage:
@@ -215,9 +215,9 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
                 {preferredDays.slice(0, 4).map((day) => (
                   <Chip key={day} label={day} size="small" variant="outlined" />
                 ))}
-                {preferredDays.length > 4 && (
+                {preferredDays?.length > 4 && (
                   <Chip
-                    label={`+${preferredDays.length - 4}`}
+                    label={`+${preferredDays?.length - 4}`}
                     size="small"
                     variant="outlined"
                     color="primary"
@@ -228,7 +228,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
           )}
 
           {/* Times */}
-          {preferredTimes.length > 0 && (
+          {preferredTimes?.length > 0 && (
             <Box sx={{ mb: 1 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Bevorzugte Zeiten:
@@ -237,7 +237,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
                 <ScheduleIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                 <Typography variant="body2">
                   {preferredTimes.slice(0, 2).join(', ')}
-                  {preferredTimes.length > 2 && ` (+${preferredTimes.length - 2})`}
+                  {preferredTimes?.length > 2 && ` (+${preferredTimes?.length - 2})`}
                 </Typography>
               </Box>
             </Box>

@@ -362,7 +362,7 @@ export const selectSkillsStatistics = createSelector(
   (skills, categories) => ({
     totalSkills: skills.length,
     totalCategories: categories.length,
-    averageSkillsPerCategory: skills.length / (categories.length || 1),
+    averageSkillsPerCategory: skills.length / (categories?.length || 1),
     topCategories: categories
       .map((category) => ({
         ...category,

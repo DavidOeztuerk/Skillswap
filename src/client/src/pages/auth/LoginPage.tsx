@@ -8,10 +8,10 @@ import { useAuth } from '../../hooks/useAuth';
  * Login-Seite der Anwendung
  */
 const LoginPage: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   // Wenn der Benutzer bereits angemeldet ist, zum Dashboard weiterleiten
-  if (isAuthenticated) {
+  if (isAuthenticated && !isLoading) {
     return <Navigate to="/dashboard" replace />;
   }
 

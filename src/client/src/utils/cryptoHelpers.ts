@@ -82,7 +82,7 @@ export function decryptData(encryptedData: string): string | null {
     const decoded = atob(encryptedData);
     const parts = decoded.split('|');
     
-    if (parts.length !== 2) {
+    if (parts?.length !== 2) {
       // Assume unencrypted data for backward compatibility
       return encryptedData;
     }
@@ -139,7 +139,7 @@ export function generateSecureToken(length: number = 32): string {
  */
 export function hashData(data: string): string {
   let hash = 0;
-  if (data.length === 0) return hash.toString();
+  if (data?.length === 0) return hash.toString();
   
   for (let i = 0; i < data.length; i++) {
     const char = data.charCodeAt(i);

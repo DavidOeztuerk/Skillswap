@@ -148,7 +148,7 @@ export const useBreadcrumbs = (): BreadcrumbItem[] => {
     const chain = buildChain(currentPath);
 
     // If no configuration found, create basic breadcrumbs from path segments
-    if (chain.length === 0) {
+    if (chain?.length === 0) {
       const segments = currentPath.split('/').filter(Boolean);
       
       // Always start with home
@@ -162,7 +162,7 @@ export const useBreadcrumbs = (): BreadcrumbItem[] => {
       let builtPath = '';
       segments.forEach((segment, index) => {
         builtPath += `/${segment}`;
-        const isLast = index === segments.length - 1;
+        const isLast = index === segments?.length - 1;
         
         breadcrumbChain.push({
           label: segment.charAt(0).toUpperCase() + segment.slice(1),

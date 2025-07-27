@@ -188,7 +188,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
           </Box>
 
           {/* Actions */}
-          {notifications.length > 0 && (
+          {notifications?.length > 0 && (
             <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
               <Button
                 startIcon={<DoneAllIcon />}
@@ -205,7 +205,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
           <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
             {isLoading ? (
               <SkeletonLoader variant="list" count={5} />
-            ) : notifications.length === 0 ? (
+            ) : notifications?.length === 0 ? (
               <EmptyState
                 icon={<NotificationsIcon />}
                 title="Keine Benachrichtigungen"
@@ -277,7 +277,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         </Tooltip>
                       </ListItemSecondaryAction>
                     </ListItemButton>
-                    {index < notifications.length - 1 && <Divider />}
+                    {index < notifications?.length - 1 && <Divider />}
                   </React.Fragment>
                 ))}
               </List>

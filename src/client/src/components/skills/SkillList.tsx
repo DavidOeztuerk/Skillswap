@@ -50,11 +50,11 @@ const SkillList: React.FC<SkillListProps> = ({
     (skill) => skill && (skill.id || skill.id) && skill.name
   );
 
-  if (validSkills.length !== skills.length) {
+  if (validSkills?.length !== skills.length) {
     console.warn('⚠️ Found invalid skills in list:', {
       total: skills.length,
       valid: validSkills.length,
-      invalid: skills.length - validSkills.length,
+      invalid: skills?.length - validSkills.length,
     });
   }
 
@@ -73,7 +73,7 @@ const SkillList: React.FC<SkillListProps> = ({
     );
   }
 
-  if (errors && errors.length > 0) {
+  if (errors && errors?.length > 0) {
     return (
       <Box sx={{ mb: 3 }}>
         <Alert severity="error" variant="filled">
@@ -92,7 +92,7 @@ const SkillList: React.FC<SkillListProps> = ({
     );
   }
 
-  if (validSkills.length === 0) {
+  if (validSkills?.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 8 }}>
         <Typography variant="h5" gutterBottom sx={{ opacity: 0.7 }}>

@@ -75,7 +75,7 @@ const UserCard: React.FC<UserCardProps> = ({
           </Typography>
         )}
 
-        {user.roles && user.roles.length > 0 && (
+        {user.roles && user.roles?.length > 0 && (
           <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
             {user.roles.slice(0, 3).map((role, index) => (
               <Chip
@@ -86,9 +86,9 @@ const UserCard: React.FC<UserCardProps> = ({
                 color="primary"
               />
             ))}
-            {user.roles.length > 3 && (
+            {user.roles?.length > 3 && (
               <Chip
-                label={`+${user.roles.length - 3} more`}
+                label={`+${user.roles?.length - 3} more`}
                 size="small"
                 variant="outlined"
                 color="secondary"

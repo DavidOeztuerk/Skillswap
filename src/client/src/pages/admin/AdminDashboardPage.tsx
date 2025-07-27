@@ -313,7 +313,7 @@ const AdminDashboardPage: React.FC = () => {
                     </Typography>
                     <List dense>
                       {systemHealth.services.map((service, index) => (
-                        <ListItem key={service.name} divider={index < systemHealth.services.length - 1}>
+                        <ListItem key={service.name} divider={index < systemHealth.services?.length - 1}>
                           <ListItemText
                             primary={service.name}
                             secondary={`Uptime: ${(service.uptime * 100).toFixed(1)}% | Response: ${service.responseTime}ms`}
@@ -341,7 +341,7 @@ const AdminDashboardPage: React.FC = () => {
                 </Typography>
                 <List>
                   {dashboard.topCategories.map((category, index) => (
-                    <ListItem key={category.name} divider={index < dashboard.topCategories.length - 1}>
+                    <ListItem key={category.name} divider={index < dashboard.topCategories?.length - 1}>
                       <ListItemAvatar>
                         <Avatar sx={{ bgcolor: 'primary.main' }}>
                           {index + 1}
@@ -392,7 +392,7 @@ const AdminDashboardPage: React.FC = () => {
           )}
 
           {/* System Alerts */}
-          {systemHealth?.alerts && systemHealth.alerts.filter(alert => !alert.resolved).length > 0 && (
+          {systemHealth?.alerts && systemHealth.alerts.filter(alert => !alert.resolved)?.length > 0 && (
             <Box>
               <Card>
                 <CardContent>

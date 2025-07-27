@@ -112,7 +112,7 @@ class ErrorService {
    * Processes error queue and sends to external service
    */
   private async processErrorQueue(): Promise<void> {
-    if (this.errorQueue.length === 0) return;
+    if (!this.errorQueue || this.errorQueue.length === 0) return;
 
     const errors = [...this.errorQueue];
     this.errorQueue = [];
@@ -232,7 +232,7 @@ class ErrorService {
 
     // Show notification with validation errors
     const errorMessages = Object.values(errors).flat();
-    const message = errorMessages.length > 0 
+    const message = errorMessages?.length > 0 
       ? errorMessages.join(', ')
       : 'Please check your input and try again.';
 

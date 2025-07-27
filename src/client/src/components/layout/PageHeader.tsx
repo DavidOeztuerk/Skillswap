@@ -45,8 +45,8 @@ const PageHeader: React.FC<PageHeaderProps> = ({
     : breadcrumbs;
     
   // Auto-generate title from breadcrumbs if not provided
-  const finalTitle = title || (finalBreadcrumbs && finalBreadcrumbs.length > 0 
-    ? finalBreadcrumbs[finalBreadcrumbs.length - 1]?.label 
+  const finalTitle = title || (finalBreadcrumbs && finalBreadcrumbs?.length > 0 
+    ? finalBreadcrumbs[finalBreadcrumbs?.length - 1]?.label 
     : 'Page');
   return (
     <Box
@@ -60,14 +60,14 @@ const PageHeader: React.FC<PageHeaderProps> = ({
       }}
     >
       <Box>
-        {showBreadcrumbs && finalBreadcrumbs && finalBreadcrumbs.length > 1 && (
+        {showBreadcrumbs && finalBreadcrumbs && finalBreadcrumbs?.length > 1 && (
           <Breadcrumbs
             separator={<NavigateNextIcon fontSize="small" />}
             aria-label="Breadcrumb"
             sx={{ mb: 1 }}
           >
             {finalBreadcrumbs.map((item, index) => {
-              const isLast = index === finalBreadcrumbs.length - 1;
+              const isLast = index === finalBreadcrumbs?.length - 1;
 
               return isLast || !item.href ? (
                 <Typography

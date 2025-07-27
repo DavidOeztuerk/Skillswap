@@ -53,8 +53,8 @@ export const useRouteAnnouncements = () => {
 
     // Fallback to a generic page name
     const segments = pathname.split('/').filter(Boolean);
-    if (segments.length > 0) {
-      return segments[segments.length - 1]
+    if (segments?.length > 0) {
+      return segments[segments?.length - 1]
         .split('-')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');

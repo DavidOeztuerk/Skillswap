@@ -78,7 +78,7 @@ class PerformanceMonitor {
     existing.push(responseTime);
     
     // Keep only last 100 measurements per endpoint
-    if (existing.length > 100) {
+    if (existing?.length > 100) {
       existing.shift();
     }
     
@@ -104,7 +104,7 @@ class PerformanceMonitor {
     apiPerformance: Array<{ endpoint: string; averageTime: number; requestCount: number }>;
     recommendations: string[];
   } {
-    const latestPageLoad = this.metrics[this.metrics.length - 1] || null;
+    const latestPageLoad = this.metrics[this.metrics?.length - 1] || null;
     const components = Array.from(this.componentMetrics.values());
     const apiPerformance = Array.from(this.apiMetrics.entries()).map(([endpoint, times]) => ({
       endpoint,
@@ -147,7 +147,7 @@ class PerformanceMonitor {
 
     // Component recommendations
     const slowComponents = components.filter(c => c.averageRenderTime > 100);
-    if (slowComponents.length > 0) {
+    if (slowComponents?.length > 0) {
       recommendations.push(
         `Langsame Komponenten gefunden: ${slowComponents.map(c => c.name).join(', ')}. React.memo() verwenden.`
       );
@@ -155,7 +155,7 @@ class PerformanceMonitor {
 
     // API recommendations
     const slowApis = apiPerformance.filter(api => api.averageTime > 2000);
-    if (slowApis.length > 0) {
+    if (slowApis?.length > 0) {
       recommendations.push(
         `Langsame API-Endpunkte: ${slowApis.map(api => api.endpoint).join(', ')}. Caching implementieren.`
       );

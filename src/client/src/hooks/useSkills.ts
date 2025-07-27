@@ -174,7 +174,7 @@ export const useSkills = () => {
    */
   const getCurrentSkills = useCallback(
     (showOnly: string = 'others'): Skill[] => {
-      if (isSearchActive && searchResults.length > 0) {
+      if (isSearchActive && searchResults?.length > 0) {
         return searchResults;
       }
       return showOnly === 'others' ? allSkills : userSkills;
@@ -249,7 +249,7 @@ export const useSkills = () => {
     async (query: string, page = 1, pageSize = 12): Promise<boolean> => {
       try {
         // Client-side validation
-        if (!query?.trim() || query.length < 2) {
+        if (!query?.trim() || query?.length < 2) {
           dispatch(
             setError(['Suchbegriff muss mindestens 2 Zeichen lang sein'])
           );
@@ -328,7 +328,7 @@ export const useSkills = () => {
   const searchUserSkills = useCallback(
     async (query: string, page = 1, pageSize = 12): Promise<boolean> => {
       try {
-        if (!query?.trim() || query.length < 2) {
+        if (!query?.trim() || query?.length < 2) {
           dispatch(
             setError(['Suchbegriff muss mindestens 2 Zeichen lang sein'])
           );
