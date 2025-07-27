@@ -220,7 +220,7 @@ const MatchmakingPage: React.FC = () => {
     const learnableSkills = userSkills.filter((skill) => !skill.isOffering);
 
     // Wenn Benutzer sowohl lehrbare als auch lernbare Skills hat, zeige beide Optionen
-    if (teachableSkills.length > 0 && learnableSkills.length > 0) {
+    if (teachableSkills?.length > 0 && learnableSkills?.length > 0) {
       return {
         label: 'Match erstellen',
         onClick: () => {
@@ -231,7 +231,7 @@ const MatchmakingPage: React.FC = () => {
     }
 
     // Wenn Benutzer nur lehrbare Skills hat
-    if (teachableSkills.length > 0) {
+    if (teachableSkills?.length > 0) {
       return {
         label: 'Als Lehrer:in anbieten',
         onClick: () => handleOpenMatchForm(teachableSkills[0]),
@@ -239,7 +239,7 @@ const MatchmakingPage: React.FC = () => {
     }
 
     // Wenn Benutzer nur lernbare Skills hat
-    if (learnableSkills.length > 0) {
+    if (learnableSkills?.length > 0) {
       return {
         label: 'Lehrer:in finden',
         onClick: () => handleOpenMatchForm(learnableSkills[0]),

@@ -206,7 +206,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         <div ref={messagesEndRef} />
 
         {/* Empty state for no messages */}
-        {messages.length === 0 && (
+        {messages?.length === 0 && (
           <Box
             sx={{
               flexGrow: 1,

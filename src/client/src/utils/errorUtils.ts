@@ -235,7 +235,7 @@ export function getUserFriendlyErrorMessage(error: unknown): string {
   const message = extractErrorMessage(error);
   
   // Return original message if it's user-friendly
-  if (message && !message.toLowerCase().includes('error') && message.length < 100) {
+  if (message && !message.toLowerCase().includes('error') && message?.length < 100) {
     return message;
   }
 

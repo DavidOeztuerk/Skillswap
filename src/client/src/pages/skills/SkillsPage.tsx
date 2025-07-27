@@ -224,7 +224,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
 
 //   // Load page-specific data
 //   useEffect(() => {
-//     if (categories.length === 0 || proficiencyLevels.length === 0) {
+//     if (categories?.length === 0 || proficiencyLevels?.length === 0) {
 //       console.log('⏳ Waiting for categories and proficiency levels...');
 //       return;
 //     }
@@ -288,7 +288,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
 
 //   // Handle errors
 //   useEffect(() => {
-//     if (errors && errors.length > 0) {
+//     if (errors && errors?.length > 0) {
 //       setNotification({
 //         open: true,
 //         message: errors,

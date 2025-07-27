@@ -41,10 +41,10 @@ interface LocationState {
  * loading states, and navigation
  */
 export const useAuth = () => {
-    const dispatch = useAppDispatch();
-    const navigate = useNavigate();
-    const location = useLocation();
-    const authState = useAppSelector((state) => state.auth);
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const authState = useAppSelector((state) => state.auth);
 
   const { user, isAuthenticated, isLoading, error, token, refreshToken } = authState;
 
@@ -67,7 +67,7 @@ export const useAuth = () => {
 
   // Memoized token expiration check
   const isTokenExpired = useMemo((): boolean => {
-    if (!token) return true;
+    if (!token?.trim()) return true;
 
     try {
       const parts = token.split('.');
@@ -196,12 +196,12 @@ export const useAuth = () => {
    */
   const loadUserProfile = useCallback(async (): Promise<User | null> => {
     try {
-      const resultAction = await dispatch(getProfile());
+      const resultAction = await dispatch(getProfile()).unwrap();
 
       if (getProfile.fulfilled.match(resultAction)) {
-        return resultAction.payload;
+        return resultAction;
       } else {
-        console.error('Profile loading failed:', resultAction.payload);
+        console.error('Profile loading failed:', resultAction);
         return null;
       }
     } catch (error) {

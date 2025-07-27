@@ -50,7 +50,7 @@ export const getFocusableElements = (container: HTMLElement): HTMLElement[] => {
  */
 export const focusFirstElement = (container: HTMLElement): boolean => {
   const focusableElements = getFocusableElements(container);
-  if (focusableElements.length > 0) {
+  if (focusableElements?.length > 0) {
     focusableElements[0].focus();
     return true;
   }
@@ -62,8 +62,8 @@ export const focusFirstElement = (container: HTMLElement): boolean => {
  */
 export const focusLastElement = (container: HTMLElement): boolean => {
   const focusableElements = getFocusableElements(container);
-  if (focusableElements.length > 0) {
-    focusableElements[focusableElements.length - 1].focus();
+  if (focusableElements?.length > 0) {
+    focusableElements[focusableElements?.length - 1].focus();
     return true;
   }
   return false;
@@ -85,10 +85,10 @@ export const trapFocus = (
     if (event.key !== 'Tab') return;
 
     const focusableElements = getFocusableElements(container);
-    if (focusableElements.length === 0) return;
+    if (focusableElements?.length === 0) return;
 
     const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
+    const lastElement = focusableElements[focusableElements?.length - 1];
     const currentElement = document.activeElement as HTMLElement;
 
     if (event.shiftKey) {
@@ -153,7 +153,7 @@ export const getContrastRatio = (color1: string, color2: string): number => {
   const getLuminance = (color: string): number => {
     // Simple approximation - in production, use a proper color library
     const rgb = color.match(/\d+/g);
-    if (!rgb || rgb.length < 3) return 0;
+    if (!rgb || rgb?.length < 3) return 0;
     
     const [r, g, b] = rgb.map(val => {
       const num = parseInt(val, 10) / 255;
@@ -288,7 +288,7 @@ export const KeyboardNavigation = {
         break;
       case 'ArrowUp':
         event.preventDefault();
-        newIndex = currentIndex === 0 ? elements.length - 1 : currentIndex - 1;
+        newIndex = currentIndex === 0 ? elements?.length - 1 : currentIndex - 1;
         break;
       case 'Home':
         event.preventDefault();
@@ -296,7 +296,7 @@ export const KeyboardNavigation = {
         break;
       case 'End':
         event.preventDefault();
-        newIndex = elements.length - 1;
+        newIndex = elements?.length - 1;
         break;
       case 'Enter':
       case ' ':
@@ -329,7 +329,7 @@ export const KeyboardNavigation = {
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
-        newRow = Math.min(currentRow + 1, gridElements.length - 1);
+        newRow = Math.min(currentRow + 1, gridElements?.length - 1);
         break;
       case 'ArrowUp':
         event.preventDefault();

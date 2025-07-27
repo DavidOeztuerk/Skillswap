@@ -111,7 +111,7 @@ const MatchList: React.FC<MatchListProps> = ({
   }, [matches, searchTerm, selectedStatus, tabValue, isRequesterView]);
 
   // Pagination
-  const pageCount = Math.ceil(filteredMatches.length / matchesPerPage);
+  const pageCount = Math.ceil(filteredMatches?.length / matchesPerPage);
   const displayedMatches = filteredMatches.slice(
     (currentPage - 1) * matchesPerPage,
     currentPage * matchesPerPage
@@ -262,8 +262,8 @@ const MatchList: React.FC<MatchListProps> = ({
         alignItems="center"
       >
         <Typography variant="body2" color="text.secondary">
-          {filteredMatches.length}{' '}
-          {filteredMatches.length === 1 ? 'Match' : 'Matches'} gefunden
+          {filteredMatches?.length}{' '}
+          {filteredMatches?.length === 1 ? 'Match' : 'Matches'} gefunden
         </Typography>
         {pageCount > 1 && (
           <Typography variant="body2" color="text.secondary">
@@ -273,7 +273,7 @@ const MatchList: React.FC<MatchListProps> = ({
       </Box>
 
       {/* Matches-Grid */}
-      {displayedMatches.length > 0 ? (
+      {displayedMatches?.length > 0 ? (
         <Grid container columns={12} spacing={3}>
           {displayedMatches.map((match) => (
             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={match.id}>

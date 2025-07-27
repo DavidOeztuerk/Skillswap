@@ -164,7 +164,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <List sx={{ pt: 1 }}>
         {filteredMenuItems.map((item) => {
           const isActive = isPathActive(item);
-          const hasChildren = item.children && item.children.length > 0;
+          const hasChildren = item.children && item.children?.length > 0;
           const isExpanded = openSubmenu === item.text;
 
           return (

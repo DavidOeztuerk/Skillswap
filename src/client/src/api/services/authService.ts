@@ -39,17 +39,17 @@ const authService = {
       responseKeys: Object.keys(response)
     });
 
-    if (!response.accessToken) {
+    if (!response?.accessToken) {
       console.error('❌ No accessToken in response:', response);
       throw new Error('Ungültige Antwort vom Server');
     }
 
-    const storageType = credentials.rememberMe ? 'permanent' : 'session';
+    const storageType = credentials?.rememberMe ? 'permanent' : 'session';
     console.log('💾 Storing token with type:', storageType);
     
     setToken(response.accessToken, storageType);
     
-    if (response.refreshToken) {
+    if (response?.refreshToken) {
       setRefreshToken(response.refreshToken, storageType);
     }
     
@@ -71,7 +71,7 @@ const authService = {
 
     if (response.accessToken) {
       setToken(response.accessToken);
-      if (response.refreshToken) {
+      if (response?.refreshToken) {
         setRefreshToken(response.refreshToken);
       }
     }
@@ -224,7 +224,7 @@ const authService = {
       if (response.accessToken) {
         const storageType = 'session'; // Default to session storage for refresh tokens
         setToken(response.accessToken, storageType);
-        if (response.refreshToken) {
+        if (response?.refreshToken) {
           setRefreshToken(response.refreshToken, storageType);
         }
       }

@@ -720,7 +720,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
                       >
                         Zurück
                       </Button>
-                      {index === steps.length - 1 ? (
+                      {index === steps?.length - 1 ? (
                         <LoadingButton
                           type="submit"
                           variant="contained"

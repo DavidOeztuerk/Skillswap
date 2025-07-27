@@ -172,7 +172,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
           </>
         )}
 
-        {match.preferredDays && match.preferredDays.length > 0 && (
+        {match.preferredDays && match.preferredDays?.length > 0 && (
           <>
             <Divider sx={{ my: 1.5 }} />
             <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -186,7 +186,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
           </>
         )}
 
-        {match.preferredTimes && match.preferredTimes.length > 0 && (
+        {match.preferredTimes && match.preferredTimes?.length > 0 && (
           <>
             <Typography variant="body2" color="text.secondary" gutterBottom>
               <strong>Bevorzugte Zeiten:</strong>

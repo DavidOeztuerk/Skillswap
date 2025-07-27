@@ -147,10 +147,10 @@ const SkillForm: React.FC<SkillFormProps> = ({
     // Backend requires description to be between 10-2000 characters
     if (!formValues.description.trim()) {
       newErrors.description = 'Beschreibung ist erforderlich';
-    } else if (formValues.description.trim().length < 10) {
+    } else if (formValues.description?.trim()?.length < 10) {
       newErrors.description =
         'Beschreibung muss mindestens 10 Zeichen lang sein';
-    } else if (formValues.description.trim().length > 2000) {
+    } else if (formValues.description?.trim()?.length > 2000) {
       newErrors.description =
         'Beschreibung darf maximal 2000 Zeichen lang sein';
     }
@@ -194,9 +194,9 @@ const SkillForm: React.FC<SkillFormProps> = ({
   };
 
   // Debug: Check if we have valid data
-  const hasCategories = Array.isArray(categories) && categories.length > 0;
+  const hasCategories = Array.isArray(categories) && categories?.length > 0;
   const hasProficiencyLevels =
-    Array.isArray(proficiencyLevels) && proficiencyLevels.length > 0;
+    Array.isArray(proficiencyLevels) && proficiencyLevels?.length > 0;
 
   console.log('[SkillForm] Render state:', {
     hasCategories,

@@ -147,7 +147,7 @@ const EnhancedMatchmakingPage: React.FC = () => {
     }
   };
 
-  if (isLoading && suggestions.length === 0) {
+  if (isLoading && suggestions?.length === 0) {
     return <LoadingSpinner fullPage message="Suche nach Matches..." />;
   }
 
@@ -206,7 +206,7 @@ const EnhancedMatchmakingPage: React.FC = () => {
                 <Box display="flex" alignItems="center">
                   <SearchIcon sx={{ mr: 1 }} />
                   Vorschläge
-                  {suggestions.length > 0 && (
+                  {suggestions?.length > 0 && (
                     <Badge badgeContent={suggestions.length} color="primary" sx={{ ml: 1 }} />
                   )}
                 </Box>
@@ -225,7 +225,7 @@ const EnhancedMatchmakingPage: React.FC = () => {
                 <Box display="flex" alignItems="center">
                   <PersonAddIcon sx={{ mr: 1 }} />
                   Anfragen
-                  {incomingRequests.length > 0 && (
+                  {incomingRequests?.length > 0 && (
                     <Badge badgeContent={incomingRequests.length} color="error" sx={{ ml: 1 }} />
                   )}
                 </Box>
@@ -238,7 +238,7 @@ const EnhancedMatchmakingPage: React.FC = () => {
       {/* Suggestions Tab */}
       <TabPanel value={currentTab} index={0}>
         <Box display="flex" flexDirection="column" gap={3}>
-          {suggestions.length === 0 ? (
+          {suggestions?.length === 0 ? (
             <Box>
               <Box textAlign="center" py={4}>
                 <Typography variant="h6" color="textSecondary" gutterBottom>

@@ -302,7 +302,7 @@ const SkillEditPage: React.FC = () => {
 
       {/* Edit Form */}
       <Paper sx={{ p: 3 }}>
-        {categories.length > 0 && proficiencyLevels.length > 0 ? (
+        {categories?.length > 0 && proficiencyLevels?.length > 0 ? (
           <SkillForm
             open={true} // Always open since it's embedded in the page
             onClose={handleCancel}

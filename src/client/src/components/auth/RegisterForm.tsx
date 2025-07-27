@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Link, IconButton, Alert, Stack, Grid } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
@@ -54,6 +54,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   redirectPath = '/dashboard',
 }) => {
   const { register: registerUser, isLoading, error, dismissError } = useAuth();
+  
+  // Clear errors when component mounts
+  useEffect(() => {
+    dismissError?.();
+    return () => {
+      // Clear errors when component unmounts  
+      dismissError?.();
+    };
+  }, [dismissError]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -90,7 +99,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       <Stack spacing={3}>
         {error && (
           <Alert severity="error" onClose={dismissError}>
-            {error.message}
+            {error?.message}
           </Alert>
         )}
 
@@ -107,8 +116,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   variant="outlined"
                   fullWidth
                   autoComplete="given-name"
-                  error={!!errors.firstName}
-                  helperText={errors.firstName?.message}
+                  error={!!errors?.firstName}
+                  helperText={errors?.firstName?.message}
                   disabled={isLoading}
                 />
               )}
@@ -125,8 +134,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   variant="outlined"
                   fullWidth
                   autoComplete="family-name"
-                  error={!!errors.lastName}
-                  helperText={errors.lastName?.message}
+                  error={!!errors?.lastName}
+                  helperText={errors?.lastName?.message}
                   disabled={isLoading}
                 />
               )}
@@ -145,8 +154,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="username"
-              error={!!errors.userName}
-              helperText={errors.userName?.message}
+              error={!!errors?.userName}
+              helperText={errors?.userName?.message}
               disabled={isLoading}
             />
           )}

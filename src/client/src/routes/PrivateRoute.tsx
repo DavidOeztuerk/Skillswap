@@ -31,7 +31,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
 
   // Check role requirements if specified
   const rolesToCheck = requiredRole ? [requiredRole] : requiredRoles;
-  if (rolesToCheck.length > 0 && user) {
+  if (rolesToCheck?.length > 0 && user) {
     const hasRequiredRole = rolesToCheck.some(role =>
       user.roles?.includes(role)
     );

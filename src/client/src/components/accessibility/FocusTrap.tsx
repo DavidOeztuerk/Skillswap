@@ -64,7 +64,7 @@ const FocusTrap: React.FC<FocusTrapProps> = ({
     if (event.key !== 'Tab') return;
 
     const focusableElements = getFocusableElements();
-    if (focusableElements.length === 0) return;
+    if (!focusableElements || focusableElements.length === 0) return;
 
     const firstElement = focusableElements[0];
     const lastElement = focusableElements[focusableElements.length - 1];
@@ -99,7 +99,7 @@ const FocusTrap: React.FC<FocusTrapProps> = ({
           initialFocusRef.current.focus();
         } else {
           const focusableElements = getFocusableElements();
-          if (focusableElements.length > 0) {
+          if (focusableElements?.length > 0) {
             focusableElements[0].focus();
           }
         }

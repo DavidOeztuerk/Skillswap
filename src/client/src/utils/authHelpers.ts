@@ -42,16 +42,16 @@ export const setToken = (
       SessionStorage.setItem(REMEMBER_ME_KEY, 'false');
 
       // Clear localStorage versions to avoid conflicts
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
-      localStorage.removeItem(REMEMBER_ME_KEY);
+      localStorage?.removeItem(TOKEN_KEY);
+      localStorage?.removeItem(TOKEN_TIMESTAMP_KEY);
+      localStorage?.removeItem(REMEMBER_ME_KEY);
       
       console.log('✅ Token stored in sessionStorage');
     } else if (storageType === 'permanent') {
       console.log('💾 Storing in localStorage...');
-      localStorage.setItem(TOKEN_KEY, encryptedToken);
-      localStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
-      localStorage.setItem(REMEMBER_ME_KEY, 'true');
+      localStorage?.setItem(TOKEN_KEY, encryptedToken);
+      localStorage?.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
+      localStorage?.setItem(REMEMBER_ME_KEY, 'true');
 
       // Clear sessionStorage versions to avoid conflicts
       SessionStorage.removeItem(TOKEN_KEY);
@@ -77,8 +77,8 @@ export const getToken = (): string | null => {
 
     // If not in session storage, check localStorage
     if (!encryptedToken) {
-      encryptedToken = localStorage.getItem(TOKEN_KEY);
-      timestamp = localStorage.getItem(TOKEN_TIMESTAMP_KEY);
+      encryptedToken = localStorage?.getItem(TOKEN_KEY);
+      timestamp = localStorage?.getItem(TOKEN_TIMESTAMP_KEY);
     }
 
     if (!encryptedToken) {
@@ -94,7 +94,7 @@ export const getToken = (): string | null => {
     }
 
     // Check if token is potentially expired (client-side validation)
-    if (timestamp && isTokenExpired(token, parseInt(timestamp))) {
+    if (timestamp && !isNaN(parseInt(timestamp)) && isTokenExpired(token, parseInt(timestamp))) {
       console.info('Token appears to be expired, clearing storage');
       removeToken();
       return null;

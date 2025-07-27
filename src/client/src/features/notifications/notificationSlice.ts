@@ -178,7 +178,7 @@ const notificationSlice = createSlice({
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.isLoading = false;
         state.notifications = Array.isArray(action.payload) ? action.payload : [];
-        state.unreadCount = state.notifications.filter((n: any) => !n.isRead).length;
+        state.unreadCount = (state.notifications || []).filter((n: any) => !n.isRead).length;
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.isLoading = false;

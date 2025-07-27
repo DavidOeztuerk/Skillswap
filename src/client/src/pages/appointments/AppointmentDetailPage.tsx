@@ -562,7 +562,7 @@ const AppointmentDetailPage: React.FC = () => {
               Nachrichten & Aktivitäten
             </Typography>
 
-            {messages.length > 0 ? (
+            {messages?.length > 0 ? (
               <Timeline>
                 {messages.map((message, index) => (
                   <TimelineItem key={message.id}>
@@ -589,7 +589,7 @@ const AppointmentDetailPage: React.FC = () => {
                           <MessageIcon />
                         )}
                       </TimelineDot>
-                      {index < messages.length - 1 && <TimelineConnector />}
+                      {index < messages?.length - 1 && <TimelineConnector />}
                     </TimelineSeparator>
                     <TimelineContent>
                       <Typography variant="subtitle2" gutterBottom>

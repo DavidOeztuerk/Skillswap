@@ -70,6 +70,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
 
   // Filterlogik
   const filteredAppointments = useMemo(() => {
+    if (!appointments) return [];
     return appointments.filter((appointment) => {
       // Welcher Nutzer ist "der andere"?
       const otherUser =
@@ -191,7 +192,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
       />
     );
   }
-  if (!appointments.length) {
+  if (!appointments || !appointments.length) {
     return (
       <EmptyState
         title="Keine Termine gefunden"
@@ -320,7 +321,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         >
           <Typography variant="body2" color="text.secondary">
             {filteredAppointments.length}{' '}
-            {filteredAppointments.length === 1 ? 'Termin' : 'Termine'} gefunden
+            {filteredAppointments?.length === 1 ? 'Termin' : 'Termine'} gefunden
           </Typography>
           {pageCount > 1 && (
             <Typography variant="body2" color="text.secondary">
@@ -330,7 +331,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         </Box>
 
         {/* Termine-Liste */}
-        {displayedAppointments.length > 0 ? (
+        {displayedAppointments?.length > 0 ? (
           <Grid container columns={12} spacing={3}>
             {displayedAppointments.map((appointment) => (
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={appointment.id}>

@@ -177,21 +177,21 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         
         // Handle both nested user object and flat response
-        const userData = action.payload.user;
+        const userData = action.payload?.user;
         state.user = {
-          id: userData.userId,
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          userName: userData.userName,
-          roles: userData.roles || [],
-          emailVerified: userData.emailVerified || false,
-          accountStatus: userData.accountStatus || 'active',
+          id: userData?.userId || '',
+          email: userData?.email || '',
+          firstName: userData?.firstName || '',
+          lastName: userData?.lastName || '',
+          userName: userData?.userName || '',
+          roles: userData?.roles || [],
+          emailVerified: userData?.emailVerified || false,
+          accountStatus: userData?.accountStatus || 'active',
           createdAt: '',
         };
         
-        state.token = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken;
+        state.token = action.payload?.accessToken || null;
+        state.refreshToken = action.payload?.refreshToken || null;
         state.error = null;
         
         console.log('✅ Login successful in authSlice, token set:', action.payload.accessToken ? 'Yes' : 'No');
@@ -229,8 +229,8 @@ const authSlice = createSlice({
           accountStatus: '',
           createdAt: '',
         };
-        state.token = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken;
+        state.token = action.payload?.accessToken || null;
+        state.refreshToken = action.payload?.refreshToken || null;
         state.error = null;
       })
       .addCase(register.rejected, (state, action) => {
@@ -244,8 +244,8 @@ const authSlice = createSlice({
 
       // Token Refresh
       .addCase(refreshToken.fulfilled, (state, action) => {
-        state.token = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken;
+        state.token = action.payload?.accessToken || null;
+        state.refreshToken = action.payload?.refreshToken || null;
         state.isAuthenticated = true;
       })
       .addCase(refreshToken.rejected, (state) => {

@@ -29,7 +29,7 @@ const SearchResultsPage: React.FC = () => {
         <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} />
       )}
       {error && <Typography color="error">Fehler: {error.message}</Typography>}
-      {results.length === 0 && !isLoading && !error && (
+      {results?.length === 0 && !isLoading && !error && (
         <Typography variant="h6" color="textSecondary">
           Keine Ergebnisse gefunden.
         </Typography>

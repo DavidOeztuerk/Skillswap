@@ -276,7 +276,7 @@ const DashboardPage: React.FC = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {upcomingAppointments.length > 0 ? (
+              {upcomingAppointments?.length > 0 ? (
                 <List disablePadding>
                   {upcomingAppointments.map((appointment) => (
                     <React.Fragment key={appointment.id}>
@@ -366,7 +366,7 @@ const DashboardPage: React.FC = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {teachingSkills.length > 0 ? (
+              {teachingSkills?.length > 0 ? (
                 <List disablePadding>
                   {teachingSkills.slice(0, 5).map((userSkill) => (
                     <React.Fragment key={userSkill.id}>
@@ -410,7 +410,7 @@ const DashboardPage: React.FC = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {userSkills.length > 0 ? (
+              {userSkills?.length > 0 ? (
                 <List disablePadding>
                   {userSkills.slice(0, 5).map((userSkill) => (
                     <React.Fragment key={userSkill.id}>

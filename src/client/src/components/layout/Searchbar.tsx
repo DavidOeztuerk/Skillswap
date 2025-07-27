@@ -80,7 +80,7 @@ const SearchBar: React.FC = () => {
       // Diese könnten aus einem useUsers Hook kommen
 
       setIsOpen(true);
-    } else if (debouncedSearchQuery.length === 0) {
+    } else if (debouncedSearchQuery?.length === 0) {
       setIsOpen(false);
     }
   }, [debouncedSearchQuery, searchSkillsByQuery]);
@@ -98,7 +98,7 @@ const SearchBar: React.FC = () => {
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
-    if (event.target.value.length > 0) {
+    if (event.target.value?.length > 0) {
       setIsOpen(true);
     }
   };
@@ -207,7 +207,7 @@ const SearchBar: React.FC = () => {
             }}
           >
             {/* Eingabe bei der Suche */}
-            {searchQuery.length > 0 && (
+            {searchQuery?.length > 0 && (
               <>
                 {/* Gefundene Skills */}
                 {searchResults.skills.isLoading ? (
@@ -304,7 +304,7 @@ const SearchBar: React.FC = () => {
 
             {/* Populäre Suchen anzeigen, wenn keine Eingabe vorhanden ist oder zu Beginn der Eingabe */}
             {(!searchQuery ||
-              (searchQuery.length <= 2 &&
+              (searchQuery?.length <= 2 &&
                 searchResults.skills.items?.length === 0)) && (
               <>
                 <Typography
