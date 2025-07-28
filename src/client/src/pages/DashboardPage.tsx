@@ -99,7 +99,7 @@ const DashboardPage: React.FC = () => {
 
   // Statistiken berechnen
   const totalSkills = userSkills.length;
-  const teachingSkillsCount = userSkills.filter(skill => skill.isOffering).length;
+  const teachingSkillsCount = userSkills.filter(skill => skill.isOffered).length;
   const pendingAppointments = appointments.filter(appt => appt.status === 'Pending').length;
   const totalMatches = matches.length;
   const pendingMatchRequests = incomingRequests.filter(req => req.status === 'pending').length;
@@ -144,7 +144,7 @@ const DashboardPage: React.FC = () => {
   ];
 
   // Aktuelle Lehrskills
-  const teachingSkills = userSkills.filter((skill) => skill.isOffering);
+  const teachingSkills = userSkills.filter((skill) => skill.isOffered);
   // Aktuelle Lernwünsche
   // const learningSkills = userSkills.filter((skill) => skill.isLearnable);
 

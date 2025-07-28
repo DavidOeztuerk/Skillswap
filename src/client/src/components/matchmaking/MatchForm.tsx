@@ -30,8 +30,11 @@ import { User } from '../../types/models/User';
 
 // Schema angepasst für CreateMatchRequest
 const matchFormSchema = z.object({
-  targetUserId: z.string().nonempty('Zielbenutzer muss ausgewählt werden'),
   skillId: z.string().nonempty('Skill muss ausgewählt werden'),
+  description: z
+    .string()
+    .max(500, 'Beschreibung darf maximal 500 Zeichen enthalten')
+    .optional(),
   message: z
     .string()
     .max(500, 'Nachricht darf maximal 500 Zeichen enthalten')
@@ -81,9 +84,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
   // Default-Werte
   const defaultValues = useMemo(() => {
     return {
-      targetUserId: skill?.userId || '',
       skillId: skill.id,
-      isOffering: !skill.isOffering, // Umgekehrt: wenn der Nutzer den Skill anbietet, will er ihn hier lernen
+      description: skill.isOffered ? 'Ich möchte diesen Skill lernen' : 'Ich kann bei diesem Skill helfen',
+      isOffering: !skill.isOffered, // Umgekehrt: wenn der Nutzer den Skill anbietet, will er ihn hier lernen
       preferredDays: ['Montag', 'Dienstag', 'Mittwoch'],
       preferredTimes: ['18:00', '19:00'],
       message: '',
@@ -113,16 +116,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
     try {
       // Transformiere die Daten in das CreateMatchRequest Format
       const matchRequest: CreateMatchRequest = {
-        targetUserId: data.targetUserId,
         skillId: data.skillId,
+        description: data.description || (data.isOffering ? 'Ich möchte diesen Skill anbieten' : 'Ich möchte diesen Skill lernen'),
         message: data.message || '',
-        isLearningMode: data.isOffering,
-        // preferredSchedule: {
-        //   preferredDays: data.preferredDays,
-        //   preferredTimes: data.preferredTimes,
-        //   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Automatisch die lokale Zeitzone
-        // },
-        // additionalNotes: data.additionalNotes,
       };
 
       await onSubmit(matchRequest);
@@ -146,6 +142,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
           </Button>
           <LoadingButton
             type="submit"
+            form="match-request-form"
             color="primary"
             variant="contained"
             loading={isLoading}
@@ -155,7 +152,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
         </>
       }
     >
-      <form onSubmit={handleSubmit(handleFormSubmit)}>
+      <form id="match-request-form" onSubmit={handleSubmit(handleFormSubmit)}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12 }}>
             <Box bgcolor="action.hover" p={2} borderRadius={1} mb={2}>
@@ -186,23 +183,22 @@ const MatchForm: React.FC<MatchFormProps> = ({
               </Box>
             )}
 
-            {!targetUser && (
-              <Controller
-                name="targetUserId"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Zielbenutzer ID"
-                    fullWidth
-                    error={!!errors.targetUserId}
-                    helperText={errors.targetUserId?.message}
-                    disabled={isLoading}
-                    placeholder="Benutzer-ID eingeben"
-                  />
-                )}
-              />
-            )}
+            {/* Description field */}
+            <Controller
+              name="description"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Kurze Beschreibung"
+                  fullWidth
+                  error={!!errors.description}
+                  helperText={errors.description?.message || 'Beschreibe kurz, was du möchtest'}
+                  disabled={isLoading}
+                  placeholder="Was möchtest du mit diesem Skill machen?"
+                />
+              )}
+            />
 
             <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
               <FormLabel component="legend">

@@ -3,7 +3,7 @@ export interface Skill {
   userId: string;
   name: string;
   description: string;
-  isOffering: boolean;
+  isOffered: boolean;
   category: SkillCategory;
   proficiencyLevel: ProficiencyLevel;
   tagsJson: string;
@@ -18,7 +18,7 @@ export interface Skill {
 }
 
 export interface SkillCategory {
-  id: string;
+  categoryId: string;
   name: string;
   description?: string;
   iconName?: string;

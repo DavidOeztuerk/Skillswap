@@ -3,18 +3,18 @@ using FluentValidation;
 
 namespace MatchmakingService.Application.Commands;
 
-public record AcceptMatchRequestCommand(
+public record RejectDirectMatchRequestCommand(
     string RequestId,
     string? ResponseMessage = null)
-    : ICommand<MatchRequestResponse>, IAuditableCommand
+    : ICommand<DirectMatchRequestResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
-public class AcceptMatchRequestCommandValidator : AbstractValidator<AcceptMatchRequestCommand>
+public class RejectDirectMatchRequestCommandValidator : AbstractValidator<RejectDirectMatchRequestCommand>
 {
-    public AcceptMatchRequestCommandValidator()
+    public RejectDirectMatchRequestCommandValidator()
     {
         RuleFor(x => x.RequestId)
             .NotEmpty().WithMessage("Request ID is required");

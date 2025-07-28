@@ -3,12 +3,9 @@ using System.ComponentModel.DataAnnotations;
 namespace Contracts.Matchmaking.Requests;
 
 /// <summary>
-/// API request for creating a match request to another user
+/// API request for creating a general match request for a skill
 /// </summary>
 public record CreateMatchRequest(
-    [Required(ErrorMessage = "Target user ID is required")]
-    string TargetUserId,
-
     [Required(ErrorMessage = "Skill ID is required")]
     string SkillId,
 
@@ -18,13 +15,7 @@ public record CreateMatchRequest(
 
     [Required(ErrorMessage = "Message is required")]
     [StringLength(500, MinimumLength = 5, ErrorMessage = "Message must be between 5 and 500 characters")]
-    string Message,
-
-    [Required(ErrorMessage = "Must specify if this is for learning or teaching")]
-    bool IsLearningMode,
-
-    [Range(15, 480, ErrorMessage = "Session duration must be between 15 and 480 minutes")]
-    int? PreferredSessionDuration = 60)
+    string Message)
 {
     /// <summary>
     /// API Version this request supports

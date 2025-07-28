@@ -2,7 +2,7 @@ export interface UpdateSkillResponse {
   id: string;
   name: string;
   description: string;
-  isOffering: boolean;
-  skillCategoryId: string;
+  isOffered: boolean;
+  categoryId: string;
   proficiencyLevelId: string;
 }

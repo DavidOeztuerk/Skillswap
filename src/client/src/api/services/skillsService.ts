@@ -16,7 +16,7 @@ export interface SkillSearchParams {
   searchTerm?: string;
   categoryId?: string;
   proficiencyLevelId?: string;
-  isOffering?: boolean;
+  isOffered?: boolean;
   isRequesting?: boolean;
   isRemote?: boolean;
   location?: string;
@@ -66,11 +66,11 @@ const skillService = {
   /**
    * Get current user's skills
    */
-  async getUserSkills(page = 1, pageSize = 12, isOffering?: boolean, categoryId?: number, includeInactive = false): Promise<PaginatedResponse<Skill>> {
+  async getUserSkills(page = 1, pageSize = 12, isOffered?: boolean, categoryId?: number, includeInactive = false): Promise<PaginatedResponse<Skill>> {
     const params = new URLSearchParams();
     params.append('PageNumber', page.toString());
     params.append('PageSize', pageSize.toString());
-    if (isOffering !== undefined) params.append('IsOffering', isOffering.toString());
+    if (isOffered !== undefined) params.append('IsOffered', isOffered.toString());
     if (categoryId !== undefined) params.append('CategoryId', categoryId.toString());
     if (includeInactive !== undefined) params.append('IncludeInactive', includeInactive.toString());
     
@@ -205,21 +205,23 @@ const skillService = {
   },
 
   // Favorites
-  async getFavoriteSkills(userId: string): Promise<string[]> {
-    if (!userId?.trim()) throw new Error('User-ID ist erforderlich');
-    return apiClient.get<string[]>(FAVORITE_ENDPOINTS.GET_FAVORITES(userId));
+  async getFavoriteSkills(): Promise<string[]> {
+    // userId wird nicht mehr benötigt da es vom JWT-Token extrahiert wird
+    const params = new URLSearchParams();
+    params.append('pageSize', '100');
+    params.append('pageNumber', '1');
+    const url = `${FAVORITE_ENDPOINTS.GET_FAVORITES()}?${params.toString()}`;
+    return apiClient.get<string[]>(url);
   },
 
-  async addFavoriteSkill(userId: string, skillId: string): Promise<void> {
-    if (!userId?.trim()) throw new Error('User-ID ist erforderlich');
+  async addFavoriteSkill(skillId: string): Promise<void> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.post<void>(FAVORITE_ENDPOINTS.ADD_FAVORITE(userId, skillId));
+    return apiClient.post<void>(FAVORITE_ENDPOINTS.ADD_FAVORITE(skillId));
   },
 
-  async removeFavoriteSkill(userId: string, skillId: string): Promise<void> {
-    if (!userId?.trim()) throw new Error('User-ID ist erforderlich');
+  async removeFavoriteSkill(skillId: string): Promise<void> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.delete<void>(FAVORITE_ENDPOINTS.REMOVE_FAVORITE(userId, skillId));
+    return apiClient.delete<void>(FAVORITE_ENDPOINTS.REMOVE_FAVORITE(skillId));
   },
 };
 

@@ -108,9 +108,22 @@ const SkillList: React.FC<SkillListProps> = ({
   }
 
   return (
-    <Grid container spacing={3}>
+    <Grid 
+      container 
+      spacing={{ xs: 2, sm: 3, md: 3 }}
+      sx={{
+        '& .MuiGrid-item': {
+          display: 'flex',
+          flexDirection: 'column',
+        }
+      }}
+    >
       {validSkills.map((skill) => (
-        <Grid key={skill.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+        <Grid 
+          key={skill.id} 
+          size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 3 }}
+          sx={{ display: 'flex' }}
+        >
           <SkillCard
             skill={skill}
             isOwner={isOwnerView}

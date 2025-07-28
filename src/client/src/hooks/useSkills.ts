@@ -93,9 +93,9 @@ export const useSkills = () => {
    * FAVORITES: Fetch favorite skill IDs for user 
   */
   const fetchFavoriteSkills = useCallback(
-    async (userId: string): Promise<boolean> => {
+    async (): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(fetchFavoriteSkillsAction(userId));
+        const resultAction = await dispatch(fetchFavoriteSkillsAction());
         if (fetchFavoriteSkillsAction.fulfilled.match(resultAction)) {
           return true;
         } else {
@@ -112,9 +112,9 @@ export const useSkills = () => {
 
   /** FAVORITES: Add a skill to favorites */
   const addFavoriteSkill = useCallback(
-    async (userId: string, skillId: string): Promise<boolean> => {
+    async (skillId: string): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(addFavoriteSkillAction({ userId, skillId }));
+        const resultAction = await dispatch(addFavoriteSkillAction({ skillId }));
         if (addFavoriteSkillAction.fulfilled.match(resultAction)) {
           return true;
         } else {
@@ -131,9 +131,9 @@ export const useSkills = () => {
 
   /** FAVORITES: Remove a skill from favorites */
   const removeFavoriteSkill = useCallback(
-    async (userId: string, skillId: string): Promise<boolean> => {
+    async (skillId: string): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(removeFavoriteSkillAction({ userId, skillId }));
+        const resultAction = await dispatch(removeFavoriteSkillAction({ skillId }));
         if (removeFavoriteSkillAction.fulfilled.match(resultAction)) {
           return true;
         } else {
@@ -789,7 +789,7 @@ export const useSkills = () => {
 
   const getCategoryFromState = useCallback(
     (categoryId: string) => {
-      return categories.find((category) => category.id === categoryId);
+      return categories.find((category) => category.categoryId === categoryId);
     },
     [categories]
   );
@@ -805,7 +805,7 @@ export const useSkills = () => {
     (categoryId: string): Skill[] => {
       const currentSkills = isSearchActive ? searchResults : allSkills;
       return currentSkills.filter(
-        (skill) => skill.category?.id === categoryId
+        (skill) => skill.category?.categoryId === categoryId
       );
     },
     [allSkills, searchResults, isSearchActive]

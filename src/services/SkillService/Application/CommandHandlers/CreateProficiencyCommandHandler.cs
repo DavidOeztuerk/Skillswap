@@ -8,22 +8,22 @@ using SkillService.Domain.Entities;
 
 namespace SkillService.Application.CommandHandlers;
 
-public class CreateSkillCategoryCommandHandler(
+public class CreateProficiencyCommandHandler(
     SkillDbContext dbContext,
     IPublishEndpoint eventPublisher,
-    ILogger<CreateSkillCategoryCommandHandler> logger)
-    : BaseCommandHandler<CreateSkillCategoryCommand, CreateSkillCategoryResponse>(logger)
+    ILogger<CreateProficiencyCommandHandler> logger)
+    : BaseCommandHandler<CreateProficiencyLevelCommand, CreateProficiencyLevelResponse>(logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
     private readonly IPublishEndpoint _eventPublisher = eventPublisher;
 
-    public override async Task<ApiResponse<CreateSkillCategoryResponse>> Handle(CreateSkillCategoryCommand request, CancellationToken cancellationToken)
+    public override async Task<ApiResponse<CreateProficiencyLevelResponse>> Handle(CreateProficiencyLevelCommand request, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Creating skill category {CategoryName}", request.Name);
+        logger.LogInformation("Creating skill category {CategoryName}", request.Level);
 
-        // Check if category already exists
-        var existingCategory = await _dbContext.SkillCategories
-            .FirstOrDefaultAsync(c => c.Name.ToLower() == request.Name.ToLower(), cancellationToken);
+        // Check if proficiencylevel already exists
+        var existingCategory = await _dbContext.ProficiencyLevels
+            .FirstOrDefaultAsync(c => c.Level.ToLower() == request.Level.ToLower(), cancellationToken);
 
         if (existingCategory != null)
         {
@@ -31,10 +31,10 @@ public class CreateSkillCategoryCommandHandler(
         }
 
         // Check parent category exists if specified
-        // if (!string.IsNullOrEmpty(request.Name))
+        // if (!string.IsNullOrEmpty(request.Level))
         // {
-        //     var parentExists = await _dbContext.SkillCategories
-        //         .AnyAsync(c => c.Name == request.Name, cancellationToken);
+        //     var parentExists = await _dbContext.ProficiencyLevels
+        //         .AnyAsync(c => c.Level == request.Level, cancellationToken);
 
         //     if (!parentExists)
         //     {
@@ -42,19 +42,19 @@ public class CreateSkillCategoryCommandHandler(
         //     }
         // }
 
-        var category = new SkillCategory
+        var proficiencyLevel = new ProficiencyLevel
         {
             Id = Guid.NewGuid().ToString(),
-            Name = request.Name,
+            Level = request.Level,
             Description = request.Description,
-            IconName = request.IconName,
+            Rank = request.Rank,
             Color = request.Color,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
 
-        _dbContext.SkillCategories.Add(category);
+        _dbContext.ProficiencyLevels.Add(proficiencyLevel);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Publish domain event
@@ -68,14 +68,14 @@ public class CreateSkillCategoryCommandHandler(
         //     Timestamp = DateTime.UtcNow
         // }, cancellationToken);
 
-        Logger.LogInformation("Successfully created skill category {CategoryId}", category.Id);
+        Logger.LogInformation("Successfully created skill category {CategoryId}", proficiencyLevel.Id);
 
-        return Success(new CreateSkillCategoryResponse(
-            category.Id,
-            category.Name,
-            category.IconName,
-            category.Color,
-            category.CreatedAt
+        return Success(new CreateProficiencyLevelResponse(
+            proficiencyLevel.Id,
+            proficiencyLevel.Level,
+            proficiencyLevel.Rank,
+            proficiencyLevel.Color,
+            proficiencyLevel.CreatedAt
         ));
     }
 }

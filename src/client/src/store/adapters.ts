@@ -29,9 +29,9 @@ export interface SkillsEntityState extends EntityState<Skill, EntityId> {
 }
 
 // Categories Entity Adapter
-export const categoriesAdapter = createEntityAdapter<SkillCategory>({
-  sortComparer: (a, b) => a.name.localeCompare(b.name),
-});
+// export const categoriesAdapter = createEntityAdapter<SkillCategory>({
+//   sortComparer: (a, b) => a.name.localeCompare(b.name),
+// });
 
 export interface CategoriesEntityState extends EntityState<SkillCategory, EntityId> {
   isLoading: boolean;
@@ -112,7 +112,7 @@ export interface UsersEntityState extends EntityState<User, EntityId> {
 export const skillsSelectors = skillsAdapter.getSelectors();
 
 // Categories selectors
-export const categoriesSelectors = categoriesAdapter.getSelectors();
+// export const categoriesSelectors = categoriesAdapter.getSelectors();
 
 // Appointments selectors
 export const appointmentsSelectors = appointmentsAdapter.getSelectors();
@@ -184,11 +184,11 @@ export const initialSkillsState: SkillsEntityState = skillsAdapter.getInitialSta
   },
 });
 
-export const initialCategoriesState: CategoriesEntityState = categoriesAdapter.getInitialState({
-  isLoading: false,
-  error: null,
-  selectedCategoryId: null,
-});
+// export const initialCategoriesState: CategoriesEntityState = categoriesAdapter.getInitialState({
+//   isLoading: false,
+//   error: null,
+//   selectedCategoryId: null,
+// });
 
 export const initialAppointmentsState: AppointmentsEntityState = appointmentsAdapter.getInitialState({
   isLoading: false,

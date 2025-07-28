@@ -227,13 +227,22 @@ matchRequests.MapGet("/outgoing", GetOutgoingMatchRequests)
     .WithOpenApi()
     .Produces<PagedResponse<MatchRequestResponse>>(StatusCodes.Status200OK);
 
+// Debug endpoint
+matchRequests.MapGet("/outgoing/test", (ClaimsPrincipal user) => 
+{
+    var userId = user.GetUserId();
+    return Results.Ok(new { message = "Test successful", userId, timestamp = DateTime.UtcNow });
+})
+.WithName("TestOutgoing")
+.WithTags("Debug");
+
 matchRequests.MapPost("/accept", AcceptMatchRequest)
     .WithName("AcceptMatchRequest")
     .WithSummary("Accept a direct match request")
     .WithDescription("Accept an incoming match request and create a match")
     .WithTags("Match Requests")
     .WithOpenApi()
-    .Produces<AcceptDirectMatchRequestResponse>(StatusCodes.Status200OK)
+    .Produces<MatchRequestResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound);
 
 matchRequests.MapPost("/reject", RejectMatchRequest)
@@ -262,27 +271,47 @@ static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipa
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetIncomingMatchRequest request)
+static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, int pageNumber = 1, int pageSize = 20)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetIncomingMatchRequestsQuery(userId, request.PageNumber, request.PageSize);
+    var query = new GetIncomingMatchRequestsQuery(userId, pageNumber, pageSize);
 
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetOutgoingMatchRequestsRequest request)
+static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, ILogger<Program> logger, int pageNumber = 1, int pageSize = 20)
 {
-    var userId = user.GetUserId();
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-    var query = new GetOutgoingMatchRequestsQuery(request.PageNumber, request.PageSize)
+    try
     {
-        UserId = userId
-    };
+        logger.LogInformation("GetOutgoingMatchRequests called with pageNumber={PageNumber}, pageSize={PageSize}", pageNumber, pageSize);
+        
+        var userId = user.GetUserId();
+        if (string.IsNullOrEmpty(userId)) 
+        {
+            logger.LogWarning("GetOutgoingMatchRequests: No userId found");
+            return Results.Unauthorized();
+        }
 
-    return await mediator.SendQuery(query);
+        logger.LogInformation("GetOutgoingMatchRequests: userId={UserId}", userId);
+
+        var query = new GetOutgoingMatchRequestsQuery(pageNumber, pageSize)
+        {
+            UserId = userId
+        };
+
+        logger.LogInformation("GetOutgoingMatchRequests: Sending query");
+        var result = await mediator.SendQuery(query);
+        logger.LogInformation("GetOutgoingMatchRequests: Query completed");
+        
+        return result;
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "GetOutgoingMatchRequests: Exception occurred");
+        return Results.Problem("An error occurred while processing the request");
+    }
 }
 
 static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptMatchRequestRequest request)
@@ -411,12 +440,12 @@ static async Task<IResult> GetMatchDetails(IMediator mediator, ClaimsPrincipal u
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetUserMatchesRequest request)
+static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal user, string? status = null, bool includeCompleted = true, int pageNumber = 1, int pageSize = 20)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetUserMatchesQuery(userId, request.Status, request.IncludeCompleted, request.PageNumber, request.PageSize);
+    var query = new GetUserMatchesQuery(userId, status, includeCompleted, pageNumber, pageSize);
 
     return await mediator.SendQuery(query);
 }
@@ -475,6 +504,7 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<MatchmakingDbContext>();
     try
     {
+        await context.Database.EnsureDeletedAsync();
         await context.Database.EnsureCreatedAsync();
         app.Logger.LogInformation("MatchmakingService database initialized successfully");
     }

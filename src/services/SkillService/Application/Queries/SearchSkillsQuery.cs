@@ -4,6 +4,7 @@ using FluentValidation;
 namespace SkillService.Application.Queries;
 
 public record SearchSkillsQuery(
+    string UserId,
     string? SearchTerm = null,
     string? CategoryId = null,
     List<string>? Tags = null,
@@ -18,8 +19,7 @@ public record SearchSkillsQuery(
     bool SortDescending = true,
     int PageNumber = 1,
     int PageSize = 20)
-    : IPagedQuery<SkillSearchResultResponse>,
-    ICacheableQuery
+    : IPagedQuery<SkillSearchResultResponse>, ICacheableQuery
 {
     int IPagedQuery<SkillSearchResultResponse>.PageNumber { get; set; } = PageNumber;
     int IPagedQuery<SkillSearchResultResponse>.PageSize { get; set; } = PageSize;
@@ -55,7 +55,7 @@ public class SearchSkillsQueryValidator : AbstractValidator<SearchSkillsQuery>
             .When(x => !string.IsNullOrEmpty(x.SearchTerm));
 
         RuleFor(x => x.Tags)
-            .Must(tags => tags == null)
+            .Must(tags => tags == null || tags.Count <= 10)
             .WithMessage("Maximum 10 tags allowed in search");
 
         //RuleFor(x => x.M)

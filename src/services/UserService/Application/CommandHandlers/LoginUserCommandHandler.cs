@@ -72,7 +72,10 @@ public class LoginUserCommandHandler(
                         user.FirstName,
                         user.LastName,
                         user.UserName,
-                        user.UserRoles.Select(ur => ur.Role).ToList(),
+                        user.UserRoles
+                            .Where(ur => ur.RevokedAt == null && !ur.IsDeleted)
+                            .Select(ur => ur.Role)
+                            .ToList(),
                         user.EmailVerified,
                         user.AccountStatus);
 
@@ -106,7 +109,10 @@ public class LoginUserCommandHandler(
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Roles = user.UserRoles.Select(ur => ur.Role).ToList(),
+                Roles = user.UserRoles
+                    .Where(ur => ur.RevokedAt == null && !ur.IsDeleted)
+                    .Select(ur => ur.Role)
+                    .ToList(),
                 EmailVerified = user.EmailVerified,
                 AccountStatus = user.AccountStatus
             };

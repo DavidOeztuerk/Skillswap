@@ -148,7 +148,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
   const defaultValues = useMemo(() => {
     return {
       skillId: skill.id,
-      requestType: skill.isOffering ? 'learn' : ('teach' as 'teach' | 'learn'),
+      requestType: skill.isOffered ? 'learn' : ('teach' as 'teach' | 'learn'),
       preferredDays: ['Montag', 'Mittwoch', 'Freitag'],
       preferredTimes: ['18:00', '19:00', '20:00'],
       sessionDuration: 60,
@@ -189,7 +189,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
     if (open) {
       reset({
         ...defaultValues,
-        requestType: skill.isOffering ? 'learn' : 'teach',
+        requestType: skill.isOffered ? 'learn' : 'teach',
       });
       setActiveStep(0);
     }
@@ -242,7 +242,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
         skillId: skill.id,
         skillName: skill.name,
         message: data.learningGoals || '',
-        isOffering: data.requestType === 'teach',
+        isOffered: data.requestType === 'teach',
         status: 'Pending',
         createdAt: new Date().toISOString(),
         // respondedAt und expiresAt optional, werden ggf. vom Backend gesetzt
