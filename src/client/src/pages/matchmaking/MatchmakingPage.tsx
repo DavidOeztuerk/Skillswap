@@ -216,8 +216,8 @@ const MatchmakingPage: React.FC = () => {
   // Lehrbare oder lernbare Skills des Benutzers finden
   const renderMatchButton = () => {
     // Skills, die der Benutzer lehren oder lernen kann
-    const teachableSkills = userSkills.filter((skill) => skill.isOffering);
-    const learnableSkills = userSkills.filter((skill) => !skill.isOffering);
+    const teachableSkills = userSkills.filter((skill) => skill.isOffered);
+    const learnableSkills = userSkills.filter((skill) => !skill.isOffered);
 
     // Wenn Benutzer sowohl lehrbare als auch lernbare Skills hat, zeige beide Optionen
     if (teachableSkills?.length > 0 && learnableSkills?.length > 0) {

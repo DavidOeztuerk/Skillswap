@@ -11,10 +11,7 @@ public class SearchSkillsQueryHandler(
     SkillDbContext dbContext,
     IUserLookupService userLookup,
     ILogger<SearchSkillsQueryHandler> logger)
-    : BasePagedQueryHandler<
-    SearchSkillsQuery,
-    SkillSearchResultResponse>(
-        logger)
+    : BasePagedQueryHandler<SearchSkillsQuery, SkillSearchResultResponse>(logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
     private readonly IUserLookupService _userLookup = userLookup;
@@ -28,7 +25,7 @@ public class SearchSkillsQueryHandler(
             var query = _dbContext.Skills
                 .Include(s => s.SkillCategory)
                 .Include(s => s.ProficiencyLevel)
-                .Where(s => s.IsActive && !s.IsDeleted);
+                .Where(s => s.IsActive && !s.IsDeleted && s.UserId != request.UserId);
 
             // Apply filters
             if (!string.IsNullOrEmpty(request.SearchTerm))

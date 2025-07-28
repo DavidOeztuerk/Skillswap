@@ -14,8 +14,10 @@ export interface Match {
   preferredDays: string[];
   preferredTimes: string[];
   additionalNotes?: string;
+  compatibilityScore: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
+  acceptedAt?: string;
 }
 
 export enum MatchStatus {

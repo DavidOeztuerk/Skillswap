@@ -16,7 +16,7 @@ public record CreateMatchRequestCommand(
 public record MatchRequestResponse(
     string RequestId,
     string RequesterId,
-    // string TargetUserId,
+    string TargetUserId,
     string SkillId,
     string Description,
     string Message,

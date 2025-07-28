@@ -22,19 +22,20 @@ import {
   SkillCategory,
   ProficiencyLevel,
 } from '../../types/models/Skill';
+import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
 
-interface SkillRequest {
-  name: string;
-  description: string;
-  isOffering: boolean;
-  skillCategoryId: string;
-  proficiencyLevelId: string;
-}
+// interface SkillRequest {
+//   name: string;
+//   description: string;
+//   isOffering: boolean;
+//   skillCategoryId: string;
+//   proficiencyLevelId: string;
+// }
 
 interface SkillFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (skillData: SkillRequest, skillId?: string) => void;
+  onSubmit: (skillData: CreateSkillRequest, skillId?: string) => void;
   categories: SkillCategory[];
   proficiencyLevels: ProficiencyLevel[];
   loading: boolean;
@@ -54,26 +55,24 @@ const SkillForm: React.FC<SkillFormProps> = ({
 }) => {
   // const theme = useTheme();
 
-  const [formValues, setFormValues] = useState<SkillRequest>({
+  const [formValues, setFormValues] = useState<CreateSkillRequest>({
     name: '',
     description: '',
-    skillCategoryId: '',
+    categoryId: '',
     proficiencyLevelId: '',
-    isOffering: true,
+    isOffered: true,
   });
 
-  const [errors, setErrors] = useState<Partial<SkillRequest>>({});
+  const [errors, setErrors] = useState<Partial<CreateSkillRequest>>({});
 
   // Helper function to get the correct ID field from categories
   const getCategoryId = (category: SkillCategory): string => {
-    // Try different possible ID field names
-    return category.id || category.id || '';
+    return category.categoryId || '';
   };
 
   // Helper function to get the correct ID field from proficiency levels
   const getProficiencyLevelId = (level: ProficiencyLevel): string => {
-    // Try different possible ID field names
-    return level.levelId || level.levelId || '';
+    return level.levelId || '';
   };
 
   // Helper function to get rank from proficiency level
@@ -90,17 +89,17 @@ const SkillForm: React.FC<SkillFormProps> = ({
         setFormValues({
           name: skill.name ?? '',
           description: skill.description ?? '',
-          skillCategoryId: skill.category?.id ?? '',
+          categoryId: skill.category?.categoryId ?? '',
           proficiencyLevelId: skill.proficiencyLevel?.levelId ?? '',
-          isOffering: skill.isOffering,
+          isOffered: skill.isOffered,
         });
       } else {
         setFormValues({
           name: '',
           description: '',
-          skillCategoryId: '',
+          categoryId: '',
           proficiencyLevelId: '',
-          isOffering: true,
+          isOffered: true,
         });
       }
       setErrors({});
@@ -112,7 +111,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
   ) => {
     const { name, value } = e.target;
     setFormValues((prev) => ({ ...prev, [name]: value }));
-    if (errors[name as keyof SkillRequest]) {
+    if (errors[name as keyof CreateSkillRequest]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
@@ -127,7 +126,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
       return newValues;
     });
 
-    if (errors[name as keyof SkillRequest]) {
+    if (errors[name as keyof CreateSkillRequest]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
@@ -138,7 +137,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
   };
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<SkillRequest> = {};
+    const newErrors: Partial<CreateSkillRequest> = {};
 
     if (!formValues.name.trim()) {
       newErrors.name = 'Name ist erforderlich';
@@ -155,8 +154,8 @@ const SkillForm: React.FC<SkillFormProps> = ({
         'Beschreibung darf maximal 2000 Zeichen lang sein';
     }
 
-    if (!formValues.skillCategoryId) {
-      newErrors.skillCategoryId = 'Kategorie ist erforderlich';
+    if (!formValues.categoryId) {
+      newErrors.categoryId = 'Kategorie ist erforderlich';
     }
     if (!formValues.proficiencyLevelId) {
       newErrors.proficiencyLevelId = 'Fertigkeitsstufe ist erforderlich';
@@ -178,8 +177,8 @@ const SkillForm: React.FC<SkillFormProps> = ({
         {
           name: formValues.name.trim(),
           description: formValues.description.trim(),
-          isOffering: formValues.isOffering,
-          skillCategoryId: formValues.skillCategoryId,
+          isOffered: formValues.isOffered,
+          categoryId: formValues.categoryId,
           proficiencyLevelId: formValues.proficiencyLevelId,
         },
         skill?.id
@@ -204,6 +203,8 @@ const SkillForm: React.FC<SkillFormProps> = ({
     categoriesLength: categories?.length || 0,
     proficiencyLevelsLength: proficiencyLevels?.length || 0,
     formValues,
+    categories,
+    proficiencyLevels,
   });
 
   return (
@@ -273,7 +274,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
 
           <FormControl
             fullWidth
-            error={!!errors.skillCategoryId}
+            error={!!errors.categoryId}
             disabled={loading || !hasCategories}
             margin="normal"
             required
@@ -281,14 +282,15 @@ const SkillForm: React.FC<SkillFormProps> = ({
             <InputLabel id="category-select-label">Kategorie</InputLabel>
             <Select
               labelId="category-select-label"
-              name="skillCategoryId"
-              value={formValues.skillCategoryId}
+              name="categoryId"
+              value={formValues.categoryId}
               onChange={handleSelectChange}
               label="Kategorie"
             >
               {hasCategories ? (
                 categories.map((category) => {
                   const categoryId = getCategoryId(category);
+                  console.log('[SkillForm] Category:', { category, categoryId });
                   return (
                     <MenuItem key={categoryId} value={categoryId}>
                       {category.name}
@@ -299,8 +301,8 @@ const SkillForm: React.FC<SkillFormProps> = ({
                 <MenuItem disabled>Kategorien werden geladen...</MenuItem>
               )}
             </Select>
-            {errors.skillCategoryId && (
-              <FormHelperText>{errors.skillCategoryId}</FormHelperText>
+            {errors.categoryId && (
+              <FormHelperText>{errors.categoryId}</FormHelperText>
             )}
             {!hasCategories && (
               <FormHelperText>Kategorien werden geladen...</FormHelperText>
@@ -358,23 +360,23 @@ const SkillForm: React.FC<SkillFormProps> = ({
           <FormControlLabel
             control={
               <Switch
-                checked={formValues.isOffering}
+                checked={formValues.isOffered}
                 onChange={handleSwitchChange}
-                name="isOffering"
+                name="isOffered"
                 color="primary"
                 disabled={loading}
               />
             }
             label={
               <Typography>
-                {formValues.isOffering ? 'Angeboten' : 'Gesucht'}
+                {formValues.isOffered ? 'Angeboten' : 'Gesucht'}
                 <Typography
                   component="span"
                   variant="body2"
                   color="text.secondary"
                   sx={{ ml: 1 }}
                 >
-                  {formValues.isOffering
+                  {formValues.isOffered
                     ? '(Ich biete diese Fähigkeit an)'
                     : '(Ich suche jemanden mit dieser Fähigkeit)'}
                 </Typography>

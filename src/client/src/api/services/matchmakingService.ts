@@ -69,7 +69,7 @@ const matchmakingService = {
   /**
    * Get all matches for current user
    */
-  async getMatches(request: GetUserMatchesRequest = {}): Promise<PagedUserMatchesResponse> {
+  async getMatches(request: GetUserMatchesRequest): Promise<PagedUserMatchesResponse> {
     const params = new URLSearchParams();
     if (request.Status) params.append('Status', request.Status);
     if (request.IncludeCompleted !== undefined) params.append('IncludeCompleted', request.IncludeCompleted.toString());
@@ -105,11 +105,11 @@ const matchmakingService = {
   },
 
   /**
-   * Create direct match request to specific user
+   * Create general match request for a skill
    */
   async createMatchRequest(request: CreateMatchRequest): Promise<MatchRequest> {
-    if (!request.targetUserId) throw new Error('Ziel-User-ID ist erforderlich');
     if (!request.skillId) throw new Error('Skill-ID ist erforderlich');
+    if (!request.message) throw new Error('Nachricht ist erforderlich');
     return apiClient.post<MatchRequest>(MATCHMAKING_ENDPOINTS.REQUESTS.CREATE, request);
   },
 

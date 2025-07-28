@@ -23,21 +23,23 @@ public class CreateMatchRequestCommandHandler(
         {
             // Validate required fields
             if (string.IsNullOrWhiteSpace(request.UserId) ||
-            string.IsNullOrWhiteSpace(request.SkillId) ||
-            string.IsNullOrWhiteSpace(request.Message))
+                string.IsNullOrWhiteSpace(request.SkillId) ||
+                string.IsNullOrWhiteSpace(request.Message))
             {
                 return Error("Missing required fields");
             }
 
-            // Optionally: Check if requester and target exist, or if a similar match already exists
+            // MatchRequest is a general request - no target user validation needed
 
             var matchRequest = new MatchRequest
             {
                 RequesterId = request.UserId ?? "",
+                // No TargetUserId in MatchRequest system
                 SkillId = request.SkillId,
                 Description = request.Description,
                 Status = "Pending",
                 Message = request.Message,
+                ExpiresAt = DateTime.UtcNow.AddDays(7), // Expires in 7 days
                 ViewCount = 0,
                 MatchAttempts = 0,
                 ResponseMessage = null,
@@ -53,15 +55,16 @@ public class CreateMatchRequestCommandHandler(
             // await _eventPublisher.Publish(new MatchRequestCreatedDomainEvent(matchRequest.Id, ...), cancellationToken);
 
             var response = new MatchRequestResponse(
-                matchRequest.Id,
-                matchRequest.RequesterId,
-                matchRequest.SkillId,
-                matchRequest.Description,
-                matchRequest.Message,
-                matchRequest.Status,
-                matchRequest.CreatedAt,
-                null,
-                null);
+                RequestId: matchRequest.Id,
+                RequesterId: matchRequest.RequesterId,
+                TargetUserId: string.Empty, // No target user in MatchRequest system
+                SkillId: matchRequest.SkillId,
+                Description: matchRequest.Description ?? string.Empty,
+                Message: matchRequest.Message,
+                Status: matchRequest.Status,
+                CreatedAt: matchRequest.CreatedAt,
+                RespondedAt: matchRequest.RespondedAt,
+                ExpiresAt: matchRequest.ExpiresAt);
 
             return Success(response);
         }

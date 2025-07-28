@@ -10,7 +10,7 @@ export interface MatchRequestItem {
   skillId: string;
   skillName: string;
   message: string;
-  isOffering: boolean;
+  isOffered: boolean;
   status: string;
   createdAt: string;
   respondedAt?: string;

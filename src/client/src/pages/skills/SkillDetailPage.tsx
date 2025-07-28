@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -50,6 +50,7 @@ import { User } from '../../types/models/User';
 const SkillDetailPage: React.FC = () => {
   const { skillId } = useParams<{ skillId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // const { user } = useAuth(); // ✅ ENTFERNT: wird nicht verwendet
   const {
@@ -62,10 +63,12 @@ const SkillDetailPage: React.FC = () => {
     isLoading,
     error,
     dismissError,
+    isFavoriteSkill,
+    addFavoriteSkill,
+    removeFavoriteSkill,
   } = useSkills();
 
-  // Local state
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  // Local state - removed isBookmarked as we use the real favorites API now
   const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
   const [endorseDialogOpen, setEndorseDialogOpen] = useState(false);
   const [matchFormOpen, setMatchFormOpen] = useState(false);
@@ -94,6 +97,19 @@ const SkillDetailPage: React.FC = () => {
     selectedSkill &&
     userSkills.some((userSkill) => userSkill.id === selectedSkill.id);
 
+  // Check for automatic match form opening
+  useEffect(() => {
+    const shouldShowMatchForm = searchParams.get('showMatchForm') === 'true';
+    if (shouldShowMatchForm && selectedSkill && !isOwner) {
+      console.log('🚀 Auto-opening match form from URL parameter');
+      setMatchFormOpen(true);
+      // Clean up URL parameter
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('showMatchForm');
+      setSearchParams(newSearchParams, { replace: true });
+    }
+  }, [selectedSkill, isOwner, searchParams, setSearchParams]);
+
   // ✅ HINZUGEFÜGT: Bestimme von welcher Seite der User kam
   const [cameFromMySkills, setCameFromMySkills] = useState(false);
 
@@ -106,14 +122,30 @@ const SkillDetailPage: React.FC = () => {
   }, [isOwner]);
 
   // Handlers
-  const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked);
-    setStatusMessage({
-      text: isBookmarked
-        ? 'Aus Favoriten entfernt'
-        : 'Zu Favoriten hinzugefügt',
-      type: 'success',
-    });
+  const handleBookmark = async () => {
+    if (!selectedSkill?.id) return;
+    
+    const isFav = isFavoriteSkill(selectedSkill.id);
+    try {
+      if (isFav) {
+        await removeFavoriteSkill(selectedSkill.id);
+        setStatusMessage({
+          text: 'Aus Favoriten entfernt',
+          type: 'success',
+        });
+      } else {
+        await addFavoriteSkill(selectedSkill.id);
+        setStatusMessage({
+          text: 'Zu Favoriten hinzugefügt',
+          type: 'success',
+        });
+      }
+    } catch {
+      setStatusMessage({
+        text: 'Fehler beim Aktualisieren der Favoriten',
+        type: 'error',
+      });
+    }
   };
 
   const handleShare = async () => {
@@ -226,10 +258,9 @@ const SkillDetailPage: React.FC = () => {
 
       // ✅ Konvertiere zu CreateMatchRequestCommand
       const command: CreateMatchRequest = {
-        targetUserId: selectedSkill.userId, // ✅ User-ID vom Skill-Besitzer!
         skillId: selectedSkill.id,
+        description: data.description || 'Match-Anfrage von Skill-Detail-Seite',
         message: data.message || 'Ich bin interessiert an diesem Skill!',
-        isLearningMode: selectedSkill.isOffering, // ✅ Wenn Skill angeboten wird, will ich lernen
       };
 
       console.log('📤 Sending CreateMatchRequestCommand:', command);
@@ -395,8 +426,8 @@ const SkillDetailPage: React.FC = () => {
                   sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
                 >
                   <Chip
-                    label={selectedSkill.isOffering ? 'Angeboten' : 'Gesucht'}
-                    color={selectedSkill.isOffering ? 'success' : 'secondary'}
+                    label={selectedSkill.isOffered ? 'Angeboten' : 'Gesucht'}
+                    color={selectedSkill.isOffered ? 'success' : 'secondary'}
                     size="small"
                   />
                   {selectedSkill.category && (
@@ -440,13 +471,13 @@ const SkillDetailPage: React.FC = () => {
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Tooltip
                   title={
-                    isBookmarked
+                    selectedSkill && isFavoriteSkill(selectedSkill.id)
                       ? 'Aus Favoriten entfernen'
                       : 'Zu Favoriten hinzufügen'
                   }
                 >
                   <IconButton onClick={handleBookmark}>
-                    {isBookmarked ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                    {selectedSkill && isFavoriteSkill(selectedSkill.id) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Teilen">
@@ -492,7 +523,7 @@ const SkillDetailPage: React.FC = () => {
                     startIcon={<MessageIcon />}
                     onClick={handleCreateMatch}
                   >
-                    {selectedSkill.isOffering
+                    {selectedSkill.isOffered
                       ? 'Lernen anfragen'
                       : 'Hilfe anbieten'}
                   </Button>
@@ -623,7 +654,7 @@ const SkillDetailPage: React.FC = () => {
                 Typ
               </Typography>
               <Typography variant="body1">
-                {selectedSkill.isOffering ? 'Wird angeboten' : 'Wird gesucht'}
+                {selectedSkill.isOffered ? 'Wird angeboten' : 'Wird gesucht'}
               </Typography>
             </Box>
           </Paper>
@@ -635,7 +666,7 @@ const SkillDetailPage: React.FC = () => {
                 Interessiert?
               </Typography>
               <Typography variant="body2" color="text.secondary" paragraph>
-                {selectedSkill.isOffering
+                {selectedSkill.isOffered
                   ? 'Möchtest du diesen Skill lernen? Erstelle eine Match-Anfrage!'
                   : 'Kannst du bei diesem Skill helfen? Biete deine Hilfe an!'}
               </Typography>
@@ -646,7 +677,7 @@ const SkillDetailPage: React.FC = () => {
                 onClick={handleCreateMatch}
                 startIcon={<MessageIcon />}
               >
-                {selectedSkill.isOffering
+                {selectedSkill.isOffered
                   ? 'Lernen anfragen'
                   : 'Hilfe anbieten'}
               </Button>

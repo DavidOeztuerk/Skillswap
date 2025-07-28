@@ -577,7 +577,7 @@ users.MapGet("/favorites", HandleGetFavoriteSkills)
     .Produces<List<string>>(200)
     .Produces(401);
 
-users.MapPost("/favorites", HandleAddFavoriteSkill)
+users.MapPost("/favorites/{skillId}", HandleAddFavoriteSkill)
     .WithName("AddFavoriteSkill")
     .WithSummary("Add a skill to user's favorites")
     .WithDescription("Adds a skill to the user's list of favorites")
@@ -587,7 +587,7 @@ users.MapPost("/favorites", HandleAddFavoriteSkill)
     .Produces(400)
     .Produces(401);
 
-users.MapDelete("/favorites", HandleRemoveFavoriteSkill)
+users.MapDelete("/favorites/{skillId}", HandleRemoveFavoriteSkill)
     .WithName("RemoveFavoriteSkill")
     .WithSummary("Remove a skill from user's favorites")
     .WithDescription("Removes a skill from the user's list of favorites")
@@ -601,15 +601,15 @@ users.MapDelete("/favorites", HandleRemoveFavoriteSkill)
 // API ENDPOINTS - USER DISCOVERY
 // ============================================================================
 
-// users.MapGet("/", HandleGetUserById)
-//     .WithName("GetUserById")
-//     .WithSummary("Get public user profile by ID")
-//     .WithDescription("Retrieves a user's public profile information by userId")
-//     .WithTags("User Discovery")
-//     .RequireAuthorization()
-//     .Produces<PublicUserProfileResponse>(200)
-//     .Produces(401)
-//     .Produces(404);
+users.MapGet("/{userId}", HandleGetUserById)
+    .WithName("GetUserById")
+    .WithSummary("Get public user profile by ID")
+    .WithDescription("Retrieves a user's public profile information by userId")
+    .WithTags("User Discovery")
+    .RequireAuthorization()
+    .Produces<PublicUserProfileResponse>(200)
+    .Produces(401)
+    .Produces(404);
 
 users.MapGet("/search", HandleSearchUsers)
     .WithName("SearchUsers")
@@ -682,6 +682,28 @@ admin.MapPut("/users/status", HandleUpdateUserStatus)
     .Produces(400)
     .Produces(401)
     .Produces(403);
+
+admin.MapPost("/users/assign-role", HandleAssignUserRole)
+    .WithName("AssignUserRole")
+    .WithSummary("Assign role to user (Admin)")
+    .WithDescription("Assigns a role to a user - Admin access required")
+    .WithTags("Admin")
+    .RequireAuthorization(Policies.RequireAdminRole)
+    .Produces<AssignUserRoleResponse>(200)
+    .Produces(400)
+    .Produces(401)
+    .Produces(403);
+
+// Bootstrap endpoint - only works if no admin exists yet
+admin.MapPost("/bootstrap/first-admin", HandleCreateFirstAdmin)
+    .WithName("CreateFirstAdmin")
+    .WithSummary("Create first admin user (Bootstrap)")
+    .WithDescription("Creates the first admin user - only works if no admin exists yet")
+    .WithTags("Bootstrap")
+    .RequireAuthorization() // Only requires authentication, not admin role
+    .Produces<AssignUserRoleResponse>(200)
+    .Produces(400)
+    .Produces(401);
 
 admin.MapGet("/admin/users/activity", HandleGetUserActivity)
     .WithName("GetUserActivity")
@@ -924,30 +946,35 @@ static async Task<IResult> HandleDeleteAvatar(IMediator mediator, ClaimsPrincipa
 // HANDLER METHODS - FAVORITE SKILLS
 // ============================================================================
 
-static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPrincipal user, [FromBody] GetFavoriteSkillsRequest request)
+static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPrincipal user, 
+    [FromQuery] string pageSize = "100", [FromQuery] string pageNumber = "1")
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetFavoriteSkillsQuery(userId, request.PageNumber, request.PageSize);
+    var query = new GetFavoriteSkillsQuery(userId, pageNumber, pageSize);
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> HandleAddFavoriteSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] AddFavoriteSkillRequest request)
+static async Task<IResult> HandleAddFavoriteSkill(IMediator mediator, ClaimsPrincipal user, string skillId)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    if (string.IsNullOrEmpty(skillId)) return Results.BadRequest("SkillId is required");
 
-    var command = new AddFavoriteSkillCommand(request.SkillId) { UserId = userId };
+    var command = new AddFavoriteSkillCommand(skillId) { UserId = userId };
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleRemoveFavoriteSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] RemoveFavoriteSkillRequest request)
+static async Task<IResult> HandleRemoveFavoriteSkill(IMediator mediator, ClaimsPrincipal user, string skillId)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+    
+    if (string.IsNullOrEmpty(skillId)) return Results.BadRequest("SkillId is required");
 
-    var command = new RemoveFavoriteSkillCommand(request.SkillId) { UserId = userId };
+    var command = new RemoveFavoriteSkillCommand(skillId) { UserId = userId };
     return await mediator.SendCommand(command);
 }
 
@@ -955,14 +982,14 @@ static async Task<IResult> HandleRemoveFavoriteSkill(IMediator mediator, ClaimsP
 // HANDLER METHODS - USER DISCOVERY
 // ============================================================================
 
-// static async Task<IResult> HandleGetUserById(IMediator mediator, ClaimsPrincipal user, [FromBody] GetPublicUserProfileQuery query)
-// {
-//     var userId = user.GetUserId();
-//     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+static async Task<IResult> HandleGetUserById(IMediator mediator, ClaimsPrincipal user, string userId)
+{
+    var requestingUserId = user.GetUserId();
+    if (string.IsNullOrEmpty(requestingUserId)) return Results.Unauthorized();
 
-//     var updatedQuery = query with { UserId = userId };
-//     return await mediator.SendQuery(updatedQuery);
-// }
+    var query = new GetPublicUserProfileQuery(userId, requestingUserId);
+    return await mediator.SendQuery(query);
+}
 
 static async Task<IResult> HandleSearchUsers(IMediator mediator, ClaimsPrincipal user, [FromBody] SearchUsersRequest request)
 {
@@ -1026,6 +1053,24 @@ static async Task<IResult> HandleUpdateUserStatus(IMediator mediator, ClaimsPrin
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
     var command = new UpdateUserStatusCommand(request.PlaceholderParam, "", null, userId) { UserId = userId };
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> HandleAssignUserRole(IMediator mediator, ClaimsPrincipal user, [FromBody] AssignUserRoleRequest request)
+{
+    var assignedBy = user.GetUserId();
+    if (string.IsNullOrEmpty(assignedBy)) return Results.Unauthorized();
+
+    var command = new AssignUserRoleCommand(request.UserId, request.Role, assignedBy);
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> HandleCreateFirstAdmin(IMediator mediator, ClaimsPrincipal user, [FromBody] CreateFirstAdminRequest request)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new CreateFirstAdminCommand(request.UserId);
     return await mediator.SendCommand(command);
 }
 

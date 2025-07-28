@@ -17,38 +17,39 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Rating,
-  LinearProgress,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  ListItemSecondaryAction,
+  Paper,
+  Divider,
+  Collapse,
+  Grid,
+  Stack,
 } from '@mui/material';
 import {
-  Search as SearchIcon,
   PersonAdd as PersonAddIcon,
-  Group as GroupIcon,
   Send as SendIcon,
-  Star as StarIcon,
   Check as CheckIcon,
   Close as CloseIcon,
   Refresh as RefreshIcon,
   Psychology as PsychologyIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Message as MessageIcon,
+  Reply as ReplyIcon,
+  AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
 import {
-  acceptMatch,
-  rejectMatch,
-  rateMatch,
   fetchIncomingMatchRequests,
   fetchOutgoingMatchRequests,
-  getMatch,
+  getUserMatches,
+  acceptMatchRequest,
+  rejectMatchRequest,
   createMatchRequest,
 } from '../../features/matchmaking/matchmakingSlice';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { formatDistanceToNow } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -58,7 +59,6 @@ interface TabPanelProps {
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
-
   return (
     <div
       role="tabpanel"
@@ -72,97 +72,286 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+interface RequestThread {
+  threadId: string;
+  otherUser: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  skill: {
+    id: string;
+    name: string;
+    category?: string;
+  };
+  requests: Array<{
+    id: string;
+    type: 'incoming' | 'outgoing';
+    status: 'pending' | 'accepted' | 'rejected' | 'counter';
+    message: string;
+    createdAt: string;
+    updatedAt?: string;
+    isCounterOffer?: boolean;
+    originalRequestId?: string;
+  }>;
+  latestRequest: {
+    id: string;
+    status: 'pending' | 'accepted' | 'rejected' | 'counter';
+    createdAt: string;
+    type: 'incoming' | 'outgoing';
+  };
+  unreadCount: number;
+}
+
 const EnhancedMatchmakingPage: React.FC = () => {
   const [currentTab, setCurrentTab] = useState(0);
-  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState<any>(null);
-  const [rating, setRating] = useState(0);
-  const [feedback, setFeedback] = useState('');
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const [responseDialogOpen, setResponseDialogOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [responseMessage, setResponseMessage] = useState('');
+  const [counterOfferDialog, setCounterOfferDialog] = useState(false);
+  const [counterOfferMessage, setCounterOfferMessage] = useState('');
 
   const dispatch = useAppDispatch();
   const {
-    matchResults: suggestions = [],
-    matches: myMatches = [],
-    incomingRequests = [],
-    outgoingRequests = [],
+    matches,
+    incomingRequests,
+    outgoingRequests,
     isLoading,
     isLoadingRequests,
     error,
   } = useAppSelector((state) => state.matchmaking);
 
+  // Safe arrays with fallbacks
+  const matchesArray = Array.isArray(matches) ? matches : [];
+  const incomingRequestsArray = Array.isArray(incomingRequests) ? incomingRequests : [];
+  const outgoingRequestsArray = Array.isArray(outgoingRequests) ? outgoingRequests : [];
+
   useEffect(() => {
-    // Load initial data - we'll need to adjust these calls based on actual slice
-    dispatch(getMatch(''));
+    // Load initial data
+    dispatch(getUserMatches());
     dispatch(fetchIncomingMatchRequests());
     dispatch(fetchOutgoingMatchRequests());
   }, [dispatch]);
+
+  // Group requests into threads by user + skill
+  const groupRequestsIntoThreads = (incoming: any[], outgoing: any[]): RequestThread[] => {
+    const threadsMap = new Map<string, RequestThread>();
+
+    // Process incoming requests
+    incoming.forEach((request) => {
+      const threadKey = `${request.requesterId}-${request.skillId}`;
+      if (!threadsMap.has(threadKey)) {
+        threadsMap.set(threadKey, {
+          threadId: threadKey,
+          otherUser: {
+            id: request.requesterId,
+            name: request.requesterName || 'Unbekannter Nutzer',
+          },
+          skill: {
+            id: request.skillId,
+            name: request.skillName || 'Unbekannter Skill',
+          },
+          requests: [],
+          latestRequest: {
+            id: request.matchId,
+            status: request.status,
+            createdAt: request.createdAt,
+            type: 'incoming',
+          },
+          unreadCount: 0,
+        });
+      }
+
+      const thread = threadsMap.get(threadKey)!;
+      thread.requests.push({
+        id: request.matchId,
+        type: 'incoming',
+        status: request.status,
+        message: request.message || 'Neue Match-Anfrage',
+        createdAt: request.createdAt,
+      });
+
+      // Update latest if this is newer
+      if (new Date(request.createdAt) > new Date(thread.latestRequest.createdAt)) {
+        thread.latestRequest = {
+          id: request.matchId,
+          status: request.status,
+          createdAt: request.createdAt,
+          type: 'incoming',
+        };
+      }
+
+      if (request.status === 'pending') {
+        thread.unreadCount++;
+      }
+    });
+
+    // Process outgoing requests
+    outgoing.forEach((request) => {
+      const threadKey = `${request.targetUserId}-${request.skillId}`;
+      if (!threadsMap.has(threadKey)) {
+        threadsMap.set(threadKey, {
+          threadId: threadKey,
+          otherUser: {
+            id: request.targetUserId,
+            name: request.targetUserName || 'Unbekannter Nutzer',
+          },
+          skill: {
+            id: request.skillId,
+            name: request.skillName || 'Unbekannter Skill',
+          },
+          requests: [],
+          latestRequest: {
+            id: request.matchId,
+            status: request.status,
+            createdAt: request.createdAt,
+            type: 'outgoing',
+          },
+          unreadCount: 0,
+        });
+      }
+
+      const thread = threadsMap.get(threadKey)!;
+      thread.requests.push({
+        id: request.matchId,
+        type: 'outgoing',
+        status: request.status,
+        message: request.message || 'Match-Anfrage gesendet',
+        createdAt: request.createdAt,
+      });
+
+      // Update latest if this is newer
+      if (new Date(request.createdAt) > new Date(thread.latestRequest.createdAt)) {
+        thread.latestRequest = {
+          id: request.matchId,
+          status: request.status,
+          createdAt: request.createdAt,
+          type: 'outgoing',
+        };
+      }
+    });
+
+    // Sort by latest activity
+    return Array.from(threadsMap.values()).sort(
+      (a, b) => new Date(b.latestRequest.createdAt).getTime() - new Date(a.latestRequest.createdAt).getTime()
+    );
+  };
+
+  // Separate threads by type
+  const allThreads = groupRequestsIntoThreads(incomingRequestsArray, outgoingRequestsArray);
+  const incomingThreads = allThreads.filter(thread => 
+    thread.latestRequest.type === 'incoming' && thread.latestRequest.status === 'pending'
+  );
+  const outgoingThreads = allThreads.filter(thread => 
+    thread.latestRequest.type === 'outgoing' || thread.latestRequest.status !== 'pending'
+  );
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   };
 
-  const handleAcceptMatch = (matchId: string) => {
-    dispatch(acceptMatch(matchId));
+  const handleExpandThread = (threadId: string) => {
+    const newExpanded = new Set(expandedThreads);
+    if (newExpanded.has(threadId)) {
+      newExpanded.delete(threadId);
+    } else {
+      newExpanded.add(threadId);
+    }
+    setExpandedThreads(newExpanded);
   };
 
-  const handleRejectMatch = (matchId: string) => {
-    dispatch(rejectMatch({ matchId }));
-  };
-
-  const handleSendRequest = (userId: string) => {
-    dispatch(createMatchRequest({ targetUserId: userId, skillId: 'temp', message: 'Skill-Tausch anfragen', isLearningMode: true }));
-  };
-
-  const handleRateMatch = () => {
-    if (selectedMatch && rating > 0) {
-      dispatch(rateMatch({
-        matchId: selectedMatch.id,
-        rating,
-        feedback: feedback.trim() || undefined,
-      }));
-      setRatingDialogOpen(false);
-      setSelectedMatch(null);
-      setRating(0);
-      setFeedback('');
+  const handleAcceptRequest = async (requestId: string, message?: string) => {
+    try {
+      await dispatch(acceptMatchRequest({ requestId, responseMessage: message }));
+      setResponseDialogOpen(false);
+      setResponseMessage('');
+      setSelectedRequest(null);
+      // Refresh data
+      dispatch(getUserMatches());
+      dispatch(fetchIncomingMatchRequests());
+      dispatch(fetchOutgoingMatchRequests());
+    } catch (error) {
+      console.error('Error accepting request:', error);
     }
   };
 
-  const openRatingDialog = (match: any) => {
-    setSelectedMatch(match);
-    setRatingDialogOpen(true);
+  const handleRejectRequest = async (requestId: string, message?: string) => {
+    try {
+      await dispatch(rejectMatchRequest({ requestId, responseMessage: message }));
+      setResponseDialogOpen(false);
+      setResponseMessage('');
+      setSelectedRequest(null);
+      // Refresh data
+      dispatch(getUserMatches());
+      dispatch(fetchIncomingMatchRequests());
+      dispatch(fetchOutgoingMatchRequests());
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+    }
+  };
+
+  const handleCounterOffer = async () => {
+    if (selectedRequest && counterOfferMessage.trim()) {
+      try {
+        // Create a new request as counter-offer
+        await dispatch(createMatchRequest({
+          skillId: selectedRequest.skillId,
+          description: 'Gegenangebot für Match-Anfrage',
+          message: `Gegenangebot: ${counterOfferMessage.trim()}`,
+        }));
+        setCounterOfferDialog(false);
+        setCounterOfferMessage('');
+        setSelectedRequest(null);
+        // Refresh data
+        dispatch(getUserMatches());
+        dispatch(fetchIncomingMatchRequests());
+        dispatch(fetchOutgoingMatchRequests());
+      } catch (error) {
+        console.error('Error creating counter-offer:', error);
+      }
+    }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'success';
-      case 'pending':
-        return 'warning';
-      case 'rejected':
-        return 'error';
-      case 'completed':
-        return 'info';
-      default:
-        return 'default';
+      case 'accepted': return 'success';
+      case 'pending': return 'warning';
+      case 'rejected': return 'error';
+      case 'counter': return 'info';
+      default: return 'default';
     }
   };
 
-  if (isLoading && suggestions?.length === 0) {
-    return <LoadingSpinner fullPage message="Suche nach Matches..." />;
+  const getStatusIcon = (status: string, type: 'incoming' | 'outgoing') => {
+    switch (status) {
+      case 'accepted': return <CheckIcon color="success" />;
+      case 'rejected': return <CloseIcon color="error" />;
+      case 'pending': 
+        return type === 'incoming' ? <PersonAddIcon color="warning" /> : <SendIcon color="warning" />;
+      default: return <MessageIcon />;
+    }
+  };
+
+  const handleRefresh = () => {
+    dispatch(getUserMatches());
+    dispatch(fetchIncomingMatchRequests());
+    dispatch(fetchOutgoingMatchRequests());
+  };
+
+  if (isLoading && incomingRequestsArray.length === 0 && outgoingRequestsArray.length === 0 && matchesArray.length === 0) {
+    return <LoadingSpinner fullPage message="Lade Match-Anfragen..." />;
   }
 
   return (
     <PageContainer>
       <PageHeader
-        title="Skill-Matching"
-        subtitle="Finde passende Lernpartner und tausche deine Skills"
+        title="Match-Anfragen"
+        subtitle="Verwalte deine eingehenden und ausgehenden Skill-Anfragen"
         icon={<PsychologyIcon />}
         actions={
           <Box display="flex" gap={1}>
-            <Button variant="contained" startIcon={<SearchIcon />}>
-              Erweiterte Suche
-            </Button>
-            <IconButton onClick={() => dispatch(getMatch(''))}>
+            <IconButton onClick={handleRefresh} disabled={isLoadingRequests}>
               <RefreshIcon />
             </IconButton>
           </Box>
@@ -171,43 +360,73 @@ const EnhancedMatchmakingPage: React.FC = () => {
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error.message}
+          Fehler beim Laden der Matches: {typeof error === 'string' ? error : error.message || 'Ein unbekannter Fehler ist aufgetreten'}
         </Alert>
       )}
 
-      {/* Quick Stats */}
-      <Box display="flex" gap={2} sx={{ mb: 3 }}>
-        <Box sx={{ flex: '1 1 0' }}>
+      {/* Statistics Cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
-            <CardContent sx={{ p: 2 }}>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography variant="h6">
-                    {suggestions.length}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Vorschläge
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-                  <PsychologyIcon />
-                </Avatar>
-              </Box>
+            <CardContent sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h4" color="success.main">
+                {matchesArray.length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Bestätigte Matches
+              </Typography>
             </CardContent>
           </Card>
-        </Box>
-      </Box>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h4" color="warning.main">
+                {incomingThreads.length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Eingehende Anfragen
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h4" color="success.main">
+                {allThreads.filter(t => t.latestRequest.status === 'accepted').length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Akzeptiert
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h4" color="info.main">
+                {allThreads.reduce((sum, thread) => sum + thread.unreadCount, 0)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Ungelesen
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
+      {/* Tabs */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Tabs value={currentTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
             <Tab
               label={
                 <Box display="flex" alignItems="center">
-                  <SearchIcon sx={{ mr: 1 }} />
-                  Vorschläge
-                  {suggestions?.length > 0 && (
-                    <Badge badgeContent={suggestions.length} color="primary" sx={{ ml: 1 }} />
+                  <PersonAddIcon sx={{ mr: 1 }} />
+                  Eingehende Anfragen
+                  {incomingThreads.length > 0 && (
+                    <Badge badgeContent={incomingThreads.length} color="warning" sx={{ ml: 1 }} />
                   )}
                 </Box>
               }
@@ -215,18 +434,21 @@ const EnhancedMatchmakingPage: React.FC = () => {
             <Tab
               label={
                 <Box display="flex" alignItems="center">
-                  <GroupIcon sx={{ mr: 1 }} />
-                  Meine Matches
+                  <SendIcon sx={{ mr: 1 }} />
+                  Ausgehende Anfragen
+                  {outgoingThreads.length > 0 && (
+                    <Badge badgeContent={outgoingThreads.length} color="primary" sx={{ ml: 1 }} />
+                  )}
                 </Box>
               }
             />
             <Tab
               label={
                 <Box display="flex" alignItems="center">
-                  <PersonAddIcon sx={{ mr: 1 }} />
-                  Anfragen
-                  {incomingRequests?.length > 0 && (
-                    <Badge badgeContent={incomingRequests.length} color="error" sx={{ ml: 1 }} />
+                  <CheckIcon sx={{ mr: 1 }} />
+                  Matches
+                  {matchesArray.length > 0 && (
+                    <Badge badgeContent={matchesArray.length} color="success" sx={{ ml: 1 }} />
                   )}
                 </Box>
               }
@@ -235,237 +457,439 @@ const EnhancedMatchmakingPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Suggestions Tab */}
+      {/* Incoming Requests Tab */}
       <TabPanel value={currentTab} index={0}>
-        <Box display="flex" flexDirection="column" gap={3}>
-          {suggestions?.length === 0 ? (
-            <Box>
-              <Box textAlign="center" py={4}>
-                <Typography variant="h6" color="textSecondary" gutterBottom>
-                  Keine Vorschläge gefunden
-                </Typography>
-                <Typography variant="body2" color="textSecondary" gutterBottom>
-                  Erweitere deine Suchkriterien!
-                </Typography>
-                <Button variant="contained" startIcon={<SearchIcon />} sx={{ mt: 2 }}>
-                  Erweiterte Suche
-                </Button>
-              </Box>
-            </Box>
+        <Box>
+          {incomingThreads.length === 0 ? (
+            <Paper sx={{ p: 6, textAlign: 'center' }}>
+              <PersonAddIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Keine eingehenden Anfragen
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Du hast derzeit keine ausstehenden Match-Anfragen.
+              </Typography>
+            </Paper>
           ) : (
-            <Box display="flex" flexWrap="wrap" gap={3}>
-              {suggestions.map((suggestion: any) => (
-              <Box key={suggestion.id} sx={{ flex: '1 1 calc(50% - 12px)', minWidth: '300px' }}>
-                <Card>
+            <Stack spacing={2}>
+              {incomingThreads.map((thread) => (
+                <Card key={thread.threadId} variant="outlined">
                   <CardContent>
+                    {/* Thread Header */}
                     <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                      <Box display="flex" alignItems="center">
+                      <Box display="flex" alignItems="center" flex={1}>
                         <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                          {suggestion.user?.firstName?.[0] || 'U'}
+                          {thread.otherUser.name[0] || 'U'}
                         </Avatar>
-                        <Box>
+                        <Box flex={1}>
                           <Typography variant="h6">
-                            {suggestion.user?.firstName} {suggestion.user?.lastName}
+                            {thread.otherUser.name}
                           </Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            {suggestion.skill?.name}
+                          <Typography variant="body2" color="text.secondary">
+                            {thread.skill.name}
                           </Typography>
+                          <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                            <AccessTimeIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              {formatDistanceToNow(new Date(thread.latestRequest.createdAt), { 
+                                addSuffix: true, 
+                                locale: de 
+                              })}
+                            </Typography>
+                            {thread.unreadCount > 0 && (
+                              <Chip 
+                                label={`${thread.unreadCount} neu`} 
+                                size="small" 
+                                color="warning" 
+                              />
+                            )}
+                          </Box>
                         </Box>
                       </Box>
-                      <Chip
-                        label={`${suggestion.compatibility}% Match`}
-                        color="primary"
-                        size="small"
-                      />
+                      
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip
+                          label={thread.latestRequest.status}
+                          color={getStatusColor(thread.latestRequest.status) as any}
+                          size="small"
+                        />
+                        <IconButton
+                          onClick={() => handleExpandThread(thread.threadId)}
+                          size="small"
+                        >
+                          {expandedThreads.has(thread.threadId) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
+                      </Box>
                     </Box>
 
-                    <Box display="flex" gap={1} mt={2}>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => handleSendRequest(suggestion.user.id)}
-                        startIcon={<SendIcon />}
-                        fullWidth
-                      >
-                        Anfrage senden
-                      </Button>
-                    </Box>
+                    {/* Quick Actions */}
+                    {thread.latestRequest.status === 'pending' && (
+                      <Box display="flex" gap={1} mb={2}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          startIcon={<CheckIcon />}
+                          onClick={() => handleAcceptRequest(thread.latestRequest.id)}
+                        >
+                          Akzeptieren
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          startIcon={<CloseIcon />}
+                          onClick={() => handleRejectRequest(thread.latestRequest.id)}
+                        >
+                          Ablehnen
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="info"
+                          startIcon={<ReplyIcon />}
+                          onClick={() => {
+                            setSelectedRequest({ 
+                              ...thread.latestRequest, 
+                              requesterId: thread.otherUser.id,
+                              skillId: thread.skill.id 
+                            });
+                            setCounterOfferDialog(true);
+                          }}
+                        >
+                          Gegenangebot
+                        </Button>
+                      </Box>
+                    )}
+
+                    {/* Request History */}
+                    <Collapse in={expandedThreads.has(thread.threadId)}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Anfrage-Verlauf
+                      </Typography>
+                      <Stack spacing={2} sx={{ mt: 2 }}>
+                        {thread.requests
+                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          .map((request) => (
+                          <Paper key={request.id} variant="outlined" sx={{ p: 2 }}>
+                            <Box display="flex" alignItems="center" gap={2}>
+                              <Avatar 
+                                sx={{ 
+                                  bgcolor: `${getStatusColor(request.status)}.main`,
+                                  width: 32,
+                                  height: 32 
+                                }}
+                              >
+                                {getStatusIcon(request.status, request.type)}
+                              </Avatar>
+                              <Box flex={1}>
+                                <Typography variant="subtitle2">
+                                  {request.type === 'incoming' ? 'Anfrage erhalten' : 'Antwort gesendet'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {request.message}
+                                </Typography>
+                                <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                                  <AccessTimeIcon fontSize="small" color="action" />
+                                  <Typography variant="caption" color="text.secondary">
+                                    {formatDistanceToNow(new Date(request.createdAt), { 
+                                      addSuffix: true, 
+                                      locale: de 
+                                    })}
+                                  </Typography>
+                                  <Chip 
+                                    label={request.status} 
+                                    size="small" 
+                                    color={getStatusColor(request.status) as any}
+                                  />
+                                </Box>
+                              </Box>
+                            </Box>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    </Collapse>
                   </CardContent>
                 </Card>
-              </Box>
               ))}
-            </Box>
+            </Stack>
           )}
         </Box>
       </TabPanel>
 
-      {/* My Matches Tab */}
+      {/* Outgoing Requests Tab */}
       <TabPanel value={currentTab} index={1}>
         <Box>
-          <Box>
-            <Typography variant="h6">
-              Meine Matches ({myMatches.length})
-            </Typography>
-            
-            <Box display="flex" flexDirection="column" gap={2}>
-              {myMatches.map((match: any) => (
-                <Box key={match.id}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <Box display="flex" alignItems="center" flex={1}>
-                          <Avatar sx={{ mr: 2 }}>
-                            {match.partner?.firstName?.[0] || 'P'}
-                          </Avatar>
-                          <Box flex={1}>
-                            <Typography variant="h6">
-                              {match.partner?.firstName} {match.partner?.lastName}
-                            </Typography>
-                            <Typography variant="body2" color="textSecondary">
-                              {match.skill?.name}
+          {outgoingThreads.length === 0 ? (
+            <Paper sx={{ p: 6, textAlign: 'center' }}>
+              <SendIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Keine ausgehenden Anfragen
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Du hast noch keine Match-Anfragen gesendet.
+              </Typography>
+            </Paper>
+          ) : (
+            <Stack spacing={2}>
+              {outgoingThreads.map((thread) => (
+                <Card key={thread.threadId} variant="outlined">
+                  <CardContent>
+                    {/* Thread Header */}
+                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                      <Box display="flex" alignItems="center" flex={1}>
+                        <Avatar sx={{ mr: 2, bgcolor: 'secondary.main' }}>
+                          {thread.otherUser.name[0] || 'U'}
+                        </Avatar>
+                        <Box flex={1}>
+                          <Typography variant="h6">
+                            {thread.otherUser.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {thread.skill.name}
+                          </Typography>
+                          <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                            <AccessTimeIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              {formatDistanceToNow(new Date(thread.latestRequest.createdAt), { 
+                                addSuffix: true, 
+                                locale: de 
+                              })}
                             </Typography>
                           </Box>
                         </Box>
-                        
-                        <Box display="flex" alignItems="center" gap={2}>
-                          <Chip
-                            label={match.status}
-                            color={getStatusColor(match.status) as any}
-                            size="small"
-                          />
-                          
-                          {match.status === 'completed' && !match.rating && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => openRatingDialog(match)}
-                              startIcon={<StarIcon />}
-                            >
-                              Bewerten
-                            </Button>
-                          )}
-                        </Box>
                       </Box>
-                    </CardContent>
-                  </Card>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        </Box>
-      </TabPanel>
-
-      {/* Requests Tab */}
-      <TabPanel value={currentTab} index={2}>
-        <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
-          {/* Incoming Requests */}
-          <Box sx={{ flex: '1 1 0' }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Eingehende Anfragen ({incomingRequests.length})
-                </Typography>
-                {isLoadingRequests && <LinearProgress sx={{ mb: 2 }} />}
-                <List>
-                  {incomingRequests.map((request: any) => (
-                    <ListItem key={request.matchId}>
-                      <ListItemAvatar>
-                        <Avatar>
-                          {request.requesterName?.[0] || 'S'}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={request.requesterName}
-                        secondary={request.skillName}
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton
-                          edge="end"
-                          onClick={() => handleAcceptMatch(request.matchId)}
-                          color="success"
-                        >
-                          <CheckIcon />
-                        </IconButton>
-                        <IconButton
-                          edge="end"
-                          onClick={() => handleRejectMatch(request.matchId)}
-                          color="error"
-                        >
-                          <CloseIcon />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  ))}
-                </List>
-              </CardContent>
-            </Card>
-          </Box>
-
-          {/* Outgoing Requests */}
-          <Box sx={{ flex: '1 1 0' }}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Ausgehende Anfragen ({outgoingRequests.length})
-                </Typography>
-                <List>
-                  {outgoingRequests.map((request: any) => (
-                    <ListItem key={request.matchId}>
-                      <ListItemAvatar>
-                        <Avatar>
-                          {request.requesterName?.[0] || 'R'}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={request.requesterName}
-                        secondary={request.skillName}
-                      />
-                      <ListItemSecondaryAction>
+                      
+                      <Box display="flex" alignItems="center" gap={1}>
                         <Chip
-                          label={request.status}
-                          color={getStatusColor(request.status) as any}
+                          label={thread.latestRequest.status}
+                          color={getStatusColor(thread.latestRequest.status) as any}
                           size="small"
                         />
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  ))}
-                </List>
-              </CardContent>
-            </Card>
-          </Box>
+                        <IconButton
+                          onClick={() => handleExpandThread(thread.threadId)}
+                          size="small"
+                        >
+                          {expandedThreads.has(thread.threadId) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
+                      </Box>
+                    </Box>
+
+                    {/* Request History */}
+                    <Collapse in={expandedThreads.has(thread.threadId)}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Anfrage-Verlauf
+                      </Typography>
+                      <Stack spacing={2} sx={{ mt: 2 }}>
+                        {thread.requests
+                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          .map((request) => (
+                          <Paper key={request.id} variant="outlined" sx={{ p: 2 }}>
+                            <Box display="flex" alignItems="center" gap={2}>
+                              <Avatar 
+                                sx={{ 
+                                  bgcolor: `${getStatusColor(request.status)}.main`,
+                                  width: 32,
+                                  height: 32 
+                                }}
+                              >
+                                {getStatusIcon(request.status, request.type)}
+                              </Avatar>
+                              <Box flex={1}>
+                                <Typography variant="subtitle2">
+                                  {request.type === 'outgoing' ? 'Anfrage gesendet' : 'Antwort erhalten'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {request.message}
+                                </Typography>
+                                <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                                  <AccessTimeIcon fontSize="small" color="action" />
+                                  <Typography variant="caption" color="text.secondary">
+                                    {formatDistanceToNow(new Date(request.createdAt), { 
+                                      addSuffix: true, 
+                                      locale: de 
+                                    })}
+                                  </Typography>
+                                  <Chip 
+                                    label={request.status} 
+                                    size="small" 
+                                    color={getStatusColor(request.status) as any}
+                                  />
+                                </Box>
+                              </Box>
+                            </Box>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    </Collapse>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
         </Box>
       </TabPanel>
 
-      {/* Rating Dialog */}
-      <Dialog open={ratingDialogOpen} onClose={() => setRatingDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Match bewerten</DialogTitle>
+      {/* Matches Tab */}
+      <TabPanel value={currentTab} index={2}>
+        <Box>
+          {matchesArray.length === 0 ? (
+            <Paper sx={{ p: 6, textAlign: 'center' }}>
+              <CheckIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Keine Matches
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Du hast noch keine bestätigten Skill-Matches.
+              </Typography>
+            </Paper>
+          ) : (
+            <Stack spacing={2}>
+              {matchesArray.map((match) => (
+                <Card key={match.id} variant="outlined">
+                  <CardContent>
+                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                      <Box display="flex" alignItems="center" flex={1}>
+                        <Avatar sx={{ mr: 2, bgcolor: 'success.main' }}>
+                          <CheckIcon />
+                        </Avatar>
+                        <Box flex={1}>
+                          <Typography variant="h6">
+                            {match.skill.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {match.skill.isOffered ? 'Du bietest an' : 'Du lernst'}
+                          </Typography>
+                          <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                            <AccessTimeIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              {formatDistanceToNow(new Date(match.createdAt), { 
+                                addSuffix: true, 
+                                locale: de 
+                              })}
+                            </Typography>
+                            {match.acceptedAt && (
+                              <>
+                                <Typography variant="caption" color="text.secondary">
+                                  • Bestätigt 
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {formatDistanceToNow(new Date(match.acceptedAt), { 
+                                    addSuffix: true, 
+                                    locale: de 
+                                  })}
+                                </Typography>
+                              </>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                      
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip
+                          label={match.status}
+                          color="success"
+                          size="small"
+                        />
+                        <Typography variant="body2" color="success.main">
+                          {(match.compatibilityScore * 100).toFixed(0)}% Match
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box display="flex" gap={1}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        startIcon={<MessageIcon />}
+                      >
+                        Nachricht senden
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                      >
+                        Details ansehen
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Box>
+      </TabPanel>
+
+      {/* Counter Offer Dialog */}
+      <Dialog open={counterOfferDialog} onClose={() => setCounterOfferDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Gegenangebot erstellen</DialogTitle>
         <DialogContent>
-          <Box textAlign="center" mb={3}>
-            <Typography variant="h6" gutterBottom>
-              Wie war der Skill-Tausch?
-            </Typography>
-            <Rating
-              value={rating}
-              onChange={(_event, newValue) => setRating(newValue || 0)}
-              size="large"
-            />
-          </Box>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Erstelle ein Gegenangebot mit deinen eigenen Vorschlägen für Zeit, Ort oder andere Details.
+          </Typography>
           <TextField
-            label="Feedback (optional)"
+            label="Dein Gegenangebot"
             multiline
-            rows={3}
+            rows={4}
             fullWidth
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            placeholder="Teile deine Erfahrung mit..."
+            value={counterOfferMessage}
+            onChange={(e) => setCounterOfferMessage(e.target.value)}
+            placeholder="Z.B.: Ich würde gerne dienstags und donnerstags von 18-20 Uhr..."
+            sx={{ mt: 2 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRatingDialogOpen(false)}>
+          <Button onClick={() => setCounterOfferDialog(false)}>
             Abbrechen
           </Button>
-          <Button onClick={handleRateMatch} variant="contained" disabled={rating === 0}>
-            Bewerten
+          <Button 
+            onClick={handleCounterOffer} 
+            variant="contained" 
+            disabled={!counterOfferMessage.trim()}
+            startIcon={<ReplyIcon />}
+          >
+            Gegenangebot senden
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Response Dialog */}
+      <Dialog open={responseDialogOpen} onClose={() => setResponseDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Anfrage bearbeiten</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Nachricht (optional)"
+            multiline
+            rows={3}
+            fullWidth
+            value={responseMessage}
+            onChange={(e) => setResponseMessage(e.target.value)}
+            placeholder="Füge eine persönliche Nachricht hinzu..."
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResponseDialogOpen(false)}>
+            Abbrechen
+          </Button>
+          <Button 
+            onClick={() => handleRejectRequest(selectedRequest?.id, responseMessage)}
+            color="error"
+            startIcon={<CloseIcon />}
+          >
+            Ablehnen
+          </Button>
+          <Button 
+            onClick={() => handleAcceptRequest(selectedRequest?.id, responseMessage)}
+            variant="contained" 
+            color="success"
+            startIcon={<CheckIcon />}
+          >
+            Akzeptieren
           </Button>
         </DialogActions>
       </Dialog>

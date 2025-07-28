@@ -22,10 +22,9 @@ public class GetUserMatchesQueryHandler(
     {
         try
         {
-            // Note: UserId would come from the HTTP context in the controller
-            // For this implementation, we'll need to modify the query to include UserId
+            // Filter matches for the specific user (either as offering or requesting user)
             var query = _dbContext.Matches
-                .Where(m => !m.IsDeleted);
+                .Where(m => !m.IsDeleted && (m.OfferingUserId == request.UserId || m.RequestingUserId == request.UserId));
 
             if (!string.IsNullOrEmpty(request.Status))
             {

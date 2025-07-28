@@ -155,30 +155,31 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/users/{userId}/favorites",
+      "DownstreamPathTemplate": "/users/favorites",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/{userId}/favorites",
+      "UpstreamPathTemplate": "/api/users/favorites",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
-      }
+      },
+      "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/users/{userId}/favorites/{skillId}",
+      "DownstreamPathTemplate": "/users/favorites/{skillId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/{userId}/favorites/{skillId}",
+      "UpstreamPathTemplate": "/api/users/favorites/{skillId}",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
     },
     {
-      "DownstreamPathTemplate": "/users/{userId}/favorites/{skillId}",
+      "DownstreamPathTemplate": "/users/favorites/{skillId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/{userId}/favorites/{skillId}",
+      "UpstreamPathTemplate": "/api/users/favorites/{skillId}",
       "UpstreamHttpMethod": ["DELETE"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
@@ -949,6 +950,19 @@
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/notifications/{notificationId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/{notificationId}",
+      "UpstreamHttpMethod": ["DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
       }
     }
   ],

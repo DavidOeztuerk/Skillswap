@@ -293,36 +293,58 @@ skills.MapPost("/{id}/endorse", EndorseSkill)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
-static async Task<IResult> SearchSkills(IMediator mediator, ClaimsPrincipal user, [FromBody] SearchSkillsRequest request)
+static async Task<IResult> SearchSkills(
+    IMediator mediator,
+    ClaimsPrincipal user,
+    [FromQuery] string? searchTerm = null,
+    [FromQuery] string? categoryId = null,
+    [FromQuery] string[]? tags = null,
+    [FromQuery] string? proficiencyLevelId = null,
+    [FromQuery] bool? isOffered = null,
+    [FromQuery] bool? isWanted = null,
+    [FromQuery] string? location = null,
+    [FromQuery] bool? isRemote = null,
+    [FromQuery] decimal? minRating = null,
+    [FromQuery] string? sortBy = null,
+    [FromQuery] string? sortDirection = null,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 12,
+    [FromQuery] bool includeInactive = false)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
     var command = new SearchSkillsQuery(
-        request.SearchTerm,
-        request.CategoryId,
-        request.Tags,
-        request.ProficiencyLevelId,
-        request.IsOffered,
-        request.IsWanted,
-        request.Location,
-        request.IsRemote,
-        request.MinRating,
-        request.MaxRating,
-        request.SortBy,
-        request.SortDescending,
-        request.PageNumber,
-        request.PageSize);
+        userId,
+        searchTerm,
+        categoryId,
+        tags?.ToList(),
+        proficiencyLevelId,
+        isOffered,
+        isWanted,
+        location,
+        isRemote,
+        minRating,
+        null, // MaxRating not provided in query params
+        sortBy,
+        sortDirection == "desc", // Convert string to bool
+        page,
+        pageSize);
 
     return await mediator.SendQuery(command);
 }
 
-static async Task<IResult> GetSkillById(IMediator mediator, ClaimsPrincipal user, [FromBody] GetSkillDetailsRequest request)
+static async Task<IResult> GetSkillById(
+    IMediator mediator,
+    ClaimsPrincipal user,
+    [FromRoute] string id,
+    [FromQuery] bool includeReviews = false,
+    [FromQuery] bool includeEndorsements = false)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetSkillDetailsQuery(request.SkillId, request.IncludeReviews, request.IncludeEndorsements);
+    var query = new GetSkillDetailsQuery(id, includeReviews, includeEndorsements);
 
     return await mediator.SendQuery(query);
 }
@@ -454,12 +476,16 @@ categories.MapPut("/{id}", UpdateCategory)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization(Policies.RequireAdminRole);
 
-static async Task<IResult> GetCategories(IMediator mediator, ClaimsPrincipal user, [FromBody] GetSkillCategoriesRequest request)
+static async Task<IResult> GetCategories(
+    IMediator mediator,
+    ClaimsPrincipal user,
+    [FromQuery] bool includeInactive = false,
+    [FromQuery] bool includeSkillCounts = false)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetSkillCategoriesQuery(request.IncludeInactive, request.IncludeSkillCounts);
+    var query = new GetSkillCategoriesQuery(includeInactive, includeSkillCounts);
 
     return await mediator.SendQuery(query);
 }
@@ -513,12 +539,16 @@ levels.MapPost("/", CreateNewProficiencyLevel)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization(Policies.RequireAdminRole);
 
-static async Task<IResult> GetProficiencyLevels(IMediator mediator, ClaimsPrincipal user, [FromBody] GetProficiencyLevelsRequest request)
+static async Task<IResult> GetProficiencyLevels(
+    IMediator mediator,
+    ClaimsPrincipal user,
+    [FromQuery] bool includeInactive = false,
+    [FromQuery] bool includeSkillCounts = false)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetProficiencyLevelsQuery(request.IncludeInactive, request.IncludeSkillCounts);
+    var query = new GetProficiencyLevelsQuery(includeInactive, includeSkillCounts);
 
     return await mediator.SendQuery(query);
 }

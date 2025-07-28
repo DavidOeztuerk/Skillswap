@@ -41,22 +41,22 @@ const initialState: SkillState = {
 
 export const fetchFavoriteSkills = createAsyncThunk(
   'skills/fetchFavoriteSkills',
-  async (userId: string) => {
-    return await skillService.getFavoriteSkills(userId);
+  async () => {
+    return await skillService.getFavoriteSkills();
   }
 );
 
 export const addFavoriteSkill = createAsyncThunk(
   'skills/addFavoriteSkill',
-  async ({ userId, skillId }: { userId: string; skillId: string }) => {
-    return await skillService.addFavoriteSkill(userId, skillId);
+  async ({skillId }: { skillId: string }) => {
+    return await skillService.addFavoriteSkill(skillId);
   }
 );
 
 export const removeFavoriteSkill = createAsyncThunk(
   'skills/removeFavoriteSkill',
-  async ({ userId, skillId }: { userId: string; skillId: string }) => {
-    return await skillService.removeFavoriteSkill(userId, skillId);
+  async ({ skillId }: { skillId: string }) => {
+    return await skillService.removeFavoriteSkill(skillId);
   }
 );
 
@@ -70,6 +70,32 @@ const extractApiData = <T>(response: PaginatedResponse<T> | T): T => {
   }
   // Otherwise, assume the response is the data itself
   return response as T;
+};
+
+/**
+ * Maps backend skill response to frontend Skill model
+ * Handles field name differences between backend and frontend
+ */
+const mapBackendSkillToFrontend = (backendSkill: any): Skill => {
+  return {
+    id: backendSkill.skillId || backendSkill.id,
+    userId: backendSkill.userId,
+    name: backendSkill.name,
+    description: backendSkill.description,
+    // Backend sends 'isOffering' but frontend expects 'isOffered'
+    isOffered: backendSkill.isOffering ?? backendSkill.isOffered ?? false,
+    category: backendSkill.category,
+    proficiencyLevel: backendSkill.proficiencyLevel,
+    tagsJson: backendSkill.tagsJson || "[]",
+    averageRating: backendSkill.averageRating,
+    reviewCount: backendSkill.reviewCount || 0,
+    endorsementCount: backendSkill.endorsementCount || 0,
+    location: backendSkill.location,
+    isRemoteAvailable: backendSkill.isRemoteAvailable || false,
+    estimatedDurationMinutes: backendSkill.estimatedDurationMinutes,
+    createdAt: backendSkill.createdAt,
+    lastActiveAt: backendSkill.lastActiveAt,
+  };
 };
 
 /**
@@ -96,7 +122,7 @@ const extractPagination = <T>(response: PaginatedResponse<T> | unknown) => {
 // Get all skills with pagination
 export const fetchAllSkills = createAsyncThunk(
   'skills/fetchAllSkills',
-  async (params: SkillSearchParams) => {
+  async (params: SkillSearchParams = {}) => {
     return await skillService.getAllSkills(params);
   }
 );
@@ -326,7 +352,9 @@ const skillsSlice = createSlice({
         const data = extractApiData(action.payload);
         const pagination = extractPagination(action.payload);
 
-        state.allSkills = Array.isArray(data) ? data : [];
+        const mappedSkills = Array.isArray(data) ? data.map(mapBackendSkillToFrontend) : [];
+        
+        state.allSkills = mappedSkills;
         state.pagination = pagination;
         state.error = null;
       })
@@ -344,27 +372,17 @@ const skillsSlice = createSlice({
       .addCase(fetchSkillById.fulfilled, (state, action) => {
         state.isLoading = false;
         const data = extractApiData(action.payload);
-        state.selectedSkill = data || null;
+        state.selectedSkill = data ? mapBackendSkillToFrontend(data) : null;
 
         // Update in arrays if it exists
         if (data) {
+          const mappedSkill = mapBackendSkillToFrontend(data);
           const updateInArray = (array: Skill[]) => {
             const index = array.findIndex(
-              (skill) => skill.id === data.id
+              (skill) => skill.id === mappedSkill.id
             );
             if (index !== -1) {
-              array[index] = {
-                id: data.id,
-                userId: data.userId,
-                name: data.name ?? '',
-                description: data.description ?? '',
-                isOffering: data.isOffering ?? false,
-                category: data.category ?? array[index].category,
-                proficiencyLevel: data.proficiencyLevel ?? array[index].proficiencyLevel,
-                tagsJson: data.tagsJson ?? array[index].tagsJson ?? "",
-                isRemoteAvailable: data.isRemoteAvailable ?? array[index].isRemoteAvailable ?? false,
-                createdAt: data.createdAt ?? array[index].createdAt ?? '',
-              };
+              array[index] = mappedSkill;
             }
           };
 
@@ -391,7 +409,7 @@ const skillsSlice = createSlice({
         const data = extractApiData(action.payload);
         const pagination = extractPagination(action.payload);
 
-        state.userSkills = Array.isArray(data) ? data : [];
+        state.userSkills = Array.isArray(data) ? data.map(mapBackendSkillToFrontend) : [];
         state.pagination = pagination;
         state.error = null;
       })
@@ -432,8 +450,8 @@ const skillsSlice = createSlice({
             userId: '',
             name: skillData.name || '',
             description: skillData.description || '',
-            isOffering: skillData.isOffering || false,
-            category: { id: '', name: '', isActive: true, createdAt: '' },
+            isOffered: skillData.isOffered || false,
+            category: { categoryId: '', name: '', isActive: true, createdAt: '' },
             proficiencyLevel: { levelId: '', level: '', rank: 0, isActive: true, createdAt: '' },
             tagsJson: "",
             isRemoteAvailable: false,
@@ -463,7 +481,7 @@ const skillsSlice = createSlice({
         const data = extractApiData(action.payload);
 
         if (data) {
-          // UpdateSkillResponse does not have userId, only id, name, description, isOffering, skillCategoryId, proficiencyLevelId
+          // UpdateSkillResponse does not have userId, only id, name, description, isOffered, skillCategoryId, proficiencyLevelId
           const updateInArray = (array: Skill[]) => {
             const index = array.findIndex((skill) => skill.id === data.id);
             if (index !== -1) {
@@ -472,8 +490,8 @@ const skillsSlice = createSlice({
                 id: data.id || array[index].id,
                 name: data.name ?? array[index].name,
                 description: data.description ?? array[index].description,
-                isOffering: data.isOffering ?? array[index].isOffering,
-                category: { id: data.skillCategoryId || '', name: '', isActive: true, createdAt: '' },
+                isOffered: data.isOffered ?? array[index].isOffered,
+                category: { categoryId: data.categoryId || '', name: '', isActive: true, createdAt: '' },
                 proficiencyLevel: { levelId: data.proficiencyLevelId || '', level: '', rank: 0, isActive: true, createdAt: '' },
               };
             }

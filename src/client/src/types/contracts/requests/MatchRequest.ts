@@ -1,6 +1,6 @@
 // export interface MatchRequest {
 //   skillId: string;
-//   isOffering: boolean;
+//   isOffered: boolean;
 //   preferredDays: string[];
 //   preferredTimes: string[];
 //   additionalNotes?: string;
@@ -14,7 +14,7 @@ export interface MatchRequest {
   skillId: string;
   skillName: string;
   message: string;
-  isOffering: boolean;
+  isOffered: boolean;
   status: string; // "Pending", "Accepted", "Rejected", "Expired"
   createdAt: string;
   respondedAt?: string;

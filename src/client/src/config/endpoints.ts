@@ -77,9 +77,9 @@ export const SKILL_ENDPOINTS = {
  * Favoriten-Endpunkte
  */
 export const FAVORITE_ENDPOINTS = {
-  GET_FAVORITES: (userId: string) => `/api/users/${userId}/favorites`,
-  ADD_FAVORITE: (userId: string, skillId: string) => `/api/users/${userId}/favorites/${skillId}`,
-  REMOVE_FAVORITE: (userId: string, skillId: string) => `/api/users/${userId}/favorites/${skillId}`,
+  GET_FAVORITES: () => `/api/users/favorites`,
+  ADD_FAVORITE: (skillId: string) => `/api/users/favorites/${skillId}`,
+  REMOVE_FAVORITE: (skillId: string) => `/api/users/favorites/${skillId}`,
 };
 
 /**

@@ -74,7 +74,7 @@ export const selectIsSearchActive = createSelector(
 export const selectSkillsByCategory = createSelector(
   [selectAllSkills, (_: RootState, categoryId: string) => categoryId],
   (skills, categoryId) => 
-    skills.filter(skill => skill.category.id === categoryId)
+    skills.filter(skill => skill.category.categoryId === categoryId)
 );
 
 // Filtered skills based on search query
@@ -103,7 +103,7 @@ export const selectAllCategories = createSelector(
 export const selectCategoryById = createSelector(
   [selectCategoriesState, (_: RootState, categoryId: string) => categoryId],
   (categoriesState, categoryId) => 
-    categoriesState.categories.find(category => category.id === categoryId) || null
+    categoriesState.categories.find(category => category.categoryId === categoryId) || null
 );
 
 export const selectCategoriesLoading = createSelector(
@@ -122,7 +122,7 @@ export const selectCategoriesWithSkillCounts = createSelector(
   (categories, skills) => {
     return categories.map((category) => ({
       ...category,
-      skillCount: skills.filter((skill) => skill.category.id === category.id).length,
+      skillCount: skills.filter((skill) => skill.category.categoryId === category.categoryId).length,
     }));
   }
 );
@@ -366,7 +366,7 @@ export const selectSkillsStatistics = createSelector(
     topCategories: categories
       .map((category) => ({
         ...category,
-        skillCount: skills.filter((skill) => skill.category.id === category.id).length,
+        skillCount: skills.filter((skill) => skill.category.categoryId === category.categoryId).length,
       }))
       .sort((a, b) => b.skillCount - a.skillCount)
       .slice(0, 5),
