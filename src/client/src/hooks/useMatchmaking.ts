@@ -12,7 +12,7 @@ import {
   getUserMatches,
 } from '../features/matchmaking/matchmakingSlice';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
-import { Match, MatchStatus } from '../types/models/Match';
+import { MatchStatus, MatchDisplay } from '../types/display/MatchmakingDisplay';
 import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
 import { FindMatchRequest } from '../api/services/matchmakingService';
 
@@ -36,7 +36,7 @@ export const useMatchmaking = () => {
   /**
    * Lädt alle Matches für den aktuellen Benutzer
    */
-  const loadMatches = useCallback(async (params?: { page?: number; limit?: number; status?: string }): Promise<boolean> => {
+  const loadMatches = useCallback(async (params: { page?: number; limit?: number; status?: string } = {}): Promise<boolean> => {
     const resultAction = await dispatch(getUserMatches(params));
     return getUserMatches.fulfilled.match(resultAction);
   }, [dispatch]);
@@ -44,16 +44,16 @@ export const useMatchmaking = () => {
   /**
    * ✅ NEU: Lädt alle eingehenden Match-Anfragen
    */
-  const loadIncomingRequests = useCallback(async (): Promise<boolean> => {
-    const resultAction = await dispatch(fetchIncomingMatchRequests());
+  const loadIncomingRequests = useCallback(async (params = {}): Promise<boolean> => {
+    const resultAction = await dispatch(fetchIncomingMatchRequests(params));
     return fetchIncomingMatchRequests.fulfilled.match(resultAction);
   }, [dispatch]);
 
   /**
    * ✅ NEU: Lädt alle ausgehenden Match-Anfragen
    */
-  const loadOutgoingRequests = useCallback(async (): Promise<boolean> => {
-    const resultAction = await dispatch(fetchOutgoingMatchRequests());
+  const loadOutgoingRequests = useCallback(async (params = {}): Promise<boolean> => {
+    const resultAction = await dispatch(fetchOutgoingMatchRequests(params));
     return fetchOutgoingMatchRequests.fulfilled.match(resultAction);
   }, [dispatch]);
 
@@ -97,7 +97,7 @@ export const useMatchmaking = () => {
   const approveMatchRequest = async (
     requestId: string,
     responseMessage?: string
-  ): Promise<Match | null> => {
+  ): Promise<string | null> => {
     const resultAction = await dispatch(acceptMatchRequest({ requestId, responseMessage }));
 
     if (acceptMatchRequest.fulfilled.match(resultAction)) {
@@ -128,8 +128,8 @@ export const useMatchmaking = () => {
    * @param matchId - ID des zu akzeptierenden Matches
    * @returns Das aktualisierte Match oder null bei Fehler
    */
-  const approveMatch = async (matchId: string): Promise<Match | null> => {
-    const resultAction = await dispatch(acceptMatch(matchId));
+  const approveMatch = async (matchId: string): Promise<string | null> => {
+    const resultAction = await dispatch(acceptMatch({ requestId: matchId }));
 
     if (acceptMatch.fulfilled.match(resultAction)) {
       return resultAction.payload;
@@ -144,8 +144,8 @@ export const useMatchmaking = () => {
    * @param reason - Optionaler Ablehnungsgrund
    * @returns Das aktualisierte Match oder null bei Fehler
    */
-  const declineMatch = async (matchId: string, reason?: string): Promise<Match | null> => {
-    const resultAction = await dispatch(rejectMatch({ matchId, reason }));
+  const declineMatch = async (matchId: string, reason?: string): Promise<string | null> => {
+    const resultAction = await dispatch(rejectMatch({ requestId: matchId, responseMessage: reason }));
 
     if (rejectMatch.fulfilled.match(resultAction)) {
       return resultAction.payload;
@@ -159,8 +159,8 @@ export const useMatchmaking = () => {
    * @param status - Zu filternder Status
    * @returns Gefilterte Matches
    */
-  const getMatchesByStatus = (status: MatchStatus): Match[] => {
-    return matches.filter((match) => match.status === status);
+  const getMatchesByStatus = (status: MatchStatus): MatchDisplay[] => {
+    return matches.filter((match) => match.status === status.toLowerCase() as any);
   };
 
   /**
@@ -170,7 +170,7 @@ export const useMatchmaking = () => {
    */
   const userId = useAppSelector((state) => state.auth.user?.id);
 
-  const getMatchesByRole = (isRequester: boolean): Match[] => {
+  const getMatchesByRole = (isRequester: boolean): MatchDisplay[] => {
     if (!userId) return [];
 
     return matches.filter((match) =>
@@ -199,7 +199,7 @@ export const useMatchmaking = () => {
    */
   const isMatchPending = (matchId: string): boolean => {
     const match = matches.find((m) => m.id === matchId);
-    return match?.status === MatchStatus.Pending;
+    return match?.status === 'pending';
   };
 
   return {

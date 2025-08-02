@@ -79,7 +79,7 @@ const proficiencyLevelsSlice = createSlice({
 
     addProficiencyLevel: (state, action: PayloadAction<ProficiencyLevel>) => {
       const existingIndex = state.proficiencyLevels.findIndex(
-        (level) => level.levelId === action.payload.levelId
+        (level) => level.id === action.payload.id
       );
       if (existingIndex === -1) {
         state.proficiencyLevels.push(action.payload);
@@ -92,9 +92,9 @@ const proficiencyLevelsSlice = createSlice({
 
     removeProficiencyLevel: (state, action: PayloadAction<string>) => {
       state.proficiencyLevels = state.proficiencyLevels.filter(
-        (level) => level.levelId !== action.payload
+        (level) => level.id !== action.payload
       );
-      if (state.selectedProficiencyLevel?.levelId === action.payload) {
+      if (state.selectedProficiencyLevel?.id === action.payload) {
         state.selectedProficiencyLevel = null;
       }
     },
@@ -105,7 +105,7 @@ const proficiencyLevelsSlice = createSlice({
     ) => {
       const updatedLevel = action.payload;
       const index = state.proficiencyLevels.findIndex(
-        (level) => level.levelId === updatedLevel.levelId
+        (level) => level.id === updatedLevel.id
       );
       if (index !== -1) {
         state.proficiencyLevels[index] = updatedLevel;
@@ -113,7 +113,7 @@ const proficiencyLevelsSlice = createSlice({
         state.proficiencyLevels.sort((a, b) => (a.rank || 0) - (b.rank || 0));
       }
 
-      if (state.selectedProficiencyLevel?.levelId === updatedLevel.levelId) {
+      if (state.selectedProficiencyLevel?.id === updatedLevel.id) {
         state.selectedProficiencyLevel = updatedLevel;
       }
     },
@@ -182,7 +182,7 @@ const proficiencyLevelsSlice = createSlice({
         state.isUpdating = false;
         if (action.payload) {
           const index = state.proficiencyLevels.findIndex(
-            (level) => level.levelId === action.payload.levelId
+            (level) => level.id === action.payload.id
           );
           if (index !== -1) {
             state.proficiencyLevels[index] = action.payload;
@@ -193,7 +193,7 @@ const proficiencyLevelsSlice = createSlice({
           }
 
           if (
-            state.selectedProficiencyLevel?.levelId === action.payload.levelId
+            state.selectedProficiencyLevel?.id === action.payload.id
           ) {
             state.selectedProficiencyLevel = action.payload;
           }

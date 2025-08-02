@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Infrastructure.Services;
+// using Infrastructure.Services;
 using SkillService.Application.Queries;
 
 namespace SkillService.Application.QueryHandlers;
@@ -12,7 +12,7 @@ namespace SkillService.Application.QueryHandlers;
 
 public class GetSkillStatisticsQueryHandler(
     SkillDbContext dbContext,
-    IUserLookupService userLookup,
+    // IUserLookupService userLookup,
     ILogger<GetSkillStatisticsQueryHandler> logger)
     : BaseQueryHandler<
     GetSkillStatisticsQuery,
@@ -20,7 +20,7 @@ public class GetSkillStatisticsQueryHandler(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
-    private readonly IUserLookupService _userLookup = userLookup;
+    // private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<SkillStatisticsResponse>> Handle(
         GetSkillStatisticsQuery request,
@@ -90,7 +90,7 @@ public class GetSkillStatisticsQueryHandler(
             var topRatedSkills = new List<TopSkillResponse>();
             foreach (var s in rawTopRated)
             {
-                var user = await _userLookup.GetUserAsync(s.UserId, cancellationToken);
+                // var user = await _userLookup.GetUserAsync(s.UserId, cancellationToken);
                 topRatedSkills.Add(new TopSkillResponse(
                     s.Id,
                     s.Name,

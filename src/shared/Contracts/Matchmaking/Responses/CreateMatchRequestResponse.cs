@@ -1,12 +1,13 @@
 namespace Contracts.Matchmaking.Responses;
 
 /// <summary>
-/// API response for CreateMatchRequest operation
+/// API response for CreateMatchRequest operation - display-focused
 /// </summary>
 public record CreateMatchRequestResponse(
     string RequestId,
     string Status,
-    DateTime CreatedAt)
+    DateTime CreatedAt,
+    string ThreadId)
 {
     /// <summary>
     /// API Version this response supports

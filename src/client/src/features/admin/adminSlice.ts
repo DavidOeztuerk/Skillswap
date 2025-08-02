@@ -401,7 +401,7 @@ const adminSlice = createSlice({
       .addCase(fetchAdminMatches.fulfilled, (state, action) => {
         state.isLoadingMatches = false;
         state.matches = action.payload.data;
-        state.pagination.matches.total = action.payload.totalRecords || action.payload.data?.length || 0;
+        state.pagination.matches.total = action.payload.totalRecords || action.payload.data.length || 0;
         state.matchError = null;
       })
       .addCase(fetchAdminMatches.rejected, (state, action) => {

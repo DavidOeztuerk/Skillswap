@@ -98,11 +98,11 @@ const DashboardPage: React.FC = () => {
   }, []);
 
   // Statistiken berechnen
-  const totalSkills = userSkills.length;
-  const teachingSkillsCount = userSkills.filter(skill => skill.isOffered).length;
-  const pendingAppointments = appointments.filter(appt => appt.status === 'Pending').length;
-  const totalMatches = matches.length;
-  const pendingMatchRequests = incomingRequests.filter(req => req.status === 'pending').length;
+  const totalSkills = userSkills?.length;
+  const teachingSkillsCount = userSkills?.filter(skill => skill.isOffered).length;
+  const pendingAppointments = appointments?.filter(appt => appt.status === 'Pending').length;
+  const totalMatches = matches?.length;
+  const pendingMatchRequests = incomingRequests?.filter(req => req.status === 'pending').length;
 
   // Dashboard-Karten mit echten Daten
   const dashboardCards = [
@@ -144,7 +144,7 @@ const DashboardPage: React.FC = () => {
   ];
 
   // Aktuelle Lehrskills
-  const teachingSkills = userSkills.filter((skill) => skill.isOffered);
+  const teachingSkills = userSkills?.filter((skill) => skill.isOffered);
   // Aktuelle Lernwünsche
   // const learningSkills = userSkills.filter((skill) => skill.isLearnable);
 
@@ -366,7 +366,7 @@ const DashboardPage: React.FC = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {teachingSkills?.length > 0 ? (
+              {teachingSkills && teachingSkills?.length > 0 ? (
                 <List disablePadding>
                   {teachingSkills.slice(0, 5).map((userSkill) => (
                     <React.Fragment key={userSkill.id}>
@@ -410,7 +410,7 @@ const DashboardPage: React.FC = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {userSkills?.length > 0 ? (
+              {userSkills && userSkills.length > 0 ? (
                 <List disablePadding>
                   {userSkills.slice(0, 5).map((userSkill) => (
                     <React.Fragment key={userSkill.id}>

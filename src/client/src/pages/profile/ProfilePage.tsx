@@ -130,7 +130,6 @@ const ProfilePage: React.FC = () => {
 
     try {
       const success = await updateProfile({
-        userId: user?.id || '',
         ...data,
       });
 

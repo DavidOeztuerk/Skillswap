@@ -1,29 +1,24 @@
-namespace Contracts.User.Responses;
+using Contracts.Common;
+
+namespace Contracts.User.Responses.Auth;
 
 /// <summary>
 /// API response for successful user registration
 /// </summary>
-/// <param name="UserId">Unique identifier for the created user</param>
-/// <param name="Email">User's email address</param>
-/// <param name="FirstName">User's first name</param>
-/// <param name="LastName">User's last name</param>
-/// <param name="UserName">User's username</param>
 /// <param name="AccessToken">JWT access token</param>
 /// <param name="RefreshToken">JWT refresh token</param>
 /// <param name="TokenType">Type of token (Bearer)</param>
 /// <param name="ExpiresAt">When the access token expires</param>
+/// <param name="UserInfo">User details</param>
 /// <param name="EmailVerificationRequired">Whether email verification is required</param>
-public record RegisterUserResponse(
-    string UserId,
-    string Email,
-    string FirstName,
-    string LastName,
-    string UserName,
+public record RegisterResponse(
     string AccessToken,
     string RefreshToken,
-    string TokenType,
+    TokenType TokenType,
     DateTime ExpiresAt,
+    UserInfo UserInfo,
     bool EmailVerificationRequired)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

@@ -16,12 +16,15 @@ using System.Security.Claims;
 using MediatR;
 using MatchmakingService;
 using MatchmakingService.Consumer;
-using Infrastructure.Services;
+// using Infrastructure.Services;
 using EventSourcing;
+// using MatchmakingService.Infrastructure.Services;
 using Infrastructure.Models;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddHttpClient();
 
 var serviceName = "MatchmakingService";
 var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
@@ -42,13 +45,22 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
 // Add shared infrastructure
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
+// Add HttpContextAccessor for forwarding authentication
+builder.Services.AddHttpContextAccessor();
+
 // builder.Services.AddMemoryCache();
 
-var userServiceUrl = Environment.GetEnvironmentVariable("USERSERVICE_URL") ?? "http://userservice:5001";
-builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
-{
-    client.BaseAddress = new Uri(userServiceUrl);
-});
+// var userServiceUrl = Environment.GetEnvironmentVariable("USERSERVICE_URL") ?? "http://userservice:5001";
+// builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
+// {
+//     client.BaseAddress = new Uri(userServiceUrl);
+// });
+
+// var skillServiceUrl = Environment.GetEnvironmentVariable("SKILLSERVICE_URL") ?? "http://skillservice:5002";
+// builder.Services.AddHttpClient<ISkillLookupService, SkillLookupService>(client =>
+// {
+//     client.BaseAddress = new Uri(skillServiceUrl);
+// });
 
 // Add database
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
@@ -207,7 +219,7 @@ matchRequests.MapPost("/", CreateMatchRequest)
     .WithDescription("Send a match request to another user for a specific skill")
     .WithTags("Match Requests")
     .WithOpenApi()
-    .Produces<MatchRequestResponse>(StatusCodes.Status201Created)
+    .Produces<CreateMatchRequestResponse>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest);
 
@@ -217,7 +229,7 @@ matchRequests.MapGet("/incoming", GetIncomingMatchRequests)
     .WithDescription("Retrieve all incoming match requests for the current user")
     .WithTags("Match Requests")
     .WithOpenApi()
-    .Produces<PagedResponse<MatchRequestResponse>>(StatusCodes.Status200OK);
+    .Produces<PagedResponse<MatchRequestDisplayResponse>>(StatusCodes.Status200OK);
 
 matchRequests.MapGet("/outgoing", GetOutgoingMatchRequests)
     .WithName("GetOutgoingMatchRequests")
@@ -225,16 +237,7 @@ matchRequests.MapGet("/outgoing", GetOutgoingMatchRequests)
     .WithDescription("Retrieve all outgoing match requests from the current user")
     .WithTags("Match Requests")
     .WithOpenApi()
-    .Produces<PagedResponse<MatchRequestResponse>>(StatusCodes.Status200OK);
-
-// Debug endpoint
-matchRequests.MapGet("/outgoing/test", (ClaimsPrincipal user) => 
-{
-    var userId = user.GetUserId();
-    return Results.Ok(new { message = "Test successful", userId, timestamp = DateTime.UtcNow });
-})
-.WithName("TestOutgoing")
-.WithTags("Debug");
+    .Produces<PagedResponse<MatchRequestDisplayResponse>>(StatusCodes.Status200OK);
 
 matchRequests.MapPost("/accept", AcceptMatchRequest)
     .WithName("AcceptMatchRequest")
@@ -242,7 +245,7 @@ matchRequests.MapPost("/accept", AcceptMatchRequest)
     .WithDescription("Accept an incoming match request and create a match")
     .WithTags("Match Requests")
     .WithOpenApi()
-    .Produces<MatchRequestResponse>(StatusCodes.Status200OK)
+    .Produces<AcceptMatchRequestResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound);
 
 matchRequests.MapPost("/reject", RejectMatchRequest)
@@ -254,6 +257,16 @@ matchRequests.MapPost("/reject", RejectMatchRequest)
     .Produces<RejectMatchRequestResponse>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound);
 
+matchRequests.MapGet("/thread/{threadId}", GetMatchRequestThread)
+    .WithName("GetMatchRequestThread")
+    .WithSummary("Get match request thread")
+    .WithDescription("Get all requests in a thread between two users for a skill")
+    .WithTags("Match Requests")
+    .WithOpenApi()
+    .Produces<MatchRequestThreadResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
+
+
 // ============================================================================
 // HANDLER METHODS - MATCH REQUESTS
 // ============================================================================
@@ -263,7 +276,19 @@ static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipa
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new CreateMatchRequestCommand(request.SkillId, request.Description, request.Message)
+    var command = new CreateMatchRequestCommand(
+        request.SkillId, 
+        request.TargetUserId, 
+        request.Message,
+        request.IsSkillExchange,
+        request.ExchangeSkillId,
+        request.IsMonetary,
+        request.OfferedAmount,
+        request.Currency,
+        request.SessionDurationMinutes,
+        request.TotalSessions,
+        request.PreferredDays,
+        request.PreferredTimes)
     {
         UserId = userId
     };
@@ -271,47 +296,24 @@ static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipa
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, int pageNumber = 1, int pageSize = 20)
+static async Task<IResult> GetIncomingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetIncomingMatchRequestsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetIncomingMatchRequestsQuery(userId, pageNumber, pageSize);
+    var query = new GetIncomingMatchRequestsQuery(userId, request.PageNumber, request.PageSize);
 
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, ILogger<Program> logger, int pageNumber = 1, int pageSize = 20)
+static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetOutgoingMatchRequestsRequest request)
 {
-    try
-    {
-        logger.LogInformation("GetOutgoingMatchRequests called with pageNumber={PageNumber}, pageSize={PageSize}", pageNumber, pageSize);
-        
-        var userId = user.GetUserId();
-        if (string.IsNullOrEmpty(userId)) 
-        {
-            logger.LogWarning("GetOutgoingMatchRequests: No userId found");
-            return Results.Unauthorized();
-        }
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-        logger.LogInformation("GetOutgoingMatchRequests: userId={UserId}", userId);
+    var query = new GetOutgoingMatchRequestsQuery(userId, request.PageNumber, request.PageSize);
 
-        var query = new GetOutgoingMatchRequestsQuery(pageNumber, pageSize)
-        {
-            UserId = userId
-        };
-
-        logger.LogInformation("GetOutgoingMatchRequests: Sending query");
-        var result = await mediator.SendQuery(query);
-        logger.LogInformation("GetOutgoingMatchRequests: Query completed");
-        
-        return result;
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "GetOutgoingMatchRequests: Exception occurred");
-        return Results.Problem("An error occurred while processing the request");
-    }
+    return await mediator.SendQuery(query);
 }
 
 static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptMatchRequestRequest request)
@@ -339,6 +341,17 @@ static async Task<IResult> RejectMatchRequest(IMediator mediator, ClaimsPrincipa
 
     return await mediator.SendCommand(command);
 }
+
+static async Task<IResult> GetMatchRequestThread(IMediator mediator, ClaimsPrincipal user, [FromRoute] string threadId)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var query = new GetMatchRequestThreadQuery(threadId);
+
+    return await mediator.SendQuery(query);
+}
+
 #endregion
 
 #region Matching Endpoints

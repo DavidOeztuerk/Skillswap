@@ -63,7 +63,7 @@ public class RefreshTokenCommandHandler(
                 LastName = refreshToken.User.LastName,
                 Roles = refreshToken.User.UserRoles.Select(ur => ur.Role).ToList(),
                 EmailVerified = refreshToken.User.EmailVerified,
-                AccountStatus = refreshToken.User.AccountStatus
+                AccountStatus = refreshToken.User.AccountStatus.ToString()
             };
 
             var tokens = await _jwtService.GenerateTokenAsync(userClaims);

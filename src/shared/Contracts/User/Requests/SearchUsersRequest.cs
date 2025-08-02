@@ -1,3 +1,5 @@
+using Contracts.User.Responses.Auth;
+
 namespace Contracts.User.Requests;
 
 /// <summary>
@@ -23,7 +25,7 @@ public record SearchUsersRequest(
     bool SortDescending = true,
     bool? EmailVerified = null,
     string? Role = null,
-    string? AccountStatus = null,
+    AccountStatus? AccountStatus = null,
     DateTime? CreatedAfter = null,
     DateTime? CreatedBefore = null,
     int PageNumber = 1,

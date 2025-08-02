@@ -38,4 +38,10 @@ public abstract class BaseQueryHandler<TQuery, TResponse> : IQueryHandler<TQuery
         Logger.LogWarning("Query {QueryType}: {Message}", typeof(TQuery).Name, errorMessage);
         return ApiResponse<TResponse>.ErrorResult(errorMessage);
     }
+
+    protected ApiResponse<TResponse> BadRequest(string message)
+    {
+        Logger.LogWarning("Query {QueryType} bad request: {Message}", typeof(TQuery).Name, message);
+        return ApiResponse<TResponse>.ErrorResult(message);
+    }
 }

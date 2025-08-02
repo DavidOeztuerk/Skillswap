@@ -52,7 +52,7 @@ public class GetPublicUserProfileQueryHandler(
             user.LastName ?? "",
             user.UserName ?? "",
             user.Bio,
-            user.AvatarUrl,
+            user.ProfilcePictureUrl,
             user.CreatedAt,
             skillsOffered,
             skillsLearned,

@@ -9,22 +9,19 @@ import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRe
 import { CreateSkillResponse } from '../../types/contracts/responses/CreateSkillResponse';
 import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkillResponse';
-import { PaginatedResponse } from '../../types/common/PaginatedResponse';
+import { PagedResponse } from '../../types/common/PagedResponse';
 import apiClient from '../apiClient';
 
 export interface SkillSearchParams {
   searchTerm?: string;
   categoryId?: string;
   proficiencyLevelId?: string;
-  isOffered?: boolean;
-  isRequesting?: boolean;
-  isRemote?: boolean;
-  location?: string;
   tags?: string[];
+  isOffered?: boolean;
   minRating?: number;
-  sortBy?: 'relevance' | 'popularity' | 'rating' | 'date' | 'name';
+  sortBy?: 'relevance' | 'popularity' | 'rating' | 'createat' | 'updateat' | 'name';
   sortDirection?: 'asc' | 'desc';
-  page?: number;
+  pageNumber?: number;
   pageSize?: number;
 }
 
@@ -51,8 +48,8 @@ const skillService = {
   /**
    * Get all skills with search and pagination
    */
-  async getAllSkills(params?: SkillSearchParams): Promise<PaginatedResponse<Skill>> {
-    return apiClient.get<PaginatedResponse<Skill>>(SKILL_ENDPOINTS.GET_SKILLS, { params });
+  async getAllSkills(params?: SkillSearchParams): Promise<PagedResponse<Skill[]>> {
+    return apiClient.get<PagedResponse<Skill[]>>(SKILL_ENDPOINTS.GET_SKILLS, { params });;
   },
 
   /**
@@ -66,16 +63,16 @@ const skillService = {
   /**
    * Get current user's skills
    */
-  async getUserSkills(page = 1, pageSize = 12, isOffered?: boolean, categoryId?: number, includeInactive = false): Promise<PaginatedResponse<Skill>> {
+  async getUserSkills(pageNumber = 1, pageSize = 12, isOffered?: boolean, categoryId?: number, includeInactive = false): Promise<PagedResponse<Skill[]>> {
     const params = new URLSearchParams();
-    params.append('PageNumber', page.toString());
+    params.append('PageNumber', pageNumber.toString());
     params.append('PageSize', pageSize.toString());
     if (isOffered !== undefined) params.append('IsOffered', isOffered.toString());
     if (categoryId !== undefined) params.append('CategoryId', categoryId.toString());
     if (includeInactive !== undefined) params.append('IncludeInactive', includeInactive.toString());
     
     const url = `${SKILL_ENDPOINTS.GET_USER_SKILLS}?${params.toString()}`;
-    return apiClient.get<PaginatedResponse<Skill>>(url);
+    return apiClient.get<PagedResponse<Skill[]>>(url);
   },
 
   /**

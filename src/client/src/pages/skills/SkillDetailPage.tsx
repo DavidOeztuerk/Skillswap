@@ -44,15 +44,15 @@ import MatchForm from '../../components/matchmaking/MatchForm';
 import { useSkills } from '../../hooks/useSkills';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
-import { useUserById } from '../../hooks/useUserById';
-import { User } from '../../types/models/User';
+import { useAuth } from '../../hooks/useAuth';
+// import { useUserById } from '../../hooks/useUserById';
 
 const SkillDetailPage: React.FC = () => {
   const { skillId } = useParams<{ skillId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // const { user } = useAuth(); // ✅ ENTFERNT: wird nicht verwendet
+  const { user } = useAuth(); // ✅ ENTFERNT: wird nicht verwendet
   const {
     selectedSkill,
     userSkills, // ✅ HINZUGEFÜGT: Um zu prüfen ob Skill in userSkills ist
@@ -82,7 +82,7 @@ const SkillDetailPage: React.FC = () => {
   } | null>(null);
   const { sendMatchRequest, isLoading: isMatchmakingLoading } =
     useMatchmaking();
-  const { user } = useUserById(selectedSkill?.userId);
+  // const { user } = useUserById(selectedSkill?.userId);
 
   // Load skill data
   useEffect(() => {
@@ -95,7 +95,7 @@ const SkillDetailPage: React.FC = () => {
   // ✅ KORRIGIERTE OWNERSHIP-LOGIK: Prüft ob Skill in userSkills ist
   const isOwner =
     selectedSkill &&
-    userSkills.some((userSkill) => userSkill.id === selectedSkill.id);
+    userSkills?.some((userSkill) => userSkill.id === selectedSkill.id);
 
   // Check for automatic match form opening
   useEffect(() => {
@@ -256,11 +256,12 @@ const SkillDetailPage: React.FC = () => {
       console.log('🤝 Submitting match request from detail page:', data);
       console.log('📋 Selected skill:', selectedSkill);
 
-      // ✅ Konvertiere zu CreateMatchRequestCommand
       const command: CreateMatchRequest = {
         skillId: selectedSkill.id,
         description: data.description || 'Match-Anfrage von Skill-Detail-Seite',
         message: data.message || 'Ich bin interessiert an diesem Skill!',
+        targetUserId: selectedSkill.userId, 
+        skillName: selectedSkill.name, 
       };
 
       console.log('📤 Sending CreateMatchRequestCommand:', command);
@@ -319,7 +320,7 @@ const SkillDetailPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description={{message:"Der angeforderte Skill existiert nicht oder ist nicht verfügbar."}}
+          description={"Der angeforderte Skill existiert nicht oder ist nicht verfügbar."}
           actionLabel="Zurück zu Skills"
           actionHandler={() => navigate('/skills')}
         />
@@ -332,7 +333,7 @@ const SkillDetailPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description={{message:"Der angeforderte Skill existiert nicht oder ist nicht verfügbar."}}
+          description={"Der angeforderte Skill existiert nicht oder ist nicht verfügbar."}
           actionLabel="Zurück zu Skills"
           actionHandler={() => navigate('/skills')}
         />
@@ -354,7 +355,7 @@ const SkillDetailPage: React.FC = () => {
     skillId,
     isOwner,
     selectedSkillId: selectedSkill?.id,
-    userSkillsCount: userSkills.length,
+    userSkillsCount: userSkills?.length,
     cameFromMySkills,
   });
 
@@ -802,7 +803,8 @@ const SkillDetailPage: React.FC = () => {
           onClose={() => setMatchFormOpen(false)}
           onSubmit={handleMatchSubmit}
           skill={selectedSkill}
-          targetUser={user as User}
+          targetUserId={selectedSkill.userId} // ✅ VEREINFACHT: Direkt userId aus Skill
+          targetUserName={user?.userName || user?.firstName || 'Skill-Besitzer'} // ✅ Optional: Name für Anzeige
           isLoading={isMatchmakingLoading}
         />
       )}

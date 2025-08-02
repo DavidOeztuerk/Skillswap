@@ -1,493 +1,964 @@
-// src/components/skills/SkillCard.tsx
-import React, { memo } from 'react';
+// // src/components/skills/SkillCard.tsx
+// import React, { memo } from 'react';
+// import {
+//   Card,
+//   CardContent,
+//   CardActions,
+//   Typography,
+//   Button,
+//   IconButton,
+//   Chip,
+//   Box,
+//   useTheme,
+//   Avatar,
+//   Tooltip,
+// } from '@mui/material';
+// import {
+//   Edit as EditIcon,
+//   Delete as DeleteIcon,
+//   Star as StarIcon,
+//   StarBorder as StarBorderIcon,
+//   Code as CodeIcon,
+//   Palette as PaletteIcon,
+//   Business as BusinessIcon,
+//   School as SchoolIcon,
+//   Visibility as VisibilityIcon,
+//   Message as MessageIcon,
+//   Bookmark as BookmarkIcon,
+//   BookmarkBorder as BookmarkBorderIcon,
+//   TrendingUp as TrendingUpIcon,
+//   AccessTime as AccessTimeIcon,
+//   Person as PersonIcon,
+// } from '@mui/icons-material';
+// import { Skill } from '../../types/models/Skill';
+
+// interface SkillCardProps {
+//   skill: Skill;
+//   isOwner?: boolean;
+//   showMatchButton?: boolean;
+//   onEdit: (skill: Skill) => void;
+//   onDelete: (skillId: string) => void;
+//   onViewDetails: (skill: Skill) => void;
+//   onMatch?: (skill: Skill) => void;
+//   isFavorite?: (skillId: string) => boolean;
+//   onToggleFavorite?: (skill: Skill) => void;
+// }
+
+// const SkillCard: React.FC<SkillCardProps> = memo(({
+//   skill,
+//   isOwner = false,
+//   showMatchButton = false,
+//   onEdit,
+//   onDelete,
+//   onViewDetails,
+//   onMatch,
+//   isFavorite,
+//   onToggleFavorite,
+// }) => {
+//   const theme = useTheme();
+
+//   const handleCardClick = () => {
+//     onViewDetails(skill);
+//   };
+
+//   const handleToggleFavorite = (e: React.MouseEvent<HTMLElement>) => {
+//     e.stopPropagation();
+//     onToggleFavorite?.(skill);
+//   };
+
+//   const handleEdit = (e: React.MouseEvent<HTMLElement>) => {
+//     e.stopPropagation();
+//     onEdit(skill);
+//   };
+
+//   const handleDelete = (e: React.MouseEvent<HTMLElement>) => {
+//     e.stopPropagation();
+//     onDelete(skill.id);
+//   };
+
+//   const handleMatch = (e: React.MouseEvent<HTMLElement>) => {
+//     e.stopPropagation();
+//     onMatch?.(skill);
+//   };
+
+//   // Utility functions
+//   const getCategoryIcon = () => {
+//     const iconName = skill.category?.iconName?.toLowerCase();
+    
+//     switch (iconName) {
+//       case 'code':
+//         return <CodeIcon />;
+//       case 'palette':
+//         return <PaletteIcon />;
+//       case 'business':
+//       case 'briefcase':
+//         return <BusinessIcon />;
+//       case 'school':
+//         return <SchoolIcon />;
+//       default:
+//         return <CodeIcon />;
+//     }
+//   };
+
+//   const getCategoryColor = () => {
+//     if (skill.category?.color) {
+//       return skill.category.color;
+//     }
+
+//     const categoryName = skill.category?.name?.toLowerCase() || '';
+//     if (categoryName.includes('programming') || categoryName.includes('code')) {
+//       return theme.palette.primary.main;
+//     } else if (categoryName.includes('design')) {
+//       return theme.palette.secondary.main;
+//     } else if (categoryName.includes('business')) {
+//       return theme.palette.warning.main;
+//     } else if (categoryName.includes('marketing')) {
+//       return theme.palette.success.main;
+//     }
+
+//     return theme.palette.primary.main;
+//   };
+
+//   const getProficiencyColor = () => {
+//     if (skill.proficiencyLevel?.color) {
+//       return skill.proficiencyLevel.color;
+//     }
+
+//     const rank = skill.proficiencyLevel?.rank || 1;
+//     const colors = {
+//       1: theme.palette.success.main,
+//       2: theme.palette.info.main,
+//       3: theme.palette.warning.main,
+//       4: theme.palette.error.main,
+//       5: theme.palette.error.main,
+//     };
+
+//     return colors[rank as keyof typeof colors] || theme.palette.primary.main;
+//   };
+
+//   const categoryColor = getCategoryColor();
+//   const proficiencyColor = getProficiencyColor();
+//   const starsCount = Math.min(skill.proficiencyLevel?.rank || 1, 5);
+//   const isFavorited = isFavorite?.(skill.id) || false;
+
+//   return (
+//     <Card
+//       sx={{
+//         display: 'flex',
+//         flexDirection: 'column',
+//         height: '100%',
+//         cursor: 'pointer',
+//         position: 'relative',
+//         borderRadius: 3,
+//         overflow: 'hidden',
+//         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+//         border: '1px solid',
+//         borderColor: 'divider',
+//         background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
+//         '&:hover': {
+//           transform: 'translateY(-8px)',
+//           boxShadow: `0 20px 40px rgba(0,0,0,0.1), 0 0 0 1px ${categoryColor}30`,
+//           borderColor: categoryColor,
+//           '& .skill-card-header': {
+//             transform: 'scale(1.02)',
+//           },
+//           '& .skill-card-avatar': {
+//             transform: 'scale(1.1)',
+//           },
+//         },
+//       }}
+//       onClick={handleCardClick}
+//     >
+//       {/* Modern Header */}
+//       <Box
+//         className="skill-card-header"
+//         sx={{
+//           height: 160,
+//           background: `linear-gradient(135deg, ${categoryColor}15 0%, ${categoryColor}05 50%, ${categoryColor}15 100%)`,
+//           position: 'relative',
+//           display: 'flex',
+//           flexDirection: 'column',
+//           justifyContent: 'space-between',
+//           p: 2,
+//           transition: 'transform 0.3s ease',
+//         }}
+//       >
+//         {/* Top row with actions */}
+//         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+//           {/* Status chip */}
+//           <Chip
+//             label={skill.isOffered ? 'Angeboten' : 'Gesucht'}
+//             size="small"
+//             sx={{
+//               bgcolor: skill.isOffered ? 'success.main' : 'secondary.main',
+//               color: 'white',
+//               fontWeight: 'bold',
+//               fontSize: '0.75rem',
+//               height: 28,
+//               '& .MuiChip-label': {
+//                 px: 1.5,
+//               },
+//             }}
+//           />
+
+//           {/* Action buttons */}
+//           <Box sx={{ display: 'flex', gap: 0.5 }}>
+//             {/* Favorite button */}
+//             {onToggleFavorite && (
+//               <Tooltip title={isFavorited ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}>
+//                 <IconButton
+//                   onClick={handleToggleFavorite}
+//                   size="small"
+//                   sx={{
+//                     bgcolor: 'rgba(255,255,255,0.9)',
+//                     color: isFavorited ? theme.palette.warning.main : theme.palette.action.active,
+//                     width: 36,
+//                     height: 36,
+//                     '&:hover': {
+//                       bgcolor: 'rgba(255,255,255,1)',
+//                       transform: 'scale(1.1)',
+//                     },
+//                   }}
+//                 >
+//                   {isFavorited ? <BookmarkIcon fontSize="small" /> : <BookmarkBorderIcon fontSize="small" />}
+//                 </IconButton>
+//               </Tooltip>
+//             )}
+
+//             {/* Owner actions */}
+//             {isOwner && (
+//               <>
+//                 <Tooltip title="Bearbeiten">
+//                   <IconButton
+//                     onClick={handleEdit}
+//                     size="small"
+//                     sx={{
+//                       bgcolor: 'rgba(255,255,255,0.9)',
+//                       color: theme.palette.primary.main,
+//                       width: 36,
+//                       height: 36,
+//                       '&:hover': {
+//                         bgcolor: 'rgba(255,255,255,1)',
+//                         transform: 'scale(1.1)',
+//                       },
+//                     }}
+//                   >
+//                     <EditIcon fontSize="small" />
+//                   </IconButton>
+//                 </Tooltip>
+//                 <Tooltip title="Löschen">
+//                   <IconButton
+//                     onClick={handleDelete}
+//                     size="small"
+//                     sx={{
+//                       bgcolor: 'rgba(255,255,255,0.9)',
+//                       color: theme.palette.error.main,
+//                       width: 36,
+//                       height: 36,
+//                       '&:hover': {
+//                         bgcolor: 'rgba(255,255,255,1)',
+//                         transform: 'scale(1.1)',
+//                       },
+//                     }}
+//                   >
+//                     <DeleteIcon fontSize="small" />
+//                   </IconButton>
+//                 </Tooltip>
+//               </>
+//             )}
+//           </Box>
+//         </Box>
+
+//         {/* Center - Category icon */}
+//         <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+//           <Avatar
+//             className="skill-card-avatar"
+//             sx={{
+//               width: 64,
+//               height: 64,
+//               bgcolor: `${categoryColor}20`,
+//               color: categoryColor,
+//               fontSize: '2rem',
+//               transition: 'transform 0.3s ease',
+//               border: `3px solid ${categoryColor}30`,
+//             }}
+//           >
+//             {getCategoryIcon()}
+//           </Avatar>
+//         </Box>
+
+//         {/* Bottom - Owner badge */}
+//         {isOwner && (
+//           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+//             <Chip
+//               icon={<PersonIcon />}
+//               label="Mein Skill"
+//               size="small"
+//               variant="outlined"
+//               sx={{
+//                 bgcolor: 'rgba(255,255,255,0.95)',
+//                 borderColor: theme.palette.primary.main,
+//                 color: theme.palette.primary.main,
+//                 fontWeight: 'bold',
+//                 fontSize: '0.75rem',
+//               }}
+//             />
+//           </Box>
+//         )}
+//       </Box>
+
+//       {/* Content */}
+//       <CardContent sx={{ flexGrow: 1, p: 3, pb: 2 }}>
+//         {/* Title and rating */}
+//         <Box sx={{ mb: 2 }}>
+//           <Typography
+//             variant="h6"
+//             sx={{
+//               fontWeight: 700,
+//               fontSize: '1.25rem',
+//               lineHeight: 1.2,
+//               mb: 1,
+//               color: 'text.primary',
+//               overflow: 'hidden',
+//               textOverflow: 'ellipsis',
+//               display: '-webkit-box',
+//               WebkitLineClamp: 2,
+//               WebkitBoxOrient: 'vertical',
+//               minHeight: '2.4em',
+//             }}
+//           >
+//             {skill.name}
+//           </Typography>
+
+//           {/* Proficiency and rating */}
+//           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+//             {/* Proficiency stars */}
+//             {skill.proficiencyLevel && (
+//               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+//                 <Box sx={{ display: 'flex' }}>
+//                   {[...Array(5)].map((_, index) =>
+//                     index < starsCount ? (
+//                       <StarIcon
+//                         key={index}
+//                         fontSize="small"
+//                         sx={{
+//                           color: proficiencyColor,
+//                           filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
+//                         }}
+//                       />
+//                     ) : (
+//                       <StarBorderIcon
+//                         key={index}
+//                         fontSize="small"
+//                         sx={{ color: 'action.disabled' }}
+//                       />
+//                     )
+//                   )}
+//                 </Box>
+//                 <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+//                   {skill.proficiencyLevel.level}
+//                 </Typography>
+//               </Box>
+//             )}
+
+//             {/* Average rating */}
+//             {skill.averageRating && skill.reviewCount && skill.reviewCount > 0 && (
+//               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+//                 <TrendingUpIcon fontSize="small" color="success" />
+//                 <Typography variant="caption" color="text.secondary">
+//                   {skill.averageRating.toFixed(1)} ({skill.reviewCount})
+//                 </Typography>
+//               </Box>
+//             )}
+//           </Box>
+
+//           {/* Category chip */}
+//           {skill.category && (
+//             <Chip
+//               label={skill.category.name}
+//               size="small"
+//               variant="outlined"
+//               sx={{
+//                 borderColor: categoryColor,
+//                 color: categoryColor,
+//                 fontWeight: 500,
+//                 mb: 2,
+//               }}
+//             />
+//           )}
+//         </Box>
+
+//         {/* Description */}
+//         <Typography
+//           variant="body2"
+//           color="text.secondary"
+//           sx={{
+//             overflow: 'hidden',
+//             textOverflow: 'ellipsis',
+//             display: '-webkit-box',
+//             WebkitLineClamp: 3,
+//             WebkitBoxOrient: 'vertical',
+//             lineHeight: 1.5,
+//             minHeight: '4.5em',
+//             mb: 2,
+//           }}
+//         >
+//           {skill.description || 'Keine Beschreibung vorhanden.'}
+//         </Typography>
+
+//         {/* Meta info */}
+//         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 'auto' }}>
+//           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+//             <AccessTimeIcon fontSize="small" color="action" />
+//             <Typography variant="caption" color="text.secondary">
+//               {new Date(skill.createdAt).toLocaleDateString('de-DE')}
+//             </Typography>
+//           </Box>
+//           {skill.isRemoteAvailable && (
+//             <Chip
+//               label="Remote"
+//               size="small"
+//               sx={{
+//                 bgcolor: 'primary.light',
+//                 color: 'primary.contrastText',
+//                 fontSize: '0.7rem',
+//                 height: 20,
+//               }}
+//             />
+//           )}
+//         </Box>
+//       </CardContent>
+
+//       {/* Actions */}
+//       <CardActions
+//         sx={{
+//           p: 3,
+//           pt: 0,
+//           display: 'flex',
+//           gap: 1,
+//         }}
+//       >
+//         {showMatchButton && !isOwner && onMatch && (
+//           <Button
+//             variant="contained"
+//             color="primary"
+//             onClick={handleMatch}
+//             startIcon={<MessageIcon />}
+//             fullWidth
+//             sx={{
+//               fontWeight: 600,
+//               py: 1.5,
+//               borderRadius: 2,
+//               textTransform: 'none',
+//               boxShadow: `0 4px 12px ${categoryColor}40`,
+//               '&:hover': {
+//                 boxShadow: `0 6px 16px ${categoryColor}60`,
+//               },
+//             }}
+//           >
+//             {skill.isOffered ? 'Lernen anfragen' : 'Hilfe anbieten'}
+//           </Button>
+//         )}
+
+//         <Button
+//           variant="outlined"
+//           onClick={(e) => {
+//             e.stopPropagation();
+//             onViewDetails(skill);
+//           }}
+//           startIcon={<VisibilityIcon />}
+//           fullWidth={!showMatchButton || isOwner}
+//           sx={{
+//             fontWeight: 600,
+//             py: 1.5,
+//             borderRadius: 2,
+//             textTransform: 'none',
+//             borderColor: categoryColor,
+//             color: categoryColor,
+//             '&:hover': {
+//               borderColor: categoryColor,
+//               bgcolor: `${categoryColor}10`,
+//             },
+//           }}
+//         >
+//           Details ansehen
+//         </Button>
+//       </CardActions>
+//     </Card>
+//   );
+// });
+
+// SkillCard.displayName = 'SkillCard';
+
+// export default SkillCard;
+
+// src/client/src/components/skills/EnhancedSkillCard.tsx
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
   CardActions,
   Typography,
+  Box,
+  Chip,
   Button,
   IconButton,
-  Chip,
-  Box,
-  useTheme,
-  Avatar,
+  Rating,
   Tooltip,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Badge,
+  Collapse,
+  Stack,
+  Divider,
+  LinearProgress,
 } from '@mui/material';
 import {
+  BookmarkBorder as BookmarkBorderIcon,
+  Bookmark as BookmarkIcon,
+  MoreVert as MoreVertIcon,
+  SwapHoriz as SwapIcon,
+  School as LearnIcon,
+  LocalOffer as OfferIcon,
+  Person as PersonIcon,
+  // LocationOn as LocationIcon,
+  Schedule as ScheduleIcon,
+  TrendingUp as TrendingIcon,
+  Message as MessageIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
-  Code as CodeIcon,
-  Palette as PaletteIcon,
-  Business as BusinessIcon,
-  School as SchoolIcon,
-  Visibility as VisibilityIcon,
-  Message as MessageIcon,
-  Bookmark as BookmarkIcon,
-  BookmarkBorder as BookmarkBorderIcon,
-  TrendingUp as TrendingUpIcon,
-  AccessTime as AccessTimeIcon,
-  Person as PersonIcon,
+  Share as ShareIcon,
+  CheckCircle as VerifiedIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Skill } from '../../types/models/Skill';
+import { formatDistanceToNow } from 'date-fns';
+import { de } from 'date-fns/locale';
 
-interface SkillCardProps {
+interface EnhancedSkillCardProps {
   skill: Skill;
   isOwner?: boolean;
-  showMatchButton?: boolean;
-  onEdit: (skill: Skill) => void;
-  onDelete: (skillId: string) => void;
-  onViewDetails: (skill: Skill) => void;
+  onEdit?: (skill: Skill) => void;
+  onDelete?: (skillId: string) => void;
   onMatch?: (skill: Skill) => void;
-  isFavorite?: (skillId: string) => boolean;
   onToggleFavorite?: (skill: Skill) => void;
+  isFavorite?: (skillId: string) => boolean;
+  showMatchButton?: boolean;
+  variant?: 'default' | 'compact' | 'detailed';
 }
 
-const SkillCard: React.FC<SkillCardProps> = memo(({
+const EnhancedSkillCard: React.FC<EnhancedSkillCardProps> = ({
   skill,
   isOwner = false,
-  showMatchButton = false,
   onEdit,
   onDelete,
-  onViewDetails,
   onMatch,
-  isFavorite,
   onToggleFavorite,
+  isFavorite = false,
+  showMatchButton = true,
+  variant = 'default',
 }) => {
-  const theme = useTheme();
+  const navigate = useNavigate();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
 
   const handleCardClick = () => {
-    onViewDetails(skill);
+    navigate(`/skills/${skill.id}`);
   };
 
-  const handleToggleFavorite = (e: React.MouseEvent<HTMLElement>) => {
+  const handleMatch = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onToggleFavorite?.(skill);
-  };
-
-  const handleEdit = (e: React.MouseEvent<HTMLElement>) => {
-    e.stopPropagation();
-    onEdit(skill);
-  };
-
-  const handleDelete = (e: React.MouseEvent<HTMLElement>) => {
-    e.stopPropagation();
-    onDelete(skill.id);
-  };
-
-  const handleMatch = (e: React.MouseEvent<HTMLElement>) => {
-    e.stopPropagation();
-    onMatch?.(skill);
-  };
-
-  // Utility functions
-  const getCategoryIcon = () => {
-    const iconName = skill.category?.iconName?.toLowerCase();
-    
-    switch (iconName) {
-      case 'code':
-        return <CodeIcon />;
-      case 'palette':
-        return <PaletteIcon />;
-      case 'business':
-      case 'briefcase':
-        return <BusinessIcon />;
-      case 'school':
-        return <SchoolIcon />;
-      default:
-        return <CodeIcon />;
+    if (onMatch) {
+      onMatch(skill);
+    } else {
+      navigate(`/skills/${skill.id}?showMatchForm=true`);
     }
   };
 
-  const getCategoryColor = () => {
-    if (skill.category?.color) {
-      return skill.category.color;
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleFavorite) {
+      onToggleFavorite(skill);
     }
-
-    const categoryName = skill.category?.name?.toLowerCase() || '';
-    if (categoryName.includes('programming') || categoryName.includes('code')) {
-      return theme.palette.primary.main;
-    } else if (categoryName.includes('design')) {
-      return theme.palette.secondary.main;
-    } else if (categoryName.includes('business')) {
-      return theme.palette.warning.main;
-    } else if (categoryName.includes('marketing')) {
-      return theme.palette.success.main;
-    }
-
-    return theme.palette.primary.main;
   };
 
-  const getProficiencyColor = () => {
-    if (skill.proficiencyLevel?.color) {
-      return skill.proficiencyLevel.color;
+  const handleShare = () => {
+    handleMenuClose();
+    if (navigator.share) {
+      navigator.share({
+        title: skill.name,
+        text: skill.description,
+        url: `${window.location.origin}/skills/${skill.id}`,
+      });
+    } else {
+      navigator.clipboard.writeText(`${window.location.origin}/skills/${skill.id}`);
     }
-
-    const rank = skill.proficiencyLevel?.rank || 1;
-    const colors = {
-      1: theme.palette.success.main,
-      2: theme.palette.info.main,
-      3: theme.palette.warning.main,
-      4: theme.palette.error.main,
-      5: theme.palette.error.main,
-    };
-
-    return colors[rank as keyof typeof colors] || theme.palette.primary.main;
   };
 
-  const categoryColor = getCategoryColor();
-  const proficiencyColor = getProficiencyColor();
-  const starsCount = Math.min(skill.proficiencyLevel?.rank || 1, 5);
-  const isFavorited = isFavorite?.(skill.id) || false;
+  // Use real data from skill object or defaults
+  const matchRequests = skill.matchRequests || 0;
+  const activeMatches = skill.activeMatches || 0;
+  const completionRate = skill.completionRate || 0;
+  const averageRating = skill.averageRating || 0;
+  const totalReviews = skill.reviewCount || 0;
+  const isVerified = skill.isVerified || false;
 
   return (
-    <Card
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        cursor: 'pointer',
-        position: 'relative',
-        borderRadius: 3,
-        overflow: 'hidden',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        border: '1px solid',
-        borderColor: 'divider',
-        background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
-        '&:hover': {
-          transform: 'translateY(-8px)',
-          boxShadow: `0 20px 40px rgba(0,0,0,0.1), 0 0 0 1px ${categoryColor}30`,
-          borderColor: categoryColor,
-          '& .skill-card-header': {
-            transform: 'scale(1.02)',
-          },
-          '& .skill-card-avatar': {
-            transform: 'scale(1.1)',
-          },
-        },
-      }}
-      onClick={handleCardClick}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      whileHover={{ y: -4 }}
     >
-      {/* Modern Header */}
-      <Box
-        className="skill-card-header"
+      <Card
         sx={{
-          height: 160,
-          background: `linear-gradient(135deg, ${categoryColor}15 0%, ${categoryColor}05 50%, ${categoryColor}15 100%)`,
-          position: 'relative',
+          height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
-          p: 2,
-          transition: 'transform 0.3s ease',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            boxShadow: 4,
+          },
+          position: 'relative',
+          overflow: 'visible',
         }}
+        onClick={handleCardClick}
       >
-        {/* Top row with actions */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          {/* Status chip */}
-          <Chip
-            label={skill.isOffered ? 'Angeboten' : 'Gesucht'}
-            size="small"
+        {/* Status Indicator */}
+        {skill.isOffered && (
+          <Box
             sx={{
-              bgcolor: skill.isOffered ? 'success.main' : 'secondary.main',
+              position: 'absolute',
+              top: -8,
+              right: 16,
+              bgcolor: 'primary.main',
               color: 'white',
-              fontWeight: 'bold',
+              px: 2,
+              py: 0.5,
+              borderRadius: 2,
               fontSize: '0.75rem',
-              height: 28,
-              '& .MuiChip-label': {
-                px: 1.5,
-              },
-            }}
-          />
-
-          {/* Action buttons */}
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            {/* Favorite button */}
-            {onToggleFavorite && (
-              <Tooltip title={isFavorited ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}>
-                <IconButton
-                  onClick={handleToggleFavorite}
-                  size="small"
-                  sx={{
-                    bgcolor: 'rgba(255,255,255,0.9)',
-                    color: isFavorited ? theme.palette.warning.main : theme.palette.action.active,
-                    width: 36,
-                    height: 36,
-                    '&:hover': {
-                      bgcolor: 'rgba(255,255,255,1)',
-                      transform: 'scale(1.1)',
-                    },
-                  }}
-                >
-                  {isFavorited ? <BookmarkIcon fontSize="small" /> : <BookmarkBorderIcon fontSize="small" />}
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {/* Owner actions */}
-            {isOwner && (
-              <>
-                <Tooltip title="Bearbeiten">
-                  <IconButton
-                    onClick={handleEdit}
-                    size="small"
-                    sx={{
-                      bgcolor: 'rgba(255,255,255,0.9)',
-                      color: theme.palette.primary.main,
-                      width: 36,
-                      height: 36,
-                      '&:hover': {
-                        bgcolor: 'rgba(255,255,255,1)',
-                        transform: 'scale(1.1)',
-                      },
-                    }}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Löschen">
-                  <IconButton
-                    onClick={handleDelete}
-                    size="small"
-                    sx={{
-                      bgcolor: 'rgba(255,255,255,0.9)',
-                      color: theme.palette.error.main,
-                      width: 36,
-                      height: 36,
-                      '&:hover': {
-                        bgcolor: 'rgba(255,255,255,1)',
-                        transform: 'scale(1.1)',
-                      },
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </>
-            )}
-          </Box>
-        </Box>
-
-        {/* Center - Category icon */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-          <Avatar
-            className="skill-card-avatar"
-            sx={{
-              width: 64,
-              height: 64,
-              bgcolor: `${categoryColor}20`,
-              color: categoryColor,
-              fontSize: '2rem',
-              transition: 'transform 0.3s ease',
-              border: `3px solid ${categoryColor}30`,
+              fontWeight: 'bold',
+              boxShadow: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
             }}
           >
-            {getCategoryIcon()}
-          </Avatar>
-        </Box>
-
-        {/* Bottom - Owner badge */}
-        {isOwner && (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Chip
-              icon={<PersonIcon />}
-              label="Mein Skill"
-              size="small"
-              variant="outlined"
-              sx={{
-                bgcolor: 'rgba(255,255,255,0.95)',
-                borderColor: theme.palette.primary.main,
-                color: theme.palette.primary.main,
-                fontWeight: 'bold',
-                fontSize: '0.75rem',
-              }}
-            />
+            <OfferIcon fontSize="small" />
+            ANGEBOT
           </Box>
         )}
-      </Box>
-
-      {/* Content */}
-      <CardContent sx={{ flexGrow: 1, p: 3, pb: 2 }}>
-        {/* Title and rating */}
-        <Box sx={{ mb: 2 }}>
-          <Typography
-            variant="h6"
+        {!skill.isOffered && (
+          <Box
             sx={{
-              fontWeight: 700,
-              fontSize: '1.25rem',
-              lineHeight: 1.2,
-              mb: 1,
-              color: 'text.primary',
+              position: 'absolute',
+              top: -8,
+              right: 16,
+              bgcolor: 'secondary.main',
+              color: 'white',
+              px: 2,
+              py: 0.5,
+              borderRadius: 2,
+              fontSize: '0.75rem',
+              fontWeight: 'bold',
+              boxShadow: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
+            <LearnIcon fontSize="small" />
+            GESUCHT
+          </Box>
+        )}
+
+        <CardContent sx={{ flex: 1, pt: 3 }}>
+          {/* Header */}
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+            <Box flex={1}>
+              <Box display="flex" alignItems="center" gap={1} mb={1}>
+                <Typography variant="h6" component="h3" fontWeight="bold">
+                  {skill.name}
+                </Typography>
+                {isVerified && (
+                  <Tooltip title="Verifizierter Skill">
+                    <VerifiedIcon fontSize="small" color="primary" />
+                  </Tooltip>
+                )}
+              </Box>
+              <Box display="flex" gap={1} flexWrap="wrap" mb={1}>
+                <Chip
+                  label={skill.category.name}
+                  size="small"
+                  sx={{
+                    bgcolor: 'primary.light',
+                    color: 'primary.dark',
+                    fontWeight: 'medium',
+                  }}
+                />
+                <Chip
+                  label={skill.proficiencyLevel.level}
+                  size="small"
+                  variant="outlined"
+                />
+              </Box>
+            </Box>
+
+            <Box display="flex" alignItems="center" gap={0.5}>
+              <IconButton
+                size="small"
+                onClick={handleToggleFavorite}
+                sx={{ color: isFavorite ? 'primary.main' : 'text.secondary' }}
+              >
+                {isFavorite ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+              </IconButton>
+              <IconButton size="small" onClick={handleMenuOpen}>
+                <MoreVertIcon />
+              </IconButton>
+            </Box>
+          </Box>
+
+          {/* Description */}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              mb: 2,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               display: '-webkit-box',
-              WebkitLineClamp: 2,
+              WebkitLineClamp: expanded ? 'none' : 2,
               WebkitBoxOrient: 'vertical',
-              minHeight: '2.4em',
             }}
           >
-            {skill.name}
+            {skill.description}
           </Typography>
 
-          {/* Proficiency and rating */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            {/* Proficiency stars */}
-            {skill.proficiencyLevel && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ display: 'flex' }}>
-                  {[...Array(5)].map((_, index) =>
-                    index < starsCount ? (
-                      <StarIcon
-                        key={index}
-                        fontSize="small"
-                        sx={{
-                          color: proficiencyColor,
-                          filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
-                        }}
-                      />
-                    ) : (
-                      <StarBorderIcon
-                        key={index}
-                        fontSize="small"
-                        sx={{ color: 'action.disabled' }}
-                      />
-                    )
-                  )}
+          {/* Stats */}
+          <Box display="flex" alignItems="center" gap={2} mb={2}>
+            <Box display="flex" alignItems="center" gap={0.5}>
+              <Rating value={averageRating} readOnly size="small" precision={0.5} />
+              <Typography variant="body2" color="text.secondary">
+                {averageRating.toFixed(1)} ({totalReviews})
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Match Activity Indicators */}
+          {!isOwner && (
+            <Stack spacing={1}>
+              {matchRequests > 0 && (
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Badge badgeContent={matchRequests} color="primary" max={9}>
+                    <MessageIcon fontSize="small" color="action" />
+                  </Badge>
+                  <Typography variant="caption" color="text.secondary">
+                    {matchRequests} aktive Anfragen
+                  </Typography>
                 </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-                  {skill.proficiencyLevel.level}
-                </Typography>
-              </Box>
-            )}
-
-            {/* Average rating */}
-            {skill.averageRating && skill.reviewCount && skill.reviewCount > 0 && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <TrendingUpIcon fontSize="small" color="success" />
-                <Typography variant="caption" color="text.secondary">
-                  {skill.averageRating.toFixed(1)} ({skill.reviewCount})
-                </Typography>
-              </Box>
-            )}
-          </Box>
-
-          {/* Category chip */}
-          {skill.category && (
-            <Chip
-              label={skill.category.name}
-              size="small"
-              variant="outlined"
-              sx={{
-                borderColor: categoryColor,
-                color: categoryColor,
-                fontWeight: 500,
-                mb: 2,
-              }}
-            />
+              )}
+              {activeMatches > 0 && (
+                <Box display="flex" alignItems="center" gap={1}>
+                  <SwapIcon fontSize="small" color="success" />
+                  <Typography variant="caption" color="text.secondary">
+                    {activeMatches} aktive Matches
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
           )}
-        </Box>
 
-        {/* Description */}
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            lineHeight: 1.5,
-            minHeight: '4.5em',
-            mb: 2,
-          }}
+          {/* Owner Stats */}
+          {isOwner && variant !== 'compact' && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary" gutterBottom>
+                Deine Skill-Statistiken
+              </Typography>
+              <Stack spacing={1} sx={{ mt: 1 }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Typography variant="caption">Anfragen</Typography>
+                  <Chip label={matchRequests} size="small" color="primary" />
+                </Box>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Typography variant="caption">Aktive Matches</Typography>
+                  <Chip label={activeMatches} size="small" color="success" />
+                </Box>
+                <Box>
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="caption">Erfolgsrate</Typography>
+                    <Typography variant="caption" fontWeight="bold">
+                      {completionRate}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={completionRate}
+                    sx={{ mt: 0.5, height: 4, borderRadius: 2 }}
+                  />
+                </Box>
+              </Stack>
+            </Box>
+          )}
+
+          {/* Additional Info (Expandable) */}
+          {variant === 'detailed' && (
+            <Collapse in={expanded}>
+              <Divider sx={{ my: 2 }} />
+              <Stack spacing={1}>
+                {/* <Box display="flex" alignItems="center" gap={1}>
+                  <LocationIcon fontSize="small" color="action" />
+                  <Typography variant="caption" color="text.secondary">
+                    {skill.isRemoteAvailable ? 'Remote verfügbar' : 'Nur vor Ort'}
+                  </Typography>
+                </Box> */}
+                <Box display="flex" alignItems="center" gap={1}>
+                  <ScheduleIcon fontSize="small" color="action" />
+                  <Typography variant="caption" color="text.secondary">
+                    Geschätzte Dauer: {skill.estimatedDurationMinutes || 60} Min.
+                  </Typography>
+                </Box>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <TrendingIcon fontSize="small" color="action" />
+                  <Typography variant="caption" color="text.secondary">
+                    Zuletzt aktiv:{' '}
+                    {formatDistanceToNow(new Date(skill.lastActiveAt || skill.createdAt), {
+                      addSuffix: true,
+                      locale: de,
+                    })}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Collapse>
+          )}
+        </CardContent>
+
+        {/* Actions */}
+        <CardActions sx={{ p: 2, pt: 0 }}>
+          {!isOwner && showMatchButton ? (
+            <Button
+              fullWidth
+              variant="contained"
+              color={skill.isOffered ? 'secondary' : 'primary'}
+              startIcon={<SwapIcon />}
+              onClick={handleMatch}
+              sx={{
+                fontWeight: 'bold',
+                py: 1,
+              }}
+            >
+              {skill.isOffered ? 'Lernen anfragen' : 'Hilfe anbieten'}
+            </Button>
+          ) : isOwner ? (
+            <Box display="flex" gap={1} width="100%">
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<EditIcon />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.(skill);
+                }}
+              >
+                Bearbeiten
+              </Button>
+              <Button
+                fullWidth
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete?.(skill.id);
+                }}
+              >
+                Löschen
+              </Button>
+            </Box>
+          ) : null}
+
+          {variant === 'detailed' && (
+            <Button
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(!expanded);
+              }}
+              sx={{ ml: 'auto' }}
+            >
+              {expanded ? 'Weniger' : 'Mehr'} anzeigen
+            </Button>
+          )}
+        </CardActions>
+
+        {/* Menu */}
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+          onClick={(e) => e.stopPropagation()}
         >
-          {skill.description || 'Keine Beschreibung vorhanden.'}
-        </Typography>
-
-        {/* Meta info */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 'auto' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <AccessTimeIcon fontSize="small" color="action" />
-            <Typography variant="caption" color="text.secondary">
-              {new Date(skill.createdAt).toLocaleDateString('de-DE')}
-            </Typography>
-          </Box>
-          {skill.isRemoteAvailable && (
-            <Chip
-              label="Remote"
-              size="small"
-              sx={{
-                bgcolor: 'primary.light',
-                color: 'primary.contrastText',
-                fontSize: '0.7rem',
-                height: 20,
-              }}
-            />
+          {!isOwner && (
+            <MenuItem onClick={handleShare}>
+              <ListItemIcon>
+                <ShareIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Teilen</ListItemText>
+            </MenuItem>
           )}
-        </Box>
-      </CardContent>
-
-      {/* Actions */}
-      <CardActions
-        sx={{
-          p: 3,
-          pt: 0,
-          display: 'flex',
-          gap: 1,
-        }}
-      >
-        {showMatchButton && !isOwner && onMatch && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleMatch}
-            startIcon={<MessageIcon />}
-            fullWidth
-            sx={{
-              fontWeight: 600,
-              py: 1.5,
-              borderRadius: 2,
-              textTransform: 'none',
-              boxShadow: `0 4px 12px ${categoryColor}40`,
-              '&:hover': {
-                boxShadow: `0 6px 16px ${categoryColor}60`,
-              },
+          {isOwner && [
+              <MenuItem
+                key="edit"
+                onClick={() => {
+                  handleMenuClose();
+                  onEdit?.(skill);
+                }}
+              >
+                <ListItemIcon>
+                  <EditIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Bearbeiten</ListItemText>
+              </MenuItem>,
+              <MenuItem
+                key="delete"
+                onClick={() => {
+                  handleMenuClose();
+                  onDelete?.(skill.id);
+                }}
+              >
+                <ListItemIcon>
+                  <DeleteIcon fontSize="small" color="error" />
+                </ListItemIcon>
+                <ListItemText>Löschen</ListItemText>
+              </MenuItem>
+            ]}
+          <MenuItem
+            onClick={() => {
+              handleMenuClose();
+              navigate(`/skills/${skill.id}`);
             }}
           >
-            {skill.isOffered ? 'Lernen anfragen' : 'Hilfe anbieten'}
-          </Button>
-        )}
-
-        <Button
-          variant="outlined"
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewDetails(skill);
-          }}
-          startIcon={<VisibilityIcon />}
-          fullWidth={!showMatchButton || isOwner}
-          sx={{
-            fontWeight: 600,
-            py: 1.5,
-            borderRadius: 2,
-            textTransform: 'none',
-            borderColor: categoryColor,
-            color: categoryColor,
-            '&:hover': {
-              borderColor: categoryColor,
-              bgcolor: `${categoryColor}10`,
-            },
-          }}
-        >
-          Details ansehen
-        </Button>
-      </CardActions>
-    </Card>
+            <ListItemIcon>
+              <PersonIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Details anzeigen</ListItemText>
+          </MenuItem>
+        </Menu>
+      </Card>
+    </motion.div>
   );
-});
+};
 
-SkillCard.displayName = 'SkillCard';
-
-export default SkillCard;
+export default EnhancedSkillCard;

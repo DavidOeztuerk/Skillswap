@@ -13,4 +13,5 @@ export interface UserProfileResponse {
   createdAt: string;
   lastLoginAt?: string;
   preferences?: Record<string, string>;
+  profilePictureUrl?: string;
 }

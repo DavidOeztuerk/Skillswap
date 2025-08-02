@@ -1,13 +1,14 @@
-using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.Matchmaking.Requests;
 
 /// <summary>
 /// API request for GetIncomingMatchRequests operation
 /// </summary>
-public record GetIncomingMatchRequest(
+public record GetIncomingMatchRequestsRequest(
     int PageNumber = 1,
     int PageSize = 20)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

@@ -22,6 +22,7 @@ using Contracts.Notification.Requests;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using NotificationService;
+using NotificationService.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -132,6 +133,9 @@ builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
 builder.Services.AddScoped<ITemplateEngine, HandlebarsTemplateEngine>();
 builder.Services.AddScoped<INotificationOrchestrator, NotificationOrchestrator>();
+
+// Add NotificationService-specific dependencies
+builder.Services.AddNotificationServiceDependencies();
 
 // ============================================================================
 // MESSAGE BUS SETUP (MassTransit + RabbitMQ)

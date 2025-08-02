@@ -2,12 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using UserService.Application.Queries;
 using CQRS.Handlers;
 using Infrastructure.Models;
+using Contracts.User.Responses.Auth;
 
 namespace UserService.Application.QueryHandlers;
-
-// ============================================================================
-// GET USER STATISTICS QUERY HANDLER
-// ============================================================================
 
 public class GetUserStatisticsQueryHandler(
     UserDbContext dbContext,
@@ -29,7 +26,7 @@ public class GetUserStatisticsQueryHandler(
 
             // Basic counts
             var totalUsers = await _dbContext.Users.CountAsync(u => !u.IsDeleted, cancellationToken);
-            var activeUsers = await _dbContext.Users.CountAsync(u => u.AccountStatus == "Active" && !u.IsDeleted, cancellationToken);
+            var activeUsers = await _dbContext.Users.CountAsync(u => u.AccountStatus == AccountStatus.Active && !u.IsDeleted, cancellationToken);
             var verifiedUsers = await _dbContext.Users.CountAsync(u => u.EmailVerified && !u.IsDeleted, cancellationToken);
 
             // New users

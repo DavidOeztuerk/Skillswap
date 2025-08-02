@@ -1,18 +1,16 @@
-// src/components/skills/SkillList.tsx
 import React from 'react';
 import { Box, Typography, CircularProgress, Alert, Grid } from '@mui/material';
-import SkillCard from './SkillCard';
 import { Skill } from '../../types/models/Skill';
+import EnhancedSkillCard from './SkillCard';
 
 interface SkillListProps {
-  skills: Skill[];
+  skills: Skill[] | undefined;
   loading: boolean;
   errors?: string[];
   isOwnerView?: boolean;
   showMatchButtons?: boolean;
   onEditSkill: (skill: Skill) => void;
   onDeleteSkill: (skillId: string) => void;
-  onViewSkillDetails: (skill: Skill) => void;
   onMatchSkill?: (skill: Skill) => void;
   // FAVORITES
   favoriteSkillIds?: string[];
@@ -28,32 +26,31 @@ const SkillList: React.FC<SkillListProps> = ({
   showMatchButtons = false,
   onEditSkill,
   onDeleteSkill,
-  onViewSkillDetails,
   onMatchSkill,
   // favoriteSkillIds,
   isFavorite,
   onToggleFavorite,
 }) => {
   console.log('📋 SkillList render:', {
-    skillsCount: skills.length,
+    skillsCount: skills?.length,
     loading,
     hasErrors: !!errors?.length,
     isOwnerView,
     showMatchButtons,
-    skills: skills.map((s) =>
+    skills: skills?.map((s) =>
       s ? { skillId: s.id, name: s.name } : 'undefined skill'
     ),
   });
 
   // Filter out any undefined or null skills
-  const validSkills = skills.filter(
+  const validSkills = skills?.filter(
     (skill) => skill && (skill.id || skill.id) && skill.name
   );
 
-  if (validSkills?.length !== skills.length) {
+  if (skills && validSkills && validSkills?.length !== skills.length) {
     console.warn('⚠️ Found invalid skills in list:', {
       total: skills.length,
-      valid: validSkills.length,
+      valid: validSkills?.length,
       invalid: skills?.length - validSkills.length,
     });
   }
@@ -118,26 +115,25 @@ const SkillList: React.FC<SkillListProps> = ({
         }
       }}
     >
-      {validSkills.map((skill) => (
+      {validSkills?.map((skill) => (
         <Grid 
           key={skill.id} 
           size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 3 }}
           sx={{ display: 'flex' }}
         >
-          <SkillCard
+          <EnhancedSkillCard
             skill={skill}
             isOwner={isOwnerView}
             showMatchButton={showMatchButtons && !isOwnerView}
             onEdit={onEditSkill}
             onDelete={onDeleteSkill}
-            onViewDetails={onViewSkillDetails}
             onMatch={onMatchSkill}
             // FAVORITES
             isFavorite={isFavorite}
             onToggleFavorite={onToggleFavorite}
           />
         </Grid>
-      ))}
+      ))})
     </Grid>
   );
 };

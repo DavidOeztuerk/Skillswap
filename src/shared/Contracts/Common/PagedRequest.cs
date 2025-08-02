@@ -1,3 +1,4 @@
+using Infrastructure.Models;
 using System.ComponentModel.DataAnnotations;
 
 namespace Contracts.Common;
@@ -12,7 +13,8 @@ public record PagedRequest(
     int PageNumber = 1,
     
     [Range(1, 100, ErrorMessage = "Page size must be between 1 and 100")]
-    int PageSize = 10) : IVersionedContract
+    int PageSize = 12,
+    PaginationParams) : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports
@@ -39,7 +41,9 @@ public record PagedRequest(
 /// <param name="SortDirection">Sort direction (asc or desc)</param>
 public record SortedPagedRequest(
     int PageNumber = 1,
-    int PageSize = 10,
+    int PageSize = 12,
+
+    SearchParams
     
     [StringLength(50, ErrorMessage = "Sort field name must not exceed 50 characters")]
     string? SortBy = null,

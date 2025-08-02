@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.User.Requests;
 
@@ -25,6 +26,7 @@ public record LoginRequest(
     string? DeviceId = null,
 
     string? DeviceInfo = null)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

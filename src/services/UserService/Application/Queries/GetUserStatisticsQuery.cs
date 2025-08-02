@@ -1,3 +1,4 @@
+using Contracts.User.Responses.Auth;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -24,7 +25,7 @@ public record UserStatisticsResponse(
     int NewUsersThisWeek,
     int NewUsersThisMonth,
     Dictionary<string, int> UsersByRole,
-    Dictionary<string, int> UsersByAccountStatus,
+    Dictionary<AccountStatus, int> UsersByAccountStatus,
     List<DailyUserRegistration> RegistrationTrend);
 
 public record DailyUserRegistration(

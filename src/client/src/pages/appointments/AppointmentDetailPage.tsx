@@ -298,7 +298,7 @@ const AppointmentDetailPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Termin nicht gefunden"
-          description={{message:"Der angeforderte Termin existiert nicht oder ist nicht verfügbar."}}
+          description={"Der angeforderte Termin existiert nicht oder ist nicht verfügbar."}
           actionLabel="Zurück zu Terminen"
           actionHandler={() => navigate('/appointments')}
         />

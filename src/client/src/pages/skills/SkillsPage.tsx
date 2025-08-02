@@ -73,7 +73,10 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
       if (showOnly === 'mine') {
         await fetchUserSkills();
       } else if (showOnly === 'favorite' && user?.id) {
-        await fetchFavoriteSkills();
+        await Promise.all([
+          fetchFavoriteSkills(),
+          fetchAllSkills() // Needed for getFavoriteSkills() filtering
+        ]);
       } else {
         await fetchAllSkills();
       }
@@ -175,20 +178,23 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     if (showOnly === 'mine') {
       await fetchUserSkills();
     } else if (showOnly === 'favorite' && user?.id) {
-      await fetchFavoriteSkills();
+      await Promise.all([
+        fetchFavoriteSkills(),
+        fetchAllSkills() // Needed for getFavoriteSkills() filtering
+      ]);
     } else {
       await fetchAllSkills();
     }
   };
 
   // Get current skills based on view type
-  const getCurrentSkills = (): Skill[] => {
+  const getCurrentSkills = (): Skill[] | undefined => {
     if (showOnly === 'mine') {
       return userSkills;
     } else if (showOnly === 'favorite') {
       return getFavoriteSkills();
     } else {
-      return allSkills.filter(skill => skill.userId !== user?.id);
+      return allSkills?.filter(skill => skill.userId !== user?.id);
     }
   };
 
@@ -252,7 +258,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
       </Box>
 
       {/* Skills List */}
-      {currentSkills.length === 0 ? (
+      {currentSkills?.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h6" gutterBottom>
             {isOwnerView ? 'Du hast noch keine Skills erstellt' : 'Keine Skills gefunden'}
@@ -277,7 +283,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
           showMatchButtons={!isOwnerView}
           onEditSkill={handleEditSkill}
           onDeleteSkill={handleDeleteSkill}
-          onViewSkillDetails={handleEditSkill}
           onMatchSkill={handleMatchSkill}
           isFavorite={isFavoriteSkill}
           onToggleFavorite={handleToggleFavorite}

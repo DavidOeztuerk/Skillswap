@@ -40,10 +40,27 @@ const SkillEditPage = withPrivateRoute(() => import('../pages/skills/SkillEditPa
 });
 
 // Matchmaking with real-time data
-const MatchmakingPage = withPrivateRoute(() => import('../pages/matchmaking/MatchmakingPage'), {
+const MatchmakingOverviewPage = withPrivateRoute(() => import('../pages/matchmaking/MatchmakingOverviewPage'), {
   useSkeleton: true,
   skeletonVariant: 'list',
 });
+
+// MatchRequestsOverviewPage ist jetzt in MatchmakingOverviewPage eingebettet
+// const MatchRequestsOverviewPage = withPrivateRoute(
+//   () => import('../pages/matchmaking/MatchRequestsOverviewPage'),
+//   {
+//     useSkeleton: true,
+//     skeletonVariant: 'list',
+//   }
+// );
+
+const MatchRequestTimelinePage = withPrivateRoute(
+  () => import('../pages/matchmaking/MatchRequestTimelinePage'),
+  {
+    useSkeleton: true,
+    skeletonVariant: 'details',
+  }
+);
 
 // Appointments with scheduling focus
 const AppointmentsPage = withPrivateRoute(() => import('../pages/appointments/AppointmentsPage'), {
@@ -198,7 +215,11 @@ const routes: RouteObject[] = [
       },
       {
         path: 'matchmaking',
-        element: <MatchmakingPage />,
+        element: <MatchmakingOverviewPage />,
+      },
+      {
+        path: 'matchmaking/timeline/:threadId',
+        element: <MatchRequestTimelinePage />,
       },
       {
         path: 'appointments',

@@ -5,10 +5,6 @@ using UserService.Application.Queries;
 
 namespace UserService.Application.QueryHandlers;
 
-// ============================================================================
-// GET ALL USERS QUERY HANDLER
-// ============================================================================
-
 public class GetAllUsersQueryHandler(
     UserDbContext dbContext,
     ILogger<GetAllUsersQueryHandler> logger)
@@ -20,39 +16,41 @@ public class GetAllUsersQueryHandler(
         GetAllUsersQuery request,
         CancellationToken cancellationToken)
     {
+        Logger.LogInformation("Starting to retrieve users with query: {@Query}", request);
+
         try
         {
             var query = _dbContext.Users.AsQueryable();
 
-            // Apply filters
-            if (!string.IsNullOrEmpty(request.SearchTerm))
-            {
-                query = query.Where(u => 
-                    u.FirstName.Contains(request.SearchTerm) ||
-                    u.LastName.Contains(request.SearchTerm) ||
-                    u.Email.Contains(request.SearchTerm) ||
-                    u.UserName.Contains(request.SearchTerm));
-            }
+            // // Apply filters
+            // if (!string.IsNullOrEmpty(request.SearchTerm))
+            // {
+            //     query = query.Where(u => 
+            //         u.FirstName.Contains(request.SearchTerm) ||
+            //         u.LastName.Contains(request.SearchTerm) ||
+            //         u.Email.Contains(request.SearchTerm) ||
+            //         u.UserName.Contains(request.SearchTerm));
+            // }
 
-            if (!string.IsNullOrEmpty(request.AccountStatus))
-            {
-                query = query.Where(u => u.AccountStatus == request.AccountStatus);
-            }
+            // if (!string.IsNullOrEmpty(request.AccountStatus))
+            // {
+            //     query = query.Where(u => u.AccountStatus == request.AccountStatus);
+            // }
 
-            if (request.EmailVerified.HasValue)
-            {
-                query = query.Where(u => u.EmailVerified == request.EmailVerified.Value);
-            }
+            // if (request.EmailVerified.HasValue)
+            // {
+            //     query = query.Where(u => u.EmailVerified == request.EmailVerified.Value);
+            // }
 
-            if (request.CreatedAfter.HasValue)
-            {
-                query = query.Where(u => u.CreatedAt >= request.CreatedAfter.Value);
-            }
+            // if (request.CreatedAfter.HasValue)
+            // {
+            //     query = query.Where(u => u.CreatedAt >= request.CreatedAfter.Value);
+            // }
 
-            if (request.CreatedBefore.HasValue)
-            {
-                query = query.Where(u => u.CreatedAt <= request.CreatedBefore.Value);
-            }
+            // if (request.CreatedBefore.HasValue)
+            // {
+            //     query = query.Where(u => u.CreatedAt <= request.CreatedBefore.Value);
+            // }
 
             // Apply sorting
             //query = request..ToLower() switch
@@ -109,7 +107,7 @@ public class GetAllUsersQueryHandler(
             //    totalCount,
             //    totalPages);
 
-            Logger.LogInformation("Retrieved {Count} users (page {Page} of {TotalPages})", 
+            Logger.LogInformation("Retrieved {Count} users (page {Page} of {TotalPages})",
                 users.Count, request.PageNumber, totalPages);
 
             return Success(users, request.PageNumber, request.PageSize, totalCount);

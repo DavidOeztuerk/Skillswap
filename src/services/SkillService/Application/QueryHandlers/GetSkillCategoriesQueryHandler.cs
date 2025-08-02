@@ -1,18 +1,9 @@
-// ============================================================================
-// SKILL SERVICE QUERY HANDLERS - COMPLETE IMPLEMENTATION
-// src/services/SkillService/Application/QueryHandlers/
-// ============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
 using SkillService.Application.Queries;
 
 namespace SkillService.Application.QueryHandlers;
-
-// ============================================================================
-// GET SKILL CATEGORIES QUERY HANDLER
-// ============================================================================
 
 public class GetSkillCategoriesQueryHandler(
     SkillDbContext dbContext,
@@ -43,13 +34,8 @@ public class GetSkillCategoriesQueryHandler(
                 .Select(c => new SkillCategoryResponse(
                     c.Id,
                     c.Name,
-                    c.Description,
                     c.IconName,
-                    c.Color,
-                    c.SortOrder,
-                    request.IncludeSkillCounts ? c.ActiveSkillCount : null,
-                    c.IsActive,
-                    c.CreatedAt))
+                    c.Color))
                 .ToListAsync(cancellationToken);
 
             return Success(categories);

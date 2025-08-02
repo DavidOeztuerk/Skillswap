@@ -470,6 +470,19 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/matches/requests/thread/{threadId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "matchmakingservice", "Port": 5003 }
+      ],
+      "UpstreamPathTemplate": "/api/matches/requests/thread/{threadId}",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/appointments",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

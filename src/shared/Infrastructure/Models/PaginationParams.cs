@@ -5,8 +5,8 @@ namespace Infrastructure.Models;
 /// </summary>
 public class PaginationParams
 {
-    private const int MaxPageSize = 100;
-    private int _pageSize = 10;
+    private const int MaxPageSize = 96;
+    private int _pageSize = 12;
 
     public int PageNumber { get; set; } = 1;
 

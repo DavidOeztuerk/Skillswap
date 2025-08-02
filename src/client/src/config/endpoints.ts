@@ -105,8 +105,11 @@ export const MATCHMAKING_ENDPOINTS = {
     CREATE: '/api/matches/requests',
     GET_INCOMING: '/api/matches/requests/incoming',
     GET_OUTGOING: '/api/matches/requests/outgoing',
-    ACCEPT: '/api/matches/requests', // + /{requestId}/accept
-    REJECT: '/api/matches/requests', // + /{requestId}/reject
+    GET_ACCEPTED: '/api/matches/requests/accepted',
+    GET_THREAD: '/api/matches/requests/thread', // + /{threadId}
+    ACCEPT: '/api/matches/requests/accept',
+    REJECT: '/api/matches/requests/reject',
+    COUNTER: '/api/matches/requests', // + /{requestId}/counter
     CANCEL: '/api/matches/requests', // + /{requestId}/cancel
   },
   

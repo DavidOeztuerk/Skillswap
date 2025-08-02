@@ -7,22 +7,18 @@ public record SearchSkillsQuery(
     string UserId,
     string? SearchTerm = null,
     string? CategoryId = null,
-    List<string>? Tags = null,
     string? ProficiencyLevelId = null,
+    List<string>? Tags = null,
     bool? IsOffered = null,
-    bool? IsWanted = null,
-    string? Location = null,
-    bool? IsRemote = null,
     decimal? MinRating = null,
-    decimal? MaxRating = null,
     string? SortBy = "CreatedAt",
-    bool SortDescending = true,
+    string SortDirection = "desc",
     int PageNumber = 1,
     int PageSize = 20)
     : IPagedQuery<SkillSearchResultResponse>, ICacheableQuery
 {
-    int IPagedQuery<SkillSearchResultResponse>.PageNumber { get; set; } = PageNumber;
-    int IPagedQuery<SkillSearchResultResponse>.PageSize { get; set; } = PageSize;
+    public int PageNumber { get; set; } = PageNumber;
+    public int PageSize { get; set; } = PageSize;
 
     public string CacheKey => $"skills-search:{SearchTerm}:{CategoryId}:{ProficiencyLevelId}:{IsOffered}:{string.Join(",", Tags != null ? Tags : "")}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
@@ -68,7 +64,7 @@ public class SearchSkillsQueryValidator : AbstractValidator<SearchSkillsQuery>
             .When(x => x.MinRating.HasValue);
 
         RuleFor(x => x.SortBy)
-            .Must(BeValidSortField).WithMessage("Invalid sort field")
+            .Must(BeValidSortField).WithMessage($"Invalid sort field")
             .When(x => !string.IsNullOrEmpty(x.SortBy));
 
         RuleFor(x => x.PageNumber)
@@ -82,7 +78,7 @@ public class SearchSkillsQueryValidator : AbstractValidator<SearchSkillsQuery>
     {
         if (string.IsNullOrEmpty(sortBy)) return true;
 
-        var validSortFields = new[] { "relevance", "name", "rating", "created", "updated", "popularity" };
+        var validSortFields = new[] { "relevance", "name", "rating", "createdat", "updatedat", "popularity" };
         return validSortFields.Contains(sortBy.ToLowerInvariant());
     }
 }

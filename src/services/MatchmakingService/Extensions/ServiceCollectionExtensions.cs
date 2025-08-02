@@ -1,4 +1,7 @@
-//using MatchmakingService.Application.Mappers;
+using MediatR;
+using MatchmakingService.Application.EventHandlers;
+using Events.Integration.UserManagement;
+using Events.Domain.Skill;
 
 namespace MatchmakingService.Extensions;
 
@@ -12,8 +15,9 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddMatchmakingServiceDependencies(this IServiceCollection services)
     {
-        // Register contract mappers
-        //services.AddScoped<IMatchmakingContractMapper, MatchmakingContractMapper>();
+        // Register cascading delete event handlers
+        services.AddScoped<INotificationHandler<UserDeletedEvent>, UserDeletedIntegrationEventHandler>();
+        services.AddScoped<INotificationHandler<SkillDeletedDomainEvent>, SkillDeletedIntegrationEventHandler>();
 
         return services;
     }

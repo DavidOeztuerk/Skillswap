@@ -1,8 +1,3 @@
-// ============================================================================
-// SKILL SERVICE QUERY HANDLERS - COMPLETE IMPLEMENTATION
-// src/services/SkillService/Application/QueryHandlers/
-// ============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
@@ -10,13 +5,9 @@ using SkillService.Application.Queries;
 
 namespace SkillService.Application.QueryHandlers;
 
-// ============================================================================
-// GET PROFICIENCY LEVELS QUERY HANDLER
-// ============================================================================
-
 public class GetProficiencyLevelsQueryHandler(
     SkillDbContext dbContext,
-    ILogger<GetProficiencyLevelsQueryHandler> logger) 
+    ILogger<GetProficiencyLevelsQueryHandler> logger)
     : BaseQueryHandler<
     GetProficiencyLevelsQuery,
     List<ProficiencyLevelResponse>>(
@@ -43,12 +34,8 @@ public class GetProficiencyLevelsQueryHandler(
                 .Select(p => new ProficiencyLevelResponse(
                     p.Id,
                     p.Level,
-                    p.Description,
                     p.Rank,
-                    p.Color,
-                    request.IncludeSkillCounts ? p.Skills.Count(s => s.IsActive && !s.IsDeleted) : null,
-                    p.IsActive,
-                    p.CreatedAt))
+                    p.Color))
                 .ToListAsync(cancellationToken);
 
             return Success(levels);

@@ -1,21 +1,16 @@
 using FluentValidation;
 using CQRS.Interfaces;
-using Contracts.User.Responses;
+using Contracts.User.Responses.Auth;
 
 namespace UserService.Application.Commands;
-
-// ============================================================================
-// REGISTER USER COMMAND
-// ============================================================================
 
 public record RegisterUserCommand(
     string Email,
     string Password,
     string FirstName,
     string LastName,
-    string UserName,
-    string? ReferralCode = null)
-    : ICommand<RegisterUserResponse>, IAuditableCommand
+    string UserName)
+    : ICommand<RegisterResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
@@ -46,8 +41,8 @@ public class RegisterUserCommandValidator : AbstractValidator<RegisterUserComman
             .MaximumLength(100).WithMessage("Last name must not exceed 100 characters")
             .Matches(@"^[a-zA-ZäöüÄÖÜß\s\-']+$").WithMessage("Last name contains invalid characters");
 
-        RuleFor(x => x.ReferralCode)
-            .MaximumLength(50).WithMessage("Referral code must not exceed 50 characters")
-            .When(x => !string.IsNullOrEmpty(x.ReferralCode));
+        // RuleFor(x => x.ReferralCode)
+        //     .MaximumLength(50).WithMessage("Referral code must not exceed 50 characters")
+        //     .When(x => !string.IsNullOrEmpty(x.ReferralCode));
     }
 }

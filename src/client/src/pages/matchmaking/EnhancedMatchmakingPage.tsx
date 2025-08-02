@@ -129,9 +129,9 @@ const EnhancedMatchmakingPage: React.FC = () => {
 
   useEffect(() => {
     // Load initial data
-    dispatch(getUserMatches());
-    dispatch(fetchIncomingMatchRequests());
-    dispatch(fetchOutgoingMatchRequests());
+    dispatch(getUserMatches({}));
+    dispatch(fetchIncomingMatchRequests({}));
+    dispatch(fetchOutgoingMatchRequests({}));
   }, [dispatch]);
 
   // Group requests into threads by user + skill
@@ -140,10 +140,11 @@ const EnhancedMatchmakingPage: React.FC = () => {
 
     // Process incoming requests
     incoming.forEach((request) => {
-      const threadKey = `${request.requesterId}-${request.skillId}`;
-      if (!threadsMap.has(threadKey)) {
-        threadsMap.set(threadKey, {
-          threadId: threadKey,
+      // ✅ KORRIGIERT: Verwende echte ThreadId aus Backend anstatt generierte threadKey
+      const threadId = request.threadId || `${request.requesterId}-${request.skillId}`;
+      if (!threadsMap.has(threadId)) {
+        threadsMap.set(threadId, {
+          threadId: threadId,
           otherUser: {
             id: request.requesterId,
             name: request.requesterName || 'Unbekannter Nutzer',
@@ -163,7 +164,7 @@ const EnhancedMatchmakingPage: React.FC = () => {
         });
       }
 
-      const thread = threadsMap.get(threadKey)!;
+      const thread = threadsMap.get(threadId)!;
       thread.requests.push({
         id: request.matchId,
         type: 'incoming',
@@ -189,10 +190,11 @@ const EnhancedMatchmakingPage: React.FC = () => {
 
     // Process outgoing requests
     outgoing.forEach((request) => {
-      const threadKey = `${request.targetUserId}-${request.skillId}`;
-      if (!threadsMap.has(threadKey)) {
-        threadsMap.set(threadKey, {
-          threadId: threadKey,
+      // ✅ KORRIGIERT: Verwende echte ThreadId aus Backend anstatt generierte threadKey
+      const threadId = request.threadId || `${request.targetUserId}-${request.skillId}`;
+      if (!threadsMap.has(threadId)) {
+        threadsMap.set(threadId, {
+          threadId: threadId,
           otherUser: {
             id: request.targetUserId,
             name: request.targetUserName || 'Unbekannter Nutzer',
@@ -212,7 +214,7 @@ const EnhancedMatchmakingPage: React.FC = () => {
         });
       }
 
-      const thread = threadsMap.get(threadKey)!;
+      const thread = threadsMap.get(threadId)!;
       thread.requests.push({
         id: request.matchId,
         type: 'outgoing',
@@ -268,9 +270,9 @@ const EnhancedMatchmakingPage: React.FC = () => {
       setResponseMessage('');
       setSelectedRequest(null);
       // Refresh data
-      dispatch(getUserMatches());
-      dispatch(fetchIncomingMatchRequests());
-      dispatch(fetchOutgoingMatchRequests());
+      dispatch(getUserMatches({}));
+      dispatch(fetchIncomingMatchRequests({}));
+      dispatch(fetchOutgoingMatchRequests({}));
     } catch (error) {
       console.error('Error accepting request:', error);
     }
@@ -283,9 +285,9 @@ const EnhancedMatchmakingPage: React.FC = () => {
       setResponseMessage('');
       setSelectedRequest(null);
       // Refresh data
-      dispatch(getUserMatches());
-      dispatch(fetchIncomingMatchRequests());
-      dispatch(fetchOutgoingMatchRequests());
+      dispatch(getUserMatches({}));
+      dispatch(fetchIncomingMatchRequests({}));
+      dispatch(fetchOutgoingMatchRequests({}));
     } catch (error) {
       console.error('Error rejecting request:', error);
     }
@@ -297,16 +299,16 @@ const EnhancedMatchmakingPage: React.FC = () => {
         // Create a new request as counter-offer
         await dispatch(createMatchRequest({
           skillId: selectedRequest.skillId,
-          description: 'Gegenangebot für Match-Anfrage',
           message: `Gegenangebot: ${counterOfferMessage.trim()}`,
+          targetUserId: selectedRequest.otherUserId, // Counter-offer zurück an den ursprünglichen Requester
         }));
         setCounterOfferDialog(false);
         setCounterOfferMessage('');
         setSelectedRequest(null);
         // Refresh data
-        dispatch(getUserMatches());
-        dispatch(fetchIncomingMatchRequests());
-        dispatch(fetchOutgoingMatchRequests());
+        dispatch(getUserMatches({}));
+        dispatch(fetchIncomingMatchRequests({}));
+        dispatch(fetchOutgoingMatchRequests({}));
       } catch (error) {
         console.error('Error creating counter-offer:', error);
       }
@@ -334,9 +336,9 @@ const EnhancedMatchmakingPage: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    dispatch(getUserMatches());
-    dispatch(fetchIncomingMatchRequests());
-    dispatch(fetchOutgoingMatchRequests());
+    dispatch(getUserMatches({}));
+    dispatch(fetchIncomingMatchRequests({}));
+    dispatch(fetchOutgoingMatchRequests({}));
   };
 
   if (isLoading && incomingRequestsArray.length === 0 && outgoingRequestsArray.length === 0 && matchesArray.length === 0) {
@@ -757,10 +759,10 @@ const EnhancedMatchmakingPage: React.FC = () => {
                         </Avatar>
                         <Box flex={1}>
                           <Typography variant="h6">
-                            {match.skill.name}
+                            {match.skill?.name || match.skillName}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {match.skill.isOffered ? 'Du bietest an' : 'Du lernst'}
+                            {match.isOffering ? 'Du bietest an' : 'Du lernst'}
                           </Typography>
                           <Box display="flex" alignItems="center" gap={1} mt={0.5}>
                             <AccessTimeIcon fontSize="small" color="action" />
@@ -794,7 +796,7 @@ const EnhancedMatchmakingPage: React.FC = () => {
                           size="small"
                         />
                         <Typography variant="body2" color="success.main">
-                          {(match.compatibilityScore * 100).toFixed(0)}% Match
+                          {((match.compatibilityScore || 0) * 100).toFixed(0)}% Match
                         </Typography>
                       </Box>
                     </Box>

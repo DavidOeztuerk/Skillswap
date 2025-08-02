@@ -22,7 +22,7 @@ public class AuditBehavior<TRequest, TResponse>(
         CancellationToken cancellationToken)
     {
         // Only audit commands
-        if (request is not ICommand)
+        if (request is not ICommand<TRequest>)
         {
             return await next(cancellationToken);
         }

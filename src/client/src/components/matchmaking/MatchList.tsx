@@ -30,13 +30,13 @@ import { Match } from '../../types/models/Match';
 import { SliceError } from '../../store/types';
 
 interface MatchListProps {
-  matches: Match[];
+  matches: Match[] | any[];
   isLoading?: boolean;
   error?: SliceError | null;
   isRequesterView?: boolean;
   onAccept?: (matchId: string) => void;
   onReject?: (matchId: string) => void;
-  onSchedule?: (match: Match) => void;
+  onSchedule?: (match: Match | any) => void;
 }
 
 /**
@@ -68,6 +68,7 @@ const MatchList: React.FC<MatchListProps> = ({
 
   // Match-Filterung
   const filteredMatches = useMemo(() => {
+    if (!matches) return [];
     return matches.filter((match) => {
       // Suche
       const otherUser = isRequesterView
@@ -155,17 +156,17 @@ const MatchList: React.FC<MatchListProps> = ({
     return (
       <EmptyState
         title="Fehler beim Laden der Matches"
-        description={error}
+        description={error.message || 'Ein unbekannter Fehler ist aufgetreten'}
         actionLabel="Erneut versuchen"
         actionHandler={() => window.location.reload()}
       />
     );
   }
-  if (!matches.length) {
+  if (!matches || !matches.length) {
     return (
       <EmptyState
         title="Keine Matches gefunden"
-        description={{message:'Versuche, deine Suchkriterien anzupassen.'}}
+        description="Versuche, deine Suchkriterien anzupassen."
         actionLabel="Zu meinen Skills"
         actionPath="/skills"
       />
@@ -290,7 +291,7 @@ const MatchList: React.FC<MatchListProps> = ({
       ) : (
         <EmptyState
           title="Keine passenden Matches gefunden"
-          description={{message:'Versuche, deine Suchkriterien anzupassen.'}}
+          description={'Versuche, deine Suchkriterien anzupassen.'}
           actionLabel="Filter zurücksetzen"
           actionHandler={resetFilters}
         />

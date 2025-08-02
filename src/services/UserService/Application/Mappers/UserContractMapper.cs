@@ -1,6 +1,7 @@
 using AutoMapper;
 using Contracts.User.Requests;
 using Contracts.User.Responses;
+using Contracts.User.Responses.Auth;
 using UserService.Application.Commands;
 
 namespace UserService.Application.Mappers;
@@ -23,7 +24,7 @@ public class UserMappingProfile : Profile
                 GetUpdatedFields(src)));
 
         // Command Response to Contract Response mappings
-        CreateMap<RegisterUserCommand, RegisterUserResponse>()
+        CreateMap<RegisterUserCommand, RegisterResponse>()
             .ForMember(dest => dest.ApiVersion, opt => opt.MapFrom(src => "v1"));
 
         CreateMap<LoginUserCommand, LoginResponse>()

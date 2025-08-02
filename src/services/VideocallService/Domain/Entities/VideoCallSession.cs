@@ -69,6 +69,8 @@ public class VideoCallSession : AuditableEntity
     public bool IsCancelled => Status == CallStatus.Cancelled;
     public bool IsExpired => Status == CallStatus.Expired;
 
+    public string HostUserId { get; set; } = string.Empty;
+
     public void Start()
     {
         Status = CallStatus.Active;

@@ -1,18 +1,9 @@
-// ============================================================================
-// SKILL SERVICE QUERY HANDLERS - COMPLETE IMPLEMENTATION
-// src/services/SkillService/Application/QueryHandlers/
-// ============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
 using SkillService.Application.Queries;
 
 namespace SkillService.Application.QueryHandlers;
-
-// ============================================================================
-// GET USER SKILLS QUERY HANDLER
-// ============================================================================
 
 public class GetUserSkillsQueryHandler(
     SkillDbContext dbContext,
@@ -65,22 +56,13 @@ public class GetUserSkillsQueryHandler(
                     new SkillCategoryResponse(
                         s.SkillCategory.Id,
                         s.SkillCategory.Name,
-                        s.SkillCategory.Description,
                         s.SkillCategory.IconName,
-                        s.SkillCategory.Color,
-                        s.SkillCategory.SortOrder,
-                        null,
-                        s.SkillCategory.IsActive,
-                        s.SkillCategory.CreatedAt),
+                        s.SkillCategory.Color),
                     new ProficiencyLevelResponse(
                         s.ProficiencyLevel.Id,
                         s.ProficiencyLevel.Level,
-                        s.ProficiencyLevel.Description,
                         s.ProficiencyLevel.Rank,
-                        s.ProficiencyLevel.Color,
-                        null,
-                        s.ProficiencyLevel.IsActive,
-                        s.ProficiencyLevel.CreatedAt),
+                        s.ProficiencyLevel.Color),
                     s.Tags,
                     s.AverageRating,
                     s.ReviewCount,

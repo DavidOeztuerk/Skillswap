@@ -1,3 +1,5 @@
+using Infrastructure.Models;
+
 namespace Contracts.Skill.Responses;
 
 /// <summary>
@@ -14,6 +16,7 @@ public record GetUserSkillsResponse(
     int PageNumber,
     int PageSize,
     bool HasNextPage)
+    : PagedResponse
 {
     /// <summary>
     /// API Version this response supports

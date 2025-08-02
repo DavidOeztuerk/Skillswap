@@ -1,6 +1,6 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Infrastructure.Services;
+// using Infrastructure.Services;
 using MatchmakingService.Application.Queries;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,12 +8,12 @@ namespace MatchmakingService.Application.QueryHandlers;
 
 public class GetMatchDetailsQueryHandler(
     MatchmakingDbContext dbContext,
-    IUserLookupService userLookup,
+    // IUserLookupService userLookup,
     ILogger<GetMatchDetailsQueryHandler> logger)
     : BaseQueryHandler<GetMatchDetailsQuery, MatchDetailsResponse>(logger)
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
-    private readonly IUserLookupService _userLookup = userLookup;
+    // private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<MatchDetailsResponse>> Handle(
         GetMatchDetailsQuery request,
@@ -29,8 +29,8 @@ public class GetMatchDetailsQueryHandler(
                 return NotFound("Match not found");
             }
 
-            var offeringUser = await _userLookup.GetUserAsync(match.OfferingUserId, cancellationToken);
-            var requestingUser = await _userLookup.GetUserAsync(match.RequestingUserId, cancellationToken);
+            // var offeringUser = await _userLookup.GetUserAsync(match.OfferingUserId, cancellationToken);
+            // var requestingUser = await _userLookup.GetUserAsync(match.RequestingUserId, cancellationToken);
             var response = new MatchDetailsResponse(
                 match.Id,
                 match.OfferedSkillId,
