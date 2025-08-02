@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Infrastructure.Services;
+// using Infrastructure.Services;
 using SkillService.Application.Queries;
 using System.Text.Json;
 
@@ -13,7 +13,7 @@ namespace SkillService.Application.QueryHandlers;
 
 public class GetSkillRecommendationsQueryHandler(
     SkillDbContext dbContext,
-    IUserLookupService userLookup,
+    // IUserLookupService userLookup,
     ILogger<GetSkillRecommendationsQueryHandler> logger)
     : BaseQueryHandler<
     GetSkillRecommendationsQuery,
@@ -21,7 +21,7 @@ public class GetSkillRecommendationsQueryHandler(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
-    private readonly IUserLookupService _userLookup = userLookup;
+    // private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<List<SkillRecommendationResponse>>> Handle(
         GetSkillRecommendationsQuery request,
@@ -141,7 +141,7 @@ public class GetSkillRecommendationsQueryHandler(
 
                 if (compatibilityScore > 0.2) // Minimum threshold
                 {
-                    var owner = await _userLookup.GetUserAsync(skill.UserId, cancellationToken);
+                    // var owner = await _userLookup.GetUserAsync(skill.UserId, cancellationToken);
                     recommendations.Add(new SkillRecommendationResponse(
                         skill.Id,
                         skill.UserId,
@@ -150,13 +150,8 @@ public class GetSkillRecommendationsQueryHandler(
                         new SkillCategoryResponse(
                             skill.SkillCategoryId,
                             skill.CategoryName,
-                            null,
                             skill.CategoryIcon,
-                            skill.CategoryColor,
-                            0,
-                            null,
-                            true,
-                            DateTime.UtcNow),
+                            skill.CategoryColor),
                         skill.AverageRating,
                         reason,
                         Math.Round(compatibilityScore, 2),

@@ -9,33 +9,31 @@ export interface Skill {
   tagsJson: string;
   averageRating?: number;
   reviewCount?: number;
-  endorsementCount?: number;
-  location?: string;
-  isRemoteAvailable: boolean;
   estimatedDurationMinutes?: number;
   createdAt: string;
   lastActiveAt?: string;
+  matchRequests?: number;
+  activeMatches?: number;
+  completionRate?: number;
+  isVerified?: boolean;
 }
 
 export interface SkillCategory {
-  categoryId: string;
+  id: string;
   name: string;
   description?: string;
   iconName?: string;
   color?: string;
-  sortOrder?: number;
-  skillCount?: number;
   isActive: boolean;
   createdAt: string;
 }
 
 export interface ProficiencyLevel {
-  levelId: string;
+  id: string;
   level: string;
   description?: string;
   rank: number;
   color?: string;
-  skillCount?: number;
   isActive: boolean;
   createdAt: string;
 }

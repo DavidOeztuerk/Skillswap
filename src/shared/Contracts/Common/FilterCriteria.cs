@@ -123,7 +123,7 @@ public enum FilterOperator
 /// <param name="LogicalOperator">How to combine multiple filters</param>
 public record AdvancedFilterRequest(
     int PageNumber = 1,
-    int PageSize = 10,
+    int PageSize = 12,
     string? SortBy = null,
     SortDirection SortDirection = SortDirection.Ascending,
     string? SearchTerm = null,

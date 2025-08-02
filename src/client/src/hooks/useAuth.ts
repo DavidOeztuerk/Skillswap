@@ -30,6 +30,7 @@ import { GenerateTwoFactorSecretResponse } from '../types/contracts/responses/Ge
 import { VerifyTwoFactorCodeRequest } from '../types/contracts/requests/VerifyTwoFactorCodeRequest';
 import { VerifyTwoFactorCodeResponse } from '../types/contracts/responses/VerifyTwoFactorCodeResponse';
 import { User } from '../types/models/User';
+import { UserProfileResponse } from '../types/contracts/responses/UserProfileResponse';
 
 interface LocationState {
   from?: { pathname: string };
@@ -194,7 +195,7 @@ export const useAuth = () => {
    * Load user profile data
    * @returns Promise<User | null> - User data or null on failure
    */
-  const loadUserProfile = useCallback(async (): Promise<User | null> => {
+  const loadUserProfile = useCallback(async (): Promise<UserProfileResponse | null> => {
     try {
       const resultAction = await dispatch(getProfile()).unwrap();
 

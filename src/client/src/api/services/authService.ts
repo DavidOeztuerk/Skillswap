@@ -1,10 +1,9 @@
-// src/api/services/authService.ts
 import { AUTH_ENDPOINTS, PROFILE_ENDPOINTS } from '../../config/endpoints';
 import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
 import { RegisterResponse, LoginResponse } from '../../types/contracts/responses/AuthResponse';
 import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
 import { User } from '../../types/models/User';
-import { UpdateProfileRequest } from '../../types/contracts/requests/UpdateProfileRequest';
+import { UpdateProfileRequest, UpdateUserProfileResponse } from '../../types/contracts/requests/UpdateProfileRequest';
 import { ChangePasswordRequest } from '../../types/contracts/requests/ChangePasswordRequest';
 import { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRequest';
 import { GenerateTwoFactorSecretResponse } from '../../types/contracts/responses/GenerateTwoFactorSecretResponse';
@@ -18,6 +17,7 @@ import {
   removeToken,
 } from '../../utils/authHelpers';
 import apiClient from '../apiClient';
+import { UserProfileResponse } from '../../types/contracts/responses/UserProfileResponse';
 
 /**
  * Authentication Service with improved error handling and validation
@@ -31,32 +31,14 @@ const authService = {
       AUTH_ENDPOINTS.LOGIN,
       credentials
     );
-    
-    console.log('🔍 Login response received:', {
-      hasAccessToken: !!response.accessToken,
-      hasRefreshToken: !!response.refreshToken,
-      hasUser: !!response.user,
-      responseKeys: Object.keys(response)
-    });
-
-    if (!response?.accessToken) {
-      console.error('❌ No accessToken in response:', response);
-      throw new Error('Ungültige Antwort vom Server');
-    }
-
+ 
     const storageType = credentials?.rememberMe ? 'permanent' : 'session';
-    console.log('💾 Storing token with type:', storageType);
     
     setToken(response.accessToken, storageType);
-    
     if (response?.refreshToken) {
       setRefreshToken(response.refreshToken, storageType);
     }
     
-    // Verify token was stored
-    const storedToken = getToken();
-    console.log('✅ Token stored successfully:', !!storedToken);
-
     return response;
   },
 
@@ -82,30 +64,23 @@ const authService = {
   /**
    * Get current user profile
    */
-  async getProfile(): Promise<User> {
-    return apiClient.get<User>(AUTH_ENDPOINTS.PROFILE);
+  async getProfile(): Promise<UserProfileResponse> {
+    return apiClient.get<UserProfileResponse>(AUTH_ENDPOINTS.PROFILE);
   },
 
-  /**
-   * Get user by ID (public profile)
-   */
-  async getUserById(userId: string): Promise<Partial<User>> {
-    if (!userId) throw new Error('User ID ist erforderlich');
-    return apiClient.get<Partial<User>>(`/api/users/${userId}`);
-  },
+  // /**
+  //  * Get user by ID (public profile)
+  //  */
+  // async getUserById(userId: string): Promise<Partial<User>> {
+  //   if (!userId) throw new Error('User ID ist erforderlich');
+  //   return apiClient.get<Partial<User>>(`/api/users/${userId}`);
+  // },
 
   /**
    * Update user profile
    */
-  async updateProfile(profileData: UpdateProfileRequest): Promise<User> {
-    const cleanedData = {
-      ...profileData,
-      firstName: profileData.firstName?.trim(),
-      lastName: profileData.lastName?.trim(),
-      bio: profileData.bio?.trim(),
-    };
-
-    return apiClient.post<User>(PROFILE_ENDPOINTS.UPDATE, cleanedData);
+  async updateProfile(profileData: UpdateProfileRequest): Promise<UpdateUserProfileResponse> {
+    return apiClient.post<UpdateUserProfileResponse>(PROFILE_ENDPOINTS.UPDATE, profileData);
   },
 
   /**
@@ -244,12 +219,14 @@ const authService = {
     if (!this.isAuthenticated()) return null;
 
     try {
-      return await this.getProfile();
+      let profile = await this.getProfile();
+      return { ...profile, id: profile.userId }; // Ensure userId is included
     } catch {
       // Token might be expired, try refresh
       try {
         await this.refreshToken();
-        return await this.getProfile();
+        let profile = await this.getProfile();
+        return { ...profile, id: profile.userId }
       } catch {
         return null;
       }

@@ -186,7 +186,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
     return (
       <EmptyState
         title="Fehler beim Laden der Termine"
-        description={error}
+        description={error.message}
         actionLabel="Erneut versuchen"
         actionHandler={() => window.location.reload()}
       />
@@ -196,7 +196,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
     return (
       <EmptyState
         title="Keine Termine gefunden"
-        description={{message:"Du hast noch keine Termine vereinbart."}}
+        description={"Du hast noch keine Termine vereinbart."}
         actionLabel="Zur Matchmaking-Seite"
         actionPath="/matchmaking"
       />
@@ -348,7 +348,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         ) : (
           <EmptyState
             title="Keine passenden Termine gefunden"
-            description={{message:"Versuche deine Suche zu verfeinern."}}
+            description={"Versuche deine Suche zu verfeinern."}
             actionLabel="Filter zurücksetzen"
             actionHandler={resetFilters}
           />

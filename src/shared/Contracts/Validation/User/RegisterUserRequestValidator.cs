@@ -28,9 +28,9 @@ public class RegisterUserRequestValidator : AbstractValidator<RegisterUserReques
         RuleFor(x => x.UserName)
             .SetValidator(new UsernameValidator());
 
-        RuleFor(x => x.ReferralCode)
-            .MaximumLength(50)
-            .WithMessage("Referral code must not exceed 50 characters")
-            .When(x => !string.IsNullOrEmpty(x.ReferralCode));
+        // RuleFor(x => x.ReferralCode)
+        //     .MaximumLength(50)
+        //     .WithMessage("Referral code must not exceed 50 characters")
+        //     .When(x => !string.IsNullOrEmpty(x.ReferralCode));
     }
 }

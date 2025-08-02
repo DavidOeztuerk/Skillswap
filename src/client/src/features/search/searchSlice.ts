@@ -30,15 +30,15 @@ const initialState: SearchState = {
 // Async thunks
 export const fetchUserSearchResults = createAsyncThunk(
   'search/fetchUserSearchResults',
-  async ({ page = 1, pageSize = 12 }: { page?: number; pageSize?: number } = {}) => {
-    return await skillService.getUserSkills(page, pageSize);
+  async ({ pageNumber = 1, pageSize = 12 }: { pageNumber?: number; pageSize?: number } = {}) => {
+    return await skillService.getUserSkills(pageNumber, pageSize);
   }
 );
 
 export const fetchAllSkills = createAsyncThunk(
   'search/fetchAllSkills',
-  async ({ page = 1, pageSize = 12 }: { page?: number; pageSize?: number } = {}) => {
-    return await skillService.getAllSkills({ page, pageSize });
+  async ({ pageNumber = 1, pageSize = 12 }: { pageNumber?: number; pageSize?: number } = {}) => {
+    return await skillService.getAllSkills({ pageNumber, pageSize });
   }
 );
 
@@ -110,7 +110,7 @@ const searchSlice = createSlice({
       })
       .addCase(fetchUserSearchResults.fulfilled, (state, action) => {
         state.userLoading = false;
-        state.userResults = action.payload.data;
+        state.userResults = action.payload.data ?? [];
         state.userPagination = {
           page: action.payload.pageNumber,
           pageSize: action.payload.pageSize,
@@ -131,7 +131,7 @@ const searchSlice = createSlice({
       })
       .addCase(fetchAllSkills.fulfilled, (state, action) => {
         state.allSkillsLoading = false;
-        state.allSkills = action.payload.data;
+        state.allSkills = action.payload.data ?? [];
         state.allSkillsPagination = {
           page: action.payload.pageNumber,
           pageSize: action.payload.pageSize,

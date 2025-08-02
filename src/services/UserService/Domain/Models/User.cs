@@ -1,3 +1,4 @@
+using Contracts.User.Responses.Auth;
 using Infrastructure.Models;
 using System.ComponentModel.DataAnnotations;
 
@@ -38,7 +39,7 @@ public class User : AuditableEntity
     public string? TimeZone { get; set; }
 
     [MaxLength(20)]
-    public string AccountStatus { get; set; } = "PendingVerification";
+    public AccountStatus AccountStatus { get; set; } = AccountStatus.PendingVerification;
 
     public bool EmailVerified { get; set; } = false;
     public bool PhoneVerified { get; set; } = false;
@@ -67,7 +68,7 @@ public class User : AuditableEntity
 
     // Avatar URL (replaces ProfilePictureUrl)
     [MaxLength(500)]
-    public string? AvatarUrl { get; set; }
+    public string? ProfilcePictureUrl { get; set; }
 
     // Availability and scheduling (stored as JSON)
     public string? AvailabilityJson { get; set; }
@@ -94,7 +95,7 @@ public class User : AuditableEntity
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();
     public bool IsAccountLocked => AccountLockedUntil.HasValue && AccountLockedUntil > DateTime.UtcNow;
-    public bool IsActive => AccountStatus == "Active" && !IsAccountLocked && !IsDeleted;
+    public bool IsActive => AccountStatus == AccountStatus.Active && !IsAccountLocked && !IsDeleted;
 
     // Helper methods
     public void LockAccount(TimeSpan lockDuration, string reason)
@@ -102,6 +103,7 @@ public class User : AuditableEntity
         AccountLockedUntil = DateTime.UtcNow.Add(lockDuration);
         FailedLoginAttempts++;
         UpdatedAt = DateTime.UtcNow;
+        AccountStatus = AccountStatus.Suspended;
     }
 
     public void UnlockAccount()
@@ -109,6 +111,7 @@ public class User : AuditableEntity
         AccountLockedUntil = null;
         FailedLoginAttempts = 0;
         UpdatedAt = DateTime.UtcNow;
+        AccountStatus = AccountStatus.Active;
     }
 
     public void MarkEmailAsVerified()
@@ -116,9 +119,9 @@ public class User : AuditableEntity
         EmailVerified = true;
         EmailVerificationToken = null;
         EmailVerificationTokenExpiresAt = null;
-        if (AccountStatus == "PendingVerification")
+        if (AccountStatus == AccountStatus.PendingVerification)
         {
-            AccountStatus = "Active";
+            AccountStatus = AccountStatus.Active;
         }
         UpdatedAt = DateTime.UtcNow;
     }

@@ -28,7 +28,7 @@ const MatchmakingPage: React.FC = () => {
     isLoading,
     error,
     loadMatches,
-    sendMatchRequest,
+    // sendMatchRequest, // ❌ ENTFERNT: Wird nicht verwendet da allgemeine Match-Anfragen deaktiviert sind
     approveMatch,
     declineMatch,
   } = useMatchmaking();
@@ -82,27 +82,15 @@ const MatchmakingPage: React.FC = () => {
     setSelectedUserSkill(null);
   };
 
-  // Handler für das Absenden des Match-Formulars
-  const handleSubmitMatchForm = async (data: CreateMatchRequest) => {
-    try {
-      const success = await sendMatchRequest(data);
-
-      if (success) {
-        setStatusMessage({
-          text: 'Match-Anfrage erfolgreich gesendet',
-          type: 'success',
-        });
-        handleCloseMatchForm();
-        void loadMatches(); // Reload matches
-      } else {
-        throw new Error('Fehler beim Erstellen der Match-Anfrage');
-      }
-    } catch (error) {
-      setStatusMessage({
-        text: 'Fehler beim Erstellen der Match-Anfrage: ' + String(error),
-        type: 'error',
-      });
-    }
+  // ❌ DEAKTIVIERT: Allgemeine Match-Anfragen sind nicht implementiert
+  // Das Backend benötigt eine spezifische TargetUserId
+  // Match-Anfragen sollten nur von SkillDetailPage aus erstellt werden
+  const handleSubmitMatchForm = async (_data: CreateMatchRequest) => {
+    setStatusMessage({
+      text: 'Diese Funktionalität ist noch nicht verfügbar. Bitte erstelle Match-Anfragen direkt von der Skill-Detail-Seite.',
+      type: 'info',
+    });
+    handleCloseMatchForm();
   };
 
   // Handler für das Öffnen des Bestätigungsdialogs
@@ -216,11 +204,11 @@ const MatchmakingPage: React.FC = () => {
   // Lehrbare oder lernbare Skills des Benutzers finden
   const renderMatchButton = () => {
     // Skills, die der Benutzer lehren oder lernen kann
-    const teachableSkills = userSkills.filter((skill) => skill.isOffered);
-    const learnableSkills = userSkills.filter((skill) => !skill.isOffered);
+    const teachableSkills = userSkills?.filter((skill) => skill.isOffered);
+    const learnableSkills = userSkills?.filter((skill) => !skill.isOffered);
 
     // Wenn Benutzer sowohl lehrbare als auch lernbare Skills hat, zeige beide Optionen
-    if (teachableSkills?.length > 0 && learnableSkills?.length > 0) {
+    if (learnableSkills && teachableSkills && teachableSkills?.length > 0 && learnableSkills?.length > 0) {
       return {
         label: 'Match erstellen',
         onClick: () => {
@@ -231,7 +219,7 @@ const MatchmakingPage: React.FC = () => {
     }
 
     // Wenn Benutzer nur lehrbare Skills hat
-    if (teachableSkills?.length > 0) {
+    if (teachableSkills && teachableSkills.length > 0) {
       return {
         label: 'Als Lehrer:in anbieten',
         onClick: () => handleOpenMatchForm(teachableSkills[0]),
@@ -239,7 +227,7 @@ const MatchmakingPage: React.FC = () => {
     }
 
     // Wenn Benutzer nur lernbare Skills hat
-    if (learnableSkills?.length > 0) {
+    if (learnableSkills && learnableSkills.length > 0) {
       return {
         label: 'Lehrer:in finden',
         onClick: () => handleOpenMatchForm(learnableSkills[0]),
@@ -297,6 +285,8 @@ const MatchmakingPage: React.FC = () => {
           onClose={handleCloseMatchForm}
           onSubmit={handleSubmitMatchForm}
           skill={selectedUserSkill}
+          targetUserId="placeholder" // ❌ DEAKTIVIERT: Allgemeine Match-Anfragen sind nicht verfügbar
+          targetUserName="Unbekannt"
           isLoading={isLoading}
         />
       )}

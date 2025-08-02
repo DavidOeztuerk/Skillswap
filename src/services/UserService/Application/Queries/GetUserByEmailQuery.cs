@@ -1,3 +1,4 @@
+using Contracts.User.Responses.Auth;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -23,7 +24,7 @@ public record UserSummaryResponse(
     string UserName,
     List<string> Roles,
     bool EmailVerified,
-    string AccountStatus);
+    AccountStatus AccountStatus);
 
 public class GetUserByEmailQueryValidator : AbstractValidator<GetUserByEmailQuery>
 {

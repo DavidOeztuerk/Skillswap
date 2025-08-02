@@ -189,7 +189,7 @@ const SkillEditPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description={{message: "Der Skill konnte nicht geladen werden oder existiert nicht."}}
+          description={"Der Skill konnte nicht geladen werden oder existiert nicht."}
           actionLabel="Zurück zu meinen Skills"
           actionHandler={() => navigate('/skills/my-skills')}
         />
@@ -203,7 +203,7 @@ const SkillEditPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description={{message: "Der Skill, den du bearbeiten möchtest, existiert nicht."}}
+          description={"Der Skill, den du bearbeiten möchtest, existiert nicht."}
           actionLabel="Zurück zu meinen Skills"
           actionHandler={() => navigate('/skills/my-skills')}
         />

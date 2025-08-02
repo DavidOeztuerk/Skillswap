@@ -21,8 +21,9 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { fetchUserSearchResults, fetchAllSkills, selectSearchError } from '../../features/search/searchSlice';
 import PageErrorBoundary from '../../components/error/PageErrorBoundary';
-import SkillCard from '../../components/skills/SkillCard';
+// import SkillCard from '../../components/skills/SkillCard';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
+import EnhancedSkillCard from '../../components/skills/SkillCard';
 
 /**
  * Search Results Page - Displays search results for users and skills
@@ -60,18 +61,18 @@ const SearchResultsPage: React.FC = () => {
     }
   }, [searchParams]);
 
-  const performSearch = (query: string, type: string, page: number = 1) => {
+  const performSearch = (query: string, type: string, pageNumber: number = 1) => {
     if (!query.trim()) return;
 
     if (type === 'users' || type === 'all') {
       dispatch(fetchUserSearchResults({
-         page, pageSize: 10 
+         pageNumber, pageSize: 10 
       }));
     }
 
     if (type === 'skills' || type === 'all') {
       dispatch(fetchAllSkills({
-         page, pageSize: 10 
+         pageNumber, pageSize: 10 
       }));
     }
   };
@@ -234,11 +235,10 @@ const SearchResultsPage: React.FC = () => {
                 <Grid container spacing={2}>
                   {userResults.map((skill) => (
                     <Grid key={skill.id} sx={{xs:12, sm:6, md:4}}>
-                      <SkillCard 
+                      <EnhancedSkillCard 
                         skill={skill} 
                         onEdit={() => {}}
                         onDelete={() => {}}
-                        onViewDetails={() => {}}
                       />
                     </Grid>
                   ))}
@@ -266,11 +266,10 @@ const SearchResultsPage: React.FC = () => {
                 <Grid container spacing={2}>
                   {allSkills.map((skill) => (
                     <Grid key={skill.id} sx={{ xs: 12, sm: 6, md: 4 }}>
-                      <SkillCard 
+                      <EnhancedSkillCard 
                         skill={skill} 
                         onEdit={() => {}}
                         onDelete={() => {}}
-                        onViewDetails={() => {}}
                       />
                     </Grid>
                   ))}

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Infrastructure.Services;
+// using Infrastructure.Services;
 using SkillService.Application.Queries;
 
 namespace SkillService.Application.QueryHandlers;
@@ -12,7 +12,7 @@ namespace SkillService.Application.QueryHandlers;
 
 public class GetSkillDetailsQueryHandler(
     SkillDbContext dbContext,
-    IUserLookupService userLookup,
+    // IUserLookupService userLookup,
     ILogger<GetSkillDetailsQueryHandler> logger)
     : BaseQueryHandler<
     GetSkillDetailsQuery,
@@ -20,7 +20,7 @@ public class GetSkillDetailsQueryHandler(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
-    private readonly IUserLookupService _userLookup = userLookup;
+    // private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<SkillDetailsResponse>> Handle(
         GetSkillDetailsQuery request,
@@ -41,12 +41,12 @@ public class GetSkillDetailsQueryHandler(
             }
 
             List<SkillReviewResponse>? reviews = null;
-            if (request.IncludeReviews && skill.Reviews.Any())
+            if (request.IncludeReviews && skill.Reviews.Count != 0)
             {
-                reviews = new List<SkillReviewResponse>();
+                reviews = [];
                 foreach (var r in skill.Reviews.Take(10))
                 {
-                    var reviewer = await _userLookup.GetUserAsync(r.ReviewerUserId, cancellationToken);
+                    // var reviewer = await _userLookup.GetUserAsync(r.ReviewerUserId, cancellationToken);
                     reviews.Add(new SkillReviewResponse(
                         r.Id,
                         r.ReviewerUserId,
@@ -58,12 +58,12 @@ public class GetSkillDetailsQueryHandler(
             }
 
             List<SkillEndorsementResponse>? endorsements = null;
-            if (request.IncludeEndorsements && skill.Endorsements.Any())
+            if (request.IncludeEndorsements && skill.Endorsements.Count != 0)
             {
-                endorsements = new List<SkillEndorsementResponse>();
+                endorsements = [];
                 foreach (var e in skill.Endorsements.Take(10))
                 {
-                    var endorser = await _userLookup.GetUserAsync(e.EndorserUserId, cancellationToken);
+                    // var endorser = await _userLookup.GetUserAsync(e.EndorserUserId, cancellationToken);
                     endorsements.Add(new SkillEndorsementResponse(
                         e.Id,
                         e.EndorserUserId,
@@ -72,7 +72,7 @@ public class GetSkillDetailsQueryHandler(
                 }
             }
 
-            var owner = await _userLookup.GetUserAsync(skill.UserId, cancellationToken);
+            // var owner = await _userLookup.GetUserAsync(skill.UserId, cancellationToken);
 
             var response = new SkillDetailsResponse(
                 skill.Id,
@@ -83,22 +83,13 @@ public class GetSkillDetailsQueryHandler(
                 new SkillCategoryResponse(
                     skill.SkillCategory.Id,
                     skill.SkillCategory.Name,
-                    skill.SkillCategory.Description,
                     skill.SkillCategory.IconName,
-                    skill.SkillCategory.Color,
-                    skill.SkillCategory.SortOrder,
-                    null,
-                    skill.SkillCategory.IsActive,
-                    skill.SkillCategory.CreatedAt),
+                    skill.SkillCategory.Color),
                 new ProficiencyLevelResponse(
                     skill.ProficiencyLevel.Id,
                     skill.ProficiencyLevel.Level,
-                    skill.ProficiencyLevel.Description,
                     skill.ProficiencyLevel.Rank,
-                    skill.ProficiencyLevel.Color,
-                    null,
-                    skill.ProficiencyLevel.IsActive,
-                    skill.ProficiencyLevel.CreatedAt),
+                    skill.ProficiencyLevel.Color),
                 skill.Tags,
                 skill.Requirements,
                 skill.Location,

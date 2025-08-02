@@ -42,7 +42,7 @@ public class SearchUsersQueryHandler(
                 query = query.Where(u => u.UserRoles.Any(ur => ur.Role == request.Role && ur.IsActive));
             }
 
-            if (!string.IsNullOrEmpty(request.AccountStatus))
+            if (!string.IsNullOrEmpty(request.AccountStatus.ToString()))
             {
                 query = query.Where(u => u.AccountStatus == request.AccountStatus);
             }

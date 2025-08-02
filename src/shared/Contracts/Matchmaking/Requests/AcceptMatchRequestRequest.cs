@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Contracts.Matchmaking.Requests;
 
 /// <summary>

@@ -2,10 +2,6 @@ using CQRS.Interfaces;
 
 namespace SkillService.Application.Queries;
 
-// ============================================================================
-// GET SKILL CATEGORIES QUERY
-// ============================================================================
-
 public record GetSkillCategoriesQuery(
     bool IncludeInactive = false,
     bool IncludeSkillCounts = false)
@@ -18,10 +14,5 @@ public record GetSkillCategoriesQuery(
 public record SkillCategoryResponse(
     string CategoryId,
     string Name,
-    string? Description,
     string? IconName,
-    string? Color,
-    int SortOrder,
-    int? SkillCount,
-    bool IsActive,
-    DateTime CreatedAt);
+    string? Color);

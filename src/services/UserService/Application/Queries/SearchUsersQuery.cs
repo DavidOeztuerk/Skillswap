@@ -1,11 +1,8 @@
+using Contracts.User.Responses.Auth;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace UserService.Application.Queries;
-
-// ============================================================================
-// SEARCH USERS QUERY (Admin/Moderator only)
-// ============================================================================
 
 public record SearchUsersQuery(
     string? SearchTerm = null,
@@ -15,7 +12,7 @@ public record SearchUsersQuery(
     bool SortDescending = true,
     bool? EmailVerified = null,
     string? Role = null,
-    string? AccountStatus = null,
+    AccountStatus? AccountStatus = null,
     DateTime? CreatedAfter = null,
     DateTime? CreatedBefore = null,
     int PageNumber = 1,
@@ -33,7 +30,7 @@ public record UserSearchResultResponse(
     string LastName,
     List<string> Roles,
     bool EmailVerified,
-    string AccountStatus,
+    AccountStatus AccountStatus,
     DateTime CreatedAt,
     DateTime? LastLoginAt);
 
@@ -57,18 +54,15 @@ public class SearchUsersQueryValidator : AbstractValidator<SearchUsersQuery>
 
         RuleFor(x => x.AccountStatus)
             .Must(BeValidAccountStatus).WithMessage("Invalid account status")
-            .When(x => !string.IsNullOrEmpty(x.AccountStatus));
+            .When(x => !string.IsNullOrEmpty(x.AccountStatus.ToString()));
 
         RuleFor(x => x.CreatedAfter)
             .LessThan(x => x.CreatedBefore).WithMessage("CreatedAfter must be before CreatedBefore")
             .When(x => x.CreatedAfter.HasValue && x.CreatedBefore.HasValue);
     }
 
-    private static bool BeValidAccountStatus(string? status)
+    private static bool BeValidAccountStatus(AccountStatus? status)
     {
-        if (string.IsNullOrEmpty(status)) return true;
-
-        var validStatuses = new[] { "Active", "Inactive", "Suspended", "PendingVerification" };
-        return validStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
+        return status is null || Enum.IsDefined(typeof(AccountStatus), status);
     }
 }

@@ -1,4 +1,10 @@
 
+using MediatR;
+using AppointmentService.Application.EventHandlers;
+using Events.Integration.UserManagement;
+using Events.Domain.Skill;
+using Events.Domain.Matchmaking;
+
 namespace AppointmentService.Extensions;
 
 /// <summary>
@@ -11,8 +17,10 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAppointmentServiceDependencies(this IServiceCollection services)
     {
-        // Register contract mappers
-        //services.AddScoped<IAppointmentContractMapper, AppointmentContractMapper>();
+        // Register cascading delete event handlers
+        services.AddScoped<INotificationHandler<UserDeletedEvent>, UserDeletedIntegrationEventHandler>();
+        services.AddScoped<INotificationHandler<SkillDeletedDomainEvent>, SkillDeletedIntegrationEventHandler>();
+        services.AddScoped<INotificationHandler<MatchDeletedDomainEvent>, MatchDeletedIntegrationEventHandler>();
 
         return services;
     }

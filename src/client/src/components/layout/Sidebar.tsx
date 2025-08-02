@@ -21,6 +21,8 @@ import {
   Dashboard as DashboardIcon,
   EmojiObjects as SkillsIcon,
   People as MatchmakingIcon,
+  // Handshake as MatchesIcon,
+  // MailOutline as RequestsIcon,
   Event as AppointmentsIcon,
   Person as ProfileIcon,
   ExpandLess as ExpandLessIcon,
@@ -96,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
-      text: 'Matches',
+      text: 'Matchmaking',
       icon: <MatchmakingIcon />,
       path: '/matchmaking',
       authRequired: true,

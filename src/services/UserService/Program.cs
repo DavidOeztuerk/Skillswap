@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Contracts.User.Requests;
 using Contracts.User.Responses;
+using Contracts.User.Responses.Auth;
 using CQRS.Extensions;
 using EventSourcing;
 using Infrastructure.Extensions;
@@ -28,7 +29,9 @@ var builder = WebApplication.CreateBuilder(args);
 // ============================================================================
 
 var serviceName = "UserService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST")
+    ?? builder.Configuration["RabbitMQ:Host"]
+    ?? "localhost"; 
 
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
@@ -94,7 +97,7 @@ var safeConnectionString = connectionString.Contains("Password=")
 builder.Services.AddDbContext<UserDbContext>(options =>
 {
     options.UseNpgsql(connectionString);
-    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+    //options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
     options.EnableDetailedErrors(builder.Environment.IsDevelopment());
 });
 
@@ -319,7 +322,7 @@ auth.MapPost("/register", HandleRegisterUser)
     .WithSummary("Register a new user")
     .WithDescription("Creates a new user account with email verification")
     .WithTags("Authentication")
-    .Produces<RegisterUserResponse>(201)
+    .Produces<RegisterResponse>(201)
     .Produces(400)
     .Produces(409); // Conflict for existing email
 
@@ -480,52 +483,6 @@ profile.MapDelete("/avatar", HandleDeleteAvatar)
     .RequireAuthorization()
     .Produces<DeleteAvatarResponse>(200)
     .Produces(401);
-
-// ============================================================================
-// API ENDPOINTS - USER AVAILABILITY
-// ============================================================================
-
-//profile.MapGet("/availability", HandleGetUserAvailability)
-//    .WithName("GetUserAvailability")
-//    .WithSummary("Get user availability")
-//    .WithDescription("Retrieves the user's availability schedule")
-//    .WithTags("User Availability")
-//    .RequireAuthorization()
-//    .Produces<UserAvailabilityResponse>(200)
-//    .Produces(401);
-
-//profile.MapPut("/availability", HandleUpdateUserAvailability)
-//    .WithName("UpdateUserAvailability")
-//    .WithSummary("Update user availability")
-//    .WithDescription("Updates the user's availability schedule")
-//    .WithTags("User Availability")
-//    .RequireAuthorization()
-//    .Produces<UpdateUserAvailabilityResponse>(200)
-//    .Produces(400)
-//    .Produces(401);
-
-// ============================================================================
-// API ENDPOINTS - NOTIFICATION PREFERENCES
-// ============================================================================
-
-// profile.MapGet("/notifications", HandleGetNotificationPreferences)
-//     .WithName("GetNotificationPreferences")
-//     .WithSummary("Get notification preferences")
-//     .WithDescription("Retrieves the user's notification preferences")
-//     .WithTags("Notifications")
-//     .RequireAuthorization()
-//     .Produces<NotificationPreferencesResponse>(200)
-//     .Produces(401);
-
-// profile.MapPut("/notifications", HandleUpdateNotificationPreferences)
-//     .WithName("UpdateNotificationPreferences")
-//     .WithSummary("Update notification preferences")
-//     .WithDescription("Updates the user's notification preferences")
-//     .WithTags("Notifications")
-//     .RequireAuthorization()
-//     .Produces<UpdateNotificationPreferencesResponse>(200)
-//     .Produces(400)
-//     .Produces(401);
 
 // ============================================================================
 // API ENDPOINTS - USER BLOCKING
@@ -760,19 +717,25 @@ events.MapPost("/replay", HandleReplayEvents)
 
 static async Task<IResult> HandleRegisterUser(IMediator mediator, [FromBody] RegisterUserRequest request)
 {
-    var command = new RegisterUserCommand(request.Email, request.Password, request.FirstName, request.LastName, request.UserName, request.ReferralCode);
+    var command = new RegisterUserCommand(request.Email, request.Password, request.FirstName, request.LastName, request.UserName);
     return await mediator.SendCommand(command);
 }
 
 static async Task<IResult> HandleLoginUser(IMediator mediator, [FromBody] LoginRequest request)
 {
-    var command = LoginUserCommand.FromRequest(request);
+    var command = new LoginUserCommand(
+        request.Email,
+        request.Password,
+        request.TwoFactorCode,
+        request.DeviceId,
+        request.DeviceInfo);
+        
     return await mediator.SendCommand(command);
 }
 
 static async Task<IResult> HandleRefreshToken(IMediator mediator, HttpRequest http, [FromBody] RefreshTokenRequest request)
 {
-    var accessToken = http.Headers["Authorization"].ToString().Replace("Bearer ", string.Empty);
+    var accessToken = http.Headers.Authorization.ToString().Replace("Bearer ", string.Empty);
     var command = new RefreshTokenCommand(accessToken, request.RefreshToken) { UserId = null };
     return await mediator.SendCommand(command);
 }
@@ -865,8 +828,8 @@ static async Task<IResult> HandleGetUserProfile(IMediator mediator, ClaimsPrinci
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var updatedQuery = new GetUserProfileQuery(userId);
-    return await mediator.SendQuery(updatedQuery);
+    var query = new GetUserProfileQuery(userId);
+    return await mediator.SendQuery(query);
 }
 
 static async Task<IResult> HandleUpdateUserProfile(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateUserProfileRequest request)
@@ -897,56 +860,10 @@ static async Task<IResult> HandleDeleteAvatar(IMediator mediator, ClaimsPrincipa
 }
 
 // ============================================================================
-// HANDLER METHODS - USER AVAILABILITY
-// ============================================================================
-
-//static async Task<IResult> HandleGetUserAvailability(IMediator mediator, ClaimsPrincipal user, GetUserAvailabilityQuery query)
-//{
-//    var userId = user.GetUserId();
-//    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-//    var updatedQuery = query with { UserId = userId };
-//    return await mediator.SendQuery(query);
-//}
-
-//static async Task<IResult> HandleUpdateUserAvailability(IMediator mediator, ClaimsPrincipal user, UpdateUserAvailabilityCommand command)
-//{
-//    var userId = user.GetUserId();
-//    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-//    var updatedCommand = command with { UserId = userId };
-//    return await mediator.SendCommand(updatedCommand);
-//}
-
-// ============================================================================
-// HANDLER METHODS - NOTIFICATION PREFERENCES
-// ============================================================================
-
-// static async Task<IResult> HandleGetNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] GetNotificationPreferencesRequest request)
-// {
-//     var userId = user.GetUserId();
-//     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-//     var query = new GetNotificationPreferencesQuery(userId);
-//     return await mediator.SendQuery(query);
-// }
-
-// static async Task<IResult> HandleUpdateNotificationPreferences(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateNotificationPreferencesRequest request)
-// {
-//     var userId = user.GetUserId();
-//     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-//     // var command = new UpdateNotificationPreferencesCommand(request.EmailEnabled, request.PushEnabled, request.SmsEnabled) { UserId = userId };
-//     var command = new UpdateNotificationPreferencesCommand() { UserId = userId };
-
-//     return await mediator.SendCommand(command);
-// }
-
-// ============================================================================
 // HANDLER METHODS - FAVORITE SKILLS
 // ============================================================================
 
-static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPrincipal user, 
+static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPrincipal user,
     [FromQuery] string pageSize = "100", [FromQuery] string pageNumber = "1")
 {
     var userId = user.GetUserId();
@@ -960,7 +877,7 @@ static async Task<IResult> HandleAddFavoriteSkill(IMediator mediator, ClaimsPrin
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
+
     if (string.IsNullOrEmpty(skillId)) return Results.BadRequest("SkillId is required");
 
     var command = new AddFavoriteSkillCommand(skillId) { UserId = userId };
@@ -971,7 +888,7 @@ static async Task<IResult> HandleRemoveFavoriteSkill(IMediator mediator, ClaimsP
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-    
+
     if (string.IsNullOrEmpty(skillId)) return Results.BadRequest("SkillId is required");
 
     var command = new RemoveFavoriteSkillCommand(skillId) { UserId = userId };
@@ -1035,7 +952,7 @@ static async Task<IResult> HandleGetBlockedUsers(IMediator mediator, ClaimsPrinc
 // HANDLER METHODS - ADMIN USER MANAGEMENT
 // ============================================================================
 
-static async Task<IResult> HandleGetAllUsers(IMediator mediator, ClaimsPrincipal user, [FromBody] GetAllUsersRequest request)
+static async Task<IResult> HandleGetAllUsers(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetAllUsersRequest request)
 {
     var query = new GetAllUsersQuery();
     return await mediator.SendQuery(query);

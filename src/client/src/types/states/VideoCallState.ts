@@ -1,5 +1,5 @@
-import { ChatMessage } from '../models/ChatMessage';
 import { SliceError } from '../../store/types';
+import { ChatMessage } from '../models/ChatMessage';
 
 export interface CallParticipant {
   id: string;

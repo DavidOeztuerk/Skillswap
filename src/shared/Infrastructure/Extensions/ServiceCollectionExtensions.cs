@@ -6,6 +6,8 @@ using Infrastructure.Logging;
 using Infrastructure.Observability;
 using Microsoft.Extensions.Configuration;
 using Serilog;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http.Json;
 
 namespace Infrastructure.Extensions;
 
@@ -26,6 +28,22 @@ public static class ServiceCollectionExtensions
 
         // Add health checks
         services.AddHealthChecks();
+
+        // Configure JSON serialization for APIs to use camelCase
+        services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
+            options.SerializerOptions.WriteIndented = environment.IsDevelopment();
+        });
+
+        // Also configure for traditional controllers (if any)
+        services.Configure<JsonOptions>(options =>
+        {
+            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
+            options.SerializerOptions.WriteIndented = environment.IsDevelopment();
+        });
 
         // Add HTTP context accessor for correlation ID
         services.AddHttpContextAccessor();

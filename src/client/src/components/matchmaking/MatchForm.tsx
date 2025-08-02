@@ -26,7 +26,6 @@ import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
 import LoadingButton from '../ui/LoadingButton';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { Skill } from '../../types/models/Skill';
-import { User } from '../../types/models/User';
 
 // Schema angepasst für CreateMatchRequest
 const matchFormSchema = z.object({
@@ -55,7 +54,8 @@ interface MatchFormProps {
   onClose: () => void;
   onSubmit: (data: CreateMatchRequest) => Promise<void>;
   skill: Skill;
-  targetUser?: User;
+  targetUserId: string; // ✅ VEREINFACHT: Direkt targetUserId anstatt User-Objekt
+  targetUserName?: string; // ✅ Optional: Name für Anzeige
   isLoading?: boolean;
 }
 
@@ -78,7 +78,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
   onClose,
   onSubmit,
   skill,
-  targetUser,
+  targetUserId,
+  targetUserName,
   isLoading = false,
 }) => {
   // Default-Werte
@@ -115,10 +116,17 @@ const MatchForm: React.FC<MatchFormProps> = ({
   const handleFormSubmit: SubmitHandler<MatchFormValues> = async (data) => {
     try {
       // Transformiere die Daten in das CreateMatchRequest Format
+      if (!targetUserId) {
+        console.error('❌ MatchForm: targetUserId ist erforderlich für Match-Anfragen');
+        throw new Error('Target User ID ist erforderlich');
+      }
+
       const matchRequest: CreateMatchRequest = {
         skillId: data.skillId,
         description: data.description || (data.isOffering ? 'Ich möchte diesen Skill anbieten' : 'Ich möchte diesen Skill lernen'),
         message: data.message || '',
+        targetUserId: targetUserId, // ✅ VEREINFACHT: Direkt targetUserId verwenden
+        skillName: skill.name,
       };
 
       await onSubmit(matchRequest);
@@ -164,7 +172,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
               </Typography>
             </Box>
 
-            {targetUser && (
+            {targetUserName && (
               <Box
                 bgcolor="primary.main"
                 color="primary.contrastText"
@@ -173,13 +181,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
                 mb={2}
               >
                 <Typography variant="subtitle1" gutterBottom>
-                  Anfrage an:{' '}
-                  {targetUser.userName ||
-                    targetUser.firstName + ' ' + targetUser.lastName}
+                  Anfrage an: {targetUserName}
                 </Typography>
-                {/* <Typography variant="body2">
-                  {targetUser.bio || 'Keine Beschreibung verfügbar'}
-                </Typography> */}
               </Box>
             )}
 

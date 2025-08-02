@@ -43,22 +43,4 @@ public static class MediatorExtensions
             return TypedResults.BadRequest(result);
         }
     }
-
-    /// <summary>
-    /// Sends a command with typed response
-    /// </summary>
-    public static async Task<IResult> SendCommand<TCommand, TResponse>(this IMediator mediator, TCommand command)
-        where TCommand : class
-    {
-        var result = await mediator.Send(command);
-
-        if (result != null && ((dynamic)result).Success == true)
-        {
-            return TypedResults.Ok(result);
-        }
-        else
-        {
-            return TypedResults.BadRequest(result);
-        }
-    }
 }

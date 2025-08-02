@@ -28,15 +28,15 @@ public class DeleteAvatarCommandHandler(
             return Error("User not found");
         }
 
-        if (string.IsNullOrEmpty(user.AvatarUrl))
+        if (string.IsNullOrEmpty(user.ProfilcePictureUrl))
         {
             return Error("User has no avatar to delete");
         }
 
-        var oldAvatarUrl = user.AvatarUrl;
+        var oldAvatarUrl = user.ProfilcePictureUrl;
 
         // Clear avatar URL
-        user.AvatarUrl = null;
+        user.ProfilcePictureUrl = null;
         user.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);

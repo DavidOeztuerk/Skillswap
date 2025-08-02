@@ -55,7 +55,8 @@ public class GetUserProfileQueryHandler(
                 user.AccountStatus,
                 user.CreatedAt,
                 user.LastLoginAt,
-                preferences);
+                preferences,
+                user.ProfilcePictureUrl);
 
             Logger.LogInformation("Retrieved profile for user {UserId}", request.UserId);
             return Success(response);

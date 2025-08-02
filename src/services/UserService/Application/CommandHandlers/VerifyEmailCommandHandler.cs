@@ -5,6 +5,7 @@ using UserService.Application.Commands;
 using EventSourcing;
 using Events.Domain.User;
 using Contracts.User.Responses;
+using Contracts.User.Responses.Auth;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -43,7 +44,7 @@ public class VerifyEmailCommandHandler(
             user.EmailVerified = true;
             user.EmailVerificationToken = null;
             user.EmailVerificationTokenExpiresAt = null;
-            user.AccountStatus = "Active";
+            user.AccountStatus = AccountStatus.Active;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync(cancellationToken);

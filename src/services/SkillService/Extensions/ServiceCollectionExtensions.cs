@@ -1,3 +1,7 @@
+using MediatR;
+using SkillService.Application.EventHandlers;
+using Events.Integration.UserManagement;
+
 namespace SkillService.Extensions;
 
 /// <summary>
@@ -10,8 +14,8 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddSkillServiceDependencies(this IServiceCollection services)
     {
-        // Register contract mappers
-        //services.AddScoped<ISkillContractMapper, SkillContractMapper>();
+        // Register cascading delete event handlers
+        services.AddScoped<INotificationHandler<UserDeletedEvent>, UserDeletedIntegrationEventHandler>();
 
         return services;
     }

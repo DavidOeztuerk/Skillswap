@@ -18,9 +18,5 @@ public record GetProficiencyLevelsQuery(
 public record ProficiencyLevelResponse(
     string LevelId,
     string Level,
-    string? Description,
     int Rank,
-    string? Color,
-    int? SkillCount,
-    bool IsActive,
-    DateTime CreatedAt);
+    string? Color);

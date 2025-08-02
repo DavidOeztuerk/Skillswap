@@ -1,4 +1,4 @@
-using Contracts.Common;
+using CQRS.Interfaces;
 
 namespace Contracts.Appointment.Responses;
 
@@ -7,7 +7,7 @@ namespace Contracts.Appointment.Responses;
 /// </summary>
 /// <param name="Appointments">Paginated list of user appointments</param>
 public record GetUserAppointmentsResponse(
-    PagedResponse<UserAppointmentItem> Appointments)
+    IPagedQuery<UserAppointmentItem> Appointments)
 {
     /// <summary>
     /// API Version this response supports

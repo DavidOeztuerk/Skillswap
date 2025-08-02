@@ -157,8 +157,8 @@ export const useSkills = () => {
   );
 
   /** FAVORITES: Get all favorite skills (Skill objects) */
-  const getFavoriteSkills = useCallback((): Skill[] => {
-    return allSkills.filter((skill) => favoriteSkillIds.includes(skill.id));
+  const getFavoriteSkills = useCallback((): Skill[] | undefined => {
+    return allSkills?.filter((skill) => favoriteSkillIds.includes(skill.id));
   }, [allSkills, favoriteSkillIds]);
 
   // Categories and proficiency levels from separate slices
@@ -173,7 +173,7 @@ export const useSkills = () => {
    * @returns Current skills array to display
    */
   const getCurrentSkills = useCallback(
-    (showOnly: string = 'others'): Skill[] => {
+    (showOnly: string = 'others'): Skill[] | undefined => {
       if (isSearchActive && searchResults?.length > 0) {
         return searchResults;
       }
@@ -246,7 +246,7 @@ export const useSkills = () => {
    * @returns Promise<boolean> - Success status
    */
   const searchSkillsByQuery = useCallback(
-    async (query: string, page = 1, pageSize = 12): Promise<boolean> => {
+    async (query: string, pageNumber = 1, pageSize = 12): Promise<boolean> => {
       try {
         // Client-side validation
         if (!query?.trim() || query?.length < 2) {
@@ -264,7 +264,7 @@ export const useSkills = () => {
         const resultAction = await dispatch(
           fetchAllSkillsAction({
             searchTerm: query.trim(),
-            page,
+            pageNumber,
             pageSize,
           })
         );
@@ -326,7 +326,7 @@ export const useSkills = () => {
    * @returns Promise<boolean> - Success status
    */
   const searchUserSkills = useCallback(
-    async (query: string, page = 1, pageSize = 12): Promise<boolean> => {
+    async (query: string, pageNumber = 1, pageSize = 12): Promise<boolean> => {
       try {
         if (!query?.trim() || query?.length < 2) {
           dispatch(
@@ -342,7 +342,7 @@ export const useSkills = () => {
         const resultAction = await dispatch(
           fetchAllSkillsAction({
             searchTerm: query.trim(),
-            page,
+            pageNumber,
             pageSize,
             // Add parameter to search only user's skills if your API supports it
             // userSkillsOnly: true
@@ -779,8 +779,8 @@ export const useSkills = () => {
   const getSkillFromState = useCallback(
     (skillId: string): Skill | undefined => {
       return (
-        allSkills.find((skill) => skill.id === skillId) ||
-        userSkills.find((skill) => skill.id === skillId) ||
+        allSkills?.find((skill) => skill.id === skillId) ||
+        userSkills?.find((skill) => skill.id === skillId) ||
         searchResults.find((skill) => skill.id === skillId)
       );
     },
@@ -789,14 +789,14 @@ export const useSkills = () => {
 
   const getCategoryFromState = useCallback(
     (categoryId: string) => {
-      return categories.find((category) => category.categoryId === categoryId);
+      return categories.find((category) => category.id === categoryId);
     },
     [categories]
   );
 
   const getProficiencyLevelFromState = useCallback(
     (levelId: string) => {
-      return proficiencyLevels.find((level) => level.levelId === levelId);
+      return proficiencyLevels.find((level) => level.id === levelId);
     },
     [proficiencyLevels]
   );
@@ -804,8 +804,8 @@ export const useSkills = () => {
   const getSkillsByCategory = useCallback(
     (categoryId: string): Skill[] => {
       const currentSkills = isSearchActive ? searchResults : allSkills;
-      return currentSkills.filter(
-        (skill) => skill.category?.categoryId === categoryId
+      return currentSkills!.filter(
+        (skill) => skill.category?.id === categoryId
       );
     },
     [allSkills, searchResults, isSearchActive]
@@ -814,8 +814,8 @@ export const useSkills = () => {
   const getSkillsByProficiencyLevel = useCallback(
     (levelId: string): Skill[] => {
       const currentSkills = isSearchActive ? searchResults : allSkills;
-      return currentSkills.filter(
-        (skill) => skill.proficiencyLevel?.levelId === levelId
+      return currentSkills!.filter(
+        (skill) => skill.proficiencyLevel?.id === levelId
       );
     },
     [allSkills, searchResults, isSearchActive]
@@ -823,7 +823,7 @@ export const useSkills = () => {
 
   const isUserSkill = useCallback(
     (skillId: string): boolean => {
-      return userSkills.some((skill) => skill.id === skillId);
+      return userSkills?.some((skill) => skill.id === skillId) || false;
     },
     [userSkills]
   );

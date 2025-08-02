@@ -1,6 +1,6 @@
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Infrastructure.Services;
+// using Infrastructure.Services;
 using MatchmakingService.Application.Queries;
 using MatchmakingService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -9,12 +9,12 @@ namespace MatchmakingService.Application.QueryHandlers;
 
 public class GetUserMatchesQueryHandler(
     MatchmakingDbContext dbContext,
-    IUserLookupService userLookup,
+    // IUserLookupService userLookup,
     ILogger<GetUserMatchesQueryHandler> logger)
     : BasePagedQueryHandler<GetUserMatchesQuery, UserMatchResponse>(logger)
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
-    private readonly IUserLookupService _userLookup = userLookup;
+    // private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<PagedResponse<UserMatchResponse>> Handle(
         GetUserMatchesQuery request,
@@ -48,7 +48,7 @@ public class GetUserMatchesQueryHandler(
             var matches = new List<UserMatchResponse>();
             foreach (var m in matchEntities)
             {
-                var otherUser = await _userLookup.GetUserAsync(m.OfferingUserId, cancellationToken);
+                // var otherUser = await _userLookup.GetUserAsync(m.OfferingUserId, cancellationToken);
                 matches.Add(new UserMatchResponse(
                     m.Id,
                     m.OfferedSkillName + " ↔ " + m.RequestedSkillName,

@@ -16,7 +16,7 @@ using Contracts.Skill.Responses;
 using SkillService.Extensions;
 using System.Security.Claims;
 using Infrastructure.Models;
-using Infrastructure.Services;
+// using Infrastructure.Services;
 using MediatR;
 using SkillService;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -41,11 +41,11 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
 
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
-var userServiceUrl = Environment.GetEnvironmentVariable("USERSERVICE_URL") ?? "http://userservice:5001";
-builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
-{
-    client.BaseAddress = new Uri(userServiceUrl);
-});
+// var userServiceUrl = Environment.GetEnvironmentVariable("USERSERVICE_URL") ?? "http://userservice:5001";
+// builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
+// {
+//     client.BaseAddress = new Uri(userServiceUrl);
+// });
 
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
 
@@ -296,40 +296,23 @@ skills.MapPost("/{id}/endorse", EndorseSkill)
 static async Task<IResult> SearchSkills(
     IMediator mediator,
     ClaimsPrincipal user,
-    [FromQuery] string? searchTerm = null,
-    [FromQuery] string? categoryId = null,
-    [FromQuery] string[]? tags = null,
-    [FromQuery] string? proficiencyLevelId = null,
-    [FromQuery] bool? isOffered = null,
-    [FromQuery] bool? isWanted = null,
-    [FromQuery] string? location = null,
-    [FromQuery] bool? isRemote = null,
-    [FromQuery] decimal? minRating = null,
-    [FromQuery] string? sortBy = null,
-    [FromQuery] string? sortDirection = null,
-    [FromQuery] int page = 1,
-    [FromQuery] int pageSize = 12,
-    [FromQuery] bool includeInactive = false)
+    [AsParameters] SearchSkillsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
     var command = new SearchSkillsQuery(
         userId,
-        searchTerm,
-        categoryId,
-        tags?.ToList(),
-        proficiencyLevelId,
-        isOffered,
-        isWanted,
-        location,
-        isRemote,
-        minRating,
-        null, // MaxRating not provided in query params
-        sortBy,
-        sortDirection == "desc", // Convert string to bool
-        page,
-        pageSize);
+        request.SearchTerm,
+        request.CategoryId,
+        request.ProficiencyLevelId,
+        request.Tags?.ToList(),
+        request.IsOffered,
+        request.MinRating,
+        request.SortBy,
+        request.SortDescending,
+        request.PageNumber,
+        request.PageSize);
 
     return await mediator.SendQuery(command);
 }

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using UserService.Domain.Models;
 using System.Text.Json;
+using Contracts.User.Responses.Auth;
 
 namespace UserService;
 
@@ -90,7 +91,9 @@ public class UserDbContext(
             entity.Property(e => e.AccountStatus)
                 .IsRequired()
                 .HasMaxLength(20)
-                .HasDefaultValue("PendingVerification");
+                .HasDefaultValue(AccountStatus.PendingVerification)
+                .HasConversion<string>(); 
+
 
             entity.Property(e => e.EmailVerificationToken)
                 .HasMaxLength(100);
@@ -101,7 +104,7 @@ public class UserDbContext(
             entity.Property(e => e.LastLoginIp)
                 .HasMaxLength(45);
 
-            entity.Property(e => e.AvatarUrl)
+            entity.Property(e => e.ProfilcePictureUrl)
                 .HasMaxLength(500);
 
             entity.Property(e => e.PreferencesJson)

@@ -1,7 +1,7 @@
 using FluentValidation;
 using CQRS.Interfaces;
 using Contracts.User.Requests;
-using Contracts.User.Responses;
+using Contracts.User.Responses.Auth;
 
 namespace UserService.Application.Commands;
 
@@ -16,13 +16,6 @@ public record LoginUserCommand(
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-    
-    public static LoginUserCommand FromRequest(LoginRequest request) => new(
-        request.Email,
-        request.Password,
-        request.TwoFactorCode,
-        request.DeviceId,
-        request.DeviceInfo);
 }
 
 public class LoginUserCommandValidator : AbstractValidator<LoginUserCommand>

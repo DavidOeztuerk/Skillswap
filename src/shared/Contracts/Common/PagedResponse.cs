@@ -37,8 +37,8 @@ public record PagedResponse<T>(
     /// Creates a paged response from a paged request and data
     /// </summary>
     public static PagedResponse<T> Create(
-        IEnumerable<T> items, 
-        int totalCount, 
+        IEnumerable<T> items,
+        int totalCount,
         PagedRequest request,
         string? sortBy = null,
         SortDirection? sortDirection = null,
@@ -47,7 +47,7 @@ public record PagedResponse<T>(
     {
         var itemsList = items.ToList();
         var totalPages = (int)Math.Ceiling((double)totalCount / request.PageSize);
-        
+
         return new PagedResponse<T>(
             Items: itemsList,
             PageNumber: request.PageNumber,

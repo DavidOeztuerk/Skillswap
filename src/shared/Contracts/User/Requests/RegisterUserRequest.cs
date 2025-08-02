@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.User.Requests;
 
@@ -10,7 +11,6 @@ namespace Contracts.User.Requests;
 /// <param name="FirstName">User's first name</param>
 /// <param name="LastName">User's last name</param>
 /// <param name="UserName">User's username</param>
-/// <param name="ReferralCode">Optional referral code</param>
 public record RegisterUserRequest(
     [Required(ErrorMessage = "Email is required")]
     [EmailAddress(ErrorMessage = "Invalid email format")]
@@ -19,7 +19,7 @@ public record RegisterUserRequest(
 
     [Required(ErrorMessage = "Password is required")]
     [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be between 8 and 100 characters")]
-    [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$", 
+    [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$",
         ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character")]
     string Password,
 
@@ -36,10 +36,8 @@ public record RegisterUserRequest(
     [Required(ErrorMessage = "Username is required")]
     [StringLength(50, MinimumLength = 3, ErrorMessage = "Username must be between 3 and 50 characters")]
     [RegularExpression(@"^[a-zA-Z0-9._-]+$", ErrorMessage = "Username can only contain letters, numbers, dots, underscores, and hyphens")]
-    string UserName,
-
-    [StringLength(50, ErrorMessage = "Referral code must not exceed 50 characters")]
-    string? ReferralCode = null)
+    string UserName)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

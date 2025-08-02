@@ -6,7 +6,7 @@ using UserService.Application.Commands;
 using UserService.Domain.Models;
 using EventSourcing;
 using Events.Domain.User;
-using Contracts.User.Responses;
+using Contracts.User.Responses.Auth;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -49,12 +49,12 @@ public class LoginUserCommandHandler(
             }
 
             // Check account status
-            if (user.AccountStatus == "Suspended")
+            if (user.AccountStatus == AccountStatus.Suspended)
             {
                 return Error("Your account has been suspended. Please contact support.");
             }
 
-            if (user.AccountStatus == "Inactive")
+            if (user.AccountStatus == AccountStatus.Inactive)
             {
                 return Error("Your account is inactive. Please contact support.");
             }
@@ -65,7 +65,6 @@ public class LoginUserCommandHandler(
             {
                 if (string.IsNullOrWhiteSpace(request.TwoFactorCode))
                 {
-
                     var profileOnly = new UserInfo(
                         user.Id,
                         user.Email,
@@ -76,18 +75,18 @@ public class LoginUserCommandHandler(
                             .Where(ur => ur.RevokedAt == null && !ur.IsDeleted)
                             .Select(ur => ur.Role)
                             .ToList(),
+                        user.FavoriteSkillIds,
                         user.EmailVerified,
                         user.AccountStatus);
 
                     return Success(new LoginResponse(
                         "WaitCallback", // Assuming the first parameter is for token or userId
                         "null", // Add appropriate value for the second parameter
-                        "null", // Add appropriate value for the third parameter
-                        0,    // Add appropriate value for the fourth parameter (int)
+                        TokenType.None, // Add appropriate value for the third parameter
                         user.LastLoginAt ?? DateTime.UtcNow,
                         profileOnly,
                         !user.EmailVerified,
-                        null), // Add appropriate value for the last parameter (string?)
+                        string.Empty), // Add appropriate value for the last parameter (string?)
                         "Two-factor authentication required");
                 }
 
@@ -109,12 +108,11 @@ public class LoginUserCommandHandler(
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Roles = user.UserRoles
+                Roles = [.. user.UserRoles
                     .Where(ur => ur.RevokedAt == null && !ur.IsDeleted)
-                    .Select(ur => ur.Role)
-                    .ToList(),
+                    .Select(ur => ur.Role)],
                 EmailVerified = user.EmailVerified,
-                AccountStatus = user.AccountStatus
+                AccountStatus = user.AccountStatus.ToString()
             };
 
             var tokens = await _jwtService.GenerateTokenAsync(userClaims);
@@ -148,18 +146,18 @@ public class LoginUserCommandHandler(
                 user.LastName,
                 user.UserName,
                 userClaims.Roles,
+                user.FavoriteSkillIds,
                 user.EmailVerified,
                 user.AccountStatus);
 
             var response = new LoginResponse(
                 tokens.AccessToken,
                 tokens.RefreshToken,
-                tokens.TokenType,
-                tokens.ExpiresIn,
+                tokens.TokenType == TokenType.Bearer.ToString() ? TokenType.Bearer : TokenType.None,
                 tokens.ExpiresAt,
                 profileData,
                 requiresTwoFactor,
-                null
+                string.Empty
             );
 
             return Success(response, "Login successful");

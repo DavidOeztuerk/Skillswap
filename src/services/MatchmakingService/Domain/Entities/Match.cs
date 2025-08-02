@@ -1,3 +1,4 @@
+// src/services/MatchmakingService/Domain/Entities/Match.cs
 using System.ComponentModel.DataAnnotations;
 using Infrastructure.Models;
 
@@ -35,6 +36,33 @@ public class Match : AuditableEntity
     [MaxLength(500)]
     public string? MatchReason { get; set; }
 
+    // Neue Properties für Skill-Tausch
+    public bool IsSkillExchange { get; set; } = false;
+    
+    [MaxLength(450)]
+    public string? ExchangeSkillId { get; set; }
+    
+    [MaxLength(100)]
+    public string? ExchangeSkillName { get; set; }
+
+    // Monetäre Details
+    public bool IsMonetary { get; set; } = false;
+    public decimal? AgreedAmount { get; set; }
+    public string? Currency { get; set; }
+
+    // Session-Planung
+    public List<string> AgreedDays { get; set; } = new();
+    public List<string> AgreedTimes { get; set; } = new();
+    public int TotalSessionsPlanned { get; set; } = 1;
+    public int CompletedSessions { get; set; } = 0;
+
+    // Timeline-Tracking
+    [MaxLength(450)]
+    public string? OriginalRequestId { get; set; }
+    
+    [MaxLength(450)]
+    public string? ThreadId { get; set; }
+
     public DateTime? AcceptedAt { get; set; }
     public DateTime? RejectedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
@@ -57,6 +85,7 @@ public class Match : AuditableEntity
     public bool IsRejected => Status == MatchStatus.Rejected;
     public bool IsExpired => Status == MatchStatus.Expired;
     public bool IsActive => IsPending || IsAccepted;
+    public bool AllSessionsCompleted => CompletedSessions >= TotalSessionsPlanned;
 
     public void Accept()
     {
@@ -71,6 +100,18 @@ public class Match : AuditableEntity
         RejectionReason = reason;
         RejectedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void CompleteSession()
+    {
+        CompletedSessions++;
+        UpdatedAt = DateTime.UtcNow;
+
+        if (AllSessionsCompleted)
+        {
+            Status = MatchStatus.Completed;
+            CompletedAt = DateTime.UtcNow;
+        }
     }
 
     public void Complete(int? sessionDuration = null, string? notes = null)

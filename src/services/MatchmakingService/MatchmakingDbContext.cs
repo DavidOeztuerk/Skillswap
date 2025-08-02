@@ -24,10 +24,31 @@ public class MatchmakingDbContext(
             entity.HasIndex(e => e.CreatedAt);
             entity.HasIndex(e => new { e.Status, e.CreatedAt });
 
+            entity.Property(e => e.ThreadId).HasMaxLength(450);
+            entity.Property(e => e.OriginalRequestId).HasMaxLength(450);
+            entity.Property(e => e.ExchangeSkillId).HasMaxLength(450);
+            entity.Property(e => e.ExchangeSkillName).HasMaxLength(100);
+            entity.Property(e => e.Currency).HasMaxLength(3);
+            entity.Property(e => e.AgreedAmount).HasPrecision(18, 2);
+
             entity.Property(e => e.OfferedSkillName).HasMaxLength(100);
             entity.Property(e => e.RequestedSkillName).HasMaxLength(100);
             entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue(MatchStatus.Pending);
             entity.Property(e => e.MatchReason).HasMaxLength(500);
+
+            entity.Property(e => e.AgreedDays)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>());
+                    
+            entity.Property(e => e.AgreedTimes)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>());
+            
+            // Indexes
+            entity.HasIndex(e => e.ThreadId);
+            entity.HasIndex(e => e.OriginalRequestId);
 
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -45,12 +66,29 @@ public class MatchmakingDbContext(
 
             // entity.Property(e => e.SkillName).HasMaxLength(100);
             entity.Property(e => e.Status).HasMaxLength(50);
+
+            entity.Property(e => e.ThreadId).HasMaxLength(450);
+            // entity.Property(e => e.ParentRequestId).HasMaxLength(450);
+            entity.Property(e => e.ExchangeSkillId).HasMaxLength(450);
+            // entity.Property(e => e.ExchangeSkillName).HasMaxLength(100);
+            entity.Property(e => e.Currency).HasMaxLength(3).HasDefaultValue("EUR");
+            entity.Property(e => e.OfferedAmount).HasPrecision(18, 2);
+
             // entity.Property(e => e.PreferredLocation).HasMaxLength(200);
 
             // entity.HasIndex(e => new { e.RequesterId, e.SkillId, e.Status })
             //     .HasFilter("Status = 'Pending' AND IsDeleted = 0")
             //     .IsUnique()
             //     .HasDatabaseName("IX_DirectMatchRequest_Unique_Pending");
+
+            // entity.HasOne(e => e.ParentRequest)
+            //     .WithMany(e => e.CounterOffers)
+            //     .HasForeignKey(e => e.ThreadId)
+            //     .OnDelete(DeleteBehavior.Restrict);
+                
+            // Indexes
+            entity.HasIndex(e => e.ThreadId);
+            // entity.HasIndex(e => e.ParentRequestId);
 
             // Convert lists to JSON
             entity.Property(e => e.PreferredTags)

@@ -1,3 +1,6 @@
+using Contracts.Common;
+using Contracts.User.Responses.Auth;
+
 namespace Contracts.User.Responses;
 
 /// <summary>
@@ -28,10 +31,12 @@ public record UserProfileResponse(
     string? TimeZone,
     List<string> Roles,
     bool EmailVerified,
-    string AccountStatus,
+    AccountStatus AccountStatus,
     DateTime CreatedAt,
     DateTime? LastLoginAt,
-    Dictionary<string, string>? Preferences)
+    Dictionary<string, string>? Preferences,
+    string? ProfilePictureUrl)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

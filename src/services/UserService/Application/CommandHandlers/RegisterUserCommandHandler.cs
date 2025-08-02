@@ -8,7 +8,7 @@ using UserService.Application.Commands;
 using Events.Domain.User;
 using Microsoft.Extensions.Logging;
 using UserService.Domain.Models;
-using Contracts.User.Responses;
+using Contracts.User.Responses.Auth;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -21,13 +21,13 @@ public class RegisterUserCommandHandler(
     IJwtService jwtService,
     IDomainEventPublisher eventPublisher,
     ILogger<RegisterUserCommandHandler> logger)
-    : BaseCommandHandler<RegisterUserCommand, RegisterUserResponse>(logger)
+    : BaseCommandHandler<RegisterUserCommand, RegisterResponse>(logger)
 {
     private readonly UserDbContext _dbContext = dbContext;
     private readonly IJwtService _jwtService = jwtService;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
-    public override async Task<ApiResponse<RegisterUserResponse>> Handle(
+    public override async Task<ApiResponse<RegisterResponse>> Handle(
         RegisterUserCommand request,
         CancellationToken cancellationToken)
     {
@@ -54,7 +54,7 @@ public class RegisterUserCommandHandler(
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                AccountStatus = "PendingVerification",
+                AccountStatus = AccountStatus.PendingVerification,
                 EmailVerified = false,
                 CreatedAt = DateTime.UtcNow
             };
@@ -84,7 +84,7 @@ public class RegisterUserCommandHandler(
                 LastName = user.LastName,
                 Roles = [Roles.User],
                 EmailVerified = false,
-                AccountStatus = user.AccountStatus
+                AccountStatus = user.AccountStatus.ToString()
             };
 
             var tokens = await _jwtService.GenerateTokenAsync(userClaims);
@@ -122,16 +122,23 @@ public class RegisterUserCommandHandler(
                 user.Email, user.Id);
 
 
-            var response = new RegisterUserResponse(
-                user.Id,
-                user.Email,
-                user.FirstName,
-                user.LastName,
-                user.UserName,
+            var profileData = new UserInfo(
+               user.Id,
+               user.Email,
+               user.FirstName,
+               user.LastName,
+               user.UserName,
+               userClaims.Roles,
+               user.FavoriteSkillIds,
+               user.EmailVerified,
+               user.AccountStatus);
+
+            var response = new RegisterResponse(
                 tokens.AccessToken,
                 tokens.RefreshToken,
-                tokens.TokenType,
+                tokens.TokenType == TokenType.Bearer.ToString() ? TokenType.Bearer : TokenType.None,
                 tokens.ExpiresAt,
+                profileData,
                 true);
 
             return Success(response, "User registered successfully. Please check your email for verification.");

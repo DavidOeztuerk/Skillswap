@@ -6,7 +6,7 @@ namespace MatchmakingService.Application.Commands;
 public record RejectMatchRequestCommand(
     string RequestId,
     string? ResponseMessage = null)
-    : ICommand<MatchRequestResponse>, IAuditableCommand
+    : ICommand<bool>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;

@@ -1,3 +1,4 @@
+using Contracts.User.Responses.Auth;
 using CQRS.Handlers;
 using Events.Domain.User;
 using Events.Notification;
@@ -43,14 +44,14 @@ public class AccountStatusChangedDomainEventHandler(
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Send account status notification if needed
-        if (domainEvent.NewStatus == AccountStatus.Suspended)
+        if (domainEvent.NewStatus == AccountStatus.Suspended.ToString())
         {
             await _publishEndpoint.Publish(new AccountSuspendedNotificationEvent(
                 domainEvent.UserId,
                 domainEvent.Email,
                 domainEvent.Reason ?? "No reason provided"), cancellationToken);
         }
-        else if (domainEvent.NewStatus == AccountStatus.Active && domainEvent.OldStatus == AccountStatus.Suspended)
+        else if (domainEvent.NewStatus == AccountStatus.Active.ToString() && domainEvent.OldStatus == AccountStatus.Suspended.ToString())
         {
             await _publishEndpoint.Publish(new AccountReactivatedNotificationEvent(
                 domainEvent.UserId,

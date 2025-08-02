@@ -235,12 +235,14 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
   ) => {
     try {
       const matchRequest: MatchRequest = {
-        matchId: '', // Wird vom Backend generiert
+        id: '', // Wird vom Backend generiert
+        // matchId: '', // Wird vom Backend generiert
         requesterId: '', // Muss ggf. im Parent/Context gesetzt werden
-        requesterName: '', // Wird vom Backend gesetzt
+        // requesterName: '', // Wird vom Backend gesetzt
         targetUserId: skill.userId || '', // Annahme: Skill enthält userId
         skillId: skill.id,
-        skillName: skill.name,
+        // skillName: skill.name,
+        isSkillExchange: skill.isOffered,
         message: data.learningGoals || '',
         isOffered: data.requestType === 'teach',
         status: 'Pending',

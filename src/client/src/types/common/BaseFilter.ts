@@ -1,5 +1,5 @@
 export interface BaseFilter {
-  page?: number;
+  pageNumber?: number;
   pageSize?: number;
   sortBy?: string;
   sortDirection?: 'asc' | 'desc';

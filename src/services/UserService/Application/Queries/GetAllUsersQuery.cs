@@ -1,3 +1,4 @@
+using Contracts.User.Responses.Auth;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -6,7 +7,7 @@ namespace UserService.Application.Queries;
 public record GetAllUsersQuery(
     string? SearchTerm = null,
     string? Role = null,
-    string? AccountStatus = null,
+    AccountStatus? AccountStatus = null,
     bool? EmailVerified = null,
     DateTime? CreatedAfter = null,
     DateTime? CreatedBefore = null,
@@ -26,7 +27,7 @@ public record UserAdminResponse(
     string UserName,
     List<string> Roles,
     bool EmailVerified,
-    string AccountStatus,
+    AccountStatus AccountStatus,
     DateTime CreatedAt,
     DateTime? LastLoginAt,
     string? LastLoginIp,

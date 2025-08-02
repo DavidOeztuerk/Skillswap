@@ -1,59 +1,94 @@
+using Contracts.Matchmaking.Responses;
 using CQRS.Handlers;
 using Infrastructure.Models;
-using Infrastructure.Services;
-using MatchmakingService.Application.Commands;
 using MatchmakingService.Application.Queries;
-using MatchmakingService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace MatchmakingService.Application.QueryHandlers;
 
 public class GetIncomingMatchRequestsQueryHandler(
     MatchmakingDbContext dbContext,
-    IUserLookupService userLookup,
+    HttpClient httpClient,
     ILogger<GetIncomingMatchRequestsQueryHandler> logger)
-    : BasePagedQueryHandler<GetIncomingMatchRequestsQuery, MatchRequestResponse>(logger)
+    : BasePagedQueryHandler<GetIncomingMatchRequestsQuery, MatchRequestDisplayResponse>(logger)
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
-    private readonly IUserLookupService _userLookup = userLookup;
+    private readonly HttpClient _httpClient = httpClient;
 
-    public override async Task<PagedResponse<MatchRequestResponse>> Handle(GetIncomingMatchRequestsQuery request, CancellationToken cancellationToken)
+    public override async Task<PagedResponse<MatchRequestDisplayResponse>> Handle(
+        GetIncomingMatchRequestsQuery request, 
+        CancellationToken cancellationToken)
     {
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
             {
-                return Success(new List<MatchRequestResponse>(), request.PageNumber, request.PageSize, 0);
+                return Success(new List<MatchRequestDisplayResponse>(), request.PageNumber, request.PageSize, 0);
             }
 
-            // In the original MatchRequest system, there are no "incoming" requests to a specific user
-            // MatchRequests are general requests that anyone can respond to
-            // For now, return empty results as this concept doesn't apply to the original design
+            // Query incoming requests where current user is the target (skill owner)
             var query = _dbContext.MatchRequests
-                .Where(mr => false) // Always return empty - no incoming requests in this system
+                .Where(mr => mr.TargetUserId == request.UserId && mr.Status == "Pending")
                 .OrderByDescending(mr => mr.CreatedAt);
 
             var totalCount = await query.CountAsync(cancellationToken);
 
-            var requests = await query
+            var matchRequests = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .ToListAsync(cancellationToken);
 
-            var responses = requests?.Select(mr => new MatchRequestResponse(
-                RequestId: mr.Id,
-                RequesterId: mr.RequesterId,
-                TargetUserId: string.Empty, // No target user in original MatchRequest system
-                SkillId: mr.SkillId,
-                Description: mr.Description ?? string.Empty,
-                Message: mr.Message,
-                Status: mr.Status,
-                CreatedAt: mr.CreatedAt,
-                RespondedAt: mr.RespondedAt,
-                ExpiresAt: mr.ExpiresAt
-            )).ToList() ?? new List<MatchRequestResponse>();
+            var displayResponses = new List<MatchRequestDisplayResponse>();
 
-            return Success(responses, request.PageNumber, request.PageSize, totalCount);
+            foreach (var mr in matchRequests)
+            {
+                // Get skill data
+                var skillData = await GetSkillData(mr.SkillId, cancellationToken);
+                
+                // Get requester data (the one who sent the request)
+                var requesterData = await GetUserData(mr.RequesterId, cancellationToken);
+                
+                // Get exchange skill data if needed
+                string? exchangeSkillName = null;
+                if (!string.IsNullOrEmpty(mr.ExchangeSkillId))
+                {
+                    var exchangeSkillData = await GetSkillData(mr.ExchangeSkillId, cancellationToken);
+                    exchangeSkillName = exchangeSkillData?.Name;
+                }
+
+                var displayResponse = new MatchRequestDisplayResponse(
+                    Id: mr.Id,
+                    SkillId: mr.SkillId,
+                    SkillName: skillData?.Name ?? "Unknown Skill",
+                    SkillCategory: skillData?.Category ?? "General",
+                    Message: mr.Message,
+                    Status: mr.Status.ToLowerInvariant(),
+                    Type: "incoming",
+                    OtherUserId: mr.RequesterId,
+                    OtherUserName: requesterData?.Name ?? "Unknown User",
+                    OtherUserRating: requesterData?.Rating ?? 0m,
+                    OtherUserAvatar: requesterData?.Avatar,
+                    IsSkillExchange: mr.IsSkillExchange,
+                    ExchangeSkillId: mr.ExchangeSkillId,
+                    ExchangeSkillName: exchangeSkillName,
+                    IsMonetary: mr.IsMonetaryOffer,
+                    OfferedAmount: mr.OfferedAmount,
+                    Currency: mr.Currency ?? "EUR",
+                    SessionDurationMinutes: mr.SessionDurationMinutes ?? 60,
+                    TotalSessions: mr.TotalSessions ?? 1,
+                    PreferredDays: mr.PreferredDays?.ToArray() ?? Array.Empty<string>(),
+                    PreferredTimes: mr.PreferredTimes?.ToArray() ?? Array.Empty<string>(),
+                    CreatedAt: mr.CreatedAt,
+                    RespondedAt: mr.RespondedAt,
+                    ExpiresAt: mr.ExpiresAt,
+                    ThreadId: mr.ThreadId,
+                    IsRead: true
+                );
+
+                displayResponses.Add(displayResponse);
+            }
+
+            return Success(displayResponses, request.PageNumber, request.PageSize, totalCount);
         }
         catch (Exception ex)
         {
@@ -61,4 +96,74 @@ public class GetIncomingMatchRequestsQueryHandler(
             return Error("An error occurred while fetching incoming match requests");
         }
     }
+
+    private async Task<SkillData?> GetSkillData(string skillId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/skills/{skillId}", cancellationToken);
+            if (!response.IsSuccessStatusCode) 
+            {
+                Logger.LogWarning("Failed to get skill data for {SkillId}, status: {StatusCode}", skillId, response.StatusCode);
+                return null;
+            }
+
+            var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<SkillApiResponse>>(cancellationToken: cancellationToken);
+            var skill = apiResponse?.Data;
+            
+            if (skill == null)
+            {
+                Logger.LogWarning("Skill data is null for {SkillId}", skillId);
+                return null;
+            }
+
+            return new SkillData(skill.Name, skill.Category?.Name ?? "General");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Exception while getting skill data for {SkillId}", skillId);
+            return null;
+        }
+    }
+
+    private async Task<UserData?> GetUserData(string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/users/{userId}/profile", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger.LogWarning("Failed to get user data for {UserId}, status: {StatusCode}", userId, response.StatusCode);
+                return null;
+            }
+
+            var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<UserProfileResponse>>(cancellationToken: cancellationToken);
+            var user = apiResponse?.Data;
+            
+            if (user == null)
+            {
+                Logger.LogWarning("User data is null for {UserId}", userId);
+                return null;
+            }
+
+            var fullName = $"{user.FirstName} {user.LastName}".Trim();
+            return new UserData(
+                Name: string.IsNullOrEmpty(fullName) ? "Unknown User" : fullName,
+                Rating: 0m, // TODO: Get actual rating when available
+                Avatar: user.ProfilePictureUrl
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Exception while getting user data for {UserId}", userId);
+            return null;
+        }
+    }
+
+    private record SkillData(string Name, string Category);
+    private record UserData(string Name, decimal Rating, string? Avatar);
+    
+    private record SkillApiResponse(string Name, SkillCategoryResponse? Category);
+    private record SkillCategoryResponse(string Name);
+    private record UserProfileResponse(string FirstName, string LastName, string? ProfilePictureUrl);
 }

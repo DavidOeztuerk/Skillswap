@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.Matchmaking.Requests;
 
@@ -8,6 +8,7 @@ namespace Contracts.Matchmaking.Requests;
 public record GetOutgoingMatchRequestsRequest(
     int PageNumber = 1,
     int PageSize = 20)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

@@ -47,7 +47,10 @@ class HttpClient {
       headers['Authorization'] = `Bearer ${token}`;
       console.debug('🔐 Adding Authorization header:', `Bearer ${token.substring(0, 20)}...`);
     } else {
-      console.warn('⚠️ No token available for Authorization header');
+      // Nur in Development Mode loggen, um Console-Spam zu vermeiden
+      if (import.meta.env.DEV) {
+        console.debug('⚠️ No token available for Authorization header');
+      }
     }
 
     return headers;

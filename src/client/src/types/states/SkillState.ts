@@ -3,8 +3,8 @@ import { RequestState } from '../common/RequestState';
 import { ProficiencyLevel, Skill, SkillCategory } from '../models/Skill';
 
 export interface SkillState extends RequestState {
-  allSkills: Skill[];
-  userSkills: Skill[];
+  allSkills: Skill[] | undefined;
+  userSkills: Skill[] | undefined;
   favoriteSkillIds: string[];
   selectedSkill: Skill | null;
   searchQuery: string;

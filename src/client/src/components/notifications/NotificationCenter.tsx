@@ -209,7 +209,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
               <EmptyState
                 icon={<NotificationsIcon />}
                 title="Keine Benachrichtigungen"
-                description={{message:"Du hast momentan keine Benachrichtigungen."}}
+                description={"Du hast momentan keine Benachrichtigungen."}
               />
             ) : (
               <List disablePadding>
