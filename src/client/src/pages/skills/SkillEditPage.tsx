@@ -27,7 +27,6 @@ import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRe
 interface UpdateSkillFormData extends UpdateSkillRequest {
   tags?: string[];
   remoteAvailable?: boolean;
-  location?: string;
 }
 
 const SkillEditPage: React.FC = () => {

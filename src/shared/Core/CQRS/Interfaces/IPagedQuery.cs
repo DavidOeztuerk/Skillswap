@@ -1,5 +1,5 @@
+using CQRS.Models;
 using MediatR;
-using Infrastructure.Models;
 
 namespace CQRS.Interfaces;
 
@@ -7,7 +7,8 @@ namespace CQRS.Interfaces;
 /// Interface for paginated queries
 /// </summary>
 /// <typeparam name="TResponse">Response item type</typeparam>
-public interface IPagedQuery<TResponse> : IRequest<PagedResponse<TResponse>>
+public interface IPagedQuery<TResponse>
+    : IRequest<PagedResponse<TResponse>>
 {
     int PageNumber { get; set; }
     int PageSize { get; set; }

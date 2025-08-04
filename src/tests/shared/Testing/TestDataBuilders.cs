@@ -37,7 +37,6 @@ public static class TestDataBuilders
             .RuleFor("IsOffering", f => f.Random.Bool())
             .RuleFor("IsRequesting", f => f.Random.Bool())
             .RuleFor("IsRemote", f => f.Random.Bool())
-            .RuleFor("Location", f => f.Address.City())
             .RuleFor("CreatedAt", f => f.Date.Recent())
             .RuleFor("UpdatedAt", f => f.Date.Recent());
     }

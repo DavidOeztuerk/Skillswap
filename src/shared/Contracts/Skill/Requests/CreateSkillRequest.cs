@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.Skill.Requests;
 
@@ -14,9 +15,8 @@ namespace Contracts.Skill.Requests;
 /// <param name="IsWanted">Whether the user wants to learn this skill</param>
 /// <param name="AvailableHours">Available hours per week for this skill</param>
 /// <param name="PreferredSessionDuration">Preferred session duration in minutes</param>
-/// <param name="Location">Preferred location for skill exchange</param>
 /// <param name="IsRemote">Whether remote sessions are acceptable</param>
-public record  CreateSkillRequest(
+public record CreateSkillRequest(
     [Required(ErrorMessage = "Skill name is required")]
     [StringLength(100, MinimumLength = 2, ErrorMessage = "Skill name must be between 2 and 100 characters")]
     string Name,
@@ -41,6 +41,7 @@ public record  CreateSkillRequest(
 
     [Range(15, 480, ErrorMessage = "Session duration must be between 15 and 480 minutes")]
     int? PreferredSessionDuration = 60)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

@@ -8,7 +8,6 @@ public record FindMatchRequest(
     string SkillName,
     bool IsOffering,
     List<string>? PreferredTags = null,
-    string? PreferredLocation = null,
     bool RemoteOnly = false,
     int? MaxDistanceKm = null)
 {

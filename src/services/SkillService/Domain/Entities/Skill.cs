@@ -1,4 +1,4 @@
-using Infrastructure.Models;
+using Domain.Abstractions;
 using System.ComponentModel.DataAnnotations;
 
 namespace SkillService.Domain.Entities;
@@ -28,14 +28,11 @@ public class Skill : AuditableEntity
     [MaxLength(2000)]
     public string Description { get; set; } = string.Empty;
 
-    public bool IsOffering { get; set; } = true; // true = offering, false = seeking
+    public bool IsOffered { get; set; } = true; // true = offering, false = seeking
 
     // Enhanced properties
     [MaxLength(1000)]
     public string? Requirements { get; set; }
-
-    [MaxLength(200)]
-    public string? Location { get; set; }
 
     public bool IsRemoteAvailable { get; set; } = true;
 
@@ -57,7 +54,6 @@ public class Skill : AuditableEntity
 
     // Status and visibility
     public bool IsActive { get; set; } = true;
-    public bool IsFeatured { get; set; } = false;
     public bool IsVerified { get; set; } = false;
 
     // SEO and searchability
@@ -83,7 +79,6 @@ public class Skill : AuditableEntity
         set => TagsJson = System.Text.Json.JsonSerializer.Serialize(value);
     }
 
-    public bool HasLocation => !string.IsNullOrEmpty(Location);
     public bool IsHighlyRated => AverageRating >= 4.5;
     public bool IsPopular => ViewCount > 100 || MatchCount > 10;
     public bool IsRecent => CreatedAt >= DateTime.UtcNow.AddDays(-30);

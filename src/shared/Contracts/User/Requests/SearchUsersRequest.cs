@@ -25,7 +25,7 @@ public record SearchUsersRequest(
     bool SortDescending = true,
     bool? EmailVerified = null,
     string? Role = null,
-    AccountStatus? AccountStatus = null,
+    string? AccountStatus = null,
     DateTime? CreatedAfter = null,
     DateTime? CreatedBefore = null,
     int PageNumber = 1,

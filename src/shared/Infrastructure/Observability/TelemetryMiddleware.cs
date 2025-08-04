@@ -243,4 +243,12 @@ public static class TelemetryMiddlewareExtensions
     {
         return app.UseMiddleware<CorrelationIdMiddleware>();
     }
+
+    /// <summary>
+    /// Add performance middleware to the pipeline
+    /// </summary>
+    public static IApplicationBuilder UsePerformancee(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<PerformanceMiddleware>();
+    }
 }

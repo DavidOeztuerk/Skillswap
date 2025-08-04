@@ -3,8 +3,8 @@ using SkillService.Application.Commands;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Domain.Entities;
+using CQRS.Models;
 
 namespace SkillService.Application.CommandHandlers;
 

@@ -1,12 +1,10 @@
-// src/features/skills/skillsSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Skill } from '../../types/models/Skill';
 import skillService, {
   SkillSearchParams,
+  SkillSearchResultResponse,
 } from '../../api/services/skillsService';
-// import { PaginatedResponse } from '../../types/common/PaginatedResponse';
 import { SkillState } from '../../types/states/SkillState';
-// import { ApiResponse } from '../../types/common/ApiResponse';
 import { ExtendedCreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
 import { ExtendedUpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { SliceError } from '../../store/types';
@@ -37,6 +35,43 @@ const initialState: SkillState = {
   error: null,
 };
 
+/**
+ * Maps backend SkillSearchResultResponse to frontend Skill model
+ */
+export const mapSkillResponseToSkill = (response: SkillSearchResultResponse): Skill => {
+  return {
+    id: response.skillId,
+    userId: response.userId,
+    name: response.name,
+    description: response.description,
+    isOffered: response.isOffering, // Backend uses isOffering, frontend uses isOffered
+    category: {
+      id: response.category.categoryId,
+      name: response.category.name,
+      iconName: response.category.iconName,
+      color: response.category.color,
+    },
+    proficiencyLevel: {
+      id: response.proficiencyLevel.levelId,
+      level: response.proficiencyLevel.level,
+      rank: response.proficiencyLevel.rank,
+      color: response.proficiencyLevel.color,
+    },
+    tagsJson: response.tagsJson,
+    averageRating: response.averageRating,
+    reviewCount: response.reviewCount,
+    endorsementCount: response.endorsementCount,
+    estimatedDurationMinutes: response.estimatedDurationMinutes,
+    createdAt: response.createdAt.toString(),
+    lastActiveAt: response.lastActiveAt?.toString(),
+    // Frontend-only fields not in response
+    matchRequests: undefined,
+    activeMatches: undefined,
+    completionRate: undefined,
+    isVerified: undefined,
+  };
+};
+
 export const fetchFavoriteSkills = createAsyncThunk(
   'skills/fetchFavoriteSkills',
   async () => {
@@ -58,7 +93,6 @@ export const removeFavoriteSkill = createAsyncThunk(
   }
 );
 
-
 /**
  * Async Thunks
  */
@@ -74,7 +108,7 @@ export const fetchAllSkills = createAsyncThunk(
 export const fetchSkillById = createAsyncThunk(
   'skills/fetchSkillById',
   async (skillId: string) => {
-    return  await skillService.getSkillById(skillId);
+    return await skillService.getSkillById(skillId);
   }
 );
 
@@ -130,7 +164,7 @@ export const endorseSkill = createAsyncThunk(
 export const fetchSkillStatistics = createAsyncThunk(
   'skills/fetchSkillStatistics',
   async () => {
-    return  await skillService.getSkillStatistics();
+    return await skillService.getSkillStatistics();
   }
 );
 
@@ -138,7 +172,7 @@ export const fetchSkillStatistics = createAsyncThunk(
 export const fetchPopularTags = createAsyncThunk(
   'skills/fetchPopularTags',
   async ({ limit = 20 }: { limit?: number }) => {
-    return  await skillService.getPopularTags(limit);
+    return await skillService.getPopularTags(limit);
   }
 );
 
@@ -146,7 +180,7 @@ export const fetchPopularTags = createAsyncThunk(
 export const fetchSkillRecommendations = createAsyncThunk(
   'skills/fetchSkillRecommendations',
   async ({ limit = 10 }: { limit?: number }) => {
-    return  await skillService.getSkillRecommendations(limit);
+    return await skillService.getSkillRecommendations(limit);
   }
 );
 
@@ -208,7 +242,7 @@ const skillsSlice = createSlice({
       const existingIndex = state.userSkills?.findIndex(
         (skill) => skill.id === action.payload.id
       );
-      if (existingIndex === -1) {
+      if (existingIndex) {
         state.userSkills?.unshift(action.payload);
       } else if (state.userSkills && existingIndex) {
         state.userSkills[existingIndex] = action.payload;
@@ -232,7 +266,7 @@ const skillsSlice = createSlice({
         const index = array?.findIndex(
           (skill) => skill.id === updatedSkill.id
         );
-        if (index && array) {
+        if (index !== undefined && index !== -1 && array) {
           array[index] = updatedSkill;
         }
       };
@@ -285,6 +319,7 @@ const skillsSlice = createSlice({
       .addCase(removeFavoriteSkill.rejected, (state, action) => {
         state.error = action.error as SliceError;
       })
+      
       // Fetch all skills cases
       .addCase(fetchAllSkills.pending, (state) => {
         state.isLoading = true;
@@ -292,10 +327,21 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchAllSkills.fulfilled, (state, action) => {
         state.isLoading = false;
-        const data = action.payload.data;
-        const pagination = action.payload;
-        state.allSkills = data;
-        state.pagination = pagination;
+        // Assuming the response has a data array of SkillSearchResultResponse
+        if (action.payload.data && Array.isArray(action.payload.data)) {
+          state.allSkills = action.payload.data.map(mapSkillResponseToSkill);
+        }
+        // Update pagination if present
+        if (action.payload.pageNumber !== undefined) {
+          state.pagination = {
+            pageNumber: action.payload.pageNumber,
+            pageSize: action.payload.pageSize,
+            totalPages: action.payload.totalPages,
+            totalRecords: action.payload.totalRecords,
+            hasNextPage: action.payload.hasNextPage,
+            hasPreviousPage: action.payload.hasPreviousPage,
+          };
+        }
         state.error = null;
       })
       .addCase(fetchAllSkills.rejected, (state, action) => {
@@ -312,14 +358,23 @@ const skillsSlice = createSlice({
       .addCase(fetchSkillById.fulfilled, (state, action) => {
         state.isLoading = false;
         const data = action.payload;
+        
+        // If the response is in the SkillSearchResultResponse format, map it
+        // let skill: Skill;
+        // if (data && 'skillId' in data) {
+        //   skill = mapSkillResponseToSkill(data as SkillSearchResultResponse);
+        // } else {
+        //   skill = data as Skill;
+        // }
+        
         state.selectedSkill = data;
 
         if (data) {
           const updateInArray = (array?: Skill[]) => {
             const index = array?.findIndex(
-              (skill) => skill.id === data.id
+              (s) => s.id === data.id
             );
-            if (index && array) {
+            if (index !== undefined && index !== -1 && array) {
               array[index] = data;
             }
           };
@@ -344,10 +399,30 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchUserSkills.fulfilled, (state, action) => {
         state.isLoading = false;
-        const data = action.payload.data;
-        const pagination = action.payload;
-        state.userSkills = data;
-        state.pagination = pagination;
+        const response = action.payload;
+        
+        // Map the skills if they're in SkillSearchResultResponse format
+        if (response.data && Array.isArray(response.data)) {
+          state.userSkills = response.data.map((skill: any) => {
+            if ('skillId' in skill) {
+              return mapSkillResponseToSkill(skill as SkillSearchResultResponse);
+            }
+            return skill as Skill;
+          });
+        }
+        
+        // Update pagination
+        if (response.pageNumber !== undefined) {
+          state.pagination = {
+            pageNumber: response.pageNumber,
+            pageSize: response.pageSize,
+            totalPages: response.totalPages,
+            totalRecords: response.totalRecords,
+            hasNextPage: response.hasNextPage,
+            hasPreviousPage: response.hasPreviousPage,
+          };
+        }
+        
         state.error = null;
       })
       .addCase(fetchUserSkills.rejected, (state, action) => {
@@ -366,39 +441,42 @@ const skillsSlice = createSlice({
         const response = action.payload;
         console.log('✅ Create skill response:', response);
 
-        // // Handle the API response structure
-        const skillData = action.payload;
-        // if (response && typeof (response as CreateSkillResponse)) {
-        //   if ('data' in response) {
-        //     skillData = response.data;
-        //   } else if ('skillId' in response) {
-        //     // Handle case where response is the skill data directly
-        //     skillData = response;
-        //   }
-        // }
-
-
-        // Map API response to Skill model (minimal, extend as needed)
-        if (skillData) {
-          // CreateSkillResponse does not have userId, skillCategoryId, proficiencyLevelId, updatedAt, tags, etc.
-          // We'll fill with minimal info and empty/defaults for missing fields
-          const newSkill: Skill = {
-            id: skillData.skillId,
-            userId: '',
-            name: skillData.name || '',
-            description: skillData.description || '',
-            isOffered: skillData.isOffered || false,
-            category: { id: '', name: '', isActive: true, createdAt: '' },
-            proficiencyLevel: { id: '', level: '', rank: 0, isActive: true, createdAt: '' },
-            tagsJson: "",
-            createdAt: skillData.createdAt || '',
+        // Handle the response - it might be a CreateSkillResponse or full skill data
+        let newSkill: Skill;
+        
+        if (response && 'skillId' in response) {
+          // If it's a minimal response, create a minimal Skill object
+          // You might need to fetch the full skill details after creation
+          newSkill = {
+            id: response.skillId,
+            userId: "",
+            name: response.name || '',
+            description: response.description || '',
+            isOffered: response.isOffered || false,
+            endorsementCount: 0,
+            category: { 
+              id: response.categoryName || '', 
+              name: '', 
+            },
+            proficiencyLevel: { 
+              id: response.proficiencyLevelName || '', 
+              level: '', 
+              rank: 0, 
+            },
+            tagsJson: response.tags.toString() || "[]",
+            createdAt: response.createdAt || new Date().toISOString(),
           };
-          state.userSkills?.unshift(newSkill);
-          state.allSkills?.unshift(newSkill);
-          console.log('✅ New skill added to state:', newSkill);
+        } else if (response && 'skillId' in response && 'category' in response) {
+          // If it's a full SkillSearchResultResponse
+          newSkill = mapSkillResponseToSkill(response as SkillSearchResultResponse);
         } else {
-          console.warn('⚠️ No skill data found in response:', response);
+          // If it's already a Skill object
+          newSkill = response as Skill;
         }
+
+        state.userSkills?.unshift(newSkill);
+        state.allSkills?.unshift(newSkill);
+        console.log('✅ New skill added to state:', newSkill);
 
         state.error = null;
       })
@@ -417,18 +495,26 @@ const skillsSlice = createSlice({
         const data = action.payload;
 
         if (data) {
-          // UpdateSkillResponse does not have userId, only id, name, description, isOffered, skillCategoryId, proficiencyLevelId
+          // UpdateSkillResponse might be partial, so we need to merge with existing data
           const updateInArray = (array?: Skill[]) => {
             const index = array?.findIndex((skill) => skill.id === data.id);
-            if (index && array) {
+            if (index !== undefined && index !== -1 && array) {
               array[index] = {
                 ...array[index],
                 id: data.id || array[index].id,
                 name: data.name ?? array[index].name,
                 description: data.description ?? array[index].description,
                 isOffered: data.isOffered ?? array[index].isOffered,
-                category: { id: data.categoryId || '', name: '', isActive: true, createdAt: '' },
-                proficiencyLevel: { id: data.proficiencyLevelId || '', level: '', rank: 0, isActive: true, createdAt: '' },
+                // Update category if categoryId is provided
+                category: data.categoryId ? {
+                  ...array[index].category,
+                  id: data.categoryId,
+                } : array[index].category,
+                // Update proficiency level if proficiencyLevelId is provided
+                proficiencyLevel: data.proficiencyLevelId ? {
+                  ...array[index].proficiencyLevel,
+                  id: data.proficiencyLevelId,
+                } : array[index].proficiencyLevel,
               };
             }
           };
@@ -438,7 +524,9 @@ const skillsSlice = createSlice({
           updateInArray(state.searchResults);
 
           if (state.selectedSkill?.id === data.id) {
-            state.selectedSkill = state.allSkills?.find((s) => s.id === data.id) || null;
+            state.selectedSkill = state.allSkills?.find((s) => s.id === data.id) || 
+                                  state.userSkills?.find((s) => s.id === data.id) || 
+                                  null;
           }
         }
 
@@ -459,7 +547,6 @@ const skillsSlice = createSlice({
         const deletedSkillId = action.meta.arg.skillId;
 
         // Remove from all arrays
-
         state.allSkills = state.allSkills?.filter(
           (skill) => skill.id !== deletedSkillId
         );
@@ -575,65 +662,3 @@ export const {
 } = skillsSlice.actions;
 
 export default skillsSlice.reducer;
-
-
-
-
-
-
-
-
-
-/**
-//  * Helper function to extract data from API response
-//  */
-// const extractApiData = <T>(response: PaginatedResponse<T> | T): T => {
-//   // If response has 'data' property, extract it
-//   if (response && typeof response === 'object' && 'data' in response) {
-//     return (response as ApiResponse<T>).data;
-//   }
-//   // Otherwise, assume the response is the data itself
-//   return response as T;
-// };
-
-// /**
-//  * Maps backend skill response to frontend Skill model
-//  * Handles field name differences between backend and frontend
-//  */
-// const mapBackendSkillToFrontend = (backendSkill: any): Skill => {
-//   return {
-//     id: backendSkill.skillId || backendSkill.id,
-//     userId: backendSkill.userId,
-//     name: backendSkill.name,
-//     description: backendSkill.description,
-//     // Backend sends 'isOffering' but frontend expects 'isOffered'
-//     isOffered: backendSkill.isOffering ?? backendSkill.isOffered ?? false,
-//     category: backendSkill.category,
-//     proficiencyLevel: backendSkill.proficiencyLevel,
-//     tagsJson: backendSkill.tagsJson || "[]",
-//     averageRating: backendSkill.averageRating,
-//     reviewCount: backendSkill.reviewCount || 0,
-//     endorsementCount: backendSkill.endorsementCount || 0,
-//     estimatedDurationMinutes: backendSkill.estimatedDurationMinutes,
-//     createdAt: backendSkill.createdAt,
-//     lastActiveAt: backendSkill.lastActiveAt,
-//   };
-// };
-
-// /**
-//  * Helper function to extract pagination from API response
-//  */
-// const extractPagination = <T>(response: PaginatedResponse<T> | unknown) => {
-//   if (response && typeof response === 'object') {
-//     return {
-//       pageNumber: (response as PaginatedResponse<T>).pageNumber || 1,
-//       pageSize: (response as PaginatedResponse<T>).pageSize || 12,
-//       totalPages: (response as PaginatedResponse<T>).totalPages || 0,
-//       totalRecords: (response as PaginatedResponse<T>).totalRecords || 0,
-//       hasNextPage: (response as PaginatedResponse<T>).hasNextPage || false,
-//       hasPreviousPage:
-//         (response as PaginatedResponse<T>).hasPreviousPage || false,
-//     };
-//   }
-//   return initialState.pagination;
-// };

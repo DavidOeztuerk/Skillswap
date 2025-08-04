@@ -1,13 +1,8 @@
 using CQRS.Interfaces;
 using FluentValidation;
-using Contracts.Skill.Requests;
 using Contracts.Skill.Responses;
 
 namespace SkillService.Application.Commands;
-
-// ============================================================================
-// SKILL MANAGEMENT COMMANDS
-// ============================================================================
 
 public record CreateSkillCommand(
     string Name,
@@ -17,21 +12,11 @@ public record CreateSkillCommand(
     List<string> Tags,
     bool IsOffered,
     int? AvailableHours = null,
-    int? PreferredSessionDuration = 60) 
+    int? PreferredSessionDuration = 60)
     : ICommand<CreateSkillResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-    
-    public static CreateSkillCommand FromRequest(CreateSkillRequest request) => new(
-        request.Name,
-        request.Description,
-        request.CategoryId,
-        request.ProficiencyLevelId,
-        request.Tags,
-        request.IsOffered,
-        request.AvailableHours,
-        request.PreferredSessionDuration);
 }
 
 public class CreateSkillCommandValidator : AbstractValidator<CreateSkillCommand>
@@ -67,9 +52,5 @@ public class CreateSkillCommandValidator : AbstractValidator<CreateSkillCommand>
         //RuleFor(x => x.Requirements)
         //    .MaximumLength(1000).WithMessage("Requirements must not exceed 1000 characters")
         //    .When(x => !string.IsNullOrEmpty(x.Requirements));
-
-        //RuleFor(x => x.Location)
-        //    .MaximumLength(200).WithMessage("Location must not exceed 200 characters")
-        //    .When(x => !string.IsNullOrEmpty(x.Location));
     }
 }

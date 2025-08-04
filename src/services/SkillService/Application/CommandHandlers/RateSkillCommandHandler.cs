@@ -1,11 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
 using Events.Domain.Skill;
 using EventSourcing;
 using Contracts.Skill.Responses;
+using CQRS.Models;
 
 namespace SkillService.Application.CommandHandlers;
 

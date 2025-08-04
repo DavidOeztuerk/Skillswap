@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using Infrastructure.Models;
+using Domain.Abstractions;
 
 namespace AppointmentService.Domain.Entities;
 
@@ -42,9 +42,6 @@ public class Appointment : AuditableEntity
 
     [MaxLength(500)]
     public string? MeetingLink { get; set; }
-
-    [MaxLength(200)]
-    public string? Location { get; set; }
 
     public bool IsReminder1Sent { get; set; } = false;
     public bool IsReminder2Sent { get; set; } = false;

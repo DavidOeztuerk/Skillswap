@@ -1,3 +1,4 @@
+using Contracts.Skill.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -15,8 +16,8 @@ public record GetSkillReviewsQuery(
     int PageSize = 10) 
     : IPagedQuery<SkillReviewResponse>, ICacheableQuery
 {
-    int IPagedQuery<SkillReviewResponse>.PageNumber { get; set; } = PageNumber;
-    int IPagedQuery<SkillReviewResponse>.PageSize { get; set; } = PageSize;
+    public int PageNumber { get; set; } = PageNumber;
+    public int PageSize { get; set; } = PageSize;
 
     public string CacheKey => $"skill-reviews:{SkillId}:{MinRating}:{SortBy}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(10);

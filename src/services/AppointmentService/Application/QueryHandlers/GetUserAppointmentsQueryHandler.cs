@@ -1,7 +1,7 @@
 using AppointmentService.Application.Queries;
 using AppointmentService.Domain.Entities;
 using CQRS.Handlers;
-using Infrastructure.Models;
+using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace AppointmentService.Application.QueryHandlers;
@@ -63,7 +63,6 @@ public class GetUserAppointmentsQueryHandler(
                     a.ParticipantUserId, // This would need user lookup in real scenario
                     "Other Party Name", // This would come from user service
                     a.MeetingType ?? "VideoCall",
-                    a.Location,
                     true // This would be determined by comparing with current user ID
                 ))
                 .ToListAsync(cancellationToken);

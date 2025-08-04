@@ -7,12 +7,10 @@ export interface CreateSkillRequest {
   tags?: string[];
   availableHours?: number;
   preferredSessionDuration?: number;
-  location?: string;
   isRemote?: boolean;
 }
 
 export interface ExtendedCreateSkillRequest extends CreateSkillRequest {
   tags?: string[];
   remoteAvailable?: boolean;
-  location?: string;
 }

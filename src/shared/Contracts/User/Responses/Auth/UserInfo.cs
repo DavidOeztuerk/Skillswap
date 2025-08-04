@@ -21,4 +21,4 @@ public record UserInfo(
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> FavoriteSkills,
     bool EmailVerified,
-    AccountStatus AccountStatus);
+    string AccountStatus);

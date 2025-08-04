@@ -1,3 +1,5 @@
+using Contracts.Common;
+
 namespace Contracts.Skill.Responses;
 
 /// <summary>
@@ -12,7 +14,6 @@ namespace Contracts.Skill.Responses;
 /// <param name="ProficiencyLevel">Proficiency level information</param>
 /// <param name="Tags">Associated tags for the skill</param>
 /// <param name="Requirements">Requirements for the skill</param>
-/// <param name="Location">Location where the skill is offered</param>
 /// <param name="IsRemoteAvailable">Whether remote learning is available</param>
 /// <param name="EstimatedDurationMinutes">Estimated duration in minutes</param>
 /// <param name="AverageRating">Average rating for the skill</param>
@@ -34,7 +35,6 @@ public record GetSkillDetailsResponse(
     ProficiencyLevelResponse ProficiencyLevel,
     List<string> Tags,
     string? Requirements,
-    string? Location,
     bool IsRemoteAvailable,
     int? EstimatedDurationMinutes,
     double? AverageRating,
@@ -46,6 +46,7 @@ public record GetSkillDetailsResponse(
     DateTime UpdatedAt,
     DateTime? LastActiveAt,
     bool IsActive)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

@@ -6,7 +6,7 @@ namespace SkillService.Application.EventHandlers;
 
 public class SkillDeletedDomainEventHandler(
     SkillDbContext dbContext,
-    ILogger<SkillDeletedDomainEventHandler> logger) 
+    ILogger<SkillDeletedDomainEventHandler> logger)
     : BaseDomainEventHandler<SkillDeletedDomainEvent>(logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
@@ -20,8 +20,6 @@ public class SkillDeletedDomainEventHandler(
 
         if (skill?.SkillCategory != null)
         {
-            skill.SkillCategory.SkillCount--;
-            skill.SkillCategory.ActiveSkillCount--;
             skill.SkillCategory.UpdatedAt = DateTime.UtcNow;
         }
 

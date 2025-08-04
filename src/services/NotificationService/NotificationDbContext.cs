@@ -1,3 +1,4 @@
+using Domain.Abstractions;
 using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Domain.Entities;

@@ -1,6 +1,6 @@
 using Contracts.Matchmaking.Responses;
 using CQRS.Handlers;
-using Infrastructure.Models;
+using CQRS.Models;
 using MatchmakingService.Application.Queries;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,7 +16,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
     private readonly HttpClient _httpClient = httpClient;
 
     public override async Task<PagedResponse<MatchRequestDisplayResponse>> Handle(
-        GetOutgoingMatchRequestsQuery request, 
+        GetOutgoingMatchRequestsQuery request,
         CancellationToken cancellationToken)
     {
         try
@@ -44,10 +44,10 @@ public class GetOutgoingMatchRequestsQueryHandler(
             {
                 // Get skill data
                 var skillData = await GetSkillData(mr.SkillId, cancellationToken);
-                
+
                 // Get target user data (the one receiving the request)
                 var targetUserData = await GetUserData(mr.TargetUserId, cancellationToken);
-                
+
                 // Get exchange skill data if needed
                 string? exchangeSkillName = null;
                 if (!string.IsNullOrEmpty(mr.ExchangeSkillId))
@@ -102,7 +102,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
         try
         {
             var response = await _httpClient.GetAsync($"/api/skills/{skillId}", cancellationToken);
-            if (!response.IsSuccessStatusCode) 
+            if (!response.IsSuccessStatusCode)
             {
                 Logger.LogWarning("Failed to get skill data for {SkillId}, status: {StatusCode}", skillId, response.StatusCode);
                 return null;
@@ -110,7 +110,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
 
             var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<SkillApiResponse>>(cancellationToken: cancellationToken);
             var skill = apiResponse?.Data;
-            
+
             if (skill == null)
             {
                 Logger.LogWarning("Skill data is null for {SkillId}", skillId);
@@ -129,7 +129,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
     private async Task<UserData?> GetUserData(string? userId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(userId)) return null;
-        
+
         try
         {
             var response = await _httpClient.GetAsync($"/api/users/{userId}/profile", cancellationToken);
@@ -141,7 +141,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
 
             var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<UserProfileResponse>>(cancellationToken: cancellationToken);
             var user = apiResponse?.Data;
-            
+
             if (user == null)
             {
                 Logger.LogWarning("User data is null for {UserId}", userId);
@@ -164,7 +164,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
 
     private record SkillData(string Name, string Category);
     private record UserData(string Name, decimal Rating, string? Avatar);
-    
+
     private record SkillApiResponse(string Name, SkillCategoryResponse? Category);
     private record SkillCategoryResponse(string Name);
     private record UserProfileResponse(string FirstName, string LastName, string? ProfilePictureUrl);

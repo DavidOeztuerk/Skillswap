@@ -53,13 +53,11 @@ import {
 interface ExtendedCreateSkillRequest extends CreateSkillRequest {
   tags?: string[];
   remoteAvailable?: boolean;
-  location?: string;
 }
 
 interface ExtendedUpdateSkillRequest extends UpdateSkillRequest {
   tags?: string[];
   remoteAvailable?: boolean;
-  location?: string;
 }
 
 /**

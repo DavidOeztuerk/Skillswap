@@ -164,7 +164,6 @@ export interface ApiSkillDetails {
   averageRating?: number;
   reviewCount?: number;
   endorsementCount?: number;
-  location?: string;
   isRemoteAvailable?: boolean;
   estimatedDurationMinutes?: number;
   createdAt?: string;

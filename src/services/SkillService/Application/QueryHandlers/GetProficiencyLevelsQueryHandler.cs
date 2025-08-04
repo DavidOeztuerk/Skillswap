@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Application.Queries;
+using CQRS.Models;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.QueryHandlers;
 
@@ -35,7 +36,8 @@ public class GetProficiencyLevelsQueryHandler(
                     p.Id,
                     p.Level,
                     p.Rank,
-                    p.Color))
+                    p.Color,
+                    p.Skills.Count))
                 .ToListAsync(cancellationToken);
 
             return Success(levels);

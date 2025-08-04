@@ -1,5 +1,6 @@
 using CQRS.Interfaces;
 using FluentValidation;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.Queries;
 

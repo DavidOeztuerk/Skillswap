@@ -19,7 +19,6 @@ public record GetMatchDetailsResponse(
     DateTime? AcceptedAt,
     DateTime? CompletedAt,
     string? MeetingType,
-    string? MeetingLocation,
     List<string> SharedInterests,
     MatchStatistics Statistics)
 {

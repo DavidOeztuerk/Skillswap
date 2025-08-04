@@ -1,8 +1,8 @@
 using CQRS.Handlers;
-using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using MatchmakingService.Application.Queries;
 using Contracts.Matchmaking.Responses;
+using CQRS.Models;
 
 namespace MatchmakingService.Application.QueryHandlers;
 

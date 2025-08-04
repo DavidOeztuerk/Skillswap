@@ -1,15 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 // using Infrastructure.Services;
 using SkillService.Application.Queries;
 using System.Text.Json;
+using CQRS.Models;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.QueryHandlers;
-
-// ============================================================================
-// SKILL RECOMMENDATIONS QUERY HANDLER
-// ============================================================================
 
 public class GetSkillRecommendationsQueryHandler(
     SkillDbContext dbContext,
@@ -61,17 +58,11 @@ public class GetSkillRecommendationsQueryHandler(
                 .Where(s => s.UserId != request.UserId &&
                            s.IsActive &&
                            !s.IsDeleted &&
-                           s.IsOffering); // Recommend offered skills
+                           s.IsOffered); // Recommend offered skills
 
             if (request.OnlyRemote)
             {
                 query = query.Where(s => s.IsRemoteAvailable);
-            }
-
-            if (!string.IsNullOrEmpty(request.PreferredLocation))
-            {
-                query = query.Where(s => s.IsRemoteAvailable ||
-                                        (s.Location != null && s.Location.Contains(request.PreferredLocation)));
             }
 
             var candidateSkills = await query
@@ -85,6 +76,7 @@ public class GetSkillRecommendationsQueryHandler(
                     CategoryName = s.SkillCategory.Name,
                     CategoryColor = s.SkillCategory.Color,
                     CategoryIcon = s.SkillCategory.IconName,
+                    CategorySkillsCount = s.SkillCategory.Skills.Count,
                     s.AverageRating,
                     s.IsRemoteAvailable,
                     s.TagsJson
@@ -151,7 +143,8 @@ public class GetSkillRecommendationsQueryHandler(
                             skill.SkillCategoryId,
                             skill.CategoryName,
                             skill.CategoryIcon,
-                            skill.CategoryColor),
+                            skill.CategoryColor,
+                            skill.CategorySkillsCount),
                         skill.AverageRating,
                         reason,
                         Math.Round(compatibilityScore, 2),

@@ -2,9 +2,9 @@ using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
 using Contracts.Appointment.Responses;
 using CQRS.Handlers;
+using CQRS.Models;
 using Events.Domain.Appointment;
 using EventSourcing;
-using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace AppointmentService.Application.CommandHandlers;

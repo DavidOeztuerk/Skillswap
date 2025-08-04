@@ -4,6 +4,7 @@ import skillService from '../../api/services/skillsService';
 import { RootState } from '../../store/store';
 import { SearchState } from '../../types/states/SearchState';
 import { SliceError } from '../../store/types';
+import { mapSkillResponseToSkill } from '../skills/skillsSlice';
 
 const initialPagination = {
   page: 1,
@@ -131,7 +132,9 @@ const searchSlice = createSlice({
       })
       .addCase(fetchAllSkills.fulfilled, (state, action) => {
         state.allSkillsLoading = false;
-        state.allSkills = action.payload.data ?? [];
+        if (action.payload.data && Array.isArray(action.payload.data)) {
+          state.allSkills = action.payload.data.map(mapSkillResponseToSkill);
+        }
         state.allSkillsPagination = {
           page: action.payload.pageNumber,
           pageSize: action.payload.pageSize,

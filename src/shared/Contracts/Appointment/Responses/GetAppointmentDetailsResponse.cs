@@ -17,7 +17,6 @@ namespace Contracts.Appointment.Responses;
 /// <param name="MatchId">Associated match ID if applicable</param>
 /// <param name="MeetingType">Type of meeting (VideoCall, InPerson, etc.)</param>
 /// <param name="MeetingLink">Link for the meeting if applicable</param>
-/// <param name="Location">Location of the meeting if applicable</param>
 /// <param name="CreatedAt">Date and time when the appointment was created</param>
 /// <param name="AcceptedAt">Date and time when the appointment was accepted</param>
 /// <param name="CompletedAt">Date and time when the appointment was completed</param>
@@ -37,7 +36,6 @@ public record GetAppointmentDetailsResponse(
     string? MatchId,
     string MeetingType,
     string? MeetingLink,
-    string? Location,
     DateTime CreatedAt,
     DateTime? AcceptedAt,
     DateTime? CompletedAt,

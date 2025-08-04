@@ -1,10 +1,7 @@
+using Contracts.Skill.Responses;
 using CQRS.Interfaces;
 
 namespace SkillService.Application.Queries;
-
-// ============================================================================
-// GET PROFICIENCY LEVELS QUERY
-// ============================================================================
 
 public record GetProficiencyLevelsQuery(
     bool IncludeInactive = false,
@@ -15,8 +12,8 @@ public record GetProficiencyLevelsQuery(
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(30);
 }
 
-public record ProficiencyLevelResponse(
-    string LevelId,
-    string Level,
-    int Rank,
-    string? Color);
+// public record ProficiencyLevelResponse(
+//     string LevelId,
+//     string Level,
+//     int Rank,
+//     string? Color);

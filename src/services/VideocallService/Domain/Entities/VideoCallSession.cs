@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using Infrastructure.Models;
+using Domain.Abstractions;
 
 namespace VideocallService.Domain.Entities;
 

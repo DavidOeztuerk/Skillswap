@@ -24,7 +24,6 @@ public record AppointmentDetailsResponse(
     string? MatchId,
     string MeetingType,
     string? MeetingLink,
-    string? Location,
     DateTime CreatedAt,
     DateTime? AcceptedAt,
     DateTime? CompletedAt,

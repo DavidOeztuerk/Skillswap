@@ -1,5 +1,5 @@
+using CQRS.Models;
 using MediatR;
-using Infrastructure.Models;
 
 namespace CQRS.Interfaces;
 
@@ -8,7 +8,7 @@ namespace CQRS.Interfaces;
 /// </summary>
 /// <typeparam name="TQuery">Query type</typeparam>
 /// <typeparam name="TResponse">Response item type</typeparam>
-public interface IPagedQueryHandler<TQuery, TResponse> : IRequestHandler<TQuery, PagedResponse<TResponse>>
+public interface IPagedQueryHandler<TQuery, TResponse>
+    : IRequestHandler<TQuery, PagedResponse<TResponse>>
     where TQuery : IPagedQuery<TResponse>
-{
-}
+{ }

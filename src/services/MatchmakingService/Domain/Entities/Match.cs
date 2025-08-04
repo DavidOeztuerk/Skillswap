@@ -1,6 +1,5 @@
-// src/services/MatchmakingService/Domain/Entities/Match.cs
 using System.ComponentModel.DataAnnotations;
-using Infrastructure.Models;
+using Domain.Abstractions;
 
 namespace MatchmakingService.Domain.Entities;
 
@@ -38,10 +37,10 @@ public class Match : AuditableEntity
 
     // Neue Properties für Skill-Tausch
     public bool IsSkillExchange { get; set; } = false;
-    
+
     [MaxLength(450)]
     public string? ExchangeSkillId { get; set; }
-    
+
     [MaxLength(100)]
     public string? ExchangeSkillName { get; set; }
 
@@ -59,7 +58,7 @@ public class Match : AuditableEntity
     // Timeline-Tracking
     [MaxLength(450)]
     public string? OriginalRequestId { get; set; }
-    
+
     [MaxLength(450)]
     public string? ThreadId { get; set; }
 

@@ -33,7 +33,6 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
 
             // Optional properties
             entity.Property(e => e.Requirements).HasMaxLength(1000);
-            entity.Property(e => e.Location).HasMaxLength(200);
             entity.Property(e => e.TagsJson).HasColumnType("text");
             entity.Property(e => e.SearchKeywords).HasMaxLength(500);
 
@@ -86,12 +85,10 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             entity.Property(e => e.IconName).HasMaxLength(50);
             entity.Property(e => e.Color).HasMaxLength(7);
             entity.Property(e => e.Slug).HasMaxLength(100);
-            entity.Property(e => e.MetaDescription).HasMaxLength(200);
 
             // Unique constraints
             entity.HasIndex(e => e.Name).IsUnique();
             entity.HasIndex(e => e.Slug).IsUnique();
-            entity.HasIndex(e => e.SortOrder);
         });
 
         // ============================================================================

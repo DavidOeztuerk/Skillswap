@@ -10,6 +10,7 @@ export interface Skill {
   averageRating?: number;
   reviewCount?: number;
   estimatedDurationMinutes?: number;
+  endorsementCount: number;
   createdAt: string;
   lastActiveAt?: string;
   matchRequests?: number;
@@ -21,19 +22,15 @@ export interface Skill {
 export interface SkillCategory {
   id: string;
   name: string;
-  description?: string;
   iconName?: string;
   color?: string;
-  isActive: boolean;
-  createdAt: string;
+  skillCoun?: number;
 }
 
 export interface ProficiencyLevel {
   id: string;
   level: string;
-  description?: string;
   rank: number;
   color?: string;
-  isActive: boolean;
-  createdAt: string;
+  skillCount?: number;
 }

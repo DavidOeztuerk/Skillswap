@@ -32,8 +32,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   const {
     allSkills,
     userSkills,
-    categories,
-    proficiencyLevels,
     isLoading,
     isCreating,
     error,
@@ -50,6 +48,8 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     removeFavoriteSkill,
     fetchFavoriteSkills
   } = useSkills();
+
+  const { categories, proficiencyLevels} = useSkills();
   
   // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);

@@ -2,9 +2,9 @@ using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
 using Contracts.Appointment.Responses;
 using CQRS.Handlers;
+using CQRS.Models;
 using Events.Domain.Appointment;
 using EventSourcing;
-using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace AppointmentService.Application.CommandHandlers;
@@ -50,7 +50,6 @@ public class CreateAppointmentCommandHandler(
                 SkillId = request.SkillId,
                 MatchId = request.MatchId,
                 MeetingType = request.MeetingType,
-                Location = request.Location,
                 CreatedBy = request.UserId
             };
 

@@ -1,16 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Application.Commands;
 using EventSourcing;
 using Events.Domain.Skill;
 using Contracts.Skill.Responses;
+using CQRS.Models;
 
 namespace SkillService.Application.CommandHandlers;
-
-// ============================================================================
-// UPDATE SKILL COMMAND HANDLER
-// ============================================================================
 
 public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, UpdateSkillResponse>
 {
@@ -57,10 +53,10 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
                 skill.Description = request.Description.Trim();
             }
 
-            if (request.IsOffered && request.IsOffered != skill.IsOffering)
+            if (request.IsOffered && request.IsOffered != skill.IsOffered)
             {
-                changedFields["IsOffering"] = $"{skill.IsOffering} -> {request.IsOffered}";
-                skill.IsOffering = request.IsOffered;
+                changedFields["IsOffering"] = $"{skill.IsOffered} -> {request.IsOffered}";
+                skill.IsOffered = request.IsOffered;
             }
 
             if (!string.IsNullOrEmpty(request.CategoryId) && request.CategoryId != skill.SkillCategoryId)
@@ -78,14 +74,6 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
                 var oldCategory = await _dbContext.SkillCategories
                     .FirstOrDefaultAsync(c => c.Id == skill.SkillCategoryId, cancellationToken);
 
-                if (oldCategory != null)
-                {
-                    oldCategory.SkillCount--;
-                    oldCategory.ActiveSkillCount--;
-                }
-
-                newCategory.SkillCount++;
-                newCategory.ActiveSkillCount++;
 
                 changedFields["Category"] = $"{oldCategory?.Name} -> {newCategory.Name}";
                 skill.SkillCategoryId = request.CategoryId;
@@ -124,12 +112,6 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
             //    skill.Requirements = request.Requirements.Trim();
             //}
 
-            //if (!string.IsNullOrEmpty(request.Location))
-            //{
-            //    changedFields["Location"] = $"{skill.Location} -> {request.Location}";
-            //    skill.Location = request.Location.Trim();
-            //}
-
             //if (request.IsRemoteAvailable.HasValue)
             //{
             //    changedFields["RemoteAvailability"] = $"{skill.IsRemoteAvailable} -> {request.IsRemoteAvailable}";
@@ -145,13 +127,6 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
                 var category = await _dbContext.SkillCategories
                     .FirstOrDefaultAsync(c => c.Id == skill.SkillCategoryId, cancellationToken);
 
-                if (category != null)
-                {
-                    if (request.IsActive.Value && !skill.IsActive)
-                        category.ActiveSkillCount++;
-                    else if (!request.IsActive.Value && skill.IsActive)
-                        category.ActiveSkillCount--;
-                }
             }
 
             if (!changedFields.Any())
@@ -187,7 +162,7 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
                 skill.SkillCategoryId,
                 skill.ProficiencyLevelId,
                 skill.Tags,
-                skill.IsOffering,
+                skill.IsOffered,
                 skill.IsActive,
                 skill.UpdatedAt.Value);
 

@@ -25,9 +25,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.5" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../services/UserService/UserService.csproj" />
     <ProjectReference Include="../../../shared/Core/CQRS/CQRS.csproj" />
     <ProjectReference Include="../../../shared/Core/Events/Events.csproj" />
+    <ProjectReference Include="..\..\..\services\UserService\UserService.Api\UserService.Api.csproj" />
     <ProjectReference Include="..\..\..\shared\Contracts\Contracts.csproj" />
     <ProjectReference Include="..\..\..\shared\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>

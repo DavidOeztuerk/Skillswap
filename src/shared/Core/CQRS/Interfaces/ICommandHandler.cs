@@ -1,5 +1,5 @@
+using CQRS.Models;
 using MediatR;
-using Infrastructure.Models;
 
 namespace CQRS.Interfaces;
 
@@ -8,6 +8,7 @@ namespace CQRS.Interfaces;
 /// </summary>
 /// <typeparam name="TCommand">Command type</typeparam>
 /// <typeparam name="TResponse">Response type</typeparam>
-public interface ICommandHandler<TCommand, TResponse> 
+public interface ICommandHandler<TCommand, TResponse>
     : IRequestHandler<TCommand, ApiResponse<TResponse>>
-    where TCommand : ICommand<TResponse> { }
+    where TCommand : ICommand<TResponse>
+{ }

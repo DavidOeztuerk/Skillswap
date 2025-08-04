@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using CQRS.Interfaces;
-using Infrastructure.Models;
+using CQRS.Models;
 
 namespace CQRS.Handlers;
 
@@ -10,7 +10,7 @@ namespace CQRS.Handlers;
 /// <typeparam name="TQuery">Query type</typeparam>
 /// <typeparam name="TResponse">Response item type</typeparam>
 public abstract class BasePagedQueryHandler<TQuery, TResponse>(
-    ILogger logger) 
+    ILogger logger)
     : IPagedQueryHandler<TQuery, TResponse>
     where TQuery : IPagedQuery<TResponse>
 {
@@ -34,8 +34,8 @@ public abstract class BasePagedQueryHandler<TQuery, TResponse>(
         return new PagedResponse<TResponse>
         {
             Success = false,
-            Errors = new List<string> { error },
-            Data = new List<TResponse>()
+            Errors = [error],
+            Data = []
         };
     }
 }

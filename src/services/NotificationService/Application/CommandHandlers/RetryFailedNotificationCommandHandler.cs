@@ -1,5 +1,5 @@
 using CQRS.Handlers;
-using Infrastructure.Models;
+using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;

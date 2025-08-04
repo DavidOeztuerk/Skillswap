@@ -1,6 +1,6 @@
 using CQRS.Handlers;
+using CQRS.Models;
 using EventSourcing;
-using Infrastructure.Models;
 using MatchmakingService.Application.Commands;
 using Microsoft.EntityFrameworkCore;
 

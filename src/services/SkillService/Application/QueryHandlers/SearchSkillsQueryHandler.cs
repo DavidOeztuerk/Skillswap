@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Application.Queries;
 using System.Text.Json;
+using CQRS.Models;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.QueryHandlers;
 
@@ -46,7 +47,7 @@ public class SearchSkillsQueryHandler(
 
             if (request.IsOffered.HasValue)
             {
-                query = query.Where(s => s.IsOffering == request.IsOffered.Value);
+                query = query.Where(s => s.IsOffered == request.IsOffered.Value);
             }
 
             if (request.MinRating.HasValue)
@@ -98,24 +99,25 @@ public class SearchSkillsQueryHandler(
                     s.UserId,
                     s.Name,
                     s.Description,
-                    s.IsOffering,
+                    s.IsOffered,
                     new SkillCategoryResponse(
                         s.SkillCategory.Id,
                         s.SkillCategory.Name,
                         s.SkillCategory.IconName,
-                        s.SkillCategory.Color
+                        s.SkillCategory.Color,
+                        s.SkillCategory.Skills.Count
                      ),
                     new ProficiencyLevelResponse(
                         s.ProficiencyLevel.Id,
                         s.ProficiencyLevel.Level,
                         s.ProficiencyLevel.Rank,
-                        s.ProficiencyLevel.Color
+                        s.ProficiencyLevel.Color,
+                        s.ProficiencyLevel.Skills.Count
                      ),
                     s.TagsJson ?? string.Empty,
                     s.AverageRating,
                     s.ReviewCount,
                     s.EndorsementCount,
-                    s.Location,
                     s.IsRemoteAvailable,
                     s.EstimatedDurationMinutes,
                     s.CreatedAt,

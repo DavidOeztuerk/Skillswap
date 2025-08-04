@@ -1,3 +1,5 @@
+using Contracts.Common;
+
 namespace Contracts.Skill.Responses;
 
 /// <summary>
@@ -8,10 +10,8 @@ namespace Contracts.Skill.Responses;
 /// <param name="IncludeInactive">Whether inactive levels were included</param>
 /// <param name="IncludeSkillCounts">Whether skill counts were included</param>
 public record GetProficiencyLevelsResponse(
-    List<ProficiencyLevelResponse> ProficiencyLevels,
-    int TotalCount,
-    bool IncludeInactive,
-    bool IncludeSkillCounts)
+    List<ProficiencyLevelResponse> ProficiencyLevels)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

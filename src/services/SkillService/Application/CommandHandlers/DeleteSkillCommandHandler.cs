@@ -1,11 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.Skill;
 using Contracts.Skill.Responses;
+using CQRS.Models;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -55,12 +55,6 @@ public class DeleteSkillCommandHandler : BaseCommandHandler<DeleteSkillCommand, 
             // Update category counts
             var category = await _dbContext.SkillCategories
                 .FirstOrDefaultAsync(c => c.Id == skill.SkillCategoryId, cancellationToken);
-
-            if (category != null)
-            {
-                category.SkillCount--;
-                category.ActiveSkillCount--;
-            }
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 

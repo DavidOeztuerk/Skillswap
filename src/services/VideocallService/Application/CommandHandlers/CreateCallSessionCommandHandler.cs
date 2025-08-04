@@ -5,6 +5,7 @@ using VideocallService.Application.Commands;
 using VideocallService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.VideoCall;
+using CQRS.Models;
 
 namespace VideocallService.Application.CommandHandlers;
 

@@ -89,7 +89,7 @@ services:
   userservice:
     build:
       context: ./src
-      dockerfile: services/UserService/Dockerfile
+      dockerfile: services/UserService/UserService.Api/Dockerfile
     container_name: "userservice"
     depends_on:
       rabbitmq:

@@ -59,16 +59,7 @@ namespace SkillService.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
-                    b.Property<int?>("MaxExperienceMonths")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("MinExperienceMonths")
-                        .HasColumnType("integer");
-
                     b.Property<int>("Rank")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("RequiredSkillCount")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -125,10 +116,7 @@ namespace SkillService.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsFeatured")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsOffering")
+                    b.Property<bool>("IsOffered")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsRemoteAvailable")
@@ -142,10 +130,6 @@ namespace SkillService.Migrations
 
                     b.Property<DateTime?>("LastViewedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Location")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.Property<int>("MatchCount")
                         .HasColumnType("integer");
@@ -222,9 +206,6 @@ namespace SkillService.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
-                    b.Property<int>("ActiveSkillCount")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Color")
                         .HasMaxLength(7)
                         .HasColumnType("character varying(7)");
@@ -255,27 +236,14 @@ namespace SkillService.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsFeatured")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("MetaDescription")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<int>("SkillCount")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Slug")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -290,8 +258,6 @@ namespace SkillService.Migrations
 
                     b.HasIndex("Slug")
                         .IsUnique();
-
-                    b.HasIndex("SortOrder");
 
                     b.ToTable("SkillCategories");
                 });

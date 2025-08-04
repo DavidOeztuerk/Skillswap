@@ -18,4 +18,6 @@ public record AssignUserRoleRequest
     /// </summary>
     [Required]
     public string Role { get; init; } = string.Empty;
+
+    public string AssignedBy { get; init; } = string.Empty;
 }

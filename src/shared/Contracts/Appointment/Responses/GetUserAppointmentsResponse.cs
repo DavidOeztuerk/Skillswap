@@ -1,5 +1,3 @@
-using CQRS.Interfaces;
-
 namespace Contracts.Appointment.Responses;
 
 /// <summary>
@@ -7,7 +5,7 @@ namespace Contracts.Appointment.Responses;
 /// </summary>
 /// <param name="Appointments">Paginated list of user appointments</param>
 public record GetUserAppointmentsResponse(
-    IPagedQuery<UserAppointmentItem> Appointments)
+    List<UserAppointmentItem> Appointments)
 {
     /// <summary>
     /// API Version this response supports
@@ -26,7 +24,6 @@ public record GetUserAppointmentsResponse(
 /// <param name="OtherPartyUserId">User ID of the other party in the appointment</param>
 /// <param name="OtherPartyName">Name of the other party in the appointment</param>
 /// <param name="MeetingType">Type of meeting (VideoCall, InPerson, etc.)</param>
-/// <param name="Location">Location of the meeting if applicable</param>
 /// <param name="IsOrganizer">Indicates whether the current user is the organizer</param>
 public record UserAppointmentItem(
     string AppointmentId,
@@ -37,5 +34,4 @@ public record UserAppointmentItem(
     string OtherPartyUserId,
     string OtherPartyName,
     string MeetingType,
-    string? Location,
     bool IsOrganizer);

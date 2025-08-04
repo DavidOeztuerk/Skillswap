@@ -8,7 +8,7 @@ public record GetUserAppointmentsQuery(
     DateTime? ToDate = null,
     bool IncludePast = true,
     int PageNumber = 1,
-    int PageSize = 20) 
+    int PageSize = 20)
     : IPagedQuery<UserAppointmentResponse>, ICacheableQuery
 {
     int IPagedQuery<UserAppointmentResponse>.PageNumber { get; set; } = PageNumber;
@@ -27,5 +27,4 @@ public record UserAppointmentResponse(
     string OtherPartyUserId,
     string OtherPartyName,
     string MeetingType,
-    string? Location,
     bool IsOrganizer);

@@ -1,5 +1,5 @@
 using CQRS.Handlers;
-using Infrastructure.Models;
+using CQRS.Models;
 // using Infrastructure.Services;
 using MatchmakingService.Application.Queries;
 using MatchmakingService.Domain.Entities;

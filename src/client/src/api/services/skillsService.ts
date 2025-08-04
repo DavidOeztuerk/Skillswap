@@ -12,6 +12,38 @@ import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkill
 import { PagedResponse } from '../../types/common/PagedResponse';
 import apiClient from '../apiClient';
 
+export interface SkillSearchResultResponse{
+  skillId: string;
+  userId: string;
+  name: string;
+  description: string;
+  isOffering: boolean;
+  category : SkillCategoryResponse,
+  proficiencyLevel: ProficiencyLevelResponse,
+  tagsJson: string,
+  averageRating?: number,
+  reviewCount: number,
+  endorsementCount: number,
+  isRemoteAvailable: boolean,
+  estimatedDurationMinutes?: number,
+  createdAt: Date,
+  lastActiveAt?: Date
+}
+
+export interface SkillCategoryResponse {
+  categoryId: string;
+  name: string,
+  iconName?: string,
+  color?: string,
+}
+
+export interface ProficiencyLevelResponse{
+  levelId : string;
+  level: string;
+  rank : number;
+  color? : string;
+}
+
 export interface SkillSearchParams {
   searchTerm?: string;
   categoryId?: string;
@@ -48,8 +80,8 @@ const skillService = {
   /**
    * Get all skills with search and pagination
    */
-  async getAllSkills(params?: SkillSearchParams): Promise<PagedResponse<Skill[]>> {
-    return apiClient.get<PagedResponse<Skill[]>>(SKILL_ENDPOINTS.GET_SKILLS, { params });;
+  async getAllSkills(params?: SkillSearchParams): Promise<PagedResponse<SkillSearchResultResponse[]>> {
+    return apiClient.get<PagedResponse<SkillSearchResultResponse[]>>(SKILL_ENDPOINTS.GET_SKILLS, { params });;
   },
 
   /**
@@ -120,8 +152,8 @@ const skillService = {
   },
 
   // Category management
-  async getCategories(): Promise<SkillCategory[]> {
-    return apiClient.get<SkillCategory[]>(SKILL_ENDPOINTS.CATEGORIES);
+  async getCategories(): Promise<SkillCategoryResponse[]> {
+    return apiClient.get<SkillCategoryResponse[]>(SKILL_ENDPOINTS.CATEGORIES);
   },
 
   async createCategory(name: string, description?: string): Promise<SkillCategory> {
@@ -141,8 +173,8 @@ const skillService = {
   },
 
   // Proficiency level management
-  async getProficiencyLevels(): Promise<ProficiencyLevel[]> {
-    return apiClient.get<ProficiencyLevel[]>(SKILL_ENDPOINTS.PROFICIENCY_LEVELS);
+  async getProficiencyLevels(): Promise<ProficiencyLevelResponse[]> {
+    return apiClient.get<ProficiencyLevelResponse[]>(SKILL_ENDPOINTS.PROFICIENCY_LEVELS);
   },
 
   async createProficiencyLevel(
