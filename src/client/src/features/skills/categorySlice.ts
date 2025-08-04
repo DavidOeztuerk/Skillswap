@@ -4,6 +4,7 @@ import { SkillCategory } from '../../types/models/Skill';
 import skillService from '../../api/services/skillsService';
 import { SliceError } from '../../store/types';
 import { CategoriesState } from '../../types/states/SkillState';
+import { SkillCategoryResponse } from '../../types/contracts/responses/CreateSkillResponse';
 
 const initialState: CategoriesState = {
   categories: [],
@@ -138,8 +139,16 @@ const categoriesSlice = createSlice({
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.isLoading = false;
         // Null-safe access to API response
-        state.categories = action?.payload || [];
-
+        // state.categories = action?.payload || [];
+        const mapSkillResponseToSkill = (response: SkillCategoryResponse): SkillCategory => {
+          return {
+            id: response.categoryId,
+            ...response
+          }
+        }
+        if (action.payload && Array.isArray(action.payload)) {
+          state.categories = action.payload.map(x => mapSkillResponseToSkill(x));
+        }
         // Sort categories by sortOrder or name
         state.categories.sort((a, b) => {
           return a.name.localeCompare(b.name);

@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\shared\Core\Domain.Absractions\Domain.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\shared\Contracts\Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

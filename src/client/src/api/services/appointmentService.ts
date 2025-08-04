@@ -23,7 +23,6 @@ export interface UserAppointmentResponse {
   OtherPartyUserId: string;
   OtherPartyName: string;
   MeetingType: string;
-  Location?: string;
   IsOrganizer: boolean;
 }
 

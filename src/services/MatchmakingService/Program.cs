@@ -4,8 +4,6 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Infrastructure.Extensions;
-using Infrastructure.Security;
 using CQRS.Extensions;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Application.Queries;
@@ -19,8 +17,10 @@ using MatchmakingService.Consumer;
 // using Infrastructure.Services;
 using EventSourcing;
 // using MatchmakingService.Infrastructure.Services;
-using Infrastructure.Models;
 using Microsoft.AspNetCore.Mvc;
+using Infrastructure.Extensions;
+using Infrastructure.Security;
+using CQRS.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -109,7 +109,8 @@ var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
     ?? "localhost:6379"; // Default Redis connection string
-builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
+
+builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecutingAssembly());
 
 // Add MatchmakingService-specific dependencies
 builder.Services.AddMatchmakingServiceDependencies();
@@ -277,8 +278,8 @@ static async Task<IResult> CreateMatchRequest(IMediator mediator, ClaimsPrincipa
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
     var command = new CreateMatchRequestCommand(
-        request.SkillId, 
-        request.TargetUserId, 
+        request.SkillId,
+        request.TargetUserId,
         request.Message,
         request.IsSkillExchange,
         request.ExchangeSkillId,
@@ -409,7 +410,7 @@ static async Task<IResult> FindMatch(IMediator mediator, ClaimsPrincipal user, [
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new FindMatchCommand(request.SkillId, request.SkillName, request.IsOffering, request.PreferredTags, request.PreferredLocation, request.RemoteOnly, request.MaxDistanceKm)
+    var command = new FindMatchCommand(request.SkillId, request.SkillName, request.IsOffering, request.PreferredTags, request.RemoteOnly, request.MaxDistanceKm)
     {
         UserId = userId
     };

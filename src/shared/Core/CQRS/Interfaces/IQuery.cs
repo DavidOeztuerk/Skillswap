@@ -1,11 +1,11 @@
 using MediatR;
-using Infrastructure.Models;
+using CQRS.Models;
 
 namespace CQRS.Interfaces;
 
 /// <summary>
 /// Marker interface for all queries
 /// </summary>
-public interface IQuery<TResponse> : IRequest<ApiResponse<TResponse>>
-{
-}
+public interface IQuery<TResponse>
+    : IRequest<ApiResponse<TResponse>>
+{ }

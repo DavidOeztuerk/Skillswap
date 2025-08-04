@@ -8,6 +8,10 @@ using Microsoft.Extensions.Configuration;
 using Serilog;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http.Json;
+using StackExchange.Redis;
+using System.Reflection;
+using Microsoft.Extensions.Caching.Distributed;
+using Infrastructure.Security;
 
 namespace Infrastructure.Extensions;
 
@@ -22,6 +26,9 @@ public static class ServiceCollectionExtensions
         IHostEnvironment environment,
         string serviceName)
     {
+        services.AddScoped<IJwtService, JwtService>();
+        services.AddSingleton<ITotpService, TotpService>();
+
         // Configure Serilog
         LoggingConfiguration.ConfigureSerilog(configuration, environment, serviceName);
         services.AddSerilog();
@@ -51,9 +58,8 @@ public static class ServiceCollectionExtensions
         // Add telemetry and performance monitoring
         services
             .AddTelemetry(serviceName, "1.0.0", builder => builder
-                .AddTracing()
-                .AddMetrics());
-                // .AddLogging());
+            .AddTracing()
+            .AddMetrics());
 
         services.AddSingleton<IPerformanceMetrics, PerformanceMetrics>();
         services.AddSingleton<IPerformanceMonitoringService, PerformanceMonitoringService>();
@@ -79,13 +85,11 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Configures the middleware pipeline with all infrastructure components
     /// </summary>
-    public static IApplicationBuilder UseSharedInfrastructure(this IApplicationBuilder app)
+    public static IApplicationBuilder UseSharedInfrastructure(
+        this IApplicationBuilder app)
     {
         // Security headers (should be first)
         app.UseMiddleware<SecurityHeadersMiddleware>();
-
-        // Correlation ID (early in pipeline)
-        app.UseMiddleware<Observability.CorrelationIdMiddleware>();
 
         // Request logging (after correlation ID)
         app.UseMiddleware<RequestLoggingMiddleware>();
@@ -115,13 +119,88 @@ public static class ServiceCollectionExtensions
         app.UseCors();
 
         // Telemetry and performance monitoring
-        app.UseTelemetry();
-        app.UseMiddleware<PerformanceMiddleware>();
+        app.UseTelemetry().UseCorrelationId().UsePerformancee();
         app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
         // Health checks endpoint
         app.UseHealthChecks("/health");
 
         return app;
+    }
+
+    /// <summary>
+    /// Adds CQRS with Redis caching support and proper cache invalidation
+    /// </summary>
+    public static IServiceCollection AddCaching(
+        this IServiceCollection services,
+        string redisConnectionString)
+    {
+        // für Rate limiting 
+        services.AddMemoryCache();
+
+        // Configure Redis if connection string is provided
+        IConnectionMultiplexer? connectionMultiplexer = null;
+
+        if (!string.IsNullOrWhiteSpace(redisConnectionString))
+        {
+            try
+            {
+                // Configure Redis with retry logic
+                var configOptions = ConfigurationOptions.Parse(redisConnectionString);
+                configOptions.ConnectTimeout = 5000;
+                configOptions.SyncTimeout = 5000;
+                configOptions.AsyncTimeout = 5000;
+                configOptions.ConnectRetry = 3;
+                configOptions.AbortOnConnectFail = false;
+                configOptions.KeepAlive = 60;
+
+                // Enable command statistics for monitoring
+                configOptions.AllowAdmin = true;
+
+                connectionMultiplexer = ConnectionMultiplexer.Connect(configOptions);
+
+                // Register ConnectionMultiplexer as singleton
+                services.AddSingleton(connectionMultiplexer);
+
+                // Add Redis cache
+                services.AddStackExchangeRedisCache(options =>
+                {
+                    options.ConnectionMultiplexerFactory = () => Task.FromResult(connectionMultiplexer);
+                    options.InstanceName = GetCurrentServiceName() + ":";
+                });
+
+                Console.WriteLine($"[DEBUG] Redis cache configured successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DEBUG] Redis configuration failed: {ex.Message}, using MemoryCache");
+                services.AddSingleton<IDistributedCache, MemoryDistributedCache>();
+            }
+        }
+        else
+        {
+            Console.WriteLine("[DEBUG] No Redis connection string found, using MemoryDistributedCache");
+            services.AddSingleton<IDistributedCache, MemoryDistributedCache>();
+        }
+
+        return services;
+    }
+
+    /// <summary>
+    /// Gets the current service name from assembly
+    /// </summary>
+    private static string GetCurrentServiceName()
+    {
+        var assembly = Assembly.GetEntryAssembly();
+        var assemblyName = assembly?.GetName().Name ?? "UnknownService";
+
+        if (assemblyName.Contains("UserService")) return "userservice";
+        if (assemblyName.Contains("SkillService")) return "skillservice";
+        if (assemblyName.Contains("NotificationService")) return "notificationservice";
+        if (assemblyName.Contains("MatchmakingService")) return "matchmakingservice";
+        if (assemblyName.Contains("AppointmentService")) return "appointmentservice";
+        if (assemblyName.Contains("VideocallService")) return "videocallservice";
+
+        return assemblyName;
     }
 }

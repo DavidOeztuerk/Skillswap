@@ -48,9 +48,7 @@ public record SkillRecommendationResponse(
 /// <param name="UserId">User ID for whom recommendations were generated</param>
 /// <param name="MaxRecommendations">Maximum number of recommendations requested</param>
 /// <param name="OnlyRemote">Whether only remote skills were considered</param>
-/// <param name="PreferredLocation">Preferred location for recommendations</param>
 public record RecommendationCriteriaResponse(
     string UserId,
     int MaxRecommendations,
-    bool OnlyRemote,
-    string? PreferredLocation);
+    bool OnlyRemote);

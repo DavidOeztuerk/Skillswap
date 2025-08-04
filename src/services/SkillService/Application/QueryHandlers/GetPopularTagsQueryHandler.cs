@@ -1,18 +1,9 @@
-// ============================================================================
-// SKILL SERVICE QUERY HANDLERS - COMPLETE IMPLEMENTATION
-// src/services/SkillService/Application/QueryHandlers/
-// ============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Application.Queries;
+using CQRS.Models;
 
 namespace SkillService.Application.QueryHandlers;
-
-// ============================================================================
-// GET POPULAR TAGS QUERY HANDLER
-// ============================================================================
 
 public class GetPopularTagsQueryHandler(
     SkillDbContext dbContext,

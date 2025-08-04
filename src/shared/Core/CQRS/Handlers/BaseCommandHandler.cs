@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using CQRS.Interfaces;
-using Infrastructure.Models;
+using CQRS.Models;
 
 namespace CQRS.Handlers;
 
@@ -10,7 +10,7 @@ namespace CQRS.Handlers;
 /// <typeparam name="TCommand">Command type</typeparam>
 /// <typeparam name="TResponse">Response type</typeparam>
 public abstract class BaseCommandHandler<TCommand, TResponse>(
-    ILogger logger) 
+    ILogger logger)
     : ICommandHandler<TCommand, TResponse>
     where TCommand : ICommand<TResponse>
 {

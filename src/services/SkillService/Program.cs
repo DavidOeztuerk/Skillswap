@@ -92,7 +92,7 @@ var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION
     ?? builder.Configuration["ConnectionStrings:Redis"]
     ?? "localhost:6379";
 
-builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
+builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecutingAssembly());
 
 // Add SkillService-specific dependencies
 builder.Services.AddSkillServiceDependencies();
@@ -219,7 +219,7 @@ skills.MapGet("/", SearchSkills)
     .WithDescription("Search and filter skills with pagination")
     .WithTags("Skills")
     .WithOpenApi()
-    .Produces<SearchSkillsResponse>(StatusCodes.Status200OK);
+    .Produces<SkillSearchResultResponse>(StatusCodes.Status200OK);
 
 skills.MapGet("/{id}", GetSkillById)
     .WithName("GetSkillDetails")
@@ -461,14 +461,12 @@ categories.MapPut("/{id}", UpdateCategory)
 
 static async Task<IResult> GetCategories(
     IMediator mediator,
-    ClaimsPrincipal user,
-    [FromQuery] bool includeInactive = false,
-    [FromQuery] bool includeSkillCounts = false)
+    ClaimsPrincipal user)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetSkillCategoriesQuery(includeInactive, includeSkillCounts);
+    var query = new GetSkillCategoriesQuery();
 
     return await mediator.SendQuery(query);
 }
@@ -607,7 +605,7 @@ static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPri
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetSkillRecommendationsQuery(request.UserId, request.MaxRecommendations, request.OnlyRemote, request.PreferredLocation);
+    var query = new GetSkillRecommendationsQuery(request.UserId, request.MaxRecommendations, request.OnlyRemote);
 
     return await mediator.SendQuery(query);
 }

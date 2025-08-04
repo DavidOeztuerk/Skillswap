@@ -10,7 +10,6 @@ namespace Contracts.User.Requests;
 /// <param name="PhoneNumber">Updated phone number</param>
 /// <param name="Bio">Updated biography</param>
 /// <param name="TimeZone">Updated timezone</param>
-/// <param name="Location">Updated location</param>
 /// <param name="Preferences">Updated user preferences</param>
 public record UpdateUserProfileRequest(
     [StringLength(100, ErrorMessage = "First name must not exceed 100 characters")]
@@ -31,9 +30,6 @@ public record UpdateUserProfileRequest(
 
     [StringLength(50, ErrorMessage = "Timezone must not exceed 50 characters")]
     string? TimeZone = null,
-
-    [StringLength(200, ErrorMessage = "Location must not exceed 200 characters")]
-    string? Location = null,
 
     Dictionary<string, string>? Preferences = null)
 {

@@ -40,12 +40,12 @@ public class MatchmakingDbContext(
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>());
-                    
+
             entity.Property(e => e.AgreedTimes)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>());
-            
+
             // Indexes
             entity.HasIndex(e => e.ThreadId);
             entity.HasIndex(e => e.OriginalRequestId);
@@ -74,8 +74,6 @@ public class MatchmakingDbContext(
             entity.Property(e => e.Currency).HasMaxLength(3).HasDefaultValue("EUR");
             entity.Property(e => e.OfferedAmount).HasPrecision(18, 2);
 
-            // entity.Property(e => e.PreferredLocation).HasMaxLength(200);
-
             // entity.HasIndex(e => new { e.RequesterId, e.SkillId, e.Status })
             //     .HasFilter("Status = 'Pending' AND IsDeleted = 0")
             //     .IsUnique()
@@ -85,7 +83,7 @@ public class MatchmakingDbContext(
             //     .WithMany(e => e.CounterOffers)
             //     .HasForeignKey(e => e.ThreadId)
             //     .OnDelete(DeleteBehavior.Restrict);
-                
+
             // Indexes
             entity.HasIndex(e => e.ThreadId);
             // entity.HasIndex(e => e.ParentRequestId);

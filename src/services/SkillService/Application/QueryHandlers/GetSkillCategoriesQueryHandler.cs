@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Application.Queries;
+using CQRS.Models;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.QueryHandlers;
 
@@ -23,19 +24,15 @@ public class GetSkillCategoriesQueryHandler(
         {
             var query = _dbContext.SkillCategories.AsQueryable();
 
-            if (!request.IncludeInactive)
-            {
-                query = query.Where(c => c.IsActive);
-            }
-
-            query = query.OrderBy(c => c.SortOrder).ThenBy(c => c.Name);
+            query = query.OrderBy(c => c.Name);
 
             var categories = await query
                 .Select(c => new SkillCategoryResponse(
                     c.Id,
                     c.Name,
                     c.IconName,
-                    c.Color))
+                    c.Color,
+                    c.Skills.Count))
                 .ToListAsync(cancellationToken);
 
             return Success(categories);

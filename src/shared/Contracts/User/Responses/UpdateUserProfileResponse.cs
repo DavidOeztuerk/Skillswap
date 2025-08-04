@@ -21,7 +21,7 @@ public record UpdateUserProfileResponse(
     string? PhoneNumber,
     string? Bio,
     string? TimeZone,
-    DateTime UpdatedAt)
+    DateTime? UpdatedAt)
 {
     /// <summary>
     /// API Version this response supports

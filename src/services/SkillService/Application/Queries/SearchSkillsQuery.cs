@@ -1,5 +1,6 @@
 using CQRS.Interfaces;
 using FluentValidation;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.Queries;
 
@@ -36,7 +37,6 @@ public record SkillSearchResultResponse(
     double? AverageRating,
     int ReviewCount,
     int EndorsementCount,
-    string? Location,
     bool IsRemoteAvailable,
     int? EstimatedDurationMinutes,
     DateTime CreatedAt,

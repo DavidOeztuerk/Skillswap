@@ -21,7 +21,7 @@
 //         try
 //         {
 //             _logger.LogInformation("Looking up skill {SkillId}", skillId);
-            
+
 //             Forward Authorization header from current request
 //             var authHeader = _httpContextAccessor.HttpContext?.Request.Headers.Authorization.FirstOrDefault();
 //             if (!string.IsNullOrEmpty(authHeader))
@@ -29,9 +29,9 @@
 //                 _httpClient.DefaultRequestHeaders.Authorization = 
 //                     System.Net.Http.Headers.AuthenticationHeaderValue.Parse(authHeader);
 //             }
-            
+
 //             var response = await _httpClient.GetAsync($"/{skillId}", cancellationToken);
-            
+
 //             if (!response.IsSuccessStatusCode)
 //             {
 //                 _logger.LogWarning("Failed to get skill {SkillId}: {StatusCode}", skillId, response.StatusCode);
@@ -40,7 +40,7 @@
 
 //             var content = await response.Content.ReadAsStringAsync(cancellationToken);
 //             _logger.LogInformation("SkillService response for {SkillId}: {Content}", skillId, content);
-            
+
 //             try
 //             {
 //                 var skillData = JsonSerializer.Deserialize<GetSkillDetailsApiResponse>(content, new JsonSerializerOptions
@@ -87,7 +87,6 @@
 //     ProficiencyLevelApiResponse ProficiencyLevel,
 //     List<string> Tags,
 //     string? Requirements,
-//     string? Location
 // );
 
 // public record SkillCategoryApiResponse(

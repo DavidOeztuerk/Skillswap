@@ -1,4 +1,3 @@
-
 export interface CreateSkillResponse {
   skillId: string;
   name: string;
@@ -10,4 +9,20 @@ export interface CreateSkillResponse {
   isWanted: boolean;
   status: string;
   createdAt: string;
+}
+
+export interface SkillCategoryResponse {
+  categoryId: string,
+  name: string,
+  iconName?: string,
+  color?: string,
+  skillCount?: number
+}
+
+export interface ProficiencyLevelResponse{
+  levelId: string,
+  Level: string,
+  rank: number,
+  color?: string,
+  skillCount?: number
 }

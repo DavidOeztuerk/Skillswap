@@ -1,7 +1,7 @@
 // src/features/proficiencyLevels/proficiencyLevelsSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ProficiencyLevel } from '../../types/models/Skill';
-import skillService from '../../api/services/skillsService';
+import skillService, { ProficiencyLevelResponse } from '../../api/services/skillsService';
 import { ProficiencyLevelsState } from '../../types/states/SkillState';
 import { SliceError } from '../../store/types';
 
@@ -141,7 +141,15 @@ const proficiencyLevelsSlice = createSlice({
       .addCase(fetchProficiencyLevels.fulfilled, (state, action) => {
         state.isLoading = false;
         // Null-safe access to API response
-        state.proficiencyLevels = action.payload || [];
+        const mapSkillResponseToSkill = (response: ProficiencyLevelResponse): ProficiencyLevel => {
+                  return {
+                    id: response.levelId,
+                    ...response
+                  }
+                }
+                if (action.payload && Array.isArray(action.payload)) {
+                  state.proficiencyLevels = action.payload.map(x => mapSkillResponseToSkill(x));
+                }
 
         // Sort proficiency levels by rank
         state.proficiencyLevels.sort((a, b) => (a.rank || 0) - (b.rank || 0));

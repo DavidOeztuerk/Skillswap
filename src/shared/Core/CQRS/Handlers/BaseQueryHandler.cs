@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using CQRS.Interfaces;
-using Infrastructure.Models;
+using CQRS.Models;
 
 namespace CQRS.Handlers;
 
@@ -9,15 +9,12 @@ namespace CQRS.Handlers;
 /// </summary>
 /// <typeparam name="TQuery">Query type</typeparam>
 /// <typeparam name="TResponse">Response type</typeparam>
-public abstract class BaseQueryHandler<TQuery, TResponse> : IQueryHandler<TQuery, TResponse>
+public abstract class BaseQueryHandler<TQuery, TResponse>(
+    ILogger logger) 
+    : IQueryHandler<TQuery, TResponse>
     where TQuery : IQuery<TResponse>
 {
-    protected readonly ILogger Logger;
-
-    protected BaseQueryHandler(ILogger logger)
-    {
-        Logger = logger;
-    }
+    protected readonly ILogger Logger = logger;
 
     public abstract Task<ApiResponse<TResponse>> Handle(TQuery request, CancellationToken cancellationToken);
 

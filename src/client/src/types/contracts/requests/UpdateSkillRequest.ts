@@ -8,7 +8,6 @@ export interface UpdateSkillRequest {
   tags?: string[];
   estimatedDurationMinutes?: number;
   requirements?: string;
-  location?: string;
   isRemoteAvailable?: boolean;
   isActive?: boolean;
 }
@@ -16,5 +15,4 @@ export interface UpdateSkillRequest {
 export interface ExtendedUpdateSkillRequest extends UpdateSkillRequest {
   tags?: string[];
   remoteAvailable?: boolean;
-  location?: string;
 }

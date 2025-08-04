@@ -46,7 +46,6 @@ export const fetchAppointments = createAsyncThunk(
         startTime: item.ScheduledDate.toString(),
         endTime: new Date(new Date(item.ScheduledDate).getTime() + item.DurationMinutes * 60000).toISOString(),
         status: item.Status as AppointmentStatus,
-        notes: item.Location || '',
         videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
         createdAt: new Date().toISOString(),
       })),
@@ -121,7 +120,6 @@ export const fetchUpcomingAppointments = createAsyncThunk(
       startTime: item.ScheduledDate.toString(),
       endTime: new Date(new Date(item.ScheduledDate).getTime() + item.DurationMinutes * 60000).toISOString(),
       status: item.Status as AppointmentStatus,
-      notes: item.Location || '',
       videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
       createdAt: new Date().toISOString(),
     }));
@@ -144,7 +142,6 @@ export const fetchPastAppointments = createAsyncThunk(
         startTime: item.ScheduledDate.toString(),
         endTime: new Date(new Date(item.ScheduledDate).getTime() + item.DurationMinutes * 60000).toISOString(),
         status: item.Status as AppointmentStatus,
-        notes: item.Location || '',
         videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
         createdAt: new Date().toISOString(),
       })),

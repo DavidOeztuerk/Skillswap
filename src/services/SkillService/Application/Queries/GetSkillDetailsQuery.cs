@@ -1,5 +1,6 @@
 using CQRS.Interfaces;
 using FluentValidation;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.Queries;
 
@@ -16,43 +17,6 @@ public record GetSkillDetailsQuery(
     public string CacheKey => $"skill-details:{SkillId}:{IncludeReviews}:{IncludeEndorsements}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(10);
 }
-
-public record SkillDetailsResponse(
-    string SkillId,
-    string UserId,
-    string Name,
-    string Description,
-    bool IsOffering,
-    SkillCategoryResponse Category,
-    ProficiencyLevelResponse ProficiencyLevel,
-    List<string> Tags,
-    string? Requirements,
-    string? Location,
-    bool IsRemoteAvailable,
-    int? EstimatedDurationMinutes,
-    double? AverageRating,
-    int ReviewCount,
-    int EndorsementCount,
-    List<SkillReviewResponse>? Reviews,
-    List<SkillEndorsementResponse>? Endorsements,
-    DateTime CreatedAt,
-    DateTime UpdatedAt,
-    DateTime? LastActiveAt,
-    bool IsActive);
-
-public record SkillReviewResponse(
-    string ReviewId,
-    string ReviewerUserId,
-    int Rating,
-    string? Comment,
-    List<string> Tags,
-    DateTime CreatedAt);
-
-public record SkillEndorsementResponse(
-    string EndorsementId,
-    string EndorserUserId,
-    string? Message,
-    DateTime CreatedAt);
 
 public class GetSkillDetailsQueryValidator : AbstractValidator<GetSkillDetailsQuery>
 {

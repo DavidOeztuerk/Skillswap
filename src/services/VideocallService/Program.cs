@@ -94,7 +94,8 @@ var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
     ?? "localhost:6379"; // Default Redis connection string
-builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
+    
+builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecutingAssembly());
 
 // Add MassTransit
 builder.Services.AddMassTransit(x =>

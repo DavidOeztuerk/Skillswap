@@ -38,6 +38,7 @@ export function transformApiSkillToSkill(apiSkill: ApiSkillDetails): Skill {
     name: apiSkill.name,
     description: apiSkill.description || '',
     isOffered: apiSkill.isOffered || true,
+    endorsementCount: apiSkill.endorsementCount || 0,
     category: apiSkill.proficiencyLevel || {
       categoryId: 'general',
       name: apiSkill.category,
@@ -184,18 +185,15 @@ export function transformUserMatchToMatch(userMatch: UserMatchItem): Match {
       name: userMatch.SkillName,
       description: '',
       isOffered: true,
+      endorsementCount: 0,
       category: {
         id: 'general',
         name: 'General',
-        isActive: true,
-        createdAt: new Date().toISOString()
       },
       proficiencyLevel: {
         id: 'intermediate',
         level: 'Intermediate',
         rank: 3,
-        isActive: true,
-        createdAt: new Date().toISOString()
       },
       tagsJson: '[]',
       averageRating: undefined,

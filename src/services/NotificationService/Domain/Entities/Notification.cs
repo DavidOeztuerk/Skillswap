@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Domain.Abstractions;
 using Infrastructure.Models;
 
 namespace NotificationService.Domain.Entities;

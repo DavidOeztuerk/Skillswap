@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.5.0" />
@@ -24,6 +26,7 @@
     <PackageReference Include="MediatR" Version="12.5.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.5" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../../services/AppointmentService/AppointmentService.csproj" />
     <ProjectReference Include="../../../shared/Core/CQRS/CQRS.csproj" />
@@ -31,4 +34,5 @@
     <ProjectReference Include="..\..\..\shared\Contracts\Contracts.csproj" />
     <ProjectReference Include="..\..\..\shared\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
+  
 </Project>

@@ -1,4 +1,4 @@
-using Infrastructure.Models;
+using Domain.Abstractions;
 using System.ComponentModel.DataAnnotations;
 
 namespace SkillService.Domain.Entities;

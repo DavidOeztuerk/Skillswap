@@ -1,10 +1,10 @@
 using System.ComponentModel.DataAnnotations;
-using Infrastructure.Models;
+using Domain.Abstractions;
 
 namespace SkillService.Domain.Entities;
 
 /// <summary>
-/// Enhanced ProficiencyLevel with ranking and progression
+/// ProficiencyLevel Entity
 /// </summary>
 public class ProficiencyLevel : AuditableEntity
 {
@@ -23,20 +23,6 @@ public class ProficiencyLevel : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
-    // Experience requirements
-    public int? MinExperienceMonths { get; set; }
-    public int? MaxExperienceMonths { get; set; }
-
-    // Skills threshold
-    public int? RequiredSkillCount { get; set; }
-
     // Navigation properties
-    public virtual ICollection<Skill> Skills { get; set; } = new List<Skill>();
-
-    // Helper properties
-    public string DisplayName => Level;
-    public bool IsBeginnerLevel => Rank <= 2;
-    public bool IsIntermediateLevel => Rank == 3;
-    public bool IsAdvancedLevel => Rank >= 4;
-    public string BadgeClass => $"proficiency-{Rank}";
+    public virtual ICollection<Skill> Skills { get; set; } = [];
 }

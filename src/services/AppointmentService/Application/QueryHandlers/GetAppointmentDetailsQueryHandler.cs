@@ -1,7 +1,6 @@
-// src/services/AppointmentService/Application/QueryHandlers/GetAppointmentDetailsQueryHandler.cs
 using AppointmentService.Application.Queries;
 using CQRS.Handlers;
-using Infrastructure.Models;
+using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace AppointmentService.Application.QueryHandlers;
@@ -44,7 +43,6 @@ public class GetAppointmentDetailsQueryHandler(
                 appointment.MatchId,
                 appointment.MeetingType ?? "VideoCall",
                 appointment.MeetingLink,
-                appointment.Location,
                 appointment.CreatedAt,
                 appointment.AcceptedAt,
                 appointment.CompletedAt,

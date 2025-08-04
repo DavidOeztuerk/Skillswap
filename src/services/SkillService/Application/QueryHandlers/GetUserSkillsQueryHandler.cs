@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Application.Queries;
+using CQRS.Models;
+using Contracts.Skill.Responses;
+using System.Runtime.Intrinsics.X86;
 
 namespace SkillService.Application.QueryHandlers;
 
@@ -33,7 +35,7 @@ public class GetUserSkillsQueryHandler(
 
             if (request.IsOffering.HasValue)
             {
-                query = query.Where(s => s.IsOffering == request.IsOffering.Value);
+                query = query.Where(s => s.IsOffered == request.IsOffering.Value);
             }
 
             if (!string.IsNullOrEmpty(request.CategoryId))
@@ -49,27 +51,29 @@ public class GetUserSkillsQueryHandler(
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .Select(s => new UserSkillResponse(
+                    s.UserId,
                     s.Id,
                     s.Name,
                     s.Description,
-                    s.IsOffering,
                     new SkillCategoryResponse(
                         s.SkillCategory.Id,
                         s.SkillCategory.Name,
                         s.SkillCategory.IconName,
-                        s.SkillCategory.Color),
+                        s.SkillCategory.Color,
+                        s.SkillCategory.Skills.Count),
                     new ProficiencyLevelResponse(
                         s.ProficiencyLevel.Id,
                         s.ProficiencyLevel.Level,
                         s.ProficiencyLevel.Rank,
-                        s.ProficiencyLevel.Color),
+                        s.ProficiencyLevel.Color,
+                        s.ProficiencyLevel.Skills.Count),
                     s.Tags,
+                    s.IsOffered,
                     s.AverageRating,
                     s.ReviewCount,
                     s.EndorsementCount,
                     s.CreatedAt,
-                    s.UpdatedAt ?? s.CreatedAt,
-                    s.IsActive))
+                    s.UpdatedAt ?? s.CreatedAt))
                 .ToListAsync(cancellationToken);
 
             return Success(skills, request.PageNumber, request.PageSize, totalRecords);

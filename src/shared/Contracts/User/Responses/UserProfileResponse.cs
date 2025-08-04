@@ -1,5 +1,4 @@
 using Contracts.Common;
-using Contracts.User.Responses.Auth;
 
 namespace Contracts.User.Responses;
 
@@ -31,7 +30,7 @@ public record UserProfileResponse(
     string? TimeZone,
     List<string> Roles,
     bool EmailVerified,
-    AccountStatus AccountStatus,
+    string AccountStatus,
     DateTime CreatedAt,
     DateTime? LastLoginAt,
     Dictionary<string, string>? Preferences,

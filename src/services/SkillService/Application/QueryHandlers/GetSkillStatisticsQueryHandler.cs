@@ -3,6 +3,7 @@ using CQRS.Handlers;
 using Infrastructure.Models;
 // using Infrastructure.Services;
 using SkillService.Application.Queries;
+using CQRS.Models;
 
 namespace SkillService.Application.QueryHandlers;
 
@@ -52,8 +53,8 @@ public class GetSkillStatisticsQueryHandler(
             }
 
             var totalSkills = await query.CountAsync(cancellationToken);
-            var offeredSkills = await query.CountAsync(s => s.IsOffering, cancellationToken);
-            var requestedSkills = await query.CountAsync(s => !s.IsOffering, cancellationToken);
+            var offeredSkills = await query.CountAsync(s => s.IsOffered, cancellationToken);
+            var requestedSkills = await query.CountAsync(s => !s.IsOffered, cancellationToken);
             var activeSkills = await query.CountAsync(s => s.IsActive, cancellationToken);
 
             var averageRating = await query

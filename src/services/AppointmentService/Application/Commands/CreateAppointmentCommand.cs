@@ -12,8 +12,7 @@ public record CreateAppointmentCommand(
     string ParticipantUserId,
     string? SkillId = null,
     string? MatchId = null,
-    string? MeetingType = "VideoCall",
-    string? Location = null) 
+    string? MeetingType = "VideoCall")
     : ICommand<CreateAppointmentResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }

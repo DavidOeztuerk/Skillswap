@@ -1,3 +1,5 @@
+using Contracts.Common;
+
 namespace Contracts.User.Responses;
 
 /// <summary>
@@ -8,7 +10,6 @@ namespace Contracts.User.Responses;
 /// <param name="LastName">User's last name</param>
 /// <param name="UserName">User's username</param>
 /// <param name="Skills">List of user's primary skills</param>
-/// <param name="Location">User's location</param>
 /// <param name="Rating">User's average rating</param>
 /// <param name="ReviewCount">Number of reviews</param>
 /// <param name="IsAvailable">Whether user is currently available</param>
@@ -18,15 +19,22 @@ public record UserSummaryResponse(
     string FirstName,
     string LastName,
     string UserName,
-    List<string> Skills,
-    string? Location,
-    decimal? Rating,
-    int ReviewCount,
-    bool IsAvailable,
-    DateTime JoinedAt)
+    List<string> Skills)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports
     /// </summary>
     public string ApiVersion => "v1";
 }
+
+
+// public record UserSummaryResponse(
+//     string UserId,
+//     string Email,
+//     string FirstName,
+//     string LastName,
+//     string UserName,
+//     List<string> Roles,
+//     bool EmailVerified,
+//     string AccountStatus);

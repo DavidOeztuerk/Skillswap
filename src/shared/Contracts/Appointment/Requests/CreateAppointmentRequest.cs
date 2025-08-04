@@ -13,7 +13,6 @@ namespace Contracts.Appointment.Requests;
 /// <param name="SkillId">Optional ID of the skill related to this appointment</param>
 /// <param name="MatchId">Optional ID of the match this appointment is for</param>
 /// <param name="MeetingType">Type of meeting (VideoCall, InPerson, Phone, Online)</param>
-/// <param name="Location">Optional location for the appointment</param>
 public record CreateAppointmentRequest(
     [Required(ErrorMessage = "Title is required")]
     [StringLength(200, MinimumLength = 3, ErrorMessage = "Title must be between 3 and 200 characters")]
@@ -38,10 +37,7 @@ public record CreateAppointmentRequest(
 
     [Required(ErrorMessage = "Meeting type is required")]
     [RegularExpression("^(VideoCall|InPerson|Phone|Online)$", ErrorMessage = "Meeting type must be VideoCall, InPerson, Phone, or Online")]
-    string? MeetingType = "VideoCall",
-
-    [StringLength(200, ErrorMessage = "Location must not exceed 200 characters")]
-    string? Location = null)
+    string? MeetingType = "VideoCall")
 {
     /// <summary>
     /// API Version this request supports

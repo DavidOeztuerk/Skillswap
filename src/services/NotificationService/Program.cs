@@ -23,6 +23,7 @@ using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using NotificationService;
 using NotificationService.Extensions;
+using CQRS.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -101,7 +102,7 @@ var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION
     ?? builder.Configuration["ConnectionStrings:Redis"]
     ?? "localhost:6379"; // Default Redis connection string
 
-builder.Services.AddCQRSWithRedis(redisConnectionString, Assembly.GetExecutingAssembly());
+builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecutingAssembly());
 
 // ============================================================================
 // NOTIFICATION SERVICES

@@ -1,0 +1,29 @@
+@UserService_HostAddress = http://localhost:5084
+
+Post {{UserService_HostAddress}}/register
+Content-Type: application/json
+
+{
+    "email": "user@email.de",
+    "password": "password1",
+    "firstName": "David",
+    "lastName": "Aramis"
+}
+
+###
+
+Post {{UserService_HostAddress}}/login
+Content-Type: application/json
+
+{
+    "email": "user@email.de",
+    "password": "password1"
+}
+
+###
+
+Get {{UserService_HostAddress}}/profile
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYWE5OGE5OC0zNWZlLTQxYzgtODZhYi02MzQ3MDY4ZjEwYTIiLCJnaXZlbl9uYW1lIjoiRGF2aWQiLCJmYW1pbHlfbmFtZSI6IkFyYW1pcyIsImp0aSI6ImNlNGQ2MGRmLTYxYWMtNGI0NS1hZWVmLTQ1MGZmYzk5ZjFmMSIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6InVzZXJAZW1haWwuZGUiLCJleHAiOjE3NDEwNDE2ODEsImlzcyI6IlNraWxsc3dhcElzc3VlciIsImF1ZCI6IlNraWxsc3dhcEF1ZGllbmNlIn0.UfvpTZTie6f0vayKduYhw9fFzFonTfXSVZxN6a1qBIg
+
+###

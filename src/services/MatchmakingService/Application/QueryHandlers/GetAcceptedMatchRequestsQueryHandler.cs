@@ -1,8 +1,8 @@
 using CQRS.Handlers;
-using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using Contracts.Matchmaking.Responses;
 using MatchmakingService.Application.Queries;
+using CQRS.Models;
 
 namespace MatchmakingService.Application.QueryHandlers;
 
@@ -13,7 +13,9 @@ public class GetAcceptedMatchRequestsQueryHandler(
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
 
-    public override async Task<PagedResponse<MatchRequestDisplayResponse>> Handle(GetAcceptedMatchRequestsQuery request, CancellationToken cancellationToken)
+    public override async Task<PagedResponse<MatchRequestDisplayResponse>> Handle(
+        GetAcceptedMatchRequestsQuery request,
+         CancellationToken cancellationToken)
     {
         try
         {
@@ -25,7 +27,7 @@ public class GetAcceptedMatchRequestsQueryHandler(
             Logger.LogInformation("Getting accepted match requests for user: {UserId}", request.UserId);
 
             var requests = await _dbContext.MatchRequests
-                .Where(mr => (mr.RequesterId == request.UserId || mr.TargetUserId == request.UserId) 
+                .Where(mr => (mr.RequesterId == request.UserId || mr.TargetUserId == request.UserId)
                            && mr.Status == "Accepted")
                 .OrderByDescending(mr => mr.UpdatedAt ?? mr.CreatedAt)
                 .Skip((request.PageNumber - 1) * request.PageSize)
@@ -33,15 +35,16 @@ public class GetAcceptedMatchRequestsQueryHandler(
                 .ToListAsync(cancellationToken);
 
             var totalCount = await _dbContext.MatchRequests
-                .CountAsync(mr => (mr.RequesterId == request.UserId || mr.TargetUserId == request.UserId) 
+                .CountAsync(mr => (mr.RequesterId == request.UserId || mr.TargetUserId == request.UserId)
                                 && mr.Status == "Accepted", cancellationToken);
 
-            var responses = requests.Select(r => {
+            var responses = requests.Select(r =>
+            {
                 // Determine the other user and type based on current user's role
                 var isRequester = r.RequesterId == request.UserId;
                 var otherUserId = isRequester ? r.TargetUserId ?? "" : r.RequesterId;
                 var type = isRequester ? "outgoing" : "incoming";
-                
+
                 return new MatchRequestDisplayResponse(
                     Id: r.Id,
                     SkillId: r.SkillId,

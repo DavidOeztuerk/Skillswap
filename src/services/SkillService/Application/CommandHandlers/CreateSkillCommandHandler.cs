@@ -1,11 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using SkillService.Application.Commands;
 using SkillService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.Skill;
 using Contracts.Skill.Responses;
+using CQRS.Models;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -46,7 +46,7 @@ public class CreateSkillCommandHandler(
             var existingSkill = await _dbContext.Skills
                 .FirstOrDefaultAsync(s => s.UserId == request.UserId &&
                                          s.Name.ToLower() == request.Name.ToLower() &&
-                                         s.IsOffering == request.IsOffered &&
+                                         s.IsOffered == request.IsOffered &&
                                          !s.IsDeleted, cancellationToken);
 
             if (existingSkill != null)
@@ -60,7 +60,7 @@ public class CreateSkillCommandHandler(
                 UserId = request.UserId!,
                 Name = request.Name.Trim(),
                 Description = request.Description.Trim(),
-                IsOffering = request.IsOffered,
+                IsOffered = request.IsOffered,
                 SkillCategoryId = request.CategoryId,
                 ProficiencyLevelId = request.ProficiencyLevelId,
                 Tags = request.Tags ?? new List<string>(),
@@ -71,10 +71,6 @@ public class CreateSkillCommandHandler(
 
             _dbContext.Skills.Add(skill);
 
-            // Update category skill count
-            category.SkillCount++;
-            category.ActiveSkillCount++;
-
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             // ✅ NUR HIER Domain Event publizieren - NICHT im Event Handler!
@@ -83,7 +79,7 @@ public class CreateSkillCommandHandler(
                 skill.UserId,
                 skill.Name,
                 skill.Description,
-                skill.IsOffering,
+                skill.IsOffered,
                 skill.SkillCategoryId,
                 skill.ProficiencyLevelId), cancellationToken);
 
@@ -97,7 +93,7 @@ public class CreateSkillCommandHandler(
                 skill.SkillCategoryId,
                 skill.ProficiencyLevelId,
                 skill.Tags,
-                skill.IsOffering,
+                skill.IsOffered,
                 skill.IsPopular,
                 "",
                 skill.CreatedAt);

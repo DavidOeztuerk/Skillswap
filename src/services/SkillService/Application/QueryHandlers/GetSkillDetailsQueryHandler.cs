@@ -1,14 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
-// using Infrastructure.Services;
 using SkillService.Application.Queries;
+using CQRS.Models;
+using Contracts.Skill.Responses;
 
 namespace SkillService.Application.QueryHandlers;
-
-// ============================================================================
-// GET SKILL DETAILS QUERY HANDLER
-// ============================================================================
 
 public class GetSkillDetailsQueryHandler(
     SkillDbContext dbContext,
@@ -79,31 +75,29 @@ public class GetSkillDetailsQueryHandler(
                 skill.UserId,
                 skill.Name,
                 skill.Description,
-                skill.IsOffering,
                 new SkillCategoryResponse(
                     skill.SkillCategory.Id,
                     skill.SkillCategory.Name,
                     skill.SkillCategory.IconName,
-                    skill.SkillCategory.Color),
+                    skill.SkillCategory.Color,
+                    skill.SkillCategory.Skills.Count),
                 new ProficiencyLevelResponse(
                     skill.ProficiencyLevel.Id,
                     skill.ProficiencyLevel.Level,
                     skill.ProficiencyLevel.Rank,
-                    skill.ProficiencyLevel.Color),
+                    skill.ProficiencyLevel.Color,
+                    skill.ProficiencyLevel.Skills.Count),
                 skill.Tags,
-                skill.Requirements,
-                skill.Location,
-                skill.IsRemoteAvailable,
-                skill.EstimatedDurationMinutes,
-                skill.AverageRating,
-                skill.ReviewCount,
-                skill.EndorsementCount,
+                skill.IsOffered,
+                (decimal)skill.AverageRating!,
                 reviews,
                 endorsements,
+                0,
+                skill.EstimatedDurationMinutes,
+                skill.IsRemoteAvailable,
+                "",
                 skill.CreatedAt,
-                skill.UpdatedAt ?? skill.CreatedAt,
-                skill.LastViewedAt,
-                skill.IsActive);
+                skill.UpdatedAt ?? skill.CreatedAt);
 
             return Success(response);
         }
