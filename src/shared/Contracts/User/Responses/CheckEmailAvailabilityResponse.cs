@@ -4,8 +4,9 @@ namespace Contracts.User.Responses;
 /// API response for CheckEmailAvailability operation
 /// </summary>
 public record CheckEmailAvailabilityResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string Email,
+    bool IsAvailable,
+    string? Suggestion)
 {
     /// <summary>
     /// API Version this response supports

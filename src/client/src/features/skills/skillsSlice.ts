@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Skill } from '../../types/models/Skill';
 import skillService, {
+  GetUserSkillRespone,
   SkillSearchParams,
   SkillSearchResultResponse,
 } from '../../api/services/skillsService';
@@ -64,11 +65,34 @@ export const mapSkillResponseToSkill = (response: SkillSearchResultResponse): Sk
     estimatedDurationMinutes: response.estimatedDurationMinutes,
     createdAt: response.createdAt.toString(),
     lastActiveAt: response.lastActiveAt?.toString(),
-    // Frontend-only fields not in response
-    matchRequests: undefined,
-    activeMatches: undefined,
-    completionRate: undefined,
-    isVerified: undefined,
+  };
+};
+
+export const mapUserSkillsResponseToSkill = (response: GetUserSkillRespone): Skill => {
+  return {
+    id: response.skillId,
+    userId: response.userId,
+    name: response.name,
+    description: response.description,
+    isOffered: response.isOffered,
+    category: {
+      id: response.category.categoryId,
+      name: response.category.name,
+      iconName: response.category.iconName,
+      color: response.category.color,
+    },
+    proficiencyLevel: {
+      id: response.proficiencyLevel.levelId,
+      level: response.proficiencyLevel.level,
+      rank: response.proficiencyLevel.rank,
+      color: response.proficiencyLevel.color,
+    },
+    tagsJson: response.tags.toString(),
+    averageRating: response.averageRating,
+    reviewCount: response.reviewCount,
+    endorsementCount: response.endorsmentCount,
+    createdAt: response.createdAt.toString(),
+    lastActiveAt: response.updatedAt?.toString(),
   };
 };
 
@@ -400,12 +424,12 @@ const skillsSlice = createSlice({
       .addCase(fetchUserSkills.fulfilled, (state, action) => {
         state.isLoading = false;
         const response = action.payload;
-        
+
         // Map the skills if they're in SkillSearchResultResponse format
-        if (response.data && Array.isArray(response.data)) {
-          state.userSkills = response.data.map((skill: any) => {
+        if (response && Array.isArray(response)) {
+          state.userSkills = response.map((skill: GetUserSkillRespone) => {
             if ('skillId' in skill) {
-              return mapSkillResponseToSkill(skill as SkillSearchResultResponse);
+              return mapUserSkillsResponseToSkill(skill);
             }
             return skill as Skill;
           });

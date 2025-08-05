@@ -1,4 +1,3 @@
-// src/features/auth/authSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import authService from '../../api/services/authService';
 import { removeToken, getToken, getRefreshToken } from '../../utils/authHelpers';
@@ -177,7 +176,7 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         
         // Handle both nested user object and flat response
-        const userData = action.payload?.user;
+        const userData = action.payload?.userInfo;
         state.user = {
           id: userData?.userId || '',
           email: userData?.email || '',
@@ -198,7 +197,7 @@ const authSlice = createSlice({
         console.log('🔍 AuthSlice received response:', {
           hasAccessToken: !!action.payload.accessToken,
           hasRefreshToken: !!action.payload.refreshToken,
-          hasUser: !!action.payload.user
+          hasUser: !!action.payload.userInfo
         });
       })
       .addCase(login.rejected, (state, action) => {

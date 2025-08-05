@@ -4,8 +4,14 @@ namespace Contracts.User.Responses;
 /// API response for GetPublicUserProfile operation
 /// </summary>
 public record GetPublicUserProfileResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string UserId,
+    string UserName,
+    string? Bio,
+    string? ProfilePictureUrl,
+    List<string> SkillsOffered,
+    List<string> SkillsWanted,
+    double AverageRating,
+    DateTime MemberSince)
 {
     /// <summary>
     /// API Version this response supports

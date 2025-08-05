@@ -4,8 +4,9 @@ namespace Contracts.User.Responses;
 /// API response for RemoveFavoriteSkill operation
 /// </summary>
 public record RemoveFavoriteSkillResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string UserId,
+    string SkillId,
+    bool Success)
 {
     /// <summary>
     /// API Version this response supports

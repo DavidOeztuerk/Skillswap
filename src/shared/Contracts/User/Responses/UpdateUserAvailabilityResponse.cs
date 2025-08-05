@@ -4,8 +4,9 @@ namespace Contracts.User.Responses;
 /// API response for UpdateUserAvailability operation
 /// </summary>
 public record UpdateUserAvailabilityResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string UserId,
+    bool IsAvailable,
+    DateTime UpdatedAt)
 {
     /// <summary>
     /// API Version this response supports

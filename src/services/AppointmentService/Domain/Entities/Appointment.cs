@@ -80,4 +80,9 @@ public class Appointment : AuditableEntity
         CancelledAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
     }
+
+    public void Reschedule(DateTime newScheduledDate, string? reason)
+    {
+        this.ScheduledDate = newScheduledDate;
+    }
 }

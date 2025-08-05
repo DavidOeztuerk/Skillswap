@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.User.Requests;
 
@@ -6,8 +7,10 @@ namespace Contracts.User.Requests;
 /// API request for RequestPasswordReset operation
 /// </summary>
 public record RequestPasswordResetRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    [Required]
+    [EmailAddress]
+    string Email)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

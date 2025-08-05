@@ -4,8 +4,9 @@ namespace Contracts.User.Responses;
 /// API response for UpdateNotificationPreferences operation
 /// </summary>
 public record UpdateNotificationPreferencesResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string UserId,
+    bool Success,
+    DateTime UpdatedAt)
 {
     /// <summary>
     /// API Version this response supports

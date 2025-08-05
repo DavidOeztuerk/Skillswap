@@ -1,4 +1,5 @@
 using Contracts.Common;
+using System.ComponentModel.DataAnnotations;
 
 namespace Contracts.User.Requests;
 
@@ -6,8 +7,9 @@ namespace Contracts.User.Requests;
 /// API request for CheckEmailAvailability operation
 /// </summary>
 public record CheckEmailAvailabilityRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam) : IVersionedContract
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Invalid email format")]
+    string Email) : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

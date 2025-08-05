@@ -1,3 +1,4 @@
+using Contracts.Notification.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
@@ -83,8 +84,9 @@ public class RetryFailedNotificationCommandHandler(
 
             return Success(new RetryFailedNotificationResponse(
                 request.NotificationId,
+                notification.NextRetryAt != null,
                 notification.Status,
-                notification.RetryCount));
+                ""));
         }
         catch (Exception ex)
         {

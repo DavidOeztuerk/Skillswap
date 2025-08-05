@@ -6,8 +6,8 @@ namespace Contracts.User.Requests;
 /// API request for GetUserRoles operation
 /// </summary>
 public record GetUserRolesRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    [Required]
+    string UserId)
 {
     /// <summary>
     /// API Version this request supports

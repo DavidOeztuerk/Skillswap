@@ -4,8 +4,12 @@ namespace Contracts.User.Responses;
 /// API response for GetUserStatistics operation
 /// </summary>
 public record GetUserStatisticsResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    int SkillsOffered,
+    int SkillsLearned,
+    int MatchesCompleted,
+    double AverageRating,
+    int EndorsementsReceived,
+    DateTime MemberSince)
 {
     /// <summary>
     /// API Version this response supports

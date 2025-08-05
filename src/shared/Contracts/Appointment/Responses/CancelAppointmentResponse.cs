@@ -1,3 +1,5 @@
+using Contracts.Common;
+
 namespace Contracts.Appointment.Responses;
 
 /// <summary>
@@ -10,6 +12,7 @@ public record CancelAppointmentResponse(
     string AppointmentId,
     bool Success,
     DateTime CancelledAt)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

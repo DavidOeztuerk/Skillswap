@@ -6,8 +6,8 @@ namespace Contracts.User.Requests;
 /// API request for UpdateUserAvailability operation
 /// </summary>
 public record UpdateUserAvailabilityRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    bool IsAvailable,
+    string? StatusMessage)
 {
     /// <summary>
     /// API Version this request supports

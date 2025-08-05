@@ -5,9 +5,7 @@ namespace Contracts.User.Requests;
 /// <summary>
 /// API request for GetTwoFactorStatus operation
 /// </summary>
-public record GetTwoFactorStatusRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+public record GetTwoFactorStatusRequest()
 {
     /// <summary>
     /// API Version this request supports

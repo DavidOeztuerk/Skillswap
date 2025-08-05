@@ -3,11 +3,14 @@ using System.ComponentModel.DataAnnotations;
 namespace Contracts.User.Requests;
 
 /// <summary>
-/// API request for UpdateUserStatus operation
+/// API request for UpdateUserStatus operation (Admin)
 /// </summary>
 public record UpdateUserStatusRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    [Required]
+    string UserId,
+    [Required]
+    string NewStatus, // e.g., Active, Suspended, Banned
+    string? Reason = null)
 {
     /// <summary>
     /// API Version this request supports

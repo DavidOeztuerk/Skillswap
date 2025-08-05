@@ -4,8 +4,15 @@ namespace Contracts.Notification.Responses;
 /// API response for GetNotificationStatistics operation
 /// </summary>
 public record GetNotificationStatisticsResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    int TotalSent,
+    int TotalDelivered,
+    int TotalFailed,
+    double DeliveryRate,
+    double OpenRate,
+    Dictionary<string, int> SentByType,
+    Dictionary<string, int> FailedByType,
+    DateTime StartDate,
+    DateTime EndDate)
 {
     /// <summary>
     /// API Version this response supports

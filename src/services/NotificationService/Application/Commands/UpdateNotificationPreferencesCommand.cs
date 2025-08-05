@@ -1,11 +1,8 @@
+using Contracts.Notification.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace NotificationService.Application.Commands;
-
-// ============================================================================
-// UPDATE NOTIFICATION PREFERENCES COMMAND
-// ============================================================================
 
 public record UpdateNotificationPreferencesCommand(
     string UserId,
@@ -24,15 +21,12 @@ public record UpdateNotificationPreferencesCommand(
     TimeOnly? QuietHoursEnd = null,
     string? TimeZone = null,
     string? DigestFrequency = null,
-    string? Language = null) : ICommand<UpdateNotificationPreferencesResponse>, IAuditableCommand
+    string? Language = null) 
+    : ICommand<UpdateNotificationPreferencesResponse>, IAuditableCommand
 {
     string? IAuditableCommand.UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record UpdateNotificationPreferencesResponse(
-    string UserId,
-    DateTime UpdatedAt);
 
 public class UpdateNotificationPreferencesCommandValidator : AbstractValidator<UpdateNotificationPreferencesCommand>
 {

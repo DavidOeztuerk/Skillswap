@@ -24,6 +24,7 @@ using Google.Apis.Auth.OAuth2;
 using NotificationService;
 using NotificationService.Extensions;
 using CQRS.Models;
+using Contracts.Notification.Responses;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -111,23 +112,21 @@ builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecuting
 // Register notification services
 builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<SmsConfiguration>(builder.Configuration.GetSection("SMS"));
-// builder.Services.Configure<PushNotificationConfiguration>(builder.Configuration.GetSection("PushNotifications"));
+builder.Services.Configure<PushNotificationPreferences>(builder.Configuration.GetSection("PushNotifications"));
 
-// var path = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS")
-//     ?? builder.Configuration["Firebase:CredentialsPath"];
+var path = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS")
+    ?? builder.Configuration["Firebase:CredentialsPath"];
 
-// System.Console.WriteLine(path);
+if (!File.Exists(path))
+    throw new FileNotFoundException($"Firebase credentials file not found at path: {path}");
 
-// if (!File.Exists(path))
-//     throw new FileNotFoundException($"Firebase credentials file not found at path: {path}");
-
-// if (FirebaseApp.DefaultInstance == null)
-// {
-//     FirebaseApp.Create(new AppOptions()
-//     {
-//         Credential = GoogleCredential.FromFile(path)
-//     });
-// }
+if (FirebaseApp.DefaultInstance == null)
+{
+    FirebaseApp.Create(new AppOptions()
+    {
+        Credential = GoogleCredential.FromFile(path)
+    });
+}
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
@@ -365,7 +364,7 @@ notifications.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [As
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetNotificationHistoryQuery(userId, request.Type, request.Status, request.StartDate, request.EndDate, request.Page, request.PageSize);
+    var query = new GetNotificationHistoryQuery(userId, request.Type, request.Status, request.StartDate, request.EndDate, request.PageNumber, request.PageSize);
     return await mediator.SendQuery(query);
 })
 .WithName("GetUserNotifications")
@@ -527,7 +526,7 @@ templates.MapGet("/", async (IMediator mediator, ClaimsPrincipal claims, [AsPara
     var userId = claims.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetEmailTemplatesQuery(request.Language, request.IsActive, request.Page, request.PageSize);
+    var query = new GetEmailTemplatesQuery(request.Language, request.IsActive, request.PageNumber, request.PageSize);
     return await mediator.SendQuery(query);
 })
 .WithName("GetEmailTemplates")

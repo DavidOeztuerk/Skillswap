@@ -317,7 +317,7 @@ static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPr
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptMatchRequestRequest request)
+static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptMatchProposalRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();

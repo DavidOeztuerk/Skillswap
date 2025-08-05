@@ -1,123 +1,70 @@
-// using CQRS.Interfaces;
-// using Contracts.Appointment.Responses;
-// using AppointmentService.Application.Commands;
-// using AppointmentService.Domain;
-// using Microsoft.EntityFrameworkCore;
-// using MassTransit;
+using AppointmentService.Application.Commands;
+using AppointmentService.Domain.Entities;
+using Contracts.Appointment.Responses;
+using CQRS.Handlers;
+using CQRS.Models;
+using Events.Domain.Appointment;
+using EventSourcing;
+using Microsoft.EntityFrameworkCore;
 
-// namespace AppointmentService.Application.CommandHandlers;
+namespace AppointmentService.Application.CommandHandlers;
 
-// public class RescheduleAppointmentCommandHandler : ICommandHandler<RescheduleAppointmentCommand, RescheduleAppointmentResponse>
-// {
-//     private readonly ApplicationDbContext _dbContext;
-//     private readonly IPublishEndpoint _eventPublisher;
-//     private readonly ILogger<RescheduleAppointmentCommandHandler> _logger;
+public class RescheduleAppointmentCommandHandler(
+    AppointmentDbContext dbContext,
+    IDomainEventPublisher eventPublisher,
+    ILogger<RescheduleAppointmentCommandHandler> logger)
+    : BaseCommandHandler<RescheduleAppointmentCommand, RescheduleAppointmentResponse>(logger)
+{
+    private readonly AppointmentDbContext _dbContext = dbContext;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
-//     public RescheduleAppointmentCommandHandler(
-//         ApplicationDbContext dbContext,
-//         IPublishEndpoint eventPublisher,
-//         ILogger<RescheduleAppointmentCommandHandler> logger)
-//     {
-//         _dbContext = dbContext;
-//         _eventPublisher = eventPublisher;
-//         _logger = logger;
-//     }
+    public override async Task<ApiResponse<RescheduleAppointmentResponse>> Handle(
+        RescheduleAppointmentCommand request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var appointment = await _dbContext.Appointments
+                .FirstOrDefaultAsync(a => a.Id == request.AppointmentId && !a.IsDeleted, cancellationToken);
 
-//     public async Task<Result<RescheduleAppointmentResponse>> Handle(RescheduleAppointmentCommand request, CancellationToken cancellationToken)
-//     {
-//         _logger.LogInformation("Rescheduling appointment {AppointmentId} to {NewDateTime}", 
-//             request.AppointmentId, request.NewDateTime);
+            if (appointment == null)
+            {
+                return Error("Appointment not found");
+            }
 
-//         var appointment = await _dbContext.Appointments
-//             .FirstOrDefaultAsync(a => a.Id == request.AppointmentId, cancellationToken);
+            if (appointment.OrganizerUserId != request.UserId && appointment.ParticipantUserId != request.UserId)
+            {
+                return Error("You are not authorized to reschedule this appointment");
+            }
 
-//         if (appointment == null)
-//         {
-//             return Result<RescheduleAppointmentResponse>.Error("Appointment not found");
-//         }
+            if (appointment.Status == AppointmentStatus.Cancelled || appointment.Status == AppointmentStatus.Completed)
+            {
+                return Error($"Cannot reschedule a {appointment.Status.ToLower()} appointment");
+            }
 
-//         // Verify user can reschedule this appointment
-//         if (appointment.RequesterId != request.UserId && appointment.ProviderId != request.UserId)
-//         {
-//             return Result<RescheduleAppointmentResponse>.Error("You are not authorized to reschedule this appointment");
-//         }
+            var oldScheduledDate = appointment.ScheduledDate;
+            appointment.Reschedule(request.NewScheduledDate, request.Reason);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
-//         // Check if appointment can be rescheduled
-//         if (appointment.Status == AppointmentStatus.Cancelled)
-//         {
-//             return Result<RescheduleAppointmentResponse>.Error("Cannot reschedule a cancelled appointment");
-//         }
+            // Publish domain event
+            await _eventPublisher.Publish(new AppointmentRescheduledDomainEvent(
+                appointment.Id,
+                oldScheduledDate,
+                request.NewScheduledDate,
+                request.UserId),
+                cancellationToken);
 
-//         if (appointment.Status == AppointmentStatus.Completed)
-//         {
-//             return Result<RescheduleAppointmentResponse>.Error("Cannot reschedule a completed appointment");
-//         }
+            var response = new RescheduleAppointmentResponse(
+                appointment.Id,
+                appointment.ScheduledDate,
+                appointment.UpdatedAt!.Value);
 
-//         // Validate new datetime
-//         if (request.NewDateTime <= DateTime.UtcNow)
-//         {
-//             return Result<RescheduleAppointmentResponse>.Error("New appointment time must be in the future");
-//         }
-
-//         // Check for conflicts with other appointments
-//         var hasConflict = await _dbContext.Appointments
-//             .AnyAsync(a => 
-//                 a.Id != request.AppointmentId &&
-//                 (a.RequesterId == appointment.RequesterId || a.ProviderId == appointment.ProviderId) &&
-//                 a.Status != AppointmentStatus.Cancelled &&
-//                 a.ScheduledDateTime.Date == request.NewDateTime.Date &&
-//                 Math.Abs((a.ScheduledDateTime - request.NewDateTime).TotalMinutes) < appointment.DurationMinutes,
-//                 cancellationToken);
-
-//         if (hasConflict)
-//         {
-//             return Result<RescheduleAppointmentResponse>.Error("The new time conflicts with another appointment");
-//         }
-
-//         var oldDateTime = appointment.ScheduledDateTime;
-//         var oldStatus = appointment.Status;
-
-//         appointment.ScheduledDateTime = request.NewDateTime;
-//         appointment.RescheduleReason = request.Reason;
-//         appointment.RescheduledBy = request.UserId;
-//         appointment.RescheduledAt = DateTime.UtcNow;
-//         appointment.UpdatedAt = DateTime.UtcNow;
-
-//         // If rescheduled by one party, it needs confirmation from the other
-//         if (appointment.Status == AppointmentStatus.Confirmed)
-//         {
-//             appointment.Status = AppointmentStatus.Pending;
-//         }
-
-//         await _dbContext.SaveChangesAsync(cancellationToken);
-
-//         // Publish domain event
-//         await _eventPublisher.Publish(new AppointmentRescheduledEvent
-//         {
-//             AppointmentId = appointment.Id,
-//             RequesterId = appointment.RequesterId,
-//             ProviderId = appointment.ProviderId,
-//             RescheduledBy = request.UserId,
-//             OldDateTime = oldDateTime,
-//             NewDateTime = request.NewDateTime,
-//             Reason = request.Reason,
-//             PreviousStatus = oldStatus.ToString(),
-//             NewStatus = appointment.Status.ToString(),
-//             RequiresReconfirmation = appointment.Status == AppointmentStatus.Pending,
-//             Timestamp = DateTime.UtcNow
-//         }, cancellationToken);
-
-//         _logger.LogInformation("Successfully rescheduled appointment {AppointmentId} from {OldDateTime} to {NewDateTime}", 
-//             appointment.Id, oldDateTime, request.NewDateTime);
-
-//         return Result<RescheduleAppointmentResponse>.Success(new RescheduleAppointmentResponse(
-//             appointment.Id,
-//             appointment.ScheduledDateTime,
-//             appointment.Status.ToString(),
-//             appointment.RescheduleReason,
-//             appointment.RescheduledBy,
-//             appointment.RescheduledAt.Value,
-//             appointment.Status == AppointmentStatus.Pending
-//         ));
-//     }
-// }
+            return Success(response, "Appointment rescheduled successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error rescheduling appointment {AppointmentId}", request.AppointmentId);
+            return Error("An error occurred while rescheduling the appointment");
+        }
+    }
+}

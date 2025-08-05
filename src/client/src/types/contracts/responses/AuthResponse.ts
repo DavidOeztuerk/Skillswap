@@ -28,7 +28,7 @@ export interface LoginResponse {
   tokenType: string;
   expiresIn: number;
   expiresAt: Date;
-  user: UserInfo;
+  userInfo: UserInfo;
   requiresTwoFactor?: boolean;
   twoFactorMethod?: string;
 }

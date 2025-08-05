@@ -17,7 +17,7 @@ public record GetNotificationHistoryRequest(
     string? Status = null,
     DateTime? StartDate = null,
     DateTime? EndDate = null,
-    int Page = 1,
+    int PageNumber = 1,
     int PageSize = 20) : IVersionedContract
 {
     /// <summary>

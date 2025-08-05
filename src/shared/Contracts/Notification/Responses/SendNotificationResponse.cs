@@ -1,11 +1,14 @@
+using Contracts.Common;
+
 namespace Contracts.Notification.Responses;
 
 /// <summary>
 /// API response for SendNotification operation
 /// </summary>
 public record SendNotificationResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string NotificationId,
+    DateTime SentAt)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

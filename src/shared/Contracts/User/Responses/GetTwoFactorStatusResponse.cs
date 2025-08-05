@@ -4,8 +4,8 @@ namespace Contracts.User.Responses;
 /// API response for GetTwoFactorStatus operation
 /// </summary>
 public record GetTwoFactorStatusResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    bool IsEnabled,
+    int RecoveryCodesRemaining)
 {
     /// <summary>
     /// API Version this response supports

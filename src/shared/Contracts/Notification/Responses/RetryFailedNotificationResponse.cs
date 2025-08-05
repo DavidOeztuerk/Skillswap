@@ -1,11 +1,16 @@
+using Contracts.Common;
+
 namespace Contracts.Notification.Responses;
 
 /// <summary>
 /// API response for RetryFailedNotification operation
 /// </summary>
 public record RetryFailedNotificationResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string NotificationId,
+    bool RetryScheduled,
+    string NewStatus,
+    string Message)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

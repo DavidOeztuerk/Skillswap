@@ -1,11 +1,8 @@
+using Contracts.Notification.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace NotificationService.Application.Commands;
-
-// ============================================================================
-// SEND NOTIFICATION COMMAND
-// ============================================================================
 
 public record SendNotificationCommand(
     string Type, // Email, SMS, Push
@@ -20,11 +17,6 @@ public record SendNotificationCommand(
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record SendNotificationResponse(
-    string NotificationId,
-    string Status,
-    DateTime CreatedAt);
 
 public class SendNotificationCommandValidator : AbstractValidator<SendNotificationCommand>
 {

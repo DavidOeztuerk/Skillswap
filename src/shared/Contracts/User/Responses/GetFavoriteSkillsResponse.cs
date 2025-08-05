@@ -1,11 +1,12 @@
+using Contracts.Skill.Responses;
+
 namespace Contracts.User.Responses;
 
 /// <summary>
 /// API response for GetFavoriteSkills operation
 /// </summary>
 public record GetFavoriteSkillsResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    List<UserSkillResponse> FavoriteSkills)
 {
     /// <summary>
     /// API Version this response supports
