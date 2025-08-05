@@ -128,7 +128,7 @@ public static class AuthControllerExensions
 
         static async Task<IResult> HandleRequestPasswordReset(IMediator mediator, [FromBody] RequestPasswordResetRequest request)
         {
-            var command = new RequestPasswordResetCommand(request.PlaceholderParam);
+            var command = new RequestPasswordResetCommand(request.Email);
             return await mediator.SendCommand(command);
         }
 

@@ -6,8 +6,10 @@ namespace Contracts.User.Requests;
 /// API request for GetAllUsers operation
 /// </summary>
 public record GetAllUsersRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    int PageNumber = 1,
+    int PageSize = 20,
+    string? SortBy = "UserName",
+    bool SortDescending = false)
 {
     /// <summary>
     /// API Version this request supports

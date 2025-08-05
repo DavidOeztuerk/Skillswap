@@ -1,3 +1,5 @@
+using Contracts.Common;
+
 namespace Contracts.Notification.Responses;
 
 /// <summary>
@@ -5,13 +7,12 @@ namespace Contracts.Notification.Responses;
 /// </summary>
 public record UpdateNotificationPreferencesResponse(
     string UserId,
-    //EmailNotificationSettings EmailSettings,
-    //PushNotificationSettings PushSettings,
-    //InAppNotificationSettings InAppSettings,
     DateTime UpdatedAt)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports
     /// </summary>
     public string ApiVersion => "v1";
 }
+

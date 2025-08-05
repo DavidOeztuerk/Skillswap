@@ -1,11 +1,8 @@
+using Contracts.Notification.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace NotificationService.Application.Commands;
-
-// ============================================================================
-// CREATE EMAIL TEMPLATE COMMAND
-// ============================================================================
 
 public record CreateEmailTemplateCommand(
     string Name,
@@ -14,17 +11,12 @@ public record CreateEmailTemplateCommand(
     string HtmlContent,
     string TextContent,
     string? Description = null,
-    Dictionary<string, string>? VariablesSchema = null) : ICommand<CreateEmailTemplateResponse>, IAuditableCommand
+    Dictionary<string, string>? VariablesSchema = null) 
+    : ICommand<CreateEmailTemplateResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record CreateEmailTemplateResponse(
-    string TemplateId,
-    string Name,
-    string Language,
-    DateTime CreatedAt);
 
 public class CreateEmailTemplateCommandValidator : AbstractValidator<CreateEmailTemplateCommand>
 {

@@ -1,3 +1,4 @@
+using Contracts.Notification.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
 using NotificationService.Application.Commands;
@@ -22,76 +23,70 @@ public class SendBulkNotificationCommandHandler(
             var campaignId = Guid.NewGuid().ToString();
             var notificationIds = new List<string>();
 
-            // Create campaign record
+            var now = DateTime.UtcNow;
+
             var campaign = new NotificationCampaign
             {
                 Id = campaignId,
-                Name = $"Bulk {request.Type} - {DateTime.UtcNow:yyyy-MM-dd HH:mm}",
+                Name = $"Bulk {request.Type} - {now:yyyy-MM-dd HH:mm}",
                 Type = request.Type,
                 Template = request.Template,
                 Status = CampaignStatus.Running,
                 TotalTargets = request.UserIds.Count,
                 VariablesJson = JsonSerializer.Serialize(request.GlobalVariables),
-                StartedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                StartedAt = now,
+                CreatedAt = now,
+                UpdatedAt = now
             };
-
             _context.NotificationCampaigns.Add(campaign);
 
-            // Create individual notifications
             foreach (var userId in request.UserIds)
             {
                 var notificationId = Guid.NewGuid().ToString();
                 notificationIds.Add(notificationId);
 
-                // Merge global and user-specific variables
-                var variables = new Dictionary<string, string>(request.GlobalVariables);
-                if (request.UserSpecificVariables?.ContainsKey(userId) == true)
-                {
-                    foreach (var userVar in request.UserSpecificVariables[userId])
-                    {
-                        variables[userVar.Key] = userVar.Value;
-                    }
-                }
+                var vars = new Dictionary<string, string>(request.GlobalVariables);
+                if (request.UserSpecificVariables?.TryGetValue(userId, out var userVars) == true)
+                    foreach (var kv in userVars) vars[kv.Key] = kv.Value;
 
                 var metadata = new NotificationMetadata
                 {
-                    Variables = variables,
+                    Variables = vars,
                     SourceEvent = "BulkCampaign",
                     CustomData = new Dictionary<string, object> { ["CampaignId"] = campaignId }
                 };
 
+                var isScheduled = request.ScheduledAt.HasValue && request.ScheduledAt > now;
                 var notification = new Notification
                 {
                     Id = notificationId,
                     UserId = userId,
                     Type = request.Type,
                     Template = request.Template,
-                    Recipient = "placeholder@example.com", // Would need to lookup actual email
-                    Subject = GetSubjectFromTemplate(request.Template, variables),
-                    Content = GetContentFromTemplate(request.Template, variables),
-                    Status = request.ScheduledAt.HasValue && request.ScheduledAt > DateTime.UtcNow
-                        ? NotificationStatus.Pending
-                        : NotificationStatus.Pending,
+                    Recipient = "placeholder@example.com",
+                    Subject = GetSubjectFromTemplate(request.Template, vars),
+                    Content = GetContentFromTemplate(request.Template, vars),
+                    Status = isScheduled ? NotificationStatus.Pending : NotificationStatus.Sent,
                     Priority = request.Priority,
                     MetadataJson = JsonSerializer.Serialize(metadata),
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = now,
+                    UpdatedAt = now
                 };
-
                 _context.Notifications.Add(notification);
             }
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            Logger.LogInformation("Bulk notification campaign {CampaignId} created with {Count} notifications",
+            Logger.LogInformation(
+                "Bulk notification campaign {CampaignId} created with {Count} notifications",
                 campaignId, notificationIds.Count);
 
             return Success(new SendBulkNotificationResponse(
                 campaignId,
                 notificationIds.Count,
-                notificationIds));
+                notificationIds.Count,
+                0,
+                now));
         }
         catch (Exception ex)
         {

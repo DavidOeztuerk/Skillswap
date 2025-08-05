@@ -4,8 +4,8 @@ namespace Contracts.User.Responses;
 /// API response for GetUserRoles operation
 /// </summary>
 public record GetUserRolesResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string UserId,
+    List<string> Roles)
 {
     /// <summary>
     /// API Version this response supports

@@ -1,6 +1,6 @@
+using Contracts.Notification.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
-using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;

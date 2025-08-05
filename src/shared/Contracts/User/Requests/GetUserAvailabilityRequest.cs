@@ -6,8 +6,8 @@ namespace Contracts.User.Requests;
 /// API request for GetUserAvailability operation
 /// </summary>
 public record GetUserAvailabilityRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    [Required]
+    string UserId)
 {
     /// <summary>
     /// API Version this request supports

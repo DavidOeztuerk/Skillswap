@@ -1,99 +1,71 @@
-// using CQRS.Interfaces;
-// using Contracts.Appointment.Responses;
-// using AppointmentService.Application.Commands;
-// using AppointmentService.Domain;
-// using AppointmentService.Infrastructure.Data;
-// using Microsoft.EntityFrameworkCore;
-// using MassTransit;
-// using Events.Appointment;
-// using Infrastructure.Logging;
+using AppointmentService.Application.Commands;
+using AppointmentService.Domain.Entities;
+using Contracts.Appointment.Responses;
+using CQRS.Handlers;
+using CQRS.Models;
+using Events.Domain.Appointment;
+using EventSourcing;
+using Microsoft.EntityFrameworkCore;
 
-// namespace AppointmentService.Application.CommandHandlers;
+namespace AppointmentService.Application.CommandHandlers;
 
-// public class CancelAppointmentCommandHandler : ICommandHandler<CancelAppointmentCommand, CancelAppointmentResponse>
-// {
-//     private readonly ApplicationDbContext _dbContext;
-//     private readonly IPublishEndpoint _eventPublisher;
-//     private readonly ILogger<CancelAppointmentCommandHandler> _logger;
+public class CancelAppointmentCommandHandler(
+    AppointmentDbContext dbContext,
+    IDomainEventPublisher eventPublisher,
+    ILogger<CancelAppointmentCommandHandler> logger)
+    : BaseCommandHandler<CancelAppointmentCommand, CancelAppointmentResponse>(logger)
+{
+    private readonly AppointmentDbContext _dbContext = dbContext;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
-//     public CancelAppointmentCommandHandler(
-//         ApplicationDbContext dbContext,
-//         IPublishEndpoint eventPublisher,
-//         ILogger<CancelAppointmentCommandHandler> logger)
-//     {
-//         _dbContext = dbContext;
-//         _eventPublisher = eventPublisher;
-//         _logger = logger;
-//     }
+    public override async Task<ApiResponse<CancelAppointmentResponse>> Handle(
+        CancelAppointmentCommand request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var appointment = await _dbContext.Appointments
+                .FirstOrDefaultAsync(a => a.Id == request.AppointmentId && !a.IsDeleted, cancellationToken);
 
-//     public async Task<Result<CancelAppointmentResponse>> Handle(CancelAppointmentCommand request, CancellationToken cancellationToken)
-//     {
-//         _logger.LogInformation("Cancelling appointment {AppointmentId} by user {UserId}", request.AppointmentId, request.UserId);
+            if (appointment == null)
+            {
+                return Error("Appointment not found");
+            }
 
-//         var appointment = await _dbContext.Appointments
-//             .FirstOrDefaultAsync(a => a.Id == request.AppointmentId, cancellationToken);
+            if (appointment.OrganizerUserId != request.UserId && appointment.ParticipantUserId != request.UserId)
+            {
+                return Error("You are not authorized to cancel this appointment");
+            }
 
-//         if (appointment == null)
-//         {
-//             return Result<CancelAppointmentResponse>.Error("Appointment not found");
-//         }
+            if (appointment.Status == AppointmentStatus.Cancelled)
+            {
+                return Error("Appointment is already cancelled");
+            }
 
-//         // Verify user can cancel this appointment
-//         if (appointment.RequesterId != request.UserId && appointment.ProviderId != request.UserId)
-//         {
-//             return Result<CancelAppointmentResponse>.Error("You are not authorized to cancel this appointment");
-//         }
+            var now = DateTime.UtcNow;
 
-//         // Check if appointment can be cancelled
-//         if (appointment.Status == AppointmentStatus.Cancelled)
-//         {
-//             return Result<CancelAppointmentResponse>.Error("Appointment is already cancelled");
-//         }
+            appointment.Cancel(request.Reason);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
-//         if (appointment.Status == AppointmentStatus.Completed)
-//         {
-//             return Result<CancelAppointmentResponse>.Error("Cannot cancel a completed appointment");
-//         }
+            // Publish domain event
+            await _eventPublisher.Publish(new AppointmentCancelledDomainEvent(
+                appointment.Id,
+                request.UserId,
+                request.Reason,
+                appointment.CancelledAt ?? now),
+                cancellationToken);
 
-//         // Check cancellation policy (e.g., 24 hours notice)
-//         var hoursUntilAppointment = (appointment.ScheduledDateTime - DateTime.UtcNow).TotalHours;
-//         if (hoursUntilAppointment < 24 && appointment.Status == AppointmentStatus.Confirmed)
-//         {
-//             _logger.LogWarning("Late cancellation for appointment {AppointmentId} - only {Hours} hours notice", 
-//                 request.AppointmentId, hoursUntilAppointment);
-//         }
+            var response = new CancelAppointmentResponse(
+                appointment.Id,
+                true,
+                appointment.CancelledAt ?? now);
 
-//         var previousStatus = appointment.Status;
-//         appointment.Status = AppointmentStatus.Cancelled;
-//         appointment.CancellationReason = request.CancellationReason;
-//         appointment.CancelledBy = request.UserId;
-//         appointment.CancelledAt = DateTime.UtcNow;
-//         appointment.UpdatedAt = DateTime.UtcNow;
-
-//         await _dbContext.SaveChangesAsync(cancellationToken);
-
-//         // Publish domain event
-//         await _eventPublisher.Publish(new AppointmentCancelledEvent
-//         {
-//             AppointmentId = appointment.Id,
-//             RequesterId = appointment.RequesterId,
-//             ProviderId = appointment.ProviderId,
-//             CancelledBy = request.UserId,
-//             CancellationReason = request.CancellationReason,
-//             PreviousStatus = previousStatus.ToString(),
-//             ScheduledDateTime = appointment.ScheduledDateTime,
-//             IsLateCancellation = hoursUntilAppointment < 24,
-//             Timestamp = DateTime.UtcNow
-//         }, cancellationToken);
-
-//         _logger.LogInformation("Successfully cancelled appointment {AppointmentId}", appointment.Id);
-
-//         return Result<CancelAppointmentResponse>.Success(new CancelAppointmentResponse(
-//             appointment.Id,
-//             appointment.Status.ToString(),
-//             appointment.CancellationReason,
-//             appointment.CancelledBy,
-//             appointment.CancelledAt.Value
-//         ));
-//     }
-// }
+            return Success(response, "Appointment cancelled successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error cancelling appointment {AppointmentId}", request.AppointmentId);
+            return Error("An error occurred while cancelling the appointment");
+        }
+    }
+}

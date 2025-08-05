@@ -1,11 +1,15 @@
+using Contracts.Common;
+
 namespace Contracts.Notification.Responses;
 
 /// <summary>
 /// API response for UpdateEmailTemplate operation
 /// </summary>
 public record UpdateEmailTemplateResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string TemplateId,
+    string Name,
+    DateTime UpdatedAt)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

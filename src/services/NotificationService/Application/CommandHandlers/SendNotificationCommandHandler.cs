@@ -1,3 +1,4 @@
+using Contracts.Notification.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
 using NotificationService.Application.Commands;
@@ -68,7 +69,6 @@ public class SendNotificationCommandHandler(
 
             var response = new SendNotificationResponse(
                 notificationId,
-                notification.Status,
                 notification.CreatedAt);
 
             return Success(response);

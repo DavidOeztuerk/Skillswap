@@ -1,11 +1,15 @@
+using Contracts.Common;
+
 namespace Contracts.Notification.Responses;
 
 /// <summary>
 /// API response for CancelNotification operation
 /// </summary>
 public record CancelNotificationResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string NotificationId,
+    DateTime CancelledAt,
+    string Message)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

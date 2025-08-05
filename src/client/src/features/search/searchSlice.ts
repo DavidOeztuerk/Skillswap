@@ -4,7 +4,8 @@ import skillService from '../../api/services/skillsService';
 import { RootState } from '../../store/store';
 import { SearchState } from '../../types/states/SearchState';
 import { SliceError } from '../../store/types';
-import { mapSkillResponseToSkill } from '../skills/skillsSlice';
+import { mapSkillResponseToSkill, mapUserSkillsResponseToSkill } from '../skills/skillsSlice';
+import { Skill } from '../../types/models/Skill';
 
 const initialPagination = {
   page: 1,
@@ -111,7 +112,17 @@ const searchSlice = createSlice({
       })
       .addCase(fetchUserSearchResults.fulfilled, (state, action) => {
         state.userLoading = false;
-        state.userResults = action.payload.data ?? [];
+        const response = action.payload;
+
+        if (response.data && Array.isArray(response.data)) {
+          state.userResults = response.data.map((skill) => {
+            if ('skillId' in skill) {
+              return mapUserSkillsResponseToSkill(skill);
+            }
+            return skill as Skill;
+          });
+        }
+
         state.userPagination = {
           page: action.payload.pageNumber,
           pageSize: action.payload.pageSize,

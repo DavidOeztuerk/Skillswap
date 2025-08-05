@@ -1,3 +1,4 @@
+using Contracts.Notification.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
@@ -22,18 +23,12 @@ public class CancelNotificationCommandHandler(
 
             if (notification == null)
             {
-                return Success(new CancelNotificationResponse(
-                    request.NotificationId,
-                    false,
-                    "Notification not found"));
+                return Error("Notification not found");
             }
 
             if (notification.Status == NotificationStatus.Sent || notification.Status == NotificationStatus.Delivered)
             {
-                return Success(new CancelNotificationResponse(
-                    request.NotificationId,
-                    false,
-                    "Cannot cancel notification that has already been sent"));
+                return Error("Cannot cancel notification that has already been sent");
             }
 
             notification.Status = NotificationStatus.Cancelled;
@@ -58,7 +53,7 @@ public class CancelNotificationCommandHandler(
 
             return Success(new CancelNotificationResponse(
                 request.NotificationId,
-                true,
+                notification.UpdatedAt ?? DateTime.UtcNow,
                 "Notification cancelled successfully"));
         }
         catch (Exception ex)

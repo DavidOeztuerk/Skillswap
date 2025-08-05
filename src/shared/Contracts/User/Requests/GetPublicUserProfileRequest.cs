@@ -6,8 +6,8 @@ namespace Contracts.User.Requests;
 /// API request for GetPublicUserProfile operation
 /// </summary>
 public record GetPublicUserProfileRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+    [Required]
+    string UserId)
 {
     /// <summary>
     /// API Version this request supports

@@ -12,6 +12,22 @@ import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkill
 import { PagedResponse } from '../../types/common/PagedResponse';
 import apiClient from '../apiClient';
 
+export interface GetUserSkillRespone {
+  userId: string,
+  skillId: string,
+  name: string,
+  description: string,
+  category : SkillCategoryResponse,
+  proficiencyLevel: ProficiencyLevelResponse,
+  tags: string[],
+  isOffered: boolean,
+  averageRating?: number,
+  reviewCount: number,
+  endorsmentCount: number,
+  createdAt: Date,
+  updatedAt: Date
+}
+
 export interface SkillSearchResultResponse{
   skillId: string;
   userId: string;
@@ -95,7 +111,7 @@ const skillService = {
   /**
    * Get current user's skills
    */
-  async getUserSkills(pageNumber = 1, pageSize = 12, isOffered?: boolean, categoryId?: number, includeInactive = false): Promise<PagedResponse<Skill[]>> {
+  async getUserSkills(pageNumber = 1, pageSize = 12, isOffered?: boolean, categoryId?: number, includeInactive = false): Promise<PagedResponse<GetUserSkillRespone[]>> {
     const params = new URLSearchParams();
     params.append('PageNumber', pageNumber.toString());
     params.append('PageSize', pageSize.toString());
@@ -104,7 +120,7 @@ const skillService = {
     if (includeInactive !== undefined) params.append('IncludeInactive', includeInactive.toString());
     
     const url = `${SKILL_ENDPOINTS.GET_USER_SKILLS}?${params.toString()}`;
-    return apiClient.get<PagedResponse<Skill[]>>(url);
+    return apiClient.get<PagedResponse<GetUserSkillRespone[]>>(url);
   },
 
   /**

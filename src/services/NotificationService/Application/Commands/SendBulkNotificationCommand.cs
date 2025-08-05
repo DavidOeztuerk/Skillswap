@@ -1,11 +1,8 @@
+using Contracts.Notification.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace NotificationService.Application.Commands;
-
-// ============================================================================
-// SEND BULK NOTIFICATION COMMAND
-// ============================================================================
 
 public record SendBulkNotificationCommand(
     List<string> UserIds,
@@ -14,16 +11,12 @@ public record SendBulkNotificationCommand(
     Dictionary<string, string> GlobalVariables,
     Dictionary<string, Dictionary<string, string>>? UserSpecificVariables = null,
     string Priority = "Normal",
-    DateTime? ScheduledAt = null) : ICommand<SendBulkNotificationResponse>, IAuditableCommand
+    DateTime? ScheduledAt = null) 
+    : ICommand<SendBulkNotificationResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record SendBulkNotificationResponse(
-    string CampaignId,
-    int TotalNotifications,
-    List<string> NotificationIds);
 
 public class SendBulkNotificationCommandValidator : AbstractValidator<SendBulkNotificationCommand>
 {

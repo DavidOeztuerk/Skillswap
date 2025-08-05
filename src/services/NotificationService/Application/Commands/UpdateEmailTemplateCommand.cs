@@ -1,11 +1,8 @@
+using Contracts.Notification.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
 namespace NotificationService.Application.Commands;
-
-// ============================================================================
-// UPDATE EMAIL TEMPLATE COMMAND
-// ============================================================================
 
 public record UpdateEmailTemplateCommand(
     string TemplateId,
@@ -14,16 +11,12 @@ public record UpdateEmailTemplateCommand(
     string? TextContent = null,
     string? Description = null,
     bool? IsActive = null,
-    Dictionary<string, string>? VariablesSchema = null) : ICommand<UpdateEmailTemplateResponse>, IAuditableCommand
+    Dictionary<string, string>? VariablesSchema = null) 
+    : ICommand<UpdateEmailTemplateResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
-
-public record UpdateEmailTemplateResponse(
-    string TemplateId,
-    string Name,
-    DateTime UpdatedAt);
 
 public class UpdateEmailTemplateCommandValidator : AbstractValidator<UpdateEmailTemplateCommand>
 {

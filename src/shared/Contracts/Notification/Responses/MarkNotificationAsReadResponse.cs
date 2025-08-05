@@ -1,11 +1,14 @@
+using Contracts.Common;
+
 namespace Contracts.Notification.Responses;
 
 /// <summary>
 /// API response for MarkNotificationAsRead operation
 /// </summary>
 public record MarkNotificationAsReadResponse(
-    // TODO: Add response properties
-    string PlaceholderResult)
+    string NotificationId,
+    DateTime ReadAt)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

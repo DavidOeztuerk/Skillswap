@@ -5,9 +5,7 @@ namespace Contracts.User.Requests;
 /// <summary>
 /// API request for GetUserStatistics operation
 /// </summary>
-public record GetUserStatisticsRequest(
-    // TODO: Add request parameters with validation
-    string PlaceholderParam)
+public record GetUserStatisticsRequest()
 {
     /// <summary>
     /// API Version this request supports
