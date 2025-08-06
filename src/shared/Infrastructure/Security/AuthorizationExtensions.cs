@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -45,6 +46,17 @@ public static class AuthorizationExtensions
                     context.User.IsInRole(Roles.Admin) ||
                     context.User.IsInRole(Roles.SuperAdmin) ||
                     context.User.HasClaim("permission", Permissions.ViewSystemLogs)));
+
+            var permissionFields = typeof(Permissions).GetFields(BindingFlags.Public | BindingFlags.Static);
+            foreach (var field in permissionFields)
+            {
+                var permission = field.GetValue(null)?.ToString();
+                if (!string.IsNullOrWhiteSpace(permission))
+                {
+                    options.AddPolicy(permission, policy =>
+                        policy.RequireClaim("permission", permission));
+                }
+            }
         });
 
         // // Register authorization handlers

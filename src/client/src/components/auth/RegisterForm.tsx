@@ -274,7 +274,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       <Box sx={{ mt: 3, textAlign: 'center' }}>
         <Typography variant="body2">
           Bereits ein Konto?{' '}
-          <Link component={RouterLink} to="/login" variant="body2">
+          <Link component={RouterLink} to="/auth/login" variant="body2">
             Hier anmelden
           </Link>
         </Typography>

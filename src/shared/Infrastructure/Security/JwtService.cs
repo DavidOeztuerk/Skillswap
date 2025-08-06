@@ -16,10 +16,15 @@ public class JwtService(
 {
     private readonly JwtSettings _jwtSettings = jwtSettings.Value;
     private readonly ILogger<JwtService> _logger = logger;
-    private static readonly HashSet<string> RevokedTokens = new();
+    private static readonly HashSet<string> RevokedTokens = [];
 
     public async Task<TokenResult> GenerateTokenAsync(UserClaims user)
     {
+        user.Permissions = [.. RolePermissions
+            .GetPermissionsForRoles(user.Roles)
+            .Union(user.Permissions)
+            .Distinct()];
+
         var accessToken = await GenerateAccessTokenAsync(user);
         var refreshToken = await GenerateRefreshTokenAsync();
 

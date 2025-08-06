@@ -95,7 +95,7 @@ const Header: React.FC<HeaderProps> = ({
     handleMenuClose();
     handleMoreMenuClose();
     await logout();
-    navigate('/login');
+    navigate('/auth/login');
   };
 
   const handleProfile = () => {
@@ -205,7 +205,7 @@ const Header: React.FC<HeaderProps> = ({
               <Button
                 color="inherit"
                 component={Link}
-                to="/login"
+                to="/auth/login"
                 sx={{ textTransform: 'none' }}
               >
                 Anmelden
@@ -214,7 +214,7 @@ const Header: React.FC<HeaderProps> = ({
                 variant="contained"
                 color="secondary"
                 component={Link}
-                to="/register"
+                to="/auth/register"
                 sx={{ textTransform: 'none' }}
               >
                 Registrieren
@@ -231,7 +231,7 @@ const Header: React.FC<HeaderProps> = ({
     <MenuItem
       key="login"
       component={Link}
-      to="/login"
+      to="/auth/login"
       onClick={handleMoreMenuClose}
     >
       Anmelden
@@ -239,7 +239,7 @@ const Header: React.FC<HeaderProps> = ({
     <MenuItem
       key="register"
       component={Link}
-      to="/register"
+      to="/auth/register"
       onClick={handleMoreMenuClose}
     >
       Registrieren

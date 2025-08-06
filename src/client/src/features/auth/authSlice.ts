@@ -174,7 +174,6 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        
         // Handle both nested user object and flat response
         const userData = action.payload?.userInfo;
         state.user = {

@@ -1,4 +1,3 @@
-// src/hooks/useAuth.ts
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -85,23 +84,47 @@ export const useAuth = () => {
 
   // Memoized permission checker
   const permissionChecker = useMemo(() => ({
-    hasPermission: (requiredRole: string): boolean => {
-      return user?.roles?.includes(requiredRole) ?? false;
+    hasPermission: (perm: string): boolean => {
+      return user?.permissions?.includes(perm) ?? false;
+    },
+     hasAnyPermission: (perms: string[]): boolean => {
+      debugger
+      console.log(perms)
+      return perms.some(p => user?.permissions?.includes(p)) ?? false;
+    },
+    hasAllPermissions: (perms: string[]): boolean => {
+      return perms.every(p => user?.permissions?.includes(p)) ?? false;
     },
     hasAnyRole: (roles: string[]): boolean => {
       return roles.some(role => user?.roles?.includes(role)) ?? false;
     },
     hasAllRoles: (roles: string[]): boolean => {
       return roles.every(role => user?.roles?.includes(role)) ?? false;
-    }
-  }), [user?.roles]);
+    },
+  }), [user?.permissions, user?.roles]);
 
   // Attempt silent login on mount
-  // useEffect(() => {
-  //   if (!isAuthenticated && !isLoading && !error) {
-  //     dispatch(silentLoginAction());
-  //   }
-  // }, [dispatch, isAuthenticated, isLoading, error]);
+// useEffect(() => {
+//   const initializeAuth = async () => {
+//     // Nur wenn noch nicht authentifiziert und nicht bereits am Laden
+//     if (!isAuthenticated && !isLoading && !error) {
+//       console.log('Attempting silent login...');
+//       dispatch(setLoading(true)); // Loading state setzen
+      
+//       try {
+//         const success = await dispatch(silentLoginAction()).unwrap();
+//         console.log('Silent login result:', success);
+//       } catch (error) {
+//         console.log('Silent login failed:', error);
+//         // Fehler nicht weiterwerfen, da es normal ist, wenn kein Token vorhanden
+//       } finally {
+//         dispatch(setLoading(false));
+//       }
+//     }
+//   };
+
+//   initializeAuth();
+// }, [dispatch, isAuthenticated, isLoading, error]);
 
   /**
    * Enhanced login with comprehensive error handling and navigation
@@ -183,11 +206,11 @@ export const useAuth = () => {
   const logout = useCallback(async () => {
     try {
       await dispatch(logoutAction()).unwrap();
-      navigate('/login', { replace: true });
+      navigate('/auth/login', { replace: true });
     } catch (error) {
       console.error('Logout failed:', error);
       // Even if logout fails, redirect to login
-      navigate('/login', { replace: true });
+      navigate('/auth/login', { replace: true });
     }
   }, [dispatch, navigate]);
 
@@ -411,7 +434,7 @@ export const useAuth = () => {
    */
   const forceLogoutUser = useCallback((): void => {
     dispatch(forceLogout());
-    navigate('/login', { replace: true });
+    navigate('/auth/login', { replace: true });
   }, [dispatch, navigate]);
 
 
