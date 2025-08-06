@@ -1,4 +1,3 @@
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { store } from './store/store.ts';
@@ -17,11 +16,9 @@ const container = document.getElementById('root')!;
 const root = createRoot(container);
 
 root.render(
-  <StrictMode>
     <GlobalErrorBoundary>
-      <Provider store={store}>
+      <Provider store={store}>+
         <RouterProvider router={router} />
       </Provider>
     </GlobalErrorBoundary>
-  </StrictMode>
 );

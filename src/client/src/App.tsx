@@ -10,6 +10,7 @@ import NetworkStatusIndicator from './components/error/NetworkStatusIndicator';
 // import { useAnnouncements } from './hooks/useAnnouncements';
 import { useRouteAnnouncements } from './hooks/useRouteAnnouncements';
 import './utils/debugHelpers'; // Enable debug helpers
+import AuthProvider from './features/auth/AuthProvider';
 
 const App = () => {
   const { mode, theme, toggleTheme } = useTheme();
@@ -43,14 +44,16 @@ const App = () => {
   }, []);
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <SkipLinks />
-      <NetworkStatusIndicator position="top" compact />
-      <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
-        <Outlet />
-      </MainLayout>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <SkipLinks />
+        <NetworkStatusIndicator position="top" compact />
+        <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
+          <Outlet />
+        </MainLayout>
+      </ThemeProvider>
+    </AuthProvider>
   );
 };
 

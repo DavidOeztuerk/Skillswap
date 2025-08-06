@@ -118,7 +118,7 @@ const HomePage: React.FC = () => {
                       variant="contained"
                       size="large"
                       color="secondary"
-                      onClick={() => navigate('/register')}
+                      onClick={() => navigate('/auth/register')}
                       sx={{ px: 4, py: 1.5, fontWeight: 'bold' }}
                     >
                       Jetzt registrieren
@@ -126,7 +126,7 @@ const HomePage: React.FC = () => {
                     <Button
                       variant="outlined"
                       size="large"
-                      onClick={() => navigate('/login')}
+                      onClick={() => navigate('/auth/login')}
                       sx={{
                         px: 4,
                         py: 1.5,
@@ -268,7 +268,7 @@ const HomePage: React.FC = () => {
                     variant="outlined"
                     color="primary"
                     onClick={() =>
-                      navigate(isAuthenticated ? '/dashboard' : '/register')
+                      navigate(isAuthenticated ? '/dashboard' : '/auth/register')
                     }
                   >
                     Mehr erfahren
@@ -314,7 +314,7 @@ const HomePage: React.FC = () => {
               size="large"
               color="primary"
               onClick={() =>
-                navigate(isAuthenticated ? '/dashboard' : '/register')
+                navigate(isAuthenticated ? '/dashboard' : '/auth/register')
               }
               sx={{ px: 6, py: 1.5, fontWeight: 'bold' }}
             >

@@ -193,7 +193,7 @@ class HttpClient {
     if (config?._retry) {
       // Already retried, logout
       removeToken();
-      router.navigate('/login');
+      router.navigate('/auth/login');
       throw new Error('Authentication failed');
     }
 
@@ -212,7 +212,7 @@ class HttpClient {
         this.isRefreshing = false;
         this.refreshSubscribers = [];
         removeToken();
-        router.navigate('/login');
+        router.navigate('/auth/login');
         throw error;
       }
     }

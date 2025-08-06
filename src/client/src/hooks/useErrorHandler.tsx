@@ -60,7 +60,7 @@ export function useErrorHandler(): UseErrorHandlerReturn {
 
     if (errorType === 'AUTH') {
       setTimeout(() => {
-        navigate('/login', { replace: true });
+        navigate('/auth/login', { replace: true });
       }, 2000);
     }
   }, [determineErrorType, navigate]);

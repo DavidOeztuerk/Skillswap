@@ -5,6 +5,7 @@ export interface UserInfo {
   lastName: string;
   userName: string;
   roles: string[];
+  permissions?: string[];
   emailVerified: boolean;
   accountStatus: string;
 }

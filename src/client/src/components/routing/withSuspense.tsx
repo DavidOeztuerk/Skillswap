@@ -16,6 +16,8 @@ interface WithSuspenseOptions {
 interface WithPrivateRouteOptions extends WithSuspenseOptions {
   requiredRoles?: string[];
   requiredRole?: string;
+  requiredPermissions?: string[];
+  requiredPermission?: string;
   redirectTo?: string;
 }
 
@@ -24,18 +26,18 @@ export function withSuspense<T extends ComponentType<any>>(
   options: WithSuspenseOptions = {}
 ) {
   const LazyComponent = lazy(importFn);
-  
+
   const WrappedComponent = (props: React.ComponentProps<T>) => {
     const fallback = options.fallback || (
       options.useSkeleton ? (
-        <PageLoader 
+        <PageLoader
           variant={options.skeletonVariant || 'dashboard'}
           message={options.loadingMessage || "Seite wird geladen..."}
         />
       ) : (
-        <LoadingSpinner 
-          fullPage 
-          message={options.loadingMessage || "Seite wird geladen..."} 
+        <LoadingSpinner
+          fullPage
+          message={options.loadingMessage || "Seite wird geladen..."}
         />
       )
     );
@@ -58,7 +60,7 @@ export function withSuspense<T extends ComponentType<any>>(
   };
 
   WrappedComponent.displayName = `withSuspense(${LazyComponent.name || 'Component'})`;
-  
+
   return WrappedComponent;
 }
 
@@ -67,26 +69,28 @@ export function withPrivateRoute<T extends ComponentType<any>>(
   options: WithPrivateRouteOptions = {}
 ) {
   const LazyComponent = lazy(importFn);
-  
+
   const WrappedComponent = (props: React.ComponentProps<T>) => {
     const fallback = options.fallback || (
       options.useSkeleton ? (
-        <PageLoader 
+        <PageLoader
           variant={options.skeletonVariant || 'dashboard'}
           message={options.loadingMessage || "Seite wird geladen..."}
         />
       ) : (
-        <LoadingSpinner 
-          fullPage 
-          message={options.loadingMessage || "Seite wird geladen..."} 
+        <LoadingSpinner
+          fullPage
+          message={options.loadingMessage || "Seite wird geladen..."}
         />
       )
     );
 
     const ComponentWithAuth = (
-      <PrivateRoute 
+      <PrivateRoute
         requiredRoles={options.requiredRoles}
         requiredRole={options.requiredRole}
+        requiredPermissions={options.requiredPermissions}
+        requiredPermission={options.requiredPermission}
         redirectTo={options.redirectTo}
       >
         <Suspense fallback={fallback}>
@@ -107,6 +111,6 @@ export function withPrivateRoute<T extends ComponentType<any>>(
   };
 
   WrappedComponent.displayName = `withPrivateRoute(${LazyComponent.name || 'Component'})`;
-  
+
   return WrappedComponent;
 }

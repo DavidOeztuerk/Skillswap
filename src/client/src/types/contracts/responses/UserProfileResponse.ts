@@ -8,6 +8,7 @@ export interface UserProfileResponse {
   bio?: string;
   timeZone?: string;
   roles: string[];
+  permissions?: string[];
   emailVerified: boolean;
   accountStatus: string;
   createdAt: string;

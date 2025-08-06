@@ -452,7 +452,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
               Noch kein Konto?{' '}
               <Link
                 component={RouterLink}
-                to="/register"
+                to="/auth/register"
                 variant="body2"
                 sx={{
                   fontWeight: 'medium',

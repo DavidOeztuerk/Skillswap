@@ -1,4 +1,3 @@
-// src/routes/Router.tsx
 import { createBrowserRouter, RouteObject } from 'react-router-dom';
 import App from '../App';
 import { withSuspense, withPrivateRoute } from '../components/routing/withSuspense';
@@ -44,16 +43,6 @@ const MatchmakingOverviewPage = withPrivateRoute(() => import('../pages/matchmak
   useSkeleton: true,
   skeletonVariant: 'list',
 });
-
-// MatchRequestsOverviewPage ist jetzt in MatchmakingOverviewPage eingebettet
-// const MatchRequestsOverviewPage = withPrivateRoute(
-//   () => import('../pages/matchmaking/MatchRequestsOverviewPage'),
-//   {
-//     useSkeleton: true,
-//     skeletonVariant: 'list',
-//   }
-// );
-
 const MatchRequestTimelinePage = withPrivateRoute(
   () => import('../pages/matchmaking/MatchRequestTimelinePage'),
   {
@@ -182,11 +171,11 @@ const routes: RouteObject[] = [
         element: <HomePage />,
       },
       {
-        path: 'login',
+        path: 'auth/login',
         element: <LoginPage />,
       },
       {
-        path: 'register',
+        path: 'auth/register',
         element: <RegisterPage />,
       },
       {
@@ -228,10 +217,6 @@ const routes: RouteObject[] = [
       {
         path: 'videocall/:appointmentId',
         element: <VideoCallPage />,
-      },
-      {
-        path: 'admin/metrics',
-        element: <AdminMetricsPage />,
       },
       {
         path: 'profile',
@@ -284,6 +269,10 @@ const routes: RouteObject[] = [
           {
             path: 'system-health',
             element: <AdminSystemHealthPage />,
+          },
+          {
+            path: 'metrics',
+            element: <AdminMetricsPage />,
           },
           {
             path: 'audit-logs',

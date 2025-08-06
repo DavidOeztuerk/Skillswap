@@ -33,7 +33,7 @@ const ForbiddenPage: React.FC = () => {
   };
 
   const handleLogin = () => {
-    navigate('/login', { 
+    navigate('/auth/login', { 
       state: { from: location.pathname } 
     });
   };

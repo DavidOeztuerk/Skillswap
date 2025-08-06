@@ -15,22 +15,33 @@ import {
   Collapse,
   useTheme,
   useMediaQuery,
+  Chip,
 } from '@mui/material';
 import {
   Home as HomeIcon,
   Dashboard as DashboardIcon,
   EmojiObjects as SkillsIcon,
   People as MatchmakingIcon,
-  // Handshake as MatchesIcon,
-  // MailOutline as RequestsIcon,
   Event as AppointmentsIcon,
   Person as ProfileIcon,
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
   Menu as MenuIcon,
   Search as SearchIcon,
+  AdminPanelSettings as AdminIcon,
+  Group as UsersIcon,
+  Psychology as AdminSkillsIcon,
+  EventNote as AdminAppointmentsIcon,
+  Analytics as AnalyticsIcon,
+  HealthAndSafety as SystemHealthIcon,
+  History as AuditLogsIcon,
+  Gavel as ModerationIcon,
+  Settings as AdminSettingsIcon,
+  Assessment as MetricsIcon,
+  ConnectWithoutContact as MatchesIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
+import { hasAdminRole } from '../../utils/auth';
 
 interface SidebarProps {
   drawerWidth: number;
@@ -43,6 +54,8 @@ interface MenuItem {
   icon: React.ReactNode;
   path: string;
   authRequired: boolean;
+  adminRequired?: boolean;
+  permissions?: string[];
   children?: MenuItem[];
 }
 
@@ -54,8 +67,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
+  
+  const isAdmin = hasAdminRole(user?.roles);
 
   // Haupt-Menüeinträge
   const menuItems: MenuItem[] = [
@@ -123,9 +138,103 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  // Filtere Menüeinträge basierend auf Authentifizierungsstatus
-  const filteredMenuItems = menuItems.filter(
-    (item) => !item.authRequired || (item.authRequired && isAuthenticated)
+  // Admin-Menüeinträge
+  const adminMenuItems: MenuItem[] = [
+    {
+      text: 'Admin',
+      icon: <AdminIcon />,
+      path: '/admin',
+      authRequired: true,
+      adminRequired: true,
+      children: [
+        {
+          text: 'Dashboard',
+          icon: <DashboardIcon fontSize="small" />,
+          path: '/admin/dashboard',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'Benutzer',
+          icon: <UsersIcon fontSize="small" />,
+          path: '/admin/users',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'Skills',
+          icon: <AdminSkillsIcon fontSize="small" />,
+          path: '/admin/skills',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'Matches',
+          icon: <MatchesIcon fontSize="small" />,
+          path: '/admin/matches',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'Termine',
+          icon: <AdminAppointmentsIcon fontSize="small" />,
+          path: '/admin/appointments',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'Analytics',
+          icon: <AnalyticsIcon fontSize="small" />,
+          path: '/admin/analytics',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'Metriken',
+          icon: <MetricsIcon fontSize="small" />,
+          path: '/admin/metrics',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'System Health',
+          icon: <SystemHealthIcon fontSize="small" />,
+          path: '/admin/system-health',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'Audit Logs',
+          icon: <AuditLogsIcon fontSize="small" />,
+          path: '/admin/audit-logs',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'Moderation',
+          icon: <ModerationIcon fontSize="small" />,
+          path: '/admin/moderation',
+          authRequired: true,
+          adminRequired: true,
+        },
+        {
+          text: 'Einstellungen',
+          icon: <AdminSettingsIcon fontSize="small" />,
+          path: '/admin/settings',
+          authRequired: true,
+          adminRequired: true,
+        },
+      ],
+    },
+  ];
+
+  // Kombiniere Menüs und filtere basierend auf Berechtigung
+  const allMenuItems = [...menuItems, ...(isAdmin ? adminMenuItems : [])];
+  const filteredMenuItems = allMenuItems.filter(
+    (item) => {
+      if (item.adminRequired && !isAdmin) return false;
+      return !item.authRequired || (item.authRequired && isAuthenticated);
+    }
   );
 
   // Prüfe, ob ein Pfad oder eines seiner Kinder aktiv ist
@@ -141,6 +250,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleSubmenuToggle = (text: string) => {
     setOpenSubmenu((prev) => (prev === text ? null : text));
   };
+
+  // Auto-expand Admin menu if we're on an admin page
+  React.useEffect(() => {
+    if (location.pathname.startsWith('/admin') && isAdmin) {
+      setOpenSubmenu('Admin');
+    }
+  }, [location.pathname, isAdmin]);
 
   // Drawer-Inhalt
   const drawer = (
@@ -207,7 +323,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {item.icon}
                   </ListItemIcon>
                   <ListItemText
-                    primary={item.text}
+                    primary={
+                      <Box display="flex" alignItems="center" gap={1}>
+                        {item.text}
+                        {item.adminRequired && (
+                          <Chip
+                            label="Admin"
+                            size="small"
+                            color="error"
+                            sx={{ 
+                              height: 16, 
+                              fontSize: '0.625rem',
+                              '& .MuiChip-label': { px: 0.5 }
+                            }}
+                          />
+                        )}
+                      </Box>
+                    }
                     primaryTypographyProps={{
                       fontWeight: isActive ? 'medium' : 'regular',
                     }}
@@ -221,7 +353,9 @@ const Sidebar: React.FC<SidebarProps> = ({
               {hasChildren && (
                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding>
-                    {item.children?.map((child) => (
+                    {item.children?.filter(child => 
+                      !child.adminRequired || isAdmin
+                    ).map((child) => (
                       <ListItemButton
                         key={child.text}
                         component={RouterLink}
@@ -281,15 +415,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     </div>
   );
 
-  // Auf Mobile werden wir den Drawer nur als temporary anzeigen
-  // Die permanente Navigation erfolgt über die MobileTabbar
   return (
     <Box
       component="nav"
       sx={{
         width: { sm: drawerWidth },
         flexShrink: { sm: 0 },
-        // Auf mobilen Geräten zeigen wir nur den temporary Drawer
         display: isMobile && !mobileOpen ? 'none' : 'block',
       }}
       aria-label="Hauptnavigation"
@@ -300,7 +431,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         open={mobileOpen}
         onClose={onDrawerToggle}
         ModalProps={{
-          keepMounted: true, // Bessere Performance auf Mobile
+          keepMounted: true,
         }}
         sx={{
           display: { xs: 'block', sm: 'none' },

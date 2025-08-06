@@ -78,23 +78,19 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
 
   const { user } = useAppSelector((state) => state.auth);
 
-  useEffect(() => {
-    // Load notifications on component mount
-    dispatch(fetchNotifications());
-    
-    // Subscribe to real-time notifications
-    if (user?.id) {
-      dispatch(subscribeToRealTimeNotifications(user.id));
-    }
+  const prevUserIdRef = useRef<string>("");
 
-    return () => {
-      // Cleanup
-      dispatch(unsubscribeFromRealTimeNotifications());
-      if (previewTimeoutRef.current) {
-        clearTimeout(previewTimeoutRef.current);
-      }
-    };
-  }, [dispatch, user?.id]);
+useEffect(() => {
+  if (!user?.id || prevUserIdRef.current === user.id) return;
+
+  prevUserIdRef.current = user.id;
+  dispatch(fetchNotifications());
+  dispatch(subscribeToRealTimeNotifications(user.id));
+
+  return () => {
+    dispatch(unsubscribeFromRealTimeNotifications());
+  };
+}, [user?.id, dispatch]);
 
   // Handle new notification sound and preview
   const lastNotification = notifications[0];
