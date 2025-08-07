@@ -59,10 +59,17 @@ export const useMatchmaking = () => {
 
   // Lade Matches beim ersten Rendern
   useEffect(() => {
-    void loadMatches();
-    void loadIncomingRequests();
-    void loadOutgoingRequests();
-  }, [loadMatches, loadIncomingRequests, loadOutgoingRequests]);
+    // Funktionen innerhalb des useEffect aufrufen, um keine Functions als Dependencies zu haben
+    const loadInitialData = async () => {
+      await Promise.all([
+        dispatch(getUserMatches({})),
+        dispatch(fetchIncomingMatchRequests({})),
+        dispatch(fetchOutgoingMatchRequests({}))
+      ]);
+    };
+    
+    void loadInitialData();
+  }, [dispatch]); // Nur dispatch als Dependency, welches stabil ist
 
   /**
    * ✅ NEU: Erstellt eine manuelle Match-Anfrage (das was wir brauchen!)

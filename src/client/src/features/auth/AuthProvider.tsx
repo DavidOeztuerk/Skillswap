@@ -1,7 +1,6 @@
-// src/components/auth/AuthProvider.tsx
 import React, { useEffect, useState } from 'react';
-import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-import { silentLogin, setLoading } from '../../features/auth/authSlice';
+import { useAppDispatch } from '../../store/store.hooks';
+import { silentLogin } from '../../features/auth/authSlice';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 interface AuthProviderProps {
@@ -14,36 +13,54 @@ interface AuthProviderProps {
  */
 const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const dispatch = useAppDispatch();
-  const { isLoading } = useAppSelector(state => state.auth);
   const [initializationComplete, setInitializationComplete] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
+    
     const initializeAuth = async () => {
-      // Verhindere mehrfache Initialisierung
-      if (initializationComplete) return;
+      console.log('🔐 AuthProvider: Starting initialization...');
 
-      console.log('🔐 Initializing authentication...');
-      dispatch(setLoading(true));
+      // Check for stored token before trying silent login
+      const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      if (!storedToken) {
+        console.log('ℹ️ AuthProvider: No stored token found, skipping silent login');
+        if (mounted) {
+          setInitializationComplete(true);
+        }
+        return;
+      }
 
       try {
-        // Versuche Silent Login
+        console.log('🔄 AuthProvider: Attempting silent login...');
         await dispatch(silentLogin()).unwrap();
-        console.log('✅ Silent login successful');
+        console.log('✅ AuthProvider: Silent login successful');
       } catch (error) {
-        console.log('ℹ️ Silent login failed (normal if no token):', error);
-        // Das ist normal, wenn kein Token vorhanden ist
+        // Silent login failure ist normal wenn kein Token vorhanden
+        console.log('ℹ️ AuthProvider: Silent login failed (expected if no token)');
       } finally {
-        dispatch(setLoading(false));
-        setInitializationComplete(true);
-        console.log('🔐 Authentication initialization complete');
+        // Setze initialization complete nur wenn component noch mounted ist
+        if (mounted) {
+          setInitializationComplete(true);
+          console.log('✅ AuthProvider: Initialization complete');
+        }
       }
     };
 
-    initializeAuth();
-  }, [dispatch, initializationComplete]);
+    // Only run if not already initialized
+    if (!initializationComplete) {
+      initializeAuth();
+    }
+    
+    // Cleanup
+    return () => {
+      mounted = false;
+    };
+  }, [dispatch, initializationComplete]); // Include necessary dependencies
 
   // Zeige Loading-Screen während der Initialisierung
-  if (!initializationComplete || isLoading) {
+  if (!initializationComplete) {
     return (
       <LoadingSpinner 
         fullPage 

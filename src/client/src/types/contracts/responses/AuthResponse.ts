@@ -27,11 +27,11 @@ export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   tokenType: string;
-  expiresIn: number;
+  expiresIn?: number;
   expiresAt: Date;
   userInfo: UserInfo;
-  requiresTwoFactor?: boolean;
-  twoFactorMethod?: string;
+  requires2FA: boolean;
+  twoFactorToken: string;
 }
 
 // export interface LoginResponse {

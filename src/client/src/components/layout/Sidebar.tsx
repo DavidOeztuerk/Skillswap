@@ -39,6 +39,7 @@ import {
   Settings as AdminSettingsIcon,
   Assessment as MetricsIcon,
   ConnectWithoutContact as MatchesIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { hasAdminRole } from '../../utils/auth';
@@ -134,6 +135,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       text: 'Profil',
       icon: <ProfileIcon />,
       path: '/profile',
+      authRequired: true,
+    },
+    {
+      text: 'Sicherheit',
+      icon: <SecurityIcon />,
+      path: '/settings/security',
       authRequired: true,
     },
   ];

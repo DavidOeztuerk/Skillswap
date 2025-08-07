@@ -7,7 +7,6 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UserService.Api.Application.Queries;
 using UserService.Application.Commands;
-using UserService.Application.Queries;
 
 namespace UserService.Api.Extensions;
 
@@ -46,10 +45,10 @@ public static class TwoFactorControllerExtensions
             .WithName("GetTwoFactorStatus")
             .WithSummary("Get 2FA status")
             .WithDescription("Gets the current two-factor authentication status")
-            .Produces<TwoFactorStatusResponse>(200)
+            .Produces<GetTwoFactorStatusResponse>(200)
             .Produces(401);
 
-        static async Task<IResult> HandleGenerateTwoFactorSecret(IMediator mediator, ClaimsPrincipal user, [FromBody] GenerateTwoFactorSecretRequest request)
+        static async Task<IResult> HandleGenerateTwoFactorSecret(IMediator mediator, ClaimsPrincipal user)
         {
             var userId = user.GetUserId();
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -76,7 +75,7 @@ public static class TwoFactorControllerExtensions
             return await mediator.SendCommand(command);
         }
 
-        static async Task<IResult> HandleGetTwoFactorStatus(IMediator mediator, ClaimsPrincipal user, [FromBody] GetTwoFactorStatusRequest request)
+        static async Task<IResult> HandleGetTwoFactorStatus(IMediator mediator, ClaimsPrincipal user)
         {
             var userId = user.GetUserId();
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();

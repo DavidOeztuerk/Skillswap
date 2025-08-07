@@ -21,8 +21,19 @@ const AdminMetricsPage = () => {
   };
 
   useEffect(() => {
-    loadMetrics();
-  }, []);
+    // Inline load um Function-Dependency zu vermeiden
+    const load = async () => {
+      try {
+        const data = await metricsService.getMetrics(service);
+        setMetrics(data);
+      } catch (e: any) {
+        setError(e.message);
+        setMetrics(null);
+      }
+    };
+    
+    void load();
+  }, []); // Nur beim Mount laden
 
   return (
     <Box p={2}>

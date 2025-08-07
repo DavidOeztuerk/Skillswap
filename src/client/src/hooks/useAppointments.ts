@@ -35,8 +35,9 @@ export const useAppointments = () => {
 
   // Lade Termine beim ersten Rendern
   useEffect(() => {
-    void loadAppointments();
-  }, [loadAppointments]);
+    // Direkt dispatch aufrufen statt über die Funktion
+    void dispatch(fetchAppointments());
+  }, [dispatch]); // Nur dispatch als Dependency
 
   /**
    * Erstellt einen neuen Termin

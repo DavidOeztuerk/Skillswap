@@ -117,11 +117,16 @@ const MatchmakingOverviewPage: React.FC = () => {
 
   // Daten laden
   useEffect(() => {
+    // Initial load
+    void fetchUserSkills();
+  }, [fetchUserSkills]);
+  
+  // Load matches when tab changes
+  useEffect(() => {
     if (tabValue === 0) {
       void loadMatches();
     }
-    void fetchUserSkills();
-  }, [tabValue, loadMatches, fetchUserSkills]);
+  }, [tabValue, loadMatches]);
 
   // Tab-Handler - nur lokaler State, keine URL-Navigation
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {

@@ -1,3 +1,4 @@
+using Contracts.User.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -5,17 +6,11 @@ namespace UserService.Api.Application.Queries;
 
 public record GetTwoFactorStatusQuery(
     string UserId)
-    : IQuery<TwoFactorStatusResponse>, ICacheableQuery
+    : IQuery<GetTwoFactorStatusResponse>, ICacheableQuery
 {
     public string CacheKey => $"2fa-status:{UserId}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
-
-public record TwoFactorStatusResponse(
-    bool IsEnabled,
-    bool HasSecret,
-    DateTime? EnabledAt,
-    List<string> BackupCodes);
 
 public class GetTwoFactorStatusQueryValidator : AbstractValidator<GetTwoFactorStatusQuery>
 {

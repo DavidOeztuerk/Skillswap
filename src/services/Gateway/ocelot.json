@@ -926,44 +926,36 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/users/profile/2fa/generate",
+      "DownstreamPathTemplate": "/users/2fa/generate",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/generate",
       "UpstreamHttpMethod": ["POST"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
     },
     {
-      "DownstreamPathTemplate": "/users/profile/2fa/verify",
+      "DownstreamPathTemplate": "/users/2fa/verify",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/verify",
       "UpstreamHttpMethod": ["POST"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
     },
     {
-      "DownstreamPathTemplate": "/users/profile/2fa/disable",
+      "DownstreamPathTemplate": "/users/2fa/disable",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/disable",
       "UpstreamHttpMethod": ["POST"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
     },
     {
-      "DownstreamPathTemplate": "/users/profile/2fa/status",
+      "DownstreamPathTemplate": "/users/2fa/status",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/status",
       "UpstreamHttpMethod": ["GET"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
     },
     {
       "DownstreamPathTemplate": "/notifications/{notificationId}",

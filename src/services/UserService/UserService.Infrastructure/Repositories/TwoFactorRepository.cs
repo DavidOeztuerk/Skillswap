@@ -12,7 +12,7 @@ public class TwoFactorRepository(
     private readonly UserDbContext _dbContext = userDbContext;
     private readonly ITotpService _totpService = totpService;
 
-    public async Task<string> GenerateTwoFactorSecret(string userId, CancellationToken cancellationToken = default)
+    public async Task<(string secret, string qrCodeUri, string manualEntryKey)> GenerateTwoFactorSecret(string userId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -27,12 +27,33 @@ public class TwoFactorRepository(
             user.UpdatedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync(cancellationToken);
-            return secret;
+            
+            // Generate QR code URI for authenticator apps
+            var issuer = "SkillSwap";
+            var accountName = user.Email ?? user.UserName ?? userId;
+            var qrCodeUri = $"otpauth://totp/{issuer}:{accountName}?secret={secret}&issuer={issuer}";
+            
+            // Manual entry key is the secret formatted for easier typing
+            var manualEntryKey = FormatSecretForDisplay(secret);
+            
+            return (secret, qrCodeUri, manualEntryKey);
         }
         catch (Exception ex)
         {
             throw new InvalidOperationException($"Failed to generate two-factor secret for user {userId}", ex);
         }
+    }
+    
+    private string FormatSecretForDisplay(string secret)
+    {
+        // Format the secret in groups of 4 characters for easier manual entry
+        var formatted = "";
+        for (int i = 0; i < secret.Length; i += 4)
+        {
+            if (i > 0) formatted += " ";
+            formatted += secret.Substring(i, Math.Min(4, secret.Length - i));
+        }
+        return formatted;
     }
 
     public async Task<bool> VerifyTwoFactorCode(string userId, string code, CancellationToken cancellationToken = default)

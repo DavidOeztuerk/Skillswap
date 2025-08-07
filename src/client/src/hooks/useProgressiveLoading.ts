@@ -94,9 +94,29 @@ export function useProgressiveLoading<T>({
 
   useEffect(() => {
     if (initialLoad) {
-      loadPage(0, false);
+      // Funktion inline aufrufen um Dependency-Probleme zu vermeiden
+      const performInitialLoad = async () => {
+        setIsLoading(true);
+        setError(null);
+        
+        try {
+          const result = await loadFn(0, pageSize, ...deps);
+          setItems(result.data);
+          setTotalCount(result.totalCount);
+          setHasMore(result.hasMore);
+          setCurrentPage(0);
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Daten';
+          setError(errorMessage);
+          console.error('Progressive loading error:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      void performInitialLoad();
     }
-  }, [initialLoad, ...deps]);
+  }, [initialLoad, loadFn, pageSize, ...deps]); // Stabilere Dependencies
 
   return {
     items,

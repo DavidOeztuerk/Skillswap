@@ -1,8 +1,8 @@
 import React from 'react';
 import { Container, Paper, Box, Typography } from '@mui/material';
 import { Navigate } from 'react-router-dom';
-import LoginForm from '../../components/auth/LoginForm';
 import { useAuth } from '../../hooks/useAuth';
+import LoginFormWith2FA from '../../components/auth/LoginFormWith2FA';
 
 /**
  * Login-Seite der Anwendung
@@ -27,7 +27,7 @@ const LoginPage: React.FC = () => {
           </Typography>
         </Box>
 
-        <LoginForm />
+        <LoginFormWith2FA />
       </Paper>
     </Container>
   );

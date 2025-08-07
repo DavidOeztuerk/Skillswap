@@ -43,9 +43,10 @@ export const useNotifications = () => {
 
   // Lade Benachrichtigungen beim ersten Rendern
   useEffect(() => {
-    void loadNotifications();
-    void loadSettings();
-  }, [loadNotifications, loadSettings]);
+    // Direkt dispatch aufrufen um Function-Dependencies zu vermeiden
+    void dispatch(fetchNotifications());
+    void dispatch(fetchNotificationSettings());
+  }, [dispatch]); // Nur dispatch als Dependency
 
   /**
    * Markiert eine Benachrichtigung als gelesen

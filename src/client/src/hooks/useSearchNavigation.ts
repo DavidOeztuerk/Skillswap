@@ -157,17 +157,21 @@ export const useSearchNavigation = () => {
 
   // Handle Escape key to close search
   useEffect(() => {
+    if (!searchState.isOpen) return;
+    
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && searchState.isOpen) {
-        closeSearch();
+      if (event.key === 'Escape') {
+        // Inline close logic to avoid function dependency
+        setSearchState(prev => ({
+          ...prev,
+          isOpen: false,
+        }));
       }
     };
 
-    if (searchState.isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
-    }
-  }, [searchState.isOpen, closeSearch]);
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [searchState.isOpen]); // Nur isOpen als Dependency
 
   // Clear recent searches
   const clearRecentSearches = useCallback(() => {

@@ -76,26 +76,43 @@ const DashboardPage: React.FC = () => {
   } = useApiErrorRecovery();
 
   // Daten laden mit Error Recovery
-  const loadDashboardData = async () => {
-    await executeWithRecovery(async () => {
-      await Promise.all([
-        fetchUserSkills(),
-        loadAppointments(),
-        loadMatches(),
-        loadIncomingRequests(),
-        loadOutgoingRequests(),
-      ]);
-    }, {
-      maxRetries: 2,
-      retryDelay: 1000,
-      exponentialBackoff: true,
-    });
-  };
+  // const loadDashboardData = async () => {
+  //   await executeWithRecovery(async () => {
+  //     await Promise.all([
+  //       fetchUserSkills(),
+  //       loadAppointments(),
+  //       loadMatches(),
+  //       loadIncomingRequests(),
+  //       loadOutgoingRequests(),
+  //     ]);
+  //   }, {
+  //     maxRetries: 2,
+  //     retryDelay: 1000,
+  //     exponentialBackoff: true,
+  //   });
+  // };
 
   // Load data
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    // Funktion inline definieren um Dependency-Probleme zu vermeiden
+    const loadData = async () => {
+      await executeWithRecovery(async () => {
+        await Promise.all([
+          fetchUserSkills(),
+          loadAppointments(),
+          loadMatches(),
+          loadIncomingRequests(),
+          loadOutgoingRequests(),
+        ]);
+      }, {
+        maxRetries: 2,
+        retryDelay: 1000,
+        exponentialBackoff: true,
+      });
+    };
+    
+    void loadData();
+  }, []); // Keine Dependencies - nur beim Mount laden
 
   // Statistiken berechnen
   const totalSkills = userSkills?.length;

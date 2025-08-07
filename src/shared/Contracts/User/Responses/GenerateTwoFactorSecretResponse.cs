@@ -4,7 +4,9 @@ namespace Contracts.User.Responses;
 /// API response for GenerateTwoFactorSecret operation
 /// </summary>
 public record GenerateTwoFactorSecretResponse(
-    string Secret)
+    string Secret,
+    string QrCodeUri,
+    string ManualEntryKey)
 {
     /// <summary>
     /// API Version this response supports

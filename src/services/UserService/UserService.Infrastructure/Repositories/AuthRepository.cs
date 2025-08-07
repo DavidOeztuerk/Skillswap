@@ -13,10 +13,12 @@ namespace UserService.Infrastructure.Repositories;
 public class AuthRepository(
     UserDbContext userDbContext,
     IJwtService jwtService,
+    ITotpService totpService,
     IDomainEventPublisher eventPublisher) : IAuthRepository
 {
     private readonly UserDbContext _dbContext = userDbContext;
     private readonly IJwtService _jwtService = jwtService;
+    private readonly ITotpService _totpService = totpService;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public async Task<RegisterResponse> RegisterUserWithTokens(string email, string password, string firstName, string lastName, string userName, CancellationToken cancellationToken = default)
@@ -115,14 +117,23 @@ public class AuthRepository(
         {
             if (string.IsNullOrEmpty(twoFactorCode))
             {
-                throw new UnauthorizedAccessException("Two-factor authentication code required");
+                // Return response indicating 2FA is required
+                var tempToken = Guid.NewGuid().ToString("N");
+                var userInfo = new UserInfo(
+                    user.Id, user.Email, user.FirstName, user.LastName, user.UserName,
+                    user.UserRoles.Where(ur => ur.IsActive).Select(ur => ur.Role).ToList(),
+                    user.FavoriteSkillIds, user.EmailVerified, user.AccountStatus.ToString());
+                
+                return new LoginResponse(
+                    string.Empty, string.Empty, TokenType.None, DateTime.UtcNow,
+                    userInfo, true, tempToken);
             }
 
-            // This would need ITotpService injection
-            // if (!_totpService.VerifyCode(user.TwoFactorSecret, twoFactorCode))
-            // {
-            //     throw new UnauthorizedAccessException("Invalid 2FA code");
-            // }
+            // Verify 2FA code
+            if (!_totpService.VerifyCode(user.TwoFactorSecret, twoFactorCode))
+            {
+                throw new UnauthorizedAccessException("Invalid 2FA code");
+            }
         }
 
         // Generate tokens
@@ -161,7 +172,7 @@ public class AuthRepository(
         return new LoginResponse(
             tokens.AccessToken, tokens.RefreshToken,
             tokens.TokenType == TokenType.Bearer.ToString() ? TokenType.Bearer : TokenType.None,
-            tokens.ExpiresAt, profileData, true, "");
+            tokens.ExpiresAt, profileData, false, string.Empty);
     }
 
     public async Task<RefreshTokenResponse> RefreshUserToken(string accessToken, string refreshToken, CancellationToken cancellationToken = default)
