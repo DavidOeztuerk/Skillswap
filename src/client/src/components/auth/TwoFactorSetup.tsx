@@ -26,7 +26,7 @@ interface TwoFactorSetupProps {
   hasExistingSecret?: boolean;
 }
 
-const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSuccess, hasExistingSecret = false }) => {
+const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSuccess }) => {
   const dispatch = useAppDispatch();
   const { isLoading, error, user } = useAppSelector((state) => state.auth);
   
@@ -148,7 +148,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
   return (
     <Dialog 
       open={true} 
-      onClose={(event, reason) => {
+      onClose={(_, reason) => {
         console.log('🚪 Dialog onClose triggered, reason:', reason);
         // Prevent closing on backdrop click or escape when loading or generating
         if ((isLoading || isGenerating) && (reason === 'backdropClick' || reason === 'escapeKeyDown')) {
@@ -285,3 +285,8 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
 };
 
 export default TwoFactorSetup;
+
+
+//  jwtDebug.getTokenInfo() - Token-Info anzeigen
+//   2. jwtDebug.forceRefresh() - Token manuell refreshen
+//   3. jwtDebug.getRefreshStatus() 

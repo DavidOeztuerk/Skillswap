@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -22,7 +22,6 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon
 } from '@mui/icons-material';
-import { useAppSelector } from '../../store/store.hooks';
 import authService from '../../api/services/authService';
 import { useTwoFactorDialog } from './TwoFactorDialog';
 

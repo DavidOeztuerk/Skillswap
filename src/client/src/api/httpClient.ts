@@ -30,6 +30,8 @@ class HttpClient {
   private refreshSubscribers: Array<(token: string) => void> = [];
   private lastRefreshAttempt = 0;
   private refreshCooldown = 5000; // 5 seconds cooldown between refresh attempts
+  private refreshRetryCount = 0;
+  private readonly maxRefreshRetries = 3;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
@@ -153,7 +155,7 @@ class HttpClient {
   }
 
   /**
-   * Refreshes the access token
+   * Refreshes the access token with retry logic
    */
   private async refreshAccessToken(): Promise<string> {
     // Check cooldown to prevent rapid refresh attempts
@@ -163,44 +165,113 @@ class HttpClient {
     }
     this.lastRefreshAttempt = now;
 
+    const currentAccessToken = getToken();
     const refreshTokenValue = getRefreshToken();
+    
     if (!refreshTokenValue) {
       throw new Error('No refresh token available');
     }
 
-    // Use direct fetch to avoid circular refresh calls
-    const response = await fetch(`${this.baseUrl}${AUTH_ENDPOINTS.REFRESH_TOKEN}`, {
-      method: 'POST',
-      headers: {
+    // Backend expects BOTH accessToken and refreshToken in body
+    const requestBody = {
+      accessToken: currentAccessToken || '',
+      refreshToken: refreshTokenValue
+    };
+
+    console.log(`🔄 Attempting token refresh... (Attempt ${this.refreshRetryCount + 1}/${this.maxRefreshRetries})`);
+
+    try {
+      // Use direct fetch to avoid circular refresh calls
+      const headers: HeadersInit = {
         'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refreshToken: refreshTokenValue }),
-    });
-
-    if (!response.ok) {
-      // If refresh fails with 429, don't try again
-      if (response.status === 429) {
-        console.error('🚫 Rate limit on token refresh');
-        removeToken();
-        throw new Error('Rate limit exceeded on token refresh');
+      };
+      
+      // Add Authorization header if we have a token
+      if (currentAccessToken) {
+        headers['Authorization'] = `Bearer ${currentAccessToken}`;
       }
-      throw new Error('Token refresh failed');
-    }
+      
+      // Ensure we have the full URL
+      const refreshUrl = AUTH_ENDPOINTS.REFRESH_TOKEN.startsWith('http') 
+        ? AUTH_ENDPOINTS.REFRESH_TOKEN 
+        : `${this.baseUrl}${AUTH_ENDPOINTS.REFRESH_TOKEN}`;
+      
+      const response = await fetch(refreshUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+      });
 
-    const data = await response.json();
-    const tokenData = data.data || data;
+      if (!response.ok) {
+        // If refresh fails with 429, don't retry
+        if (response.status === 429) {
+          console.error('🚫 Rate limit on token refresh');
+          this.refreshRetryCount = 0; // Reset retry count
+          removeToken();
+          throw new Error('Rate limit exceeded on token refresh');
+        }
+        
+        // If refresh fails with 401, token is invalid, don't retry
+        if (response.status === 401 || response.status === 403) {
+          console.error('🚫 Refresh token invalid or expired');
+          this.refreshRetryCount = 0; // Reset retry count
+          removeToken();
+          
+          // Try to get error message from response
+          try {
+            const errorData = await response.json();
+            const errorMessage = errorData.errors?.[0] || errorData.message || 'Refresh token invalid or expired';
+            throw new Error(errorMessage);
+          } catch {
+            throw new Error('Refresh token invalid or expired');
+          }
+        }
+        
+        // For other errors, throw to trigger retry
+        throw new Error(`Token refresh failed with status: ${response.status}`);
+      }
 
-    if (!tokenData.accessToken) {
-      throw new Error('Invalid refresh response');
-    }
+      const data = await response.json();
+      const tokenData = data.data || data;
 
-    const storageType = localStorage.getItem('remember_me') === 'true' ? 'permanent' : 'session';
-    setToken(tokenData.accessToken, storageType);
-    if (tokenData.refreshToken) {
-      setRefreshToken(tokenData.refreshToken, storageType);
+      if (!tokenData.accessToken) {
+        throw new Error('Invalid refresh response');
+      }
+
+      const storageType = localStorage.getItem('remember_me') === 'true' ? 'permanent' : 'session';
+      setToken(tokenData.accessToken, storageType);
+      if (tokenData.refreshToken) {
+        setRefreshToken(tokenData.refreshToken, storageType);
+      }
+      
+      console.log('✅ Token refresh successful');
+      this.refreshRetryCount = 0; // Reset retry count on success
+      return tokenData.accessToken;
+      
+    } catch (error: any) {
+      this.refreshRetryCount++;
+      
+      // If we haven't exceeded max retries and it's not a permanent failure, retry
+      if (this.refreshRetryCount < this.maxRefreshRetries && 
+          !error.message?.includes('Rate limit') && 
+          !error.message?.includes('invalid or expired')) {
+        
+        console.log(`⚠️ Token refresh failed, retrying in ${this.refreshRetryCount} seconds...`);
+        
+        // Wait with exponential backoff before retrying
+        await new Promise(resolve => setTimeout(resolve, this.refreshRetryCount * 1000));
+        
+        // Reset the cooldown for retry
+        this.lastRefreshAttempt = 0;
+        
+        // Recursive retry
+        return this.refreshAccessToken();
+      }
+      
+      // Max retries exceeded or permanent failure
+      this.refreshRetryCount = 0; // Reset for next time
+      throw error;
     }
-    
-    return tokenData.accessToken;
   }
 
   /**
