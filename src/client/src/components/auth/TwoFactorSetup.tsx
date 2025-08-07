@@ -285,8 +285,3 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
 };
 
 export default TwoFactorSetup;
-
-
-//  jwtDebug.getTokenInfo() - Token-Info anzeigen
-//   2. jwtDebug.forceRefresh() - Token manuell refreshen
-//   3. jwtDebug.getRefreshStatus() 
