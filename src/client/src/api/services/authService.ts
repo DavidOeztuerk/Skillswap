@@ -12,6 +12,7 @@ import { VerifyTwoFactorCodeResponse } from '../../types/contracts/responses/Ver
 import { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
 import { GetTwoFactorStatusResponse } from '../../types/contracts/responses/GetTwoFactorStatusResponse';
 import { DisableTwoFactorResponse } from '../../types/contracts/responses/DisableTwoFactorResponse';
+import { RefreshTokenResponse } from '../../types/contracts/responses/RefreshTokenResponse';
 import {
   getRefreshToken,
   getToken,
@@ -21,6 +22,7 @@ import {
 } from '../../utils/authHelpers';
 import apiClient from '../apiClient';
 import { UserProfileResponse } from '../../types/contracts/responses/UserProfileResponse';
+import { ApiResponse } from '../../types/common/ApiResponse';
 
 /**
  * Authentication Service with improved error handling and validation
@@ -205,28 +207,48 @@ const authService = {
    * Refresh access token using refresh token
    */
   async refreshToken(): Promise<{ accessToken: string; refreshToken: string } | null> {
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) {
+    const refreshTokenValue = getRefreshToken();
+    const currentAccessToken = getToken();
+    
+    if (!refreshTokenValue) {
       throw new Error('No refresh token available');
     }
 
     try {
-      const response = await apiClient.post<{ accessToken: string; refreshToken: string }>(
+      // Backend expects BOTH accessToken and refreshToken in body
+      const requestBody = { 
+        accessToken: currentAccessToken || '',
+        refreshToken: refreshTokenValue 
+      };
+      
+      // Make the refresh request
+      const response = await apiClient.post<ApiResponse<RefreshTokenResponse>>(
         AUTH_ENDPOINTS.REFRESH_TOKEN,
-        { refreshToken }
+        requestBody
       );
-
-      if (response.accessToken) {
-        const storageType = 'session'; // Default to session storage for refresh tokens
-        setToken(response.accessToken, storageType);
-        if (response?.refreshToken) {
-          setRefreshToken(response.refreshToken, storageType);
+      
+      // Extract the data from the API response wrapper
+      const tokenData = response.data || response;
+      
+      if (tokenData.accessToken) {
+        // Preserve the storage type from the original token
+        const storageType = localStorage.getItem('remember_me') === 'true' ? 'permanent' : 'session';
+        
+        setToken(tokenData.accessToken, storageType);
+        if (tokenData.refreshToken) {
+          setRefreshToken(tokenData.refreshToken, storageType);
         }
+        
+        console.log('✅ Token refreshed successfully in authService');
+        return {
+          accessToken: tokenData.accessToken,
+          refreshToken: tokenData.refreshToken
+        };
       }
 
-      return response;
+      throw new Error('Invalid refresh response');
     } catch (error) {
-      console.error('Token refresh failed:', error);
+      console.error('❌ Token refresh failed in authService:', error);
       removeToken();
       throw error;
     }
@@ -238,22 +260,39 @@ const authService = {
   async silentLogin(): Promise<User | null> {
     if (!this.isAuthenticated()) return null;
 
+    const token = getToken();
+    const refreshTokenValue = getRefreshToken();
+    
+    // If we don't have both tokens, can't do silent login
+    if (!token || !refreshTokenValue) {
+      console.log('🔐 Silent login: Missing tokens');
+      return null;
+    }
+
     try {
-      let profile = await this.getProfile();
-      let user: User =  { ...profile, id: profile.userId }
-        console.log(user);
-        debugger
-        return user;
-    } catch {
+      // First try to get profile with current token
+      console.log('🔐 Silent login: Attempting to fetch profile...');
+      const profile = await this.getProfile();
+      const user: User = { ...profile, id: profile.userId };
+      console.log('✅ Silent login: Profile fetched successfully');
+      return user;
+    } catch (error) {
+      console.log('⚠️ Silent login: Profile fetch failed, attempting token refresh...');
+      
       // Token might be expired, try refresh
       try {
         await this.refreshToken();
-        let profile = await this.getProfile();
-        let user: User =  { ...profile, id: profile.userId }
-        console.log(user);
-        debugger
+        console.log('✅ Silent login: Token refreshed successfully');
+        
+        // Now get profile with new token
+        const profile = await this.getProfile();
+        const user: User = { ...profile, id: profile.userId };
+        console.log('✅ Silent login: Profile fetched after refresh');
         return user;
-      } catch {
+      } catch (refreshError) {
+        console.error('❌ Silent login: Token refresh failed:', refreshError);
+        // Clear invalid tokens
+        removeToken();
         return null;
       }
     }

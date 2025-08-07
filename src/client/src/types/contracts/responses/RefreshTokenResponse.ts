@@ -1,5 +1,8 @@
-import { Tokens } from "./AuthResponse";
-
 export interface RefreshTokenResponse {
-  tokens: Tokens;
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  expiresAt: string;
+  apiVersion?: string;
 }

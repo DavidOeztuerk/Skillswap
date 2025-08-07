@@ -177,9 +177,122 @@ public class AuthRepository(
 
     public async Task<RefreshTokenResponse> RefreshUserToken(string accessToken, string refreshToken, CancellationToken cancellationToken = default)
     {
-        await Task.CompletedTask;
-        // Implementation for token refresh
-        throw new NotImplementedException("RefreshUserToken implementation pending");
+        // Validate the refresh token
+        var storedToken = await _dbContext.RefreshTokens
+            .Include(rt => rt.User)
+            .FirstOrDefaultAsync(rt => rt.Token == refreshToken && !rt.IsRevoked, cancellationToken);
+
+        if (storedToken == null)
+        {
+            throw new UnauthorizedAccessException("Invalid refresh token");
+        }
+
+        // Check if refresh token is expired
+        if (storedToken.ExpiryDate < DateTime.UtcNow)
+        {
+            storedToken.IsRevoked = true;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            throw new UnauthorizedAccessException("Refresh token has expired");
+        }
+
+        // Validate that the access token belongs to the same user (optional extra security)
+        if (!string.IsNullOrEmpty(accessToken))
+        {
+            try
+            {
+                var principal = await _jwtService.ValidateTokenAsync(accessToken);
+                var tokenUserId = principal?.FindFirst("user_id")?.Value ?? principal?.FindFirst("sub")?.Value;
+                
+                if (tokenUserId != storedToken.UserId)
+                {
+                    throw new UnauthorizedAccessException("Token mismatch");
+                }
+            }
+            catch
+            {
+                // Access token validation failed, but we can still proceed with refresh token
+                // This is acceptable as the access token might be expired
+            }
+        }
+
+        var user = storedToken.User;
+        if (user == null)
+        {
+            throw new UnauthorizedAccessException("User not found for refresh token");
+        }
+        
+        // Check for critical issues that should prevent token refresh
+        if (user.IsDeleted)
+        {
+            throw new UnauthorizedAccessException("User account has been deleted");
+        }
+        
+        if (user.IsAccountLocked)
+        {
+            throw new UnauthorizedAccessException($"User account is locked until {user.AccountLockedUntil}");
+        }
+        
+        // Allow token refresh for Active and PendingVerification status
+        // Users with PendingVerification can still use the app but should verify their email
+        if (user.AccountStatus != AccountStatus.Active && 
+            user.AccountStatus != AccountStatus.PendingVerification)
+        {
+            throw new UnauthorizedAccessException($"User account status is {user.AccountStatus}, refresh not allowed");
+        }
+
+        // Get user roles from database
+        var userRoles = await _dbContext.UserRoles
+            .Where(ur => ur.UserId == user.Id)
+            .Select(ur => ur.Role)
+            .ToListAsync(cancellationToken);
+        
+        // Default to User role if no roles found
+        if (!userRoles.Any())
+        {
+            userRoles.Add(Roles.User);
+        }
+        
+        // Create user claims for token generation
+        var userClaims = new UserClaims
+        {
+            UserId = user.Id,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Roles = userRoles,
+            EmailVerified = user.EmailVerified,
+            AccountStatus = user.AccountStatus.ToString()
+        };
+        
+        var newTokens = await _jwtService.GenerateTokenAsync(userClaims);
+
+        // Revoke old refresh token
+        storedToken.IsRevoked = true;
+        storedToken.RevokedAt = DateTime.UtcNow;
+        storedToken.RevokedReason = "Token refreshed";
+
+        // Store new refresh token
+        var newRefreshToken = new RefreshToken
+        {
+            Token = newTokens.RefreshToken,
+            UserId = user.Id.ToString(),
+            CreatedAt = DateTime.UtcNow,
+            ExpiryDate = DateTime.UtcNow.AddDays(7),
+            UserAgent = storedToken.UserAgent, // Keep the same user agent
+            IpAddress = storedToken.IpAddress,
+            IsRevoked = false
+        };
+
+        _dbContext.RefreshTokens.Add(newRefreshToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Return new tokens with correct parameters
+        return new RefreshTokenResponse(
+            newTokens.AccessToken,
+            newTokens.RefreshToken,
+            newTokens.TokenType,
+            newTokens.ExpiresIn,
+            newTokens.ExpiresAt);
     }
 
     public async Task<bool> VerifyEmail(string email, string token, CancellationToken cancellationToken = default)
