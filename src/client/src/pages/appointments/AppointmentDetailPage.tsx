@@ -122,42 +122,62 @@ const AppointmentDetailPage: React.FC = () => {
       );
       if (foundAppointment) {
         setAppointment(foundAppointment);
-        loadMockMessages();
+        // Inline mock messages laden um Function-Dependency zu vermeiden
+        setMessages([
+          {
+            id: '1',
+            senderId: 'teacher1',
+            senderName: 'Anna Müller',
+            content:
+              'Hallo! Ich freue mich auf unsere Session. Haben Sie schon Erfahrungen mit React?',
+            timestamp: '2024-01-15T09:00:00Z',
+            type: "message"
+          },
+          {
+            id: '2',
+            senderId: 'student1',
+            senderName: 'Max Schmidt',
+            content:
+              'Ja, ich habe schon einige kleine Projekte gemacht. Würde gerne mehr über Hooks lernen!',
+            timestamp: '2024-01-15T09:05:00Z',
+            type: "message"
+          },
+        ]);
       }
     }
   }, [appointmentId, appointments]);
 
   // Mock messages
-  const loadMockMessages = () => {
-    setMessages([
-      {
-        id: '1',
-        senderId: 'teacher1',
-        senderName: 'Anna Müller',
-        content:
-          'Hallo! Ich freue mich auf unsere Session. Haben Sie schon Erfahrungen mit React?',
-        timestamp: '2024-01-15T09:00:00Z',
-        type: 'message',
-      },
-      {
-        id: '2',
-        senderId: 'student1',
-        senderName: 'Max Schmidt',
-        content:
-          'Hallo Anna! Nein, ich bin noch kompletter Anfänger. Freue mich sehr darauf!',
-        timestamp: '2024-01-15T09:15:00Z',
-        type: 'message',
-      },
-      {
-        id: '3',
-        senderId: 'system',
-        senderName: 'System',
-        content: 'Termin wurde bestätigt',
-        timestamp: '2024-01-15T08:30:00Z',
-        type: 'system',
-      },
-    ]);
-  };
+  // const loadMockMessages = () => {
+  //   setMessages([
+  //     {
+  //       id: '1',
+  //       senderId: 'teacher1',
+  //       senderName: 'Anna Müller',
+  //       content:
+  //         'Hallo! Ich freue mich auf unsere Session. Haben Sie schon Erfahrungen mit React?',
+  //       timestamp: '2024-01-15T09:00:00Z',
+  //       type: 'message',
+  //     },
+  //     {
+  //       id: '2',
+  //       senderId: 'student1',
+  //       senderName: 'Max Schmidt',
+  //       content:
+  //         'Hallo Anna! Nein, ich bin noch kompletter Anfänger. Freue mich sehr darauf!',
+  //       timestamp: '2024-01-15T09:15:00Z',
+  //       type: 'message',
+  //     },
+  //     {
+  //       id: '3',
+  //       senderId: 'system',
+  //       senderName: 'System',
+  //       content: 'Termin wurde bestätigt',
+  //       timestamp: '2024-01-15T08:30:00Z',
+  //       type: 'system',
+  //     },
+  //   ]);
+  // };
 
   // Handlers
   const handleConfirmDialogOpen = (

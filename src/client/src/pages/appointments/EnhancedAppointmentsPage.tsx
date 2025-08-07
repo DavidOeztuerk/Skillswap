@@ -90,9 +90,14 @@ const EnhancedAppointmentsPage: React.FC = () => {
     error,
   } = useAppSelector((state) => state.appointments);
 
+  // Initial load
   useEffect(() => {
     dispatch(fetchAppointments());
     dispatch(fetchUpcomingAppointments({ limit: 5 }));
+  }, [dispatch]);
+  
+  // Load past appointments when pagination changes
+  useEffect(() => {
     dispatch(fetchPastAppointments({ page: pagination.page, limit: pagination.limit }));
   }, [dispatch, pagination.page, pagination.limit]);
 

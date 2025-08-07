@@ -19,7 +19,7 @@ public interface IAuthRepository
 // Two-Factor Authentication Repository - handles 2FA operations
 public interface ITwoFactorRepository
 {
-    Task<string> GenerateTwoFactorSecret(string userId, CancellationToken cancellationToken = default);
+    Task<(string secret, string qrCodeUri, string manualEntryKey)> GenerateTwoFactorSecret(string userId, CancellationToken cancellationToken = default);
     Task<bool> VerifyTwoFactorCode(string userId, string code, CancellationToken cancellationToken = default);
     Task<(bool hasSecret, bool isEnabled)> GetTwoFactorStatus(string userId, CancellationToken cancellationToken = default);
     Task UpdateTwoFactorSecret(string userId, string secret, CancellationToken cancellationToken = default);

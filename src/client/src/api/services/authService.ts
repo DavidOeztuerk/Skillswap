@@ -9,6 +9,9 @@ import { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRe
 import { GenerateTwoFactorSecretResponse } from '../../types/contracts/responses/GenerateTwoFactorSecretResponse';
 import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
 import { VerifyTwoFactorCodeResponse } from '../../types/contracts/responses/VerifyTwoFactorCodeResponse';
+import { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
+import { GetTwoFactorStatusResponse } from '../../types/contracts/responses/GetTwoFactorStatusResponse';
+import { DisableTwoFactorResponse } from '../../types/contracts/responses/DisableTwoFactorResponse';
 import {
   getRefreshToken,
   getToken,
@@ -140,7 +143,7 @@ const authService = {
    * Generate 2FA secret
    */
   async generateTwoFactorSecret(): Promise<GenerateTwoFactorSecretResponse> {
-    return apiClient.post<GenerateTwoFactorSecretResponse>(AUTH_ENDPOINTS.GENERATE_2FA);
+    return apiClient.post<GenerateTwoFactorSecretResponse>(AUTH_ENDPOINTS.GENERATE_2FA, {});
   },
 
   /**
@@ -149,6 +152,23 @@ const authService = {
   async verifyTwoFactorCode(request: VerifyTwoFactorCodeRequest): Promise<VerifyTwoFactorCodeResponse> {
     return apiClient.post<VerifyTwoFactorCodeResponse>(
       AUTH_ENDPOINTS.VERIFY_2FA,
+      request
+    );
+  },
+
+  /**
+   * Get 2FA status
+   */
+  async getTwoFactorStatus(): Promise<GetTwoFactorStatusResponse> {
+    return apiClient.get<GetTwoFactorStatusResponse>(AUTH_ENDPOINTS.TWO_FACTOR_STATUS);
+  },
+
+  /**
+   * Disable 2FA
+   */
+  async disableTwoFactor(request: DisableTwoFactorRequest): Promise<DisableTwoFactorResponse> {
+    return apiClient.post<DisableTwoFactorResponse>(
+      AUTH_ENDPOINTS.DISABLE_2FA,
       request
     );
   },
@@ -220,13 +240,19 @@ const authService = {
 
     try {
       let profile = await this.getProfile();
-      return { ...profile, id: profile.userId }; // Ensure userId is included
+      let user: User =  { ...profile, id: profile.userId }
+        console.log(user);
+        debugger
+        return user;
     } catch {
       // Token might be expired, try refresh
       try {
         await this.refreshToken();
         let profile = await this.getProfile();
-        return { ...profile, id: profile.userId }
+        let user: User =  { ...profile, id: profile.userId }
+        console.log(user);
+        debugger
+        return user;
       } catch {
         return null;
       }

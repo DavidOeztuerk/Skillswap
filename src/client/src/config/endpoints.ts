@@ -42,6 +42,7 @@ export const AUTH_ENDPOINTS = {
   GENERATE_2FA: '/api/users/2fa/generate',
   VERIFY_2FA: '/api/users/2fa/verify',
   DISABLE_2FA: '/api/users/2fa/disable',
+  TWO_FACTOR_STATUS: '/api/users/2fa/status',
   
   // Password management
   CHANGE_PASSWORD: '/api/users/change-password',

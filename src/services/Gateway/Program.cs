@@ -11,7 +11,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = Directory.GetCurrentDirectory()
 });
 
-var serviceName = "Gateway";
+var serviceName = "gateway";
 
 builder.Configuration
     .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)

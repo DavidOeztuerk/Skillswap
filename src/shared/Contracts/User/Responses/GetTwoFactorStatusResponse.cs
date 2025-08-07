@@ -5,7 +5,9 @@ namespace Contracts.User.Responses;
 /// </summary>
 public record GetTwoFactorStatusResponse(
     bool IsEnabled,
-    int RecoveryCodesRemaining)
+    bool HasSecret,
+    DateTime? EnabledAt = null,
+    List<string>? BackupCodes = null)
 {
     /// <summary>
     /// API Version this response supports

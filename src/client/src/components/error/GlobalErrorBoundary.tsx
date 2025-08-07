@@ -1,4 +1,3 @@
-// src/components/error/GlobalErrorBoundary.tsx
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { Box, Button, Typography, Container, Paper } from '@mui/material';
 import { ErrorOutline, Refresh } from '@mui/icons-material';

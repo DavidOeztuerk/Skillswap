@@ -88,7 +88,6 @@ export const useAuth = () => {
       return user?.permissions?.includes(perm) ?? false;
     },
      hasAnyPermission: (perms: string[]): boolean => {
-      debugger
       console.log(perms)
       return perms.some(p => user?.permissions?.includes(p)) ?? false;
     },

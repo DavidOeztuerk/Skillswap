@@ -9,6 +9,7 @@ import { ChangePasswordRequest } from '../../types/contracts/requests/ChangePass
 import { User } from '../../types/models/User';
 import { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRequest';
 import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
+import { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
 import { SliceError } from '../../store/types';
 
 // Helper to create standardized error
@@ -29,6 +30,9 @@ const initialState: AuthState = {
   isAuthenticated: !!getToken(),
   isLoading: false,
   error: null,
+  twoFactorRequired: false,
+  twoFactorEnabled: false,
+  pendingLoginCredentials: null,
 };
 
 // Async thunks
@@ -122,6 +126,20 @@ export const verifyTwoFactorCode = createAsyncThunk(
   }
 );
 
+export const getTwoFactorStatus = createAsyncThunk(
+  'auth/getTwoFactorStatus',
+  async () => {
+    return await authService.getTwoFactorStatus();
+  }
+);
+
+export const disableTwoFactor = createAsyncThunk(
+  'auth/disableTwoFactor',
+  async (request: DisableTwoFactorRequest) => {
+    return await authService.disableTwoFactor(request);
+  }
+);
+
 export const requestPasswordReset = createAsyncThunk(
   'auth/requestPasswordReset',
   async (email: string) => {
@@ -154,6 +172,16 @@ const authSlice = createSlice({
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
+    setTwoFactorRequired: (state, action: PayloadAction<boolean>) => {
+      state.twoFactorRequired = action.payload;
+    },
+    setPendingLoginCredentials: (state, action: PayloadAction<ExtendedLoginRequest | null>) => {
+      state.pendingLoginCredentials = action.payload;
+    },
+    clearTwoFactorState: (state) => {
+      state.twoFactorRequired = false;
+      state.pendingLoginCredentials = null;
+    },
     forceLogout: (state) => {
       state.user = null;
       state.token = null;
@@ -161,6 +189,9 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.isLoading = false;
       state.error = null;
+      state.twoFactorRequired = false;
+      state.twoFactorEnabled = false;
+      state.pendingLoginCredentials = null;
       removeToken();
     },
   },
@@ -173,7 +204,19 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
+        
+        // Check if 2FA is required
+        if (action.payload?.requires2FA) {
+          state.twoFactorRequired = true;
+          state.pendingLoginCredentials = action.meta.arg;
+          state.isAuthenticated = false;
+          return;
+        }
+        
         state.isAuthenticated = true;
+        state.twoFactorRequired = false;
+        state.pendingLoginCredentials = null;
+        
         // Handle both nested user object and flat response
         const userData = action.payload?.userInfo;
         state.user = {
@@ -384,9 +427,68 @@ const authSlice = createSlice({
       .addCase(resetPassword.rejected, (state, action) => {
         state.isLoading = false;
         state.error = createStandardError(action.error);
+      })
+      
+      // Generate 2FA Secret
+      .addCase(generateTwoFactorSecret.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(generateTwoFactorSecret.fulfilled, (state) => {
+        state.isLoading = false;
+        state.error = null;
+      })
+      .addCase(generateTwoFactorSecret.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = createStandardError(action.error);
+      })
+      
+      // Verify 2FA Code
+      .addCase(verifyTwoFactorCode.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(verifyTwoFactorCode.fulfilled, (state) => {
+        state.isLoading = false;
+        state.twoFactorEnabled = true;
+        state.error = null;
+      })
+      .addCase(verifyTwoFactorCode.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = createStandardError(action.error);
+      })
+      
+      // Get 2FA Status
+      .addCase(getTwoFactorStatus.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(getTwoFactorStatus.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.twoFactorEnabled = action.payload?.isEnabled || false;
+        state.error = null;
+      })
+      .addCase(getTwoFactorStatus.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = createStandardError(action.error);
+      })
+      
+      // Disable 2FA
+      .addCase(disableTwoFactor.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(disableTwoFactor.fulfilled, (state) => {
+        state.isLoading = false;
+        state.twoFactorEnabled = false;
+        state.error = null;
+      })
+      .addCase(disableTwoFactor.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = createStandardError(action.error);
       });
   },
 });
 
-export const { clearError, updateUser, setLoading, forceLogout } = authSlice.actions;
+export const { clearError, updateUser, setLoading, forceLogout, setTwoFactorRequired, setPendingLoginCredentials, clearTwoFactorState } = authSlice.actions;
 export default authSlice.reducer;

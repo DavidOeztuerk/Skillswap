@@ -23,8 +23,8 @@ export const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
  * API-related constants
  */
 export const API_TIMEOUT = 15000; // 15 seconds
-export const MAX_RETRY_ATTEMPTS = 3;
-export const RETRY_DELAY = 1000; // 1 second
+export const MAX_RETRY_ATTEMPTS = 1; // Reduced from 3 to avoid rate limiting
+export const RETRY_DELAY = 2000; // 2 seconds (increased from 1)
 
 /**
  * Validation constants

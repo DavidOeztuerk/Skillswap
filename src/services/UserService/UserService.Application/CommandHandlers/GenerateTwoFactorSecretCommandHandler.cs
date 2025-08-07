@@ -23,10 +23,10 @@ public class GenerateTwoFactorSecretCommandHandler(
 
         try
         {
-            var secret = await _twoFactorRepository.GenerateTwoFactorSecret(request.UserId, cancellationToken);
+            var (secret, qrCodeUri, manualEntryKey) = await _twoFactorRepository.GenerateTwoFactorSecret(request.UserId, cancellationToken);
 
             Logger.LogInformation("2FA secret generated for user {UserId}", request.UserId);
-            return Success(new GenerateTwoFactorSecretResponse(secret), "2FA secret generated");
+            return Success(new GenerateTwoFactorSecretResponse(secret, qrCodeUri, manualEntryKey), "2FA secret generated");
         }
         catch (Exception ex)
         {

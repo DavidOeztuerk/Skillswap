@@ -28,6 +28,8 @@ class HttpClient {
   private baseUrl: string;
   private isRefreshing = false;
   private refreshSubscribers: Array<(token: string) => void> = [];
+  private lastRefreshAttempt = 0;
+  private refreshCooldown = 5000; // 5 seconds cooldown between refresh attempts
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
@@ -136,6 +138,13 @@ class HttpClient {
         data,
       };
       
+      // Special handling for rate limiting
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        error.message = `Rate limit exceeded. Please wait ${retryAfter || '60'} seconds before trying again.`;
+        console.warn('🚫 Rate limit hit:', response.url, 'Retry-After:', retryAfter);
+      }
+      
       errorService.handleApiError(error, `${response.status} ${response.url}`);
       throw error;
     }
@@ -147,6 +156,13 @@ class HttpClient {
    * Refreshes the access token
    */
   private async refreshAccessToken(): Promise<string> {
+    // Check cooldown to prevent rapid refresh attempts
+    const now = Date.now();
+    if (now - this.lastRefreshAttempt < this.refreshCooldown) {
+      throw new Error('Token refresh attempted too soon');
+    }
+    this.lastRefreshAttempt = now;
+
     const refreshTokenValue = getRefreshToken();
     if (!refreshTokenValue) {
       throw new Error('No refresh token available');
@@ -162,6 +178,12 @@ class HttpClient {
     });
 
     if (!response.ok) {
+      // If refresh fails with 429, don't try again
+      if (response.status === 429) {
+        console.error('🚫 Rate limit on token refresh');
+        removeToken();
+        throw new Error('Rate limit exceeded on token refresh');
+      }
       throw new Error('Token refresh failed');
     }
 
@@ -272,7 +294,8 @@ class HttpClient {
         lastError = error;
 
         // Don't retry on client errors (except 401) or if already retrying
-        if (error.status >= 400 && error.status < 500 && error.status !== 401) {
+        // Also don't retry on 429 (Too Many Requests)
+        if ((error.status >= 400 && error.status < 500 && error.status !== 401) || error.status === 429) {
           throw error;
         }
 

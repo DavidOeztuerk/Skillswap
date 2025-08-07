@@ -434,9 +434,25 @@ export const useVideoCall = () => {
   // Räumt Ressourcen auf, wenn die Komponente unmounted wird
   useEffect(() => {
     return () => {
-      cleanUp();
+      // Cleanup direkt ausführen ohne Dependency auf cleanUp
+      // SignalR-Verbindung schließen
+      if (signalRConnectionRef.current) {
+        void signalRConnectionRef.current.stop();
+        signalRConnectionRef.current = null;
+      }
+
+      // WebRTC-Verbindung schließen
+      if (peerRef.current) {
+        peerRef.current.close();
+        peerRef.current = null;
+      }
+
+      // Streams stoppen
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
     };
-  }, [cleanUp]);
+  }, []); // Leere Dependencies - nur beim Unmount
 
   return {
     // Zustand
