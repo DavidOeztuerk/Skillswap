@@ -30,6 +30,7 @@ import { VerifyTwoFactorCodeRequest } from '../types/contracts/requests/VerifyTw
 import { VerifyTwoFactorCodeResponse } from '../types/contracts/responses/VerifyTwoFactorCodeResponse';
 import { User } from '../types/models/User';
 import { UserProfileResponse } from '../types/contracts/responses/UserProfileResponse';
+import { withDefault, safeGet, isDefined, ensureArray, ensureString } from '../utils/safeAccess';
 
 interface LocationState {
   from?: { pathname: string };
@@ -48,12 +49,12 @@ export const useAuth = () => {
 
   const { user, isAuthenticated, isLoading, error, token, refreshToken } = authState;
 
-  // Memoized user display name
+  // Memoized user display name with null safety
   const userDisplayName = useMemo((): string => {
-    if (!user) return 'Benutzer';
+    if (!isDefined(user)) return 'Benutzer';
 
-    const firstName = user.firstName?.trim();
-    const lastName = user.lastName?.trim();
+    const firstName = ensureString(user.firstName).trim();
+    const lastName = ensureString(user.lastName).trim();
 
     if (firstName && lastName) {
       return `${firstName} ${lastName}`;
@@ -62,7 +63,7 @@ export const useAuth = () => {
     if (firstName) return firstName;
     if (lastName) return lastName;
 
-    return user.email || 'Benutzer';
+    return withDefault(user.email, 'Benutzer');
   }, [user]);
 
   // Memoized token expiration check
@@ -82,14 +83,16 @@ export const useAuth = () => {
     }
   }, [token]);
 
-  // Simple permission checker - just check roles from user object
+  // Simple permission checker with null safety
   // The actual permission checking should be done via PermissionContext
   const permissionChecker = useMemo(() => ({
     hasAnyRole: (roles: string[]): boolean => {
-      return roles.some(role => user?.roles?.includes(role)) ?? false;
+      const userRoles = ensureArray(user?.roles);
+      return roles.some(role => userRoles.includes(role));
     },
     hasAllRoles: (roles: string[]): boolean => {
-      return roles.every(role => user?.roles?.includes(role)) ?? false;
+      const userRoles = ensureArray(user?.roles);
+      return roles.length > 0 && roles.every(role => userRoles.includes(role));
     },
   }), [user?.roles]);
 
@@ -131,9 +134,9 @@ export const useAuth = () => {
         const result = await dispatch(loginAction(credentials)).unwrap();
         
         if (result) {
-          // Get redirect path from location state or use provided/default
+          // Get redirect path from location state or use provided/default with null safety
           const state = location.state as LocationState;
-          const from = state?.from?.pathname || redirectPath || '/dashboard';
+          const from = safeGet(state, 'from.pathname', redirectPath || '/dashboard');
           
           // Clear any previous errors
           dispatch(clearError());

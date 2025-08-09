@@ -4,6 +4,7 @@ import { ProficiencyLevel } from '../../types/models/Skill';
 import skillService, { ProficiencyLevelResponse } from '../../api/services/skillsService';
 import { ProficiencyLevelsState } from '../../types/states/SkillState';
 import { SliceError } from '../../store/types';
+import { ensureArray, withDefault, ensureString } from '../../utils/safeAccess';
 
 const initialState: ProficiencyLevelsState = {
   proficiencyLevels: [],
@@ -84,15 +85,15 @@ const proficiencyLevelsSlice = createSlice({
       if (existingIndex === -1) {
         state.proficiencyLevels.push(action.payload);
         // Sort by rank
-        state.proficiencyLevels.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+        state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
       } else {
         state.proficiencyLevels[existingIndex] = action.payload;
       }
     },
 
     removeProficiencyLevel: (state, action: PayloadAction<string>) => {
-      state.proficiencyLevels = state.proficiencyLevels.filter(
-        (level) => level.id !== action.payload
+      state.proficiencyLevels = ensureArray(state.proficiencyLevels).filter(
+        (level) => level?.id !== action.payload
       );
       if (state.selectedProficiencyLevel?.id === action.payload) {
         state.selectedProficiencyLevel = null;
@@ -104,13 +105,13 @@ const proficiencyLevelsSlice = createSlice({
       action: PayloadAction<ProficiencyLevel>
     ) => {
       const updatedLevel = action.payload;
-      const index = state.proficiencyLevels.findIndex(
-        (level) => level.id === updatedLevel.id
+      const index = ensureArray(state.proficiencyLevels).findIndex(
+        (level) => level?.id === updatedLevel?.id
       );
       if (index !== -1) {
         state.proficiencyLevels[index] = updatedLevel;
         // Re-sort after updating
-        state.proficiencyLevels.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+        state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
       }
 
       if (state.selectedProficiencyLevel?.id === updatedLevel.id) {
@@ -143,16 +144,14 @@ const proficiencyLevelsSlice = createSlice({
         // Null-safe access to API response
         const mapSkillResponseToSkill = (response: ProficiencyLevelResponse): ProficiencyLevel => {
                   return {
-                    id: response.levelId,
+                    id: ensureString(response.levelId),
                     ...response
                   }
                 }
-                if (action.payload && Array.isArray(action.payload)) {
-                  state.proficiencyLevels = action.payload.map(x => mapSkillResponseToSkill(x));
-                }
+                state.proficiencyLevels = ensureArray(action.payload).map(x => mapSkillResponseToSkill(x));
 
         // Sort proficiency levels by rank
-        state.proficiencyLevels.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+        state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
 
         state.error = null;
       })
@@ -172,7 +171,7 @@ const proficiencyLevelsSlice = createSlice({
         if (action.payload) {
           state.proficiencyLevels.push(action.payload);
           // Re-sort after adding
-          state.proficiencyLevels.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+          state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
         }
         state.error = null;
       })
@@ -189,14 +188,14 @@ const proficiencyLevelsSlice = createSlice({
       .addCase(updateProficiencyLevel.fulfilled, (state, action) => {
         state.isUpdating = false;
         if (action.payload) {
-          const index = state.proficiencyLevels.findIndex(
-            (level) => level.id === action.payload.id
+          const index = ensureArray(state.proficiencyLevels).findIndex(
+            (level) => level?.id === action.payload?.id
           );
           if (index !== -1) {
             state.proficiencyLevels[index] = action.payload;
             // Re-sort after updating
             state.proficiencyLevels.sort(
-              (a, b) => (a.rank || 0) - (b.rank || 0)
+              (a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0)
             );
           }
 

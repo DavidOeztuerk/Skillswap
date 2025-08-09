@@ -11,6 +11,7 @@ import { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRe
 import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
 import { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
 import { SliceError } from '../../store/types';
+import { withDefault, safeGet, isDefined } from '../../utils/safeAccess';
 
 // Helper to create standardized error
 const createStandardError = (error: any): SliceError => ({
@@ -206,13 +207,13 @@ const authSlice = createSlice({
         state.isLoading = false;
         
         // Check if action.payload is valid
-        if (!action.payload) {
+        if (!isDefined(action.payload)) {
           state.error = { message: 'Invalid login response', code: 'INVALID_RESPONSE', details: undefined };
           return;
         }
         
         // Check if 2FA is required
-        if (action.payload.data?.requires2FA) {
+        if (safeGet(action.payload, 'data.requires2FA', false)) {
           state.twoFactorRequired = true;
           state.pendingLoginCredentials = action.meta.arg;
           state.isAuthenticated = false;
@@ -223,22 +224,22 @@ const authSlice = createSlice({
         state.twoFactorRequired = false;
         state.pendingLoginCredentials = null;
         
-        // Handle both nested user object and flat response
-        const userData = action.payload.data?.userInfo;
-        state.user = {
-          id: userData?.userId || '',
-          email: userData?.email || '',
-          firstName: userData?.firstName || '',
-          lastName: userData?.lastName || '',
-          userName: userData?.userName || '',
-          roles: userData?.roles || [],
-          emailVerified: userData?.emailVerified || false,
-          accountStatus: userData?.accountStatus || 'active',
-          createdAt: '',
-        };
+        // Handle both nested user object and flat response with safe access
+        const userData = safeGet(action.payload, 'data.userInfo', null);
+        state.user = isDefined(userData) ? {
+          id: withDefault(userData.userId, ''),
+          email: withDefault(userData.email, ''),
+          firstName: withDefault(userData.firstName, ''),
+          lastName: withDefault(userData.lastName, ''),
+          userName: withDefault(userData.userName, ''),
+          roles: withDefault(userData.roles, []),
+          emailVerified: withDefault(userData.emailVerified, false),
+          accountStatus: withDefault(userData.accountStatus, 'active'),
+          createdAt: withDefault(userData.createdAt, ''),
+        } : null;
         
-        state.token = action.payload.data?.accessToken || null;
-        state.refreshToken = action.payload.data?.refreshToken || null;
+        state.token = safeGet(action.payload, 'data.accessToken', null);
+        state.refreshToken = safeGet(action.payload, 'data.refreshToken', null);
         state.error = null;
         
         console.log('✅ Login successful in authSlice, token set:', action.payload.data?.accessToken ? 'Yes' : 'No');

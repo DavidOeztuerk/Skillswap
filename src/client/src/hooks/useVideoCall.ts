@@ -5,6 +5,7 @@ import {
   HubConnectionBuilder,
   LogLevel,
 } from '@microsoft/signalr';
+import { withDefault, ensureString, ensureArray } from '../utils/safeAccess';
 import {
   initializeCall,
   toggleMic,
@@ -86,10 +87,14 @@ export const useVideoCall = () => {
   const setupWebRTC = async (config: VideoCallConfig): Promise<void> => {
     try {
       // Media-Stream anfordern
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator?.mediaDevices?.getUserMedia({
         video: true,
         audio: true,
       });
+
+      if (!stream) {
+        throw new Error('Could not access media devices');
+      }
 
       dispatch(setLocalStream(stream));
 
@@ -104,8 +109,11 @@ export const useVideoCall = () => {
       peerRef.current = peerConnection;
 
       // Lokalen Stream zur Peer Connection hinzufügen
-      stream.getTracks().forEach((track) => {
-        peerConnection.addTrack(track, stream);
+      const tracks = ensureArray(stream?.getTracks());
+      tracks.forEach((track) => {
+        if (track) {
+          peerConnection.addTrack(track, stream);
+        }
       });
 
       // Event-Handler für eingehende Streams
@@ -249,9 +257,11 @@ export const useVideoCall = () => {
    */
   const toggleMicrophone = (): void => {
     if (localStream) {
-      const audioTracks = localStream.getAudioTracks();
+      const audioTracks = ensureArray(localStream?.getAudioTracks());
       audioTracks.forEach((track) => {
-        track.enabled = !track.enabled;
+        if (track) {
+          track.enabled = !track.enabled;
+        }
       });
       dispatch(toggleMic());
     }
@@ -262,9 +272,11 @@ export const useVideoCall = () => {
    */
   const toggleCamera = (): void => {
     if (localStream) {
-      const videoTracks = localStream.getVideoTracks();
+      const videoTracks = ensureArray(localStream?.getVideoTracks());
       videoTracks.forEach((track) => {
-        track.enabled = !track.enabled;
+        if (track) {
+          track.enabled = !track.enabled;
+        }
       });
       dispatch(toggleVideo());
     }
@@ -279,10 +291,14 @@ export const useVideoCall = () => {
     try {
       if (isScreenSharing) {
         // Zurück zur Kamera wechseln
-        const stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator?.mediaDevices?.getUserMedia({
           video: true,
           audio: true,
         });
+
+        if (!stream) {
+          throw new Error('Could not access media devices');
+        }
 
         // Alte Tracks entfernen
         const senders = peerRef.current.getSenders();
@@ -293,21 +309,28 @@ export const useVideoCall = () => {
         });
 
         // Neue Tracks hinzufügen
-        stream.getTracks().forEach((track) => {
-          peerRef.current?.addTrack(track, stream);
+        const newTracks = ensureArray(stream?.getTracks());
+        newTracks.forEach((track) => {
+          if (track) {
+            peerRef.current?.addTrack(track, stream);
+          }
         });
 
         dispatch(setLocalStream(stream));
       } else {
         // Zu Bildschirmfreigabe wechseln
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        const screenStream = await navigator?.mediaDevices?.getDisplayMedia({
           video: true,
         });
 
+        if (!screenStream) {
+          throw new Error('Could not access display media');
+        }
+
         // Alte Video-Tracks entfernen
-        const senders = peerRef.current.getSenders();
+        const senders = ensureArray(peerRef.current?.getSenders());
         senders.forEach((sender) => {
-          if (sender.track && sender.track.kind === 'video') {
+          if (sender?.track && sender.track.kind === 'video') {
             peerRef.current?.removeTrack(sender);
           }
         });
@@ -323,24 +346,33 @@ export const useVideoCall = () => {
         const newStream = new MediaStream();
 
         // Bildschirmfreigabe-Tracks hinzufügen
-        screenStream.getTracks().forEach((track) => {
-          newStream.addTrack(track);
+        const screenTracks = ensureArray(screenStream?.getTracks());
+        screenTracks.forEach((track) => {
+          if (track) {
+            newStream.addTrack(track);
+          }
         });
 
         // Audio-Tracks vom lokalen Stream hinzufügen
         if (localStream) {
-          localStream.getAudioTracks().forEach((track) => {
-            newStream.addTrack(track);
+          const audioTracks = ensureArray(localStream?.getAudioTracks());
+          audioTracks.forEach((track) => {
+            if (track) {
+              newStream.addTrack(track);
+            }
           });
         }
 
         dispatch(setLocalStream(newStream));
 
         // Event-Handler für das Ende der Bildschirmfreigabe
-        screenStream.getVideoTracks()[0].onended = () => {
-          dispatch(toggleScreenShare());
-          void toggleScreenSharing();
-        };
+        const videoTracks = ensureArray(screenStream?.getVideoTracks());
+        if (videoTracks[0]) {
+          videoTracks[0].onended = () => {
+            dispatch(toggleScreenShare());
+            void toggleScreenSharing();
+          };
+        }
       }
 
       dispatch(toggleScreenShare());
@@ -357,9 +389,11 @@ export const useVideoCall = () => {
     dispatch(toggleChat());
   };
 
-  const userId = useAppSelector((state) => state.auth.user?.id) || '';
-  const username =
-    useAppSelector((state) => state.auth.user?.firstName) || 'Unbekannt';
+  const userId = ensureString(useAppSelector((state) => state.auth.user?.id));
+  const username = withDefault(
+    useAppSelector((state) => state.auth.user?.firstName),
+    'Unbekannt'
+  );
 
   /**
    * Sendet eine Chat-Nachricht
@@ -419,7 +453,12 @@ export const useVideoCall = () => {
 
     // Streams stoppen
     if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
+      const tracks = ensureArray(localStream?.getTracks());
+      tracks.forEach((track) => {
+        if (track?.stop) {
+          track.stop();
+        }
+      });
       dispatch(setLocalStream(null));
     }
 
@@ -449,7 +488,12 @@ export const useVideoCall = () => {
 
       // Streams stoppen
       if (localStream) {
-        localStream.getTracks().forEach((track) => track.stop());
+        const tracks = ensureArray(localStream?.getTracks());
+        tracks.forEach((track) => {
+          if (track?.stop) {
+            track.stop();
+          }
+        });
       }
     };
   }, []); // Leere Dependencies - nur beim Unmount

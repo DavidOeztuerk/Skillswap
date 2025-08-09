@@ -24,6 +24,7 @@ import apiClient from '../apiClient';
 import httpClient from '../httpClient';
 import { UserProfileResponse } from '../../types/contracts/responses/UserProfileResponse';
 import { ApiResponse } from '../../types/common/ApiResponse';
+import { isDefined, withDefault, safeGet, ensureString } from '../../utils/safeAccess';
 
 /**
  * Authentication Service with improved error handling and validation
@@ -39,14 +40,17 @@ const authService = {
       credentials
     );
  
-    const storageType = credentials?.rememberMe ? 'permanent' : 'session';
+    const storageType = withDefault(credentials?.rememberMe, false) ? 'permanent' : 'session';
     
-    // Set tokens from the response
-    if (response?.data?.accessToken) {
-      setToken(response.data.accessToken, storageType);
+    // Set tokens from the response with null safety
+    const accessToken = safeGet(response, 'data.accessToken', null);
+    const refreshToken = safeGet(response, 'data.refreshToken', null);
+    
+    if (isDefined(accessToken)) {
+      setToken(accessToken, storageType);
     }
-    if (response?.data?.refreshToken) {
-      setRefreshToken(response.data.refreshToken, storageType);
+    if (isDefined(refreshToken)) {
+      setRefreshToken(refreshToken, storageType);
     }
     
     return response;
@@ -61,10 +65,13 @@ const authService = {
       credentials
     );
 
-    if (response.accessToken) {
-      setToken(response.accessToken);
-      if (response?.refreshToken) {
-        setRefreshToken(response.refreshToken);
+    const accessToken = safeGet(response, 'accessToken', null);
+    const refreshTokenValue = safeGet(response, 'refreshToken', null);
+    
+    if (isDefined(accessToken)) {
+      setToken(accessToken);
+      if (isDefined(refreshTokenValue)) {
+        setRefreshToken(refreshTokenValue);
       }
     }
 

@@ -6,6 +6,7 @@ import { SearchState } from '../../types/states/SearchState';
 import { SliceError } from '../../store/types';
 import { mapSkillResponseToSkill, mapUserSkillsResponseToSkill } from '../skills/skillsSlice';
 import { Skill } from '../../types/models/Skill';
+import { ensureArray, withDefault } from '../../utils/safeAccess';
 
 const initialPagination = {
   page: 1,
@@ -114,20 +115,18 @@ const searchSlice = createSlice({
         state.userLoading = false;
         const response = action.payload;
 
-        if (response.data && Array.isArray(response.data)) {
-          state.userResults = response.data.map((skill) => {
-            if ('skillId' in skill) {
-              return mapUserSkillsResponseToSkill(skill);
-            }
-            return skill as Skill;
-          });
-        }
+        state.userResults = ensureArray(response?.data).map((skill) => {
+          if (skill && 'skillId' in skill) {
+            return mapUserSkillsResponseToSkill(skill);
+          }
+          return skill as Skill;
+        });
 
         state.userPagination = {
-          page: action.payload.pageNumber,
-          pageSize: action.payload.pageSize,
-          totalItems: action.payload.totalRecords,
-          totalPages: action.payload.totalPages,
+          page: withDefault(action.payload?.pageNumber, 1),
+          pageSize: withDefault(action.payload?.pageSize, 12),
+          totalItems: withDefault(action.payload?.totalRecords, 0),
+          totalPages: withDefault(action.payload?.totalPages, 0),
         };
       })
       .addCase(fetchUserSearchResults.rejected, (state, action) => {
@@ -143,14 +142,12 @@ const searchSlice = createSlice({
       })
       .addCase(fetchAllSkills.fulfilled, (state, action) => {
         state.allSkillsLoading = false;
-        if (action.payload.data && Array.isArray(action.payload.data)) {
-          state.allSkills = action.payload.data.map(mapSkillResponseToSkill);
-        }
+        state.allSkills = ensureArray(action.payload?.data).map(mapSkillResponseToSkill);
         state.allSkillsPagination = {
-          page: action.payload.pageNumber,
-          pageSize: action.payload.pageSize,
-          totalItems: action.payload.totalRecords,
-          totalPages: action.payload.totalPages,
+          page: withDefault(action.payload?.pageNumber, 1),
+          pageSize: withDefault(action.payload?.pageSize, 12),
+          totalItems: withDefault(action.payload?.totalRecords, 0),
+          totalPages: withDefault(action.payload?.totalPages, 0),
         };
       })
       .addCase(fetchAllSkills.rejected, (state, action) => {

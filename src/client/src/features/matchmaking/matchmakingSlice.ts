@@ -11,6 +11,7 @@ import {
   CreateCounterOfferRequest
 } from '../../types/display/MatchmakingDisplay';
 import { SliceError } from '../../store/types';
+import { ensureArray, withDefault, ensureString } from '../../utils/safeAccess';
 
 interface MatchmakingState {
   // Match requests
@@ -200,22 +201,22 @@ const matchmakingSlice = createSlice({
           skillId: originalRequest.skillId,
           skillName: 'Loading...', // Will be populated when refreshing
           skillCategory: 'Loading...',
-          message: originalRequest.message,
+          message: ensureString(originalRequest.message),
           status: 'pending',
           type: 'outgoing',
-          otherUserId: originalRequest.targetUserId,
-          otherUserName: 'Loading...',
+          otherUserId: ensureString(originalRequest.targetUserId),
+          otherUserName: 'Loading...', 
           otherUserRating: 0,
-          isSkillExchange: originalRequest.isSkillExchange || false,
+          isSkillExchange: withDefault(originalRequest.isSkillExchange, false),
           exchangeSkillId: originalRequest.exchangeSkillId,
           exchangeSkillName: undefined,
-          isMonetary: originalRequest.isMonetary || false,
+          isMonetary: withDefault(originalRequest.isMonetary, false),
           offeredAmount: originalRequest.offeredAmount,
           currency: originalRequest.currency,
-          sessionDurationMinutes: originalRequest.sessionDurationMinutes || 60,
-          totalSessions: originalRequest.totalSessions || 1,
-          preferredDays: originalRequest.preferredDays || [],
-          preferredTimes: originalRequest.preferredTimes || [],
+          sessionDurationMinutes: withDefault(originalRequest.sessionDurationMinutes, 60),
+          totalSessions: withDefault(originalRequest.totalSessions, 1),
+          preferredDays: ensureArray(originalRequest.preferredDays),
+          preferredTimes: ensureArray(originalRequest.preferredTimes),
           createdAt: response.createdAt,
           threadId: response.threadId,
           isRead: true,
@@ -236,12 +237,12 @@ const matchmakingSlice = createSlice({
       })
       .addCase(fetchIncomingMatchRequests.fulfilled, (state, action) => {
         state.isLoadingRequests = false;
-        state.incomingRequests = action.payload.data;
+        state.incomingRequests = ensureArray(action.payload?.data);
         state.pagination = {
-          page: action.payload.pageNumber,
-          limit: action.payload.pageSize,
-          total: action.payload.totalRecords,
-          totalPages: action.payload.totalPages,
+          page: withDefault(action.payload?.pageNumber, 1),
+          limit: withDefault(action.payload?.pageSize, 20),
+          total: withDefault(action.payload?.totalRecords, 0),
+          totalPages: withDefault(action.payload?.totalPages, 0),
         };
       })
       .addCase(fetchIncomingMatchRequests.rejected, (state, action) => {

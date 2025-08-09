@@ -12,6 +12,7 @@ import {
   Box,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { withDefault, ensureString } from '../../utils/safeAccess';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -43,8 +44,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   open,
   title,
   message,
-  confirmLabel = 'Bestätigen',
-  cancelLabel = 'Abbrechen',
+  confirmLabel = withDefault(confirmLabel, 'Bestätigen'),
+  cancelLabel = withDefault(cancelLabel, 'Abbrechen'),
   onConfirm,
   onCancel,
   confirmColor = 'primary',
@@ -80,7 +81,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       <DialogTitle id="confirm-dialog-title">
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h6" component="div">
-            {title}
+            {ensureString(title)}
           </Typography>
           {showCloseButton && (
             <IconButton aria-label="close" onClick={onCancel} size="small">
@@ -92,7 +93,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       <DialogContent>
         {typeof message === 'string' ? (
           <DialogContentText id="confirm-dialog-description">
-            {message}
+            {ensureString(message)}
           </DialogContentText>
         ) : (
           message
@@ -100,7 +101,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} color="inherit">
-          {cancelLabel}
+          {ensureString(cancelLabel)}
         </Button>
         <Button
           onClick={onConfirm}
@@ -108,7 +109,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           variant="contained"
           autoFocus
         >
-          {confirmLabel}
+          {ensureString(confirmLabel)}
         </Button>
       </DialogActions>
     </Dialog>

@@ -4,6 +4,7 @@ import notificationService, { NotificationHistoryRequest } from '../../api/servi
 import { NotificationState } from '../../types/states/NotificationState';
 import type { Notification, NotificationSettings } from '../../types/models/Notification';
 import { SliceError } from '../../store/types';
+import { ensureArray, withDefault } from '../../utils/safeAccess';
 
 const initialState: NotificationState = {
   notifications: [],
@@ -177,8 +178,8 @@ const notificationSlice = createSlice({
       })
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.notifications = Array.isArray(action.payload) ? action.payload : [];
-        state.unreadCount = (state.notifications || []).filter((n: any) => !n.isRead).length;
+        state.notifications = ensureArray(action.payload);
+        state.unreadCount = ensureArray(state.notifications).filter((n: any) => !n.isRead).length;
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.isLoading = false;
@@ -191,7 +192,7 @@ const notificationSlice = createSlice({
         if (notification && !notification.isRead) {
           notification.isRead = true;
           notification.readAt = new Date().toISOString();
-          state.unreadCount = Math.max(0, state.unreadCount - 1);
+          state.unreadCount = Math.max(0, withDefault(state.unreadCount, 0) - 1);
         }
       })
       .addCase(markNotificationAsRead.rejected, (state, action) => {
@@ -247,7 +248,7 @@ const notificationSlice = createSlice({
         if (index !== -1) {
           const notification = state.notifications[index];
           if (!notification.isRead) {
-            state.unreadCount = Math.max(0, state.unreadCount - 1);
+            state.unreadCount = Math.max(0, withDefault(state.unreadCount, 0) - 1);
           }
           state.notifications.splice(index, 1);
         }

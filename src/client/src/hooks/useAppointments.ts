@@ -9,6 +9,7 @@ import {
 } from '../features/appointments/appointmentsSlice';
 import { AppointmentRequest } from '../types/contracts/requests/AppointmentRequest';
 import { Appointment, AppointmentStatus } from '../types/models/Appointment';
+import { ensureArray, withDefault, isDefined } from '../utils/safeAccess';
 
 /**
  * Hook für die Verwaltung von Terminen
@@ -80,13 +81,18 @@ export const useAppointments = () => {
    * @returns Gefilterte Termine
    */
   const getFilteredAppointments = (): Appointment[] => {
-    return appointments.filter((appointment) => {
+    const safeAppointments = ensureArray(appointments);
+    
+    return safeAppointments.filter((appointment) => {
+      if (!appointment) return false;
+      
       if (filter.status && appointment.status !== filter.status) {
         return false;
       }
 
       if (
         filter.fromDate &&
+        appointment.startTime &&
         new Date(appointment.startTime) < new Date(filter.fromDate)
       ) {
         return false;
@@ -94,6 +100,7 @@ export const useAppointments = () => {
 
       if (
         filter.toDate &&
+        appointment.startTime &&
         new Date(appointment.startTime) > new Date(filter.toDate)
       ) {
         return false;
@@ -161,9 +168,9 @@ export const useAppointments = () => {
 
   return {
     // Daten
-    appointments,
+    appointments: ensureArray(appointments),
     filteredAppointments: getFilteredAppointments(),
-    isLoading,
+    isLoading: withDefault(isLoading, false),
     error,
     filter,
 

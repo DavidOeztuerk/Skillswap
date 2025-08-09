@@ -36,6 +36,7 @@ import { CreateSkillRequest } from '../types/contracts/requests/CreateSkillReque
 import { UpdateSkillRequest } from '../types/contracts/requests/UpdateSkillRequest';
 import { Skill } from '../types/models/Skill';
 import { SkillSearchParams } from '../api/services/skillsService';
+import { ensureArray } from '../utils/safeAccess';
 import {
   fetchCategories as fetchCategoriesAction,
   createCategory as createCategoryAction,

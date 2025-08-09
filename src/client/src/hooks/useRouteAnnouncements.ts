@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAnnouncements } from './useAnnouncements';
+import { ensureString, ensureArray } from '../utils/safeAccess';
 
 /**
  * Hook for announcing route changes to screen readers
@@ -12,6 +13,7 @@ export const useRouteAnnouncements = () => {
 
   // Helper function defined before use
   const getPageName = (pathname: string): string => {
+    const safePath = ensureString(pathname);
     const routes: Record<string, string> = {
       '/': 'Home',
       '/dashboard': 'Dashboard',
@@ -30,33 +32,34 @@ export const useRouteAnnouncements = () => {
     };
 
     // Check for exact matches first
-    if (routes[pathname]) {
-      return routes[pathname];
+    if (routes[safePath]) {
+      return routes[safePath];
     }
 
     // Check for dynamic routes
-    if (pathname.startsWith('/skills/') && pathname.includes('/edit')) {
+    if (safePath.startsWith('/skills/') && safePath.includes('/edit')) {
       return 'Edit Skill';
     }
-    if (pathname.startsWith('/skills/') && pathname.match(/\/skills\/[^/]+$/)) {
+    if (safePath.startsWith('/skills/') && safePath.match(/\/skills\/[^/]+$/)) {
       return 'Skill Details';
     }
-    if (pathname.startsWith('/appointments/') && pathname.match(/\/appointments\/[^/]+$/)) {
+    if (safePath.startsWith('/appointments/') && safePath.match(/\/appointments\/[^/]+$/)) {
       return 'Appointment Details';
     }
-    if (pathname.startsWith('/videocall/')) {
+    if (safePath.startsWith('/videocall/')) {
       return 'Video Call';
     }
-    if (pathname.startsWith('/users/')) {
+    if (safePath.startsWith('/users/')) {
       return 'User Profile';
     }
 
     // Fallback to a generic page name
-    const segments = pathname.split('/').filter(Boolean);
-    if (segments?.length > 0) {
-      return segments[segments?.length - 1]
+    const segments = ensureArray(safePath.split('/').filter(Boolean));
+    if (segments.length > 0) {
+      const lastSegment = ensureString(segments[segments.length - 1]);
+      return lastSegment
         .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .map(word => ensureString(word).charAt(0).toUpperCase() + ensureString(word).slice(1))
         .join(' ');
     }
 

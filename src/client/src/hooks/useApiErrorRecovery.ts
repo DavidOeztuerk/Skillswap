@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNetworkStatus } from './useNetworkStatus';
+import { withDefault, ensureString } from '../utils/safeAccess';
 
 interface ApiErrorRecoveryOptions {
   maxRetries?: number;
@@ -46,12 +47,13 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
   const getErrorType = useCallback((): 'network' | 'server' | 'client' | 'unknown' => {
     if (!state.error) return 'unknown';
 
-    if (!isOnline || state.error.message.includes('fetch')) {
+    const errorMessage = ensureString(state.error?.message);
+    if (!isOnline || errorMessage.includes('fetch')) {
       return 'network';
     }
 
     if ('status' in state.error) {
-      const status = (state.error as any).status;
+      const status = withDefault((state.error as any).status, 0);
       if (status >= 500) return 'server';
       if (status >= 400) return 'client';
     }
@@ -105,8 +107,11 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
   }, [getErrorType, isOnline]);
 
   const calculateDelay = (attempt: number, baseDelay: number, exponentialBackoff: boolean): number => {
-    if (!exponentialBackoff) return baseDelay;
-    return Math.min(baseDelay * Math.pow(2, attempt - 1), 30000); // Max 30 seconds
+    const safeAttempt = Math.max(1, withDefault(attempt, 1));
+    const safeDelay = Math.max(0, withDefault(baseDelay, 1000));
+    
+    if (!exponentialBackoff) return safeDelay;
+    return Math.min(safeDelay * Math.pow(2, safeAttempt - 1), 30000); // Max 30 seconds
   };
 
   const executeWithRecovery = useCallback(async <T>(
@@ -114,11 +119,11 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
     options: ApiErrorRecoveryOptions = {}
   ): Promise<T> => {
     const {
-      maxRetries = 3,
-      retryDelay = 1000,
-      exponentialBackoff = true,
-      onRetry,
-      onMaxRetriesReached,
+      maxRetries = withDefault(options.maxRetries, 3),
+      retryDelay = withDefault(options.retryDelay, 1000),
+      exponentialBackoff = withDefault(options.exponentialBackoff, true),
+      onRetry = options.onRetry,
+      onMaxRetriesReached = options.onMaxRetriesReached,
     } = options;
 
     setLastApiCall(() => apiCall);

@@ -12,6 +12,7 @@ import './utils/debugHelpers'; // Enable debug helpers
 import AuthProvider from './features/auth/AuthProvider';
 import { TwoFactorDialogProvider } from './components/auth/TwoFactorDialog';
 import { PermissionProvider } from './contexts/PermissionContext';
+import { withDefault } from './utils/safeAccess';
 
 const App = () => {
   const { mode, theme, toggleTheme } = useTheme();
@@ -30,9 +31,9 @@ const App = () => {
     // Set document language
     document.documentElement.lang = 'de';
     
-    // Add page title prefix
-    const originalTitle = document.title;
-    if (!originalTitle.includes('SkillSwap')) {
+    // Add page title prefix with null safety
+    const originalTitle = withDefault(document.title, '');
+    if (originalTitle && !originalTitle.includes('SkillSwap')) {
       document.title = `SkillSwap - ${originalTitle}`;
     }
   }, []);

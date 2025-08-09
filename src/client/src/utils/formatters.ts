@@ -1,4 +1,5 @@
 // src/utils/formatters.ts
+import { ensureString, withDefault } from './safeAccess';
 
 /**
  * Erstellt einen vollständigen Namen aus Vor- und Nachname
@@ -10,8 +11,8 @@ export const formatFullName = (
   firstName?: string | null,
   lastName?: string | null
 ): string => {
-  const first = firstName?.trim() || '';
-  const last = lastName?.trim() || '';
+  const first = ensureString(firstName).trim();
+  const last = ensureString(lastName).trim();
 
   if (!first && !last) return 'Unbekannter Benutzer';
 
@@ -25,10 +26,12 @@ export const formatFullName = (
  * @returns Formatierter Währungsbetrag
  */
 export const formatCurrency = (amount: number, currency = 'EUR'): string => {
+  const safeAmount = withDefault(amount, 0);
+  const safeCurrency = withDefault(currency, 'EUR');
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',
-    currency,
-  }).format(amount);
+    currency: safeCurrency,
+  }).format(safeAmount);
 };
 
 /**
@@ -37,8 +40,9 @@ export const formatCurrency = (amount: number, currency = 'EUR'): string => {
  * @returns Formatierte E-Mail-Adresse oder leer, wenn keine vorhanden
  */
 export const formatEmail = (email?: string | null): string => {
-  if (!email) return '';
-  return email.toLowerCase();
+  const safeEmail = ensureString(email);
+  if (!safeEmail) return '';
+  return safeEmail.toLowerCase();
 };
 
 /**
@@ -47,10 +51,11 @@ export const formatEmail = (email?: string | null): string => {
  * @returns Formatierte Telefonnummer oder leer, wenn keine vorhanden
  */
 export const formatPhoneNumber = (phone?: string | null): string => {
-  if (!phone) return '';
+  const safePhone = ensureString(phone);
+  if (!safePhone) return '';
 
   // Entferne alle Nicht-Ziffern
-  const cleaned = phone.replace(/\D/g, '');
+  const cleaned = safePhone.replace(/\D/g, '');
 
   // Einfache deutsche Formatierung
   if (cleaned.length === 10) {
@@ -60,7 +65,7 @@ export const formatPhoneNumber = (phone?: string | null): string => {
   }
 
   // Keine Formatierung, wenn Länge nicht passt
-  return phone;
+  return safePhone;
 };
 
 /**
@@ -75,11 +80,12 @@ export const truncateText = (
   maxLength = 100,
   suffix = '...'
 ): string => {
-  if (!text) return '';
+  const safeText = ensureString(text);
+  if (!safeText) return '';
 
-  if (text.length <= maxLength) return text;
+  if (safeText.length <= maxLength) return safeText;
 
-  return text.substring(0, maxLength).trim() + suffix;
+  return safeText.substring(0, maxLength).trim() + withDefault(suffix, '...');
 };
 
 /**
@@ -88,7 +94,8 @@ export const truncateText = (
  * @returns Menschenlesbare Beschreibung des Levels
  */
 export const formatProficiencyLevel = (level: string): string => {
-  switch (level) {
+  const safeLevel = ensureString(level);
+  switch (safeLevel) {
     case 'Beginner':
       return 'Anfänger';
     case 'Intermediate':

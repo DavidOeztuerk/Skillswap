@@ -8,6 +8,7 @@ import {
 } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { getThemeOptions } from '../styles/theme';
+import { withDefault } from '../utils/safeAccess';
 
 /**
  * Hook für die Theme-Verwaltung
@@ -21,12 +22,17 @@ export const useTheme = () => {
 
   // Gespeicherten Modus aus dem LocalStorage laden oder Systemeinstellung verwenden
   const getSavedMode = (): PaletteMode => {
-    const savedMode = localStorage.getItem(THEME_STORAGE_KEY);
-    return savedMode === 'light' || savedMode === 'dark'
-      ? savedMode
-      : prefersDarkMode
-        ? 'dark'
-        : 'light';
+    try {
+      const savedMode = localStorage.getItem(THEME_STORAGE_KEY);
+      return savedMode === 'light' || savedMode === 'dark'
+        ? savedMode
+        : withDefault(prefersDarkMode, false)
+          ? 'dark'
+          : 'light';
+    } catch {
+      // Fallback wenn localStorage nicht verfügbar ist
+      return withDefault(prefersDarkMode, false) ? 'dark' : 'light';
+    }
   };
 
   // Zustand für den Theme-Modus
@@ -40,7 +46,11 @@ export const useTheme = () => {
 
   // Modus im LocalStorage speichern, wenn er sich ändert
   useEffect(() => {
-    localStorage.setItem(THEME_STORAGE_KEY, mode);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, mode);
+    } catch (error) {
+      console.warn('Could not save theme preference to localStorage:', error);
+    }
   }, [mode]);
 
   // Funktion zum Umschalten des Themes

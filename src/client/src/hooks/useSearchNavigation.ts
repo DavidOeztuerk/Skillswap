@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { ensureArray, ensureString, withDefault } from '../utils/safeAccess';
 
 interface SearchState {
   isOpen: boolean;
@@ -17,17 +18,26 @@ export const useSearchNavigation = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   
+  const getRecentSearches = (): string[] => {
+    try {
+      const stored = localStorage.getItem('recentSearches');
+      return ensureArray(stored ? JSON.parse(stored) : []);
+    } catch {
+      return [];
+    }
+  };
+
   const [searchState, setSearchState] = useState<SearchState>({
     isOpen: false,
-    query: searchParams.get('q') || '',
+    query: ensureString(searchParams.get('q')),
     isSearching: false,
     results: [],
-    recentSearches: JSON.parse(localStorage.getItem('recentSearches') || '[]'),
+    recentSearches: getRecentSearches(),
   });
 
   // Sync query with URL params - optimized to prevent unnecessary re-renders
   useEffect(() => {
-    const urlQuery = searchParams.get('q') || '';
+    const urlQuery = ensureString(searchParams.get('q'));
     if (urlQuery !== searchState.query) {
       setSearchState(prev => ({
         ...prev,
@@ -56,7 +66,7 @@ export const useSearchNavigation = () => {
   const updateQuery = useCallback((query: string) => {
     setSearchState(prev => ({
       ...prev,
-      query,
+      query: ensureString(query),
     }));
   }, []);
 
@@ -65,21 +75,23 @@ export const useSearchNavigation = () => {
     navigateToResults?: boolean;
     addToRecent?: boolean;
   }) => {
+    const safeQuery = ensureString(query);
     const { navigateToResults = true, addToRecent = true } = options || {};
     
     setSearchState(prev => ({
       ...prev,
       isSearching: true,
-      query,
+      query: safeQuery,
     }));
 
     // Add to recent searches with error handling
-    if (addToRecent && query.trim()) {
+    if (addToRecent && safeQuery.trim()) {
       try {
-        const currentRecentSearches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
+        const stored = localStorage.getItem('recentSearches');
+        const currentRecentSearches = ensureArray(stored ? JSON.parse(stored) : []);
         const newRecentSearches = [
-          query,
-          ...currentRecentSearches.filter((s: string) => s !== query)
+          safeQuery,
+          ...currentRecentSearches.filter((s: string) => s !== safeQuery)
         ].slice(0, 10); // Keep last 10 searches
         
         localStorage.setItem('recentSearches', JSON.stringify(newRecentSearches));
@@ -99,10 +111,10 @@ export const useSearchNavigation = () => {
       const searchPath = '/search';
       
       if (currentPath !== searchPath) {
-        navigate(`${searchPath}?q=${encodeURIComponent(query)}`);
+        navigate(`${searchPath}?q=${encodeURIComponent(safeQuery)}`);
       } else {
         // Update search params if already on search page
-        setSearchParams({ q: query });
+        setSearchParams({ q: safeQuery });
       }
     }
 
@@ -140,7 +152,7 @@ export const useSearchNavigation = () => {
       // Throttle popstate events to prevent excessive state updates
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        const urlQuery = searchParams.get('q') || '';
+        const urlQuery = ensureString(searchParams.get('q'));
         setSearchState(prev => ({
           ...prev,
           query: urlQuery,
@@ -175,7 +187,11 @@ export const useSearchNavigation = () => {
 
   // Clear recent searches
   const clearRecentSearches = useCallback(() => {
-    localStorage.removeItem('recentSearches');
+    try {
+      localStorage.removeItem('recentSearches');
+    } catch (error) {
+      console.warn('Failed to clear recent searches:', error);
+    }
     setSearchState(prev => ({
       ...prev,
       recentSearches: [],
@@ -183,7 +199,11 @@ export const useSearchNavigation = () => {
   }, []);
 
   return {
-    ...searchState,
+    isOpen: withDefault(searchState.isOpen, false),
+    query: ensureString(searchState.query),
+    isSearching: withDefault(searchState.isSearching, false),
+    results: ensureArray(searchState.results),
+    recentSearches: ensureArray(searchState.recentSearches),
     openSearch,
     closeSearch,
     updateQuery,
