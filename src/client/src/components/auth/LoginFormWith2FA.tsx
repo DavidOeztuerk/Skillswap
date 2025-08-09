@@ -32,6 +32,7 @@ import { isValidEmail } from '../../utils/validators';
 import { errorService } from '../../services/errorService';
 import { sanitizeInput } from '../../utils/cryptoHelpers';
 import TwoFactorInput from './TwoFactorInput';
+import { safeGet, withDefault, isDefined } from '../../utils/safeAccess';
 
 // Enhanced validation schema with 2FA
 const loginSchema = z.object({
@@ -196,7 +197,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
         })
       ).unwrap();
 
-      if (result?.data.requires2FA) {
+      if (safeGet(result, 'data.requires2FA', false)) {
         // 2FA is required, component will show 2FA input
         return;
       }
@@ -233,7 +234,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
         })
       ).unwrap();
 
-      if (result?.data.accessToken) {
+      if (safeGet(result, 'data.accessToken', null)) {
         // Clear rate limiting on successful login
         localStorage.removeItem('loginLock');
         setAttemptCount(0);

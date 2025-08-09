@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import { Avatar, SxProps, Theme } from '@mui/material';
 import { stringToColor } from '../../utils/formatters';
+import { ensureString, withDefault, ensureArray } from '../../utils/safeAccess';
 
 interface ProfileAvatarProps {
   src?: string | null;
@@ -24,31 +25,31 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
 }) => {
   // Generate initials from name
   const initials = useMemo(() => {
-    if (!alt) return '';
+    const safeAlt = ensureString(alt);
+    if (!safeAlt) return '';
 
-    const nameParts = alt.split(' ').filter((part) => part?.length > 0);
-    if (nameParts?.length === 0) return '';
+    const nameParts = ensureArray(safeAlt.split(' ').filter((part) => part && part.length > 0));
+    if (nameParts.length === 0) return '';
 
-    if (nameParts?.length === 1) {
-      return nameParts[0].charAt(0).toUpperCase();
+    if (nameParts.length === 1) {
+      return withDefault(nameParts[0], '').charAt(0).toUpperCase();
     }
 
-    return (
-      nameParts[0].charAt(0).toUpperCase() +
-      nameParts[nameParts?.length - 1].charAt(0).toUpperCase()
-    );
+    const first = withDefault(nameParts[0], '').charAt(0).toUpperCase();
+    const last = withDefault(nameParts[nameParts.length - 1], '').charAt(0).toUpperCase();
+    return first + last;
   }, [alt]);
 
   // Generate background color from name
   const backgroundColor = useMemo(() => {
     if (src || !showText) return undefined;
-    return stringToColor(alt);
+    return stringToColor(ensureString(alt));
   }, [src, alt, showText]);
 
   return (
     <Avatar
       src={src || undefined}
-      alt={alt}
+      alt={ensureString(alt)}
       sx={{
         width: size,
         height: size,

@@ -18,6 +18,7 @@ import {
 import QRCode from 'qrcode';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
 import { generateTwoFactorSecret, verifyTwoFactorCode } from '../../features/auth/authSlice';
+import { withDefault, ensureString, safeGet } from '../../utils/safeAccess';
 
 interface TwoFactorSetupProps {
   open: boolean;
@@ -84,8 +85,8 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
       console.log('🔑 2FA secret result:', result);
       
       if (result?.qrCodeUri && result?.secret) {
-        setSecretKey(result.secret);
-        setManualEntryKey(result.manualEntryKey || result.secret);
+        setSecretKey(ensureString(result.secret));
+        setManualEntryKey(withDefault(result.manualEntryKey, result.secret));
         
         // Generate QR code
         const qrDataUrl = await QRCode.toDataURL(result.qrCodeUri);
@@ -114,7 +115,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
 
     try {
       await dispatch(verifyTwoFactorCode({ 
-        userId: user?.id || '', // Use current user's ID
+        userId: withDefault(user?.id, ''), // Use current user's ID
         code: verificationCode
       })).unwrap();
       
@@ -270,7 +271,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
 
           {error && activeStep !== 3 && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              {error.message || 'An error occurred'}
+              {withDefault(error.message, 'An error occurred')}
             </Alert>
           )}
         </Box>

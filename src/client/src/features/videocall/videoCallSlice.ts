@@ -5,6 +5,7 @@ import { VideoCallState } from '../../types/states/VideoCallState';
 import { VideoCallConfig } from '../../types/models/VideoCallConfig';
 import { ChatMessage } from '../../types/models/ChatMessage';
 import { SliceError } from '../../store/types';
+import { ensureArray, withDefault, ensureString } from '../../utils/safeAccess';
 
 const initialState: VideoCallState = {
   roomId: null,
@@ -114,8 +115,8 @@ const videoCallSlice = createSlice({
   initialState,
   reducers: {
     initializeCall: (state, action: PayloadAction<VideoCallConfig>) => {
-      state.roomId = action.payload.roomId;
-      state.peerId = action.payload.peerId;
+      state.roomId = ensureString(action.payload?.roomId);
+      state.peerId = ensureString(action.payload?.peerId);
       state.isConnected = false;
       state.error = null;
     },
@@ -144,7 +145,9 @@ const videoCallSlice = createSlice({
       state.isChatOpen = !state.isChatOpen;
     },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
-      state.messages.push(action.payload);
+      if (action.payload) {
+        state.messages.push(action.payload);
+      }
     },
     clearMessages: (state) => {
       state.messages = [];
@@ -165,14 +168,16 @@ const videoCallSlice = createSlice({
       state.callStartTime = action.payload;
     },
     addParticipant: (state, action: PayloadAction<any>) => {
-      state.participants.push(action.payload);
+      if (action.payload) {
+        state.participants.push(action.payload);
+      }
     },
     removeParticipant: (state, action: PayloadAction<string>) => {
-      state.participants = state.participants.filter(p => p.id !== action.payload);
+      state.participants = ensureArray(state.participants).filter(p => p?.id !== action.payload);
     },
     updateParticipant: (state, action: PayloadAction<any>) => {
-      const index = state.participants.findIndex(p => p.id === action.payload.id);
-      if (index !== -1) {
+      const index = ensureArray(state.participants).findIndex(p => p?.id === action.payload?.id);
+      if (index !== -1 && state.participants[index]) {
         state.participants[index] = { ...state.participants[index], ...action.payload };
       }
     },

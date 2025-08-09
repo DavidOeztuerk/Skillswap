@@ -1,6 +1,7 @@
 // src/hooks/useMobile.ts
 import { useTheme, useMediaQuery } from '@mui/material';
 import { useEffect, useState } from 'react';
+import { withDefault } from '../utils/safeAccess';
 
 export interface MobileState {
   isMobile: boolean;
@@ -38,13 +39,15 @@ export const useMobile = (): MobileState => {
   useEffect(() => {
     // Detect touch capability
     const hasTouchScreen = 'ontouchstart' in window || 
-                          navigator.maxTouchPoints > 0 || 
-                          (navigator as any).msMaxTouchPoints > 0;
+                          withDefault(navigator?.maxTouchPoints, 0) > 0 || 
+                          withDefault((navigator as any)?.msMaxTouchPoints, 0) > 0;
     setIsTouchDevice(hasTouchScreen);
 
     // Detect orientation
     const updateOrientation = () => {
-      const isPortrait = window.innerHeight > window.innerWidth;
+      const height = withDefault(window?.innerHeight, 0);
+      const width = withDefault(window?.innerWidth, 0);
+      const isPortrait = height > width;
       setOrientation(isPortrait ? 'portrait' : 'landscape');
     };
 
@@ -68,11 +71,11 @@ export const useMobile = (): MobileState => {
   };
 
   return {
-    isMobile,
-    isTablet,
-    isDesktop,
-    isSmallMobile,
-    isTouchDevice,
+    isMobile: withDefault(isMobile, false),
+    isTablet: withDefault(isTablet, false),
+    isDesktop: withDefault(isDesktop, true),
+    isSmallMobile: withDefault(isSmallMobile, false),
+    isTouchDevice: withDefault(isTouchDevice, false),
     orientation,
     screenSize: getScreenSize(),
   };

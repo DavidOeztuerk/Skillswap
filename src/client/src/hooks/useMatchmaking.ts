@@ -15,6 +15,7 @@ import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { MatchStatus, MatchDisplay } from '../types/display/MatchmakingDisplay';
 import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
 import { FindMatchRequest } from '../api/services/matchmakingService';
+import { ensureArray, withDefault, ensureString } from '../utils/safeAccess';
 
 /**
  * Hook für Matchmaking-Funktionalität
@@ -105,7 +106,10 @@ export const useMatchmaking = () => {
     requestId: string,
     responseMessage?: string
   ): Promise<string | null> => {
-    const resultAction = await dispatch(acceptMatchRequest({ requestId, responseMessage }));
+    const resultAction = await dispatch(acceptMatchRequest({ 
+      requestId: ensureString(requestId), 
+      responseMessage: ensureString(responseMessage) 
+    }));
 
     if (acceptMatchRequest.fulfilled.match(resultAction)) {
       return resultAction.payload;
@@ -125,7 +129,10 @@ export const useMatchmaking = () => {
     responseMessage?: string
   ): Promise<boolean> => {
     const resultAction = await dispatch(
-      rejectMatchRequest({ requestId, responseMessage })
+      rejectMatchRequest({ 
+        requestId: ensureString(requestId), 
+        responseMessage: ensureString(responseMessage) 
+      })
     );
     return rejectMatchRequest.fulfilled.match(resultAction);
   };
@@ -167,7 +174,8 @@ export const useMatchmaking = () => {
    * @returns Gefilterte Matches
    */
   const getMatchesByStatus = (status: MatchStatus): MatchDisplay[] => {
-    return matches.filter((match) => match.status === status.toLowerCase() as any);
+    const safeMatches = ensureArray(matches);
+    return safeMatches.filter((match) => match?.status === status.toLowerCase() as any);
   };
 
   /**
@@ -180,8 +188,9 @@ export const useMatchmaking = () => {
   const getMatchesByRole = (isRequester: boolean): MatchDisplay[] => {
     if (!userId) return [];
 
-    return matches.filter((match) =>
-      isRequester ? match.requesterId === userId : match.responderId === userId
+    const safeMatches = ensureArray(matches);
+    return safeMatches.filter((match) =>
+      match && (isRequester ? match.requesterId === userId : match.responderId === userId)
     );
   };
 
@@ -195,8 +204,8 @@ export const useMatchmaking = () => {
     status: string,
     incoming: boolean = true
   ) => {
-    const requests = incoming ? incomingRequests : outgoingRequests;
-    return requests.filter((request) => request.status === status);
+    const requests = incoming ? ensureArray(incomingRequests) : ensureArray(outgoingRequests);
+    return requests.filter((request) => request?.status === status);
   };
 
   /**
@@ -205,20 +214,21 @@ export const useMatchmaking = () => {
    * @returns true, wenn das Match ausstehend ist, sonst false
    */
   const isMatchPending = (matchId: string): boolean => {
-    const match = matches.find((m) => m.id === matchId);
+    const safeMatches = ensureArray(matches);
+    const match = safeMatches.find((m) => m?.id === matchId);
     return match?.status === 'pending';
   };
 
   return {
     // Daten
-    matches,
-    matchResults,
+    matches: ensureArray(matches),
+    matchResults: ensureArray(matchResults),
     activeMatch,
-    incomingRequests,
-    outgoingRequests,
-    isLoading,
+    incomingRequests: ensureArray(incomingRequests),
+    outgoingRequests: ensureArray(outgoingRequests),
+    isLoading: withDefault(isLoading, false),
     error,
-    matchRequestSent,
+    matchRequestSent: withDefault(matchRequestSent, false),
 
     // Aktionen
     loadMatches,

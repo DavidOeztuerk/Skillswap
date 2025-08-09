@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../hooks/useAuth';
 import LoadingButton from '../ui/LoadingButton';
 import { InputAdornment, TextField } from '@mui/material';
+import { withDefault, ensureString } from '../../utils/safeAccess';
 
 // Validierungsschema mit Zod
 const registerSchema = z
@@ -99,7 +100,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       <Stack spacing={3}>
         {error && (
           <Alert severity="error" onClose={dismissError}>
-            {error?.message}
+            {ensureString(error?.message)}
           </Alert>
         )}
 
@@ -117,7 +118,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   fullWidth
                   autoComplete="given-name"
                   error={!!errors?.firstName}
-                  helperText={errors?.firstName?.message}
+                  helperText={ensureString(errors?.firstName?.message)}
                   disabled={isLoading}
                 />
               )}
@@ -135,7 +136,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   fullWidth
                   autoComplete="family-name"
                   error={!!errors?.lastName}
-                  helperText={errors?.lastName?.message}
+                  helperText={ensureString(errors?.lastName?.message)}
                   disabled={isLoading}
                 />
               )}
@@ -155,7 +156,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               fullWidth
               autoComplete="username"
               error={!!errors?.userName}
-              helperText={errors?.userName?.message}
+              helperText={ensureString(errors?.userName?.message)}
               disabled={isLoading}
             />
           )}
@@ -172,8 +173,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="email"
-              error={!!errors.email}
-              helperText={errors.email?.message}
+              error={!!errors?.email}
+              helperText={ensureString(errors?.email?.message)}
               disabled={isLoading}
               slotProps={{
                 input: {
@@ -195,8 +196,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="new-password"
-              error={!!errors.password}
-              helperText={errors.password?.message}
+              error={!!errors?.password}
+              helperText={ensureString(errors?.password?.message)}
               disabled={isLoading}
               slotProps={{
                 input: {
@@ -229,8 +230,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="new-password"
-              error={!!errors.confirmPassword}
-              helperText={errors.confirmPassword?.message}
+              error={!!errors?.confirmPassword}
+              helperText={ensureString(errors?.confirmPassword?.message)}
               disabled={isLoading}
               slotProps={{
                 input: {
@@ -263,7 +264,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           fullWidth
           variant="contained"
           color="primary"
-          loading={isLoading}
+          loading={withDefault(isLoading, false)}
           size="large"
           sx={{ mt: 2 }}
         >

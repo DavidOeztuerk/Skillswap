@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { useAuth } from '../hooks/useAuth';
 // import { ApiResponse } from '../types/common/ApiResponse';
 import apiClient from '../api/apiClient';
+import { ensureArray, withDefault, safeGet, isDefined } from '../utils/safeAccess';
 
 interface Permission {
   id: string;
@@ -169,12 +170,12 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
         fullResponse: response
       });
       
-      if (response) {
+      if (isDefined(response)) {
         const permData = response;
-        setPermissions(permData.permissionNames || []);
-        setRoles(permData.roles || []);
-        setPermissionDetails(permData.permissions || []);
-        setPermissionsByCategory(permData.permissionsByCategory || {});
+        setPermissions(ensureArray(permData.permissionNames));
+        setRoles(ensureArray(permData.roles));
+        setPermissionDetails(ensureArray(permData.permissions));
+        setPermissionsByCategory(withDefault(permData.permissionsByCategory, {}));
         setLastFetchTime(new Date());
 
         console.log('✅ Permissions set in context:', {

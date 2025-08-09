@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 
 import { useAuth } from '../hooks/useAuth';
+import { withDefault, ensureString } from '../utils/safeAccess';
 
 /**
  * Startseite der Anwendung
@@ -251,7 +252,7 @@ const HomePage: React.FC = () => {
                     textAlign="center"
                     fontWeight="medium"
                   >
-                    {feature.title}
+                    {ensureString(feature.title)}
                   </Typography>
 
                   <Typography
@@ -259,7 +260,7 @@ const HomePage: React.FC = () => {
                     color="text.secondary"
                     textAlign="center"
                   >
-                    {feature.description}
+                    {ensureString(feature.description)}
                   </Typography>
                 </CardContent>
 
@@ -318,7 +319,7 @@ const HomePage: React.FC = () => {
               }
               sx={{ px: 6, py: 1.5, fontWeight: 'bold' }}
             >
-              {isAuthenticated ? 'Zum Dashboard' : 'Jetzt starten'}
+              {withDefault(isAuthenticated, false) ? 'Zum Dashboard' : 'Jetzt starten'}
             </Button>
           </Box>
         </Container>

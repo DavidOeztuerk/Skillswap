@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAnnouncements } from './useAnnouncements';
+import { withDefault, ensureString } from '../utils/safeAccess';
 
 interface NavigationState {
   isNavigating: boolean;
@@ -78,6 +79,7 @@ export const useNavigationState = () => {
 
   // Get page name from path
   const getPageNameFromPath = (pathname: string): string => {
+    const safePath = ensureString(pathname);
     const routes: Record<string, string> = {
       '/': 'Home',
       '/dashboard': 'Dashboard',
@@ -90,20 +92,20 @@ export const useNavigationState = () => {
       '/search': 'Search',
     };
 
-    if (routes[pathname]) {
-      return routes[pathname];
+    if (routes[safePath]) {
+      return routes[safePath];
     }
 
-    if (pathname.startsWith('/skills/') && pathname.includes('/edit')) {
+    if (safePath.startsWith('/skills/') && safePath.includes('/edit')) {
       return 'Edit Skill';
     }
-    if (pathname.startsWith('/skills/') && pathname.match(/\/skills\/[^/]+$/)) {
+    if (safePath.startsWith('/skills/') && safePath.match(/\/skills\/[^/]+$/)) {
       return 'Skill Details';
     }
-    if (pathname.startsWith('/appointments/') && pathname.match(/\/appointments\/[^/]+$/)) {
+    if (safePath.startsWith('/appointments/') && safePath.match(/\/appointments\/[^/]+$/)) {
       return 'Appointment Details';
     }
-    if (pathname.startsWith('/videocall/')) {
+    if (safePath.startsWith('/videocall/')) {
       return 'Video Call';
     }
 
@@ -112,7 +114,7 @@ export const useNavigationState = () => {
 
   // Calculate navigation duration for performance monitoring
   const navigationDuration = navigationState.navigationStart 
-    ? Date.now() - navigationState.navigationStart 
+    ? Date.now() - withDefault(navigationState.navigationStart, Date.now()) 
     : null;
 
   return {

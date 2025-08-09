@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { usePermission } from '../contexts/PermissionContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { ensureArray, withDefault } from '../utils/safeAccess';
 
 /**
  * Konfiguration für die PrivateRoute
@@ -63,31 +64,33 @@ const useAuthorizationStatus = (
       return { status: AuthStatus.UNAUTHENTICATED };
     }
     
-    // Schritt 3: Warte auf User-Daten
+    // Schritt 3: Warte auf User-Daten  
     if (!user) {
       return { status: AuthStatus.LOADING, reason: 'Lade Benutzerprofil...' };
     }
     
     // Schritt 4: Prüfe Rollen (nur wenn spezifische Rollen gefordert sind)
-    if (config.roles.length > 0 && !hasAnyRole(...config.roles)) {
+    const safeRoles = ensureArray(config.roles);
+    if (safeRoles.length > 0 && !hasAnyRole(...safeRoles)) {
       console.log('🔐 PrivateRoute: Role check failed', {
-        required: config.roles,
+        required: safeRoles,
         userRoles: contextRoles,
-        hasAnyRole: hasAnyRole(...config.roles)
+        hasAnyRole: hasAnyRole(...safeRoles)
       });
       return { 
         status: AuthStatus.UNAUTHORIZED, 
         reason: 'Fehlende Rolle',
-        details: { required: config.roles, user: contextRoles }
+        details: { required: safeRoles, user: contextRoles }
       };
     }
     
     // Schritt 5: Prüfe Berechtigungen
-    if (config.permissions.length > 0 && !hasAnyPermission(...config.permissions)) {
+    const safePermissions = ensureArray(config.permissions);
+    if (safePermissions.length > 0 && !hasAnyPermission(...safePermissions)) {
       return { 
         status: AuthStatus.UNAUTHORIZED, 
         reason: 'Fehlende Berechtigung',
-        details: { required: config.permissions, user: contextPermissions }
+        details: { required: safePermissions, user: contextPermissions }
       };
     }
     
@@ -118,14 +121,14 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
   // Konsolidiere alte und neue Props
   const config = useMemo(() => {
     const allRoles = [
-      ...roles,
-      ...requiredRoles,
+      ...ensureArray(roles),
+      ...ensureArray(requiredRoles),
       ...(requiredRole ? [requiredRole] : []),
     ].filter(Boolean);
     
     const allPermissions = [
-      ...permissions,
-      ...requiredPermissions,
+      ...ensureArray(permissions),
+      ...ensureArray(requiredPermissions),
       ...(requiredPermission ? [requiredPermission] : []),
     ].filter(Boolean);
     
@@ -149,7 +152,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
   // Render basierend auf Status
   switch (authStatus.status) {
     case AuthStatus.LOADING:
-      return <LoadingComponent message={authStatus.reason} />;
+      return <LoadingComponent message={withDefault(authStatus.reason, 'Lädt...')} />;
       
     case AuthStatus.UNAUTHENTICATED:
       return (
@@ -189,7 +192,7 @@ export const withPrivateRoute = <P extends object>(
     </PrivateRoute>
   );
   
-  WrappedComponent.displayName = `withPrivateRoute(${Component.displayName || Component.name})`;
+  WrappedComponent.displayName = `withPrivateRoute(${withDefault(Component.displayName, Component.name || 'Component')})`;
   
   return WrappedComponent;
 };

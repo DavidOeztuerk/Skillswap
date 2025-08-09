@@ -3,6 +3,7 @@ import httpClient, { RequestConfig } from './httpClient';
 import { ApiResponse } from '../types/common/ApiResponse';
 import { getToken } from '../utils/authHelpers';
 import { API_BASE_URL } from '../config/endpoints';
+import { isDefined, withDefault, safeGet } from '../utils/safeAccess';
 
 // Types
 interface CacheEntry<T> {
@@ -140,10 +141,10 @@ class ApiClient {
           }
         );
 
-        // Extract data from ApiResponse wrapper
-        const responseData = (response && typeof response === 'object' && 'data' in response)
-          ? (response as ApiResponse<T>).data
-          : response as T;
+        // Extract data from ApiResponse wrapper with null safety
+        const responseData = isDefined(response) && typeof response === 'object' && 'data' in response
+          ? withDefault((response as ApiResponse<T>).data, {} as T)
+          : withDefault(response as T, {} as T);
 
         // Cache if applicable
         if (method === 'GET' && this.shouldCache(url)) {
@@ -317,7 +318,7 @@ class ApiClient {
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
             const response = JSON.parse(xhr.responseText);
-            const data = response.data || response;
+            const data = safeGet(response, 'data', response);
             resolve(data);
           } catch {
             reject(new Error('Invalid response format'));
@@ -325,7 +326,7 @@ class ApiClient {
         } else {
           reject({
             status: xhr.status,
-            message: xhr.statusText
+            message: withDefault(xhr.statusText, 'Upload failed')
           });
         }
       });

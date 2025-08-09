@@ -5,6 +5,7 @@ import skillService from '../../api/services/skillsService';
 import { SliceError } from '../../store/types';
 import { CategoriesState } from '../../types/states/SkillState';
 import { SkillCategoryResponse } from '../../types/contracts/responses/CreateSkillResponse';
+import { ensureArray, withDefault, ensureString } from '../../utils/safeAccess';
 
 const initialState: CategoriesState = {
   categories: [],
@@ -94,8 +95,8 @@ const categoriesSlice = createSlice({
     },
 
     removeCategory: (state, action: PayloadAction<string>) => {
-      state.categories = state.categories.filter(
-        (category) => category.id !== action.payload
+      state.categories = ensureArray(state.categories).filter(
+        (category) => category?.id !== action.payload
       );
       if (state.selectedCategory?.id === action.payload) {
         state.selectedCategory = null;
@@ -104,8 +105,8 @@ const categoriesSlice = createSlice({
 
     updateCategoryInState: (state, action: PayloadAction<SkillCategory>) => {
       const updatedCategory = action.payload;
-      const index = state.categories.findIndex(
-        (category) => category.id === updatedCategory.id
+      const index = ensureArray(state.categories).findIndex(
+        (category) => category?.id === updatedCategory?.id
       );
       if (index !== -1) {
         state.categories[index] = updatedCategory;
@@ -142,16 +143,14 @@ const categoriesSlice = createSlice({
         // state.categories = action?.payload || [];
         const mapSkillResponseToSkill = (response: SkillCategoryResponse): SkillCategory => {
           return {
-            id: response.categoryId,
+            id: ensureString(response.categoryId),
             ...response
           }
         }
-        if (action.payload && Array.isArray(action.payload)) {
-          state.categories = action.payload.map(x => mapSkillResponseToSkill(x));
-        }
+        state.categories = ensureArray(action.payload).map(x => mapSkillResponseToSkill(x));
         // Sort categories by sortOrder or name
         state.categories.sort((a, b) => {
-          return a.name.localeCompare(b.name);
+          return ensureString(a?.name).localeCompare(ensureString(b?.name));
         });
 
         state.error = null;
@@ -173,7 +172,7 @@ const categoriesSlice = createSlice({
           state.categories.push(action.payload);
           // Re-sort after adding
           state.categories.sort((a, b) => {
-            return a.name.localeCompare(b.name);
+            return ensureString(a?.name).localeCompare(ensureString(b?.name));
           });
         }
         state.error = null;
@@ -191,14 +190,14 @@ const categoriesSlice = createSlice({
       .addCase(updateCategory.fulfilled, (state, action) => {
         state.isUpdating = false;
         if (action.payload) {
-          const index = state.categories.findIndex(
-            (cat) => cat.id === action.payload.id
+          const index = ensureArray(state.categories).findIndex(
+            (cat) => cat?.id === action.payload?.id
           );
           if (index !== -1) {
             state.categories[index] = action.payload;
             // Re-sort after updating
             state.categories.sort((a, b) => {
-              return a.name.localeCompare(b.name);
+              return ensureString(a?.name).localeCompare(ensureString(b?.name));
             });
           }
 

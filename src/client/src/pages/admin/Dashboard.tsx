@@ -25,6 +25,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePermission } from '../../contexts/PermissionContext';
 import apiClient from '../../services/apiClient';
 import { Grid } from '../../components/common/GridCompat';
+import { withDefault, safeGet } from '../../utils/safeAccess';
 
 interface DashboardStats {
   totalUsers: number;
@@ -101,12 +102,23 @@ const AdminDashboard: React.FC = () => {
   const fetchDashboardStats = async () => {
     try {
       setRefreshing(true);
-      const response = await apiClient.get('/api/admin/analytics/dashboard');
-      setStats(response.data.data);
+      const response = await apiClient.get<any>('/api/admin/analytics/dashboard');
+      const statsData = safeGet(response, 'data.data', null) || safeGet(response, 'data', null) || response;
+      
+      setStats({
+        totalUsers: withDefault(statsData?.totalUsers, 0),
+        activeUsers: withDefault(statsData?.activeUsers, 0),
+        totalSkills: withDefault(statsData?.totalSkills, 0),
+        totalAppointments: withDefault(statsData?.totalAppointments, 0),
+        totalMatches: withDefault(statsData?.totalMatches, 0),
+        newUsersToday: withDefault(statsData?.newUsersToday, 0),
+        pendingReports: withDefault(statsData?.pendingReports, 0),
+        systemHealth: withDefault(statsData?.systemHealth, 'Unknown')
+      });
       setError(null);
     } catch (err: any) {
       // Set default empty stats on error
-      if (err.response?.status === 404) {
+      if (err?.response?.status === 404) {
         const emptyStats: DashboardStats = {
           totalUsers: 0,
           activeUsers: 0,
@@ -120,7 +132,7 @@ const AdminDashboard: React.FC = () => {
         setStats(emptyStats);
         setError('Dashboard API endpoint nicht verfügbar. Die Statistiken werden nachgereicht.');
       } else {
-        setError(err.response?.data?.message || 'Failed to load dashboard statistics');
+        setError(safeGet(err, 'response.data.message', 'Failed to load dashboard statistics'));
       }
     } finally {
       setLoading(false);

@@ -9,6 +9,7 @@ import { SkillState } from '../../types/states/SkillState';
 import { ExtendedCreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
 import { ExtendedUpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { SliceError } from '../../store/types';
+import { withDefault, ensureString } from '../../utils/safeAccess';
 
 const initialState: SkillState = {
   allSkills: [],
@@ -47,24 +48,24 @@ export const mapSkillResponseToSkill = (response: SkillSearchResultResponse): Sk
     description: response.description,
     isOffered: response.isOffering, // Backend uses isOffering, frontend uses isOffered
     category: {
-      id: response.category.categoryId,
-      name: response.category.name,
-      iconName: response.category.iconName,
-      color: response.category.color,
+      id: response.category?.categoryId || '',
+      name: ensureString(response.category?.name),
+      iconName: ensureString(response.category?.iconName),
+      color: ensureString(response.category?.color),
     },
     proficiencyLevel: {
-      id: response.proficiencyLevel.levelId,
-      level: response.proficiencyLevel.level,
-      rank: response.proficiencyLevel.rank,
-      color: response.proficiencyLevel.color,
+      id: response.proficiencyLevel?.levelId || '',
+      level: ensureString(response.proficiencyLevel?.level),
+      rank: withDefault(response.proficiencyLevel?.rank, 0),
+      color: ensureString(response.proficiencyLevel?.color),
     },
-    tagsJson: response.tagsJson,
-    averageRating: response.averageRating,
-    reviewCount: response.reviewCount,
-    endorsementCount: response.endorsementCount,
-    estimatedDurationMinutes: response.estimatedDurationMinutes,
-    createdAt: response.createdAt.toString(),
-    lastActiveAt: response.lastActiveAt?.toString(),
+    tagsJson: ensureString(response.tagsJson),
+    averageRating: withDefault(response.averageRating, 0),
+    reviewCount: withDefault(response.reviewCount, 0),
+    endorsementCount: withDefault(response.endorsementCount, 0),
+    estimatedDurationMinutes: withDefault(response.estimatedDurationMinutes, 0),
+    createdAt: ensureString(response.createdAt?.toString()),
+    lastActiveAt: response.lastActiveAt ? ensureString(response.lastActiveAt.toString()) : undefined,
   };
 };
 
@@ -76,23 +77,23 @@ export const mapUserSkillsResponseToSkill = (response: GetUserSkillRespone): Ski
     description: response.description,
     isOffered: response.isOffered,
     category: {
-      id: response.category.categoryId,
-      name: response.category.name,
-      iconName: response.category.iconName,
-      color: response.category.color,
+      id: response.category?.categoryId || '',
+      name: ensureString(response.category?.name),
+      iconName: ensureString(response.category?.iconName),
+      color: ensureString(response.category?.color),
     },
     proficiencyLevel: {
-      id: response.proficiencyLevel.levelId,
-      level: response.proficiencyLevel.level,
-      rank: response.proficiencyLevel.rank,
-      color: response.proficiencyLevel.color,
+      id: response.proficiencyLevel?.levelId || '',
+      level: ensureString(response.proficiencyLevel?.level),
+      rank: withDefault(response.proficiencyLevel?.rank, 0),
+      color: ensureString(response.proficiencyLevel?.color),
     },
-    tagsJson: response.tags.toString(),
-    averageRating: response.averageRating,
-    reviewCount: response.reviewCount,
-    endorsementCount: response.endorsmentCount,
-    createdAt: response.createdAt.toString(),
-    lastActiveAt: response.updatedAt?.toString(),
+    tagsJson: ensureString(response.tags?.toString()),
+    averageRating: withDefault(response.averageRating, 0),
+    reviewCount: withDefault(response.reviewCount, 0),
+    endorsementCount: withDefault(response.endorsmentCount, 0),
+    createdAt: ensureString(response.createdAt?.toString()),
+    lastActiveAt: response.updatedAt ? ensureString(response.updatedAt.toString()) : undefined,
   };
 };
 

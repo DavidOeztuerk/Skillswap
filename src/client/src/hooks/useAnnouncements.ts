@@ -1,5 +1,6 @@
 // src/hooks/useAnnouncements.ts
 import { useCallback, useRef } from 'react';
+import { ensureString, withDefault } from '../utils/safeAccess';
 
 interface AnnouncementOptions {
   priority: 'polite' | 'assertive';
@@ -55,7 +56,8 @@ export const useAnnouncements = () => {
       message: string,
       options: AnnouncementOptions = { priority: 'polite', delay: 100 }
     ) => {
-      if (!message.trim()) return;
+      const safeMessage = ensureString(message);
+      if (!safeMessage.trim()) return;
 
       ensureLiveRegions();
 
@@ -72,16 +74,17 @@ export const useAnnouncements = () => {
       }
 
       // Announce after delay to ensure screen readers pick it up
+      const safeDelay = Math.max(0, withDefault(options.delay, 100));
       setTimeout(() => {
-        region.textContent = message;
+        region.textContent = safeMessage;
 
         // Auto-clear after 5 seconds
         setTimeout(() => {
-          if (region.textContent === message) {
+          if (region.textContent === safeMessage) {
             region.textContent = '';
           }
         }, 5000);
-      }, options.delay || 100);
+      }, safeDelay);
     },
     [ensureLiveRegions]
   );
@@ -102,35 +105,37 @@ export const useAnnouncements = () => {
 
   const announceFormError = useCallback(
     (fieldName: string, errorMessage: string) => {
-      announceAssertive(`Error in ${fieldName}: ${errorMessage}`);
+      const safeFieldName = ensureString(fieldName);
+      const safeErrorMessage = ensureString(errorMessage);
+      announceAssertive(`Error in ${safeFieldName}: ${safeErrorMessage}`);
     },
     [announceAssertive]
   );
 
   const announceSuccess = useCallback(
     (message: string) => {
-      announcePolite(`Success: ${message}`);
+      announcePolite(`Success: ${ensureString(message)}`);
     },
     [announcePolite]
   );
 
   const announceNavigation = useCallback(
     (pageName: string) => {
-      announcePolite(`Navigated to ${pageName} page`);
+      announcePolite(`Navigated to ${ensureString(pageName)} page`);
     },
     [announcePolite]
   );
 
   const announceLoading = useCallback(
     (action: string) => {
-      announcePolite(`Loading ${action}, please wait`);
+      announcePolite(`Loading ${ensureString(action)}, please wait`);
     },
     [announcePolite]
   );
 
   const announceLoadingComplete = useCallback(
     (action: string) => {
-      announcePolite(`${action} loaded successfully`);
+      announcePolite(`${ensureString(action)} loaded successfully`);
     },
     [announcePolite]
   );

@@ -5,6 +5,7 @@ import { AppointmentsState } from '../../types/states/AppointmentsState';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
 import { SliceError } from '../../store/types';
+import { ensureArray, withDefault, ensureString } from '../../utils/safeAccess';
 
 const initialState: AppointmentsState = {
   appointments: [],
@@ -35,25 +36,25 @@ export const fetchAppointments = createAsyncThunk(
     const response = await appointmentService.getAppointments(request || {});
     // Transform backend response to frontend format
     return {
-      appointments: response.Data.map(item => ({
+      appointments: ensureArray(response?.Data).map(item => ({
         id: item.AppointmentId,
         teacherId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
-        teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: item.OtherPartyName } as any,
+        teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: ensureString(item.OtherPartyName) } as any,
         studentId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
-        studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: item.OtherPartyName } as any,
+        studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: ensureString(item.OtherPartyName) } as any,
         skillId: 'unknown-skill', // Not provided by backend
         skill: { id: 'unknown-skill', name: 'Unknown Skill' } as any,
-        startTime: item.ScheduledDate.toString(),
-        endTime: new Date(new Date(item.ScheduledDate).getTime() + item.DurationMinutes * 60000).toISOString(),
+        startTime: ensureString(item.ScheduledDate?.toString()),
+        endTime: new Date(new Date(item.ScheduledDate).getTime() + withDefault(item.DurationMinutes, 0) * 60000).toISOString(),
         status: item.Status as AppointmentStatus,
         videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
         createdAt: new Date().toISOString(),
       })),
       pagination: {
-        page: response.PageNumber,
-        limit: response.PageSize,
-        total: response.TotalCount,
-        totalPages: response.TotalPages,
+        page: withDefault(response?.PageNumber, 1),
+        limit: withDefault(response?.PageSize, 10),
+        total: withDefault(response?.TotalCount, 0),
+        totalPages: withDefault(response?.TotalPages, 0),
       }
     };
   }
@@ -109,16 +110,16 @@ export const fetchUpcomingAppointments = createAsyncThunk(
   async (params?: { limit?: number }) => {
     const response = await appointmentService.getUpcomingAppointments(params?.limit);
     // Transform backend response to frontend format
-    return response.Data.map(item => ({
+    return ensureArray(response?.Data).map(item => ({
       id: item.AppointmentId,
       teacherId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
-      teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: item.OtherPartyName } as any,
+      teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: ensureString(item.OtherPartyName) } as any,
       studentId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
-      studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: item.OtherPartyName } as any,
+      studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: ensureString(item.OtherPartyName) } as any,
       skillId: 'unknown-skill',
       skill: { id: 'unknown-skill', name: 'Unknown Skill' } as any,
-      startTime: item.ScheduledDate.toString(),
-      endTime: new Date(new Date(item.ScheduledDate).getTime() + item.DurationMinutes * 60000).toISOString(),
+      startTime: ensureString(item.ScheduledDate?.toString()),
+      endTime: new Date(new Date(item.ScheduledDate).getTime() + withDefault(item.DurationMinutes, 0) * 60000).toISOString(),
       status: item.Status as AppointmentStatus,
       videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
       createdAt: new Date().toISOString(),
@@ -131,23 +132,23 @@ export const fetchPastAppointments = createAsyncThunk(
   async (params?: { page?: number; limit?: number }) => {
     const response = await appointmentService.getPastAppointments(params);
     return {
-      data: response.Data.map(item => ({
+      data: ensureArray(response?.Data).map(item => ({
         id: item.AppointmentId,
         teacherId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
-        teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: item.OtherPartyName } as any,
+        teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: ensureString(item.OtherPartyName) } as any,
         studentId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
-        studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: item.OtherPartyName } as any,
+        studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: ensureString(item.OtherPartyName) } as any,
         skillId: 'unknown-skill',
         skill: { id: 'unknown-skill', name: 'Unknown Skill' } as any,
-        startTime: item.ScheduledDate.toString(),
-        endTime: new Date(new Date(item.ScheduledDate).getTime() + item.DurationMinutes * 60000).toISOString(),
+        startTime: ensureString(item.ScheduledDate?.toString()),
+        endTime: new Date(new Date(item.ScheduledDate).getTime() + withDefault(item.DurationMinutes, 0) * 60000).toISOString(),
         status: item.Status as AppointmentStatus,
         videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
         createdAt: new Date().toISOString(),
       })),
-      page: response.PageNumber,
-      limit: response.PageSize,
-      total: response.TotalCount,
+      page: withDefault(response?.PageNumber, 1),
+      limit: withDefault(response?.PageSize, 10),
+      total: withDefault(response?.TotalCount, 0),
       totalPages: response.TotalPages,
     };
   }

@@ -44,6 +44,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePermission } from '../../contexts/PermissionContext';
 import apiClient from '../../services/apiClient';
 import { format } from 'date-fns';
+import { withDefault, safeGet, ensureArray } from '../../utils/safeAccess';
 
 interface User {
   id: string;
@@ -90,24 +91,26 @@ const UserManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/api/admin/users', {
+      const response = await apiClient.get<any>('/api/admin/users', {
         params: {
           page: page + 1,
           pageSize: rowsPerPage,
           search: searchTerm
         }
       });
-      setUsers(response.data.data.items);
-      setTotalCount(response.data.data.totalCount);
+      
+      const responseData = safeGet(response, 'data.data', null) || safeGet(response, 'data', null) || response;
+      setUsers(ensureArray(responseData?.items || responseData?.users || responseData));
+      setTotalCount(withDefault(responseData?.totalCount, 0));
       setError(null);
     } catch (err: any) {
       // Handle 404 - endpoint not implemented yet
-      if (err.response?.status === 404) {
+      if (err?.response?.status === 404) {
         setUsers([]);
         setTotalCount(0);
         setError('User Management API endpoint nicht verfügbar. Diese Funktion wird nachgereicht.');
       } else {
-        setError(err.response?.data?.message || 'Failed to load users');
+        setError(safeGet(err, 'response.data.message', 'Failed to load users'));
       }
     } finally {
       setLoading(false);

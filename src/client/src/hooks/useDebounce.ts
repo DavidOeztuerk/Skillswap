@@ -1,5 +1,6 @@
 // src/hooks/useDebounce.ts
 import { useState, useEffect } from 'react';
+import { withDefault } from '../utils/safeAccess';
 
 /**
  * Hook zum Verzögern von Wertänderungen
@@ -11,18 +12,19 @@ import { useState, useEffect } from 'react';
  */
 export function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  const safeDelay = Math.max(0, withDefault(delay, 300)); // Ensure positive delay
 
   useEffect(() => {
     // Timer setzen, der den Wert nach der Verzögerung aktualisiert
     const timer = setTimeout(() => {
       setDebouncedValue(value);
-    }, delay);
+    }, safeDelay);
 
     // Timer beim Aufräumen zurücksetzen
     return () => {
       clearTimeout(timer);
     };
-  }, [value, delay]);
+  }, [value, safeDelay]);
 
   return debouncedValue;
 }

@@ -8,10 +8,11 @@ import {
   ModerationReport,
   AdminSettings,
 } from '../../types/models/Admin';
+import { ensureArray, withDefault, ensureString } from '../../utils/safeAccess';
 
 const createStandardError = (error: any): SliceError => ({
-  message: error?.message || error?.data?.message || 'Ein unbekannter Admin-Fehler ist aufgetreten',
-  code: error?.status || error?.code || 'ADMIN_ERROR',
+  message: ensureString(error?.message || error?.data?.message || 'Ein unbekannter Admin-Fehler ist aufgetreten'),
+  code: ensureString(error?.status || error?.code || 'ADMIN_ERROR'),
   details: error?.data || error
 });
 

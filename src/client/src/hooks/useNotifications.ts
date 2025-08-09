@@ -12,6 +12,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { Notification, NotificationSettings, NotificationType } from '../types/models/Notification';
 import { NotificationHistoryRequest } from '../api/services/notificationService';
+import { ensureArray, withDefault } from '../utils/safeAccess';
 
 /**
  * Hook für Benachrichtigungs-Funktionalität
@@ -101,7 +102,7 @@ export const useNotifications = () => {
    * @returns Gefilterte Benachrichtigungen
    */
   const getNotificationsByType = (type: NotificationType): Notification[] => {
-    return notifications.filter(notification => notification.type === type);
+    return ensureArray(notifications).filter(notification => notification?.type === type);
   };
 
   /**
@@ -109,7 +110,7 @@ export const useNotifications = () => {
    * @returns Ungelesene Benachrichtigungen
    */
   const getUnreadNotifications = (): Notification[] => {
-    return notifications.filter(notification => !notification.isRead);
+    return ensureArray(notifications).filter(notification => !notification?.isRead);
   };
 
   /**
@@ -118,8 +119,8 @@ export const useNotifications = () => {
    * @returns true, wenn ungelesene Benachrichtigungen vorhanden sind
    */
   const hasUnreadOfType = (type: NotificationType): boolean => {
-    return notifications.some(
-      notification => notification.type === type && !notification.isRead
+    return ensureArray(notifications).some(
+      notification => notification?.type === type && !notification?.isRead
     );
   };
 
@@ -129,15 +130,15 @@ export const useNotifications = () => {
    * @returns Anzahl ungelesener Benachrichtigungen
    */
   const getUnreadCountByType = (type: NotificationType): number => {
-    return notifications.filter(
-      notification => notification.type === type && !notification.isRead
+    return ensureArray(notifications).filter(
+      notification => notification?.type === type && !notification?.isRead
     ).length;
   };
 
   return {
     // Daten
-    notifications,
-    unreadCount,
+    notifications: ensureArray(notifications),
+    unreadCount: withDefault(unreadCount, 0),
     settings,
     isLoading,
     error,
