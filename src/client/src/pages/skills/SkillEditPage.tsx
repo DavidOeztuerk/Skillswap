@@ -23,6 +23,8 @@ import EmptyState from '../../components/ui/EmptyState';
 import { useSkills } from '../../hooks/useSkills';
 import { useAuth } from '../../hooks/useAuth';
 import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
+import errorService from '../../services/errorService';
 
 interface UpdateSkillFormData extends UpdateSkillRequest {
   tags?: string[];
@@ -58,11 +60,14 @@ const SkillEditPage: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       if (!skillId) {
+        errorService.addBreadcrumb('No skill ID provided, redirecting to my skills', 'navigation');
         navigate('/skills/my-skills');
         return;
       }
 
       try {
+        errorService.addBreadcrumb('Loading skill edit page data', 'data', { skillId });
+        
         // Load skill, categories, and proficiency levels in parallel
         const [skillSuccess, categoriesSuccess, proficiencySuccess] =
           await Promise.all([
@@ -72,6 +77,7 @@ const SkillEditPage: React.FC = () => {
           ]);
 
         if (!skillSuccess) {
+          errorService.addBreadcrumb('Failed to load skill', 'error', { skillId });
           setNotification({
             message: 'Skill konnte nicht geladen werden',
             type: 'error',
@@ -79,6 +85,7 @@ const SkillEditPage: React.FC = () => {
         }
 
         if (!categoriesSuccess || !proficiencySuccess) {
+          errorService.addBreadcrumb('Failed to load metadata', 'error', { skillId });
           setNotification({
             message:
               'Kategorien oder Fertigkeitsstufen konnten nicht geladen werden',
@@ -86,6 +93,10 @@ const SkillEditPage: React.FC = () => {
           });
         }
       } catch (error) {
+        errorService.addBreadcrumb('Error loading skill edit page data', 'error', { 
+          skillId, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        });
         console.error('❌ Error loading edit page data:', error);
         setNotification({
           message: 'Fehler beim Laden der Daten',
@@ -127,6 +138,7 @@ const SkillEditPage: React.FC = () => {
   // Handle form submission
   const handleSubmit = async (skillData: UpdateSkillFormData) => {
     if (!skillId) {
+      errorService.addBreadcrumb('Skill update failed - missing ID', 'error');
       setNotification({
         message: 'Skill-ID fehlt',
         type: 'error',
@@ -135,10 +147,12 @@ const SkillEditPage: React.FC = () => {
     }
 
     try {
+      errorService.addBreadcrumb('Updating skill', 'form', { skillId, skillName: skillData.name });
       console.log('📝 Updating skill:', skillId, skillData);
       const success = await updateSkill(skillId, skillData);
 
       if (success) {
+        errorService.addBreadcrumb('Skill updated successfully', 'form', { skillId });
         setNotification({
           message: 'Skill erfolgreich aktualisiert',
           type: 'success',
@@ -149,12 +163,17 @@ const SkillEditPage: React.FC = () => {
           navigate(`/skills/${skillId}`);
         }, 1500);
       } else {
+        errorService.addBreadcrumb('Skill update failed', 'error', { skillId });
         setNotification({
           message: 'Fehler beim Aktualisieren des Skills',
           type: 'error',
         });
       }
     } catch (error) {
+      errorService.addBreadcrumb('Error updating skill', 'error', { 
+        skillId, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
       console.error('❌ Update skill error:', error);
       setNotification({
         message: 'Ein unerwarteter Fehler ist aufgetreten',
@@ -165,6 +184,7 @@ const SkillEditPage: React.FC = () => {
 
   // Handle cancel
   const handleCancel = () => {
+    errorService.addBreadcrumb('Skill edit cancelled', 'navigation', { skillId });
     if (skillId) {
       navigate(`/skills/${skillId}`);
     } else {
@@ -174,6 +194,7 @@ const SkillEditPage: React.FC = () => {
 
   // Handle back navigation
   const handleBack = () => {
+    errorService.addBreadcrumb('Navigating back from skill edit', 'navigation', { skillId });
     navigate(-1);
   };
 
@@ -351,4 +372,10 @@ const SkillEditPage: React.FC = () => {
   );
 };
 
-export default SkillEditPage;
+const WrappedSkillEditPage: React.FC = () => (
+  <SkillErrorBoundary>
+    <SkillEditPage />
+  </SkillErrorBoundary>
+);
+
+export default WrappedSkillEditPage;

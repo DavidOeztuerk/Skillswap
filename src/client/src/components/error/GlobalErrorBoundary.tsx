@@ -1,6 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { Box, Button, Typography, Container, Paper } from '@mui/material';
-import { ErrorOutline, Refresh } from '@mui/icons-material';
+import { Box, Button, Typography, Container, Paper, Chip, LinearProgress } from '@mui/material';
+import { ErrorOutline, Refresh, Home, History, BugReport } from '@mui/icons-material';
+import errorService from '../../services/errorService';
 
 interface Props {
   children: ReactNode;
@@ -11,6 +12,9 @@ interface State {
   error?: Error;
   errorInfo?: ErrorInfo;
   errorId: string;
+  errorCount: number;
+  isRecovering: boolean;
+  lastErrorTime?: Date;
 }
 
 /**
@@ -22,15 +26,25 @@ class GlobalErrorBoundary extends Component<Props, State> {
     this.state = {
       hasError: false,
       errorId: '',
+      errorCount: 0,
+      isRecovering: false,
     };
+    
+    // Load error history from sessionStorage
+    this.loadErrorHistory();
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     // Update state so the next render will show the fallback UI
+    const errorCount = parseInt(sessionStorage.getItem('errorCount') || '0') + 1;
+    sessionStorage.setItem('errorCount', errorCount.toString());
+    
     return {
       hasError: true,
       error,
       errorId: `ERR_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      errorCount,
+      lastErrorTime: new Date(),
     };
   }
 
@@ -40,8 +54,15 @@ class GlobalErrorBoundary extends Component<Props, State> {
       console.error('Global Error Boundary caught an error:', error, errorInfo);
     }
 
-    // Log error details to monitoring service
-    this.logErrorToService(error, errorInfo);
+    // Use centralized error service
+    errorService.handleComponentError(
+      error, 
+      { componentStack: errorInfo.componentStack || '' },
+      'GlobalErrorBoundary'
+    );
+
+    // Store error details for recovery
+    this.storeErrorDetails(error, errorInfo);
 
     this.setState({
       error,
@@ -49,47 +70,33 @@ class GlobalErrorBoundary extends Component<Props, State> {
     });
   }
 
-  private logErrorToService = (error: Error, errorInfo: ErrorInfo) => {
-    // In a real application, you would send this to your error tracking service
-    // like Sentry, LogRocket, or similar
-    const errorData = {
+  private handleGoHome = () => {
+    window.location.href = '/';
+  };
+
+  private loadErrorHistory = () => {
+    const errorCount = parseInt(sessionStorage.getItem('errorCount') || '0');
+    if (errorCount > 0) {
+      this.setState({ errorCount });
+    }
+  };
+
+  private storeErrorDetails = (error: Error, errorInfo: ErrorInfo) => {
+    const errorHistory = {
       message: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
       timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      url: window.location.href,
-      userId: this.getCurrentUserId(),
       errorId: this.state.errorId,
     };
-
-    // For now, just log to console
-    console.error('Error logged to service:', errorData);
     
-    // TODO: Implement actual error reporting service
-    // errorTrackingService.logError(errorData);
+    sessionStorage.setItem('lastError', JSON.stringify(errorHistory));
   };
 
-  private getCurrentUserId = (): string | undefined => {
-    // Try to get user ID from localStorage or Redux store
-    try {
-      const userStr = localStorage.getItem('skillswap_user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        return user.id;
-      }
-    } catch {
-      // Ignore errors
-    }
-    return undefined;
-  };
-
-  private handleReload = () => {
-    window.location.reload();
-  };
-
-  private handleGoHome = () => {
-    window.location.href = '/';
+  private clearErrorHistory = () => {
+    sessionStorage.removeItem('errorCount');
+    sessionStorage.removeItem('lastError');
+    this.setState({ errorCount: 0 });
   };
 
   private handleRetry = () => {
@@ -98,11 +105,43 @@ class GlobalErrorBoundary extends Component<Props, State> {
       error: undefined,
       errorInfo: undefined,
       errorId: '',
+      isRecovering: true,
     });
+
+    // Clear recovery state after a short delay
+    setTimeout(() => {
+      this.setState({ isRecovering: false });
+    }, 500);
+  };
+
+  private handleHardReset = () => {
+    this.clearErrorHistory();
+    // Clear all storage and reload
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/';
   };
 
   render() {
-    if (this.state.hasError) {
+    const { hasError, isRecovering, errorCount } = this.state;
+    
+    // Show recovery spinner briefly
+    if (isRecovering) {
+      return (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '100vh' 
+        }}>
+          <LinearProgress sx={{ width: 200 }} />
+        </Box>
+      );
+    }
+    
+    if (hasError) {
+      const isFrequentError = errorCount > 3;
+      
       return (
         <Container maxWidth="md">
           <Box
@@ -126,18 +165,28 @@ class GlobalErrorBoundary extends Component<Props, State> {
               <ErrorOutline
                 sx={{
                   fontSize: 64,
-                  color: 'error.main',
+                  color: isFrequentError ? 'warning.main' : 'error.main',
                   mb: 2,
                 }}
               />
               
               <Typography variant="h4" gutterBottom color="error">
-                Something went wrong
+                {isFrequentError ? 'Multiple Errors Detected' : 'Something went wrong'}
               </Typography>
               
+              {isFrequentError && (
+                <Chip 
+                  label={`${errorCount} errors in this session`} 
+                  color="warning" 
+                  size="small"
+                  sx={{ mb: 2 }}
+                />
+              )}
+              
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                We're sorry, but something unexpected happened. Our team has been 
-                notified and we're working to fix it.
+                {isFrequentError 
+                  ? 'The application is experiencing multiple issues. A hard reset might help.'
+                  : "We're sorry, but something unexpected happened. Our team has been notified."}
               </Typography>
 
               {process.env.NODE_ENV === 'development' && this.state.error && (
@@ -175,16 +224,31 @@ class GlobalErrorBoundary extends Component<Props, State> {
                 <Button
                   variant="outlined"
                   onClick={this.handleGoHome}
+                  startIcon={<Home />}
                 >
                   Go Home
                 </Button>
                 
-                <Button
-                  variant="text"
-                  onClick={this.handleReload}
-                >
-                  Reload Page
-                </Button>
+                {isFrequentError && (
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    onClick={this.handleHardReset}
+                    startIcon={<History />}
+                  >
+                    Hard Reset
+                  </Button>
+                )}
+                
+                {process.env.NODE_ENV === 'development' && (
+                  <Button
+                    variant="text"
+                    onClick={() => console.log(this.state)}
+                    startIcon={<BugReport />}
+                  >
+                    Debug Info
+                  </Button>
+                )}
               </Box>
             </Paper>
           </Box>

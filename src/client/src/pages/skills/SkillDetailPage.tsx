@@ -45,6 +45,8 @@ import { useSkills } from '../../hooks/useSkills';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { useAuth } from '../../hooks/useAuth';
+import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
+import errorService from '../../services/errorService';
 // import { useUserById } from '../../hooks/useUserById';
 
 const SkillDetailPage: React.FC = () => {
@@ -87,6 +89,7 @@ const SkillDetailPage: React.FC = () => {
   // Load skill data
   useEffect(() => {
     if (skillId) {
+      errorService.addBreadcrumb('Loading skill details', 'navigation', { skillId });
       console.log('🎯 Loading skill details for ID:', skillId);
       fetchSkillById(skillId);
     }
@@ -128,19 +131,22 @@ const SkillDetailPage: React.FC = () => {
     const isFav = isFavoriteSkill(selectedSkill.id);
     try {
       if (isFav) {
+        errorService.addBreadcrumb('Removing skill from favorites', 'action', { skillId: selectedSkill.id });
         await removeFavoriteSkill(selectedSkill.id);
         setStatusMessage({
           text: 'Aus Favoriten entfernt',
           type: 'success',
         });
       } else {
+        errorService.addBreadcrumb('Adding skill to favorites', 'action', { skillId: selectedSkill.id });
         await addFavoriteSkill(selectedSkill.id);
         setStatusMessage({
           text: 'Zu Favoriten hinzugefügt',
           type: 'success',
         });
       }
-    } catch {
+    } catch (error) {
+      errorService.addBreadcrumb('Error toggling favorite', 'error', { skillId: selectedSkill.id, error: error instanceof Error ? error.message : 'Unknown error' });
       setStatusMessage({
         text: 'Fehler beim Aktualisieren der Favoriten',
         type: 'error',
@@ -151,16 +157,19 @@ const SkillDetailPage: React.FC = () => {
   const handleShare = async () => {
     if (navigator.share && selectedSkill) {
       try {
+        errorService.addBreadcrumb('Sharing skill via native share', 'action', { skillId: selectedSkill.id });
         await navigator.share({
           title: selectedSkill.name,
           text: selectedSkill.description,
           url: window.location.href,
         });
       } catch (error) {
+        errorService.addBreadcrumb('Share cancelled by user', 'ui', { skillId: selectedSkill.id });
         console.log('Share canceled', error);
       }
     } else {
       // Fallback: Copy to clipboard
+      errorService.addBreadcrumb('Copying skill link to clipboard', 'action', { skillId: selectedSkill?.id });
       navigator.clipboard.writeText(window.location.href);
       setStatusMessage({
         text: 'Link in Zwischenablage kopiert',
@@ -173,8 +182,10 @@ const SkillDetailPage: React.FC = () => {
     if (!skillId || rating === null || isOwner) return;
 
     try {
+      errorService.addBreadcrumb('Rating skill', 'form', { skillId, rating });
       const success = await rateSkill(skillId, rating, review);
       if (success) {
+        errorService.addBreadcrumb('Skill rated successfully', 'form', { skillId, rating });
         setStatusMessage({
           text: 'Bewertung erfolgreich abgegeben',
           type: 'success',
@@ -184,7 +195,8 @@ const SkillDetailPage: React.FC = () => {
         setReview('');
         // In real app: reload skill data to get updated rating
       }
-    } catch {
+    } catch (error) {
+      errorService.addBreadcrumb('Error rating skill', 'error', { skillId, error: error instanceof Error ? error.message : 'Unknown error' });
       setStatusMessage({
         text: 'Fehler beim Bewerten',
         type: 'error',
@@ -196,8 +208,10 @@ const SkillDetailPage: React.FC = () => {
     if (!skillId || isOwner) return;
 
     try {
+      errorService.addBreadcrumb('Endorsing skill', 'form', { skillId });
       const success = await endorseSkill(skillId, endorseMessage);
       if (success) {
+        errorService.addBreadcrumb('Skill endorsed successfully', 'form', { skillId });
         setStatusMessage({
           text: 'Empfehlung erfolgreich abgegeben',
           type: 'success',
@@ -205,7 +219,8 @@ const SkillDetailPage: React.FC = () => {
         setEndorseDialogOpen(false);
         setEndorseMessage('');
       }
-    } catch {
+    } catch (error) {
+      errorService.addBreadcrumb('Error endorsing skill', 'error', { skillId, error: error instanceof Error ? error.message : 'Unknown error' });
       setStatusMessage({
         text: 'Fehler beim Empfehlen',
         type: 'error',
@@ -217,11 +232,14 @@ const SkillDetailPage: React.FC = () => {
     if (!skillId || !isOwner) return;
 
     try {
+      errorService.addBreadcrumb('Deleting skill', 'action', { skillId });
       const success = await deleteSkill(skillId);
       if (success) {
+        errorService.addBreadcrumb('Skill deleted successfully', 'action', { skillId });
         navigate('/skills/my-skills');
       }
-    } catch {
+    } catch (error) {
+      errorService.addBreadcrumb('Error deleting skill', 'error', { skillId, error: error instanceof Error ? error.message : 'Unknown error' });
       setStatusMessage({
         text: 'Fehler beim Löschen',
         type: 'error',
@@ -233,6 +251,7 @@ const SkillDetailPage: React.FC = () => {
     if (!selectedSkill) return;
 
     if (isOwner) {
+      errorService.addBreadcrumb('User tried to match own skill', 'ui', { skillId: selectedSkill.id });
       setStatusMessage({
         text: 'Du kannst kein Match mit deinem eigenen Skill erstellen',
         type: 'info',
@@ -240,11 +259,13 @@ const SkillDetailPage: React.FC = () => {
       return;
     }
 
+    errorService.addBreadcrumb('Opening match form', 'ui', { skillId: selectedSkill.id });
     setMatchFormOpen(true);
   };
 
   const handleMatchSubmit = async (data: CreateMatchRequest) => {
     if (!selectedSkill) {
+      errorService.addBreadcrumb('Match submit failed - no skill selected', 'error');
       setStatusMessage({
         text: 'Fehler: Kein Skill ausgewählt',
         type: 'error',
@@ -253,6 +274,7 @@ const SkillDetailPage: React.FC = () => {
     }
 
     try {
+      errorService.addBreadcrumb('Submitting match request', 'form', { skillId: selectedSkill.id, targetUserId: selectedSkill.userId });
       console.log('🤝 Submitting match request from detail page:', data);
       console.log('📋 Selected skill:', selectedSkill);
 
@@ -269,18 +291,21 @@ const SkillDetailPage: React.FC = () => {
       const success = await sendMatchRequest(command);
 
       if (success) {
+        errorService.addBreadcrumb('Match request created successfully', 'form', { skillId: selectedSkill.id });
         setMatchFormOpen(false);
         setStatusMessage({
           text: 'Match-Anfrage erfolgreich erstellt',
           type: 'success',
         });
       } else {
+        errorService.addBreadcrumb('Match request creation failed', 'error', { skillId: selectedSkill.id });
         setStatusMessage({
           text: 'Fehler beim Erstellen der Match-Anfrage',
           type: 'error',
         });
       }
     } catch (error) {
+      errorService.addBreadcrumb('Error submitting match request', 'error', { skillId: selectedSkill.id, error: error instanceof Error ? error.message : 'Unknown error' });
       console.error('❌ Match submission error:', error);
       setStatusMessage({
         text: 'Fehler beim Erstellen der Match-Anfrage',
@@ -291,17 +316,21 @@ const SkillDetailPage: React.FC = () => {
 
   const handleEdit = () => {
     if (!skillId || !isOwner) {
+      errorService.addBreadcrumb('User tried to edit skill they do not own', 'ui', { skillId });
       setStatusMessage({
         text: 'Du kannst nur deine eigenen Skills bearbeiten',
         type: 'error',
       });
       return;
     }
+    errorService.addBreadcrumb('Navigating to skill edit', 'navigation', { skillId });
     navigate(`/skills/${skillId}/edit`);
   };
 
   const handleBack = () => {
     // Navigate back to the appropriate skills page based on ownership
+    const targetRoute = (isOwner || cameFromMySkills) ? '/skills/my-skills' : '/skills';
+    errorService.addBreadcrumb('Navigating back from skill detail', 'navigation', { targetRoute });
     if (isOwner || cameFromMySkills) {
       navigate('/skills/my-skills');
     } else {
@@ -826,4 +855,10 @@ const SkillDetailPage: React.FC = () => {
   );
 };
 
-export default SkillDetailPage;
+const WrappedSkillDetailPage: React.FC = () => (
+  <SkillErrorBoundary>
+    <SkillDetailPage />
+  </SkillErrorBoundary>
+);
+
+export default WrappedSkillDetailPage;

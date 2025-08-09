@@ -26,6 +26,8 @@ import { usePermission } from '../../contexts/PermissionContext';
 import apiClient from '../../services/apiClient';
 import { Grid } from '../../components/common/GridCompat';
 import { unwrap, withDefault } from '../../utils/safeAccess';
+import { AdminErrorBoundary } from '../../components/error';
+import errorService from '../../services/errorService';
 
 interface DashboardStats {
   totalUsers: number;
@@ -102,6 +104,8 @@ const AdminDashboard: React.FC = () => {
   const fetchDashboardStats = async () => {
     try {
       setRefreshing(true);
+      errorService.addBreadcrumb('Fetching admin dashboard stats', 'admin');
+      
       const response = await apiClient.get<any>('/api/admin/analytics/dashboard');
       const statsData = unwrap<any>(response);
       
@@ -116,6 +120,7 @@ const AdminDashboard: React.FC = () => {
         systemHealth: withDefault(statsData?.systemHealth, 'Unknown')
       });
       setError(null);
+      errorService.addBreadcrumb('Dashboard stats loaded successfully', 'admin');
     } catch (err: any) {
       // Set default empty stats on error
       if (err?.response?.status === 404) {
@@ -389,4 +394,11 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-export default AdminDashboard;
+// Export wrapped component
+const AdminDashboardWithErrorBoundary: React.FC = () => (
+  <AdminErrorBoundary>
+    <AdminDashboard />
+  </AdminErrorBoundary>
+);
+
+export default AdminDashboardWithErrorBoundary;

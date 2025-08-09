@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Container,
@@ -12,12 +12,27 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../store/store';
+import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
+import errorService from '../../services/errorService';
 
 const SearchResultsPage: React.FC = () => {
   const navigate = useNavigate();
   const { results, isLoading, error } = useSelector(
     (state: RootState) => state.search
   );
+
+  useEffect(() => {
+    errorService.addBreadcrumb('Viewing search results', 'navigation', { 
+      resultsCount: results?.length, 
+      isLoading, 
+      hasError: !!error 
+    });
+  }, [results, isLoading, error]);
+
+  const handleViewSkill = (skillId: string, skillName: string) => {
+    errorService.addBreadcrumb('Navigating to skill from search results', 'navigation', { skillId, skillName });
+    navigate(`/skills/${skillId}`);
+  };
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -51,7 +66,7 @@ const SearchResultsPage: React.FC = () => {
                 <Button
                   size="small"
                   color="primary"
-                  onClick={() => navigate(`/skills/${skill.id}`)}
+                  onClick={() => handleViewSkill(skill.id, skill.name)}
                 >
                   Mehr erfahren
                 </Button>
@@ -64,4 +79,10 @@ const SearchResultsPage: React.FC = () => {
   );
 };
 
-export default SearchResultsPage;
+const WrappedSearchResultsPage: React.FC = () => (
+  <SkillErrorBoundary>
+    <SearchResultsPage />
+  </SkillErrorBoundary>
+);
+
+export default WrappedSearchResultsPage;

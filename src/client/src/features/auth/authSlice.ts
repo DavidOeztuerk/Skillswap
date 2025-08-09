@@ -11,6 +11,7 @@ import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/Verif
 import { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
 import { SliceError } from '../../store/types';
 import { withDefault, isDefined } from '../../utils/safeAccess';
+import errorService from '../../services/errorService';
 
 // Helper to create standardized error
 const createStandardError = (error: any): SliceError => ({
@@ -212,6 +213,15 @@ const authSlice = createSlice({
         state.refreshToken = response.data?.refreshToken;
         state.error = null;
         
+        // Set user context for error tracking
+        if (state.user) {
+          errorService.setUserContext(state.user.id, state.user.email, state.user.userName);
+          errorService.addBreadcrumb('User logged in', 'auth', { 
+            userId: state.user.id,
+            method: 'standard'
+          });
+        }
+        
         // Store permissions in localStorage if available
         if (response.data?.permissions) {
           localStorage.setItem('userPermissions', JSON.stringify({
@@ -279,6 +289,15 @@ const authSlice = createSlice({
         state.token = registerData?.accessToken || null;
         state.refreshToken = registerData?.refreshToken || null;
         state.error = null;
+        
+        // Set user context for error tracking
+        if (state.user) {
+          errorService.setUserContext(state.user.id, state.user.email, state.user.userName);
+          errorService.addBreadcrumb('User registered', 'auth', { 
+            userId: state.user.id,
+            method: 'registration'
+          });
+        }
         
         // Store permissions in localStorage if available
         if (registerData?.permissions) {
@@ -424,6 +443,11 @@ const authSlice = createSlice({
 
       // Logout
       .addCase(logout.fulfilled, (state) => {
+        // Clear error tracking context
+        errorService.setUserContext('', '', '');
+        errorService.clearBreadcrumbs();
+        errorService.addBreadcrumb('User logged out', 'auth');
+        
         state.user = null;
         state.token = null;
         state.refreshToken = null;

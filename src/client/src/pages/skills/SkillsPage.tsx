@@ -21,6 +21,8 @@ import { useSkills } from '../../hooks/useSkills';
 import { Skill } from '../../types/models/Skill';
 import SkillForm from '../../components/skills/SkillForm';
 import SkillList from '../../components/skills/SkillList';
+import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
+import errorService from '../../services/errorService';
 
 interface SkillsPageProps {
   showOnly: 'all' | 'mine' | 'favorite';
@@ -63,22 +65,33 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   // Load data on component mount and when dependencies change
   useEffect(() => {
     const loadData = async () => {
-      // Load categories and proficiency levels first
-      await Promise.all([
-        fetchCategories(),
-        fetchProficiencyLevels()
-      ]);
-
-      // Load skills based on view type
-      if (showOnly === 'mine') {
-        await fetchUserSkills();
-      } else if (showOnly === 'favorite' && user?.id) {
+      try {
+        errorService.addBreadcrumb(`Loading skills page: ${showOnly}`, 'navigation', { showOnly, userId: user?.id });
+        
+        // Load categories and proficiency levels first
+        errorService.addBreadcrumb('Fetching categories and proficiency levels', 'data', { action: 'fetch_metadata' });
         await Promise.all([
-          fetchFavoriteSkills(),
-          fetchAllSkills() // Needed for getFavoriteSkills() filtering
+          fetchCategories(),
+          fetchProficiencyLevels()
         ]);
-      } else {
-        await fetchAllSkills();
+
+        // Load skills based on view type
+        if (showOnly === 'mine') {
+          errorService.addBreadcrumb('Fetching user skills', 'data', { action: 'fetch_user_skills' });
+          await fetchUserSkills();
+        } else if (showOnly === 'favorite' && user?.id) {
+          errorService.addBreadcrumb('Fetching favorite skills', 'data', { action: 'fetch_favorite_skills' });
+          await Promise.all([
+            fetchFavoriteSkills(),
+            fetchAllSkills() // Needed for getFavoriteSkills() filtering
+          ]);
+        } else {
+          errorService.addBreadcrumb('Fetching all skills', 'data', { action: 'fetch_all_skills' });
+          await fetchAllSkills();
+        }
+      } catch (error) {
+        errorService.addBreadcrumb('Error loading skills page data', 'error', { error: error instanceof Error ? error.message : 'Unknown error' });
+        throw error;
       }
     };
 
@@ -89,15 +102,18 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     if (!isOwnerView) {
       return;
     }
+    errorService.addBreadcrumb('Opening skill creation form', 'ui', { action: 'create_skill' });
     setSelectedSkill(undefined);
     setIsFormOpen(true);
   };
 
   const handleEditSkill = (skill: Skill) => {
     if (isOwnerView) {
+      errorService.addBreadcrumb('Opening skill edit form', 'ui', { action: 'edit_skill', skillId: skill.id });
       setSelectedSkill(skill);
       setIsFormOpen(true);
     } else {
+      errorService.addBreadcrumb('Navigating to skill detail', 'navigation', { skillId: skill.id });
       navigate(`/skills/${skill.id}`);
     }
   };
@@ -111,6 +127,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     try {
       if (skillId) {
         // Update existing skill
+        errorService.addBreadcrumb('Updating skill', 'form', { action: 'update_skill', skillId, skillName: skillData.name });
         const success = await updateSkill(skillId, {
           skillId: skillId,
           name: skillData.name,
@@ -121,11 +138,13 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
         });
         
         if (success) {
+          errorService.addBreadcrumb('Skill updated successfully', 'form', { skillId });
           setIsFormOpen(false);
           setSelectedSkill(undefined);
         }
       } else {
         // Create new skill
+        errorService.addBreadcrumb('Creating new skill', 'form', { action: 'create_skill', skillName: skillData.name });
         const success = await createSkill({
           name: skillData.name,
           description: skillData.description,
@@ -135,6 +154,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
         });
         
         if (success) {
+          errorService.addBreadcrumb('Skill created successfully', 'form', { skillName: skillData.name });
           setIsFormOpen(false);
           setSelectedSkill(undefined);
           // Refresh the appropriate skills list
@@ -146,44 +166,63 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
         }
       }
     } catch (err) {
+      errorService.addBreadcrumb('Error submitting skill', 'error', { error: err instanceof Error ? err.message : 'Unknown error', skillName: skillData.name });
       console.error('Error submitting skill:', err);
     }
   };
 
   const handleMatchSkill = (skill: Skill) => {
     if (isOwnerView) return;
+    errorService.addBreadcrumb('Initiating skill match', 'navigation', { skillId: skill.id, skillName: skill.name });
     // Navigate to skill details with match request flag
     navigate(`/skills/${skill.id}?showMatchForm=true`);
   };
 
   const handleDeleteSkill = async (skillId: string) => {
-    const success = await deleteSkill(skillId);
-    if (success && showOnly === 'mine') {
-      await fetchUserSkills();
+    try {
+      errorService.addBreadcrumb('Deleting skill', 'action', { skillId });
+      const success = await deleteSkill(skillId);
+      if (success && showOnly === 'mine') {
+        errorService.addBreadcrumb('Skill deleted successfully', 'action', { skillId });
+        await fetchUserSkills();
+      }
+    } catch (error) {
+      errorService.addBreadcrumb('Error deleting skill', 'error', { skillId, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   };
 
   const handleToggleFavorite = async (skill: Skill) => {
     if (!user?.id) return;
     
-    const isFav = isFavoriteSkill(skill.id);
-    if (isFav) {
-      await removeFavoriteSkill(skill.id);
-    } else {
-      await addFavoriteSkill(skill.id);
+    try {
+      const isFav = isFavoriteSkill(skill.id);
+      if (isFav) {
+        errorService.addBreadcrumb('Removing skill from favorites', 'action', { skillId: skill.id, skillName: skill.name });
+        await removeFavoriteSkill(skill.id);
+      } else {
+        errorService.addBreadcrumb('Adding skill to favorites', 'action', { skillId: skill.id, skillName: skill.name });
+        await addFavoriteSkill(skill.id);
+      }
+    } catch (error) {
+      errorService.addBreadcrumb('Error toggling favorite', 'error', { skillId: skill.id, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   };
 
   const handleRefresh = async () => {
-    if (showOnly === 'mine') {
-      await fetchUserSkills();
-    } else if (showOnly === 'favorite' && user?.id) {
-      await Promise.all([
-        fetchFavoriteSkills(),
-        fetchAllSkills() // Needed for getFavoriteSkills() filtering
-      ]);
-    } else {
-      await fetchAllSkills();
+    try {
+      errorService.addBreadcrumb('Refreshing skills list', 'action', { showOnly });
+      if (showOnly === 'mine') {
+        await fetchUserSkills();
+      } else if (showOnly === 'favorite' && user?.id) {
+        await Promise.all([
+          fetchFavoriteSkills(),
+          fetchAllSkills() // Needed for getFavoriteSkills() filtering
+        ]);
+      } else {
+        await fetchAllSkills();
+      }
+    } catch (error) {
+      errorService.addBreadcrumb('Error refreshing skills', 'error', { showOnly, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   };
 
@@ -323,4 +362,10 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   );
 };
 
-export default SkillsPage;
+const WrappedSkillsPage: React.FC<SkillsPageProps> = (props) => (
+  <SkillErrorBoundary>
+    <SkillsPage {...props} />
+  </SkillErrorBoundary>
+);
+
+export default WrappedSkillsPage;
