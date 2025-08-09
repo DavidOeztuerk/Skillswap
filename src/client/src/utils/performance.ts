@@ -234,7 +234,7 @@ export const measureAsync = async <T>(
     console.log(`⏱️ ${label}: ${duration.toFixed(2)}ms`);
     
     // If it's an API call, record it
-    if (label.includes('API') || label.includes('api')) {
+    if (label?.includes('API') || label?.includes('api')) {
       performanceMonitor.measureApiResponse(label, duration);
     }
     

@@ -93,13 +93,13 @@ export const trapFocus = (
 
     if (event.shiftKey) {
       // Shift + Tab (backward)
-      if (currentElement === firstElement || !focusableElements.includes(currentElement)) {
+      if (currentElement === firstElement || !focusableElements?.includes(currentElement)) {
         event.preventDefault();
         lastElement.focus();
       }
     } else {
       // Tab (forward)
-      if (currentElement === lastElement || !focusableElements.includes(currentElement)) {
+      if (currentElement === lastElement || !focusableElements?.includes(currentElement)) {
         event.preventDefault();
         firstElement.focus();
       }

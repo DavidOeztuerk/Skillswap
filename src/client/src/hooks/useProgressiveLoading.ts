@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ensureArray, withDefault, ensureString } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 interface UseProgressiveLoadingOptions<T> {
   loadFn: (page: number, pageSize: number, ...args: any[]) => Promise<{
@@ -51,12 +51,12 @@ export function useProgressiveLoading<T>({
 
       const result = await loadFn(page, pageSize, ...deps);
       
-      const safeData = ensureArray(result?.data);
+      const safeData = result?.data;
       
       if (page === 0) {
         setItems(safeData);
       } else {
-        setItems(prev => [...ensureArray(prev), ...safeData]);
+        setItems(prev => [...prev, ...safeData]);
       }
       
       setTotalCount(withDefault(result?.totalCount, 0));
@@ -64,7 +64,7 @@ export function useProgressiveLoading<T>({
       setCurrentPage(page);
       
     } catch (err) {
-      const errorMessage = err instanceof Error ? ensureString(err.message) : 'Fehler beim Laden der Daten';
+      const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Daten';
       setError(errorMessage);
       console.error('Progressive loading error:', err);
     } finally {
@@ -104,12 +104,12 @@ export function useProgressiveLoading<T>({
         
         try {
           const result = await loadFn(0, pageSize, ...deps);
-          setItems(ensureArray(result?.data));
+          setItems(result?.data);
           setTotalCount(withDefault(result?.totalCount, 0));
           setHasMore(withDefault(result?.hasMore, false));
           setCurrentPage(0);
         } catch (err) {
-          const errorMessage = err instanceof Error ? ensureString(err.message) : 'Fehler beim Laden der Daten';
+          const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Daten';
           setError(errorMessage);
           console.error('Progressive loading error:', err);
         } finally {
@@ -122,7 +122,7 @@ export function useProgressiveLoading<T>({
   }, [initialLoad, loadFn, pageSize, ...deps]); // Stabilere Dependencies
 
   return {
-    items: ensureArray(items),
+    items: items,
     isLoading: withDefault(isLoading, false),
     isLoadingMore: withDefault(isLoadingMore, false),
     hasMore: withDefault(hasMore, false),

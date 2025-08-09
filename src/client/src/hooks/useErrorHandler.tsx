@@ -23,7 +23,7 @@ export function useErrorHandler(): UseErrorHandlerReturn {
   });
 
   const determineErrorType = useCallback((error: unknown): ErrorState['errorType'] => {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
+    if (error instanceof TypeError && error.message?.includes('fetch')) {
       return 'NETWORK';
     }
     

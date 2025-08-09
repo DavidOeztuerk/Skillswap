@@ -13,11 +13,12 @@ import {
   AdminSettings,
 } from '../../types/models/Admin';
 import { PagedResponse } from '../../types/common/PagedResponse';
+import { ApiResponse } from '../../types/common/ApiResponse';
 
 export class AdminService {
   // Dashboard
-  async getDashboard(): Promise<AdminDashboardData> {
-    return await apiClient.get<AdminDashboardData>(ADMIN_ENDPOINTS.DASHBOARD);
+  async getDashboard(): Promise<ApiResponse<AdminDashboardData>> {
+    return await apiClient.get<ApiResponse<AdminDashboardData>>(ADMIN_ENDPOINTS.DASHBOARD);
   }
 
   // User Management

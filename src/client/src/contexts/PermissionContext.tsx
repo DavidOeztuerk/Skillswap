@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
-// import { ApiResponse } from '../types/common/ApiResponse';
 import apiClient from '../api/apiClient';
-import { ensureArray, withDefault, safeGet, isDefined } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
+import { ApiResponse } from '../types/common/ApiResponse';
 
 interface Permission {
   id: string;
@@ -134,13 +134,15 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
     }
   }, [isAuthenticated, CACHE_DURATION]);
 
-  // Fetch permissions from backend
-  const fetchPermissions = useCallback(async () => {
+  // Fetch permissions from backend (only when needed)
+  const fetchPermissions = useCallback(async (force: boolean = false) => {
     console.log('🔐 fetchPermissions called:', {
       isAuthenticated,
       hasUser: !!user,
       userId: user?.id,
-      lastFetchTime: lastFetchTime?.toISOString()
+      lastFetchTime: lastFetchTime?.toISOString(),
+      force,
+      reason: 'Manual refresh or permission change'
     });
 
     if (!isAuthenticated || !user) {
@@ -148,8 +150,8 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
       return;
     }
 
-    // Check if we recently fetched (within 1 minute to prevent rapid refetches)
-    if (lastFetchTime && (Date.now() - lastFetchTime.getTime()) < 60000) {
+    // Check if we recently fetched (within 5 minutes to prevent rapid refetches)
+    if (!force && lastFetchTime && (Date.now() - lastFetchTime.getTime()) < 300000) {
       console.log('⏰ fetchPermissions skipped: recently fetched');
       return;
     }
@@ -159,22 +161,24 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
 
     try {
       console.log('📡 Fetching permissions from /api/users/permissions/my...');
-      // apiClient already unwraps the data from ApiResponse, so response IS the data
-      const response = await apiClient.get<UserPermissions>('/api/users/permissions/my');
+      // apiClient returns the full ApiResponse, not just the data
+      const response = await apiClient.get<ApiResponse<UserPermissions>>('/api/users/permissions/my');
       
       console.log('📥 Permission response received:', {
-        hasData: !!response,
-        roles: response?.roles,
-        permissionCount: response?.permissionNames?.length,
-        permissionNames: response?.permissionNames,
+        hasResponse: !!response,
+        hasData: !!response?.data,
+        roles: response?.data?.roles,
+        permissionCount: response?.data?.permissionNames?.length,
+        permissionNames: response?.data?.permissionNames,
         fullResponse: response
       });
       
-      if (isDefined(response)) {
-        const permData = response;
-        setPermissions(ensureArray(permData.permissionNames));
-        setRoles(ensureArray(permData.roles));
-        setPermissionDetails(ensureArray(permData.permissions));
+      // Check if response has data property (it's an ApiResponse)
+      if (response?.success && response?.data) {
+        const permData = response.data;  // Now this is correct - response is ApiResponse, data is UserPermissions
+        setPermissions(withDefault(permData.permissionNames, []));
+        setRoles(withDefault(permData.roles, []));
+        setPermissionDetails(withDefault(permData.permissions, []));
         setPermissionsByCategory(withDefault(permData.permissionsByCategory, {}));
         setLastFetchTime(new Date());
 
@@ -191,7 +195,10 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
         }));
         console.log('💾 Permissions cached in localStorage');
       } else {
-        console.warn('⚠️ No data in permission response');
+        console.warn('⚠️ No data in permission response or request failed:', {
+          success: response?.success,
+          message: response?.message
+        });
       }
     } catch (err) {
       console.error('❌ Error fetching permissions:', err);
@@ -221,50 +228,79 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
     }
   }, [isAuthenticated, user, lastFetchTime, token]);
 
-  // Fetch permissions when user changes or on mount
+  // Fetch permissions when authentication state changes
   useEffect(() => {
     console.log('🔄 Permission useEffect triggered:', {
       isAuthenticated,
       hasUser: !!user,
-      userId: user?.id
+      userId: user?.id,
+      hasToken: !!token
     });
     
-    if (isAuthenticated && user) {
-      console.log('📤 Calling fetchPermissions from useEffect...');
-      fetchPermissions();
-    } else {
-      console.log('⏸️ Not fetching permissions:', {
-        isAuthenticated,
-        hasUser: !!user
-      });
+    if (isAuthenticated && user && token) {
+      // Check if we have cached permissions from login/register
+      const cached = localStorage.getItem('userPermissions');
+      if (cached) {
+        try {
+          const data = JSON.parse(cached);
+          const now = Date.now();
+          
+          // Use cached permissions from login/register (valid for 15 minutes)
+          if (data.timestamp && (now - data.timestamp) < CACHE_DURATION) {
+            console.log('📦 Using cached permissions from login/register response');
+            setPermissions(data.permissionNames || []);
+            setRoles(data.roles || []);
+            setPermissionsByCategory(data.permissionsByCategory || {});
+            setLastFetchTime(new Date(data.timestamp));
+            // No need to fetch - we have fresh data from login/register
+            return;
+          } else {
+            console.log('⏰ Cached permissions expired, will fetch fresh ones');
+          }
+        } catch (err) {
+          console.error('Error parsing cached permissions:', err);
+        }
+      }
+      
+      // Only fetch if permissions are missing or expired
+      console.log('📤 Fetching fresh permissions from server (cache miss or expired)...');
+      fetchPermissions(true);
+    } else if (!isAuthenticated) {
+      // Clear permissions when user logs out
+      console.log('🧹 Clearing permissions - user logged out');
+      setPermissions([]);
+      setRoles([]);
+      setPermissionDetails([]);
+      setPermissionsByCategory({});
+      localStorage.removeItem('userPermissions');
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, token]); // Simple dependencies
 
   // Permission check methods
   const hasPermission = useCallback((permission: string, resourceId?: string): boolean => {
     if (!permission) return false;
     
     // Check direct permissions
-    if (permissions.includes(permission)) return true;
+    if (permissions?.includes(permission)) return true;
     
     // Check resource-specific permissions if resourceId provided
     if (resourceId) {
       const resourcePermission = `${permission}:${resourceId}`;
-      if (permissions.includes(resourcePermission)) return true;
+      if (permissions?.includes(resourcePermission)) return true;
     }
     
     // Check wildcard permissions (e.g., "admin.*" covers all admin permissions)
     const permissionParts = permission.split('.');
     for (let i = permissionParts.length - 1; i > 0; i--) {
       const wildcardPermission = permissionParts.slice(0, i).join('.') + '.*';
-      if (permissions.includes(wildcardPermission)) return true;
+      if (permissions?.includes(wildcardPermission)) return true;
     }
     
     return false;
   }, [permissions]);
 
   const hasAnyPermission = useCallback((...perms: string[]): boolean => {
-    return perms.some(p => hasPermission(p));
+    return perms?.some(p => hasPermission(p));
   }, [hasPermission]);
 
   const hasAllPermissions = useCallback((...perms: string[]): boolean => {
@@ -274,13 +310,13 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
   const hasRole = useCallback((role: string): boolean => {
     // Case-insensitive role comparison
     const normalizedRole = role.toLowerCase();
-    const hasIt = roles.some(r => r.toLowerCase() === normalizedRole);
+    const hasIt = roles?.some(r => r.toLowerCase() === normalizedRole);
     console.log(`🎭 hasRole('${role}'): ${hasIt}, available roles:`, roles);
     return hasIt;
   }, [roles]);
 
   const hasAnyRole = useCallback((...roleNames: string[]): boolean => {
-    return roleNames.some(r => hasRole(r));
+    return roleNames?.some(r => hasRole(r));
   }, [hasRole]);
 
   const hasAllRoles = useCallback((...roleNames: string[]): boolean => {
@@ -416,7 +452,7 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
     revokePermission,
     assignRole,
     removeRole,
-    refreshPermissions: fetchPermissions,
+    refreshPermissions: () => fetchPermissions(true),
     isAdmin,
     isSuperAdmin,
     isModerator

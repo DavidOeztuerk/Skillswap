@@ -68,15 +68,25 @@ const TwoFactorManagement: React.FC = React.memo(() => {
         const result = await authService.getTwoFactorStatus();
         console.log('📊 Full 2FA status response:', result);
         if (mounted) {
-          setStatus({
-            loading: false,
-            enabled: result?.isEnabled || false,
-            hasSecret: result?.hasSecret || false,
-            error: null
-          });
-          // Update dialog context with hasSecret status
-          setHasSecret(result?.hasSecret || false);
-          console.log('✅ 2FA status loaded - isEnabled:', result?.isEnabled, 'hasSecret:', result?.hasSecret);
+          // Handle ApiResponse wrapper
+          if (result.success && result.data) {
+            setStatus({
+              loading: false,
+              enabled: result.data.isEnabled || false,
+              hasSecret: result.data.hasSecret || false,
+              error: null
+            });
+            // Update dialog context with hasSecret status
+            setHasSecret(result.data.hasSecret || false);
+            console.log('✅ 2FA status loaded - isEnabled:', result.data.isEnabled, 'hasSecret:', result.data.hasSecret);
+          } else {
+            setStatus({
+              loading: false,
+              enabled: false,
+              hasSecret: false,
+              error: result.message || 'Failed to load 2FA status'
+            });
+          }
         }
       } catch (err) {
         console.error('❌ Failed to load 2FA status:', err);
@@ -118,15 +128,22 @@ const TwoFactorManagement: React.FC = React.memo(() => {
 
     setLocalLoading(true);
     try {
-      await authService.disableTwoFactor({ password });
+      const disableResult = await authService.disableTwoFactor({ password });
+      if (!disableResult.success) {
+        setDisableError(disableResult.message || 'Failed to disable 2FA. Please check your password.');
+        return;
+      }
+      
       // Reload status after successful disable
       const result = await authService.getTwoFactorStatus();
-      setStatus({
-        loading: false,
-        enabled: result?.isEnabled || false,
-        hasSecret: result?.hasSecret || false,
-        error: null
-      });
+      if (result.success && result.data) {
+        setStatus({
+          loading: false,
+          enabled: result.data.isEnabled || false,
+          hasSecret: result.data.hasSecret || false,
+          error: null
+        });
+      }
       setShowDisableDialog(false);
       setPassword('');
     } catch (err: any) {

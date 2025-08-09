@@ -1,11 +1,9 @@
-// src/features/videocall/videoCallSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import videoCallService from '../../api/services/videoCallService';
 import { VideoCallState } from '../../types/states/VideoCallState';
 import { VideoCallConfig } from '../../types/models/VideoCallConfig';
 import { ChatMessage } from '../../types/models/ChatMessage';
 import { SliceError } from '../../store/types';
-import { ensureArray, withDefault, ensureString } from '../../utils/safeAccess';
 
 const initialState: VideoCallState = {
   roomId: null,
@@ -115,8 +113,8 @@ const videoCallSlice = createSlice({
   initialState,
   reducers: {
     initializeCall: (state, action: PayloadAction<VideoCallConfig>) => {
-      state.roomId = ensureString(action.payload?.roomId);
-      state.peerId = ensureString(action.payload?.peerId);
+      state.roomId = action.payload?.roomId;
+      state.peerId = action.payload?.peerId;
       state.isConnected = false;
       state.error = null;
     },
@@ -173,10 +171,10 @@ const videoCallSlice = createSlice({
       }
     },
     removeParticipant: (state, action: PayloadAction<string>) => {
-      state.participants = ensureArray(state.participants).filter(p => p?.id !== action.payload);
+      state.participants = state.participants?.filter(p => p?.id !== action.payload);
     },
     updateParticipant: (state, action: PayloadAction<any>) => {
-      const index = ensureArray(state.participants).findIndex(p => p?.id === action.payload?.id);
+      const index = state.participants?.findIndex(p => p?.id === action.payload?.id);
       if (index !== -1 && state.participants[index]) {
         state.participants[index] = { ...state.participants[index], ...action.payload };
       }

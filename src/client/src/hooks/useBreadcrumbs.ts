@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import { withDefault, ensureString, ensureArray } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 export interface BreadcrumbItem {
   label: string;
@@ -134,8 +134,8 @@ export const useBreadcrumbs = (): BreadcrumbItem[] => {
 
       // Add current breadcrumb
       const label = config.labelResolver 
-        ? ensureString(config.labelResolver(params))
-        : ensureString(config.label);
+        ? config.labelResolver(params)
+        : config.label;
 
       chain.push({
         label,
@@ -150,7 +150,7 @@ export const useBreadcrumbs = (): BreadcrumbItem[] => {
 
     // If no configuration found, create basic breadcrumbs from path segments
     if (!chain || chain.length === 0) {
-      const segments = ensureArray(currentPath.split('/').filter(Boolean));
+      const segments = currentPath?.split('/').filter(Boolean);
       
       // Always start with home
       breadcrumbChain.push({
@@ -162,7 +162,7 @@ export const useBreadcrumbs = (): BreadcrumbItem[] => {
       // Add path segments
       let builtPath = '';
       segments.forEach((segment, index) => {
-        const safeSegment = ensureString(segment);
+        const safeSegment = segment;
         builtPath += `/${safeSegment}`;
         const isLast = index === segments.length - 1;
         
@@ -186,7 +186,7 @@ export const useBreadcrumbs = (): BreadcrumbItem[] => {
  * Hook for getting the current page title
  */
 export const usePageTitle = (): string => {
-  const breadcrumbs = ensureArray(useBreadcrumbs());
+  const breadcrumbs = useBreadcrumbs();
   const activeBreadcrumb = breadcrumbs.find(b => b?.isActive);
   return withDefault(activeBreadcrumb?.label, 'Page');
 };

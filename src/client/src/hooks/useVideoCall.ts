@@ -1,11 +1,10 @@
-// src/hooks/useVideoCall.ts
 import { useCallback, useEffect, useRef } from 'react';
 import {
   HubConnection,
   HubConnectionBuilder,
   LogLevel,
 } from '@microsoft/signalr';
-import { withDefault, ensureString, ensureArray } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 import {
   initializeCall,
   toggleMic,
@@ -109,7 +108,7 @@ export const useVideoCall = () => {
       peerRef.current = peerConnection;
 
       // Lokalen Stream zur Peer Connection hinzufügen
-      const tracks = ensureArray(stream?.getTracks());
+      const tracks = stream?.getTracks();
       tracks.forEach((track) => {
         if (track) {
           peerConnection.addTrack(track, stream);
@@ -257,7 +256,7 @@ export const useVideoCall = () => {
    */
   const toggleMicrophone = (): void => {
     if (localStream) {
-      const audioTracks = ensureArray(localStream?.getAudioTracks());
+      const audioTracks = localStream?.getAudioTracks();
       audioTracks.forEach((track) => {
         if (track) {
           track.enabled = !track.enabled;
@@ -272,7 +271,7 @@ export const useVideoCall = () => {
    */
   const toggleCamera = (): void => {
     if (localStream) {
-      const videoTracks = ensureArray(localStream?.getVideoTracks());
+      const videoTracks = localStream?.getVideoTracks();
       videoTracks.forEach((track) => {
         if (track) {
           track.enabled = !track.enabled;
@@ -309,7 +308,7 @@ export const useVideoCall = () => {
         });
 
         // Neue Tracks hinzufügen
-        const newTracks = ensureArray(stream?.getTracks());
+        const newTracks = stream?.getTracks();
         newTracks.forEach((track) => {
           if (track) {
             peerRef.current?.addTrack(track, stream);
@@ -328,7 +327,7 @@ export const useVideoCall = () => {
         }
 
         // Alte Video-Tracks entfernen
-        const senders = ensureArray(peerRef.current?.getSenders());
+        const senders = peerRef.current?.getSenders();
         senders.forEach((sender) => {
           if (sender?.track && sender.track.kind === 'video') {
             peerRef.current?.removeTrack(sender);
@@ -346,7 +345,7 @@ export const useVideoCall = () => {
         const newStream = new MediaStream();
 
         // Bildschirmfreigabe-Tracks hinzufügen
-        const screenTracks = ensureArray(screenStream?.getTracks());
+        const screenTracks = screenStream?.getTracks();
         screenTracks.forEach((track) => {
           if (track) {
             newStream.addTrack(track);
@@ -355,7 +354,7 @@ export const useVideoCall = () => {
 
         // Audio-Tracks vom lokalen Stream hinzufügen
         if (localStream) {
-          const audioTracks = ensureArray(localStream?.getAudioTracks());
+          const audioTracks = localStream?.getAudioTracks();
           audioTracks.forEach((track) => {
             if (track) {
               newStream.addTrack(track);
@@ -366,7 +365,7 @@ export const useVideoCall = () => {
         dispatch(setLocalStream(newStream));
 
         // Event-Handler für das Ende der Bildschirmfreigabe
-        const videoTracks = ensureArray(screenStream?.getVideoTracks());
+        const videoTracks = screenStream?.getVideoTracks();
         if (videoTracks[0]) {
           videoTracks[0].onended = () => {
             dispatch(toggleScreenShare());
@@ -389,7 +388,7 @@ export const useVideoCall = () => {
     dispatch(toggleChat());
   };
 
-  const userId = ensureString(useAppSelector((state) => state.auth.user?.id));
+  const userId = useAppSelector((state) => state.auth.user?.id);
   const username = withDefault(
     useAppSelector((state) => state.auth.user?.firstName),
     'Unbekannt'
@@ -407,14 +406,14 @@ export const useVideoCall = () => {
 
       const message: ChatMessage = {
         id: `${userId}-${timestamp}`,
-        senderId: userId,
+        senderId: userId ?? "",
         senderName: username,
         content,
         timestamp,
       };
 
       await signalRConnectionRef.current.invoke('SendMessage', roomId, message);
-      dispatch(addMessage({ id: Date.now().toString(), timestamp: new Date().toISOString(), senderId: userId, senderName: username, content }));
+      dispatch(addMessage({ id: Date.now().toString(), timestamp: new Date().toISOString(), senderId: userId ?? "", senderName: username, content }));
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -453,7 +452,7 @@ export const useVideoCall = () => {
 
     // Streams stoppen
     if (localStream) {
-      const tracks = ensureArray(localStream?.getTracks());
+      const tracks = localStream?.getTracks();
       tracks.forEach((track) => {
         if (track?.stop) {
           track.stop();
@@ -488,7 +487,7 @@ export const useVideoCall = () => {
 
       // Streams stoppen
       if (localStream) {
-        const tracks = ensureArray(localStream?.getTracks());
+        const tracks = localStream?.getTracks();
         tracks.forEach((track) => {
           if (track?.stop) {
             track.stop();

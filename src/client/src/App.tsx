@@ -33,7 +33,7 @@ const App = () => {
     
     // Add page title prefix with null safety
     const originalTitle = withDefault(document.title, '');
-    if (originalTitle && !originalTitle.includes('SkillSwap')) {
+    if (originalTitle && !originalTitle?.includes('SkillSwap')) {
       document.title = `SkillSwap - ${originalTitle}`;
     }
   }, []);

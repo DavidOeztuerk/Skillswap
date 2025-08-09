@@ -1,315 +1,900 @@
-// src/pages/matchmaking/MatchmakingPage.tsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Box } from '@mui/material';
-
-import PageHeader from '../../components/layout/PageHeader';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  Tabs,
+  Tab,
+  Avatar,
+  Chip,
+  IconButton,
+  Badge,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Paper,
+  Divider,
+  Collapse,
+  Grid,
+  Stack,
+} from '@mui/material';
+import {
+  PersonAdd as PersonAddIcon,
+  Send as SendIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
+  Refresh as RefreshIcon,
+  Psychology as PsychologyIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Message as MessageIcon,
+  Reply as ReplyIcon,
+  AccessTime as AccessTimeIcon,
+} from '@mui/icons-material';
+import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
+import {
+  fetchIncomingMatchRequests,
+  fetchOutgoingMatchRequests,
+  acceptMatchRequest,
+  rejectMatchRequest,
+  createMatchRequest,
+  getUserMatches,
+} from '../../features/matchmaking/matchmakingSlice';
 import PageContainer from '../../components/layout/PageContainer';
-import MatchList from '../../components/matchmaking/MatchList';
-import MatchForm from '../../components/matchmaking/MatchForm';
-import AppointmentForm from '../../components/appointments/AppointmentForm';
-import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import AlertMessage from '../../components/ui/AlertMessage';
-import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { useSkills } from '../../hooks/useSkills';
-import { useAppointments } from '../../hooks/useAppointments';
-import { Match } from '../../types/models/Match';
-import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
-import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
-import { Skill } from '../../types/models/Skill';
+import PageHeader from '../../components/layout/PageHeader';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { formatDistanceToNow } from 'date-fns';
+import { de } from 'date-fns/locale';
 
-/**
- * Seite für das Matchmaking zwischen Lehrern und Schülern
- */
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`matchmaking-tabpanel-${index}`}
+      aria-labelledby={`matchmaking-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+interface RequestThread {
+  threadId: string;
+  otherUser: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  skill: {
+    id: string;
+    name: string;
+    category?: string;
+  };
+  requests: Array<{
+    id: string;
+    type: 'incoming' | 'outgoing';
+    status: 'pending' | 'accepted' | 'rejected' | 'counter';
+    message: string;
+    createdAt: string;
+    updatedAt?: string;
+    isCounterOffer?: boolean;
+    originalRequestId?: string;
+  }>;
+  latestRequest: {
+    id: string;
+    status: 'pending' | 'accepted' | 'rejected' | 'counter';
+    createdAt: string;
+    type: 'incoming' | 'outgoing';
+  };
+  unreadCount: number;
+}
+
 const MatchmakingPage: React.FC = () => {
-  const navigate = useNavigate();
+  const [currentTab, setCurrentTab] = useState(0);
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const [responseDialogOpen, setResponseDialogOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [responseMessage, setResponseMessage] = useState('');
+  const [counterOfferDialog, setCounterOfferDialog] = useState(false);
+  const [counterOfferMessage, setCounterOfferMessage] = useState('');
+
+  const dispatch = useAppDispatch();
   const {
     matches,
+    incomingRequests,
+    outgoingRequests,
     isLoading,
+    isLoadingRequests,
     error,
-    loadMatches,
-    // sendMatchRequest, // ❌ ENTFERNT: Wird nicht verwendet da allgemeine Match-Anfragen deaktiviert sind
-    approveMatch,
-    declineMatch,
-  } = useMatchmaking();
+  } = useAppSelector((state) => state.matchmaking);
 
-  const { userSkills, fetchUserSkills } = useSkills();
-  const { scheduleAppointment } = useAppointments();
+  // Safe arrays with fallbacks
+  const matchesArray = Array.isArray(matches) ? matches : [];
+  const incomingRequestsArray = Array.isArray(incomingRequests) ? incomingRequests : [];
+  const outgoingRequestsArray = Array.isArray(outgoingRequests) ? outgoingRequests : [];
 
-  // State für Dialoge
-  const [matchFormOpen, setMatchFormOpen] = useState(false);
-  const [selectedUserSkill, setSelectedUserSkill] = useState<Skill | null>(
-    null
-  );
-  const [appointmentFormOpen, setAppointmentFormOpen] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-
-  // State für Bestätigungsdialog
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    title: string;
-    message: string;
-    matchId?: string;
-    action: 'accept' | 'reject';
-  }>({
-    open: false,
-    title: '',
-    message: '',
-    action: 'accept',
-  });
-
-  // Status-Meldung
-  const [statusMessage, setStatusMessage] = useState<{
-    text: string;
-    type: 'success' | 'error' | 'info';
-  } | null>(null);
-
-  // Daten laden
   useEffect(() => {
-    void loadMatches();
-    void fetchUserSkills();
-  }, [loadMatches, fetchUserSkills]);
+    // Load initial data
+    dispatch(getUserMatches({}));
+    dispatch(fetchIncomingMatchRequests({}));
+    dispatch(fetchOutgoingMatchRequests({}));
+  }, [dispatch]);
 
-  // Handler für das Öffnen des Match-Formulars
-  const handleOpenMatchForm = (userSkill: Skill) => {
-    setSelectedUserSkill(userSkill);
-    setMatchFormOpen(true);
-  };
+  // Group requests into threads by user + skill
+  const groupRequestsIntoThreads = (incoming: any[], outgoing: any[]): RequestThread[] => {
+    const threadsMap = new Map<string, RequestThread>();
 
-  // Handler für das Schließen des Match-Formulars
-  const handleCloseMatchForm = () => {
-    setMatchFormOpen(false);
-    setSelectedUserSkill(null);
-  };
+    // Process incoming requests
+    incoming.forEach((request) => {
+      // ✅ KORRIGIERT: Verwende echte ThreadId aus Backend anstatt generierte threadKey
+      const threadId = request.threadId || `${request.requesterId}-${request.skillId}`;
+      if (!threadsMap.has(threadId)) {
+        threadsMap.set(threadId, {
+          threadId: threadId,
+          otherUser: {
+            id: request.requesterId,
+            name: request.requesterName || 'Unbekannter Nutzer',
+          },
+          skill: {
+            id: request.skillId,
+            name: request.skillName || 'Unbekannter Skill',
+          },
+          requests: [],
+          latestRequest: {
+            id: request.matchId,
+            status: request.status,
+            createdAt: request.createdAt,
+            type: 'incoming',
+          },
+          unreadCount: 0,
+        });
+      }
 
-  // ❌ DEAKTIVIERT: Allgemeine Match-Anfragen sind nicht implementiert
-  // Das Backend benötigt eine spezifische TargetUserId
-  // Match-Anfragen sollten nur von SkillDetailPage aus erstellt werden
-  const handleSubmitMatchForm = async (_data: CreateMatchRequest) => {
-    setStatusMessage({
-      text: 'Diese Funktionalität ist noch nicht verfügbar. Bitte erstelle Match-Anfragen direkt von der Skill-Detail-Seite.',
-      type: 'info',
+      const thread = threadsMap.get(threadId)!;
+      thread.requests.push({
+        id: request.matchId,
+        type: 'incoming',
+        status: request.status,
+        message: request.message || 'Neue Match-Anfrage',
+        createdAt: request.createdAt,
+      });
+
+      // Update latest if this is newer
+      if (new Date(request.createdAt) > new Date(thread.latestRequest.createdAt)) {
+        thread.latestRequest = {
+          id: request.matchId,
+          status: request.status,
+          createdAt: request.createdAt,
+          type: 'incoming',
+        };
+      }
+
+      if (request.status === 'pending') {
+        thread.unreadCount++;
+      }
     });
-    handleCloseMatchForm();
+
+    // Process outgoing requests
+    outgoing.forEach((request) => {
+      // ✅ KORRIGIERT: Verwende echte ThreadId aus Backend anstatt generierte threadKey
+      const threadId = request.threadId || `${request.targetUserId}-${request.skillId}`;
+      if (!threadsMap.has(threadId)) {
+        threadsMap.set(threadId, {
+          threadId: threadId,
+          otherUser: {
+            id: request.targetUserId,
+            name: request.targetUserName || 'Unbekannter Nutzer',
+          },
+          skill: {
+            id: request.skillId,
+            name: request.skillName || 'Unbekannter Skill',
+          },
+          requests: [],
+          latestRequest: {
+            id: request.matchId,
+            status: request.status,
+            createdAt: request.createdAt,
+            type: 'outgoing',
+          },
+          unreadCount: 0,
+        });
+      }
+
+      const thread = threadsMap.get(threadId)!;
+      thread.requests.push({
+        id: request.matchId,
+        type: 'outgoing',
+        status: request.status,
+        message: request.message || 'Match-Anfrage gesendet',
+        createdAt: request.createdAt,
+      });
+
+      // Update latest if this is newer
+      if (new Date(request.createdAt) > new Date(thread.latestRequest.createdAt)) {
+        thread.latestRequest = {
+          id: request.matchId,
+          status: request.status,
+          createdAt: request.createdAt,
+          type: 'outgoing',
+        };
+      }
+    });
+
+    // Sort by latest activity
+    return Array.from(threadsMap.values()).sort(
+      (a, b) => new Date(b.latestRequest.createdAt).getTime() - new Date(a.latestRequest.createdAt).getTime()
+    );
   };
 
-  // Handler für das Öffnen des Bestätigungsdialogs
-  const handleConfirmDialogOpen = (
-    matchId: string,
-    action: 'accept' | 'reject'
-  ) => {
-    let title = '';
-    let message = '';
+  // Separate threads by type
+  const allThreads = groupRequestsIntoThreads(incomingRequestsArray, outgoingRequestsArray);
+  const incomingThreads = allThreads.filter(thread => 
+    thread.latestRequest.type === 'incoming' && thread.latestRequest.status === 'pending'
+  );
+  const outgoingThreads = allThreads.filter(thread => 
+    thread.latestRequest.type === 'outgoing' || thread.latestRequest.status !== 'pending'
+  );
 
-    if (action === 'accept') {
-      title = 'Match akzeptieren';
-      message = 'Möchtest du dieses Match akzeptieren?';
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setCurrentTab(newValue);
+  };
+
+  const handleExpandThread = (threadId: string) => {
+    const newExpanded = new Set(expandedThreads);
+    if (newExpanded.has(threadId)) {
+      newExpanded.delete(threadId);
     } else {
-      title = 'Match ablehnen';
-      message = 'Möchtest du dieses Match ablehnen?';
+      newExpanded.add(threadId);
     }
-
-    setConfirmDialog({
-      open: true,
-      title,
-      message,
-      matchId,
-      action,
-    });
+    setExpandedThreads(newExpanded);
   };
 
-  // Handler für das Schließen des Bestätigungsdialogs
-  const handleConfirmDialogClose = () => {
-    setConfirmDialog({
-      ...confirmDialog,
-      open: false,
-    });
-  };
-
-  // Handler für das Bestätigen der Aktion im Dialog
-  const handleConfirmAction = async () => {
-    const { matchId, action } = confirmDialog;
-
-    if (!matchId) return;
-
+  const handleAcceptRequest = async (requestId: string, message?: string) => {
     try {
-      let success = false;
-
-      if (action === 'accept') {
-        const match = await approveMatch(matchId);
-        success = !!match;
-        setStatusMessage({
-          text: 'Match erfolgreich akzeptiert',
-          type: 'success',
-        });
-      } else {
-        const match = await declineMatch(matchId);
-        success = !!match;
-        setStatusMessage({
-          text: 'Match abgelehnt',
-          type: 'success',
-        });
-      }
-
-      if (!success) {
-        throw new Error('Fehler bei der Match-Verwaltung');
-      }
+      await dispatch(acceptMatchRequest({ requestId, responseMessage: message }));
+      setResponseDialogOpen(false);
+      setResponseMessage('');
+      setSelectedRequest(null);
+      // Refresh data
+      dispatch(getUserMatches({}));
+      dispatch(fetchIncomingMatchRequests({}));
+      dispatch(fetchOutgoingMatchRequests({}));
     } catch (error) {
-      setStatusMessage({
-        text: 'Fehler bei der Match-Verwaltung' + '' + error,
-        type: 'error',
-      });
-    } finally {
-      handleConfirmDialogClose();
+      console.error('Error accepting request:', error);
     }
   };
 
-  // Handler für das Öffnen des Termin-Formulars
-  const handleOpenAppointmentForm = (match: Match) => {
-    setSelectedMatch(match);
-    setAppointmentFormOpen(true);
-  };
-
-  // Handler für das Schließen des Termin-Formulars
-  const handleCloseAppointmentForm = () => {
-    setAppointmentFormOpen(false);
-    setSelectedMatch(null);
-  };
-
-  // Handler für das Absenden des Termin-Formulars
-  const handleSubmitAppointmentForm = async (data: AppointmentRequest) => {
+  const handleRejectRequest = async (requestId: string, message?: string) => {
     try {
-      const appointment = await scheduleAppointment(data);
-
-      if (appointment) {
-        setStatusMessage({
-          text: 'Termin erfolgreich erstellt',
-          type: 'success',
-        });
-        handleCloseAppointmentForm();
-
-        // Zu den Terminen navigieren
-        navigate('/appointments');
-      } else {
-        throw new Error('Fehler beim Erstellen des Termins');
-      }
+      await dispatch(rejectMatchRequest({ requestId, responseMessage: message }));
+      setResponseDialogOpen(false);
+      setResponseMessage('');
+      setSelectedRequest(null);
+      // Refresh data
+      dispatch(getUserMatches({}));
+      dispatch(fetchIncomingMatchRequests({}));
+      dispatch(fetchOutgoingMatchRequests({}));
     } catch (error) {
-      setStatusMessage({
-        text: 'Fehler beim Erstellen des Termins' + '' + error,
-        type: 'error',
-      });
+      console.error('Error rejecting request:', error);
     }
   };
 
-  // Lehrbare oder lernbare Skills des Benutzers finden
-  const renderMatchButton = () => {
-    // Skills, die der Benutzer lehren oder lernen kann
-    const teachableSkills = userSkills?.filter((skill) => skill.isOffered);
-    const learnableSkills = userSkills?.filter((skill) => !skill.isOffered);
-
-    // Wenn Benutzer sowohl lehrbare als auch lernbare Skills hat, zeige beide Optionen
-    if (learnableSkills && teachableSkills && teachableSkills?.length > 0 && learnableSkills?.length > 0) {
-      return {
-        label: 'Match erstellen',
-        onClick: () => {
-          // Für dieses Beispiel nehmen wir einfach den ersten lehrbaren Skill
-          handleOpenMatchForm(teachableSkills[0]);
-        },
-      };
+  const handleCounterOffer = async () => {
+    if (selectedRequest && counterOfferMessage.trim()) {
+      try {
+        // Create a new request as counter-offer
+        await dispatch(createMatchRequest({
+          skillId: selectedRequest.skillId,
+          message: `Gegenangebot: ${counterOfferMessage.trim()}`,
+          targetUserId: selectedRequest.otherUserId, // Counter-offer zurück an den ursprünglichen Requester
+        }));
+        setCounterOfferDialog(false);
+        setCounterOfferMessage('');
+        setSelectedRequest(null);
+        // Refresh data
+        dispatch(getUserMatches({}));
+        dispatch(fetchIncomingMatchRequests({}));
+        dispatch(fetchOutgoingMatchRequests({}));
+      } catch (error) {
+        console.error('Error creating counter-offer:', error);
+      }
     }
-
-    // Wenn Benutzer nur lehrbare Skills hat
-    if (teachableSkills && teachableSkills.length > 0) {
-      return {
-        label: 'Als Lehrer:in anbieten',
-        onClick: () => handleOpenMatchForm(teachableSkills[0]),
-      };
-    }
-
-    // Wenn Benutzer nur lernbare Skills hat
-    if (learnableSkills && learnableSkills.length > 0) {
-      return {
-        label: 'Lehrer:in finden',
-        onClick: () => handleOpenMatchForm(learnableSkills[0]),
-      };
-    }
-
-    // Wenn Benutzer keine Skills hat, zeige einen Link zur Skills-Seite
-    return {
-      label: 'Skills hinzufügen',
-      onClick: () => navigate('/skills'),
-    };
   };
 
-  const matchButtonInfo = renderMatchButton();
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'accepted': return 'success';
+      case 'pending': return 'warning';
+      case 'rejected': return 'error';
+      case 'counter': return 'info';
+      default: return 'default';
+    }
+  };
+
+  const getStatusIcon = (status: string, type: 'incoming' | 'outgoing') => {
+    switch (status) {
+      case 'accepted': return <CheckIcon color="success" />;
+      case 'rejected': return <CloseIcon color="error" />;
+      case 'pending': 
+        return type === 'incoming' ? <PersonAddIcon color="warning" /> : <SendIcon color="warning" />;
+      default: return <MessageIcon />;
+    }
+  };
+
+  const handleRefresh = () => {
+    dispatch(getUserMatches({}));
+    dispatch(fetchIncomingMatchRequests({}));
+    dispatch(fetchOutgoingMatchRequests({}));
+  };
+
+  if (isLoading && incomingRequestsArray.length === 0 && outgoingRequestsArray.length === 0 && matchesArray.length === 0) {
+    return <LoadingSpinner fullPage message="Lade Match-Anfragen..." />;
+  }
 
   return (
     <PageContainer>
       <PageHeader
-        title="Matchmaking"
-        subtitle="Finde passende Lehrer oder Schüler für deine Skills"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Matchmaking' },
-        ]}
+        title="Match-Anfragen"
+        subtitle="Verwalte deine eingehenden und ausgehenden Skill-Anfragen"
+        icon={<PsychologyIcon />}
         actions={
-          <button onClick={matchButtonInfo.onClick}>
-            {matchButtonInfo.label}
-          </button>
+          <Box display="flex" gap={1}>
+            <IconButton onClick={handleRefresh} disabled={isLoadingRequests}>
+              <RefreshIcon />
+            </IconButton>
+          </Box>
         }
       />
 
-      {statusMessage && (
-        <AlertMessage
-          severity={statusMessage.type}
-          message={[statusMessage.text]}
-          onClose={() => setStatusMessage(null)}
-        />
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Fehler beim Laden der Matches: {typeof error === 'string' ? error : error.message || 'Ein unbekannter Fehler ist aufgetreten'}
+        </Alert>
       )}
 
-      <Box mt={3}>
-        <MatchList
-          matches={matches}
-          isLoading={isLoading}
-          error={error}
-          onAccept={(matchId) => handleConfirmDialogOpen(matchId, 'accept')}
-          onReject={(matchId) => handleConfirmDialogOpen(matchId, 'reject')}
-          onSchedule={handleOpenAppointmentForm}
-        />
-      </Box>
+      {/* Statistics Cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h4" color="success.main">
+                {matchesArray.length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Bestätigte Matches
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h4" color="warning.main">
+                {incomingThreads.length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Eingehende Anfragen
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h4" color="success.main">
+                {allThreads.filter(t => t.latestRequest.status === 'accepted').length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Akzeptiert
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card>
+            <CardContent sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h4" color="info.main">
+                {allThreads.reduce((sum, thread) => sum + thread.unreadCount, 0)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Ungelesen
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-      {/* Match-Formular */}
-      {selectedUserSkill && (
-        <MatchForm
-          open={matchFormOpen}
-          onClose={handleCloseMatchForm}
-          onSubmit={handleSubmitMatchForm}
-          skill={selectedUserSkill}
-          targetUserId="placeholder" // ❌ DEAKTIVIERT: Allgemeine Match-Anfragen sind nicht verfügbar
-          targetUserName="Unbekannt"
-          isLoading={isLoading}
-        />
-      )}
+      {/* Tabs */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Tabs value={currentTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
+            <Tab
+              label={
+                <Box display="flex" alignItems="center">
+                  <PersonAddIcon sx={{ mr: 1 }} />
+                  Eingehende Anfragen
+                  {incomingThreads.length > 0 && (
+                    <Badge badgeContent={incomingThreads.length} color="warning" sx={{ ml: 1 }} />
+                  )}
+                </Box>
+              }
+            />
+            <Tab
+              label={
+                <Box display="flex" alignItems="center">
+                  <SendIcon sx={{ mr: 1 }} />
+                  Ausgehende Anfragen
+                  {outgoingThreads.length > 0 && (
+                    <Badge badgeContent={outgoingThreads.length} color="primary" sx={{ ml: 1 }} />
+                  )}
+                </Box>
+              }
+            />
+            <Tab
+              label={
+                <Box display="flex" alignItems="center">
+                  <CheckIcon sx={{ mr: 1 }} />
+                  Matches
+                  {matchesArray.length > 0 && (
+                    <Badge badgeContent={matchesArray.length} color="success" sx={{ ml: 1 }} />
+                  )}
+                </Box>
+              }
+            />
+          </Tabs>
+        </CardContent>
+      </Card>
 
-      {/* Termin-Formular */}
-      {selectedMatch && (
-        <AppointmentForm
-          open={appointmentFormOpen}
-          onClose={handleCloseAppointmentForm}
-          onSubmit={handleSubmitAppointmentForm}
-          match={selectedMatch}
-          isLoading={isLoading}
-        />
-      )}
+      {/* Incoming Requests Tab */}
+      <TabPanel value={currentTab} index={0}>
+        <Box>
+          {incomingThreads.length === 0 ? (
+            <Paper sx={{ p: 6, textAlign: 'center' }}>
+              <PersonAddIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Keine eingehenden Anfragen
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Du hast derzeit keine ausstehenden Match-Anfragen.
+              </Typography>
+            </Paper>
+          ) : (
+            <Stack spacing={2}>
+              {incomingThreads.map((thread) => (
+                <Card key={thread.threadId} variant="outlined">
+                  <CardContent>
+                    {/* Thread Header */}
+                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                      <Box display="flex" alignItems="center" flex={1}>
+                        <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
+                          {thread.otherUser.name[0] || 'U'}
+                        </Avatar>
+                        <Box flex={1}>
+                          <Typography variant="h6">
+                            {thread.otherUser.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {thread.skill.name}
+                          </Typography>
+                          <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                            <AccessTimeIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              {formatDistanceToNow(new Date(thread.latestRequest.createdAt), { 
+                                addSuffix: true, 
+                                locale: de 
+                              })}
+                            </Typography>
+                            {thread.unreadCount > 0 && (
+                              <Chip 
+                                label={`${thread.unreadCount} neu`} 
+                                size="small" 
+                                color="warning" 
+                              />
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                      
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip
+                          label={thread.latestRequest.status}
+                          color={getStatusColor(thread.latestRequest.status) as any}
+                          size="small"
+                        />
+                        <IconButton
+                          onClick={() => handleExpandThread(thread.threadId)}
+                          size="small"
+                        >
+                          {expandedThreads.has(thread.threadId) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
+                      </Box>
+                    </Box>
 
-      {/* Bestätigungsdialog */}
-      <ConfirmDialog
-        open={confirmDialog.open}
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-        onConfirm={handleConfirmAction}
-        onCancel={handleConfirmDialogClose}
-      />
+                    {/* Quick Actions */}
+                    {thread.latestRequest.status === 'pending' && (
+                      <Box display="flex" gap={1} mb={2}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          startIcon={<CheckIcon />}
+                          onClick={() => handleAcceptRequest(thread.latestRequest.id)}
+                        >
+                          Akzeptieren
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          startIcon={<CloseIcon />}
+                          onClick={() => handleRejectRequest(thread.latestRequest.id)}
+                        >
+                          Ablehnen
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="info"
+                          startIcon={<ReplyIcon />}
+                          onClick={() => {
+                            setSelectedRequest({ 
+                              ...thread.latestRequest, 
+                              requesterId: thread.otherUser.id,
+                              skillId: thread.skill.id 
+                            });
+                            setCounterOfferDialog(true);
+                          }}
+                        >
+                          Gegenangebot
+                        </Button>
+                      </Box>
+                    )}
+
+                    {/* Request History */}
+                    <Collapse in={expandedThreads.has(thread.threadId)}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Anfrage-Verlauf
+                      </Typography>
+                      <Stack spacing={2} sx={{ mt: 2 }}>
+                        {thread.requests
+                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          .map((request) => (
+                          <Paper key={request.id} variant="outlined" sx={{ p: 2 }}>
+                            <Box display="flex" alignItems="center" gap={2}>
+                              <Avatar 
+                                sx={{ 
+                                  bgcolor: `${getStatusColor(request.status)}.main`,
+                                  width: 32,
+                                  height: 32 
+                                }}
+                              >
+                                {getStatusIcon(request.status, request.type)}
+                              </Avatar>
+                              <Box flex={1}>
+                                <Typography variant="subtitle2">
+                                  {request.type === 'incoming' ? 'Anfrage erhalten' : 'Antwort gesendet'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {request.message}
+                                </Typography>
+                                <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                                  <AccessTimeIcon fontSize="small" color="action" />
+                                  <Typography variant="caption" color="text.secondary">
+                                    {formatDistanceToNow(new Date(request.createdAt), { 
+                                      addSuffix: true, 
+                                      locale: de 
+                                    })}
+                                  </Typography>
+                                  <Chip 
+                                    label={request.status} 
+                                    size="small" 
+                                    color={getStatusColor(request.status) as any}
+                                  />
+                                </Box>
+                              </Box>
+                            </Box>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    </Collapse>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Box>
+      </TabPanel>
+
+      {/* Outgoing Requests Tab */}
+      <TabPanel value={currentTab} index={1}>
+        <Box>
+          {outgoingThreads.length === 0 ? (
+            <Paper sx={{ p: 6, textAlign: 'center' }}>
+              <SendIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Keine ausgehenden Anfragen
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Du hast noch keine Match-Anfragen gesendet.
+              </Typography>
+            </Paper>
+          ) : (
+            <Stack spacing={2}>
+              {outgoingThreads.map((thread) => (
+                <Card key={thread.threadId} variant="outlined">
+                  <CardContent>
+                    {/* Thread Header */}
+                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                      <Box display="flex" alignItems="center" flex={1}>
+                        <Avatar sx={{ mr: 2, bgcolor: 'secondary.main' }}>
+                          {thread.otherUser.name[0] || 'U'}
+                        </Avatar>
+                        <Box flex={1}>
+                          <Typography variant="h6">
+                            {thread.otherUser.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {thread.skill.name}
+                          </Typography>
+                          <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                            <AccessTimeIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              {formatDistanceToNow(new Date(thread.latestRequest.createdAt), { 
+                                addSuffix: true, 
+                                locale: de 
+                              })}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                      
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip
+                          label={thread.latestRequest.status}
+                          color={getStatusColor(thread.latestRequest.status) as any}
+                          size="small"
+                        />
+                        <IconButton
+                          onClick={() => handleExpandThread(thread.threadId)}
+                          size="small"
+                        >
+                          {expandedThreads.has(thread.threadId) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
+                      </Box>
+                    </Box>
+
+                    {/* Request History */}
+                    <Collapse in={expandedThreads.has(thread.threadId)}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Anfrage-Verlauf
+                      </Typography>
+                      <Stack spacing={2} sx={{ mt: 2 }}>
+                        {thread.requests
+                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          .map((request) => (
+                          <Paper key={request.id} variant="outlined" sx={{ p: 2 }}>
+                            <Box display="flex" alignItems="center" gap={2}>
+                              <Avatar 
+                                sx={{ 
+                                  bgcolor: `${getStatusColor(request.status)}.main`,
+                                  width: 32,
+                                  height: 32 
+                                }}
+                              >
+                                {getStatusIcon(request.status, request.type)}
+                              </Avatar>
+                              <Box flex={1}>
+                                <Typography variant="subtitle2">
+                                  {request.type === 'outgoing' ? 'Anfrage gesendet' : 'Antwort erhalten'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {request.message}
+                                </Typography>
+                                <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                                  <AccessTimeIcon fontSize="small" color="action" />
+                                  <Typography variant="caption" color="text.secondary">
+                                    {formatDistanceToNow(new Date(request.createdAt), { 
+                                      addSuffix: true, 
+                                      locale: de 
+                                    })}
+                                  </Typography>
+                                  <Chip 
+                                    label={request.status} 
+                                    size="small" 
+                                    color={getStatusColor(request.status) as any}
+                                  />
+                                </Box>
+                              </Box>
+                            </Box>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    </Collapse>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Box>
+      </TabPanel>
+
+      {/* Matches Tab */}
+      <TabPanel value={currentTab} index={2}>
+        <Box>
+          {matchesArray.length === 0 ? (
+            <Paper sx={{ p: 6, textAlign: 'center' }}>
+              <CheckIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Keine Matches
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Du hast noch keine bestätigten Skill-Matches.
+              </Typography>
+            </Paper>
+          ) : (
+            <Stack spacing={2}>
+              {matchesArray.map((match) => (
+                <Card key={match.id} variant="outlined">
+                  <CardContent>
+                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                      <Box display="flex" alignItems="center" flex={1}>
+                        <Avatar sx={{ mr: 2, bgcolor: 'success.main' }}>
+                          <CheckIcon />
+                        </Avatar>
+                        <Box flex={1}>
+                          <Typography variant="h6">
+                            {match.skill?.name || match.skillName}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {match.isOffering ? 'Du bietest an' : 'Du lernst'}
+                          </Typography>
+                          <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                            <AccessTimeIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              {formatDistanceToNow(new Date(match.createdAt), { 
+                                addSuffix: true, 
+                                locale: de 
+                              })}
+                            </Typography>
+                            {match.acceptedAt && (
+                              <>
+                                <Typography variant="caption" color="text.secondary">
+                                  • Bestätigt 
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {formatDistanceToNow(new Date(match.acceptedAt), { 
+                                    addSuffix: true, 
+                                    locale: de 
+                                  })}
+                                </Typography>
+                              </>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                      
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip
+                          label={match.status}
+                          color="success"
+                          size="small"
+                        />
+                        <Typography variant="body2" color="success.main">
+                          {((match.compatibilityScore || 0) * 100).toFixed(0)}% Match
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box display="flex" gap={1}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        startIcon={<MessageIcon />}
+                      >
+                        Nachricht senden
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                      >
+                        Details ansehen
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Box>
+      </TabPanel>
+
+      {/* Counter Offer Dialog */}
+      <Dialog open={counterOfferDialog} onClose={() => setCounterOfferDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Gegenangebot erstellen</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Erstelle ein Gegenangebot mit deinen eigenen Vorschlägen für Zeit, Ort oder andere Details.
+          </Typography>
+          <TextField
+            label="Dein Gegenangebot"
+            multiline
+            rows={4}
+            fullWidth
+            value={counterOfferMessage}
+            onChange={(e) => setCounterOfferMessage(e.target.value)}
+            placeholder="Z.B.: Ich würde gerne dienstags und donnerstags von 18-20 Uhr..."
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCounterOfferDialog(false)}>
+            Abbrechen
+          </Button>
+          <Button 
+            onClick={handleCounterOffer} 
+            variant="contained" 
+            disabled={!counterOfferMessage.trim()}
+            startIcon={<ReplyIcon />}
+          >
+            Gegenangebot senden
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Response Dialog */}
+      <Dialog open={responseDialogOpen} onClose={() => setResponseDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Anfrage bearbeiten</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Nachricht (optional)"
+            multiline
+            rows={3}
+            fullWidth
+            value={responseMessage}
+            onChange={(e) => setResponseMessage(e.target.value)}
+            placeholder="Füge eine persönliche Nachricht hinzu..."
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResponseDialogOpen(false)}>
+            Abbrechen
+          </Button>
+          <Button 
+            onClick={() => handleRejectRequest(selectedRequest?.id, responseMessage)}
+            color="error"
+            startIcon={<CloseIcon />}
+          >
+            Ablehnen
+          </Button>
+          <Button 
+            onClick={() => handleAcceptRequest(selectedRequest?.id, responseMessage)}
+            variant="contained" 
+            color="success"
+            startIcon={<CheckIcon />}
+          >
+            Akzeptieren
+          </Button>
+        </DialogActions>
+      </Dialog>
     </PageContainer>
   );
 };

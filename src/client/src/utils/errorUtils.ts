@@ -59,16 +59,16 @@ export function extractErrorCode(error: unknown): string | number | undefined {
  * Checks if error is a network error
  */
 export function isNetworkError(error: unknown): boolean {
-  if (error instanceof TypeError && error.message.includes('fetch')) {
+  if (error instanceof TypeError && error.message?.includes('fetch')) {
     return true;
   }
 
   if (error instanceof Error) {
     return (
-      error.message.includes('Network') ||
-      error.message.includes('fetch') ||
-      error.message.includes('timeout') ||
-      error.message.includes('connection')
+      error.message?.includes('Network') ||
+      error.message?.includes('fetch') ||
+      error.message?.includes('timeout') ||
+      error.message?.includes('connection')
     );
   }
 
@@ -235,7 +235,7 @@ export function getUserFriendlyErrorMessage(error: unknown): string {
   const message = extractErrorMessage(error);
   
   // Return original message if it's user-friendly
-  if (message && !message.toLowerCase().includes('error') && message?.length < 100) {
+  if (message && !message.toLowerCase()?.includes('error') && message?.length < 100) {
     return message;
   }
 

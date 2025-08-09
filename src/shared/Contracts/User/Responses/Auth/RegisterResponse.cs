@@ -11,13 +11,15 @@ namespace Contracts.User.Responses.Auth;
 /// <param name="ExpiresAt">When the access token expires</param>
 /// <param name="UserInfo">User details</param>
 /// <param name="EmailVerificationRequired">Whether email verification is required</param>
+/// <param name="Permissions">User permissions and roles</param>
 public record RegisterResponse(
     string AccessToken,
     string RefreshToken,
     TokenType TokenType,
     DateTime ExpiresAt,
     UserInfo UserInfo,
-    bool EmailVerificationRequired)
+    bool EmailVerificationRequired,
+    UserPermissions? Permissions = null)
     : IVersionedContract
 {
     /// <summary>

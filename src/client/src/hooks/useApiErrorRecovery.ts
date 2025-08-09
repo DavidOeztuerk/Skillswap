@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNetworkStatus } from './useNetworkStatus';
-import { withDefault, ensureString } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 interface ApiErrorRecoveryOptions {
   maxRetries?: number;
@@ -47,8 +47,8 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
   const getErrorType = useCallback((): 'network' | 'server' | 'client' | 'unknown' => {
     if (!state.error) return 'unknown';
 
-    const errorMessage = ensureString(state.error?.message);
-    if (!isOnline || errorMessage.includes('fetch')) {
+    const errorMessage = state.error?.message;
+    if (!isOnline || errorMessage?.includes('fetch')) {
       return 'network';
     }
 
@@ -163,7 +163,7 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
         }));
 
         // Don't retry on client errors (4xx) unless it's a network issue
-        const isNetworkError = !isOnline || lastError.message.includes('fetch');
+        const isNetworkError = !isOnline || lastError.message?.includes('fetch');
         const isServerError = 'status' in lastError && (lastError as any).status >= 500;
         
         if (!isNetworkError && !isServerError && attempt <= maxRetries) {

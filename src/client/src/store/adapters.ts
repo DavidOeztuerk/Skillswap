@@ -170,7 +170,7 @@
 //       const entityValue = entity[key];
       
 //       if (typeof value === 'string' && typeof entityValue === 'string') {
-//         return entityValue.toLowerCase().includes(value.toLowerCase());
+//         return entityValue.toLowerCase()?.includes(value.toLowerCase());
 //       }
       
 //       return entityValue === value;

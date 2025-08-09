@@ -106,13 +106,13 @@
 //     }
 
 //     const categoryName = skill.category?.name?.toLowerCase() || '';
-//     if (categoryName.includes('programming') || categoryName.includes('code')) {
+//     if (categoryName?.includes('programming') || categoryName?.includes('code')) {
 //       return theme.palette.primary.main;
-//     } else if (categoryName.includes('design')) {
+//     } else if (categoryName?.includes('design')) {
 //       return theme.palette.secondary.main;
-//     } else if (categoryName.includes('business')) {
+//     } else if (categoryName?.includes('business')) {
 //       return theme.palette.warning.main;
-//     } else if (categoryName.includes('marketing')) {
+//     } else if (categoryName?.includes('marketing')) {
 //       return theme.palette.success.main;
 //     }
 

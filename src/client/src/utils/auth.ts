@@ -11,5 +11,5 @@ export const hasAnyRole = (userRoles?: string[], requiredRoles: string[] = []): 
   const normalizedUserRoles = userRoles.map(role => role.toLowerCase().trim());
   const normalizedRequiredRoles = requiredRoles.map(role => role.toLowerCase().trim());
   
-  return normalizedRequiredRoles.some(role => normalizedUserRoles.includes(role));
+  return normalizedRequiredRoles?.some(role => normalizedUserRoles?.includes(role));
 };

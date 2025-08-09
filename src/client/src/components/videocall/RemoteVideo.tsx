@@ -50,7 +50,7 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
       const checkVideoTracks = () => {
         const hasVideoTracks = stream
           .getVideoTracks()
-          .some((track) => track.enabled);
+          ?.some((track) => track.enabled);
         setVideoActive(hasVideoTracks);
       };
 

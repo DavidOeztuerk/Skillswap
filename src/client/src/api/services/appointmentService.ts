@@ -1,9 +1,10 @@
-// src/api/services/appointmentService.ts
 import { APPOINTMENT_ENDPOINTS } from '../../config/endpoints';
 import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import { AppointmentResponse } from '../../types/contracts/responses/AppointmentResponse';
 import apiClient from '../apiClient';
+import { ApiResponse } from '../../types/common/ApiResponse';
+import { PagedResponse } from '../../types/common/PagedResponse';
 
 export interface GetUserAppointmentsRequest {
   Status?: string;
@@ -42,7 +43,7 @@ const appointmentService = {
   /**
    * Get all user appointments
    */
-  async getAppointments(request: GetUserAppointmentsRequest = {}): Promise<PagedUserAppointmentsResponse> {
+  async getAppointments(request: GetUserAppointmentsRequest = {}): Promise<PagedResponse<UserAppointmentResponse[]>> {
     const queryParams = new URLSearchParams();
     if (request.Status) queryParams.append('Status', request.Status);
     if (request.FromDate) queryParams.append('FromDate', request.FromDate.toISOString());
@@ -52,42 +53,41 @@ const appointmentService = {
     if (request.PageSize) queryParams.append('PageSize', request.PageSize.toString());
     
     const url = `${APPOINTMENT_ENDPOINTS.GET_MY}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return apiClient.get<PagedUserAppointmentsResponse>(url);
-    // return apiClient.get<PagedUserAppointmentsResponse>(APPOINTMENT_ENDPOINTS.GET_MY, { request })
+    return apiClient.get<PagedResponse<UserAppointmentResponse[]>>(url);
   },
 
   /**
    * Get single appointment by ID
    */
-  async getAppointment(appointmentId: string): Promise<Appointment> {
+  async getAppointment(appointmentId: string): Promise<ApiResponse<Appointment>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return apiClient.get<Appointment>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}`);
+    return apiClient.get<ApiResponse<Appointment>>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}`);
   },
 
   /**
    * Create new appointment
    */
-  async createAppointment(appointmentData: AppointmentRequest): Promise<Appointment> {
+  async createAppointment(appointmentData: AppointmentRequest): Promise<ApiResponse<Appointment>> {
     if (!appointmentData.matchId) throw new Error('Match-ID ist erforderlich');
     if (!appointmentData.startTime) throw new Error('Startzeitpunkt ist erforderlich');
     if (!appointmentData.endTime) throw new Error('Endzeitpunkt ist erforderlich');
-    return apiClient.post<Appointment>(APPOINTMENT_ENDPOINTS.CREATE, appointmentData);
+    return apiClient.post<ApiResponse<Appointment>>(APPOINTMENT_ENDPOINTS.CREATE, appointmentData);
   },
 
   /**
    * Accept appointment
    */
-  async acceptAppointment(appointmentId: string): Promise<AppointmentResponse> {
+  async acceptAppointment(appointmentId: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return apiClient.post<AppointmentResponse>(`${APPOINTMENT_ENDPOINTS.ACCEPT}/${appointmentId}/accept`, { AppointmentId: appointmentId });
+    return apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.ACCEPT}/${appointmentId}/accept`, { AppointmentId: appointmentId });
   },
 
   /**
    * Cancel appointment
    */
-  async cancelAppointment(appointmentId: string): Promise<AppointmentResponse> {
+  async cancelAppointment(appointmentId: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return apiClient.post<AppointmentResponse>(`${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`, { AppointmentId: appointmentId });
+    return apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`, { AppointmentId: appointmentId });
   },
 
   /**
@@ -96,7 +96,7 @@ const appointmentService = {
   async respondToAppointment(
     appointmentId: string,
     status: AppointmentStatus
-  ): Promise<AppointmentResponse> {
+  ): Promise<ApiResponse<AppointmentResponse>> {
     if (status === AppointmentStatus.Confirmed) {
       return this.acceptAppointment(appointmentId);
     } else {
@@ -107,7 +107,7 @@ const appointmentService = {
   /**
    * Complete appointment - Note: This endpoint may not exist in backend
    */
-  async completeAppointment(appointmentId: string): Promise<AppointmentResponse> {
+  async completeAppointment(appointmentId: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
     // This endpoint doesn't exist in backend - would need to be implemented
     throw new Error('Complete appointment endpoint not implemented in backend');
@@ -116,7 +116,7 @@ const appointmentService = {
   /**
    * Get upcoming appointments (filtered version of getAppointments)
    */
-  async getUpcomingAppointments(limit?: number): Promise<PagedUserAppointmentsResponse> {
+  async getUpcomingAppointments(limit?: number): Promise<PagedResponse<UserAppointmentResponse[]>> {
     const now = new Date();
     const request: GetUserAppointmentsRequest = {
       FromDate: now,
@@ -129,7 +129,7 @@ const appointmentService = {
   /**
    * Get past appointments with pagination (filtered version of getAppointments)
    */
-  async getPastAppointments(params?: { page?: number; limit?: number }): Promise<PagedUserAppointmentsResponse> {
+  async getPastAppointments(params?: { page?: number; limit?: number }): Promise<PagedResponse<UserAppointmentResponse[]>> {
     const now = new Date();
     const request: GetUserAppointmentsRequest = {
       ToDate: now,

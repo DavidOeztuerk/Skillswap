@@ -44,7 +44,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePermission } from '../../contexts/PermissionContext';
 import apiClient from '../../services/apiClient';
 import { format } from 'date-fns';
-import { withDefault, safeGet, ensureArray } from '../../utils/safeAccess';
+import { unwrap, withDefault } from '../../utils/safeAccess';
 
 interface User {
   id: string;
@@ -99,8 +99,8 @@ const UserManagement: React.FC = () => {
         }
       });
       
-      const responseData = safeGet(response, 'data.data', null) || safeGet(response, 'data', null) || response;
-      setUsers(ensureArray(responseData?.items || responseData?.users || responseData));
+      const responseData = unwrap<any>(response);
+      setUsers(responseData?.items || responseData?.users || responseData);
       setTotalCount(withDefault(responseData?.totalCount, 0));
       setError(null);
     } catch (err: any) {
@@ -110,7 +110,7 @@ const UserManagement: React.FC = () => {
         setTotalCount(0);
         setError('User Management API endpoint nicht verfügbar. Diese Funktion wird nachgereicht.');
       } else {
-        setError(safeGet(err, 'response.data.message', 'Failed to load users'));
+        setError(err.message);
       }
     } finally {
       setLoading(false);
@@ -127,7 +127,7 @@ const UserManagement: React.FC = () => {
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, user: User) => {
     // Prüfe ob der aktuelle Admin diesen User bearbeiten darf
-    const canEditUser = isSuperAdmin || (isAdmin && !user.roles.includes('SuperAdmin'));
+    const canEditUser = isSuperAdmin || (isAdmin && !user.roles?.includes('SuperAdmin'));
     
     if (!canEditUser) {
       setError('Sie haben keine Berechtigung, diesen Benutzer zu bearbeiten.');
@@ -336,8 +336,8 @@ const UserManagement: React.FC = () => {
                   <IconButton
                     onClick={(e) => handleMenuOpen(e, user)}
                     size="small"
-                    disabled={!isSuperAdmin && user.roles.includes('SuperAdmin')}
-                    title={!isSuperAdmin && user.roles.includes('SuperAdmin') 
+                    disabled={!isSuperAdmin && user.roles?.includes('SuperAdmin')}
+                    title={!isSuperAdmin && user.roles?.includes('SuperAdmin') 
                       ? 'Nur SuperAdmins können andere SuperAdmins bearbeiten' 
                       : 'Aktionen'}
                   >
@@ -404,7 +404,7 @@ const UserManagement: React.FC = () => {
           <Typography variant="body2" sx={{ mb: 2 }}>
             Current roles: {selectedUser?.roles.join(', ')}
           </Typography>
-          {!isSuperAdmin && selectedUser?.roles.includes('SuperAdmin') ? (
+          {!isSuperAdmin && selectedUser?.roles?.includes('SuperAdmin') ? (
             <Alert severity="warning">
               Sie können die Rollen eines SuperAdmins nicht ändern.
             </Alert>

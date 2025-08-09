@@ -1,8 +1,7 @@
-// src/components/ui/ProfileAvatar.tsx
 import React, { useMemo } from 'react';
 import { Avatar, SxProps, Theme } from '@mui/material';
 import { stringToColor } from '../../utils/formatters';
-import { ensureString, withDefault, ensureArray } from '../../utils/safeAccess';
+import { withDefault } from '../../utils/safeAccess';
 
 interface ProfileAvatarProps {
   src?: string | null;
@@ -25,10 +24,10 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
 }) => {
   // Generate initials from name
   const initials = useMemo(() => {
-    const safeAlt = ensureString(alt);
+    const safeAlt = alt;
     if (!safeAlt) return '';
 
-    const nameParts = ensureArray(safeAlt.split(' ').filter((part) => part && part.length > 0));
+    const nameParts = safeAlt?.split(' ')?.filter((part) => part && part.length > 0);
     if (nameParts.length === 0) return '';
 
     if (nameParts.length === 1) {
@@ -43,13 +42,13 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   // Generate background color from name
   const backgroundColor = useMemo(() => {
     if (src || !showText) return undefined;
-    return stringToColor(ensureString(alt));
+    return stringToColor(alt);
   }, [src, alt, showText]);
 
   return (
     <Avatar
       src={src || undefined}
-      alt={ensureString(alt)}
+      alt={alt}
       sx={{
         width: size,
         height: size,

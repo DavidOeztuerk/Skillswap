@@ -9,7 +9,7 @@ import { SkillState } from '../../types/states/SkillState';
 import { ExtendedCreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
 import { ExtendedUpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { SliceError } from '../../store/types';
-import { withDefault, ensureString } from '../../utils/safeAccess';
+import { withDefault } from '../../utils/safeAccess';
 
 const initialState: SkillState = {
   allSkills: [],
@@ -46,26 +46,26 @@ export const mapSkillResponseToSkill = (response: SkillSearchResultResponse): Sk
     userId: response.userId,
     name: response.name,
     description: response.description,
-    isOffered: response.isOffering, // Backend uses isOffering, frontend uses isOffered
+    isOffered: response.isOffered, // Fixed: Now correctly maps from backend
     category: {
       id: response.category?.categoryId || '',
-      name: ensureString(response.category?.name),
-      iconName: ensureString(response.category?.iconName),
-      color: ensureString(response.category?.color),
+      name: response.category?.name,
+      iconName: response.category?.iconName,
+      color: response.category?.color,
     },
     proficiencyLevel: {
       id: response.proficiencyLevel?.levelId || '',
-      level: ensureString(response.proficiencyLevel?.level),
+      level: response.proficiencyLevel?.level,
       rank: withDefault(response.proficiencyLevel?.rank, 0),
-      color: ensureString(response.proficiencyLevel?.color),
+      color: response.proficiencyLevel?.color,
     },
-    tagsJson: ensureString(response.tagsJson),
+    tagsJson: response.tagsJson,
     averageRating: withDefault(response.averageRating, 0),
     reviewCount: withDefault(response.reviewCount, 0),
     endorsementCount: withDefault(response.endorsementCount, 0),
     estimatedDurationMinutes: withDefault(response.estimatedDurationMinutes, 0),
-    createdAt: ensureString(response.createdAt?.toString()),
-    lastActiveAt: response.lastActiveAt ? ensureString(response.lastActiveAt.toString()) : undefined,
+    createdAt: response.createdAt?.toString(),
+    lastActiveAt: response.lastActiveAt ? response.lastActiveAt.toString() : undefined,
   };
 };
 
@@ -78,22 +78,22 @@ export const mapUserSkillsResponseToSkill = (response: GetUserSkillRespone): Ski
     isOffered: response.isOffered,
     category: {
       id: response.category?.categoryId || '',
-      name: ensureString(response.category?.name),
-      iconName: ensureString(response.category?.iconName),
-      color: ensureString(response.category?.color),
+      name: response.category?.name,
+      iconName: response.category?.iconName,
+      color: response.category?.color,
     },
     proficiencyLevel: {
       id: response.proficiencyLevel?.levelId || '',
-      level: ensureString(response.proficiencyLevel?.level),
+      level: response.proficiencyLevel?.level,
       rank: withDefault(response.proficiencyLevel?.rank, 0),
-      color: ensureString(response.proficiencyLevel?.color),
+      color: response.proficiencyLevel?.color,
     },
-    tagsJson: ensureString(response.tags?.toString()),
+    tagsJson: response.tags?.toString(),
     averageRating: withDefault(response.averageRating, 0),
     reviewCount: withDefault(response.reviewCount, 0),
-    endorsementCount: withDefault(response.endorsmentCount, 0),
-    createdAt: ensureString(response.createdAt?.toString()),
-    lastActiveAt: response.updatedAt ? ensureString(response.updatedAt.toString()) : undefined,
+    endorsementCount: withDefault(response.endorsementCount, 0),
+    createdAt: response.createdAt?.toString(),
+    lastActiveAt: response.updatedAt ? response.updatedAt.toString() : undefined,
   };
 };
 
@@ -321,7 +321,12 @@ const skillsSlice = createSlice({
     // FAVORITES
     builder
       .addCase(fetchFavoriteSkills.fulfilled, (state, action) => {
-        state.favoriteSkillIds = action.payload || [];
+        // Handle ApiResponse wrapper
+        if (action.payload.success && action.payload.data) {
+          state.favoriteSkillIds = action.payload.data || [];
+        } else {
+          state.favoriteSkillIds = [];
+        }
         state.error = null;
       })
       .addCase(fetchFavoriteSkills.rejected, (state, action) => {
@@ -329,7 +334,7 @@ const skillsSlice = createSlice({
         state.favoriteSkillIds = [];
       })
       .addCase(addFavoriteSkill.fulfilled, (state, action) => {
-        if (!state.favoriteSkillIds.includes(action.meta.arg.skillId)) {
+        if (!state.favoriteSkillIds?.includes(action.meta.arg.skillId)) {
           state.favoriteSkillIds.push(action.meta.arg.skillId);
         }
         state.error = null;
@@ -352,11 +357,11 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchAllSkills.fulfilled, (state, action) => {
         state.isLoading = false;
-        // Assuming the response has a data array of SkillSearchResultResponse
+        // PagedResponse has data array at the root level
         if (action.payload.data && Array.isArray(action.payload.data)) {
           state.allSkills = action.payload.data.map(mapSkillResponseToSkill);
         }
-        // Update pagination if present
+        // Update pagination from PagedResponse
         if (action.payload.pageNumber !== undefined) {
           state.pagination = {
             pageNumber: action.payload.pageNumber,
@@ -382,25 +387,27 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchSkillById.fulfilled, (state, action) => {
         state.isLoading = false;
-        const data = action.payload;
         
-        // If the response is in the SkillSearchResultResponse format, map it
-        // let skill: Skill;
-        // if (data && 'skillId' in data) {
-        //   skill = mapSkillResponseToSkill(data as SkillSearchResultResponse);
-        // } else {
-        //   skill = data as Skill;
-        // }
+        // Handle ApiResponse wrapper
+        if (!action.payload.success || !action.payload.data) {
+          state.error = { 
+            message: action.payload.message || 'Failed to fetch skill', 
+            code: 'SKILL_FETCH_FAILED', 
+            details: undefined
+          };
+          return;
+        }
         
-        state.selectedSkill = data;
+        const skill = action.payload.data;
+        state.selectedSkill = skill;
 
-        if (data) {
+        if (skill) {
           const updateInArray = (array?: Skill[]) => {
             const index = array?.findIndex(
-              (s) => s.id === data.id
+              (s) => s.id === skill.id
             );
             if (index !== undefined && index !== -1 && array) {
-              array[index] = data;
+              array[index] = skill;
             }
           };
 
@@ -426,9 +433,9 @@ const skillsSlice = createSlice({
         state.isLoading = false;
         const response = action.payload;
 
-        // Map the skills if they're in SkillSearchResultResponse format
-        if (response && Array.isArray(response)) {
-          state.userSkills = response.map((skill: GetUserSkillRespone) => {
+        // Map the skills from PagedResponse data array
+        if (response.data && Array.isArray(response.data)) {
+          state.userSkills = response.data.map((skill: GetUserSkillRespone) => {
             if ('skillId' in skill) {
               return mapUserSkillsResponseToSkill(skill);
             }
@@ -436,7 +443,7 @@ const skillsSlice = createSlice({
           });
         }
         
-        // Update pagination
+        // Update pagination from PagedResponse
         if (response.pageNumber !== undefined) {
           state.pagination = {
             pageNumber: response.pageNumber,
@@ -463,7 +470,18 @@ const skillsSlice = createSlice({
       })
       .addCase(createSkill.fulfilled, (state, action) => {
         state.isCreating = false;
-        const response = action.payload;
+        
+        // Handle ApiResponse wrapper
+        if (!action.payload.success || !action.payload.data) {
+          state.error = { 
+            message: action.payload.message || 'Failed to create skill', 
+            code: 'SKILL_CREATE_FAILED', 
+            details: undefined
+          };
+          return;
+        }
+        
+        const response = action.payload.data;
         console.log('✅ Create skill response:', response);
 
         // Handle the response - it might be a CreateSkillResponse or full skill data
@@ -488,7 +506,7 @@ const skillsSlice = createSlice({
               level: '', 
               rank: 0, 
             },
-            tagsJson: response.tags.toString() || "[]",
+            tagsJson: response.tags?.toString() || "[]",
             createdAt: response.createdAt || new Date().toISOString(),
           };
         } else if (response && 'skillId' in response && 'category' in response) {
@@ -517,7 +535,18 @@ const skillsSlice = createSlice({
       })
       .addCase(updateSkill.fulfilled, (state, action) => {
         state.isUpdating = false;
-        const data = action.payload;
+        
+        // Handle ApiResponse wrapper
+        if (!action.payload.success || !action.payload.data) {
+          state.error = { 
+            message: action.payload.message || 'Failed to update skill', 
+            code: 'SKILL_UPDATE_FAILED', 
+            details: undefined
+          };
+          return;
+        }
+        
+        const data = action.payload.data;
 
         if (data) {
           // UpdateSkillResponse might be partial, so we need to merge with existing data
@@ -627,7 +656,10 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchSkillStatistics.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.statistics = action.payload;
+        // Handle ApiResponse wrapper
+        if (action.payload.success && action.payload.data) {
+          state.statistics = action.payload.data;
+        }
         state.error = null;
       })
       .addCase(fetchSkillStatistics.rejected, (state, action) => {
@@ -642,7 +674,12 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchPopularTags.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.popularTags = action.payload;
+        // Handle ApiResponse wrapper
+        if (action.payload.success && action.payload.data) {
+          state.popularTags = action.payload.data;
+        } else {
+          state.popularTags = [];
+        }
         state.error = null;
       })
       .addCase(fetchPopularTags.rejected, (state, action) => {
@@ -657,7 +694,12 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchSkillRecommendations.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.recommendations = action.payload;
+        // Handle ApiResponse wrapper
+        if (action.payload.success && action.payload.data) {
+          state.recommendations = action.payload.data;
+        } else {
+          state.recommendations = [];
+        }
         state.error = null;
       })
       .addCase(fetchSkillRecommendations.rejected, (state, action) => {

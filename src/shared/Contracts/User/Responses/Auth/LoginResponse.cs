@@ -12,6 +12,7 @@ namespace Contracts.User.Responses.Auth;
 /// <param name="UserInfo">User details</param>
 /// <param name="Requires2FA">Whether two-factor authentication is required</param>
 /// <param name="TwoFactorToken">Temporary token to continue 2FA flow</param>
+/// <param name="Permissions">User permissions and roles</param>
 public record LoginResponse(
     string AccessToken,
     string RefreshToken,
@@ -19,7 +20,8 @@ public record LoginResponse(
     DateTime ExpiresAt,
     UserInfo UserInfo,
     bool Requires2FA,
-    string TwoFactorToken)
+    string TwoFactorToken,
+    UserPermissions? Permissions = null)
     : IVersionedContract
 {
     /// <summary>

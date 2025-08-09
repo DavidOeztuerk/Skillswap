@@ -23,7 +23,7 @@ import {
 } from '@mui/icons-material';
 
 import { useAuth } from '../hooks/useAuth';
-import { withDefault, ensureString } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 /**
  * Startseite der Anwendung
@@ -252,7 +252,7 @@ const HomePage: React.FC = () => {
                     textAlign="center"
                     fontWeight="medium"
                   >
-                    {ensureString(feature.title)}
+                    {feature.title}
                   </Typography>
 
                   <Typography
@@ -260,7 +260,7 @@ const HomePage: React.FC = () => {
                     color="text.secondary"
                     textAlign="center"
                   >
-                    {ensureString(feature.description)}
+                    {feature.description}
                   </Typography>
                 </CardContent>
 

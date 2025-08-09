@@ -1,6 +1,5 @@
-// src/hooks/useAnnouncements.ts
 import { useCallback, useRef } from 'react';
-import { ensureString, withDefault } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 interface AnnouncementOptions {
   priority: 'polite' | 'assertive';
@@ -56,7 +55,7 @@ export const useAnnouncements = () => {
       message: string,
       options: AnnouncementOptions = { priority: 'polite', delay: 100 }
     ) => {
-      const safeMessage = ensureString(message);
+      const safeMessage = message;
       if (!safeMessage.trim()) return;
 
       ensureLiveRegions();
@@ -105,8 +104,8 @@ export const useAnnouncements = () => {
 
   const announceFormError = useCallback(
     (fieldName: string, errorMessage: string) => {
-      const safeFieldName = ensureString(fieldName);
-      const safeErrorMessage = ensureString(errorMessage);
+      const safeFieldName = fieldName;
+      const safeErrorMessage = errorMessage;
       announceAssertive(`Error in ${safeFieldName}: ${safeErrorMessage}`);
     },
     [announceAssertive]
@@ -114,28 +113,28 @@ export const useAnnouncements = () => {
 
   const announceSuccess = useCallback(
     (message: string) => {
-      announcePolite(`Success: ${ensureString(message)}`);
+      announcePolite(`Success: ${message}`);
     },
     [announcePolite]
   );
 
   const announceNavigation = useCallback(
     (pageName: string) => {
-      announcePolite(`Navigated to ${ensureString(pageName)} page`);
+      announcePolite(`Navigated to ${pageName} page`);
     },
     [announcePolite]
   );
 
   const announceLoading = useCallback(
     (action: string) => {
-      announcePolite(`Loading ${ensureString(action)}, please wait`);
+      announcePolite(`Loading ${action}, please wait`);
     },
     [announcePolite]
   );
 
   const announceLoadingComplete = useCallback(
     (action: string) => {
-      announcePolite(`${ensureString(action)} loaded successfully`);
+      announcePolite(`${action} loaded successfully`);
     },
     [announcePolite]
   );

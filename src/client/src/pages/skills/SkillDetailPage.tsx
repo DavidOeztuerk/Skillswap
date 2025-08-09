@@ -117,7 +117,7 @@ const SkillDetailPage: React.FC = () => {
     // Prüfe die Referrer-URL oder verwende eine andere Logik
     const referrer = document.referrer;
     const cameFromMy =
-      referrer.includes('/skills/my-skills') || Boolean(isOwner);
+      referrer?.includes('/skills/my-skills') || Boolean(isOwner);
     setCameFromMySkills(cameFromMy);
   }, [isOwner]);
 

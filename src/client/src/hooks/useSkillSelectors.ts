@@ -170,9 +170,9 @@
 //     const lowerQuery = query.toLowerCase();
 //     const filteredSkills = skills.filter(
 //       (skill) =>
-//         skill.name.toLowerCase().includes(lowerQuery) ||
+//         skill.name.toLowerCase()?.includes(lowerQuery) ||
 //         (skill.description &&
-//           skill.description.toLowerCase().includes(lowerQuery))
+//           skill.description.toLowerCase()?.includes(lowerQuery))
 //     );
 
 //     return {

@@ -1,8 +1,6 @@
-// src/hooks/useRouteAnnouncements.ts
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAnnouncements } from './useAnnouncements';
-import { ensureString, ensureArray } from '../utils/safeAccess';
 
 /**
  * Hook for announcing route changes to screen readers
@@ -13,7 +11,7 @@ export const useRouteAnnouncements = () => {
 
   // Helper function defined before use
   const getPageName = (pathname: string): string => {
-    const safePath = ensureString(pathname);
+    const safePath = pathname;
     const routes: Record<string, string> = {
       '/': 'Home',
       '/dashboard': 'Dashboard',
@@ -37,7 +35,7 @@ export const useRouteAnnouncements = () => {
     }
 
     // Check for dynamic routes
-    if (safePath.startsWith('/skills/') && safePath.includes('/edit')) {
+    if (safePath.startsWith('/skills/') && safePath?.includes('/edit')) {
       return 'Edit Skill';
     }
     if (safePath.startsWith('/skills/') && safePath.match(/\/skills\/[^/]+$/)) {
@@ -54,12 +52,12 @@ export const useRouteAnnouncements = () => {
     }
 
     // Fallback to a generic page name
-    const segments = ensureArray(safePath.split('/').filter(Boolean));
+    const segments = safePath.split('/').filter(Boolean);
     if (segments.length > 0) {
-      const lastSegment = ensureString(segments[segments.length - 1]);
+      const lastSegment = segments[segments.length - 1];
       return lastSegment
         .split('-')
-        .map(word => ensureString(word).charAt(0).toUpperCase() + ensureString(word).slice(1))
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
     }
 

@@ -93,13 +93,15 @@ const ProficiencyLevelsManagement: React.FC = () => {
     try {
       setLoading(true);
       const response = await apiClient.get('/api/proficiency-levels');
-      const sortedLevels = (response.data.data || []).sort(
+      // apiClient returns ApiResponse, check structure
+      const levelsData = response?.data || response || [];
+      const sortedLevels = (Array.isArray(levelsData) ? levelsData : []).sort(
         (a: ProficiencyLevel, b: ProficiencyLevel) => a.displayOrder - b.displayOrder
       );
       setLevels(sortedLevels);
       setError(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load proficiency levels');
+      setError(err.response?.data?.message || err.message || 'Failed to load proficiency levels');
     } finally {
       setLoading(false);
     }

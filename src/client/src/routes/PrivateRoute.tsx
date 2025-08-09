@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { usePermission } from '../contexts/PermissionContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { ensureArray, withDefault } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 /**
  * Konfiguration für die PrivateRoute
@@ -70,7 +70,7 @@ const useAuthorizationStatus = (
     }
     
     // Schritt 4: Prüfe Rollen (nur wenn spezifische Rollen gefordert sind)
-    const safeRoles = ensureArray(config.roles);
+    const safeRoles = config.roles;
     if (safeRoles.length > 0 && !hasAnyRole(...safeRoles)) {
       console.log('🔐 PrivateRoute: Role check failed', {
         required: safeRoles,
@@ -85,7 +85,7 @@ const useAuthorizationStatus = (
     }
     
     // Schritt 5: Prüfe Berechtigungen
-    const safePermissions = ensureArray(config.permissions);
+    const safePermissions = config.permissions;
     if (safePermissions.length > 0 && !hasAnyPermission(...safePermissions)) {
       return { 
         status: AuthStatus.UNAUTHORIZED, 
@@ -121,14 +121,14 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
   // Konsolidiere alte und neue Props
   const config = useMemo(() => {
     const allRoles = [
-      ...ensureArray(roles),
-      ...ensureArray(requiredRoles),
+      ...roles,
+      ...requiredRoles,
       ...(requiredRole ? [requiredRole] : []),
     ].filter(Boolean);
     
     const allPermissions = [
-      ...ensureArray(permissions),
-      ...ensureArray(requiredPermissions),
+      ...permissions,
+      ...requiredPermissions,
       ...(requiredPermission ? [requiredPermission] : []),
     ].filter(Boolean);
     

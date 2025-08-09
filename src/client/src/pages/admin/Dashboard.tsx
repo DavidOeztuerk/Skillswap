@@ -25,7 +25,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePermission } from '../../contexts/PermissionContext';
 import apiClient from '../../services/apiClient';
 import { Grid } from '../../components/common/GridCompat';
-import { withDefault, safeGet } from '../../utils/safeAccess';
+import { unwrap, withDefault } from '../../utils/safeAccess';
 
 interface DashboardStats {
   totalUsers: number;
@@ -103,7 +103,7 @@ const AdminDashboard: React.FC = () => {
     try {
       setRefreshing(true);
       const response = await apiClient.get<any>('/api/admin/analytics/dashboard');
-      const statsData = safeGet(response, 'data.data', null) || safeGet(response, 'data', null) || response;
+      const statsData = unwrap<any>(response);
       
       setStats({
         totalUsers: withDefault(statsData?.totalUsers, 0),
@@ -132,7 +132,7 @@ const AdminDashboard: React.FC = () => {
         setStats(emptyStats);
         setError('Dashboard API endpoint nicht verfügbar. Die Statistiken werden nachgereicht.');
       } else {
-        setError(safeGet(err, 'response.data.message', 'Failed to load dashboard statistics'));
+        setError(err.message);
       }
     } finally {
       setLoading(false);

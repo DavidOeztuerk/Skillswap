@@ -68,11 +68,14 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { isAuthenticated } = useAuth();
-  const { hasPermission, isAdmin: isAdminFromContext } = usePermission();
+  const { hasPermission, isAdmin: isAdminFromContext, loading: permissionsLoading } = usePermission();
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
   
-  // Memoize isAdmin check
-  const isAdmin = useMemo(() => isAdminFromContext, [isAdminFromContext]);
+  // Memoize isAdmin check - Re-evaluate when context changes or loading completes
+  const isAdmin = useMemo(() => {
+    if (permissionsLoading) return false; // Don't show admin menu while loading
+    return isAdminFromContext;
+  }, [isAdminFromContext, permissionsLoading]);
 
   // Haupt-Menüeinträge
   const menuItems: MenuItem[] = [
@@ -266,7 +269,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     // Prüfe Permissions für normale User
     if (item.permissions && item.permissions.length > 0) {
       // Zeige Menüeintrag, wenn User mindestens eine der Permissions hat
-      return item.permissions.some(permission => hasPermission(permission));
+      return item.permissions?.some(permission => hasPermission(permission));
     }
     
     return true;
@@ -294,21 +297,21 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const filteredMenuItems = useMemo(() => {
     const allMenuItems = [...menuItems];
     
-    // Füge Admin-Menü nur hinzu, wenn User Admin-Dashboard-Permission hat
-    const hasAdminAccess = hasPermission('admin:access_dashboard');
+    // Füge Admin-Menü nur hinzu, wenn User Admin-Dashboard-Permission hat und Permissions geladen sind
+    const hasAdminAccess = !permissionsLoading && hasPermission('admin:access_dashboard');
     
     if (hasAdminAccess) {
       allMenuItems.push(...adminMenuItems);
     }
     
     return filterMenuItems(allMenuItems);
-  }, [hasPermission, filterMenuItems]);
+  }, [hasPermission, filterMenuItems, permissionsLoading]);
 
   // Prüfe, ob ein Pfad oder eines seiner Kinder aktiv ist
   const isPathActive = (item: MenuItem): boolean => {
     if (location.pathname === item.path) return true;
     if (item.children) {
-      return item.children.some((child) => location.pathname === child.path);
+      return item.children?.some((child) => location.pathname === child.path);
     }
     return false;
   };
@@ -320,10 +323,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
   // Auto-expand Admin menu if we're on an admin page
   React.useEffect(() => {
-    if (location.pathname.startsWith('/admin') && isAdmin) {
+    if (location.pathname.startsWith('/admin') && isAdmin && !permissionsLoading) {
       setOpenSubmenu('Admin');
     }
-  }, [location.pathname, isAdmin]);
+  }, [location.pathname, isAdmin, permissionsLoading]);
 
   // Drawer-Inhalt
   const drawer = (
