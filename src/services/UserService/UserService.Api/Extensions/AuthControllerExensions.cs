@@ -3,6 +3,7 @@ using Contracts.User.Requests;
 using Contracts.User.Responses;
 using Contracts.User.Responses.Auth;
 using CQRS.Extensions;
+using CQRS.Models;
 using Infrastructure.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +22,7 @@ public static class AuthControllerExensions
             .WithSummary("Register a new user")
             .WithDescription("Creates a new user account with email verification")
             .WithTags("Authentication")
-            .Produces<RegisterResponse>(201)
+            .Produces<ApiResponse<RegisterResponse>>(201)
             .Produces(400)
             .Produces(409);
 
@@ -30,7 +31,7 @@ public static class AuthControllerExensions
             .WithSummary("Authenticate user")
             .WithDescription("Authenticates user credentials and returns JWT tokens")
             .WithTags("Authentication")
-            .Produces<LoginResponse>(200)
+            .Produces<ApiResponse<LoginResponse>>(200)
             .Produces(401)
             .Produces(403);
 

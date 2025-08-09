@@ -82,10 +82,17 @@ public class User : AuditableEntity
 
     // Navigation properties
     public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+    public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public virtual ICollection<UserActivity> Activities { get; set; } = new List<UserActivity>();
     public virtual ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();
     public virtual ICollection<BlockedUser> BlockedUsers { get; set; } = new List<BlockedUser>();
+    
+    // Permissions granted/revoked by this user
+    public virtual ICollection<UserPermission> PermissionsGranted { get; set; } = new List<UserPermission>();
+    public virtual ICollection<UserPermission> PermissionsRevoked { get; set; } = new List<UserPermission>();
+    public virtual ICollection<RolePermission> RolePermissionsGranted { get; set; } = new List<RolePermission>();
+    public virtual ICollection<RolePermission> RolePermissionsRevoked { get; set; } = new List<RolePermission>();
 
     /// <summary>
     /// List of Skill IDs that this user has marked as favorite

@@ -1,6 +1,5 @@
-// src/api/httpClient.ts
 import { API_BASE_URL, AUTH_ENDPOINTS } from '../config/endpoints';
-import { API_TIMEOUT, MAX_RETRY_ATTEMPTS, RETRY_DELAY } from '../config/constants';
+import { API_TIMEOUT } from '../config/constants';
 import {
   getToken,
   getRefreshToken,
@@ -9,59 +8,244 @@ import {
   removeToken,
 } from '../utils/authHelpers';
 import { router } from '../routes/Router';
-import { errorService } from '../services/errorService';
 
-// Request Configuration Interface
+// Types
 export interface RequestConfig {
   headers?: Record<string, string>;
   timeout?: number;
   retries?: number;
   retryDelay?: number;
   params?: Record<string, unknown>;
-  metadata?: Record<string, any>;
-  _retry?: boolean;
+  signal?: AbortSignal;
+  skipAuth?: boolean;
 }
 
-// Removed unused interface - Token refresh response is handled directly
+export interface InterceptorManager<T> {
+  use(fulfilled?: (value: T) => T | Promise<T>, rejected?: (error: any) => any): number;
+  eject(id: number): void;
+  clear(): void;
+}
 
+interface Interceptor<T> {
+  fulfilled?: (value: T) => T | Promise<T>;
+  rejected?: (error: any) => any;
+}
+
+// Interceptor Implementation
+class InterceptorManagerImpl<T> implements InterceptorManager<T> {
+  private interceptors: Map<number, Interceptor<T>> = new Map();
+  private counter = 0;
+
+  use(fulfilled?: (value: T) => T | Promise<T>, rejected?: (error: any) => any): number {
+    const id = this.counter++;
+    this.interceptors.set(id, { fulfilled, rejected });
+    return id;
+  }
+
+  eject(id: number): void {
+    this.interceptors.delete(id);
+  }
+
+  clear(): void {
+    this.interceptors.clear();
+  }
+
+  async execute(value: T, isError = false): Promise<T> {
+    let result = value;
+    
+    for (const [, interceptor] of this.interceptors) {
+      try {
+        if (isError && interceptor.rejected) {
+          result = await interceptor.rejected(result);
+          isError = false; // Error was handled
+        } else if (!isError && interceptor.fulfilled) {
+          result = await interceptor.fulfilled(result);
+        }
+      } catch (error) {
+        result = error as T;
+        isError = true;
+      }
+    }
+    
+    if (isError) {
+      throw result;
+    }
+    
+    return result;
+  }
+
+  // Response-Interceptor speziell für Errors
+  async executeError(error: any): Promise<any> {
+    let result = error;
+    
+    for (const [, interceptor] of this.interceptors) {
+      try {
+        if (interceptor.rejected) {
+          result = await interceptor.rejected(result);
+        }
+      } catch (rejectedError) {
+        result = rejectedError;
+      }
+    }
+    
+    throw result;
+  }
+}
+
+// Main HttpClient Class
 class HttpClient {
   private baseUrl: string;
   private isRefreshing = false;
   private refreshSubscribers: Array<(token: string) => void> = [];
-  private lastRefreshAttempt = 0;
-  private refreshCooldown = 5000; // 5 seconds cooldown between refresh attempts
-  private refreshRetryCount = 0;
-  private readonly maxRefreshRetries = 3;
+  
+  // Interceptors (like Axios)
+  public interceptors = {
+    request: new InterceptorManagerImpl<RequestConfig>(),
+    response: new InterceptorManagerImpl<Response>()
+  };
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+    this.setupDefaultInterceptors();
   }
 
   /**
-   * Gets default headers including auth token
+   * Setup default interceptors
    */
-  private getHeaders(customHeaders?: Record<string, string>): HeadersInit {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...customHeaders,
-    };
+  private setupDefaultInterceptors(): void {
+    // Request Interceptor: Add Auth Token
+    this.interceptors.request.use(
+      (config) => {
+        const token = getToken();
+        if (token && !config.skipAuth) {
+          config.headers = {
+            ...config.headers,
+            Authorization: `Bearer ${token}`
+          };
+        }
+        
+        // Add default headers
+        config.headers = {
+          'Content-Type': 'application/json',
+          ...config.headers
+        };
+        
+        // Log in development
+        if (import.meta.env.DEV) {
+          console.log('🚀 Request:', config);
+        }
+        
+        return config;
+      },
+      (error) => {
+        console.error('❌ Request Error:', error);
+        return Promise.reject(error);
+      }
+    );
 
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-      console.debug('🔐 Adding Authorization header:', `Bearer ${token.substring(0, 20)}...`);
-    } else {
-      // Nur in Development Mode loggen, um Console-Spam zu vermeiden
-      if (import.meta.env.DEV) {
-        console.debug('⚠️ No token available for Authorization header');
+    // Response Interceptor: Handle 401 & Token Refresh
+    this.interceptors.response.use(
+      (response) => {
+        // Log successful responses in development
+        if (import.meta.env.DEV) {
+          console.log('✅ Response:', response.status, response.url);
+        }
+        return response;
+      },
+      async (error) => {
+        const originalRequest = error.config;
+        
+        // Handle 401 - Token Refresh
+        if (error.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          
+          try {
+            await this.handleTokenRefresh();
+            // Retry original request with new token
+            return this.request(
+              originalRequest.method,
+              originalRequest.url,
+              originalRequest.body,
+              originalRequest
+            );
+          } catch (refreshError) {
+            removeToken();
+            router.navigate('/auth/login');
+            return Promise.reject(refreshError);
+          }
+        }
+        
+        // Handle Rate Limiting
+        if (error.status === 429) {
+          const retryAfter = error.headers?.get('Retry-After');
+          console.warn(`⚠️ Rate limited. Retry after ${retryAfter || 60} seconds`);
+        }
+        
+        // Handle Network Errors
+        if (!error.status) {
+          console.error('🔌 Network Error - Check your connection');
+        }
+        
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  /**
+   * Handle token refresh with queue
+   */
+  private async handleTokenRefresh(): Promise<string> {
+    if (!this.isRefreshing) {
+      this.isRefreshing = true;
+      
+      try {
+        const refreshToken = getRefreshToken();
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
+        const response = await fetch(`${this.baseUrl}${AUTH_ENDPOINTS.REFRESH_TOKEN}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accessToken: getToken(),
+            refreshToken: refreshToken
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Token refresh failed');
+        }
+
+        const data = await response.json();
+        const newToken = data.data?.accessToken || data.accessToken;
+        
+        const storageType = localStorage.getItem('remember_me') === 'true' ? 'permanent' : 'session';
+        setToken(newToken, storageType);
+        if (data.data?.refreshToken || data.refreshToken) {
+          setRefreshToken(data.data?.refreshToken || data.refreshToken, storageType);
+        }
+        
+        // Notify all subscribers
+        this.refreshSubscribers.forEach(callback => callback(newToken));
+        this.refreshSubscribers = [];
+        
+        return newToken;
+      } finally {
+        this.isRefreshing = false;
       }
     }
 
-    return headers;
+    // Wait for ongoing refresh
+    return new Promise((resolve) => {
+      this.refreshSubscribers.push((token: string) => {
+        resolve(token);
+      });
+    });
   }
 
   /**
-   * Builds URL with query parameters
+   * Build URL with query parameters
    */
   private buildUrl(endpoint: string, params?: Record<string, unknown>): string {
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
@@ -85,396 +269,122 @@ class HttpClient {
   }
 
   /**
-   * Creates fetch request with timeout support
-   */
-  private async fetchWithTimeout(
-    url: string,
-    options: RequestInit,
-    timeout: number = API_TIMEOUT
-  ): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        throw new Error('Request timeout');
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Handles fetch response and parses data
-   */
-  private async handleResponse<T>(response: Response): Promise<T> {
-    const contentType = response.headers.get('content-type');
-    let data: unknown;
-
-    try {
-      if (contentType?.includes('application/json')) {
-        data = await response.json();
-      } else if (contentType?.includes('text/')) {
-        data = await response.text();
-      } else if (response.status === 204) {
-        data = null; // No content
-      } else {
-        data = await response.blob();
-      }
-    } catch {
-      data = null;
-    }
-
-    if (!response.ok) {
-      const error = {
-        status: response.status,
-        statusText: response.statusText,
-        message: (data as any)?.message || response.statusText,
-        data,
-      };
-      
-      // Special handling for rate limiting
-      if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After');
-        error.message = `Rate limit exceeded. Please wait ${retryAfter || '60'} seconds before trying again.`;
-        console.warn('🚫 Rate limit hit:', response.url, 'Retry-After:', retryAfter);
-      }
-      
-      errorService.handleApiError(error, `${response.status} ${response.url}`);
-      throw error;
-    }
-
-    return data as T;
-  }
-
-  /**
-   * Refreshes the access token with retry logic
-   */
-  private async refreshAccessToken(): Promise<string> {
-    // Check cooldown to prevent rapid refresh attempts
-    const now = Date.now();
-    if (now - this.lastRefreshAttempt < this.refreshCooldown) {
-      throw new Error('Token refresh attempted too soon');
-    }
-    this.lastRefreshAttempt = now;
-
-    const currentAccessToken = getToken();
-    const refreshTokenValue = getRefreshToken();
-    
-    if (!refreshTokenValue) {
-      throw new Error('No refresh token available');
-    }
-
-    // Backend expects BOTH accessToken and refreshToken in body
-    const requestBody = {
-      accessToken: currentAccessToken || '',
-      refreshToken: refreshTokenValue
-    };
-
-    console.log(`🔄 Attempting token refresh... (Attempt ${this.refreshRetryCount + 1}/${this.maxRefreshRetries})`);
-
-    try {
-      // Use direct fetch to avoid circular refresh calls
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      // Add Authorization header if we have a token
-      if (currentAccessToken) {
-        headers['Authorization'] = `Bearer ${currentAccessToken}`;
-      }
-      
-      // Ensure we have the full URL
-      const refreshUrl = AUTH_ENDPOINTS.REFRESH_TOKEN.startsWith('http') 
-        ? AUTH_ENDPOINTS.REFRESH_TOKEN 
-        : `${this.baseUrl}${AUTH_ENDPOINTS.REFRESH_TOKEN}`;
-      
-      const response = await fetch(refreshUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        // If refresh fails with 429, don't retry
-        if (response.status === 429) {
-          console.error('🚫 Rate limit on token refresh');
-          this.refreshRetryCount = 0; // Reset retry count
-          removeToken();
-          throw new Error('Rate limit exceeded on token refresh');
-        }
-        
-        // If refresh fails with 401, token is invalid, don't retry
-        if (response.status === 401 || response.status === 403) {
-          console.error('🚫 Refresh token invalid or expired');
-          this.refreshRetryCount = 0; // Reset retry count
-          removeToken();
-          
-          // Try to get error message from response
-          try {
-            const errorData = await response.json();
-            const errorMessage = errorData.errors?.[0] || errorData.message || 'Refresh token invalid or expired';
-            throw new Error(errorMessage);
-          } catch {
-            throw new Error('Refresh token invalid or expired');
-          }
-        }
-        
-        // For other errors, throw to trigger retry
-        throw new Error(`Token refresh failed with status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const tokenData = data.data || data;
-
-      if (!tokenData.accessToken) {
-        throw new Error('Invalid refresh response');
-      }
-
-      const storageType = localStorage.getItem('remember_me') === 'true' ? 'permanent' : 'session';
-      setToken(tokenData.accessToken, storageType);
-      if (tokenData.refreshToken) {
-        setRefreshToken(tokenData.refreshToken, storageType);
-      }
-      
-      console.log('✅ Token refresh successful');
-      this.refreshRetryCount = 0; // Reset retry count on success
-      return tokenData.accessToken;
-      
-    } catch (error: any) {
-      this.refreshRetryCount++;
-      
-      // If we haven't exceeded max retries and it's not a permanent failure, retry
-      if (this.refreshRetryCount < this.maxRefreshRetries && 
-          !error.message?.includes('Rate limit') && 
-          !error.message?.includes('invalid or expired')) {
-        
-        console.log(`⚠️ Token refresh failed, retrying in ${this.refreshRetryCount} seconds...`);
-        
-        // Wait with exponential backoff before retrying
-        await new Promise(resolve => setTimeout(resolve, this.refreshRetryCount * 1000));
-        
-        // Reset the cooldown for retry
-        this.lastRefreshAttempt = 0;
-        
-        // Recursive retry
-        return this.refreshAccessToken();
-      }
-      
-      // Max retries exceeded or permanent failure
-      this.refreshRetryCount = 0; // Reset for next time
-      throw error;
-    }
-  }
-
-  /**
-   * Handles 401 errors with token refresh
-   */
-  private async handle401Error<T>(
-    method: string,
-    endpoint: string,
-    data?: unknown,
-    config?: RequestConfig
-  ): Promise<T> {
-    if (config?._retry) {
-      // Already retried, logout
-      removeToken();
-      router.navigate('/auth/login');
-      throw new Error('Authentication failed');
-    }
-
-    if (!this.isRefreshing) {
-      this.isRefreshing = true;
-      
-      try {
-        const newToken = await this.refreshAccessToken();
-        this.refreshSubscribers.forEach(cb => cb(newToken));
-        this.refreshSubscribers = [];
-        this.isRefreshing = false;
-        
-        // Retry original request
-        return this.request<T>(method, endpoint, data, { ...config, _retry: true });
-      } catch (error) {
-        this.isRefreshing = false;
-        this.refreshSubscribers = [];
-        removeToken();
-        router.navigate('/auth/login');
-        throw error;
-      }
-    }
-
-    // Wait for token refresh
-    return new Promise<T>((resolve, reject) => {
-      this.refreshSubscribers.push(() => {
-        this.request<T>(method, endpoint, data, { ...config, _retry: true })
-          .then(resolve)
-          .catch(reject);
-      });
-    });
-  }
-
-  /**
-   * Main request method with retry logic
+   * Main request method
    */
   async request<T>(
     method: string,
     endpoint: string,
     data?: unknown,
-    config?: RequestConfig
+    config: RequestConfig = {}
   ): Promise<T> {
-    const maxRetries = config?.retries ?? (method === 'GET' ? MAX_RETRY_ATTEMPTS : 0);
-    const retryDelay = config?.retryDelay ?? RETRY_DELAY;
-    let lastError: any;
+    // Apply request interceptors
+    const interceptedConfig = await this.interceptors.request.execute(config);
+    
+    const url = this.buildUrl(endpoint, method === 'GET' ? interceptedConfig.params : undefined);
+    
+    const options: RequestInit = {
+      method,
+      headers: interceptedConfig.headers,
+      signal: interceptedConfig.signal,
+    };
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const url = this.buildUrl(endpoint, method === 'GET' ? config?.params : undefined);
-        const headers = this.getHeaders(config?.headers);
-        
-        const options: RequestInit = {
-          method,
-          headers,
-        };
-
-        // Add body for non-GET requests
-        if (data && method !== 'GET') {
-          if (data instanceof FormData) {
-            delete (headers as any)['Content-Type'];
-            options.body = data;
-          } else {
-            options.body = JSON.stringify(data);
-          }
-        }
-
-        const response = await this.fetchWithTimeout(url, options, config?.timeout);
-        
-        // Handle 401 specifically
-        if (response.status === 401 && !config?._retry) {
-          return this.handle401Error<T>(method, endpoint, data, config);
-        }
-
-        return await this.handleResponse<T>(response);
-      } catch (error: any) {
-        lastError = error;
-
-        // Don't retry on client errors (except 401) or if already retrying
-        // Also don't retry on 429 (Too Many Requests)
-        if ((error.status >= 400 && error.status < 500 && error.status !== 401) || error.status === 429) {
-          throw error;
-        }
-
-        // Don't retry on last attempt
-        if (attempt < maxRetries) {
-          await new Promise(resolve => 
-            setTimeout(resolve, retryDelay * Math.pow(2, attempt))
-          );
-          continue;
-        }
+    // Add body for non-GET requests
+    if (data && method !== 'GET') {
+      if (data instanceof FormData) {
+        delete (options.headers as any)['Content-Type'];
+        options.body = data;
+      } else {
+        options.body = JSON.stringify(data);
       }
     }
 
-    throw lastError;
+    // Add timeout
+    const timeoutId = setTimeout(() => {
+      if (interceptedConfig.signal) {
+        (interceptedConfig.signal as any).abort?.();
+      }
+    }, interceptedConfig.timeout || API_TIMEOUT);
+
+    try {
+      let response = await fetch(url, options);
+      clearTimeout(timeoutId);
+      
+      // Apply response interceptors
+      response = await this.interceptors.response.execute(response);
+      
+      // Parse response
+      const contentType = response.headers.get('content-type');
+      let result: unknown;
+      
+      if (contentType?.includes('application/json')) {
+        result = await response.json();
+      } else if (contentType?.includes('text/')) {
+        result = await response.text();
+      } else if (response.status === 204) {
+        result = null;
+      } else {
+        result = await response.blob();
+      }
+      
+      if (!response.ok) {
+        const error = {
+          status: response.status,
+          statusText: response.statusText,
+          message: (result as any)?.message || response.statusText,
+          data: result,
+          config: interceptedConfig,
+          headers: response.headers
+        };
+        throw await this.interceptors.response.executeError(error);
+      }
+      
+      return result as T;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw await this.interceptors.response.executeError(error);
+    }
   }
 
   // Convenience methods
-  async get<T>(endpoint: string, config?: RequestConfig): Promise<T> {
+  get<T>(endpoint: string, config?: RequestConfig): Promise<T> {
     return this.request<T>('GET', endpoint, undefined, config);
   }
 
-  async post<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
+  post<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>('POST', endpoint, data, config);
   }
 
-  async put<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
+  put<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>('PUT', endpoint, data, config);
   }
 
-  async patch<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
+  patch<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>('PATCH', endpoint, data, config);
   }
 
-  async delete<T>(endpoint: string, config?: RequestConfig): Promise<T> {
+  delete<T>(endpoint: string, config?: RequestConfig): Promise<T> {
     return this.request<T>('DELETE', endpoint, undefined, config);
-  }
-
-  /**
-   * Downloads a file
-   */
-  async downloadFile(endpoint: string, filename?: string, config?: RequestConfig): Promise<void> {
-    const response = await this.request<Blob>('GET', endpoint, undefined, {
-      ...config,
-      headers: {
-        ...config?.headers,
-        Accept: 'application/octet-stream',
-      },
-    });
-
-    const blob = new Blob([response]);
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename || 'download';
-    link.click();
-    window.URL.revokeObjectURL(url);
-  }
-
-  /**
-   * Uploads a file with progress tracking
-   */
-  async uploadFile<T>(
-    endpoint: string,
-    formData: FormData,
-    config?: RequestConfig,
-    onProgress?: (progress: number) => void
-  ): Promise<T> {
-    if (onProgress) {
-      // Use XMLHttpRequest for progress tracking
-      return new Promise<T>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            onProgress((e.loaded / e.total) * 100);
-          }
-        });
-
-        xhr.addEventListener('load', async () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              resolve(data);
-            } catch {
-              resolve(xhr.responseText as T);
-            }
-          } else {
-            reject({ status: xhr.status, message: xhr.statusText });
-          }
-        });
-
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
-
-        const url = this.buildUrl(endpoint);
-        xhr.open('POST', url);
-        
-        const token = getToken();
-        if (token) {
-          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        }
-        
-        xhr.send(formData);
-      });
-    }
-
-    return this.post<T>(endpoint, formData, config);
   }
 }
 
-export default new HttpClient(API_BASE_URL);
+// Create and export instance
+const httpClient = new HttpClient(API_BASE_URL);
+
+// Example: Add custom interceptors
+if (import.meta.env.DEV) {
+  // Performance monitoring interceptor
+  let requestStart: number;
+  
+  httpClient.interceptors.request.use((config) => {
+    requestStart = Date.now();
+    return config;
+  });
+  
+  httpClient.interceptors.response.use((response) => {
+    const duration = Date.now() - requestStart;
+    console.log(`⏱️ Request took ${duration}ms`);
+    return response;
+  });
+}
+
+export default httpClient;

@@ -11,6 +11,7 @@ import { useRouteAnnouncements } from './hooks/useRouteAnnouncements';
 import './utils/debugHelpers'; // Enable debug helpers
 import AuthProvider from './features/auth/AuthProvider';
 import { TwoFactorDialogProvider } from './components/auth/TwoFactorDialog';
+import { PermissionProvider } from './contexts/PermissionContext';
 
 const App = () => {
   const { mode, theme, toggleTheme } = useTheme();
@@ -38,16 +39,18 @@ const App = () => {
 
   return (
     <AuthProvider>
-      <ThemeProvider theme={theme}>
-        <TwoFactorDialogProvider>
-          <CssBaseline />
-          <SkipLinks />
-          <NetworkStatusIndicator position="top" compact />
-          <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
-            <Outlet />
-          </MainLayout>
-        </TwoFactorDialogProvider>
-      </ThemeProvider>
+      <PermissionProvider>
+        <ThemeProvider theme={theme}>
+          <TwoFactorDialogProvider>
+            <CssBaseline />
+            <SkipLinks />
+            <NetworkStatusIndicator position="top" compact />
+            <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
+              <Outlet />
+            </MainLayout>
+          </TwoFactorDialogProvider>
+        </ThemeProvider>
+      </PermissionProvider>
     </AuthProvider>
   );
 };

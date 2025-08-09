@@ -82,6 +82,134 @@ namespace UserService.Infrastructure.Migrations
                     b.ToTable("BlockedUsers");
                 });
 
+            modelBuilder.Entity("UserService.Domain.Models.Permission", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsSystemPermission")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Resource")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasDefaultValue("");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("Category", "Name");
+
+                    b.ToTable("Permissions");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "660e8400-e29b-41d4-a716-446655440001",
+                            Category = "Users",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "View users",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSystemPermission = true,
+                            Name = "users.view",
+                            Resource = ""
+                        },
+                        new
+                        {
+                            Id = "660e8400-e29b-41d4-a716-446655440002",
+                            Category = "Users",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Manage users",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSystemPermission = true,
+                            Name = "users.manage",
+                            Resource = ""
+                        },
+                        new
+                        {
+                            Id = "660e8400-e29b-41d4-a716-446655440003",
+                            Category = "Skills",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "View skills",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSystemPermission = true,
+                            Name = "skills.view",
+                            Resource = ""
+                        },
+                        new
+                        {
+                            Id = "660e8400-e29b-41d4-a716-446655440004",
+                            Category = "Skills",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Manage skills",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSystemPermission = true,
+                            Name = "skills.manage",
+                            Resource = ""
+                        });
+                });
+
             modelBuilder.Entity("UserService.Domain.Models.RefreshToken", b =>
                 {
                     b.Property<string>("Id")
@@ -159,6 +287,207 @@ namespace UserService.Infrastructure.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("UserService.Domain.Models.Role", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsSystemRole")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ParentRoleId")
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("ParentRoleId");
+
+                    b.HasIndex("Priority");
+
+                    b.ToTable("Roles");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "550e8400-e29b-41d4-a716-446655440001",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Super Administrator with all permissions",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSystemRole = true,
+                            Name = "SuperAdmin",
+                            Priority = 1000
+                        },
+                        new
+                        {
+                            Id = "550e8400-e29b-41d4-a716-446655440002",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Administrator with administrative permissions",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSystemRole = true,
+                            Name = "Admin",
+                            Priority = 900
+                        },
+                        new
+                        {
+                            Id = "550e8400-e29b-41d4-a716-446655440003",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Moderator with content moderation permissions",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSystemRole = true,
+                            Name = "Moderator",
+                            Priority = 500
+                        },
+                        new
+                        {
+                            Id = "550e8400-e29b-41d4-a716-446655440004",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Standard user with basic permissions",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSystemRole = true,
+                            Name = "User",
+                            Priority = 100
+                        });
+                });
+
+            modelBuilder.Entity("UserService.Domain.Models.RolePermission", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<string>("GrantedBy")
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("PermissionId")
+                        .IsRequired()
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedBy")
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("RoleId")
+                        .IsRequired()
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrantedAt");
+
+                    b.HasIndex("GrantedBy");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("PermissionId");
+
+                    b.HasIndex("RevokedBy");
+
+                    b.HasIndex("RoleId", "PermissionId")
+                        .IsUnique();
+
+                    b.ToTable("RolePermissions");
                 });
 
             modelBuilder.Entity("UserService.Domain.Models.User", b =>
@@ -414,6 +743,103 @@ namespace UserService.Infrastructure.Migrations
                     b.ToTable("UserActivities");
                 });
 
+            modelBuilder.Entity("UserService.Domain.Models.UserPermission", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("Conditions")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<string>("GrantedBy")
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsGranted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("PermissionId")
+                        .IsRequired()
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ResourceId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedBy")
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("GrantedBy");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("PermissionId");
+
+                    b.HasIndex("ResourceId");
+
+                    b.HasIndex("RevokedBy");
+
+                    b.HasIndex("UserId", "PermissionId", "ResourceId");
+
+                    b.ToTable("UserPermissions");
+                });
+
             modelBuilder.Entity("UserService.Domain.Models.UserRole", b =>
                 {
                     b.Property<string>("Id")
@@ -461,6 +887,9 @@ namespace UserService.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("RoleId")
+                        .HasColumnType("character varying(450)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -475,6 +904,8 @@ namespace UserService.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedAt");
+
+                    b.HasIndex("RoleId");
 
                     b.HasIndex("UserId", "Role", "RevokedAt");
 
@@ -591,6 +1022,49 @@ namespace UserService.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("UserService.Domain.Models.Role", b =>
+                {
+                    b.HasOne("UserService.Domain.Models.Role", "ParentRole")
+                        .WithMany("ChildRoles")
+                        .HasForeignKey("ParentRoleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ParentRole");
+                });
+
+            modelBuilder.Entity("UserService.Domain.Models.RolePermission", b =>
+                {
+                    b.HasOne("UserService.Domain.Models.User", "GrantedByUser")
+                        .WithMany("RolePermissionsGranted")
+                        .HasForeignKey("GrantedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("UserService.Domain.Models.Permission", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UserService.Domain.Models.User", "RevokedByUser")
+                        .WithMany("RolePermissionsRevoked")
+                        .HasForeignKey("RevokedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("UserService.Domain.Models.Role", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GrantedByUser");
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("RevokedByUser");
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("UserService.Domain.Models.UserActivity", b =>
                 {
                     b.HasOne("UserService.Domain.Models.User", "User")
@@ -602,8 +1076,46 @@ namespace UserService.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("UserService.Domain.Models.UserPermission", b =>
+                {
+                    b.HasOne("UserService.Domain.Models.User", "GrantedByUser")
+                        .WithMany("PermissionsGranted")
+                        .HasForeignKey("GrantedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("UserService.Domain.Models.Permission", "Permission")
+                        .WithMany("UserPermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UserService.Domain.Models.User", "RevokedByUser")
+                        .WithMany("PermissionsRevoked")
+                        .HasForeignKey("RevokedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("UserService.Domain.Models.User", "User")
+                        .WithMany("UserPermissions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GrantedByUser");
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("RevokedByUser");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("UserService.Domain.Models.UserRole", b =>
                 {
+                    b.HasOne("UserService.Domain.Models.Role", null)
+                        .WithMany("UserRoles")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("UserService.Domain.Models.User", "User")
                         .WithMany("UserRoles")
                         .HasForeignKey("UserId")
@@ -624,15 +1136,41 @@ namespace UserService.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("UserService.Domain.Models.Permission", b =>
+                {
+                    b.Navigation("RolePermissions");
+
+                    b.Navigation("UserPermissions");
+                });
+
+            modelBuilder.Entity("UserService.Domain.Models.Role", b =>
+                {
+                    b.Navigation("ChildRoles");
+
+                    b.Navigation("RolePermissions");
+
+                    b.Navigation("UserRoles");
+                });
+
             modelBuilder.Entity("UserService.Domain.Models.User", b =>
                 {
                     b.Navigation("Activities");
 
                     b.Navigation("BlockedUsers");
 
+                    b.Navigation("PermissionsGranted");
+
+                    b.Navigation("PermissionsRevoked");
+
                     b.Navigation("RefreshTokens");
 
+                    b.Navigation("RolePermissionsGranted");
+
+                    b.Navigation("RolePermissionsRevoked");
+
                     b.Navigation("Sessions");
+
+                    b.Navigation("UserPermissions");
 
                     b.Navigation("UserRoles");
                 });

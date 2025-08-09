@@ -14,12 +14,15 @@ public class AuthRepository(
     UserDbContext userDbContext,
     IJwtService jwtService,
     ITotpService totpService,
-    IDomainEventPublisher eventPublisher) : IAuthRepository
+    IDomainEventPublisher eventPublisher,
+    IPermissionRepository permissionRepository)
+    : IAuthRepository
 {
     private readonly UserDbContext _dbContext = userDbContext;
     private readonly IJwtService _jwtService = jwtService;
     private readonly ITotpService _totpService = totpService;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
+    private readonly IPermissionRepository _permissionService = permissionRepository;
 
     public async Task<RegisterResponse> RegisterUserWithTokens(string email, string password, string firstName, string lastName, string userName, CancellationToken cancellationToken = default)
     {
@@ -123,7 +126,7 @@ public class AuthRepository(
                     user.Id, user.Email, user.FirstName, user.LastName, user.UserName,
                     user.UserRoles.Where(ur => ur.IsActive).Select(ur => ur.Role).ToList(),
                     user.FavoriteSkillIds, user.EmailVerified, user.AccountStatus.ToString());
-                
+
                 return new LoginResponse(
                     string.Empty, string.Empty, TokenType.None, DateTime.UtcNow,
                     userInfo, true, tempToken);
@@ -136,6 +139,9 @@ public class AuthRepository(
             }
         }
 
+        // Get user permissions
+        var userPermissions = await _permissionService.GetUserPermissionNamesAsync(user.Id);
+
         // Generate tokens
         var userClaims = new UserClaims
         {
@@ -144,6 +150,7 @@ public class AuthRepository(
             FirstName = user.FirstName,
             LastName = user.LastName,
             Roles = user.UserRoles.Where(ur => ur.IsActive).Select(ur => ur.Role).ToList(),
+            Permissions = userPermissions.ToList(),
             EmailVerified = user.EmailVerified,
             AccountStatus = user.AccountStatus.ToString()
         };
@@ -202,7 +209,7 @@ public class AuthRepository(
             {
                 var principal = await _jwtService.ValidateTokenAsync(accessToken);
                 var tokenUserId = principal?.FindFirst("user_id")?.Value ?? principal?.FindFirst("sub")?.Value;
-                
+
                 if (tokenUserId != storedToken.UserId)
                 {
                     throw new UnauthorizedAccessException("Token mismatch");
@@ -220,21 +227,21 @@ public class AuthRepository(
         {
             throw new UnauthorizedAccessException("User not found for refresh token");
         }
-        
+
         // Check for critical issues that should prevent token refresh
         if (user.IsDeleted)
         {
             throw new UnauthorizedAccessException("User account has been deleted");
         }
-        
+
         if (user.IsAccountLocked)
         {
             throw new UnauthorizedAccessException($"User account is locked until {user.AccountLockedUntil}");
         }
-        
+
         // Allow token refresh for Active and PendingVerification status
         // Users with PendingVerification can still use the app but should verify their email
-        if (user.AccountStatus != AccountStatus.Active && 
+        if (user.AccountStatus != AccountStatus.Active &&
             user.AccountStatus != AccountStatus.PendingVerification)
         {
             throw new UnauthorizedAccessException($"User account status is {user.AccountStatus}, refresh not allowed");
@@ -245,13 +252,16 @@ public class AuthRepository(
             .Where(ur => ur.UserId == user.Id)
             .Select(ur => ur.Role)
             .ToListAsync(cancellationToken);
-        
+
         // Default to User role if no roles found
         if (!userRoles.Any())
         {
             userRoles.Add(Roles.User);
         }
-        
+
+        // Get user permissions
+        var userPermissions = await _permissionService.GetUserPermissionNamesAsync(user.Id);
+
         // Create user claims for token generation
         var userClaims = new UserClaims
         {
@@ -260,10 +270,11 @@ public class AuthRepository(
             FirstName = user.FirstName,
             LastName = user.LastName,
             Roles = userRoles,
+            Permissions = userPermissions.ToList(),
             EmailVerified = user.EmailVerified,
             AccountStatus = user.AccountStatus.ToString()
         };
-        
+
         var newTokens = await _jwtService.GenerateTokenAsync(userClaims);
 
         // Revoke old refresh token

@@ -22,16 +22,20 @@ import {
   Event as AppointmentsIcon,
   Person as ProfileIcon,
   MoreHoriz as MoreIcon,
+  AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppSelector } from '../../store/store.hooks';
+import { usePermission } from '../../contexts/PermissionContext';
 
 const Tabbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
   const { isAuthenticated } = useAuth();
+  const { hasPermission, isAdmin } = usePermission();
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
+  
   
   // Get dynamic badge counts from Redux store
   const pendingMatches = useAppSelector((state) => state.matchmaking?.matches?.filter((match) => match.status === 'pending') || []);
@@ -68,7 +72,16 @@ const Tabbar: React.FC = () => {
     return isAuthenticated ? '/dashboard' : '/';
   };
 
-  const menuItems = [
+  interface MenuItem {
+    label: string;
+    icon: React.ReactNode;
+    path: string;
+    authRequired: boolean;
+    permissions?: string[];
+    badge?: number;
+  }
+
+  const menuItems: MenuItem[] = [
     {
       label: 'Home',
       icon: <HomeIcon />,
@@ -108,10 +121,29 @@ const Tabbar: React.FC = () => {
     },
   ];
 
-  // Filtere Menüeinträge basierend auf Authentifizierungsstatus
-  const filteredMenuItems = menuItems.filter(
-    (item) => !item.authRequired || (item.authRequired && isAuthenticated)
-  );
+  // Admin menu item - für Admin und SuperAdmin Rollen
+  if (isAdmin || hasPermission('admin:access_dashboard')) {
+    menuItems.push({
+      label: 'Admin',
+      icon: <AdminIcon />,
+      path: '/admin/dashboard',
+      authRequired: true,
+      permissions: ['admin:access_dashboard'],
+    });
+  }
+
+  // Filtere Menüeinträge basierend auf Authentifizierung und Permissions
+  const filteredMenuItems = menuItems.filter((item) => {
+    // Check authentication
+    if (item.authRequired && !isAuthenticated) return false;
+    
+    // Check permissions
+    if (item.permissions && item.permissions.length > 0) {
+      return item.permissions.some(permission => hasPermission(permission));
+    }
+    
+    return true;
+  });
 
   // Intelligente Mobile Menu Verteilung
   const MAX_VISIBLE_ITEMS = 4; // Reserve space for "More" button
