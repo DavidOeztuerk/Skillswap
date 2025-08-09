@@ -68,6 +68,8 @@ import {
   isPastDate,
 } from '../../utils/dateUtils';
 import { Appointment } from '../../types/models/Appointment';
+import AppointmentErrorBoundary from '../../components/error/AppointmentErrorBoundary';
+import errorService from '../../services/errorService';
 
 // Mock message interface
 interface AppointmentMessage {
@@ -117,11 +119,18 @@ const AppointmentDetailPage: React.FC = () => {
   // Load appointment data
   useEffect(() => {
     if (appointmentId) {
+      errorService.addBreadcrumb('Loading appointment detail', 'navigation', { appointmentId });
+      
       const foundAppointment = appointments.find(
         (apt) => apt.id === appointmentId
       );
       if (foundAppointment) {
         setAppointment(foundAppointment);
+        errorService.addBreadcrumb('Appointment loaded successfully', 'data', { 
+          appointmentId, 
+          skillName: foundAppointment.skill.name 
+        });
+        
         // Inline mock messages laden um Function-Dependency zu vermeiden
         setMessages([
           {
@@ -143,6 +152,8 @@ const AppointmentDetailPage: React.FC = () => {
             type: "message"
           },
         ]);
+      } else {
+        errorService.addBreadcrumb('Appointment not found', 'error', { appointmentId });
       }
     }
   }, [appointmentId, appointments]);
@@ -183,6 +194,8 @@ const AppointmentDetailPage: React.FC = () => {
   const handleConfirmDialogOpen = (
     action: 'confirm' | 'cancel' | 'complete'
   ) => {
+    errorService.addBreadcrumb('Opening appointment action dialog', 'ui', { appointmentId, action });
+    
     let title = '';
     let message = '';
 
@@ -213,6 +226,8 @@ const AppointmentDetailPage: React.FC = () => {
     if (!appointmentId) return;
 
     try {
+      errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action: confirmDialog.action });
+      
       let success = false;
       const { action } = confirmDialog;
 
@@ -240,10 +255,18 @@ const AppointmentDetailPage: React.FC = () => {
           break;
       }
 
-      if (!success) {
+      if (success) {
+        errorService.addBreadcrumb('Appointment action completed successfully', 'action', { appointmentId, action });
+      } else {
+        errorService.addBreadcrumb('Appointment action failed', 'error', { appointmentId, action });
         throw new Error('Aktion fehlgeschlagen');
       }
     } catch (error) {
+      errorService.addBreadcrumb('Error performing appointment action', 'error', { 
+        appointmentId, 
+        action: confirmDialog.action, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
       setStatusMessage({
         text: 'Fehler bei der Terminverwaltung' + ' ' + error,
         type: 'error',
@@ -255,6 +278,8 @@ const AppointmentDetailPage: React.FC = () => {
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
+
+    errorService.addBreadcrumb('Sending message in appointment detail', 'form', { appointmentId });
 
     const message: AppointmentMessage = {
       id: Date.now().toString(),
@@ -278,6 +303,8 @@ const AppointmentDetailPage: React.FC = () => {
   };
 
   const handleJoinVideoCall = () => {
+    errorService.addBreadcrumb('Joining video call', 'navigation', { appointmentId });
+    
     if (appointment?.videocallUrl) {
       window.open(appointment.videocallUrl, '_blank');
     } else {
@@ -294,11 +321,14 @@ const AppointmentDetailPage: React.FC = () => {
 
     if (navigator.share) {
       try {
+        errorService.addBreadcrumb('Sharing appointment via native share', 'action', { appointmentId });
         await navigator.share(shareData);
       } catch (error) {
+        errorService.addBreadcrumb('Share cancelled by user', 'ui', { appointmentId });
         console.log('Share canceled' + ' ' + error);
       }
     } else {
+      errorService.addBreadcrumb('Copying appointment link to clipboard', 'action', { appointmentId });
       navigator.clipboard.writeText(window.location.href);
       setStatusMessage({
         text: 'Link in Zwischenablage kopiert',
@@ -403,7 +433,10 @@ const AppointmentDetailPage: React.FC = () => {
       <Box sx={{ mb: 3 }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/appointments')}
+          onClick={() => {
+            errorService.addBreadcrumb('Navigating back to appointments', 'navigation', { appointmentId });
+            navigate('/appointments');
+          }}
           sx={{ mb: 2 }}
         >
           Zurück zu Terminen
@@ -764,4 +797,10 @@ const AppointmentDetailPage: React.FC = () => {
   );
 };
 
-export default AppointmentDetailPage;
+const WrappedAppointmentDetailPage: React.FC = () => (
+  <AppointmentErrorBoundary>
+    <AppointmentDetailPage />
+  </AppointmentErrorBoundary>
+);
+
+export default WrappedAppointmentDetailPage;

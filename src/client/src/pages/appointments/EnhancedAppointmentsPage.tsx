@@ -48,6 +48,8 @@ import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { AppointmentStatus } from '../../types/models/Appointment';
+import AppointmentErrorBoundary from '../../components/error/AppointmentErrorBoundary';
+import errorService from '../../services/errorService';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -92,29 +94,35 @@ const EnhancedAppointmentsPage: React.FC = () => {
 
   // Initial load
   useEffect(() => {
+    errorService.addBreadcrumb('Loading enhanced appointments page', 'navigation');
     dispatch(fetchAppointments());
     dispatch(fetchUpcomingAppointments({ limit: 5 }));
   }, [dispatch]);
   
   // Load past appointments when pagination changes
   useEffect(() => {
+    errorService.addBreadcrumb('Loading past appointments', 'data', { page: pagination.page, limit: pagination.limit });
     dispatch(fetchPastAppointments({ page: pagination.page, limit: pagination.limit }));
   }, [dispatch, pagination.page, pagination.limit]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    errorService.addBreadcrumb('Changing appointment tab', 'ui', { tabIndex: newValue });
     setCurrentTab(newValue);
   };
 
   const handleAcceptAppointment = (appointmentId: string) => {
+    errorService.addBreadcrumb('Accepting appointment', 'action', { appointmentId });
     dispatch(respondToAppointment({ appointmentId, status: AppointmentStatus.Confirmed }));
   };
 
   const handleCancelAppointment = (appointmentId: string) => {
+    errorService.addBreadcrumb('Cancelling appointment', 'action', { appointmentId });
     dispatch(cancelAppointment(appointmentId));
   };
 
   const handleRescheduleAppointment = () => {
     if (selectedAppointment && newDateTime) {
+      errorService.addBreadcrumb('Rescheduling appointment', 'action', { appointmentId: selectedAppointment.id, newDateTime: newDateTime.toISOString() });
       dispatch(rescheduleAppointment({
         appointmentId: selectedAppointment.id,
         newDateTime: newDateTime.toISOString(),
@@ -129,6 +137,7 @@ const EnhancedAppointmentsPage: React.FC = () => {
 
   const handleRateAppointment = () => {
     if (selectedAppointment && rating > 0) {
+      errorService.addBreadcrumb('Rating appointment', 'action', { appointmentId: selectedAppointment.id, rating });
       dispatch(rateAppointment({
         appointmentId: selectedAppointment.id,
         rating,
@@ -142,11 +151,13 @@ const EnhancedAppointmentsPage: React.FC = () => {
   };
 
   const openRescheduleDialog = (appointment: any) => {
+    errorService.addBreadcrumb('Opening reschedule dialog', 'ui', { appointmentId: appointment.id });
     setSelectedAppointment(appointment);
     setRescheduleDialogOpen(true);
   };
 
   const openRatingDialog = (appointment: any) => {
+    errorService.addBreadcrumb('Opening rating dialog', 'ui', { appointmentId: appointment.id });
     setSelectedAppointment(appointment);
     setRatingDialogOpen(true);
   };
@@ -199,7 +210,10 @@ const EnhancedAppointmentsPage: React.FC = () => {
             <IconButton>
               <SettingsIcon />
             </IconButton>
-            <IconButton onClick={() => dispatch(fetchAppointments())}>
+            <IconButton onClick={() => {
+              errorService.addBreadcrumb('Refreshing appointments', 'action');
+              dispatch(fetchAppointments());
+            }}>
               <RefreshIcon />
             </IconButton>
           </Box>
@@ -494,4 +508,10 @@ const EnhancedAppointmentsPage: React.FC = () => {
   );
 };
 
-export default EnhancedAppointmentsPage;
+const WrappedEnhancedAppointmentsPage: React.FC = () => (
+  <AppointmentErrorBoundary>
+    <EnhancedAppointmentsPage />
+  </AppointmentErrorBoundary>
+);
+
+export default WrappedEnhancedAppointmentsPage;

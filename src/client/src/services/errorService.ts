@@ -2,6 +2,7 @@
 import { store } from '../store/store';
 import { addNotification } from '../features/notifications/notificationSlice';
 import { NotificationType } from '../types/models/Notification';
+import { errorLogger } from './errorLogger';
 
 export interface ErrorDetails {
   type: 'NETWORK' | 'VALIDATION' | 'AUTH' | 'PERMISSION' | 'SERVER' | 'CLIENT' | 'UNKNOWN';
@@ -99,6 +100,13 @@ class ErrorService {
   private logError(errorDetails: ErrorDetails): void {
     console.error('Error logged:', errorDetails);
 
+    // Log to external service immediately if available
+    if (errorLogger) {
+      errorLogger.logError(errorDetails).catch(err => 
+        console.error('Failed to log to external service:', err)
+      );
+    }
+
     // Add to queue for batch processing
     this.errorQueue.push(errorDetails);
 
@@ -118,11 +126,13 @@ class ErrorService {
     this.errorQueue = [];
 
     try {
-      // TODO: Send to actual error tracking service (Sentry, LogRocket, etc.)
-      console.log('Sending errors to tracking service:', errors);
-      
-      // For now, just log to console
-      // await errorTrackingService.logErrors(errors);
+      // Send to error tracking service if available
+      if (errorLogger) {
+        await errorLogger.logErrors(errors);
+        console.log('Errors sent to tracking service:', errors.length);
+      } else {
+        console.log('No error logger configured, errors logged locally:', errors);
+      }
     } catch (error) {
       // Re-add errors to queue if sending fails
       this.errorQueue.unshift(...errors);
@@ -290,6 +300,33 @@ class ErrorService {
    */
   public clearErrorQueue(): void {
     this.errorQueue = [];
+  }
+
+  /**
+   * Add breadcrumb for error tracking
+   */
+  public addBreadcrumb(message: string, category?: string, data?: Record<string, unknown>): void {
+    if (errorLogger) {
+      errorLogger.addBreadcrumb(message, category, data);
+    }
+  }
+
+  /**
+   * Set user context for error tracking
+   */
+  public setUserContext(userId: string, email?: string, username?: string): void {
+    if (errorLogger) {
+      errorLogger.setUser(userId, email, username);
+    }
+  }
+
+  /**
+   * Clear all breadcrumbs
+   */
+  public clearBreadcrumbs(): void {
+    if (errorLogger) {
+      errorLogger.clearBreadcrumbs();
+    }
   }
 }
 

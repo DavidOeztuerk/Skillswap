@@ -11,6 +11,8 @@ import AppointmentList from '../../components/appointments/AppointmentList';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
 import { useAppointments } from '../../hooks/useAppointments';
+import AppointmentErrorBoundary from '../../components/error/AppointmentErrorBoundary';
+import errorService from '../../services/errorService';
 
 /**
  * Seite zur Verwaltung der Termine des Benutzers
@@ -48,15 +50,20 @@ const AppointmentsPage: React.FC = () => {
 
   // Termine laden
   useEffect(() => {
+    errorService.addBreadcrumb('Loading appointments page', 'navigation', { 
+      appointmentsCount: appointments?.length 
+    });
     // Beim Start immer den letzten Status löschen
     setStatusMessage(null);
-  }, []);
+  }, [appointments]);
 
   // Dialog-Handler
   const handleConfirmDialogOpen = (
     appointmentId: string,
     action: 'confirm' | 'cancel' | 'complete'
   ) => {
+    errorService.addBreadcrumb('Opening appointment action dialog', 'ui', { appointmentId, action });
+    
     let title = '';
     let message = '';
 
@@ -98,6 +105,8 @@ const AppointmentsPage: React.FC = () => {
     if (!appointmentId) return;
 
     try {
+      errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action });
+      
       let success = false;
       let messageText = '';
 
@@ -117,14 +126,21 @@ const AppointmentsPage: React.FC = () => {
       }
 
       if (success) {
+        errorService.addBreadcrumb('Appointment action completed successfully', 'action', { appointmentId, action });
         setStatusMessage({
           text: messageText,
           type: 'success',
         });
       } else {
+        errorService.addBreadcrumb('Appointment action failed', 'error', { appointmentId, action });
         throw new Error('Fehler bei der Terminverwaltung');
       }
     } catch (error) {
+      errorService.addBreadcrumb('Error performing appointment action', 'error', { 
+        appointmentId, 
+        action, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
       setStatusMessage({
         text: 'Fehler bei der Terminverwaltung' + ' ' + error,
         type: 'error',
@@ -146,7 +162,10 @@ const AppointmentsPage: React.FC = () => {
         actions={
           <PageHeaderAction
             label="Zum Matchmaking"
-            onClick={() => navigate('/matchmaking')}
+            onClick={() => {
+              errorService.addBreadcrumb('Navigating to matchmaking from appointments', 'navigation');
+              navigate('/matchmaking');
+            }}
           />
         }
       />
@@ -187,4 +206,10 @@ const AppointmentsPage: React.FC = () => {
   );
 };
 
-export default AppointmentsPage;
+const WrappedAppointmentsPage: React.FC = () => (
+  <AppointmentErrorBoundary>
+    <AppointmentsPage />
+  </AppointmentErrorBoundary>
+);
+
+export default WrappedAppointmentsPage;

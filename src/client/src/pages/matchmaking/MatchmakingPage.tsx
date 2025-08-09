@@ -50,6 +50,8 @@ import PageHeader from '../../components/layout/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
+import MatchingErrorBoundary from '../../components/error/MatchingErrorBoundary';
+import errorService from '../../services/errorService';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -129,6 +131,7 @@ const MatchmakingPage: React.FC = () => {
 
   useEffect(() => {
     // Load initial data
+    errorService.addBreadcrumb('Loading matchmaking page data', 'navigation');
     dispatch(getUserMatches({}));
     dispatch(fetchIncomingMatchRequests({}));
     dispatch(fetchOutgoingMatchRequests({}));
@@ -250,10 +253,12 @@ const MatchmakingPage: React.FC = () => {
   );
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    errorService.addBreadcrumb('Changing matchmaking tab', 'ui', { tabIndex: newValue });
     setCurrentTab(newValue);
   };
 
   const handleExpandThread = (threadId: string) => {
+    errorService.addBreadcrumb('Expanding/collapsing match thread', 'ui', { threadId });
     const newExpanded = new Set(expandedThreads);
     if (newExpanded.has(threadId)) {
       newExpanded.delete(threadId);
@@ -265,7 +270,9 @@ const MatchmakingPage: React.FC = () => {
 
   const handleAcceptRequest = async (requestId: string, message?: string) => {
     try {
+      errorService.addBreadcrumb('Accepting match request', 'action', { requestId });
       await dispatch(acceptMatchRequest({ requestId, responseMessage: message }));
+      errorService.addBreadcrumb('Match request accepted successfully', 'action', { requestId });
       setResponseDialogOpen(false);
       setResponseMessage('');
       setSelectedRequest(null);
@@ -274,13 +281,19 @@ const MatchmakingPage: React.FC = () => {
       dispatch(fetchIncomingMatchRequests({}));
       dispatch(fetchOutgoingMatchRequests({}));
     } catch (error) {
+      errorService.addBreadcrumb('Error accepting match request', 'error', { 
+        requestId, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
       console.error('Error accepting request:', error);
     }
   };
 
   const handleRejectRequest = async (requestId: string, message?: string) => {
     try {
+      errorService.addBreadcrumb('Rejecting match request', 'action', { requestId });
       await dispatch(rejectMatchRequest({ requestId, responseMessage: message }));
+      errorService.addBreadcrumb('Match request rejected successfully', 'action', { requestId });
       setResponseDialogOpen(false);
       setResponseMessage('');
       setSelectedRequest(null);
@@ -289,6 +302,10 @@ const MatchmakingPage: React.FC = () => {
       dispatch(fetchIncomingMatchRequests({}));
       dispatch(fetchOutgoingMatchRequests({}));
     } catch (error) {
+      errorService.addBreadcrumb('Error rejecting match request', 'error', { 
+        requestId, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
       console.error('Error rejecting request:', error);
     }
   };
@@ -296,12 +313,19 @@ const MatchmakingPage: React.FC = () => {
   const handleCounterOffer = async () => {
     if (selectedRequest && counterOfferMessage.trim()) {
       try {
+        errorService.addBreadcrumb('Creating counter offer', 'action', { 
+          originalRequestId: selectedRequest.id,
+          skillId: selectedRequest.skillId 
+        });
         // Create a new request as counter-offer
         await dispatch(createMatchRequest({
           skillId: selectedRequest.skillId,
           message: `Gegenangebot: ${counterOfferMessage.trim()}`,
           targetUserId: selectedRequest.otherUserId, // Counter-offer zurück an den ursprünglichen Requester
         }));
+        errorService.addBreadcrumb('Counter offer created successfully', 'action', { 
+          originalRequestId: selectedRequest.id 
+        });
         setCounterOfferDialog(false);
         setCounterOfferMessage('');
         setSelectedRequest(null);
@@ -310,6 +334,10 @@ const MatchmakingPage: React.FC = () => {
         dispatch(fetchIncomingMatchRequests({}));
         dispatch(fetchOutgoingMatchRequests({}));
       } catch (error) {
+        errorService.addBreadcrumb('Error creating counter offer', 'error', { 
+          originalRequestId: selectedRequest.id,
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        });
         console.error('Error creating counter-offer:', error);
       }
     }
@@ -336,6 +364,7 @@ const MatchmakingPage: React.FC = () => {
   };
 
   const handleRefresh = () => {
+    errorService.addBreadcrumb('Refreshing matchmaking data', 'action');
     dispatch(getUserMatches({}));
     dispatch(fetchIncomingMatchRequests({}));
     dispatch(fetchOutgoingMatchRequests({}));
@@ -899,4 +928,10 @@ const MatchmakingPage: React.FC = () => {
   );
 };
 
-export default MatchmakingPage;
+const WrappedMatchmakingPage: React.FC = () => (
+  <MatchingErrorBoundary>
+    <MatchmakingPage />
+  </MatchingErrorBoundary>
+);
+
+export default WrappedMatchmakingPage;

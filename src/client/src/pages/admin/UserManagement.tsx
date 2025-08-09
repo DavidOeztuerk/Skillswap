@@ -45,6 +45,8 @@ import { usePermission } from '../../contexts/PermissionContext';
 import apiClient from '../../services/apiClient';
 import { format } from 'date-fns';
 import { unwrap, withDefault } from '../../utils/safeAccess';
+import { AdminErrorBoundary } from '../../components/error';
+import errorService from '../../services/errorService';
 
 interface User {
   id: string;
@@ -91,6 +93,10 @@ const UserManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      errorService.addBreadcrumb('Fetching users list', 'admin', { 
+        page, 
+        search: searchTerm
+      });
       const response = await apiClient.get<any>('/api/admin/users', {
         params: {
           page: page + 1,
@@ -460,4 +466,11 @@ const UserManagement: React.FC = () => {
   );
 };
 
-export default UserManagement;
+// Export wrapped component
+const UserManagementWithErrorBoundary: React.FC = () => (
+  <AdminErrorBoundary>
+    <UserManagement />
+  </AdminErrorBoundary>
+);
+
+export default UserManagementWithErrorBoundary;

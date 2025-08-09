@@ -24,7 +24,7 @@ interface ErrorBoundaryState {
 }
 
 interface ErrorBoundaryProps {
-  children: ReactNode;
+  children: ReactNode | ((hasError: boolean, error: Error | null, retry: () => void) => ReactNode);
   fallback?: ReactNode;
   showDetails?: boolean;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
@@ -236,6 +236,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       showDetails = process.env.NODE_ENV === 'development',
       level = 'component' 
     } = this.props;
+
+    // Support render prop pattern
+    if (typeof children === 'function') {
+      return children(hasError, error, this.handleRetry);
+    }
 
     if (hasError && error) {
       if (fallback) {
