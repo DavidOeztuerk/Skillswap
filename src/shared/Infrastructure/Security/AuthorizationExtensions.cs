@@ -33,19 +33,19 @@ public static class AuthorizationExtensions
                 policy.RequireAssertion(context =>
                     context.User.IsInRole(Roles.Admin) ||
                     context.User.IsInRole(Roles.SuperAdmin) ||
-                    context.User.HasClaim("permission", Permissions.ManageUserRoles)));
+                    context.User.HasClaim("permission", Permissions.UsersManageRoles)));
 
             options.AddPolicy(Policies.CanManageSkills, policy =>
                 policy.RequireAssertion(context =>
                     context.User.IsInRole(Roles.Admin) ||
                     context.User.IsInRole(Roles.SuperAdmin) ||
-                    context.User.HasClaim("permission", Permissions.ManageCategories)));
+                    context.User.HasClaim("permission", Permissions.SkillsManageCategories)));
 
             options.AddPolicy(Policies.CanViewSystemLogs, policy =>
                 policy.RequireAssertion(context =>
                     context.User.IsInRole(Roles.Admin) ||
                     context.User.IsInRole(Roles.SuperAdmin) ||
-                    context.User.HasClaim("permission", Permissions.ViewSystemLogs)));
+                    context.User.HasClaim("permission", Permissions.SystemViewLogs)));
 
             var permissionFields = typeof(Permissions).GetFields(BindingFlags.Public | BindingFlags.Static);
             foreach (var field in permissionFields)

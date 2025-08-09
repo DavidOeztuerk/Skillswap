@@ -5,7 +5,7 @@ export interface UserInfo {
   lastName: string;
   userName: string;
   roles: string[];
-  permissions?: string[];
+  favoriteSkills: string[];
   emailVerified: boolean;
   accountStatus: string;
 }
@@ -26,12 +26,15 @@ export interface RegisterResponse {
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
-  tokenType: string;
-  expiresIn?: number;
+  tokenType: number;
   expiresAt: Date;
   userInfo: UserInfo;
   requires2FA: boolean;
   twoFactorToken: string;
+}
+
+export enum TokenType {
+
 }
 
 // export interface LoginResponse {

@@ -196,7 +196,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
         })
       ).unwrap();
 
-      if (result?.requires2FA) {
+      if (result?.data.requires2FA) {
         // 2FA is required, component will show 2FA input
         return;
       }
@@ -233,7 +233,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
         })
       ).unwrap();
 
-      if (result?.accessToken) {
+      if (result?.data.accessToken) {
         // Clear rate limiting on successful login
         localStorage.removeItem('loginLock');
         setAttemptCount(0);

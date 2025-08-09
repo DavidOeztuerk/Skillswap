@@ -14,6 +14,10 @@ public class UserDbContext(
     // DbSets
     public DbSet<User> Users => Set<User>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserActivity> UserActivities => Set<UserActivity>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
@@ -25,10 +29,17 @@ public class UserDbContext(
 
         ConfigureUserEntity(modelBuilder);
         ConfigureUserRoleEntity(modelBuilder);
+        ConfigureRoleEntity(modelBuilder);
+        ConfigurePermissionEntity(modelBuilder);
+        ConfigureRolePermissionEntity(modelBuilder);
+        ConfigureUserPermissionEntity(modelBuilder);
         ConfigureRefreshTokenEntity(modelBuilder);
         ConfigureUserActivityEntity(modelBuilder);
         ConfigureUserSessionEntity(modelBuilder);
         ConfigureBlockedUserEntity(modelBuilder);
+
+        // Seed initial data
+        SeedInitialData(modelBuilder);
     }
 
     private static void ConfigureUserEntity(ModelBuilder modelBuilder)
@@ -167,6 +178,32 @@ public class UserDbContext(
                 .WithOne(e => e.User)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // RBAC Navigation properties
+            entity.HasMany(e => e.UserPermissions)
+                .WithOne(e => e.User)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.PermissionsGranted)
+                .WithOne(e => e.GrantedByUser)
+                .HasForeignKey(e => e.GrantedBy)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(e => e.PermissionsRevoked)
+                .WithOne(e => e.RevokedByUser)
+                .HasForeignKey(e => e.RevokedBy)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(e => e.RolePermissionsGranted)
+                .WithOne(e => e.GrantedByUser)
+                .HasForeignKey(e => e.GrantedBy)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(e => e.RolePermissionsRevoked)
+                .WithOne(e => e.RevokedByUser)
+                .HasForeignKey(e => e.RevokedBy)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // FavoriteSkillIds configuration with Value Comparer
             entity.Property(e => e.FavoriteSkillIds)
@@ -404,6 +441,327 @@ public class UserDbContext(
         });
     }
 
+    private static void ConfigureRoleEntity(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasMaxLength(450)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Description)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(e => e.Priority)
+                .HasDefaultValue(0);
+
+            entity.Property(e => e.IsSystemRole)
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("NOW()");
+
+            entity.Property(e => e.IsDeleted)
+                .HasDefaultValue(false);
+
+            // Indexes
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.Priority);
+
+            // Self-referencing relationship for role hierarchy
+            entity.HasOne(e => e.ParentRole)
+                .WithMany(e => e.ChildRoles)
+                .HasForeignKey(e => e.ParentRoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Navigation properties
+            entity.HasMany(e => e.UserRoles)
+                .WithOne()
+                .HasForeignKey("RoleId")
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.RolePermissions)
+                .WithOne(e => e.Role)
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigurePermissionEntity(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Permission>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasMaxLength(450)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.Category)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Description)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(e => e.Resource)
+                .HasMaxLength(200)
+                .HasDefaultValue("");
+
+            entity.Property(e => e.IsSystemPermission)
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("NOW()");
+
+            entity.Property(e => e.IsDeleted)
+                .HasDefaultValue(false);
+
+            // Indexes
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => new { e.Category, e.Name });
+
+            // Navigation properties
+            entity.HasMany(e => e.RolePermissions)
+                .WithOne(e => e.Permission)
+                .HasForeignKey(e => e.PermissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.UserPermissions)
+                .WithOne(e => e.Permission)
+                .HasForeignKey(e => e.PermissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureRolePermissionEntity(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasMaxLength(450)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.RoleId)
+                .IsRequired();
+
+            entity.Property(e => e.PermissionId)
+                .IsRequired();
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.GrantedAt)
+                .HasDefaultValueSql("NOW()");
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("NOW()");
+
+            entity.Property(e => e.IsDeleted)
+                .HasDefaultValue(false);
+
+            // Indexes
+            entity.HasIndex(e => new { e.RoleId, e.PermissionId }).IsUnique();
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.GrantedAt);
+
+            // Navigation properties are configured in Role and Permission entities
+        });
+    }
+
+    private static void ConfigureUserPermissionEntity(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<UserPermission>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasMaxLength(450)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.UserId)
+                .IsRequired();
+
+            entity.Property(e => e.PermissionId)
+                .IsRequired();
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.IsGranted)
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.GrantedAt)
+                .HasDefaultValueSql("NOW()");
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.ResourceId)
+                .HasMaxLength(450);
+
+            entity.Property(e => e.Conditions)
+                .HasColumnType("text");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("NOW()");
+
+            entity.Property(e => e.IsDeleted)
+                .HasDefaultValue(false);
+
+            // Indexes
+            entity.HasIndex(e => new { e.UserId, e.PermissionId, e.ResourceId });
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.ExpiresAt);
+            entity.HasIndex(e => e.ResourceId);
+
+            // Navigation properties are configured in User entity
+        });
+    }
+
+    private static void SeedInitialData(ModelBuilder modelBuilder)
+    {
+        // Define static GUIDs for consistent seeding
+        var superAdminRoleId = "550e8400-e29b-41d4-a716-446655440001";
+        var adminRoleId = "550e8400-e29b-41d4-a716-446655440002";
+        var moderatorRoleId = "550e8400-e29b-41d4-a716-446655440003";
+        var userRoleId = "550e8400-e29b-41d4-a716-446655440004";
+
+        var usersViewPermissionId = "660e8400-e29b-41d4-a716-446655440001";
+        var usersManagePermissionId = "660e8400-e29b-41d4-a716-446655440002";
+        var skillsViewPermissionId = "660e8400-e29b-41d4-a716-446655440003";
+        var skillsManagePermissionId = "660e8400-e29b-41d4-a716-446655440004";
+
+        // Seed system roles
+        modelBuilder.Entity<Role>().HasData(
+            new
+            {
+                Id = superAdminRoleId,
+                Name = "SuperAdmin",
+                Description = "Super Administrator with all permissions",
+                Priority = 1000,
+                IsSystemRole = true,
+                IsActive = true,
+                IsDeleted = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                ParentRoleId = (string?)null
+            },
+            new
+            {
+                Id = adminRoleId,
+                Name = "Admin",
+                Description = "Administrator with administrative permissions",
+                Priority = 900,
+                IsSystemRole = true,
+                IsActive = true,
+                ParentRoleId = (string?)null,
+                IsDeleted = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new
+            {
+                Id = moderatorRoleId,
+                Name = "Moderator",
+                Description = "Moderator with content moderation permissions",
+                Priority = 500,
+                IsSystemRole = true,
+                IsActive = true,
+                ParentRoleId = (string?)null,
+                IsDeleted = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new
+            {
+                Id = userRoleId,
+                Name = "User",
+                Description = "Standard user with basic permissions",
+                Priority = 100,
+                IsSystemRole = true,
+                IsActive = true,
+                ParentRoleId = (string?)null,
+                IsDeleted = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            }
+        );
+
+        // Seed basic permissions
+        modelBuilder.Entity<Permission>().HasData(
+            new
+            {
+                Id = usersViewPermissionId,
+                Name = "users.view",
+                Category = "Users",
+                Description = "View users",
+                Resource = "",
+                IsSystemPermission = true,
+                IsActive = true,
+                IsDeleted = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new
+            {
+                Id = usersManagePermissionId,
+                Name = "users.manage",
+                Category = "Users",
+                Description = "Manage users",
+                Resource = "",
+                IsSystemPermission = true,
+                IsActive = true,
+                IsDeleted = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new
+            {
+                Id = skillsViewPermissionId,
+                Name = "skills.view",
+                Category = "Skills",
+                Description = "View skills",
+                Resource = "",
+                IsSystemPermission = true,
+                IsActive = true,
+                IsDeleted = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new
+            {
+                Id = skillsManagePermissionId,
+                Name = "skills.manage",
+                Category = "Skills",
+                Description = "Manage skills",
+                Resource = "",
+                IsSystemPermission = true,
+                IsActive = true,
+                IsDeleted = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            }
+        );
+    }
     // Helper methods for auditing
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

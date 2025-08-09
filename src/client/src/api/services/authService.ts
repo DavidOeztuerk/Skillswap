@@ -21,6 +21,7 @@ import {
   removeToken,
 } from '../../utils/authHelpers';
 import apiClient from '../apiClient';
+import httpClient from '../httpClient';
 import { UserProfileResponse } from '../../types/contracts/responses/UserProfileResponse';
 import { ApiResponse } from '../../types/common/ApiResponse';
 
@@ -31,17 +32,21 @@ const authService = {
   /**
    * Login with credentials
    */
-  async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>(
+  async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
+    // Use httpClient directly to get the full ApiResponse (not apiClient which unwraps data)
+    const response = await httpClient.post<ApiResponse<LoginResponse>>(
       AUTH_ENDPOINTS.LOGIN,
       credentials
     );
  
     const storageType = credentials?.rememberMe ? 'permanent' : 'session';
     
-    setToken(response.accessToken, storageType);
-    if (response?.refreshToken) {
-      setRefreshToken(response.refreshToken, storageType);
+    // Set tokens from the response
+    if (response?.data?.accessToken) {
+      setToken(response.data.accessToken, storageType);
+    }
+    if (response?.data?.refreshToken) {
+      setRefreshToken(response.data.refreshToken, storageType);
     }
     
     return response;

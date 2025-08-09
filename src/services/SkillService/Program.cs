@@ -4,6 +4,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Infrastructure.Authorization;
 using Infrastructure.Extensions;
 using EventSourcing;
 using Infrastructure.Security;
@@ -137,6 +138,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddSkillSwapAuthorization();
 
+// Add permission-based authorization
+builder.Services.AddPermissionAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPermissionPolicies();
+});
+
 builder.Services.Configure<RateLimitingOptions>(builder.Configuration.GetSection("RateLimiting"));
 
 builder.Services.AddEndpointsApiExplorer();
@@ -192,6 +200,9 @@ app.UseMiddleware<RateLimitingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Permission middleware (after authentication/authorization)
+app.UsePermissionMiddleware();
 
 using (var scope = app.Services.CreateScope())
 {

@@ -82,25 +82,16 @@ export const useAuth = () => {
     }
   }, [token]);
 
-  // Memoized permission checker
+  // Simple permission checker - just check roles from user object
+  // The actual permission checking should be done via PermissionContext
   const permissionChecker = useMemo(() => ({
-    hasPermission: (perm: string): boolean => {
-      return user?.permissions?.includes(perm) ?? false;
-    },
-     hasAnyPermission: (perms: string[]): boolean => {
-      console.log(perms)
-      return perms.some(p => user?.permissions?.includes(p)) ?? false;
-    },
-    hasAllPermissions: (perms: string[]): boolean => {
-      return perms.every(p => user?.permissions?.includes(p)) ?? false;
-    },
     hasAnyRole: (roles: string[]): boolean => {
       return roles.some(role => user?.roles?.includes(role)) ?? false;
     },
     hasAllRoles: (roles: string[]): boolean => {
       return roles.every(role => user?.roles?.includes(role)) ?? false;
     },
-  }), [user?.permissions, user?.roles]);
+  }), [user?.roles]);
 
   // Attempt silent login on mount
 // useEffect(() => {

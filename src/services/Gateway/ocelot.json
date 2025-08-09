@@ -186,6 +186,76 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/users/permissions/my",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/permissions/my",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/permissions/check",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/permissions/check",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/permissions/admin/user/{userId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/permissions/admin/user/{userId}",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/permissions/admin/grant",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/permissions/admin/grant",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/permissions/admin/revoke",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/permissions/admin/revoke",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/permissions/admin/assign-role",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/permissions/admin/assign-role",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/permissions/admin/remove-role",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/permissions/admin/remove-role",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
       "DownstreamPathTemplate": "/skills/my-skills",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
@@ -968,6 +1038,392 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      }
+    },
+    {
+      "Comment": "========== ADMIN ROUTES - USER MANAGEMENT ==========",
+      "DownstreamPathTemplate": "/users/admin/all",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/users",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "users:view_all"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/users/admin/{userId}/block",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/users/{userId}/block",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "users:block"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/admin/{userId}/unblock",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/users/{userId}/unblock",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "users:unblock"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/admin/{userId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/users/{userId}",
+      "UpstreamHttpMethod": ["DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "users:delete"
+      }
+    },
+    {
+      "Comment": "========== PERMISSION MANAGEMENT ROUTES ==========",
+      "DownstreamPathTemplate": "/permission/check",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/permission/check",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/permission/my-permissions",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/permission/my-permissions",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/permission/grant",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/permission/grant",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "permissions:manage"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/permission/revoke",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/permission/revoke",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "permissions:manage"
+      }
+    },
+    {
+      "Comment": "========== ROLE MANAGEMENT ROUTES ==========",
+      "DownstreamPathTemplate": "/permission/roles",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/roles",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "roles:view"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/permission/roles",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/roles",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "roles:create"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/permission/assign-role",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/permission/assign-role",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "users:manage_roles"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/permission/remove-role",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/permission/remove-role",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "users:manage_roles"
+      }
+    },
+    {
+      "Comment": "========== ADMIN SKILL MANAGEMENT ROUTES ==========",
+      "DownstreamPathTemplate": "/categories",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/admin/skills/categories",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "skills:manage_categories"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/categories/{categoryId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/admin/skills/categories/{categoryId}",
+      "UpstreamHttpMethod": ["PUT", "DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "skills:manage_categories"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/proficiency-levels",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/admin/skills/proficiency-levels",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "skills:manage_proficiency"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/proficiency-levels/{levelId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/admin/skills/proficiency-levels/{levelId}",
+      "UpstreamHttpMethod": ["PUT", "DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "skills:manage_proficiency"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/skills/admin/verify/{skillId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/admin/skills/{skillId}/verify",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "skills:verify"
+      }
+    },
+    {
+      "Comment": "========== ADMIN APPOINTMENT MANAGEMENT ==========",
+      "DownstreamPathTemplate": "/appointments/admin/all",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice", "Port": 5004 }],
+      "UpstreamPathTemplate": "/api/admin/appointments",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "appointments:view_all"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/appointments/admin/{appointmentId}/cancel",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice", "Port": 5004 }],
+      "UpstreamPathTemplate": "/api/admin/appointments/{appointmentId}/cancel",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "appointments:cancel_any"
+      }
+    },
+    {
+      "Comment": "========== ADMIN STATISTICS & ANALYTICS ==========",
+      "DownstreamPathTemplate": "/analytics/admin/dashboard",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/analytics/dashboard",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "admin:view_statistics"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/analytics/admin/users",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/analytics/users",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "admin:view_statistics"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/analytics/admin/skills",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/admin/analytics/skills",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "admin:view_statistics"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "Comment": "========== MODERATION ROUTES ==========",
+      "DownstreamPathTemplate": "/reports",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/moderate/reports",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "reports:handle"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/reports/{reportId}/handle",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/moderate/reports/{reportId}/handle",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "reports:handle"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/reviews/moderate",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/moderate/reviews",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "reviews:moderate"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/reviews/{reviewId}/moderate",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/moderate/reviews/{reviewId}",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "reviews:moderate"
+      }
+    },
+    {
+      "Comment": "========== SYSTEM MANAGEMENT ROUTES (SUPER ADMIN ONLY) ==========",
+      "DownstreamPathTemplate": "/system/settings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/system/settings",
+      "UpstreamHttpMethod": ["GET", "PUT"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "system:manage_settings"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/system/logs",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/system/logs",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "system:view_logs"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/system/integrations",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/system/integrations",
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "permission": "system:manage_integrations"
       }
     }
   ],

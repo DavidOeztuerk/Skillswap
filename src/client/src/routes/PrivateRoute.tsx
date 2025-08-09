@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { usePermission } from '../contexts/PermissionContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 
 /**
@@ -39,7 +40,8 @@ enum AuthStatus {
 const useAuthorizationStatus = (
   config: Required<Pick<PrivateRouteConfig, 'roles' | 'permissions'>>
 ) => {
-  const { isAuthenticated, isLoading, user, hasAnyRole, hasAnyPermission } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const { hasAnyRole, hasAnyPermission, roles: contextRoles, permissions: contextPermissions } = usePermission();
   
   return useMemo(() => {
     // Schritt 1: Prüfe ob noch geladen wird
@@ -67,30 +69,30 @@ const useAuthorizationStatus = (
     }
     
     // Schritt 4: Prüfe Rollen (nur wenn spezifische Rollen gefordert sind)
-    if (config.roles.length > 0 && !hasAnyRole(config.roles)) {
+    if (config.roles.length > 0 && !hasAnyRole(...config.roles)) {
       console.log('🔐 PrivateRoute: Role check failed', {
         required: config.roles,
-        userRoles: user.roles,
-        hasAnyRole: hasAnyRole(config.roles)
+        userRoles: contextRoles,
+        hasAnyRole: hasAnyRole(...config.roles)
       });
       return { 
         status: AuthStatus.UNAUTHORIZED, 
         reason: 'Fehlende Rolle',
-        details: { required: config.roles, user: user.roles }
+        details: { required: config.roles, user: contextRoles }
       };
     }
     
     // Schritt 5: Prüfe Berechtigungen
-    if (config.permissions.length > 0 && !hasAnyPermission(config.permissions)) {
+    if (config.permissions.length > 0 && !hasAnyPermission(...config.permissions)) {
       return { 
         status: AuthStatus.UNAUTHORIZED, 
         reason: 'Fehlende Berechtigung',
-        details: { required: config.permissions, user: user.permissions }
+        details: { required: config.permissions, user: contextPermissions }
       };
     }
     
     return { status: AuthStatus.AUTHENTICATED };
-  }, [isAuthenticated, isLoading, user, config.roles, config.permissions, hasAnyRole, hasAnyPermission]);
+  }, [isAuthenticated, isLoading, user, config.roles, config.permissions, hasAnyRole, hasAnyPermission, contextRoles, contextPermissions]);
 };
 
 /**

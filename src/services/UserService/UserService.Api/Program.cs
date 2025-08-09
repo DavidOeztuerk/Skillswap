@@ -7,6 +7,7 @@ using Contracts.User.Responses.Auth;
 using CQRS.Extensions;
 using CQRS.Models;
 using EventSourcing;
+using Infrastructure.Authorization;
 using Infrastructure.Extensions;
 using Infrastructure.Middleware;
 using Infrastructure.Models;
@@ -215,6 +216,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // Add SkillSwap authorization policies
 builder.Services.AddSkillSwapAuthorization();
 
+// Add permission-based authorization
+builder.Services.AddPermissionAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPermissionPolicies();
+});
+
 // ============================================================================
 // RATE LIMITING SETUP
 // ============================================================================
@@ -293,6 +301,9 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Permission middleware (after authentication/authorization)
+app.UsePermissionMiddleware();
+
 // ============================================================================
 // DATABASE INITIALIZATION
 // ============================================================================
@@ -326,6 +337,7 @@ app.MapUserSkillsController();
 app.MapUserBlockingController();
 app.MapUserManagementController();
 app.MapTwoFactorController();
+app.MapPermissionController();
 
 // ============================================================================
 // HEALTH CHECKS AND UTILITY ENDPOINTS
@@ -348,6 +360,30 @@ events.MapPost("/replay", ([FromBody] EventReplayService request) =>
     .WithName("ReplayEvents")
     .WithSummary("Replay domain events")
     .WithTags("Events");
+
+// ============================================================================
+// DATABASE MIGRATION & SEEDING
+// ============================================================================
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
+    try
+    {
+        app.Logger.LogInformation("Applying database migrations...");
+        await dbContext.Database.MigrateAsync();
+        
+        app.Logger.LogInformation("Seeding RBAC data...");
+        await UserService.Infrastructure.Data.RbacSeedData.SeedAsync(dbContext);
+        
+        app.Logger.LogInformation("Database initialization complete");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "An error occurred while initializing the database");
+        throw;
+    }
+}
 
 // ============================================================================
 // START APPLICATION

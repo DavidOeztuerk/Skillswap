@@ -205,8 +205,14 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
         
+        // Check if action.payload is valid
+        if (!action.payload) {
+          state.error = { message: 'Invalid login response', code: 'INVALID_RESPONSE', details: undefined };
+          return;
+        }
+        
         // Check if 2FA is required
-        if (action.payload?.requires2FA) {
+        if (action.payload.data?.requires2FA) {
           state.twoFactorRequired = true;
           state.pendingLoginCredentials = action.meta.arg;
           state.isAuthenticated = false;
@@ -218,7 +224,7 @@ const authSlice = createSlice({
         state.pendingLoginCredentials = null;
         
         // Handle both nested user object and flat response
-        const userData = action.payload?.userInfo;
+        const userData = action.payload.data?.userInfo;
         state.user = {
           id: userData?.userId || '',
           email: userData?.email || '',
@@ -231,16 +237,19 @@ const authSlice = createSlice({
           createdAt: '',
         };
         
-        state.token = action.payload?.accessToken || null;
-        state.refreshToken = action.payload?.refreshToken || null;
+        state.token = action.payload.data?.accessToken || null;
+        state.refreshToken = action.payload.data?.refreshToken || null;
         state.error = null;
         
-        console.log('✅ Login successful in authSlice, token set:', action.payload.accessToken ? 'Yes' : 'No');
+        console.log('✅ Login successful in authSlice, token set:', action.payload.data?.accessToken ? 'Yes' : 'No');
         console.log('🔍 AuthSlice received response:', {
-          hasAccessToken: !!action.payload.accessToken,
-          hasRefreshToken: !!action.payload.refreshToken,
-          hasUser: !!action.payload.userInfo
+          hasAccessToken: !!action.payload.data?.accessToken,
+          hasRefreshToken: !!action.payload.data?.refreshToken,
+          hasUser: !!action.payload.data?.userInfo,
+          userRoles: userData?.roles,
+          fullPayload: action.payload
         });
+        console.log('👤 User Roles after login:', userData?.roles);
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;

@@ -122,80 +122,94 @@ const protectedRoutes = {
  * Admin Routes - mit role: 'admin'
  */
 const adminRoutes = {
-  dashboard: createLazyRoute(() => import('../pages/admin/AdminDashboardPage'), {
-    roles: ['admin'],
+  dashboard: createLazyRoute(() => import('../pages/admin/Dashboard'), {
+    permissions: ['admin:access_dashboard'],
     useSkeleton: true,
     skeletonVariant: 'dashboard',
     loadingMessage: "Admin-Dashboard wird geladen...",
   }),
   
-  users: createLazyRoute(() => import('../pages/admin/AdminUsersPage'), {
-    roles: ['admin'],
+  users: createLazyRoute(() => import('../pages/admin/UserManagement'), {
+    permissions: ['users:view_all'],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Benutzer werden geladen...",
   }),
   
   skills: createLazyRoute(() => import('../pages/admin/AdminSkillsPage'), {
-    roles: ['admin'],
+    roles: ['Admin', 'SuperAdmin'],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Skills werden geladen...",
   }),
   
   appointments: createLazyRoute(() => import('../pages/admin/AdminAppointmentsPage'), {
-    roles: ['admin'],
+    roles: ['Admin', 'SuperAdmin'],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Termine werden geladen...",
   }),
   
   matches: createLazyRoute(() => import('../pages/admin/AdminMatchesPage'), {
-    roles: ['admin'],
+    roles: ['Admin', 'SuperAdmin'],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Matches werden geladen...",
   }),
   
   analytics: createLazyRoute(() => import('../pages/admin/AdminAnalyticsPage'), {
-    roles: ['admin'],
+    roles: ['Admin', 'SuperAdmin'],
     useSkeleton: true,
     skeletonVariant: 'dashboard',
     loadingMessage: "Analytics werden geladen...",
   }),
   
   systemHealth: createLazyRoute(() => import('../pages/admin/AdminSystemHealthPage'), {
-    roles: ['admin'],
+    roles: ['Admin', 'SuperAdmin'],
     useSkeleton: true,
     skeletonVariant: 'dashboard',
     loadingMessage: "System-Status wird geladen...",
   }),
   
   auditLogs: createLazyRoute(() => import('../pages/admin/AdminAuditLogsPage'), {
-    roles: ['admin'],
+    roles: ['Admin', 'SuperAdmin'],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Audit-Logs werden geladen...",
   }),
   
   moderation: createLazyRoute(() => import('../pages/admin/AdminModerationPage'), {
-    roles: ['admin'],
+    roles: ['Admin', 'SuperAdmin'],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Moderations-Berichte werden geladen...",
   }),
   
   settings: createLazyRoute(() => import('../pages/admin/AdminSettingsPage'), {
-    roles: ['admin'],
+    roles: ['Admin', 'SuperAdmin'],
     useSkeleton: true,
     skeletonVariant: 'form',
     loadingMessage: "Einstellungen werden geladen...",
   }),
   
   metrics: createLazyRoute(() => import('../pages/admin/AdminMetricsPage'), {
-    roles: ['admin'],
+    roles: ['Admin', 'SuperAdmin'],
     useSkeleton: true,
     skeletonVariant: 'list',
+  }),
+  
+  skillCategories: createLazyRoute(() => import('../pages/admin/SkillCategoriesManagement'), {
+    permissions: ['skills:manage_categories'],
+    useSkeleton: true,
+    skeletonVariant: 'list',
+    loadingMessage: "Skill-Kategorien werden geladen...",
+  }),
+  
+  proficiencyLevels: createLazyRoute(() => import('../pages/admin/ProficiencyLevelsManagement'), {
+    permissions: ['skills:manage_proficiency'],
+    useSkeleton: true,
+    skeletonVariant: 'list',
+    loadingMessage: "Proficiency Levels werden geladen...",
   }),
 };
 
@@ -392,7 +406,20 @@ const routes: RouteObject[] = [
           },
           {
             path: 'skills',
-            element: <adminRoutes.skills.component />,
+            children: [
+              {
+                index: true,
+                element: <adminRoutes.skills.component />,
+              },
+              {
+                path: 'categories',
+                element: <adminRoutes.skillCategories.component />,
+              },
+              {
+                path: 'proficiency',
+                element: <adminRoutes.proficiencyLevels.component />,
+              },
+            ],
           },
           {
             path: 'appointments',
