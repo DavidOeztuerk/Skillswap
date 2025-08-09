@@ -15,7 +15,6 @@ import {
   generateTwoFactorSecret as generateTwoFactorSecretAction,
   verifyTwoFactorCode as verifyTwoFactorCodeAction,
   clearError,
-  updateUser,
   setLoading,
   forceLogout,
 } from '../features/auth/authSlice';
@@ -28,9 +27,8 @@ import { VerifyEmailRequest } from '../types/contracts/requests/VerifyEmailReque
 import { GenerateTwoFactorSecretResponse } from '../types/contracts/responses/GenerateTwoFactorSecretResponse';
 import { VerifyTwoFactorCodeRequest } from '../types/contracts/requests/VerifyTwoFactorCodeRequest';
 import { VerifyTwoFactorCodeResponse } from '../types/contracts/responses/VerifyTwoFactorCodeResponse';
-import { User } from '../types/models/User';
 import { UserProfileResponse } from '../types/contracts/responses/UserProfileResponse';
-import { withDefault, safeGet, isDefined, ensureArray, ensureString } from '../utils/safeAccess';
+import { withDefault, isDefined } from '../utils/safeAccess';
 
 interface LocationState {
   from?: { pathname: string };
@@ -53,8 +51,8 @@ export const useAuth = () => {
   const userDisplayName = useMemo((): string => {
     if (!isDefined(user)) return 'Benutzer';
 
-    const firstName = ensureString(user.firstName).trim();
-    const lastName = ensureString(user.lastName).trim();
+    const firstName = user.firstName.trim();
+    const lastName = user.lastName.trim();
 
     if (firstName && lastName) {
       return `${firstName} ${lastName}`;
@@ -63,7 +61,7 @@ export const useAuth = () => {
     if (firstName) return firstName;
     if (lastName) return lastName;
 
-    return withDefault(user.email, 'Benutzer');
+    return withDefault(user.email, 'Benutzer' as NonNullable<string>);
   }, [user]);
 
   // Memoized token expiration check
@@ -87,37 +85,14 @@ export const useAuth = () => {
   // The actual permission checking should be done via PermissionContext
   const permissionChecker = useMemo(() => ({
     hasAnyRole: (roles: string[]): boolean => {
-      const userRoles = ensureArray(user?.roles);
-      return roles.some(role => userRoles.includes(role));
+      const userRoles = user?.roles;
+      return roles?.some(role => userRoles?.includes(role));
     },
     hasAllRoles: (roles: string[]): boolean => {
-      const userRoles = ensureArray(user?.roles);
-      return roles.length > 0 && roles.every(role => userRoles.includes(role));
+      const userRoles = user?.roles;
+      return roles.length > 0 && roles.every(role => userRoles?.includes(role));
     },
   }), [user?.roles]);
-
-  // Attempt silent login on mount
-// useEffect(() => {
-//   const initializeAuth = async () => {
-//     // Nur wenn noch nicht authentifiziert und nicht bereits am Laden
-//     if (!isAuthenticated && !isLoading && !error) {
-//       console.log('Attempting silent login...');
-//       dispatch(setLoading(true)); // Loading state setzen
-      
-//       try {
-//         const success = await dispatch(silentLoginAction()).unwrap();
-//         console.log('Silent login result:', success);
-//       } catch (error) {
-//         console.log('Silent login failed:', error);
-//         // Fehler nicht weiterwerfen, da es normal ist, wenn kein Token vorhanden
-//       } finally {
-//         dispatch(setLoading(false));
-//       }
-//     }
-//   };
-
-//   initializeAuth();
-// }, [dispatch, isAuthenticated, isLoading, error]);
 
   /**
    * Enhanced login with comprehensive error handling and navigation
@@ -134,9 +109,9 @@ export const useAuth = () => {
         const result = await dispatch(loginAction(credentials)).unwrap();
         
         if (result) {
-          // Get redirect path from location state or use provided/default with null safety
+          // Get redirect path from location state or use provided/default
           const state = location.state as LocationState;
-          const from = safeGet(state, 'from.pathname', redirectPath || '/dashboard');
+          const from = state?.from?.pathname || redirectPath || '/dashboard';
           
           // Clear any previous errors
           dispatch(clearError());
@@ -163,7 +138,7 @@ export const useAuth = () => {
    * @param redirectPath - Path to navigate after successful registration
    * @returns Promise<boolean> - Success status
    */
-    const register = useCallback(
+  const register = useCallback(
     async (userData: RegisterRequest, redirectPath?: string) => {
       try {
         // Set loading state manually for better UX
@@ -209,18 +184,12 @@ export const useAuth = () => {
 
   /**
    * Load user profile data
-   * @returns Promise<User | null> - User data or null on failure
+   * @returns Promise<UserProfileResponse | null> - User profile data or null on failure
    */
   const loadUserProfile = useCallback(async (): Promise<UserProfileResponse | null> => {
     try {
-      const resultAction = await dispatch(getProfile()).unwrap();
-
-      if (getProfile.fulfilled.match(resultAction)) {
-        return resultAction;
-      } else {
-        console.error('Profile loading failed:', resultAction);
-        return null;
-      }
+      const result = await dispatch(getProfile()).unwrap();
+      return result.data || null;
     } catch (error) {
       console.error('Load profile error:', error);
       return null;
@@ -235,14 +204,8 @@ export const useAuth = () => {
   const updateProfile = useCallback(
     async (profileData: UpdateProfileRequest): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(updateProfileAction(profileData));
-
-        if (updateProfileAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          console.error('Profile update failed:', resultAction.payload);
-          return false;
-        }
+        await dispatch(updateProfileAction(profileData)).unwrap();
+        return true;
       } catch (error) {
         console.error('Update profile error:', error);
         return false;
@@ -259,14 +222,8 @@ export const useAuth = () => {
   const uploadProfilePicture = useCallback(
     async (file: File): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(uploadProfilePictureAction(file));
-
-        if (uploadProfilePictureAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          console.error('Profile picture upload failed:', resultAction.payload);
-          return false;
-        }
+        await dispatch(uploadProfilePictureAction(file)).unwrap();
+        return true;
       } catch (error) {
         console.error('Upload profile picture error:', error);
         return false;
@@ -283,14 +240,8 @@ export const useAuth = () => {
   const changePassword = useCallback(
     async (passwordData: ChangePasswordRequest): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(changePasswordAction(passwordData));
-
-        if (changePasswordAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          console.error('Password change failed:', resultAction.payload);
-          return false;
-        }
+        await dispatch(changePasswordAction(passwordData)).unwrap();
+        return true;
       } catch (error) {
         console.error('Change password error:', error);
         return false;
@@ -305,16 +256,10 @@ export const useAuth = () => {
    */
   const performSilentLogin = useCallback(async (): Promise<boolean> => {
     try {
-      const resultAction = await dispatch(silentLoginAction());
-
-      if (silentLoginAction.fulfilled.match(resultAction)) {
-        return true;
-      } else {
-        console.info('Silent login failed:', resultAction.payload);
-        return false;
-      }
+      await dispatch(silentLoginAction()).unwrap();
+      return true;
     } catch (error) {
-      console.error('Silent login error:', error);
+      console.info('Silent login failed:', error);
       return false;
     }
   }, [dispatch]);
@@ -327,13 +272,8 @@ export const useAuth = () => {
   const verifyEmail = useCallback(
     async (request: VerifyEmailRequest): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(verifyEmailAction(request));
-        if (verifyEmailAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          console.error('Email verification failed:', resultAction.payload);
-          return false;
-        }
+        await dispatch(verifyEmailAction(request)).unwrap();
+        return true;
       } catch (error) {
         console.error('Verify email error:', error);
         return false;
@@ -350,14 +290,8 @@ export const useAuth = () => {
   const requestPasswordReset = useCallback(
     async (email: string): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(requestPasswordResetAction(email));
-
-        if (requestPasswordResetAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          console.error('Password reset request failed:', resultAction.payload);
-          return false;
-        }
+        await dispatch(requestPasswordResetAction(email)).unwrap();
+        return true;
       } catch (error) {
         console.error('Request password reset error:', error);
         return false;
@@ -375,16 +309,8 @@ export const useAuth = () => {
   const resetPassword = useCallback(
     async (token: string, password: string): Promise<boolean> => {
       try {
-        const resultAction = await dispatch(
-          resetPasswordAction({ token, password })
-        );
-
-        if (resetPasswordAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          console.error('Password reset failed:', resultAction.payload);
-          return false;
-        }
+        await dispatch(resetPasswordAction({ token, password })).unwrap();
+        return true;
       } catch (error) {
         console.error('Reset password error:', error);
         return false;
@@ -399,17 +325,6 @@ export const useAuth = () => {
   const dismissError = useCallback((): void => {
     dispatch(clearError());
   }, [dispatch]);
-
-  /**
-   * Update user data locally
-   * @param userData - Partial user data to update
-   */
-  const updateUserData = useCallback(
-    (userData: Partial<User>): void => {
-      dispatch(updateUser(userData));
-    },
-    [dispatch]
-  );
 
   /**
    * Set loading state manually
@@ -430,19 +345,13 @@ export const useAuth = () => {
     navigate('/auth/login', { replace: true });
   }, [dispatch, navigate]);
 
-
-    /**
+  /**
    * Generate 2FA secret (returns QR code and secret)
    */
   const generateTwoFactorSecret = useCallback(async (): Promise<GenerateTwoFactorSecretResponse | null> => {
     try {
-      const resultAction = await dispatch(generateTwoFactorSecretAction());
-      if (generateTwoFactorSecretAction.fulfilled.match(resultAction)) {
-        return resultAction.payload;
-      } else {
-        console.error('2FA secret generation failed:', resultAction.payload);
-        return null;
-      }
+      const result = await dispatch(generateTwoFactorSecretAction()).unwrap();
+      return result.data || null;
     } catch (error) {
       console.error('2FA secret generation error:', error);
       return null;
@@ -454,13 +363,8 @@ export const useAuth = () => {
    */
   const verifyTwoFactorCode = useCallback(async (request: VerifyTwoFactorCodeRequest): Promise<VerifyTwoFactorCodeResponse | null> => {
     try {
-      const resultAction = await dispatch(verifyTwoFactorCodeAction(request));
-      if (verifyTwoFactorCodeAction.fulfilled.match(resultAction)) {
-        return resultAction.payload;
-      } else {
-        console.error('2FA verification failed:', resultAction.payload);
-        return null;
-      }
+      const result = await dispatch(verifyTwoFactorCodeAction(request)).unwrap();
+      return result || null;
     } catch (error) {
       console.error('2FA verification error:', error);
       return null;
@@ -499,7 +403,6 @@ export const useAuth = () => {
 
     // State management
     dismissError,
-    updateUserData,
     setLoadingState,
     forceLogoutUser,
 

@@ -84,8 +84,8 @@ const MatchList: React.FC<MatchListProps> = ({
       const skillName = match.skill.name.toLowerCase();
       const matchesSearch =
         !searchTerm ||
-        skillName.includes(searchTerm.toLowerCase()) ||
-        otherUserName.includes(searchTerm.toLowerCase());
+        skillName?.includes(searchTerm.toLowerCase()) ||
+        otherUserName?.includes(searchTerm.toLowerCase());
 
       // Status
       const matchesStatus = !selectedStatus || match.status === selectedStatus;

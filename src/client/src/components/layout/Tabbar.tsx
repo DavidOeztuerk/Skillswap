@@ -46,7 +46,7 @@ const Tabbar: React.FC = () => {
 
     // Exakte Pfadübereinstimmung zuerst
     const exactMatches = ['/', '/dashboard', '/skills', '/matchmaking', '/appointments', '/profile'];
-    if (exactMatches.includes(path)) {
+    if (exactMatches?.includes(path)) {
       return path;
     }
 
@@ -139,7 +139,7 @@ const Tabbar: React.FC = () => {
     
     // Check permissions
     if (item.permissions && item.permissions.length > 0) {
-      return item.permissions.some(permission => hasPermission(permission));
+      return item.permissions?.some(permission => hasPermission(permission));
     }
     
     return true;

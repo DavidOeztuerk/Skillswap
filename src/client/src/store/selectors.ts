@@ -84,8 +84,8 @@
     
 //     const searchQuery = skillsState.searchQuery.toLowerCase();
 //     return skills.filter((skill) => 
-//       skill.name.toLowerCase().includes(searchQuery) ||
-//       skill.description.toLowerCase().includes(searchQuery)
+//       skill.name.toLowerCase()?.includes(searchQuery) ||
+//       skill.description.toLowerCase()?.includes(searchQuery)
 //     );
 //   }
 // );

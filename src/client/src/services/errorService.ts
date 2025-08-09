@@ -48,7 +48,7 @@ class ErrorService {
    * Determines error type based on error object
    */
   private determineErrorType(error: unknown): ErrorDetails['type'] {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
+    if (error instanceof TypeError && error.message?.includes('fetch')) {
       return 'NETWORK';
     }
     
@@ -167,7 +167,7 @@ class ErrorService {
     this.logError(errorDetails);
 
     // Show user notification for certain error types
-    if (['NETWORK', 'SERVER', 'AUTH'].includes(errorType)) {
+    if (['NETWORK', 'SERVER', 'AUTH']?.includes(errorType)) {
       const userMessage = this.getUserFriendlyMessage(errorType, originalMessage);
       
       store.dispatch(addNotification({

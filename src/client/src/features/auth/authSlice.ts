@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import authService from '../../api/services/authService';
 import { removeToken, getToken, getRefreshToken } from '../../utils/authHelpers';
 import { AuthState } from '../../types/states/AuthState';
@@ -6,12 +6,11 @@ import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
 import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
 import { UpdateProfileRequest } from '../../types/contracts/requests/UpdateProfileRequest';
 import { ChangePasswordRequest } from '../../types/contracts/requests/ChangePasswordRequest';
-import { User } from '../../types/models/User';
 import { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRequest';
 import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
 import { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
 import { SliceError } from '../../store/types';
-import { withDefault, safeGet, isDefined } from '../../utils/safeAccess';
+import { withDefault, isDefined } from '../../utils/safeAccess';
 
 // Helper to create standardized error
 const createStandardError = (error: any): SliceError => ({
@@ -19,10 +18,6 @@ const createStandardError = (error: any): SliceError => ({
   code: error?.status || error?.code || 'UNKNOWN_ERROR',
   details: error?.data || error
 });
-
-interface ExtendedLoginRequest extends LoginRequest {
-  rememberMe?: boolean;
-}
 
 const initialState: AuthState = {
   user: null,
@@ -39,7 +34,7 @@ const initialState: AuthState = {
 // Async thunks
 export const login = createAsyncThunk(
   'auth/login',
-  async (credentials: ExtendedLoginRequest) => {
+  async (credentials: LoginRequest) => {
     return await authService.login(credentials);
   }
 );
@@ -54,9 +49,7 @@ export const register = createAsyncThunk(
 export const refreshToken = createAsyncThunk(
   'auth/refreshToken',
   async () => {
-    const response = await authService.refreshToken();
-    if (!response) throw new Error('Token-Aktualisierung fehlgeschlagen');
-    return response;
+    return await authService.refreshToken();
   }
 );
 
@@ -84,17 +77,14 @@ export const uploadProfilePicture = createAsyncThunk(
 export const changePassword = createAsyncThunk(
   'auth/changePassword',
   async (passwordData: ChangePasswordRequest) => {
-    await authService.changePassword(passwordData);
-    return true;
+    return await authService.changePassword(passwordData);
   }
 );
 
 export const silentLogin = createAsyncThunk(
   'auth/silentLogin',
   async () => {
-    const user = await authService.silentLogin();
-    if (!user) throw new Error('Automatische Anmeldung fehlgeschlagen');
-    return user;
+    return await authService.silentLogin();
   }
 );
 
@@ -108,8 +98,7 @@ export const logout = createAsyncThunk(
 export const verifyEmail = createAsyncThunk(
   'auth/verifyEmail',
   async (request: VerifyEmailRequest) => {
-    await authService.verifyEmail(request);
-    return true;
+    return await authService.verifyEmail(request);
   }
 );
 
@@ -144,16 +133,14 @@ export const disableTwoFactor = createAsyncThunk(
 export const requestPasswordReset = createAsyncThunk(
   'auth/requestPasswordReset',
   async (email: string) => {
-    await authService.forgotPassword(email);
-    return email;
+    return await authService.forgotPassword(email);;
   }
 );
 
 export const resetPassword = createAsyncThunk(
   'auth/resetPassword',
   async ({ token, password }: { token: string; password: string }) => {
-    await authService.resetPassword(token, password);
-    return true;
+    return  await authService.resetPassword(token, password);;
   }
 );
 
@@ -165,19 +152,8 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    updateUser: (state, action: PayloadAction<Partial<User>>) => {
-      if (state.user) {
-        state.user = { ...state.user, ...action.payload };
-      }
-    },
-    setLoading: (state, action: PayloadAction<boolean>) => {
+    setLoading: (state, action) => {
       state.isLoading = action.payload;
-    },
-    setTwoFactorRequired: (state, action: PayloadAction<boolean>) => {
-      state.twoFactorRequired = action.payload;
-    },
-    setPendingLoginCredentials: (state, action: PayloadAction<ExtendedLoginRequest | null>) => {
-      state.pendingLoginCredentials = action.payload;
     },
     clearTwoFactorState: (state) => {
       state.twoFactorRequired = false;
@@ -204,16 +180,11 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
+        let response = action.payload;
         state.isLoading = false;
-        
-        // Check if action.payload is valid
-        if (!isDefined(action.payload)) {
-          state.error = { message: 'Invalid login response', code: 'INVALID_RESPONSE', details: undefined };
-          return;
-        }
-        
+
         // Check if 2FA is required
-        if (safeGet(action.payload, 'data.requires2FA', false)) {
+        if (response.data?.requires2FA) {
           state.twoFactorRequired = true;
           state.pendingLoginCredentials = action.meta.arg;
           state.isAuthenticated = false;
@@ -221,11 +192,11 @@ const authSlice = createSlice({
         }
         
         state.isAuthenticated = true;
-        state.twoFactorRequired = false;
+        state.twoFactorRequired = response.data?.requires2FA;
         state.pendingLoginCredentials = null;
         
         // Handle both nested user object and flat response with safe access
-        const userData = safeGet(action.payload, 'data.userInfo', null);
+        const userData = response.data?.userInfo;
         state.user = isDefined(userData) ? {
           id: withDefault(userData.userId, ''),
           email: withDefault(userData.email, ''),
@@ -235,20 +206,29 @@ const authSlice = createSlice({
           roles: withDefault(userData.roles, []),
           emailVerified: withDefault(userData.emailVerified, false),
           accountStatus: withDefault(userData.accountStatus, 'active'),
-          createdAt: withDefault(userData.createdAt, ''),
         } : null;
         
-        state.token = safeGet(action.payload, 'data.accessToken', null);
-        state.refreshToken = safeGet(action.payload, 'data.refreshToken', null);
+        state.token = response.data?.accessToken;
+        state.refreshToken = response.data?.refreshToken;
         state.error = null;
+        
+        // Store permissions in localStorage if available
+        if (response.data?.permissions) {
+          localStorage.setItem('userPermissions', JSON.stringify({
+            ...response.data.permissions,
+            timestamp: Date.now()
+          }));
+          console.log('💾 Permissions stored from login response');
+        }
         
         console.log('✅ Login successful in authSlice, token set:', action.payload.data?.accessToken ? 'Yes' : 'No');
         console.log('🔍 AuthSlice received response:', {
           hasAccessToken: !!action.payload.data?.accessToken,
           hasRefreshToken: !!action.payload.data?.refreshToken,
           hasUser: !!action.payload.data?.userInfo,
+          hasPermissions: !!action.payload.data?.permissions,
           userRoles: userData?.roles,
-          fullPayload: action.payload
+          permissionCount: action.payload.data?.permissions?.permissionNames?.length
         });
         console.log('👤 User Roles after login:', userData?.roles);
       })
@@ -268,21 +248,55 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state, action) => {
         state.isLoading = false;
+        const response = action.payload;
+        
+        // Check if registration was successful
+        if (!response.success || !response.data) {
+          state.error = { 
+            message: response.message || 'Registration failed', 
+            code: 'REGISTRATION_FAILED', 
+            details: undefined
+          };
+          return;
+        }
+        
+        const registerData = response.data;
         state.isAuthenticated = true;
-        state.user = {
-          id: action.payload.userId,
-          email: action.payload.email,
-          firstName: action.payload.firstName,
-          lastName: action.payload.lastName,
-          userName: action.payload.userName,
-          roles: [],
-          emailVerified: false,
-          accountStatus: '',
-          createdAt: '',
-        };
-        state.token = action.payload?.accessToken || null;
-        state.refreshToken = action.payload?.refreshToken || null;
+        
+        // Use UserInfo from response - same structure as login
+        const userData = registerData.userInfo;
+        state.user = isDefined(userData) ? {
+          id: withDefault(userData.userId, ''),
+          email: withDefault(userData.email, ''),
+          firstName: withDefault(userData.firstName, ''),
+          lastName: withDefault(userData.lastName, ''),
+          userName: withDefault(userData.userName, ''),
+          roles: withDefault(userData.roles, ['User']), // New users get User role by default
+          emailVerified: withDefault(userData.emailVerified, false),
+          accountStatus: withDefault(userData.accountStatus, 'PendingVerification'),
+        } : null;
+        
+        state.token = registerData?.accessToken || null;
+        state.refreshToken = registerData?.refreshToken || null;
         state.error = null;
+        
+        // Store permissions in localStorage if available
+        if (registerData?.permissions) {
+          localStorage.setItem('userPermissions', JSON.stringify({
+            ...registerData.permissions,
+            timestamp: Date.now()
+          }));
+          console.log('💾 Permissions stored from register response');
+        }
+        
+        console.log('✅ Registration successful in authSlice:', {
+          hasAccessToken: !!registerData?.accessToken,
+          hasRefreshToken: !!registerData?.refreshToken,
+          hasUserInfo: !!registerData?.userInfo,
+          hasPermissions: !!registerData?.permissions,
+          userRoles: userData?.roles,
+          permissionCount: registerData?.permissions?.permissionNames?.length
+        });
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;
@@ -313,7 +327,19 @@ const authSlice = createSlice({
       })
       .addCase(getProfile.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = {...action.payload, id: action.payload.userId }; 
+        
+        // Check if profile fetch was successful
+        if (!action.payload.success || !action.payload.data) {
+          state.error = { 
+            message: action.payload.message || 'Failed to fetch profile', 
+            code: 'PROFILE_FETCH_FAILED', 
+            details: undefined
+          };
+          return;
+        }
+        
+        const profileData = action.payload.data;
+        state.user = {...profileData, id: profileData.userId }; 
         state.error = null;
       })
       .addCase(getProfile.rejected, (state, action) => {
@@ -328,7 +354,19 @@ const authSlice = createSlice({
       })
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user ={ id: action.payload.userId, ...action.payload};
+        
+        // Check if profile update was successful
+        if (!action.payload.success || !action.payload.data) {
+          state.error = { 
+            message: action.payload.message || 'Failed to update profile', 
+            code: 'PROFILE_UPDATE_FAILED', 
+            details: undefined
+          };
+          return;
+        }
+        
+        const updateData = action.payload.data;
+        state.user = { id: updateData.userId, ...updateData};
         state.error = null;
       })
       .addCase(updateProfile.rejected, (state, action) => {
@@ -458,9 +496,11 @@ const authSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(verifyTwoFactorCode.fulfilled, (state) => {
+      .addCase(verifyTwoFactorCode.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.twoFactorEnabled = true;
+        if (action.payload.success) {
+          state.twoFactorEnabled = true;
+        }
         state.error = null;
       })
       .addCase(verifyTwoFactorCode.rejected, (state, action) => {
@@ -475,7 +515,9 @@ const authSlice = createSlice({
       })
       .addCase(getTwoFactorStatus.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.twoFactorEnabled = action.payload?.isEnabled || false;
+        if (action.payload.success && action.payload.data) {
+          state.twoFactorEnabled = action.payload.data.isEnabled || false;
+        }
         state.error = null;
       })
       .addCase(getTwoFactorStatus.rejected, (state, action) => {
@@ -488,9 +530,11 @@ const authSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(disableTwoFactor.fulfilled, (state) => {
+      .addCase(disableTwoFactor.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.twoFactorEnabled = false;
+        if (action.payload.success) {
+          state.twoFactorEnabled = false;
+        }
         state.error = null;
       })
       .addCase(disableTwoFactor.rejected, (state, action) => {
@@ -500,5 +544,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, updateUser, setLoading, forceLogout, setTwoFactorRequired, setPendingLoginCredentials, clearTwoFactorState } = authSlice.actions;
+export const { clearError, setLoading, forceLogout, clearTwoFactorState } = authSlice.actions;
 export default authSlice.reducer;

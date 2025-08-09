@@ -409,7 +409,7 @@ export const getUserRolesFromToken = (token?: string): string[] => {
 export const hasRole = (role: string, token?: string): boolean => {
   try {
     const roles = getUserRolesFromToken(token);
-    return roles.includes(role);
+    return roles?.includes(role);
   } catch (error) {
     console.error('Error checking user role:', error);
     return false;

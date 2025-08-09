@@ -337,7 +337,7 @@ export const getCachedEndpoint = (
   cacheKey?: string
 ): string => {
   if (!cacheKey) return endpoint;
-  const separator = endpoint.includes('?') ? '&' : '?';
+  const separator = endpoint?.includes('?') ? '&' : '?';
   return `${endpoint}${separator}_cache=${cacheKey}`;
 };
 

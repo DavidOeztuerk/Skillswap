@@ -1,4 +1,3 @@
-// src/api/services/skillsService.ts
 import { SKILL_ENDPOINTS, FAVORITE_ENDPOINTS } from '../../config/endpoints';
 import {
   Skill,
@@ -10,6 +9,7 @@ import { CreateSkillResponse } from '../../types/contracts/responses/CreateSkill
 import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkillResponse';
 import { PagedResponse } from '../../types/common/PagedResponse';
+import { ApiResponse } from '../../types/common/ApiResponse';
 import apiClient from '../apiClient';
 
 export interface GetUserSkillRespone {
@@ -23,7 +23,7 @@ export interface GetUserSkillRespone {
   isOffered: boolean,
   averageRating?: number,
   reviewCount: number,
-  endorsmentCount: number,
+  endorsementCount: number,
   createdAt: Date,
   updatedAt: Date
 }
@@ -33,7 +33,7 @@ export interface SkillSearchResultResponse{
   userId: string;
   name: string;
   description: string;
-  isOffering: boolean;
+  isOffered: boolean;  // Fixed: Backend uses 'IsOffered' not 'IsOffering'
   category : SkillCategoryResponse,
   proficiencyLevel: ProficiencyLevelResponse,
   tagsJson: string,
@@ -43,7 +43,7 @@ export interface SkillSearchResultResponse{
   isRemoteAvailable: boolean,
   estimatedDurationMinutes?: number,
   createdAt: Date,
-  lastActiveAt?: Date
+  lastActiveAt?: Date  // Backend uses 'LastViewedAt' - might need to check this
 }
 
 export interface SkillCategoryResponse {
@@ -97,15 +97,15 @@ const skillService = {
    * Get all skills with search and pagination
    */
   async getAllSkills(params?: SkillSearchParams): Promise<PagedResponse<SkillSearchResultResponse[]>> {
-    return apiClient.get<PagedResponse<SkillSearchResultResponse[]>>(SKILL_ENDPOINTS.GET_SKILLS, { params });;
+    return apiClient.get<PagedResponse<SkillSearchResultResponse[]>>(SKILL_ENDPOINTS.GET_SKILLS, { params });
   },
 
   /**
    * Get skill by ID
    */
-  async getSkillById(skillId: string): Promise<Skill> {
+  async getSkillById(skillId: string): Promise<ApiResponse<Skill>> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.get<Skill>(`${SKILL_ENDPOINTS.GET_SKILLS}/${skillId}`);
+    return apiClient.get<ApiResponse<Skill>>(`${SKILL_ENDPOINTS.GET_SKILLS}/${skillId}`);
   },
 
   /**
@@ -126,34 +126,34 @@ const skillService = {
   /**
    * Create new skill
    */
-  async createSkill(skillData: CreateSkillRequest): Promise<CreateSkillResponse> {
-    return apiClient.post<CreateSkillResponse>(SKILL_ENDPOINTS.CREATE_SKILL, skillData);
+  async createSkill(skillData: CreateSkillRequest): Promise<ApiResponse<CreateSkillResponse>> {
+    return apiClient.post<ApiResponse<CreateSkillResponse>>(SKILL_ENDPOINTS.CREATE_SKILL, skillData);
   },
 
   /**
    * Update skill
    */
-  async updateSkill(id: string, updateData: UpdateSkillRequest): Promise<UpdateSkillResponse> {
+  async updateSkill(id: string, updateData: UpdateSkillRequest): Promise<ApiResponse<UpdateSkillResponse>> {
     if (!id?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.put<UpdateSkillResponse>(`${SKILL_ENDPOINTS.UPDATE_SKILL}/${id}`, updateData);
+    return apiClient.put<ApiResponse<UpdateSkillResponse>>(`${SKILL_ENDPOINTS.UPDATE_SKILL}/${id}`, updateData);
   },
 
   /**
    * Delete skill
    */
-  async deleteSkill(id: string, reason?: string): Promise<void> {
+  async deleteSkill(id: string, reason?: string): Promise<ApiResponse<any>> {
     if (!id?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.delete<void>(`${SKILL_ENDPOINTS.DELETE_SKILL}/${id}`, { params: { reason } });
+    return apiClient.delete<ApiResponse<any>>(`${SKILL_ENDPOINTS.DELETE_SKILL}/${id}`, { params: { reason } });
   },
 
   /**
    * Rate skill
    */
-  async rateSkill(skillId: string, rating: number, review?: string): Promise<void> {
+  async rateSkill(skillId: string, rating: number, review?: string): Promise<ApiResponse<any>> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
     if (rating < 1 || rating > 5) throw new Error('Bewertung muss zwischen 1 und 5 liegen');
     
-    return apiClient.post<void>(`${SKILL_ENDPOINTS.RATE_SKILL}/${skillId}/rate`, {
+    return apiClient.post<ApiResponse<any>>(`${SKILL_ENDPOINTS.RATE_SKILL}/${skillId}/rate`, {
       rating,
       review,
     });
@@ -162,19 +162,19 @@ const skillService = {
   /**
    * Endorse skill
    */
-  async endorseSkill(skillId: string, message?: string): Promise<void> {
+  async endorseSkill(skillId: string, message?: string): Promise<ApiResponse<any>> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.post<void>(`${SKILL_ENDPOINTS.ENDORSE_SKILL}/${skillId}/endorse`, { message });
+    return apiClient.post<ApiResponse<any>>(`${SKILL_ENDPOINTS.ENDORSE_SKILL}/${skillId}/endorse`, { message });
   },
 
   // Category management
-  async getCategories(): Promise<SkillCategoryResponse[]> {
-    return apiClient.get<SkillCategoryResponse[]>(SKILL_ENDPOINTS.CATEGORIES);
+  async getCategories(): Promise<ApiResponse<SkillCategoryResponse[]>> {
+    return apiClient.get<ApiResponse<SkillCategoryResponse[]>>(SKILL_ENDPOINTS.CATEGORIES);
   },
 
-  async createCategory(name: string, description?: string): Promise<SkillCategory> {
+  async createCategory(name: string, description?: string): Promise<ApiResponse<SkillCategory>> {
     if (!name?.trim()) throw new Error('Kategoriename ist erforderlich');
-    return apiClient.post<SkillCategory>(SKILL_ENDPOINTS.CATEGORIES, { name, description });
+    return apiClient.post<ApiResponse<SkillCategory>>(SKILL_ENDPOINTS.CATEGORIES, { name, description });
   },
 
   async updateCategory(id: string, name: string, description?: string): Promise<SkillCategory> {
@@ -189,8 +189,8 @@ const skillService = {
   },
 
   // Proficiency level management
-  async getProficiencyLevels(): Promise<ProficiencyLevelResponse[]> {
-    return apiClient.get<ProficiencyLevelResponse[]>(SKILL_ENDPOINTS.PROFICIENCY_LEVELS);
+  async getProficiencyLevels(): Promise<ApiResponse<ProficiencyLevelResponse[]>> {
+    return apiClient.get<ApiResponse<ProficiencyLevelResponse[]>>(SKILL_ENDPOINTS.PROFICIENCY_LEVELS);
   },
 
   async createProficiencyLevel(
@@ -229,44 +229,44 @@ const skillService = {
   },
 
   // Analytics
-  async getSkillStatistics(): Promise<SkillStatistics> {
-    return apiClient.get<SkillStatistics>(`${SKILL_ENDPOINTS.GET_SKILLS}/analytics/statistics`);
+  async getSkillStatistics(): Promise<ApiResponse<SkillStatistics>> {
+    return apiClient.get<ApiResponse<SkillStatistics>>(`${SKILL_ENDPOINTS.GET_SKILLS}/analytics/statistics`);
   },
 
-  async getPopularTags(limit = 20): Promise<Array<{ tag: string; count: number }>> {
+  async getPopularTags(limit = 20): Promise<ApiResponse<Array<{ tag: string; count: number }>>> {
     if (limit < 1) throw new Error('Limit muss größer als 0 sein');
-    return apiClient.get<Array<{ tag: string; count: number }>>(
+    return apiClient.get<ApiResponse<Array<{ tag: string; count: number }>>>(
       `${SKILL_ENDPOINTS.GET_SKILLS}/analytics/popular-tags`,
-      { limit }
+      { params: { limit } }
     );
   },
 
-  async getSkillRecommendations(limit = 10): Promise<SkillRecommendation[]> {
+  async getSkillRecommendations(limit = 10): Promise<ApiResponse<SkillRecommendation[]>> {
     if (limit < 1) throw new Error('Limit muss größer als 0 sein');
-    return apiClient.get<SkillRecommendation[]>(
+    return apiClient.get<ApiResponse<SkillRecommendation[]>>(
       `${SKILL_ENDPOINTS.GET_SKILLS}/recommendations`,
-      { limit }
+      { params: { limit } }
     );
   },
 
   // Favorites
-  async getFavoriteSkills(): Promise<string[]> {
+  async getFavoriteSkills(): Promise<ApiResponse<string[]>> {
     // userId wird nicht mehr benötigt da es vom JWT-Token extrahiert wird
     const params = new URLSearchParams();
     params.append('pageSize', '100');
     params.append('pageNumber', '1');
     const url = `${FAVORITE_ENDPOINTS.GET_FAVORITES()}?${params.toString()}`;
-    return apiClient.get<string[]>(url);
+    return apiClient.get<ApiResponse<string[]>>(url);
   },
 
-  async addFavoriteSkill(skillId: string): Promise<void> {
+  async addFavoriteSkill(skillId: string): Promise<ApiResponse<any>> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.post<void>(FAVORITE_ENDPOINTS.ADD_FAVORITE(skillId));
+    return apiClient.post<ApiResponse<any>>(FAVORITE_ENDPOINTS.ADD_FAVORITE(skillId), {});
   },
 
-  async removeFavoriteSkill(skillId: string): Promise<void> {
+  async removeFavoriteSkill(skillId: string): Promise<ApiResponse<any>> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.delete<void>(FAVORITE_ENDPOINTS.REMOVE_FAVORITE(skillId));
+    return apiClient.delete<ApiResponse<any>>(FAVORITE_ENDPOINTS.REMOVE_FAVORITE(skillId));
   },
 };
 

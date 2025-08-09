@@ -85,8 +85,8 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
       // Suche (Skill oder Personenname)
       const matchesSearch =
         !searchTerm ||
-        skillName.includes(searchTerm.toLowerCase()) ||
-        otherUserName.includes(searchTerm.toLowerCase());
+        skillName?.includes(searchTerm.toLowerCase()) ||
+        otherUserName?.includes(searchTerm.toLowerCase());
 
       // Status
       const matchesStatus =

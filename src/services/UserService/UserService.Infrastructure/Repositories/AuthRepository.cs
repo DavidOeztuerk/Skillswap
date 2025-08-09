@@ -98,10 +98,20 @@ public class AuthRepository(
             user.Id, user.Email, user.FirstName, user.LastName, user.UserName,
             userClaims.Roles, user.FavoriteSkillIds, user.EmailVerified, user.AccountStatus.ToString());
 
+        // Get user permissions for new user (will be basic User permissions)
+        var userPermissions = await _permissionService.GetUserPermissionNamesAsync(user.Id, cancellationToken);
+        var permissionsByCategory = await _permissionService.GetUserPermissionsByCategoryAsync(user.Id, cancellationToken);
+        
+        var permissions = new UserPermissions(
+            user.Id,
+            userClaims.Roles.ToList(),
+            userPermissions.ToList(),
+            permissionsByCategory);
+
         return new RegisterResponse(
             tokens.AccessToken, tokens.RefreshToken,
             tokens.TokenType == TokenType.Bearer.ToString() ? TokenType.Bearer : TokenType.None,
-            tokens.ExpiresAt, profileData, true);
+            tokens.ExpiresAt, profileData, true, permissions);
     }
 
     public async Task<LoginResponse> LoginUser(string email, string password, string? twoFactorCode = null, string? deviceId = null, string? deviceInfo = null, CancellationToken cancellationToken = default)
@@ -129,7 +139,7 @@ public class AuthRepository(
 
                 return new LoginResponse(
                     string.Empty, string.Empty, TokenType.None, DateTime.UtcNow,
-                    userInfo, true, tempToken);
+                    userInfo, true, tempToken, null); // No permissions when 2FA is required
             }
 
             // Verify 2FA code
@@ -176,10 +186,18 @@ public class AuthRepository(
             user.Id, user.Email, user.FirstName, user.LastName, user.UserName,
             userClaims.Roles, user.FavoriteSkillIds, user.EmailVerified, user.AccountStatus.ToString());
 
+        // Get user permissions and roles
+        var permissionsByCategory = await _permissionService.GetUserPermissionsByCategoryAsync(user.Id);
+        var permissions = new UserPermissions(
+            user.Id,
+            userClaims.Roles.ToList(),
+            userPermissions.ToList(),
+            permissionsByCategory);
+
         return new LoginResponse(
             tokens.AccessToken, tokens.RefreshToken,
             tokens.TokenType == TokenType.Bearer.ToString() ? TokenType.Bearer : TokenType.None,
-            tokens.ExpiresAt, profileData, false, string.Empty);
+            tokens.ExpiresAt, profileData, false, string.Empty, permissions);
     }
 
     public async Task<RefreshTokenResponse> RefreshUserToken(string accessToken, string refreshToken, CancellationToken cancellationToken = default)

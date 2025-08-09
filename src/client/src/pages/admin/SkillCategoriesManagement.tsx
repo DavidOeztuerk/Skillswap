@@ -81,10 +81,12 @@ const SkillCategoriesManagement: React.FC = () => {
     try {
       setLoading(true);
       const response = await apiClient.get('/api/categories');
-      setCategories(response.data.data || []);
+      // apiClient returns ApiResponse, check structure
+      const categoriesData = response?.data || response || [];
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
       setError(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load categories');
+      setError(err.response?.data?.message || err.message || 'Failed to load categories');
     } finally {
       setLoading(false);
     }

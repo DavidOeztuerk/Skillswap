@@ -1,4 +1,3 @@
-// src/hooks/useMatchmaking.ts
 import { useEffect, useCallback } from 'react';
 import {
   findMatch,
@@ -15,7 +14,7 @@ import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { MatchStatus, MatchDisplay } from '../types/display/MatchmakingDisplay';
 import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
 import { FindMatchRequest } from '../api/services/matchmakingService';
-import { ensureArray, withDefault, ensureString } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 /**
  * Hook für Matchmaking-Funktionalität
@@ -25,14 +24,17 @@ export const useMatchmaking = () => {
   const dispatch = useAppDispatch();
   const {
     matches,
-    matchResults,
-    activeMatch,
     incomingRequests,
     outgoingRequests,
     isLoading,
     error,
     matchRequestSent,
+    currentThread,
   } = useAppSelector((state) => state.matchmaking);
+  
+  // Legacy compatibility
+  const matchResults = matches; // Alias for compatibility
+  const activeMatch = currentThread; // Alias for compatibility
 
   /**
    * Lädt alle Matches für den aktuellen Benutzer
@@ -107,8 +109,8 @@ export const useMatchmaking = () => {
     responseMessage?: string
   ): Promise<string | null> => {
     const resultAction = await dispatch(acceptMatchRequest({ 
-      requestId: ensureString(requestId), 
-      responseMessage: ensureString(responseMessage) 
+      requestId: requestId, 
+      responseMessage: responseMessage
     }));
 
     if (acceptMatchRequest.fulfilled.match(resultAction)) {
@@ -130,8 +132,8 @@ export const useMatchmaking = () => {
   ): Promise<boolean> => {
     const resultAction = await dispatch(
       rejectMatchRequest({ 
-        requestId: ensureString(requestId), 
-        responseMessage: ensureString(responseMessage) 
+        requestId: requestId, 
+        responseMessage: responseMessage
       })
     );
     return rejectMatchRequest.fulfilled.match(resultAction);
@@ -174,7 +176,7 @@ export const useMatchmaking = () => {
    * @returns Gefilterte Matches
    */
   const getMatchesByStatus = (status: MatchStatus): MatchDisplay[] => {
-    const safeMatches = ensureArray(matches);
+    const safeMatches = matches;
     return safeMatches.filter((match) => match?.status === status.toLowerCase() as any);
   };
 
@@ -188,7 +190,7 @@ export const useMatchmaking = () => {
   const getMatchesByRole = (isRequester: boolean): MatchDisplay[] => {
     if (!userId) return [];
 
-    const safeMatches = ensureArray(matches);
+    const safeMatches = matches;
     return safeMatches.filter((match) =>
       match && (isRequester ? match.requesterId === userId : match.responderId === userId)
     );
@@ -204,7 +206,7 @@ export const useMatchmaking = () => {
     status: string,
     incoming: boolean = true
   ) => {
-    const requests = incoming ? ensureArray(incomingRequests) : ensureArray(outgoingRequests);
+    const requests = incoming ? incomingRequests : outgoingRequests;
     return requests.filter((request) => request?.status === status);
   };
 
@@ -214,18 +216,18 @@ export const useMatchmaking = () => {
    * @returns true, wenn das Match ausstehend ist, sonst false
    */
   const isMatchPending = (matchId: string): boolean => {
-    const safeMatches = ensureArray(matches);
+    const safeMatches = matches;
     const match = safeMatches.find((m) => m?.id === matchId);
     return match?.status === 'pending';
   };
 
   return {
     // Daten
-    matches: ensureArray(matches),
-    matchResults: ensureArray(matchResults),
+    matches: matches,
+    matchResults: matchResults,
     activeMatch,
-    incomingRequests: ensureArray(incomingRequests),
-    outgoingRequests: ensureArray(outgoingRequests),
+    incomingRequests: incomingRequests,
+    outgoingRequests: outgoingRequests,
     isLoading: withDefault(isLoading, false),
     error,
     matchRequestSent: withDefault(matchRequestSent, false),

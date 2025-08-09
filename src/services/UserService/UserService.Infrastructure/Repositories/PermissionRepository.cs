@@ -355,6 +355,30 @@ namespace UserService.Infrastructure.Repositories
             return permissions;
         }
 
+        public async Task<Dictionary<string, List<string>>> GetUserPermissionsByCategoryAsync(string userId, CancellationToken cancellationToken = default)
+        {
+            var permissionsByCategory = new Dictionary<string, List<string>>();
+            
+            // Get all user permissions with categories
+            var userPermissions = await GetUserPermissionNamesAsync(userId, cancellationToken);
+            
+            // Get permission details to group by category
+            var permissions = await _context.Permissions
+                .Where(p => userPermissions.Contains(p.Name))
+                .ToListAsync(cancellationToken);
+            
+            foreach (var permission in permissions)
+            {
+                if (!permissionsByCategory.ContainsKey(permission.Category))
+                {
+                    permissionsByCategory[permission.Category] = new List<string>();
+                }
+                permissionsByCategory[permission.Category].Add(permission.Name);
+            }
+            
+            return permissionsByCategory;
+        }
+        
         public async Task<IEnumerable<string>> GetUserRoleNamesAsync(string userId, CancellationToken cancellationToken = default)
         {
             return await _context.UserRoles

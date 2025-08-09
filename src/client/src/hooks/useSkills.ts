@@ -36,7 +36,6 @@ import { CreateSkillRequest } from '../types/contracts/requests/CreateSkillReque
 import { UpdateSkillRequest } from '../types/contracts/requests/UpdateSkillRequest';
 import { Skill } from '../types/models/Skill';
 import { SkillSearchParams } from '../api/services/skillsService';
-import { ensureArray } from '../utils/safeAccess';
 import {
   fetchCategories as fetchCategoriesAction,
   createCategory as createCategoryAction,
@@ -150,14 +149,14 @@ export const useSkills = () => {
   /** FAVORITES: Check if a skill is a favorite */
   const isFavoriteSkill = useCallback(
     (skillId: string): boolean => {
-      return favoriteSkillIds.includes(skillId);
+      return favoriteSkillIds?.includes(skillId);
     },
     [favoriteSkillIds]
   );
 
   /** FAVORITES: Get all favorite skills (Skill objects) */
   const getFavoriteSkills = useCallback((): Skill[] | undefined => {
-    return allSkills?.filter((skill) => favoriteSkillIds.includes(skill.id));
+    return allSkills?.filter((skill) => favoriteSkillIds?.includes(skill.id));
   }, [allSkills, favoriteSkillIds]);
 
   // Categories and proficiency levels from separate slices

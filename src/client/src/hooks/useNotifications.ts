@@ -12,7 +12,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { Notification, NotificationSettings, NotificationType } from '../types/models/Notification';
 import { NotificationHistoryRequest } from '../api/services/notificationService';
-import { ensureArray, withDefault } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 /**
  * Hook für Benachrichtigungs-Funktionalität
@@ -102,7 +102,7 @@ export const useNotifications = () => {
    * @returns Gefilterte Benachrichtigungen
    */
   const getNotificationsByType = (type: NotificationType): Notification[] => {
-    return ensureArray(notifications).filter(notification => notification?.type === type);
+    return notifications?.filter(notification => notification?.type === type);
   };
 
   /**
@@ -110,7 +110,7 @@ export const useNotifications = () => {
    * @returns Ungelesene Benachrichtigungen
    */
   const getUnreadNotifications = (): Notification[] => {
-    return ensureArray(notifications).filter(notification => !notification?.isRead);
+    return notifications?.filter(notification => !notification?.isRead);
   };
 
   /**
@@ -119,7 +119,7 @@ export const useNotifications = () => {
    * @returns true, wenn ungelesene Benachrichtigungen vorhanden sind
    */
   const hasUnreadOfType = (type: NotificationType): boolean => {
-    return ensureArray(notifications).some(
+    return notifications?.some(
       notification => notification?.type === type && !notification?.isRead
     );
   };
@@ -130,14 +130,14 @@ export const useNotifications = () => {
    * @returns Anzahl ungelesener Benachrichtigungen
    */
   const getUnreadCountByType = (type: NotificationType): number => {
-    return ensureArray(notifications).filter(
+    return notifications?.filter(
       notification => notification?.type === type && !notification?.isRead
     ).length;
   };
 
   return {
     // Daten
-    notifications: ensureArray(notifications),
+    notifications: notifications,
     unreadCount: withDefault(unreadCount, 0),
     settings,
     isLoading,

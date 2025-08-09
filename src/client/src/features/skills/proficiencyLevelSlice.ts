@@ -1,10 +1,9 @@
-// src/features/proficiencyLevels/proficiencyLevelsSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ProficiencyLevel } from '../../types/models/Skill';
 import skillService, { ProficiencyLevelResponse } from '../../api/services/skillsService';
 import { ProficiencyLevelsState } from '../../types/states/SkillState';
 import { SliceError } from '../../store/types';
-import { ensureArray, withDefault, ensureString } from '../../utils/safeAccess';
+import { withDefault } from '../../utils/safeAccess';
 
 const initialState: ProficiencyLevelsState = {
   proficiencyLevels: [],
@@ -92,7 +91,7 @@ const proficiencyLevelsSlice = createSlice({
     },
 
     removeProficiencyLevel: (state, action: PayloadAction<string>) => {
-      state.proficiencyLevels = ensureArray(state.proficiencyLevels).filter(
+      state.proficiencyLevels = state.proficiencyLevels?.filter(
         (level) => level?.id !== action.payload
       );
       if (state.selectedProficiencyLevel?.id === action.payload) {
@@ -105,7 +104,7 @@ const proficiencyLevelsSlice = createSlice({
       action: PayloadAction<ProficiencyLevel>
     ) => {
       const updatedLevel = action.payload;
-      const index = ensureArray(state.proficiencyLevels).findIndex(
+      const index = state.proficiencyLevels?.findIndex(
         (level) => level?.id === updatedLevel?.id
       );
       if (index !== -1) {
@@ -144,11 +143,11 @@ const proficiencyLevelsSlice = createSlice({
         // Null-safe access to API response
         const mapSkillResponseToSkill = (response: ProficiencyLevelResponse): ProficiencyLevel => {
                   return {
-                    id: ensureString(response.levelId),
+                    id: response.levelId,
                     ...response
                   }
                 }
-                state.proficiencyLevels = ensureArray(action.payload).map(x => mapSkillResponseToSkill(x));
+                state.proficiencyLevels = action.payload.data?.map(x => mapSkillResponseToSkill(x));
 
         // Sort proficiency levels by rank
         state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
@@ -188,7 +187,7 @@ const proficiencyLevelsSlice = createSlice({
       .addCase(updateProficiencyLevel.fulfilled, (state, action) => {
         state.isUpdating = false;
         if (action.payload) {
-          const index = ensureArray(state.proficiencyLevels).findIndex(
+          const index = state.proficiencyLevels?.findIndex(
             (level) => level?.id === action.payload?.id
           );
           if (index !== -1) {

@@ -186,5 +186,5 @@ export function containsDangerousContent(input: string): boolean {
     /vbscript:/i
   ];
   
-  return dangerousPatterns.some(pattern => pattern.test(input));
+  return dangerousPatterns?.some(pattern => pattern.test(input));
 }

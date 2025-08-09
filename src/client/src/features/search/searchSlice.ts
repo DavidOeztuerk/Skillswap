@@ -1,4 +1,3 @@
-// src/features/search/searchSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import skillService from '../../api/services/skillsService';
 import { RootState } from '../../store/store';
@@ -6,7 +5,7 @@ import { SearchState } from '../../types/states/SearchState';
 import { SliceError } from '../../store/types';
 import { mapSkillResponseToSkill, mapUserSkillsResponseToSkill } from '../skills/skillsSlice';
 import { Skill } from '../../types/models/Skill';
-import { ensureArray, withDefault } from '../../utils/safeAccess';
+import { withDefault } from '../../utils/safeAccess';
 
 const initialPagination = {
   page: 1,
@@ -115,7 +114,7 @@ const searchSlice = createSlice({
         state.userLoading = false;
         const response = action.payload;
 
-        state.userResults = ensureArray(response?.data).map((skill) => {
+        state.userResults = response.data?.map((skill) => {
           if (skill && 'skillId' in skill) {
             return mapUserSkillsResponseToSkill(skill);
           }
@@ -142,7 +141,7 @@ const searchSlice = createSlice({
       })
       .addCase(fetchAllSkills.fulfilled, (state, action) => {
         state.allSkillsLoading = false;
-        state.allSkills = ensureArray(action.payload?.data).map(mapSkillResponseToSkill);
+        state.allSkills = action.payload.data?.map(mapSkillResponseToSkill);
         state.allSkillsPagination = {
           page: withDefault(action.payload?.pageNumber, 1),
           pageSize: withDefault(action.payload?.pageSize, 12),

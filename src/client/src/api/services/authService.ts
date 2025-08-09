@@ -21,10 +21,9 @@ import {
   removeToken,
 } from '../../utils/authHelpers';
 import apiClient from '../apiClient';
-import httpClient from '../httpClient';
 import { UserProfileResponse } from '../../types/contracts/responses/UserProfileResponse';
 import { ApiResponse } from '../../types/common/ApiResponse';
-import { isDefined, withDefault, safeGet, ensureString } from '../../utils/safeAccess';
+import { isDefined, unwrap, withDefault } from '../../utils/safeAccess';
 
 /**
  * Authentication Service with improved error handling and validation
@@ -34,70 +33,42 @@ const authService = {
    * Login with credentials
    */
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-    // Use httpClient directly to get the full ApiResponse (not apiClient which unwraps data)
-    const response = await httpClient.post<ApiResponse<LoginResponse>>(
-      AUTH_ENDPOINTS.LOGIN,
-      credentials
-    );
- 
+    const response = await apiClient.post<ApiResponse<LoginResponse>>(AUTH_ENDPOINTS.LOGIN, credentials);
+    const payload = unwrap<LoginResponse>(response);
+
     const storageType = withDefault(credentials?.rememberMe, false) ? 'permanent' : 'session';
-    
-    // Set tokens from the response with null safety
-    const accessToken = safeGet(response, 'data.accessToken', null);
-    const refreshToken = safeGet(response, 'data.refreshToken', null);
-    
-    if (isDefined(accessToken)) {
-      setToken(accessToken, storageType);
-    }
-    if (isDefined(refreshToken)) {
-      setRefreshToken(refreshToken, storageType);
-    }
-    
+    if (isDefined(payload?.accessToken)) setToken(payload.accessToken, storageType);
+    if (isDefined(payload?.refreshToken)) setRefreshToken(payload.refreshToken, storageType);
+
     return response;
   },
 
   /**
    * Register new user
    */
-  async register(credentials: RegisterRequest): Promise<RegisterResponse> {
-    const response = await apiClient.post<RegisterResponse>(
-      AUTH_ENDPOINTS.REGISTER,
-      credentials
-    );
+  async register(credentials: RegisterRequest): Promise<ApiResponse<RegisterResponse>> {
+    const response = await apiClient.post<ApiResponse<RegisterResponse>>(AUTH_ENDPOINTS.REGISTER, credentials);
 
-    const accessToken = safeGet(response, 'accessToken', null);
-    const refreshTokenValue = safeGet(response, 'refreshToken', null);
-    
-    if (isDefined(accessToken)) {
-      setToken(accessToken);
-      if (isDefined(refreshTokenValue)) {
-        setRefreshToken(refreshTokenValue);
-      }
+    const payload = unwrap<RegisterResponse>(response);
+    if (isDefined(payload?.accessToken)) {
+      setToken(payload.accessToken);
+      if (isDefined(payload?.refreshToken)) setRefreshToken(payload.refreshToken);
     }
-
     return response;
   },
 
   /**
    * Get current user profile
    */
-  async getProfile(): Promise<UserProfileResponse> {
-    return apiClient.get<UserProfileResponse>(AUTH_ENDPOINTS.PROFILE);
+  async getProfile(): Promise<ApiResponse<UserProfileResponse>> {
+    return apiClient.get<ApiResponse<UserProfileResponse>>(AUTH_ENDPOINTS.PROFILE);
   },
-
-  // /**
-  //  * Get user by ID (public profile)
-  //  */
-  // async getUserById(userId: string): Promise<Partial<User>> {
-  //   if (!userId) throw new Error('User ID ist erforderlich');
-  //   return apiClient.get<Partial<User>>(`/api/users/${userId}`);
-  // },
 
   /**
    * Update user profile
    */
-  async updateProfile(profileData: UpdateProfileRequest): Promise<UpdateUserProfileResponse> {
-    return apiClient.post<UpdateUserProfileResponse>(PROFILE_ENDPOINTS.UPDATE, profileData);
+  async updateProfile(profileData: UpdateProfileRequest): Promise<ApiResponse<UpdateUserProfileResponse>> {
+    return apiClient.post<ApiResponse<UpdateUserProfileResponse>>(PROFILE_ENDPOINTS.UPDATE, profileData);
   },
 
   /**
@@ -107,7 +78,7 @@ const authService = {
     if (!file) throw new Error('Keine Datei ausgewählt');
 
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
+    if (!allowedTypes?.includes(file.type)) {
       throw new Error('Nur JPEG, PNG und WebP Dateien sind erlaubt');
     }
 
@@ -126,21 +97,21 @@ const authService = {
    * Change password
    */
   async changePassword(passwordData: ChangePasswordRequest): Promise<void> {
-    await apiClient.post<void>(AUTH_ENDPOINTS.CHANGE_PASSWORD, passwordData);
+    await apiClient.post(AUTH_ENDPOINTS.CHANGE_PASSWORD, passwordData);
   },
 
   /**
    * Request password reset
    */
   async forgotPassword(email: string): Promise<void> {
-    await apiClient.post<void>(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email: email });
+    await apiClient.post(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email: email });
   },
 
   /**
    * Reset password with token
    */
   async resetPassword(token: string, password: string): Promise<void> {
-    await apiClient.post<void>(AUTH_ENDPOINTS.RESET_PASSWORD, {
+    await apiClient.post(AUTH_ENDPOINTS.RESET_PASSWORD, {
       token: token,
       password: password,
     });
@@ -150,21 +121,21 @@ const authService = {
    * Verify email
    */
   async verifyEmail(request: VerifyEmailRequest): Promise<void> {
-    await apiClient.post<void>(AUTH_ENDPOINTS.VERIFY_EMAIL, request);
+    await apiClient.post(AUTH_ENDPOINTS.VERIFY_EMAIL, request);
   },
 
   /**
    * Generate 2FA secret
    */
-  async generateTwoFactorSecret(): Promise<GenerateTwoFactorSecretResponse> {
-    return apiClient.post<GenerateTwoFactorSecretResponse>(AUTH_ENDPOINTS.GENERATE_2FA, {});
+  async generateTwoFactorSecret(): Promise<ApiResponse<GenerateTwoFactorSecretResponse>> {
+    return apiClient.post<ApiResponse<GenerateTwoFactorSecretResponse>>(AUTH_ENDPOINTS.GENERATE_2FA);
   },
 
   /**
    * Verify 2FA code
    */
-  async verifyTwoFactorCode(request: VerifyTwoFactorCodeRequest): Promise<VerifyTwoFactorCodeResponse> {
-    return apiClient.post<VerifyTwoFactorCodeResponse>(
+  async verifyTwoFactorCode(request: VerifyTwoFactorCodeRequest): Promise<ApiResponse<VerifyTwoFactorCodeResponse>> {
+    return apiClient.post<ApiResponse<VerifyTwoFactorCodeResponse>>(
       AUTH_ENDPOINTS.VERIFY_2FA,
       request
     );
@@ -173,15 +144,15 @@ const authService = {
   /**
    * Get 2FA status
    */
-  async getTwoFactorStatus(): Promise<GetTwoFactorStatusResponse> {
-    return apiClient.get<GetTwoFactorStatusResponse>(AUTH_ENDPOINTS.TWO_FACTOR_STATUS);
+  async getTwoFactorStatus(): Promise<ApiResponse<GetTwoFactorStatusResponse>> {
+    return apiClient.get<ApiResponse<GetTwoFactorStatusResponse>>(AUTH_ENDPOINTS.TWO_FACTOR_STATUS);
   },
 
   /**
    * Disable 2FA
    */
-  async disableTwoFactor(request: DisableTwoFactorRequest): Promise<DisableTwoFactorResponse> {
-    return apiClient.post<DisableTwoFactorResponse>(
+  async disableTwoFactor(request: DisableTwoFactorRequest): Promise<ApiResponse<DisableTwoFactorResponse>> {
+    return apiClient.post<ApiResponse<DisableTwoFactorResponse>>(
       AUTH_ENDPOINTS.DISABLE_2FA,
       request
     );
@@ -193,26 +164,31 @@ const authService = {
   isAuthenticated(): boolean {
     return !!getToken();
   },
-
+  
   /**
    * Validate current token
-   */
-  async validateToken(): Promise<boolean> {
-    try {
-      await this.getProfile();
-      return true;
+  */
+ async validateToken(): Promise<boolean> {
+   try {
+     const response = await this.getProfile();
+     // Check if response has userId
+     return isDefined(response) && isDefined(response.data.userId);
     } catch {
       return false;
     }
   },
-
+  
   /**
    * Logout
-   */
+  */
   async logout(): Promise<void> {
     removeToken();
     // Optional: Call logout endpoint if backend supports it
-    // await apiClient.post('/api/auth/logout');
+    try {
+      // await apiClient.post('/api/auth/logout', {});
+    } catch {
+      // Ignore logout endpoint errors
+    }
   },
 
   /**
@@ -233,17 +209,14 @@ const authService = {
         refreshToken: refreshTokenValue 
       };
       
-      // Make the refresh request
       const response = await apiClient.post<ApiResponse<RefreshTokenResponse>>(
         AUTH_ENDPOINTS.REFRESH_TOKEN,
         requestBody
       );
       
-      // Extract the data from the API response wrapper
-      const tokenData = response.data || response;
+      const tokenData = unwrap<RefreshTokenResponse>(response);
       
       if (tokenData.accessToken) {
-        // Preserve the storage type from the original token
         const storageType = localStorage.getItem('remember_me') === 'true' ? 'permanent' : 'session';
         
         setToken(tokenData.accessToken, storageType);
@@ -271,44 +244,24 @@ const authService = {
    */
   async silentLogin(): Promise<User | null> {
     if (!this.isAuthenticated()) return null;
-
-    const token = getToken();
-    const refreshTokenValue = getRefreshToken();
-    
-    // If we don't have both tokens, can't do silent login
-    if (!token || !refreshTokenValue) {
-      console.log('🔐 Silent login: Missing tokens');
-      return null;
-    }
+    if (!getToken() || !getRefreshToken()) return null;
 
     try {
-      // First try to get profile with current token
-      console.log('🔐 Silent login: Attempting to fetch profile...');
-      const profile = await this.getProfile();
-      const user: User = { ...profile, id: profile.userId };
-      console.log('✅ Silent login: Profile fetched successfully');
-      return user;
-    } catch (error) {
-      console.log('⚠️ Silent login: Profile fetch failed, attempting token refresh...');
-      
-      // Token might be expired, try refresh
+      const profileResp = await this.getProfile();
+      const profile = unwrap<UserProfileResponse>(profileResp);
+      return { id: profile.userId, ...profile };
+    } catch {
       try {
         await this.refreshToken();
-        console.log('✅ Silent login: Token refreshed successfully');
-        
-        // Now get profile with new token
-        const profile = await this.getProfile();
-        const user: User = { ...profile, id: profile.userId };
-        console.log('✅ Silent login: Profile fetched after refresh');
-        return user;
-      } catch (refreshError) {
-        console.error('❌ Silent login: Token refresh failed:', refreshError);
-        // Clear invalid tokens
+        const profileResp = await this.getProfile();
+        const profile = unwrap<UserProfileResponse>(profileResp);
+        return { id: profile.userId, ...profile };
+      } catch {
         removeToken();
         return null;
       }
     }
-  },
+  }
 };
 
 export default authService;

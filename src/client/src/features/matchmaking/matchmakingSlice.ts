@@ -1,6 +1,4 @@
-// New matchmaking slice - display-focused, no transformations
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import matchmakingService, { GetMatchRequestsParams } from '../../api/services/matchmakingService';
 import {
   MatchRequestDisplay,
   MatchDisplay,
@@ -11,7 +9,7 @@ import {
   CreateCounterOfferRequest
 } from '../../types/display/MatchmakingDisplay';
 import { SliceError } from '../../store/types';
-import { ensureArray, withDefault, ensureString } from '../../utils/safeAccess';
+import matchmakingService, { GetMatchRequestsParams } from '../../api/services/matchmakingService';
 
 interface MatchmakingState {
   // Match requests
@@ -23,10 +21,6 @@ interface MatchmakingState {
   
   // Thread details
   currentThread: MatchThreadDisplay | null;
-  
-  // Legacy compatibility
-  matchResults: MatchDisplay[];
-  activeMatch: MatchDisplay | null;
   
   // Pagination
   pagination: {
@@ -53,8 +47,6 @@ const initialState: MatchmakingState = {
   outgoingRequests: [],
   matches: [],
   currentThread: null,
-  matchResults: [],
-  activeMatch: null,
   pagination: {
     page: 1,
     limit: 20,
@@ -197,28 +189,28 @@ const matchmakingSlice = createSlice({
         // Add to outgoing requests immediately for optimistic UI
         const { response, originalRequest } = action.payload;
         const newRequest: MatchRequestDisplay = {
-          id: response.requestId,
+          id: response.data.requestId,
           skillId: originalRequest.skillId,
           skillName: 'Loading...', // Will be populated when refreshing
           skillCategory: 'Loading...',
-          message: ensureString(originalRequest.message),
+          message: originalRequest.message,
           status: 'pending',
           type: 'outgoing',
-          otherUserId: ensureString(originalRequest.targetUserId),
-          otherUserName: 'Loading...', 
+          otherUserId: originalRequest.targetUserId,
+          otherUserName: 'Loading...',
           otherUserRating: 0,
-          isSkillExchange: withDefault(originalRequest.isSkillExchange, false),
+          isSkillExchange: originalRequest.isSkillExchange || false,
           exchangeSkillId: originalRequest.exchangeSkillId,
           exchangeSkillName: undefined,
-          isMonetary: withDefault(originalRequest.isMonetary, false),
+          isMonetary: originalRequest.isMonetary || false,
           offeredAmount: originalRequest.offeredAmount,
           currency: originalRequest.currency,
-          sessionDurationMinutes: withDefault(originalRequest.sessionDurationMinutes, 60),
-          totalSessions: withDefault(originalRequest.totalSessions, 1),
-          preferredDays: ensureArray(originalRequest.preferredDays),
-          preferredTimes: ensureArray(originalRequest.preferredTimes),
-          createdAt: response.createdAt,
-          threadId: response.threadId,
+          sessionDurationMinutes: originalRequest.sessionDurationMinutes || 60,
+          totalSessions: originalRequest.totalSessions || 1,
+          preferredDays: originalRequest.preferredDays || [],
+          preferredTimes: originalRequest.preferredTimes || [],
+          createdAt: response.data.createdAt,
+          threadId: response.data.threadId,
           isRead: true,
         };
         
@@ -237,12 +229,13 @@ const matchmakingSlice = createSlice({
       })
       .addCase(fetchIncomingMatchRequests.fulfilled, (state, action) => {
         state.isLoadingRequests = false;
-        state.incomingRequests = ensureArray(action.payload?.data);
+        // Handle PagedResponse - data is an array
+        state.incomingRequests = action.payload.data || [];
         state.pagination = {
-          page: withDefault(action.payload?.pageNumber, 1),
-          limit: withDefault(action.payload?.pageSize, 20),
-          total: withDefault(action.payload?.totalRecords, 0),
-          totalPages: withDefault(action.payload?.totalPages, 0),
+          page: action.payload.pageNumber,
+          limit: action.payload.pageSize,
+          total: action.payload.totalRecords,
+          totalPages: action.payload.totalPages,
         };
       })
       .addCase(fetchIncomingMatchRequests.rejected, (state, action) => {
@@ -257,7 +250,8 @@ const matchmakingSlice = createSlice({
       })
       .addCase(fetchOutgoingMatchRequests.fulfilled, (state, action) => {
         state.isLoadingRequests = false;
-        state.outgoingRequests = action.payload.data;
+        // Handle PagedResponse - data is an array
+        state.outgoingRequests = action.payload.data || [];
         state.pagination = {
           page: action.payload.pageNumber,
           limit: action.payload.pageSize,
@@ -277,8 +271,8 @@ const matchmakingSlice = createSlice({
       })
       .addCase(fetchMatches.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.matches = action.payload.data;
-        state.matchResults = action.payload.data; // Legacy compatibility
+        // Handle PagedResponse - data is an array
+        state.matches = action.payload.data || [];
         state.pagination = {
           page: action.payload.pageNumber,
           limit: action.payload.pageSize,
@@ -346,7 +340,8 @@ const matchmakingSlice = createSlice({
       })
       .addCase(fetchMatchRequestThread.fulfilled, (state, action) => {
         state.isLoadingThread = false;
-        state.currentThread = action.payload;
+        // Handle ApiResponse - extract data
+        state.currentThread = action.payload.data || null;
       })
       .addCase(fetchMatchRequestThread.rejected, (state, action) => {
         state.isLoadingThread = false;
@@ -365,10 +360,10 @@ export const {
   markRequestAsRead,
 } = matchmakingSlice.actions;
 
-// Legacy aliases for backwards compatibility
-export const findMatch = createMatchRequest;
-export const acceptMatch = acceptMatchRequest;
-export const rejectMatch = rejectMatchRequest;
-export const getUserMatches = fetchMatches;
+// Legacy exports for backward compatibility
+export const findMatch = createMatchRequest; // Alias
+export const acceptMatch = acceptMatchRequest; // Alias
+export const rejectMatch = rejectMatchRequest; // Alias
+export const getUserMatches = fetchMatches; // Alias
 
 export default matchmakingSlice.reducer;

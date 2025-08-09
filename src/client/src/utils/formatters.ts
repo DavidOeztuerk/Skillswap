@@ -1,5 +1,4 @@
-// src/utils/formatters.ts
-import { ensureString, withDefault } from './safeAccess';
+import { withDefault } from './safeAccess';
 
 /**
  * Erstellt einen vollständigen Namen aus Vor- und Nachname
@@ -11,8 +10,8 @@ export const formatFullName = (
   firstName?: string | null,
   lastName?: string | null
 ): string => {
-  const first = ensureString(firstName).trim();
-  const last = ensureString(lastName).trim();
+  const first = firstName?.trim();
+  const last = lastName?.trim();
 
   if (!first && !last) return 'Unbekannter Benutzer';
 
@@ -40,7 +39,7 @@ export const formatCurrency = (amount: number, currency = 'EUR'): string => {
  * @returns Formatierte E-Mail-Adresse oder leer, wenn keine vorhanden
  */
 export const formatEmail = (email?: string | null): string => {
-  const safeEmail = ensureString(email);
+  const safeEmail = email;
   if (!safeEmail) return '';
   return safeEmail.toLowerCase();
 };
@@ -51,7 +50,7 @@ export const formatEmail = (email?: string | null): string => {
  * @returns Formatierte Telefonnummer oder leer, wenn keine vorhanden
  */
 export const formatPhoneNumber = (phone?: string | null): string => {
-  const safePhone = ensureString(phone);
+  const safePhone = phone;
   if (!safePhone) return '';
 
   // Entferne alle Nicht-Ziffern
@@ -80,7 +79,7 @@ export const truncateText = (
   maxLength = 100,
   suffix = '...'
 ): string => {
-  const safeText = ensureString(text);
+  const safeText = text;
   if (!safeText) return '';
 
   if (safeText.length <= maxLength) return safeText;
@@ -94,7 +93,7 @@ export const truncateText = (
  * @returns Menschenlesbare Beschreibung des Levels
  */
 export const formatProficiencyLevel = (level: string): string => {
-  const safeLevel = ensureString(level);
+  const safeLevel = level;
   switch (safeLevel) {
     case 'Beginner':
       return 'Anfänger';

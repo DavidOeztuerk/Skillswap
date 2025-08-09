@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAnnouncements } from './useAnnouncements';
-import { withDefault, ensureString } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 interface NavigationState {
   isNavigating: boolean;
@@ -79,7 +79,7 @@ export const useNavigationState = () => {
 
   // Get page name from path
   const getPageNameFromPath = (pathname: string): string => {
-    const safePath = ensureString(pathname);
+    const safePath = pathname;
     const routes: Record<string, string> = {
       '/': 'Home',
       '/dashboard': 'Dashboard',
@@ -96,7 +96,7 @@ export const useNavigationState = () => {
       return routes[safePath];
     }
 
-    if (safePath.startsWith('/skills/') && safePath.includes('/edit')) {
+    if (safePath.startsWith('/skills/') && safePath?.includes('/edit')) {
       return 'Edit Skill';
     }
     if (safePath.startsWith('/skills/') && safePath.match(/\/skills\/[^/]+$/)) {

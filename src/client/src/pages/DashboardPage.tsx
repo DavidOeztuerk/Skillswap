@@ -1,4 +1,3 @@
-// src/pages/DashboardPage.tsx
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -38,7 +37,7 @@ import { useAppointments } from '../hooks/useAppointments';
 import { useMatchmaking } from '../hooks/useMatchmaking';
 import { useNotifications } from '../hooks/useNotifications';
 import { formatDateTimeRange } from '../utils/dateUtils';
-import { withDefault, ensureArray, ensureString } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 /**
  * Dashboard-Seite der Anwendung
@@ -116,17 +115,11 @@ const DashboardPage: React.FC = () => {
   }, []); // Keine Dependencies - nur beim Mount laden
 
   // Statistiken berechnen
-  const safeUserSkills = ensureArray(userSkills);
-  const safeAppointments = ensureArray(appointments);
-  const safeMatches = ensureArray(matches);
-  const safeIncomingRequests = ensureArray(incomingRequests);
-  const safeNotifications = ensureArray(notifications);
-  
-  const totalSkills = safeUserSkills.length;
-  const teachingSkillsCount = safeUserSkills.filter(skill => skill?.isOffered).length;
-  const pendingAppointments = safeAppointments.filter(appt => appt?.status === 'Pending').length;
-  const totalMatches = safeMatches.length;
-  const pendingMatchRequests = safeIncomingRequests.filter(req => req?.status === 'pending').length;
+  const totalSkills = userSkills?.length;
+  const teachingSkillsCount = userSkills?.filter(skill => skill?.isOffered).length;
+  const pendingAppointments = appointments?.filter(appt => appt?.status === 'Pending').length;
+  const totalMatches = matches?.length;
+  const pendingMatchRequests = incomingRequests?.filter(req => req?.status === 'pending').length;
 
   // Dashboard-Karten mit echten Daten
   const dashboardCards = [
@@ -150,30 +143,30 @@ const DashboardPage: React.FC = () => {
     {
       title: 'Termine',
       icon: <AppointmentsIcon fontSize="large" />,
-      description: `${safeAppointments.length} Termine${pendingAppointments > 0 ? ` • ${pendingAppointments} ausstehend` : ''}`,
+      description: `${appointments.length} Termine${pendingAppointments > 0 ? ` • ${pendingAppointments} ausstehend` : ''}`,
       action: () => navigate('/appointments'),
       color: '#e91e63',
-      count: safeAppointments.length,
+      count: appointments.length,
       badge: pendingAppointments,
     },
     {
       title: 'Benachrichtigungen',
       icon: <PersonIcon fontSize="large" />,
-      description: `${safeNotifications.length} messages${withDefault(unreadCount, 0) > 0 ? ` • ${unreadCount} unread` : ''}`,
+      description: `${notifications.length} messages${withDefault(unreadCount, 0) > 0 ? ` • ${unreadCount} unread` : ''}`,
       action: () => navigate('/profile'),
       color: '#3f51b5',
-      count: safeNotifications.length,
+      count: notifications.length,
       badge: withDefault(unreadCount, 0),
     },
   ];
 
   // Aktuelle Lehrskills
-  const teachingSkills = safeUserSkills.filter((skill) => skill?.isOffered);
+  const teachingSkills = userSkills?.filter((skill) => skill?.isOffered);
   // Aktuelle Lernwünsche
   // const learningSkills = safeUserSkills.filter((skill) => skill?.isLearnable);
 
   // Anstehende Termine (max. 3)
-  const upcomingAppointments = safeAppointments
+  const upcomingAppointments = appointments
     .filter(
       (appt) =>
         appt?.startTime && new Date(appt.startTime) > new Date() && appt?.status === 'Confirmed'

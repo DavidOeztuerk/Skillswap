@@ -57,14 +57,14 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/reset-password",
+      "DownstreamPathTemplate": "/users/auth/reset-password",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/reset-password",
       "UpstreamHttpMethod": ["POST"]
     },
     {
-      "DownstreamPathTemplate": "/change-password",
+      "DownstreamPathTemplate": "/users/auth/change-password",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/change-password",
@@ -78,16 +78,6 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/{userId}",
-      "UpstreamHttpMethod": ["GET"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/profile",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/profile",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"

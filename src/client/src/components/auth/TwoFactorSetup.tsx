@@ -18,7 +18,7 @@ import {
 import QRCode from 'qrcode';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
 import { generateTwoFactorSecret, verifyTwoFactorCode } from '../../features/auth/authSlice';
-import { withDefault, ensureString, safeGet } from '../../utils/safeAccess';
+import { withDefault } from '../../utils/safeAccess';
 
 interface TwoFactorSetupProps {
   open: boolean;
@@ -84,12 +84,12 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
       const result = await dispatch(generateTwoFactorSecret()).unwrap();
       console.log('🔑 2FA secret result:', result);
       
-      if (result?.qrCodeUri && result?.secret) {
-        setSecretKey(ensureString(result.secret));
-        setManualEntryKey(withDefault(result.manualEntryKey, result.secret));
+      if (result?.data?.qrCodeUri && result?.data?.secret) {
+        setSecretKey(result.data?.secret);
+        setManualEntryKey(withDefault(result?.data?.manualEntryKey, result?.data?.secret));
         
         // Generate QR code
-        const qrDataUrl = await QRCode.toDataURL(result.qrCodeUri);
+        const qrDataUrl = await QRCode.toDataURL(result?.data?.qrCodeUri);
         console.log('📱 QR code generated successfully');
         setQrCodeUrl(qrDataUrl);
         setActiveStep(1);

@@ -55,6 +55,7 @@ namespace UserService.Domain.Repositories
         Task<IEnumerable<string>> GetUserPermissionNamesAsync(string userId, CancellationToken cancellationToken = default);
         Task<IEnumerable<string>> GetUserRoleNamesAsync(string userId, CancellationToken cancellationToken = default);
         Task<IEnumerable<string>> GetRolePermissionNamesAsync(string roleId, CancellationToken cancellationToken = default);
+        Task<Dictionary<string, List<string>>> GetUserPermissionsByCategoryAsync(string userId, CancellationToken cancellationToken = default);
 
         // Save changes
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

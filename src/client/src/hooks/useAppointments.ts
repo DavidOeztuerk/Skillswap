@@ -1,15 +1,14 @@
-// src/hooks/useAppointments.ts
 import { useCallback, useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { AppointmentFilter } from '../types/states/AppointmentsState';
-import {
-  createAppointment,
+import { 
   fetchAppointments,
-  respondToAppointment,
+  createAppointment,
+  respondToAppointment 
 } from '../features/appointments/appointmentsSlice';
 import { AppointmentRequest } from '../types/contracts/requests/AppointmentRequest';
 import { Appointment, AppointmentStatus } from '../types/models/Appointment';
-import { ensureArray, withDefault, isDefined } from '../utils/safeAccess';
+import { withDefault } from '../utils/safeAccess';
 
 /**
  * Hook für die Verwaltung von Terminen
@@ -81,7 +80,7 @@ export const useAppointments = () => {
    * @returns Gefilterte Termine
    */
   const getFilteredAppointments = (): Appointment[] => {
-    const safeAppointments = ensureArray(appointments);
+    const safeAppointments = appointments;
     
     return safeAppointments.filter((appointment) => {
       if (!appointment) return false;
@@ -168,7 +167,7 @@ export const useAppointments = () => {
 
   return {
     // Daten
-    appointments: ensureArray(appointments),
+    appointments: appointments,
     filteredAppointments: getFilteredAppointments(),
     isLoading: withDefault(isLoading, false),
     error,

@@ -4,7 +4,7 @@ import notificationService, { NotificationHistoryRequest } from '../../api/servi
 import { NotificationState } from '../../types/states/NotificationState';
 import type { Notification, NotificationSettings } from '../../types/models/Notification';
 import { SliceError } from '../../store/types';
-import { ensureArray, withDefault } from '../../utils/safeAccess';
+import { withDefault } from '../../utils/safeAccess';
 
 const initialState: NotificationState = {
   notifications: [],
@@ -76,14 +76,20 @@ export const unsubscribeFromRealTimeNotifications = createAsyncThunk(
 export const clearAllNotifications = createAsyncThunk(
   'notifications/clearAll',
   async () => {
-    await notificationService.clearAllNotifications();
+    const response = await notificationService.clearAllNotifications();
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to clear all notifications');
+    }
   }
 );
 
 export const markNotificationAsRead = createAsyncThunk(
   'notifications/markAsRead',
   async (notificationId: string) => {
-    await notificationService.markAsRead(notificationId);
+    const response = await notificationService.markAsRead(notificationId);
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to mark notification as read');
+    }
     return notificationId;
   }
 );
@@ -91,7 +97,10 @@ export const markNotificationAsRead = createAsyncThunk(
 export const markAllNotificationsAsRead = createAsyncThunk(
   'notifications/markAllAsRead',
   async () => {
-    await notificationService.markAllAsRead();
+    const response = await notificationService.markAllAsRead();
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to mark all notifications as read');
+    }
     return true;
   }
 );
@@ -99,21 +108,32 @@ export const markAllNotificationsAsRead = createAsyncThunk(
 export const fetchNotificationSettings = createAsyncThunk(
   'notifications/fetchSettings',
   async () => {
-    return await notificationService.getSettings();
+    const response = await notificationService.getSettings();
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Failed to fetch notification settings');
+    }
+    return response.data;
   }
 );
 
 export const updateNotificationSettings = createAsyncThunk(
   'notifications/updateSettings',
   async (settings: NotificationSettings) => {
-    return await notificationService.updateSettings(settings);
+    const response = await notificationService.updateSettings(settings);
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Failed to update notification settings');
+    }
+    return response.data;
   }
 );
 
 export const deleteNotification = createAsyncThunk(
   'notifications/deleteNotification',
   async (notificationId: string) => {
-    await notificationService.deleteNotification(notificationId);
+    const response = await notificationService.deleteNotification(notificationId);
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to delete notification');
+    }
     return notificationId;
   }
 );
@@ -178,8 +198,23 @@ const notificationSlice = createSlice({
       })
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.notifications = ensureArray(action.payload);
-        state.unreadCount = ensureArray(state.notifications).filter((n: any) => !n.isRead).length;
+        // PagedResponse has data at root level - data is an array
+        if (action.payload && action.payload.data) {
+          state.notifications = action.payload.data;
+          state.unreadCount = state.notifications.filter((n) => !n.isRead).length;
+        } else {
+          state.notifications = [];
+          state.unreadCount = 0;
+        }
+        // Update pagination
+        if (action.payload) {
+          state.pagination = {
+            page: withDefault(action.payload.pageNumber, 1),
+            limit: withDefault(action.payload.pageSize, 20),
+            total: withDefault(action.payload.totalRecords, 0),
+            totalPages: withDefault(action.payload.totalPages, 0),
+          };
+        }
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.isLoading = false;

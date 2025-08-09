@@ -10,17 +10,21 @@ export interface UserInfo {
   accountStatus: string;
 }
 
-export interface RegisterResponse {
+export interface UserPermissions {
   userId: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  userName: string;
+  roles: string[];
+  permissionNames: string[];
+  permissionsByCategory: Record<string, string[]>;
+}
+
+export interface RegisterResponse {
   accessToken: string;
   refreshToken: string;
-  tokenType: string;
+  tokenType: number;
   expiresAt: Date;
+  userInfo: UserInfo;
   emailVerificationRequired: boolean;
+  permissions?: UserPermissions;
 }
 
 export interface LoginResponse {
@@ -31,6 +35,7 @@ export interface LoginResponse {
   userInfo: UserInfo;
   requires2FA: boolean;
   twoFactorToken: string;
+  permissions?: UserPermissions;
 }
 
 export enum TokenType {
