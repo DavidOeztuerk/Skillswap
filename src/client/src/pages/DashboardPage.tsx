@@ -28,9 +28,10 @@ import {
 
 import PageHeader from '../components/layout/PageHeader';
 import PageContainer from '../components/layout/PageContainer';
-import SkeletonLoader from '../components/ui/SkeletonLoader';
+import { SkeletonLoader } from '../components/ui/SkeletonLoader';
 import ApiErrorHandler from '../components/error/ApiErrorHandler';
 import { useApiErrorRecovery } from '../hooks/useApiErrorRecovery';
+import { useLoading, LoadingKeys } from '../contexts/LoadingContext';
 import { useAuth } from '../hooks/useAuth';
 import { useSkills } from '../hooks/useSkills';
 import { useAppointments } from '../hooks/useAppointments';
@@ -45,6 +46,7 @@ import { withDefault } from '../utils/safeAccess';
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { withLoading, isLoading } = useLoading();
   const { userSkills, fetchUserSkills, isLoading: skillsLoading } = useSkills();
   const {
     appointments,
@@ -92,27 +94,28 @@ const DashboardPage: React.FC = () => {
   //   });
   // };
 
-  // Load data
+  // Load data with loading context
   useEffect(() => {
-    // Funktion inline definieren um Dependency-Probleme zu vermeiden
     const loadData = async () => {
-      await executeWithRecovery(async () => {
-        await Promise.all([
-          fetchUserSkills(),
-          loadAppointments(),
-          loadMatches(),
-          loadIncomingRequests(),
-          loadOutgoingRequests(),
-        ]);
-      }, {
-        maxRetries: 2,
-        retryDelay: 1000,
-        exponentialBackoff: true,
+      await withLoading(LoadingKeys.FETCH_DATA, async () => {
+        await executeWithRecovery(async () => {
+          await Promise.all([
+            fetchUserSkills(),
+            loadAppointments(),
+            loadMatches(),
+            loadIncomingRequests(),
+            loadOutgoingRequests(),
+          ]);
+        }, {
+          maxRetries: 2,
+          retryDelay: 1000,
+          exponentialBackoff: true,
+        });
       });
     };
     
     void loadData();
-  }, []); // Keine Dependencies - nur beim Mount laden
+  }, [withLoading]); // Added withLoading to dependencies
 
   // Statistiken berechnen
   const totalSkills = userSkills?.length;
@@ -177,7 +180,8 @@ const DashboardPage: React.FC = () => {
     )
     .slice(0, 3);
 
-  const isLoading = skillsLoading || appointmentsLoading || matchingLoading || notificationsLoading;
+  const isDashboardLoading = isLoading(LoadingKeys.FETCH_DATA) || 
+    skillsLoading || appointmentsLoading || matchingLoading || notificationsLoading;
 
   return (
     <PageContainer>
@@ -200,8 +204,30 @@ const DashboardPage: React.FC = () => {
         />
       )}
 
-      {!error && isLoading ? (
-        <SkeletonLoader variant="card" count={6} />
+      {!error && isDashboardLoading ? (
+        <Grid container columns={12} spacing={3}>
+          {/* Dashboard Cards Skeleton */}
+          <Grid size={{ xs: 12 }}>
+            <Grid container columns={12} spacing={3}>
+              {[1, 2, 3, 4].map(i => (
+                <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
+                  <SkeletonLoader variant="card" />
+                </Grid>
+              ))}
+            </Grid>
+          </Grid>
+          
+          {/* Content Skeleton */}
+          <Grid size={{ xs: 12, lg: 6 }}>
+            <SkeletonLoader variant="list" count={3} />
+          </Grid>
+          <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+            <SkeletonLoader variant="list" count={5} />
+          </Grid>
+          <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+            <SkeletonLoader variant="list" count={5} />
+          </Grid>
+        </Grid>
       ) : !error && (
         <Grid container columns={12} spacing={3}>
           {/* Übersichtskarten */}

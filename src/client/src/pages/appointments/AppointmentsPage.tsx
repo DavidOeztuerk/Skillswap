@@ -10,7 +10,9 @@ import PageContainer from '../../components/layout/PageContainer';
 import AppointmentList from '../../components/appointments/AppointmentList';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
+import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
 import { useAppointments } from '../../hooks/useAppointments';
+import { useLoading } from '../../contexts/LoadingContext';
 import AppointmentErrorBoundary from '../../components/error/AppointmentErrorBoundary';
 import errorService from '../../services/errorService';
 
@@ -19,9 +21,10 @@ import errorService from '../../services/errorService';
  */
 const AppointmentsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { withLoading } = useLoading();
   const {
     appointments,
-    isLoading,
+    isLoading: appointmentsLoading,
     error,
     acceptAppointment,
     declineAppointment,
@@ -104,50 +107,54 @@ const AppointmentsPage: React.FC = () => {
 
     if (!appointmentId) return;
 
-    try {
-      errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action });
-      
-      let success = false;
-      let messageText = '';
+    const loadingKey = `appointment.${action}`;
+    
+    await withLoading(loadingKey, async () => {
+      try {
+        errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action });
+        
+        let success = false;
+        let messageText = '';
 
-      switch (action) {
-        case 'confirm':
-          success = await acceptAppointment(appointmentId);
-          messageText = 'Termin wurde erfolgreich bestätigt';
-          break;
-        case 'cancel':
-          success = await declineAppointment(appointmentId);
-          messageText = 'Termin wurde abgesagt';
-          break;
-        case 'complete':
-          success = await completeAppointment(appointmentId);
-          messageText = 'Termin wurde als abgeschlossen markiert';
-          break;
-      }
+        switch (action) {
+          case 'confirm':
+            success = await acceptAppointment(appointmentId);
+            messageText = 'Termin wurde erfolgreich bestätigt';
+            break;
+          case 'cancel':
+            success = await declineAppointment(appointmentId);
+            messageText = 'Termin wurde abgesagt';
+            break;
+          case 'complete':
+            success = await completeAppointment(appointmentId);
+            messageText = 'Termin wurde als abgeschlossen markiert';
+            break;
+        }
 
-      if (success) {
-        errorService.addBreadcrumb('Appointment action completed successfully', 'action', { appointmentId, action });
-        setStatusMessage({
-          text: messageText,
-          type: 'success',
+        if (success) {
+          errorService.addBreadcrumb('Appointment action completed successfully', 'action', { appointmentId, action });
+          setStatusMessage({
+            text: messageText,
+            type: 'success',
+          });
+        } else {
+          errorService.addBreadcrumb('Appointment action failed', 'error', { appointmentId, action });
+          throw new Error('Fehler bei der Terminverwaltung');
+        }
+      } catch (error) {
+        errorService.addBreadcrumb('Error performing appointment action', 'error', { 
+          appointmentId, 
+          action, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
         });
-      } else {
-        errorService.addBreadcrumb('Appointment action failed', 'error', { appointmentId, action });
-        throw new Error('Fehler bei der Terminverwaltung');
+        setStatusMessage({
+          text: 'Fehler bei der Terminverwaltung' + ' ' + error,
+          type: 'error',
+        });
+      } finally {
+        handleConfirmDialogClose();
       }
-    } catch (error) {
-      errorService.addBreadcrumb('Error performing appointment action', 'error', { 
-        appointmentId, 
-        action, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
-      setStatusMessage({
-        text: 'Fehler bei der Terminverwaltung' + ' ' + error,
-        type: 'error',
-      });
-    } finally {
-      handleConfirmDialogClose();
-    }
+    });
   };
 
   return (
@@ -179,20 +186,24 @@ const AppointmentsPage: React.FC = () => {
       )}
 
       <Box mt={3}>
-        <AppointmentList
-          appointments={appointments}
-          isLoading={isLoading}
-          error={error}
-          onConfirm={(appointmentId) =>
-            handleConfirmDialogOpen(appointmentId, 'confirm')
-          }
-          onCancel={(appointmentId) =>
-            handleConfirmDialogOpen(appointmentId, 'cancel')
-          }
-          onComplete={(appointmentId) =>
-            handleConfirmDialogOpen(appointmentId, 'complete')
-          }
-        />
+        {appointmentsLoading && (!appointments || appointments.length === 0) ? (
+          <SkeletonLoader variant="list" count={5} />
+        ) : (
+          <AppointmentList
+            appointments={appointments}
+            isLoading={appointmentsLoading}
+            error={error}
+            onConfirm={(appointmentId) =>
+              handleConfirmDialogOpen(appointmentId, 'confirm')
+            }
+            onCancel={(appointmentId) =>
+              handleConfirmDialogOpen(appointmentId, 'cancel')
+            }
+            onComplete={(appointmentId) =>
+              handleConfirmDialogOpen(appointmentId, 'complete')
+            }
+          />
+        )}
       </Box>
 
       <ConfirmDialog

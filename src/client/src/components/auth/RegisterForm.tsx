@@ -7,9 +7,9 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useAuth } from '../../hooks/useAuth';
-import LoadingButton from '../ui/LoadingButton';
+import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
+import { LoadingButton } from '../../components/common/LoadingButton';
 import { InputAdornment, TextField } from '@mui/material';
-import { withDefault } from '../../utils/safeAccess';
 
 // Validierungsschema mit Zod
 const registerSchema = z
@@ -54,7 +54,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   onSuccess,
   redirectPath = '/dashboard',
 }) => {
-  const { register: registerUser, isLoading, error, dismissError } = useAuth();
+  const { register: registerUser, error, dismissError } = useAuth();
+  const { isLoading, withLoading } = useLoading();
   
   // Clear errors when component mounts
   useEffect(() => {
@@ -84,15 +85,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   });
 
   const onSubmit: SubmitHandler<RegisterFormValues> = async (data) => {
-    try {
-      const { ...userData } = data;
-      const success = await registerUser(userData, redirectPath);
-      if (success && onSuccess) {
-        onSuccess();
+    await withLoading(LoadingKeys.REGISTER, async () => {
+      try {
+        const { ...userData } = data;
+        const success = await registerUser(userData, redirectPath);
+        if (success && onSuccess) {
+          onSuccess();
+        }
+      } catch (err) {
+        console.error('Registration failed:', err);
       }
-    } catch (err) {
-      console.error('Registration failed:', err);
-    }
+    });
   };
 
   return (
@@ -119,7 +122,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   autoComplete="given-name"
                   error={!!errors?.firstName}
                   helperText={errors?.firstName?.message}
-                  disabled={isLoading}
+                  disabled={isLoading(LoadingKeys.REGISTER)}
                 />
               )}
             />
@@ -137,7 +140,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   autoComplete="family-name"
                   error={!!errors?.lastName}
                   helperText={errors?.lastName?.message}
-                  disabled={isLoading}
+                  disabled={isLoading(LoadingKeys.REGISTER)}
                 />
               )}
             />
@@ -157,7 +160,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               autoComplete="username"
               error={!!errors?.userName}
               helperText={errors?.userName?.message}
-              disabled={isLoading}
+              disabled={isLoading(LoadingKeys.REGISTER)}
             />
           )}
         />
@@ -175,7 +178,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               autoComplete="email"
               error={!!errors?.email}
               helperText={errors?.email?.message}
-              disabled={isLoading}
+              disabled={isLoading(LoadingKeys.REGISTER)}
               slotProps={{
                 input: {
                   type: 'email',
@@ -198,7 +201,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               autoComplete="new-password"
               error={!!errors?.password}
               helperText={errors?.password?.message}
-              disabled={isLoading}
+              disabled={isLoading(LoadingKeys.REGISTER)}
               slotProps={{
                 input: {
                   type: showPassword ? 'text' : 'password',
@@ -232,7 +235,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               autoComplete="new-password"
               error={!!errors?.confirmPassword}
               helperText={errors?.confirmPassword?.message}
-              disabled={isLoading}
+              disabled={isLoading(LoadingKeys.REGISTER)}
               slotProps={{
                 input: {
                   type: showConfirmPassword ? 'text' : 'password',
@@ -264,7 +267,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           fullWidth
           variant="contained"
           color="primary"
-          loading={withDefault(isLoading, false)}
+          loading={isLoading(LoadingKeys.REGISTER)}
           size="large"
           sx={{ mt: 2 }}
         >

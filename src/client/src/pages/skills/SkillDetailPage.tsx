@@ -36,13 +36,15 @@ import {
   School as SchoolIcon,
 } from '@mui/icons-material';
 
-import PageLoader from '../../components/ui/PageLoader';
+import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
+import { LoadingButton } from '../../components/common/LoadingButton';
 import EmptyState from '../../components/ui/EmptyState';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
 import MatchForm from '../../components/matchmaking/MatchForm';
 import { useSkills } from '../../hooks/useSkills';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
+import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { useAuth } from '../../hooks/useAuth';
 import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
@@ -54,7 +56,8 @@ const SkillDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { user } = useAuth(); // ✅ ENTFERNT: wird nicht verwendet
+  const { user } = useAuth();
+  const { withLoading, isLoading } = useLoading();
   const {
     selectedSkill,
     userSkills, // ✅ HINZUGEFÜGT: Um zu prüfen ob Skill in userSkills ist
@@ -62,7 +65,7 @@ const SkillDetailPage: React.FC = () => {
     deleteSkill,
     rateSkill,
     endorseSkill,
-    isLoading,
+    isLoading: skillsLoading,
     error,
     dismissError,
     isFavoriteSkill,
@@ -89,11 +92,13 @@ const SkillDetailPage: React.FC = () => {
   // Load skill data
   useEffect(() => {
     if (skillId) {
-      errorService.addBreadcrumb('Loading skill details', 'navigation', { skillId });
-      console.log('🎯 Loading skill details for ID:', skillId);
-      fetchSkillById(skillId);
+      withLoading(LoadingKeys.FETCH_DATA, async () => {
+        errorService.addBreadcrumb('Loading skill details', 'navigation', { skillId });
+        console.log('🎯 Loading skill details for ID:', skillId);
+        await fetchSkillById(skillId);
+      });
     }
-  }, [skillId, fetchSkillById]);
+  }, [skillId, fetchSkillById, withLoading]);
 
   // ✅ KORRIGIERTE OWNERSHIP-LOGIK: Prüft ob Skill in userSkills ist
   const isOwner =
@@ -339,8 +344,72 @@ const SkillDetailPage: React.FC = () => {
   };
 
   // Loading state
-  if (isLoading && !selectedSkill) {
-    return <PageLoader variant="details" message="Skill wird geladen..." />;
+  const isPageLoading = isLoading(LoadingKeys.FETCH_DATA) || (skillsLoading && !selectedSkill);
+  
+  if (isPageLoading) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
+        {/* Navigation skeleton */}
+        <Box sx={{ mb: 3 }}>
+          <SkeletonLoader variant="text" width={80} height={32} sx={{ mb: 2 }} />
+          <SkeletonLoader variant="text" width={300} height={20} />
+        </Box>
+
+        <Grid container spacing={3}>
+          {/* Main content skeleton */}
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                    <SkeletonLoader variant="text" width={80} height={24} />
+                    <SkeletonLoader variant="text" width={100} height={24} />
+                  </Box>
+                  <SkeletonLoader variant="text" width="70%" height={40} sx={{ mb: 2 }} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <SkeletonLoader variant="text" width={120} height={20} />
+                    <SkeletonLoader variant="text" width={150} height={20} />
+                    <SkeletonLoader variant="text" width={80} height={24} />
+                  </Box>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <SkeletonLoader variant="text" width={40} height={40} />
+                  <SkeletonLoader variant="text" width={40} height={40} />
+                  <SkeletonLoader variant="text" width={40} height={40} />
+                </Box>
+              </Box>
+              <SkeletonLoader variant="text" width="100%" height={60} sx={{ mb: 3 }} />
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <SkeletonLoader variant="text" width={120} height={36} />
+                <SkeletonLoader variant="text" width={100} height={36} />
+                <SkeletonLoader variant="text" width={110} height={36} />
+              </Box>
+            </Paper>
+            <Paper sx={{ p: 3 }}>
+              <SkeletonLoader variant="text" width={150} height={24} sx={{ mb: 2 }} />
+              <SkeletonLoader variant="text" width="100%" height={100} />
+            </Paper>
+          </Grid>
+
+          {/* Sidebar skeleton */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <SkeletonLoader variant="text" width={80} height={24} sx={{ mb: 2 }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Box sx={{ width: 56, height: 56, borderRadius: '50%', bgcolor: 'grey.300' }} />
+                <Box>
+                  <SkeletonLoader variant="text" width={120} height={20} />
+                  <SkeletonLoader variant="text" width={100} height={16} />
+                  <SkeletonLoader variant="text" width={80} height={16} />
+                </Box>
+              </Box>
+              <SkeletonLoader variant="text" width="100%" height={36} />
+            </Paper>
+            <SkeletonLoader variant="profile" />
+          </Grid>
+        </Grid>
+      </Container>
+    );
   }
 
   // Error state
@@ -547,16 +616,17 @@ const SkillDetailPage: React.FC = () => {
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               {!isOwner && (
                 <>
-                  <Button
+                  <LoadingButton
                     variant="contained"
                     color="primary"
                     startIcon={<MessageIcon />}
                     onClick={handleCreateMatch}
+                    loading={isMatchmakingLoading}
                   >
                     {selectedSkill.isOffered
                       ? 'Lernen anfragen'
                       : 'Hilfe anbieten'}
-                  </Button>
+                  </LoadingButton>
                   <Button
                     variant="outlined"
                     startIcon={<StarIcon />}
@@ -700,17 +770,18 @@ const SkillDetailPage: React.FC = () => {
                   ? 'Möchtest du diesen Skill lernen? Erstelle eine Match-Anfrage!'
                   : 'Kannst du bei diesem Skill helfen? Biete deine Hilfe an!'}
               </Typography>
-              <Button
+              <LoadingButton
                 variant="contained"
                 color="primary"
                 fullWidth
                 onClick={handleCreateMatch}
                 startIcon={<MessageIcon />}
+                loading={isMatchmakingLoading}
               >
                 {selectedSkill.isOffered
                   ? 'Lernen anfragen'
                   : 'Hilfe anbieten'}
-              </Button>
+              </LoadingButton>
             </Paper>
           )}
 

@@ -12,8 +12,10 @@ import './utils/debugHelpers'; // Enable debug helpers
 import AuthProvider from './features/auth/AuthProvider';
 import { TwoFactorDialogProvider } from './components/auth/TwoFactorDialog';
 import { PermissionProvider } from './contexts/PermissionContext';
+import { LoadingProvider } from './contexts/LoadingContext';
 import { withDefault } from './utils/safeAccess';
 import GlobalErrorBoundary from './components/error/GlobalErrorBoundary';
+import GlobalLoadingIndicator from './components/common/GlobalLoadingIndicator';
 
 const App = () => {
   const { mode, theme, toggleTheme } = useTheme();
@@ -42,18 +44,21 @@ const App = () => {
   return (
     <GlobalErrorBoundary>
       <AuthProvider>
-        <PermissionProvider>
-          <ThemeProvider theme={theme}>
-            <TwoFactorDialogProvider>
-              <CssBaseline />
-              <SkipLinks />
-              <NetworkStatusIndicator position="top" compact />
-              <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
-                <Outlet />
-              </MainLayout>
-            </TwoFactorDialogProvider>
-          </ThemeProvider>
-        </PermissionProvider>
+        <LoadingProvider>
+          <PermissionProvider>
+            <ThemeProvider theme={theme}>
+              <TwoFactorDialogProvider>
+                <CssBaseline />
+                <SkipLinks />
+                <GlobalLoadingIndicator position="top" />
+                <NetworkStatusIndicator position="top" compact />
+                <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
+                  <Outlet />
+                </MainLayout>
+              </TwoFactorDialogProvider>
+            </ThemeProvider>
+          </PermissionProvider>
+        </LoadingProvider>
       </AuthProvider>
     </GlobalErrorBoundary>
   );

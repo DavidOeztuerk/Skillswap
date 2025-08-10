@@ -47,7 +47,9 @@ import {
 } from '../../features/matchmaking/matchmakingSlice';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
+import { LoadingButton } from '../../components/common/LoadingButton';
+import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import MatchingErrorBoundary from '../../components/error/MatchingErrorBoundary';
@@ -115,11 +117,12 @@ const MatchmakingPage: React.FC = () => {
   const [counterOfferMessage, setCounterOfferMessage] = useState('');
 
   const dispatch = useAppDispatch();
+  const { withLoading, isLoading } = useLoading();
   const {
     matches,
     incomingRequests,
     outgoingRequests,
-    isLoading,
+    isLoading: matchmakingLoading,
     isLoadingRequests,
     error,
   } = useAppSelector((state) => state.matchmaking);
@@ -130,12 +133,16 @@ const MatchmakingPage: React.FC = () => {
   const outgoingRequestsArray = Array.isArray(outgoingRequests) ? outgoingRequests : [];
 
   useEffect(() => {
-    // Load initial data
-    errorService.addBreadcrumb('Loading matchmaking page data', 'navigation');
-    dispatch(getUserMatches({}));
-    dispatch(fetchIncomingMatchRequests({}));
-    dispatch(fetchOutgoingMatchRequests({}));
-  }, [dispatch]);
+    // Load initial data with loading context
+    withLoading(LoadingKeys.FETCH_MATCHES, async () => {
+      errorService.addBreadcrumb('Loading matchmaking page data', 'navigation');
+      await Promise.all([
+        dispatch(getUserMatches({})),
+        dispatch(fetchIncomingMatchRequests({})),
+        dispatch(fetchOutgoingMatchRequests({}))
+      ]);
+    });
+  }, [dispatch, withLoading]);
 
   // Group requests into threads by user + skill
   const groupRequestsIntoThreads = (incoming: any[], outgoing: any[]): RequestThread[] => {
@@ -363,15 +370,63 @@ const MatchmakingPage: React.FC = () => {
     }
   };
 
-  const handleRefresh = () => {
-    errorService.addBreadcrumb('Refreshing matchmaking data', 'action');
-    dispatch(getUserMatches({}));
-    dispatch(fetchIncomingMatchRequests({}));
-    dispatch(fetchOutgoingMatchRequests({}));
+  const handleRefresh = async () => {
+    await withLoading('refreshMatches', async () => {
+      errorService.addBreadcrumb('Refreshing matchmaking data', 'action');
+      await Promise.all([
+        dispatch(getUserMatches({})),
+        dispatch(fetchIncomingMatchRequests({})),
+        dispatch(fetchOutgoingMatchRequests({}))
+      ]);
+    });
   };
 
-  if (isLoading && incomingRequestsArray.length === 0 && outgoingRequestsArray.length === 0 && matchesArray.length === 0) {
-    return <LoadingSpinner fullPage message="Lade Match-Anfragen..." />;
+  const isPageLoading = isLoading(LoadingKeys.FETCH_MATCHES) || 
+    (matchmakingLoading && incomingRequestsArray.length === 0 && outgoingRequestsArray.length === 0 && matchesArray.length === 0);
+
+  if (isPageLoading) {
+    return (
+      <PageContainer>
+        <PageHeader
+          title="Match-Anfragen"
+          subtitle="Verwalte deine eingehenden und ausgehenden Skill-Anfragen"
+          icon={<PsychologyIcon />}
+          actions={
+            <Box display="flex" gap={1}>
+              <SkeletonLoader variant="text" width={40} height={40} />
+            </Box>
+          }
+        />
+
+        {/* Statistics Cards Skeleton */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {[1, 2, 3, 4].map(i => (
+            <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
+              <Card>
+                <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                  <SkeletonLoader variant="text" width={60} height={32} />
+                  <SkeletonLoader variant="text" width={120} height={16} />
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Tabs Skeleton */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Box display="flex" gap={3}>
+              <SkeletonLoader variant="text" width={150} height={40} />
+              <SkeletonLoader variant="text" width={150} height={40} />
+              <SkeletonLoader variant="text" width={100} height={40} />
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Content Skeleton */}
+        <SkeletonLoader variant="card" count={3} />
+      </PageContainer>
+    );
   }
 
   return (
@@ -382,9 +437,14 @@ const MatchmakingPage: React.FC = () => {
         icon={<PsychologyIcon />}
         actions={
           <Box display="flex" gap={1}>
-            <IconButton onClick={handleRefresh} disabled={isLoadingRequests}>
+            <LoadingButton
+              onClick={handleRefresh}
+              loading={isLoading('refreshMatches')}
+              variant="outlined"
+              sx={{ minWidth: 40 }}
+            >
               <RefreshIcon />
-            </IconButton>
+            </LoadingButton>
           </Box>
         }
       />
@@ -556,25 +616,27 @@ const MatchmakingPage: React.FC = () => {
                     {/* Quick Actions */}
                     {thread.latestRequest.status === 'pending' && (
                       <Box display="flex" gap={1} mb={2}>
-                        <Button
+                        <LoadingButton
                           size="small"
                           variant="contained"
                           color="success"
                           startIcon={<CheckIcon />}
                           onClick={() => handleAcceptRequest(thread.latestRequest.id)}
+                          loading={isLoadingRequests}
                         >
                           Akzeptieren
-                        </Button>
-                        <Button
+                        </LoadingButton>
+                        <LoadingButton
                           size="small"
                           variant="outlined"
                           color="error"
                           startIcon={<CloseIcon />}
                           onClick={() => handleRejectRequest(thread.latestRequest.id)}
+                          loading={isLoadingRequests}
                         >
                           Ablehnen
-                        </Button>
-                        <Button
+                        </LoadingButton>
+                        <LoadingButton
                           size="small"
                           variant="outlined"
                           color="info"
@@ -587,9 +649,10 @@ const MatchmakingPage: React.FC = () => {
                             });
                             setCounterOfferDialog(true);
                           }}
+                          loading={isLoadingRequests}
                         >
                           Gegenangebot
-                        </Button>
+                        </LoadingButton>
                       </Box>
                     )}
 

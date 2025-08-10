@@ -18,10 +18,12 @@ import {
 } from '@mui/icons-material';
 
 import SkillForm from '../../components/skills/SkillForm';
-import PageLoader from '../../components/ui/PageLoader';
+import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
+import { LoadingButton } from '../../components/common/LoadingButton';
 import EmptyState from '../../components/ui/EmptyState';
 import { useSkills } from '../../hooks/useSkills';
 import { useAuth } from '../../hooks/useAuth';
+import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
 import errorService from '../../services/errorService';
@@ -35,6 +37,7 @@ const SkillEditPage: React.FC = () => {
   const { skillId } = useParams<{ skillId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { withLoading, isLoading } = useLoading();
 
   const {
     selectedSkill,
@@ -44,7 +47,7 @@ const SkillEditPage: React.FC = () => {
     updateSkill,
     fetchCategories,
     fetchProficiencyLevels,
-    isLoading,
+    isLoading: skillsLoading,
     isUpdating,
     error,
     dismissError,
@@ -65,44 +68,46 @@ const SkillEditPage: React.FC = () => {
         return;
       }
 
-      try {
-        errorService.addBreadcrumb('Loading skill edit page data', 'data', { skillId });
-        
-        // Load skill, categories, and proficiency levels in parallel
-        const [skillSuccess, categoriesSuccess, proficiencySuccess] =
-          await Promise.all([
-            fetchSkillById(skillId),
-            fetchCategories(),
-            fetchProficiencyLevels(),
-          ]);
+      await withLoading(LoadingKeys.FETCH_DATA, async () => {
+        try {
+          errorService.addBreadcrumb('Loading skill edit page data', 'data', { skillId });
+          
+          // Load skill, categories, and proficiency levels in parallel
+          const [skillSuccess, categoriesSuccess, proficiencySuccess] =
+            await Promise.all([
+              fetchSkillById(skillId),
+              fetchCategories(),
+              fetchProficiencyLevels(),
+            ]);
 
-        if (!skillSuccess) {
-          errorService.addBreadcrumb('Failed to load skill', 'error', { skillId });
+          if (!skillSuccess) {
+            errorService.addBreadcrumb('Failed to load skill', 'error', { skillId });
+            setNotification({
+              message: 'Skill konnte nicht geladen werden',
+              type: 'error',
+            });
+          }
+
+          if (!categoriesSuccess || !proficiencySuccess) {
+            errorService.addBreadcrumb('Failed to load metadata', 'error', { skillId });
+            setNotification({
+              message:
+                'Kategorien oder Fertigkeitsstufen konnten nicht geladen werden',
+              type: 'error',
+            });
+          }
+        } catch (error) {
+          errorService.addBreadcrumb('Error loading skill edit page data', 'error', { 
+            skillId, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          });
+          console.error('❌ Error loading edit page data:', error);
           setNotification({
-            message: 'Skill konnte nicht geladen werden',
+            message: 'Fehler beim Laden der Daten',
             type: 'error',
           });
         }
-
-        if (!categoriesSuccess || !proficiencySuccess) {
-          errorService.addBreadcrumb('Failed to load metadata', 'error', { skillId });
-          setNotification({
-            message:
-              'Kategorien oder Fertigkeitsstufen konnten nicht geladen werden',
-            type: 'error',
-          });
-        }
-      } catch (error) {
-        errorService.addBreadcrumb('Error loading skill edit page data', 'error', { 
-          skillId, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
-        });
-        console.error('❌ Error loading edit page data:', error);
-        setNotification({
-          message: 'Fehler beim Laden der Daten',
-          type: 'error',
-        });
-      }
+      });
     };
 
     loadData();
@@ -112,6 +117,7 @@ const SkillEditPage: React.FC = () => {
     fetchCategories,
     fetchProficiencyLevels,
     navigate,
+    withLoading,
   ]);
 
   // Check ownership after skill is loaded
@@ -146,40 +152,42 @@ const SkillEditPage: React.FC = () => {
       return;
     }
 
-    try {
-      errorService.addBreadcrumb('Updating skill', 'form', { skillId, skillName: skillData.name });
-      console.log('📝 Updating skill:', skillId, skillData);
-      const success = await updateSkill(skillId, skillData);
+    await withLoading(LoadingKeys.UPDATE_SKILL, async () => {
+      try {
+        errorService.addBreadcrumb('Updating skill', 'form', { skillId, skillName: skillData.name });
+        console.log('📝 Updating skill:', skillId, skillData);
+        const success = await updateSkill(skillId, skillData);
 
-      if (success) {
-        errorService.addBreadcrumb('Skill updated successfully', 'form', { skillId });
-        setNotification({
-          message: 'Skill erfolgreich aktualisiert',
-          type: 'success',
+        if (success) {
+          errorService.addBreadcrumb('Skill updated successfully', 'form', { skillId });
+          setNotification({
+            message: 'Skill erfolgreich aktualisiert',
+            type: 'success',
+          });
+
+          // Navigate back to skill details after a short delay
+          setTimeout(() => {
+            navigate(`/skills/${skillId}`);
+          }, 1500);
+        } else {
+          errorService.addBreadcrumb('Skill update failed', 'error', { skillId });
+          setNotification({
+            message: 'Fehler beim Aktualisieren des Skills',
+            type: 'error',
+          });
+        }
+      } catch (error) {
+        errorService.addBreadcrumb('Error updating skill', 'error', { 
+          skillId, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
         });
-
-        // Navigate back to skill details after a short delay
-        setTimeout(() => {
-          navigate(`/skills/${skillId}`);
-        }, 1500);
-      } else {
-        errorService.addBreadcrumb('Skill update failed', 'error', { skillId });
+        console.error('❌ Update skill error:', error);
         setNotification({
-          message: 'Fehler beim Aktualisieren des Skills',
+          message: 'Ein unerwarteter Fehler ist aufgetreten',
           type: 'error',
         });
       }
-    } catch (error) {
-      errorService.addBreadcrumb('Error updating skill', 'error', { 
-        skillId, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
-      console.error('❌ Update skill error:', error);
-      setNotification({
-        message: 'Ein unerwarteter Fehler ist aufgetreten',
-        type: 'error',
-      });
-    }
+    });
   };
 
   // Handle cancel
@@ -199,8 +207,44 @@ const SkillEditPage: React.FC = () => {
   };
 
   // Loading state
-  if (isLoading && !selectedSkill) {
-    return <PageLoader variant="form" message="Skill wird geladen..." />;
+  const isPageLoading = isLoading(LoadingKeys.FETCH_DATA) || (skillsLoading && !selectedSkill);
+  
+  if (isPageLoading) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 3, mb: 4 }}>
+        {/* Navigation skeleton */}
+        <Box sx={{ mb: 3 }}>
+          <SkeletonLoader variant="text" width={80} height={32} sx={{ mb: 2 }} />
+          <SkeletonLoader variant="text" width={400} height={20} />
+        </Box>
+
+        {/* Header skeleton */}
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box>
+              <SkeletonLoader variant="text" width={180} height={40} sx={{ mb: 1 }} />
+              <SkeletonLoader variant="text" width={300} height={20} />
+            </Box>
+            <SkeletonLoader variant="text" width={100} height={36} />
+          </Box>
+        </Paper>
+
+        {/* Form skeleton */}
+        <Paper sx={{ p: 3 }}>
+          <SkeletonLoader variant="text" width="100%" height={56} sx={{ mb: 3 }} />
+          <SkeletonLoader variant="text" width="100%" height={120} sx={{ mb: 3 }} />
+          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            <SkeletonLoader variant="text" width="50%" height={56} />
+            <SkeletonLoader variant="text" width="50%" height={56} />
+          </Box>
+          <SkeletonLoader variant="text" width="100%" height={56} sx={{ mb: 3 }} />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <SkeletonLoader variant="text" width={100} height={36} />
+            <SkeletonLoader variant="text" width={120} height={36} />
+          </Box>
+        </Paper>
+      </Container>
+    );
   }
 
   // Error state
@@ -290,14 +334,14 @@ const SkillEditPage: React.FC = () => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
+            <LoadingButton
               variant="outlined"
               startIcon={<CancelIcon />}
               onClick={handleCancel}
-              disabled={isUpdating}
+              disabled={isUpdating || isLoading(LoadingKeys.UPDATE_SKILL)}
             >
               Abbrechen
-            </Button>
+            </LoadingButton>
           </Box>
         </Box>
 
@@ -331,7 +375,7 @@ const SkillEditPage: React.FC = () => {
             }
             categories={categories}
             proficiencyLevels={proficiencyLevels}
-            loading={isUpdating}
+            loading={isUpdating || isLoading(LoadingKeys.UPDATE_SKILL)}
             skill={selectedSkill}
             title="" // No title needed since we have the page header
           />
@@ -359,13 +403,13 @@ const SkillEditPage: React.FC = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
+          <LoadingButton
             variant="outlined"
             onClick={() => navigate(`/skills/${skillId}`)}
-            disabled={isUpdating}
+            disabled={isUpdating || isLoading(LoadingKeys.UPDATE_SKILL)}
           >
             Vorschau anzeigen
-          </Button>
+          </LoadingButton>
         </Box>
       </Box>
     </Container>
