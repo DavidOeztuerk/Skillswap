@@ -29,19 +29,19 @@ public class CheckMultiplePermissionsQueryHandler(
                 return Error("PermissionNames cannot be empty");
 
             // Parse UserId to Guid
-            if (!Guid.TryParse(request.UserId, out var userId))
+            if (string.IsNullOrEmpty(request.UserId))
                 return Error("Invalid UserId format");
 
             bool result;
             if (request.RequireAll)
             {
                 result = await _permissionRepository.UserHasAllPermissionsAsync(
-                    userId.ToString(), request.PermissionNames.ToArray());
+                    request.UserId, request.PermissionNames, cancellationToken);
             }
             else
             {
                 result = await _permissionRepository.UserHasAnyPermissionAsync(
-                    userId.ToString(), request.PermissionNames.ToArray());
+                    request.UserId, request.PermissionNames, cancellationToken);
             }
 
             return Success(result);

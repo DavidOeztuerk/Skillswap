@@ -1,8 +1,6 @@
 using CQRS.Handlers;
-using Infrastructure.Models;
 using UserService.Application.Queries;
 using UserService.Domain.Repositories;
-using UserService.Api.Application.Queries;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
 

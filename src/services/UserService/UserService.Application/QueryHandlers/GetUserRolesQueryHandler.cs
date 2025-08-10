@@ -1,10 +1,10 @@
 using CQRS.Handlers;
 using CQRS.Models;
 using Microsoft.Extensions.Logging;
-using UserService.Api.Application.Queries;
+using UserService.Application.Queries;
 using UserService.Domain.Repositories;
 
-namespace UserService.Api.Application.QueryHandlers;
+namespace UserService.Application.QueryHandlers;
 
 public class GetUserRolesQueryHandler(
     IUserRepository userRepository,

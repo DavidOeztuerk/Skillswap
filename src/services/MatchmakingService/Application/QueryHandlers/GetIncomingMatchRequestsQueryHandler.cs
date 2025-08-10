@@ -23,7 +23,7 @@ public class GetIncomingMatchRequestsQueryHandler(
         {
             if (string.IsNullOrEmpty(request.UserId))
             {
-                return Success(new List<MatchRequestDisplayResponse>(), request.PageNumber, request.PageSize, 0);
+                return Success([], request.PageNumber, request.PageSize, 0);
             }
 
             // Query incoming requests where current user is the target (skill owner)
@@ -62,7 +62,7 @@ public class GetIncomingMatchRequestsQueryHandler(
                     SkillName: skillData?.Name ?? "Unknown Skill",
                     SkillCategory: skillData?.Category ?? "General",
                     Message: mr.Message,
-                    Status: mr.Status.ToLowerInvariant(),
+                    Status: mr.Status,
                     Type: "incoming",
                     OtherUserId: mr.RequesterId,
                     OtherUserName: requesterData?.Name ?? "Unknown User",

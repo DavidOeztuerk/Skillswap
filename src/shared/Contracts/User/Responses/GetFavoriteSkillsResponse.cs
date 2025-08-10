@@ -1,3 +1,4 @@
+using Contracts.Common;
 using Contracts.Skill.Responses;
 
 namespace Contracts.User.Responses;
@@ -7,6 +8,7 @@ namespace Contracts.User.Responses;
 /// </summary>
 public record GetFavoriteSkillsResponse(
     List<UserSkillResponse> FavoriteSkills)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

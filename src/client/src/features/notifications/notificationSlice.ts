@@ -188,6 +188,42 @@ const notificationSlice = createSlice({
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
+    
+    // Optimistic updates
+    markAsReadOptimistic: (state, action: PayloadAction<string>) => {
+      const notification = state.notifications.find(n => n.id === action.payload);
+      if (notification && !notification.isRead) {
+        notification.isRead = true;
+        state.unreadCount = Math.max(0, withDefault(state.unreadCount, 0) - 1);
+      }
+    },
+    
+    markAllAsReadOptimistic: (state) => {
+      state.notifications.forEach(n => {
+        n.isRead = true;
+      });
+      state.unreadCount = 0;
+    },
+    
+    deleteNotificationOptimistic: (state, action: PayloadAction<string>) => {
+      const index = state.notifications.findIndex(n => n.id === action.payload);
+      if (index !== -1) {
+        const notification = state.notifications[index];
+        if (!notification.isRead) {
+          state.unreadCount = Math.max(0, withDefault(state.unreadCount, 0) - 1);
+        }
+        state.notifications.splice(index, 1);
+      }
+    },
+    
+    // Rollback actions
+    setNotifications: (state, action: PayloadAction<Notification[]>) => {
+      state.notifications = action.payload;
+    },
+    
+    setUnreadCount: (state, action: PayloadAction<number>) => {
+      state.unreadCount = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -323,5 +359,10 @@ export const {
   setPagination,
   clearError,
   setLoading,
+  markAsReadOptimistic,
+  markAllAsReadOptimistic,
+  deleteNotificationOptimistic,
+  setNotifications,
+  setUnreadCount,
 } = notificationSlice.actions;
 export default notificationSlice.reducer;

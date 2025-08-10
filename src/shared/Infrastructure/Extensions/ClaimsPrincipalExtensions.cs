@@ -24,6 +24,11 @@ public static class ClaimsPrincipalExtensions
                ?? user.FindFirst(ClaimTypes.Name)?.Value;
     }
 
+    public static bool IsSuperAdmin(this ClaimsPrincipal user)
+    {
+        return user.IsInRole("SuperAdmin") || user.HasClaim("role", "SuperAdmin");
+    }
+
     public static bool IsAdmin(this ClaimsPrincipal user)
     {
         return user.IsInRole("Admin") || user.HasClaim("role", "Admin");
@@ -33,5 +38,9 @@ public static class ClaimsPrincipalExtensions
     {
         return user.IsInRole("Moderator") || user.HasClaim("role", "Moderator");
     }
-}
 
+    public static bool IsUser(this ClaimsPrincipal user)
+    {
+        return user.IsInRole("User") || user.HasClaim("role", "User");
+    }
+}

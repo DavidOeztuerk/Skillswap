@@ -6,22 +6,21 @@ import {
   CreateMatchRequestRequest,
   AcceptMatchRequestRequest,
   RejectMatchRequestRequest,
-  CreateCounterOfferRequest
+  CreateCounterOfferRequest,
+  Match
 } from '../../types/display/MatchmakingDisplay';
 import { SliceError } from '../../store/types';
 import matchmakingService, { GetMatchRequestsParams } from '../../api/services/matchmakingService';
+import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 
 interface MatchmakingState {
   // Match requests
-  incomingRequests: MatchRequestDisplay[];
+  incomingRequests: MatchRequest[];
   outgoingRequests: MatchRequestDisplay[];
-  
   // Actual matches
   matches: MatchDisplay[];
-  
   // Thread details
   currentThread: MatchThreadDisplay | null;
-  
   // Pagination
   pagination: {
     page: number;
@@ -29,15 +28,12 @@ interface MatchmakingState {
     total: number;
     totalPages: number;
   };
-  
   // Loading states
   isLoading: boolean;
   isLoadingRequests: boolean;
   isLoadingThread: boolean;
-  
   // Success states
   matchRequestSent: boolean;
-  
   // Error
   error: SliceError | null;
 }
@@ -155,6 +151,39 @@ const matchmakingSlice = createSlice({
     
     setPagination: (state, action: PayloadAction<Partial<MatchmakingState['pagination']>>) => {
       state.pagination = { ...state.pagination, ...action.payload };
+    },
+    
+    // Optimistic updates
+    acceptMatchRequestOptimistic: (state, action: PayloadAction<string>) => {
+      const requestId = action.payload;
+      const request = state.incomingRequests.find(r => r.id === requestId);
+      if (request) {
+        request.status = 'accepted';
+        // Move to matches
+        state.matches.push({
+          ...request,
+          matchedAt: new Date().toISOString(),
+        } as any);
+        // Remove from incoming
+        state.incomingRequests = state.incomingRequests.filter(r => r.id !== requestId);
+      }
+    },
+    
+    rejectMatchRequestOptimistic: (state, action: PayloadAction<string>) => {
+      const requestId = action.payload;
+      const request = state.incomingRequests.find(r => r.id === requestId);
+      if (request) {
+        request.status = 'rejected';
+      }
+    },
+    
+    // Rollback actions
+    setIncomingRequests: (_state, _action: PayloadAction<MatchRequest[]>) => {
+      // state.incomingRequests = action.payload as MatchRequestDisplay[]
+    },
+    
+    setMatches: (_state, _action: PayloadAction<Match[]>) => {
+      // state.matches = action.payload as MatchDisplay[];
     },
     
     markRequestAsRead: (state, action: PayloadAction<string>) => {
@@ -357,6 +386,10 @@ export const {
   clearMatches,
   clearCurrentThread,
   setPagination,
+  acceptMatchRequestOptimistic,
+  rejectMatchRequestOptimistic,
+  setIncomingRequests,
+  setMatches,
   markRequestAsRead,
 } = matchmakingSlice.actions;
 

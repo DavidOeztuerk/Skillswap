@@ -130,6 +130,39 @@ const proficiencyLevelsSlice = createSlice({
     resetState: (state) => {
       Object.assign(state, initialState);
     },
+    
+    // Optimistic updates
+    createProficiencyLevelOptimistic: (state, action: PayloadAction<ProficiencyLevel>) => {
+      state.proficiencyLevels.push(action.payload);
+      state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
+    },
+    
+    updateProficiencyLevelOptimistic: (state, action: PayloadAction<ProficiencyLevel>) => {
+      const index = state.proficiencyLevels?.findIndex(
+        (level) => level?.id === action.payload?.id
+      );
+      if (index !== -1) {
+        state.proficiencyLevels[index] = action.payload;
+        state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
+      }
+      if (state.selectedProficiencyLevel?.id === action.payload.id) {
+        state.selectedProficiencyLevel = action.payload;
+      }
+    },
+    
+    deleteProficiencyLevelOptimistic: (state, action: PayloadAction<string>) => {
+      state.proficiencyLevels = state.proficiencyLevels?.filter(
+        (level) => level?.id !== action.payload
+      );
+      if (state.selectedProficiencyLevel?.id === action.payload) {
+        state.selectedProficiencyLevel = null;
+      }
+    },
+    
+    // Rollback actions
+    setProficiencyLevels: (state, action: PayloadAction<ProficiencyLevel[]>) => {
+      state.proficiencyLevels = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -240,6 +273,10 @@ export const {
   clearAllProficiencyLevels,
   setError,
   resetState,
+  createProficiencyLevelOptimistic,
+  updateProficiencyLevelOptimistic,
+  deleteProficiencyLevelOptimistic,
+  setProficiencyLevels,
 } = proficiencyLevelsSlice.actions;
 
 export default proficiencyLevelsSlice.reducer;

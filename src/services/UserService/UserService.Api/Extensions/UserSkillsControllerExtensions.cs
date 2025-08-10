@@ -2,10 +2,10 @@ using System.Security.Claims;
 using Contracts.User.Requests;
 using Contracts.User.Responses;
 using CQRS.Extensions;
+using CQRS.Models;
 using Infrastructure.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using UserService.Api.Application.Queries;
 using UserService.Application.Commands;
 using UserService.Application.Commands.Favorites;
 using UserService.Application.Queries;
@@ -18,13 +18,13 @@ public static class UserSkillsControllerExtensions
     {
         RouteGroupBuilder skills = builder.MapGroup("/users/skills")
             .RequireAuthorization()
-            .WithTags("User Skills");
+            .WithTags("User favorite skills");
 
         skills.MapGet("/favorites", HandleGetFavoriteSkills)
             .WithName("GetFavoriteSkills")
             .WithSummary("Get favorite skills")
             .WithDescription("Gets the current user's favorite skills")
-            .Produces<GetFavoriteSkillsResponse>(200)
+            .Produces<PagedResponse<GetFavoriteSkillsResponse>>(200)
             .Produces(401);
 
         skills.MapPost("/favorites", HandleAddFavoriteSkill)
@@ -43,12 +43,12 @@ public static class UserSkillsControllerExtensions
             .Produces(400)
             .Produces(401);
 
-        static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPrincipal user)
+        static async Task<IResult> HandleGetFavoriteSkills(IMediator mediator, ClaimsPrincipal user, [FromQuery] int PageNumber, [FromQuery] int PageSize)
         {
             var userId = user.GetUserId();
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-            var query = new GetFavoriteSkillsQuery(userId);
+            var query = new GetFavoriteSkillsQuery(userId, PageNumber, PageSize);
             return await mediator.SendQuery(query);
         }
 

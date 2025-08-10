@@ -1,7 +1,7 @@
 using CQRS.Interfaces;
 using FluentValidation;
 
-namespace UserService.Api.Application.Queries;
+namespace UserService.Application.Queries;
 
 public record GetUserActivityLogQuery(
     string UserId,

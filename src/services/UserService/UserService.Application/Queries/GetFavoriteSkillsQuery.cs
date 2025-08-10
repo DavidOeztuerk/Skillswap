@@ -1,11 +1,15 @@
 using CQRS.Interfaces;
 
-namespace UserService.Api.Application.Queries;
+namespace UserService.Application.Queries;
 
 public record GetFavoriteSkillsQuery(
-    string UserId)
-    : IQuery<List<string>>, ICacheableQuery
+    string UserId,
+    int PageNumber,
+    int PageSize)
+    : IPagedQuery<string>, ICacheableQuery
 {
+    public int PageNumber { get; set; } = PageNumber;
+    public int PageSize { get; set; } = PageSize;
     public string CacheKey => $"user-favourites:{UserId}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }

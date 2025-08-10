@@ -6,7 +6,8 @@ namespace Contracts.User.Responses;
 /// API response for GetAllUsers operation
 /// </summary>
 public record GetAllUsersResponse(
-    PagedResponse<UserSummaryResponse> Users)
+    UserSummaryResponse Users)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

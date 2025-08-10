@@ -2,7 +2,7 @@ using FluentValidation;
 using CQRS.Interfaces;
 using Contracts.User.Responses;
 
-namespace UserService.Api.Application.Queries;
+namespace UserService.Application.Queries;
 
 public record GetUserProfileQuery(
     string UserId)

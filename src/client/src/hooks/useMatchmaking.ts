@@ -9,12 +9,17 @@ import {
   acceptMatchRequest,
   rejectMatchRequest,
   getUserMatches,
+  acceptMatchRequestOptimistic,
+  rejectMatchRequestOptimistic,
+  setIncomingRequests,
+  setMatches,
 } from '../features/matchmaking/matchmakingSlice';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { MatchStatus, MatchDisplay } from '../types/display/MatchmakingDisplay';
 import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
 import { FindMatchRequest } from '../api/services/matchmakingService';
 import { withDefault } from '../utils/safeAccess';
+import { withOptimisticUpdate, generateUpdateId, canPerformOptimisticUpdate } from '../utils/optimisticUpdates';
 
 /**
  * Hook für Matchmaking-Funktionalität
@@ -108,16 +113,48 @@ export const useMatchmaking = () => {
     requestId: string,
     responseMessage?: string
   ): Promise<string | null> => {
-    const resultAction = await dispatch(acceptMatchRequest({ 
-      requestId: requestId, 
-      responseMessage: responseMessage
-    }));
-
-    if (acceptMatchRequest.fulfilled.match(resultAction)) {
-      return resultAction.payload;
+    if (!canPerformOptimisticUpdate()) {
+      // Fallback to regular update if offline
+      const resultAction = await dispatch(acceptMatchRequest({ 
+        requestId: requestId, 
+        responseMessage: responseMessage
+      }));
+      return acceptMatchRequest.fulfilled.match(resultAction) ? resultAction.payload : null;
     }
 
-    return null;
+    const updateId = generateUpdateId('accept_match');
+    const currentIncoming = [...incomingRequests];
+    const currentMatches = [...matches];
+    
+    const result = await withOptimisticUpdate(
+      updateId,
+      // Optimistic action
+      () => dispatch(acceptMatchRequestOptimistic(requestId)),
+      // Async action
+      async () => {
+        const resultAction = await dispatch(acceptMatchRequest({ 
+          requestId: requestId, 
+          responseMessage: responseMessage
+        }));
+        if (!acceptMatchRequest.fulfilled.match(resultAction)) {
+          throw new Error('Failed to accept match');
+        }
+        return resultAction.payload;
+      },
+      // Rollback action
+      () => {
+        dispatch(setIncomingRequests(currentIncoming));
+        dispatch(setMatches(currentMatches));
+      },
+      // Options
+      {
+        showSuccess: true,
+        successMessage: 'Match request accepted',
+        errorMessage: 'Failed to accept match request',
+      }
+    );
+    
+    return result;
   };
 
   /**
@@ -130,13 +167,48 @@ export const useMatchmaking = () => {
     requestId: string,
     responseMessage?: string
   ): Promise<boolean> => {
-    const resultAction = await dispatch(
-      rejectMatchRequest({ 
-        requestId: requestId, 
-        responseMessage: responseMessage
-      })
+    if (!canPerformOptimisticUpdate()) {
+      // Fallback to regular update if offline
+      const resultAction = await dispatch(
+        rejectMatchRequest({ 
+          requestId: requestId, 
+          responseMessage: responseMessage
+        })
+      );
+      return rejectMatchRequest.fulfilled.match(resultAction);
+    }
+
+    const updateId = generateUpdateId('reject_match');
+    const currentIncoming = [...incomingRequests];
+    
+    const result = await withOptimisticUpdate(
+      updateId,
+      // Optimistic action
+      () => dispatch(rejectMatchRequestOptimistic(requestId)),
+      // Async action
+      async () => {
+        const resultAction = await dispatch(
+          rejectMatchRequest({ 
+            requestId: requestId, 
+            responseMessage: responseMessage
+          })
+        );
+        if (!rejectMatchRequest.fulfilled.match(resultAction)) {
+          throw new Error('Failed to reject match');
+        }
+        return resultAction;
+      },
+      // Rollback action
+      () => dispatch(setIncomingRequests(currentIncoming)),
+      // Options
+      {
+        showSuccess: true,
+        successMessage: 'Match request declined',
+        errorMessage: 'Failed to decline match request',
+      }
     );
-    return rejectMatchRequest.fulfilled.match(resultAction);
+    
+    return result !== null;
   };
 
   /**

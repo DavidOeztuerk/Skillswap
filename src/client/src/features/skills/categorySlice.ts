@@ -128,6 +128,39 @@ const categoriesSlice = createSlice({
     resetState: (state) => {
       Object.assign(state, initialState);
     },
+    
+    // Optimistic updates
+    createCategoryOptimistic: (state, action: PayloadAction<SkillCategory>) => {
+      state.categories.push(action.payload);
+      state.categories.sort((a, b) => a?.name.localeCompare(b?.name));
+    },
+    
+    updateCategoryOptimistic: (state, action: PayloadAction<SkillCategory>) => {
+      const index = state.categories?.findIndex(
+        (cat) => cat?.id === action.payload?.id
+      );
+      if (index !== -1) {
+        state.categories[index] = action.payload;
+        state.categories.sort((a, b) => a?.name.localeCompare(b?.name));
+      }
+      if (state.selectedCategory?.id === action.payload.id) {
+        state.selectedCategory = action.payload;
+      }
+    },
+    
+    deleteCategoryOptimistic: (state, action: PayloadAction<string>) => {
+      state.categories = state.categories?.filter(
+        (category) => category?.id !== action.payload
+      );
+      if (state.selectedCategory?.id === action.payload) {
+        state.selectedCategory = null;
+      }
+    },
+    
+    // Rollback actions
+    setCategories: (state, action: PayloadAction<SkillCategory[]>) => {
+      state.categories = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -240,6 +273,10 @@ export const {
   clearAllCategories,
   setError,
   resetState,
+  createCategoryOptimistic,
+  updateCategoryOptimistic,
+  deleteCategoryOptimistic,
+  setCategories,
 } = categoriesSlice.actions;
 
 export default categoriesSlice.reducer;

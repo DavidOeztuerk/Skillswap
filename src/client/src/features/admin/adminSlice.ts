@@ -295,6 +295,61 @@ const adminSlice = createSlice({
         state.moderationReports[index] = action.payload;
       }
     },
+    
+    // Optimistic updates
+    updateUserRoleOptimistic: (state, action: PayloadAction<{ userId: string; role: string }>) => {
+      const user = state.users.find(u => u.id === action.payload.userId);
+      if (user) {
+        user.roles.push(action.payload.role);
+      }
+    },
+    
+    suspendUserOptimistic: (state, action: PayloadAction<string>) => {
+      const user = state.users.find(u => u.id === action.payload);
+      if (user) {
+        user.accountStatus = 'suspended';
+      }
+    },
+    
+    unsuspendUserOptimistic: (state, action: PayloadAction<string>) => {
+      const user = state.users.find(u => u.id === action.payload);
+      if (user) {
+        user.accountStatus = 'active';
+      }
+    },
+    
+    deleteUserOptimistic: (state, action: PayloadAction<string>) => {
+      state.users = state.users.filter(user => user.id !== action.payload);
+    },
+    
+    moderateSkillOptimistic: (state, action: PayloadAction<{ skillId: string; action: 'approve' | 'reject' | 'quarantine' }>) => {
+      const skill = state.skills.find(s => s.id === action.payload.skillId);
+      if (skill) {
+        skill.status = action.payload.action === 'approve' ? 'approved' : 
+                      action.payload.action === 'reject' ? 'rejected' : 'quarantined';
+      }
+    },
+    
+    handleReportOptimistic: (state, action: PayloadAction<{ reportId: string; action: 'approve' | 'reject' | 'escalate' }>) => {
+      const report = state.moderationReports.find(r => r.id === action.payload.reportId);
+      if (report) {
+        report.status = action.payload.action === 'approve' ? 'approved' : 
+                       action.payload.action === 'reject' ? 'rejected' : 'escalated';
+      }
+    },
+    
+    // Rollback actions
+    setUsers: (state, action: PayloadAction<AdminUser[]>) => {
+      state.users = action.payload;
+    },
+    
+    setSkills: (state, action: PayloadAction<AdminSkill[]>) => {
+      state.skills = action.payload;
+    },
+    
+    setModerationReports: (state, action: PayloadAction<ModerationReport[]>) => {
+      state.moderationReports = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -526,6 +581,15 @@ export const {
   removeUserFromList,
   updateSkillInList,
   updateReportInList,
+  updateUserRoleOptimistic,
+  suspendUserOptimistic,
+  unsuspendUserOptimistic,
+  deleteUserOptimistic,
+  moderateSkillOptimistic,
+  handleReportOptimistic,
+  setUsers,
+  setSkills,
+  setModerationReports,
 } = adminSlice.actions;
 
 export default adminSlice.reducer;

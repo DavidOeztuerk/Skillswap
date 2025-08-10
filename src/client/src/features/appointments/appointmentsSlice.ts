@@ -262,6 +262,41 @@ const appointmentsSlice = createSlice({
     clearAvailableSlots: (state) => {
       state.availableSlots = [];
     },
+    
+    // Optimistic updates
+    updateAppointmentStatusOptimistic: (state, action: PayloadAction<{ appointmentId: string; status: AppointmentStatus }>) => {
+      const { appointmentId, status } = action.payload;
+      
+      // Update in all lists
+      const updateInList = (list: Appointment[]) => {
+        const appointment = list.find(a => a.id === appointmentId);
+        if (appointment) {
+          appointment.status = status;
+        }
+      };
+      
+      updateInList(state.appointments);
+      updateInList(state.upcomingAppointments);
+      updateInList(state.pastAppointments);
+      
+      // Update active appointment if it matches
+      if (state.activeAppointment?.id === appointmentId) {
+        state.activeAppointment.status = status;
+      }
+    },
+    
+    // Rollback actions
+    setAppointments: (state, action: PayloadAction<Appointment[]>) => {
+      state.appointments = action.payload;
+    },
+    
+    setUpcomingAppointments: (state, action: PayloadAction<Appointment[]>) => {
+      state.upcomingAppointments = action.payload;
+    },
+    
+    setPastAppointments: (state, action: PayloadAction<Appointment[]>) => {
+      state.pastAppointments = action.payload;
+    },
   },
   extraReducers: (builder) => {
     // Helper function to update appointment in list
@@ -446,5 +481,9 @@ export const {
   updateAppointmentInList,
   removeAppointmentFromList,
   clearAvailableSlots,
+  updateAppointmentStatusOptimistic,
+  setAppointments,
+  setUpcomingAppointments,
+  setPastAppointments,
 } = appointmentsSlice.actions;
 export default appointmentsSlice.reducer;
