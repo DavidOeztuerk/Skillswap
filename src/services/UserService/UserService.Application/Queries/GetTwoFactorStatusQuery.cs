@@ -2,7 +2,7 @@ using Contracts.User.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
-namespace UserService.Api.Application.Queries;
+namespace UserService.Application.Queries;
 
 public record GetTwoFactorStatusQuery(
     string UserId)

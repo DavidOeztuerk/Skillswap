@@ -1,5 +1,4 @@
 using CQRS.Interfaces;
-using CQRS.Models;
 
 namespace UserService.Application.Queries.Permissions;
 
@@ -9,4 +8,5 @@ namespace UserService.Application.Queries.Permissions;
 public record CheckMultiplePermissionsQuery(
     string UserId,
     List<string> PermissionNames,
-    bool RequireAll = false) : IQuery<bool>;
+    bool RequireAll = false) 
+    : IQuery<bool>;

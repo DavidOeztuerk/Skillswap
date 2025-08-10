@@ -16,6 +16,9 @@ public class MatchRequest : AuditableEntity
     [MaxLength(450)]
     public string TargetUserId { get; set; } = string.Empty;
 
+    [MaxLength(450)]
+    public string? ThreadId { get; set; } // Gruppiert alle Anfragen zwischen zwei Usern für einen Skill
+
     [MaxLength(500)]
     public string? Description { get; set; }
 
@@ -25,9 +28,6 @@ public class MatchRequest : AuditableEntity
     [Required]
     [MaxLength(500)]
     public string Message { get; set; } = string.Empty;
-
-    [MaxLength(450)]
-    public string? ThreadId { get; set; } // Gruppiert alle Anfragen zwischen zwei Usern für einen Skill
 
     // Tausch-Funktionalität
     public bool IsSkillExchange { get; set; } = false;
@@ -41,8 +41,8 @@ public class MatchRequest : AuditableEntity
     public string? Currency { get; set; } = "EUR";
 
     // Zeitplanung
-    public List<string> PreferredDays { get; set; } = new();
-    public List<string> PreferredTimes { get; set; } = new();
+    public List<string> PreferredDays { get; set; } = [];
+    public List<string> PreferredTimes { get; set; } = [];
     public int? SessionDurationMinutes { get; set; }
     public int? TotalSessions { get; set; } = 1;
 
@@ -50,8 +50,8 @@ public class MatchRequest : AuditableEntity
     public int ViewCount { get; set; } = 0;
     public int MatchAttempts { get; set; } = 0;
 
-    public List<string> PreferredTags { get; set; } = new();
-    public List<string> RequiredSkills { get; set; } = new();
+    public List<string> PreferredTags { get; set; } = [];
+    public List<string> RequiredSkills { get; set; } = [];
 
     [MaxLength(500)]
     public string? ResponseMessage { get; set; }
@@ -60,7 +60,7 @@ public class MatchRequest : AuditableEntity
 
     // Navigation Properties
     public virtual MatchRequest? ParentRequest { get; set; }
-    public virtual ICollection<MatchRequest> CounterOffers { get; set; } = new List<MatchRequest>();
+    public virtual ICollection<MatchRequest> CounterOffers { get; set; } = [];
 
     // Helper properties
     public bool IsPending => Status == "Pending";

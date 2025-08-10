@@ -1,4 +1,3 @@
-using Contracts.User.Responses.Auth;
 using CQRS.Interfaces;
 using FluentValidation;
 using UserService.Domain.Enums;
@@ -18,10 +17,14 @@ public record SearchUsersQuery(
     DateTime? CreatedBefore = null,
     int PageNumber = 1,
     int PageSize = 20)
-    : IPagedQuery<UserSearchResultResponse>
+    : IPagedQuery<UserSearchResultResponse>, ICacheableQuery
 {
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
+
+    public string CacheKey => throw new NotImplementedException();
+
+    public TimeSpan CacheDuration => throw new NotImplementedException();
 }
 
 public record UserSearchResultResponse(

@@ -4,11 +4,16 @@ import { AppointmentFilter } from '../types/states/AppointmentsState';
 import { 
   fetchAppointments,
   createAppointment,
-  respondToAppointment 
+  respondToAppointment,
+  updateAppointmentStatusOptimistic,
+  setAppointments,
+  setUpcomingAppointments,
+  setPastAppointments
 } from '../features/appointments/appointmentsSlice';
 import { AppointmentRequest } from '../types/contracts/requests/AppointmentRequest';
 import { Appointment, AppointmentStatus } from '../types/models/Appointment';
 import { withDefault } from '../utils/safeAccess';
+import { withOptimisticUpdate, generateUpdateId, canPerformOptimisticUpdate } from '../utils/optimisticUpdates';
 
 /**
  * Hook für die Verwaltung von Terminen
@@ -16,7 +21,7 @@ import { withDefault } from '../utils/safeAccess';
  */
 export const useAppointments = () => {
   const dispatch = useAppDispatch();
-  const { appointments, isLoading, error } = useAppSelector(
+  const { appointments, upcomingAppointments, pastAppointments, isLoading, error } = useAppSelector(
     (state) => state.appointments
   );
   const [filter, setFilter] = useState<AppointmentFilter>({
@@ -118,43 +123,157 @@ export const useAppointments = () => {
   };
 
   /**
-   * Akzeptiert einen Termin
+   * Akzeptiert einen Termin mit optimistischem Update
    * @param appointmentId - ID des Termins
    * @returns true bei Erfolg, false bei Fehler
    */
   const acceptAppointment = async (appointmentId: string): Promise<boolean> => {
-    return respondToAppointmentRequest(
-      appointmentId,
-      AppointmentStatus.Confirmed
+    if (!canPerformOptimisticUpdate()) {
+      return respondToAppointmentRequest(appointmentId, AppointmentStatus.Confirmed);
+    }
+
+    const updateId = generateUpdateId('accept_appointment');
+    const currentAppointments = [...appointments];
+    const currentUpcoming = [...upcomingAppointments];
+    const currentPast = [...pastAppointments];
+    
+    const result = await withOptimisticUpdate(
+      updateId,
+      // Optimistic action
+      () => dispatch(updateAppointmentStatusOptimistic({ 
+        appointmentId, 
+        status: AppointmentStatus.Confirmed 
+      })),
+      // Async action
+      async () => {
+        const success = await respondToAppointmentRequest(
+          appointmentId,
+          AppointmentStatus.Confirmed
+        );
+        if (!success) {
+          throw new Error('Failed to accept appointment');
+        }
+        return success;
+      },
+      // Rollback action
+      () => {
+        dispatch(setAppointments(currentAppointments));
+        dispatch(setUpcomingAppointments(currentUpcoming));
+        dispatch(setPastAppointments(currentPast));
+      },
+      // Options
+      {
+        showSuccess: true,
+        successMessage: 'Appointment confirmed',
+        errorMessage: 'Failed to confirm appointment',
+      }
     );
+    
+    return result !== null;
   };
 
   /**
-   * Lehnt einen Termin ab
+   * Lehnt einen Termin ab mit optimistischem Update
    * @param appointmentId - ID des Termins
    * @returns true bei Erfolg, false bei Fehler
    */
   const declineAppointment = async (
     appointmentId: string
   ): Promise<boolean> => {
-    return respondToAppointmentRequest(
-      appointmentId,
-      AppointmentStatus.Cancelled
+    if (!canPerformOptimisticUpdate()) {
+      return respondToAppointmentRequest(appointmentId, AppointmentStatus.Cancelled);
+    }
+
+    const updateId = generateUpdateId('decline_appointment');
+    const currentAppointments = [...appointments];
+    const currentUpcoming = [...upcomingAppointments];
+    const currentPast = [...pastAppointments];
+    
+    const result = await withOptimisticUpdate(
+      updateId,
+      // Optimistic action
+      () => dispatch(updateAppointmentStatusOptimistic({ 
+        appointmentId, 
+        status: AppointmentStatus.Cancelled 
+      })),
+      // Async action
+      async () => {
+        const success = await respondToAppointmentRequest(
+          appointmentId,
+          AppointmentStatus.Cancelled
+        );
+        if (!success) {
+          throw new Error('Failed to decline appointment');
+        }
+        return success;
+      },
+      // Rollback action
+      () => {
+        dispatch(setAppointments(currentAppointments));
+        dispatch(setUpcomingAppointments(currentUpcoming));
+        dispatch(setPastAppointments(currentPast));
+      },
+      // Options
+      {
+        showSuccess: true,
+        successMessage: 'Appointment cancelled',
+        errorMessage: 'Failed to cancel appointment',
+      }
     );
+    
+    return result !== null;
   };
 
   /**
-   * Markiert einen Termin als abgeschlossen
+   * Markiert einen Termin als abgeschlossen mit optimistischem Update
    * @param appointmentId - ID des Termins
    * @returns true bei Erfolg, false bei Fehler
    */
   const completeAppointment = async (
     appointmentId: string
   ): Promise<boolean> => {
-    return respondToAppointmentRequest(
-      appointmentId,
-      AppointmentStatus.Completed
+    if (!canPerformOptimisticUpdate()) {
+      return respondToAppointmentRequest(appointmentId, AppointmentStatus.Completed);
+    }
+
+    const updateId = generateUpdateId('complete_appointment');
+    const currentAppointments = [...appointments];
+    const currentUpcoming = [...upcomingAppointments];
+    const currentPast = [...pastAppointments];
+    
+    const result = await withOptimisticUpdate(
+      updateId,
+      // Optimistic action
+      () => dispatch(updateAppointmentStatusOptimistic({ 
+        appointmentId, 
+        status: AppointmentStatus.Completed 
+      })),
+      // Async action
+      async () => {
+        const success = await respondToAppointmentRequest(
+          appointmentId,
+          AppointmentStatus.Completed
+        );
+        if (!success) {
+          throw new Error('Failed to complete appointment');
+        }
+        return success;
+      },
+      // Rollback action
+      () => {
+        dispatch(setAppointments(currentAppointments));
+        dispatch(setUpcomingAppointments(currentUpcoming));
+        dispatch(setPastAppointments(currentPast));
+      },
+      // Options
+      {
+        showSuccess: true,
+        successMessage: 'Appointment completed',
+        errorMessage: 'Failed to complete appointment',
+      }
     );
+    
+    return result !== null;
   };
 
   /**

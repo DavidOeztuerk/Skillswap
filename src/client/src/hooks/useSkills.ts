@@ -27,6 +27,9 @@ import {
   setLoading,
   addUserSkill,
   removeUserSkill,
+  addFavoriteOptimistic,
+  removeFavoriteOptimistic,
+  setFavoriteSkillIds,
   updateSkillInState,
   clearAllSkills,
   resetState,
@@ -36,6 +39,7 @@ import { CreateSkillRequest } from '../types/contracts/requests/CreateSkillReque
 import { UpdateSkillRequest } from '../types/contracts/requests/UpdateSkillRequest';
 import { Skill } from '../types/models/Skill';
 import { SkillSearchParams } from '../api/services/skillsService';
+import { withOptimisticUpdate, generateUpdateId, canPerformOptimisticUpdate } from '../utils/optimisticUpdates';
 import {
   fetchCategories as fetchCategoriesAction,
   createCategory as createCategoryAction,
@@ -108,42 +112,80 @@ export const useSkills = () => {
     [dispatch]
   );
 
-  /** FAVORITES: Add a skill to favorites */
+  /** FAVORITES: Add a skill to favorites with optimistic update */
   const addFavoriteSkill = useCallback(
     async (skillId: string): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(addFavoriteSkillAction({ skillId }));
-        if (addFavoriteSkillAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          console.error('❌ Add favorite skill failed:', resultAction.payload);
-          return false;
-        }
-      } catch (error) {
-        console.error('❌ Add favorite skill error:', error);
+      // Check network connectivity
+      if (!canPerformOptimisticUpdate()) {
         return false;
       }
+
+      const updateId = generateUpdateId('add_favorite');
+      const currentFavorites = [...favoriteSkillIds];
+      
+      const result = await withOptimisticUpdate(
+        updateId,
+        // Optimistic action
+        () => dispatch(addFavoriteOptimistic(skillId)),
+        // Async action
+        async () => {
+          const resultAction = await dispatch(addFavoriteSkillAction({ skillId }));
+          if (!addFavoriteSkillAction.fulfilled.match(resultAction)) {
+            throw new Error('Failed to add favorite');
+          }
+          return resultAction;
+        },
+        // Rollback action
+        () => dispatch(setFavoriteSkillIds(currentFavorites)),
+        // Options
+        {
+          showSuccess: true,
+          successMessage: 'Added to favorites',
+          errorMessage: 'Failed to add to favorites',
+        }
+      );
+      
+      return result !== null;
     },
-    [dispatch]
+    [dispatch, favoriteSkillIds]
   );
 
-  /** FAVORITES: Remove a skill from favorites */
+  /** FAVORITES: Remove a skill from favorites with optimistic update */
   const removeFavoriteSkill = useCallback(
     async (skillId: string): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(removeFavoriteSkillAction({ skillId }));
-        if (removeFavoriteSkillAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          console.error('❌ Remove favorite skill failed:', resultAction.payload);
-          return false;
-        }
-      } catch (error) {
-        console.error('❌ Remove favorite skill error:', error);
+      // Check network connectivity
+      if (!canPerformOptimisticUpdate()) {
         return false;
       }
+
+      const updateId = generateUpdateId('remove_favorite');
+      const currentFavorites = [...favoriteSkillIds];
+      
+      const result = await withOptimisticUpdate(
+        updateId,
+        // Optimistic action
+        () => dispatch(removeFavoriteOptimistic(skillId)),
+        // Async action
+        async () => {
+          const resultAction = await dispatch(removeFavoriteSkillAction({ skillId }));
+          if (!removeFavoriteSkillAction.fulfilled.match(resultAction)) {
+            throw new Error('Failed to remove favorite');
+          }
+          return resultAction;
+        },
+        // Rollback action
+        () => dispatch(setFavoriteSkillIds(currentFavorites)),
+        // Options
+        {
+          showSuccess: true,
+          successMessage: 'Removed from favorites',
+          errorMessage: 'Failed to remove from favorites',
+        }
+      );
+      
+      return result !== null;
     },
-    [dispatch]
+    [dispatch, favoriteSkillIds]
   );
 
   /** FAVORITES: Check if a skill is a favorite */

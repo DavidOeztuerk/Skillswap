@@ -283,6 +283,24 @@ const skillsSlice = createSlice({
       }
     },
 
+    // Optimistic favorite updates
+    addFavoriteOptimistic: (state, action: PayloadAction<string>) => {
+      if (!state.favoriteSkillIds.includes(action.payload)) {
+        state.favoriteSkillIds.push(action.payload);
+      }
+    },
+
+    removeFavoriteOptimistic: (state, action: PayloadAction<string>) => {
+      state.favoriteSkillIds = state.favoriteSkillIds.filter(
+        id => id !== action.payload
+      );
+    },
+
+    // Rollback actions
+    setFavoriteSkillIds: (state, action: PayloadAction<string[]>) => {
+      state.favoriteSkillIds = action.payload;
+    },
+
     updateSkillInState: (state, action: PayloadAction<Skill>) => {
       const updatedSkill = action.payload;
 
@@ -723,6 +741,9 @@ export const {
   setLoading,
   addUserSkill,
   removeUserSkill,
+  addFavoriteOptimistic,
+  removeFavoriteOptimistic,
+  setFavoriteSkillIds,
   updateSkillInState,
   clearAllSkills,
   resetState,

@@ -1,10 +1,9 @@
 using System.Text.Json;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using UserService.Domain.Repositories;
-using UserService.Api.Application.Queries;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
+using UserService.Application.Queries;
 
 namespace UserService.Application.QueryHandlers;
 

@@ -6,7 +6,8 @@ namespace Contracts.Notification.Responses;
 /// API response for GetEmailTemplates operation
 /// </summary>
 public record GetEmailTemplatesResponse(
-    PagedResponse<EmailTemplateSummaryResponse> Templates)
+    EmailTemplateSummaryResponse Templates)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

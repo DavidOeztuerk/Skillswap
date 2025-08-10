@@ -6,7 +6,8 @@ namespace Contracts.User.Responses;
 /// API response for GetUserActivity operation
 /// </summary>
 public record GetUserActivityResponse(
-    PagedResponse<UserActivityItem> Activities)
+    UserActivityItem Activities)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

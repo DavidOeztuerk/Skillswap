@@ -6,7 +6,8 @@ namespace Contracts.Notification.Responses;
 /// API response for GetNotificationHistory operation
 /// </summary>
 public record GetNotificationHistoryResponse(
-    PagedResponse<NotificationHistoryItemResponse> Notifications)
+    NotificationHistoryItemResponse Notifications)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

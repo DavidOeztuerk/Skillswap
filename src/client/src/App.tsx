@@ -16,6 +16,8 @@ import { LoadingProvider } from './contexts/LoadingContext';
 import { withDefault } from './utils/safeAccess';
 import GlobalErrorBoundary from './components/error/GlobalErrorBoundary';
 import GlobalLoadingIndicator from './components/common/GlobalLoadingIndicator';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const App = () => {
   const { mode, theme, toggleTheme } = useTheme();
@@ -55,6 +57,18 @@ const App = () => {
                 <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
                   <Outlet />
                 </MainLayout>
+                <ToastContainer
+                  position="bottom-right"
+                  autoClose={3000}
+                  hideProgressBar={false}
+                  newestOnTop={false}
+                  closeOnClick
+                  rtl={false}
+                  pauseOnFocusLoss
+                  draggable
+                  pauseOnHover
+                  theme={mode === 'dark' ? 'dark' : 'light'}
+                />
               </TwoFactorDialogProvider>
             </ThemeProvider>
           </PermissionProvider>

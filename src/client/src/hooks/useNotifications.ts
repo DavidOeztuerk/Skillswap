@@ -8,11 +8,17 @@ import {
   updateNotificationSettings,
   deleteNotification,
   addNotification,
+  markAsReadOptimistic,
+  markAllAsReadOptimistic,
+  deleteNotificationOptimistic,
+  setNotifications,
+  setUnreadCount,
 } from '../features/notifications/notificationSlice';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { Notification, NotificationSettings, NotificationType } from '../types/models/Notification';
 import { NotificationHistoryRequest } from '../api/services/notificationService';
 import { withDefault } from '../utils/safeAccess';
+import { withOptimisticUpdate, generateUpdateId, canPerformOptimisticUpdate } from '../utils/optimisticUpdates';
 
 /**
  * Hook für Benachrichtigungs-Funktionalität
@@ -55,8 +61,40 @@ export const useNotifications = () => {
    * @returns true bei Erfolg, false bei Fehler
    */
   const markAsRead = async (notificationId: string): Promise<boolean> => {
-    const resultAction = await dispatch(markNotificationAsRead(notificationId));
-    return markNotificationAsRead.fulfilled.match(resultAction);
+    if (!canPerformOptimisticUpdate()) {
+      const resultAction = await dispatch(markNotificationAsRead(notificationId));
+      return markNotificationAsRead.fulfilled.match(resultAction);
+    }
+
+    const updateId = generateUpdateId('mark_notification_read');
+    const currentNotifications = [...notifications];
+    const currentUnreadCount = unreadCount;
+    
+    const result = await withOptimisticUpdate(
+      updateId,
+      // Optimistic action
+      () => dispatch(markAsReadOptimistic(notificationId)),
+      // Async action
+      async () => {
+        const resultAction = await dispatch(markNotificationAsRead(notificationId));
+        if (!markNotificationAsRead.fulfilled.match(resultAction)) {
+          throw new Error('Failed to mark notification as read');
+        }
+        return true;
+      },
+      // Rollback action
+      () => {
+        dispatch(setNotifications(currentNotifications));
+        dispatch(setUnreadCount(currentUnreadCount));
+      },
+      // Options
+      {
+        showSuccess: false,
+        errorMessage: 'Failed to mark notification as read',
+      }
+    );
+    
+    return result !== null;
   };
 
   /**
@@ -64,8 +102,41 @@ export const useNotifications = () => {
    * @returns true bei Erfolg, false bei Fehler
    */
   const markAllAsRead = async (): Promise<boolean> => {
-    const resultAction = await dispatch(markAllNotificationsAsRead());
-    return markAllNotificationsAsRead.fulfilled.match(resultAction);
+    if (!canPerformOptimisticUpdate()) {
+      const resultAction = await dispatch(markAllNotificationsAsRead());
+      return markAllNotificationsAsRead.fulfilled.match(resultAction);
+    }
+
+    const updateId = generateUpdateId('mark_all_notifications_read');
+    const currentNotifications = [...notifications];
+    const currentUnreadCount = unreadCount;
+    
+    const result = await withOptimisticUpdate(
+      updateId,
+      // Optimistic action
+      () => dispatch(markAllAsReadOptimistic()),
+      // Async action
+      async () => {
+        const resultAction = await dispatch(markAllNotificationsAsRead());
+        if (!markAllNotificationsAsRead.fulfilled.match(resultAction)) {
+          throw new Error('Failed to mark all notifications as read');
+        }
+        return true;
+      },
+      // Rollback action
+      () => {
+        dispatch(setNotifications(currentNotifications));
+        dispatch(setUnreadCount(currentUnreadCount));
+      },
+      // Options
+      {
+        showSuccess: true,
+        successMessage: 'All notifications marked as read',
+        errorMessage: 'Failed to mark all notifications as read',
+      }
+    );
+    
+    return result !== null;
   };
 
   /**
@@ -74,8 +145,41 @@ export const useNotifications = () => {
    * @returns true bei Erfolg, false bei Fehler
    */
   const deleteNotificationById = async (notificationId: string): Promise<boolean> => {
-    const resultAction = await dispatch(deleteNotification(notificationId));
-    return deleteNotification.fulfilled.match(resultAction);
+    if (!canPerformOptimisticUpdate()) {
+      const resultAction = await dispatch(deleteNotification(notificationId));
+      return deleteNotification.fulfilled.match(resultAction);
+    }
+
+    const updateId = generateUpdateId('delete_notification');
+    const currentNotifications = [...notifications];
+    const currentUnreadCount = unreadCount;
+    
+    const result = await withOptimisticUpdate(
+      updateId,
+      // Optimistic action
+      () => dispatch(deleteNotificationOptimistic(notificationId)),
+      // Async action
+      async () => {
+        const resultAction = await dispatch(deleteNotification(notificationId));
+        if (!deleteNotification.fulfilled.match(resultAction)) {
+          throw new Error('Failed to delete notification');
+        }
+        return true;
+      },
+      // Rollback action
+      () => {
+        dispatch(setNotifications(currentNotifications));
+        dispatch(setUnreadCount(currentUnreadCount));
+      },
+      // Options
+      {
+        showSuccess: true,
+        successMessage: 'Notification deleted',
+        errorMessage: 'Failed to delete notification',
+      }
+    );
+    
+    return result !== null;
   };
 
   /**
