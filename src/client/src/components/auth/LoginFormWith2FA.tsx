@@ -27,11 +27,12 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
 import { login, clearError, clearTwoFactorState } from '../../features/auth/authSlice';
-import LoadingButton from '../ui/LoadingButton';
+import { LoadingButton } from '../common/LoadingButton';
 import { isValidEmail } from '../../utils/validators';
 import { errorService } from '../../services/errorService';
 import { sanitizeInput } from '../../utils/cryptoHelpers';
 import TwoFactorInput from './TwoFactorInput';
+import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 
 // Enhanced validation schema with 2FA
 const loginSchema = z.object({
@@ -68,14 +69,18 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
   showRegisterLink = true,
 }) => {
   const dispatch = useAppDispatch();
-  const { isLoading, error, twoFactorRequired, pendingLoginCredentials } = useAppSelector(
+  const { isLoading: authLoading, error, twoFactorRequired, pendingLoginCredentials } = useAppSelector(
     (state) => state.auth
   );
+  const { withLoading, isLoading } = useLoading();
   const [showPassword, setShowPassword] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [lockTimeRemaining, setLockTimeRemaining] = useState(0);
   const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
+  
+  // Combine auth loading state with context loading state
+  const loginLoading = authLoading || isLoading(LoadingKeys.LOGIN);
 
   // Rate limiting configuration
   const MAX_ATTEMPTS = 5;
@@ -187,14 +192,16 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
       const sanitizedEmail = sanitizeInput(data.email.trim().toLowerCase());
       const sanitizedPassword = sanitizeInput(data.password);
 
-      const result = await dispatch(
-        login({
-          email: sanitizedEmail,
-          password: sanitizedPassword,
-          rememberMe: data.rememberMe,
-          twoFactorCode: data.twoFactorCode,
-        })
-      ).unwrap();
+      const result = await withLoading(LoadingKeys.LOGIN, async () => {
+        return await dispatch(
+          login({
+            email: sanitizedEmail,
+            password: sanitizedPassword,
+            rememberMe: data.rememberMe,
+            twoFactorCode: data.twoFactorCode,
+          })
+        ).unwrap();
+      });
 
       if (result.data?.requires2FA) {
         // 2FA is required, component will show 2FA input
@@ -306,7 +313,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
           <TwoFactorInput
             onSubmit={handle2FASubmit}
             onCancel={() => dispatch(clearTwoFactorState())}
-            loading={isLoading}
+            loading={loginLoading}
             error={twoFactorError}
             title=""
             description="Enter your 6-digit authentication code"
@@ -370,7 +377,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
               fullWidth
               autoComplete="email"
               autoFocus
-              disabled={isLoading || isLocked}
+              disabled={loginLoading || isLocked}
               error={!!errors.email}
               helperText={errors.email?.message}
               InputProps={{
@@ -396,7 +403,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="current-password"
-              disabled={isLoading || isLocked}
+              disabled={loginLoading || isLocked}
               error={!!errors.password}
               helperText={errors.password?.message}
               InputProps={{
@@ -413,7 +420,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
                       onClick={() => setShowPassword(!showPassword)}
                       onMouseDown={(e) => e.preventDefault()}
                       edge="end"
-                      disabled={isLoading || isLocked}
+                      disabled={loginLoading || isLocked}
                     >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
@@ -436,7 +443,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
                     checked={field.value}
                     onChange={field.onChange}
                     color="primary"
-                    disabled={isLoading || isLocked}
+                    disabled={loginLoading || isLocked}
                   />
                 }
                 label={
@@ -464,8 +471,9 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
           fullWidth
           variant="contained"
           color="primary"
-          loading={isLoading}
+          loading={loginLoading}
           disabled={isLocked || hasErrors}
+          loadingText="Anmeldung läuft..."
           size="large"
           sx={{
             mt: 2,

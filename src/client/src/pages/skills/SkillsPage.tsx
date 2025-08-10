@@ -5,11 +5,9 @@ import {
   Button,
   Container,
   Paper,
-  CircularProgress,
   Alert,
   Fab,
-  Tooltip,
-  IconButton
+  Tooltip
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -18,6 +16,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useSkills } from '../../hooks/useSkills';
+import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
+import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
+import { LoadingButton } from '../../components/common/LoadingButton';
 import { Skill } from '../../types/models/Skill';
 import SkillForm from '../../components/skills/SkillForm';
 import SkillList from '../../components/skills/SkillList';
@@ -31,10 +32,11 @@ interface SkillsPageProps {
 const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { withLoading, isLoading } = useLoading();
   const {
     allSkills,
     userSkills,
-    isLoading,
+    isLoading: skillsLoading,
     isCreating,
     error,
     fetchAllSkills,
@@ -65,38 +67,40 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   // Load data on component mount and when dependencies change
   useEffect(() => {
     const loadData = async () => {
-      try {
-        errorService.addBreadcrumb(`Loading skills page: ${showOnly}`, 'navigation', { showOnly, userId: user?.id });
-        
-        // Load categories and proficiency levels first
-        errorService.addBreadcrumb('Fetching categories and proficiency levels', 'data', { action: 'fetch_metadata' });
-        await Promise.all([
-          fetchCategories(),
-          fetchProficiencyLevels()
-        ]);
-
-        // Load skills based on view type
-        if (showOnly === 'mine') {
-          errorService.addBreadcrumb('Fetching user skills', 'data', { action: 'fetch_user_skills' });
-          await fetchUserSkills();
-        } else if (showOnly === 'favorite' && user?.id) {
-          errorService.addBreadcrumb('Fetching favorite skills', 'data', { action: 'fetch_favorite_skills' });
+      await withLoading(LoadingKeys.FETCH_SKILLS, async () => {
+        try {
+          errorService.addBreadcrumb(`Loading skills page: ${showOnly}`, 'navigation', { showOnly, userId: user?.id });
+          
+          // Load categories and proficiency levels first
+          errorService.addBreadcrumb('Fetching categories and proficiency levels', 'data', { action: 'fetch_metadata' });
           await Promise.all([
-            fetchFavoriteSkills(),
-            fetchAllSkills() // Needed for getFavoriteSkills() filtering
+            fetchCategories(),
+            fetchProficiencyLevels()
           ]);
-        } else {
-          errorService.addBreadcrumb('Fetching all skills', 'data', { action: 'fetch_all_skills' });
-          await fetchAllSkills();
+
+          // Load skills based on view type
+          if (showOnly === 'mine') {
+            errorService.addBreadcrumb('Fetching user skills', 'data', { action: 'fetch_user_skills' });
+            await fetchUserSkills();
+          } else if (showOnly === 'favorite' && user?.id) {
+            errorService.addBreadcrumb('Fetching favorite skills', 'data', { action: 'fetch_favorite_skills' });
+            await Promise.all([
+              fetchFavoriteSkills(),
+              fetchAllSkills() // Needed for getFavoriteSkills() filtering
+            ]);
+          } else {
+            errorService.addBreadcrumb('Fetching all skills', 'data', { action: 'fetch_all_skills' });
+            await fetchAllSkills();
+          }
+        } catch (error) {
+          errorService.addBreadcrumb('Error loading skills page data', 'error', { error: error instanceof Error ? error.message : 'Unknown error' });
+          throw error;
         }
-      } catch (error) {
-        errorService.addBreadcrumb('Error loading skills page data', 'error', { error: error instanceof Error ? error.message : 'Unknown error' });
-        throw error;
-      }
+      });
     };
 
     loadData();
-  }, [showOnly, user?.id, fetchAllSkills, fetchUserSkills, fetchCategories, fetchProficiencyLevels, fetchFavoriteSkills]);
+  }, [showOnly, user?.id, fetchAllSkills, fetchUserSkills, fetchCategories, fetchProficiencyLevels, fetchFavoriteSkills, withLoading]);
 
   const handleCreateSkill = () => {
     if (!isOwnerView) {
@@ -209,21 +213,23 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   };
 
   const handleRefresh = async () => {
-    try {
-      errorService.addBreadcrumb('Refreshing skills list', 'action', { showOnly });
-      if (showOnly === 'mine') {
-        await fetchUserSkills();
-      } else if (showOnly === 'favorite' && user?.id) {
-        await Promise.all([
-          fetchFavoriteSkills(),
-          fetchAllSkills() // Needed for getFavoriteSkills() filtering
-        ]);
-      } else {
-        await fetchAllSkills();
+    await withLoading('refreshSkills', async () => {
+      try {
+        errorService.addBreadcrumb('Refreshing skills list', 'action', { showOnly });
+        if (showOnly === 'mine') {
+          await fetchUserSkills();
+        } else if (showOnly === 'favorite' && user?.id) {
+          await Promise.all([
+            fetchFavoriteSkills(),
+            fetchAllSkills() // Needed for getFavoriteSkills() filtering
+          ]);
+        } else {
+          await fetchAllSkills();
+        }
+      } catch (error) {
+        errorService.addBreadcrumb('Error refreshing skills', 'error', { showOnly, error: error instanceof Error ? error.message : 'Unknown error' });
       }
-    } catch (error) {
-      errorService.addBreadcrumb('Error refreshing skills', 'error', { showOnly, error: error instanceof Error ? error.message : 'Unknown error' });
-    }
+    });
   };
 
   // Get current skills based on view type
@@ -245,10 +251,25 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     return err.message || 'Ein unbekannter Fehler ist aufgetreten';
   };
 
-  if (isLoading) {
+  const isPageLoading = isLoading(LoadingKeys.FETCH_SKILLS) || skillsLoading;
+
+  if (isPageLoading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 3, mb: 5, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress />
+      <Container maxWidth="lg" sx={{ mt: 3, mb: 5 }}>
+        {/* Page Header Skeleton */}
+        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <SkeletonLoader variant="text" width={200} height={32} />
+            <SkeletonLoader variant="text" width={300} height={20} />
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <SkeletonLoader variant="text" width={48} height={48} />
+            <SkeletonLoader variant="text" width={150} height={48} />
+          </Box>
+        </Box>
+        
+        {/* Skills List Skeleton */}
+        <SkeletonLoader variant="card" count={6} />
       </Container>
     );
   }
@@ -278,9 +299,14 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
         
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Tooltip title="Aktualisieren">
-            <IconButton onClick={handleRefresh}>
+            <LoadingButton
+              onClick={handleRefresh}
+              loading={isLoading('refreshSkills')}
+              variant="outlined"
+              sx={{ minWidth: 48 }}
+            >
               <RefreshIcon />
-            </IconButton>
+            </LoadingButton>
           </Tooltip>
           
           {isOwnerView && (
@@ -316,7 +342,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
       ) : (
         <SkillList
           skills={currentSkills}
-          loading={isLoading}
+          loading={isLoading(LoadingKeys.FETCH_DATA)}
           errors={error ? [getErrorMessage(error)] : []}
           isOwnerView={isOwnerView}
           showMatchButtons={!isOwnerView}

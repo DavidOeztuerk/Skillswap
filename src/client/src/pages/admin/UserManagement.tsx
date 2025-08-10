@@ -47,6 +47,8 @@ import { format } from 'date-fns';
 import { unwrap, withDefault } from '../../utils/safeAccess';
 import { AdminErrorBoundary } from '../../components/error';
 import errorService from '../../services/errorService';
+import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
+import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
 
 interface User {
   id: string;
@@ -65,6 +67,7 @@ interface User {
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission, isSuperAdmin, isAdmin } = usePermission();
+  const { withLoading, isLoading } = useLoading();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +80,9 @@ const UserManagement: React.FC = () => {
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState('');
+  
+  // Use loading context for different operations
+  const usersLoading = loading || isLoading(LoadingKeys.FETCH_USERS);
   
   // Rollenhierarchie: SuperAdmin kann alle Rollen vergeben, Admin kann nur Admin und darunter
   const getAvailableRoles = () => {
@@ -91,36 +97,38 @@ const UserManagement: React.FC = () => {
   const [availableRoles] = useState(getAvailableRoles());
 
   const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      errorService.addBreadcrumb('Fetching users list', 'admin', { 
-        page, 
-        search: searchTerm
-      });
-      const response = await apiClient.get<any>('/api/admin/users', {
-        params: {
-          page: page + 1,
-          pageSize: rowsPerPage,
+    await withLoading(LoadingKeys.FETCH_USERS, async () => {
+      try {
+        setLoading(true);
+        errorService.addBreadcrumb('Fetching users list', 'admin', { 
+          page, 
           search: searchTerm
+        });
+        const response = await apiClient.get<any>('/api/admin/users', {
+          params: {
+            page: page + 1,
+            pageSize: rowsPerPage,
+            search: searchTerm
+          }
+        });
+        
+        const responseData = unwrap<any>(response);
+        setUsers(responseData?.items || responseData?.users || responseData);
+        setTotalCount(withDefault(responseData?.totalCount, 0));
+        setError(null);
+      } catch (err: any) {
+        // Handle 404 - endpoint not implemented yet
+        if (err?.response?.status === 404) {
+          setUsers([]);
+          setTotalCount(0);
+          setError('User Management API endpoint nicht verfügbar. Diese Funktion wird nachgereicht.');
+        } else {
+          setError(err.message);
         }
-      });
-      
-      const responseData = unwrap<any>(response);
-      setUsers(responseData?.items || responseData?.users || responseData);
-      setTotalCount(withDefault(responseData?.totalCount, 0));
-      setError(null);
-    } catch (err: any) {
-      // Handle 404 - endpoint not implemented yet
-      if (err?.response?.status === 404) {
-        setUsers([]);
-        setTotalCount(0);
-        setError('User Management API endpoint nicht verfügbar. Diese Funktion wird nachgereicht.');
-      } else {
-        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   useEffect(() => {
@@ -285,22 +293,27 @@ const UserManagement: React.FC = () => {
       </Paper>
 
       <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Username</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Roles</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Verified</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell>Last Login</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {users.map((user) => (
+        {usersLoading ? (
+          <Box sx={{ p: 2 }}>
+            <SkeletonLoader variant="table" count={rowsPerPage} />
+          </Box>
+        ) : (
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Username</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Roles</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Verified</TableCell>
+                <TableCell>Created</TableCell>
+                <TableCell>Last Login</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>{user.userName}</TableCell>
                 <TableCell>{user.email}</TableCell>
@@ -352,17 +365,20 @@ const UserManagement: React.FC = () => {
                 </TableCell>
               </TableRow>
             ))}
-          </TableBody>
-        </Table>
-        <TablePagination
+            </TableBody>
+          </Table>
+        )}
+        {!usersLoading && (
+          <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50]}
           component="div"
           count={totalCount}
           rowsPerPage={rowsPerPage}
           page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        )}
       </TableContainer>
 
       {/* Action Menu */}
