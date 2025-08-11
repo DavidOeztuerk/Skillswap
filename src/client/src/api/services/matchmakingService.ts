@@ -10,7 +10,9 @@ import {
   RejectMatchRequestRequest,
   CreateCounterOfferRequest,
   MatchRequestDisplay,
-  MatchDisplay
+  MatchDisplay,
+  AcceptMatchRequestResponse,
+  RejectMatchRequestResponse
 } from '../../types/display/MatchmakingDisplay';
 
 export interface GetMatchRequestsParams {
@@ -78,28 +80,22 @@ const matchmakingService = {
   /**
    * Accept a match request
    */
-  async acceptMatchRequest(request: AcceptMatchRequestRequest): Promise<ApiResponse<string>> {
-    if (!request.requestId?.trim()) throw new Error('Request-ID ist erforderlich');
+  async acceptMatchRequest(requestId: string, request: AcceptMatchRequestRequest): Promise<ApiResponse<AcceptMatchRequestResponse>> {
+    if (!requestId?.trim()) throw new Error('Request-ID ist erforderlich');
     
-    const response = await httpClient.post<ApiResponse<string>>(MATCHMAKING_ENDPOINTS.REQUESTS.ACCEPT, request);
-    // Return the request ID if successful
-    if (response.success) {
-      return { ...response, data: request.requestId };
-    }
+    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.ACCEPT}/${requestId}/accept`;
+    const response = await httpClient.post<ApiResponse<AcceptMatchRequestResponse>>(url, request);
     return response;
   },
 
   /**
    * Reject a match request
    */
-  async rejectMatchRequest(request: RejectMatchRequestRequest): Promise<ApiResponse<string>> {
-    if (!request.requestId?.trim()) throw new Error('Request-ID ist erforderlich');
+  async rejectMatchRequest(requestId: string, request: RejectMatchRequestRequest): Promise<ApiResponse<RejectMatchRequestResponse>> {
+    if (!requestId?.trim()) throw new Error('Request-ID ist erforderlich');
     
-    const response = await httpClient.post<ApiResponse<string>>(MATCHMAKING_ENDPOINTS.REQUESTS.REJECT, request);
-    // Return the request ID if successful
-    if (response.success) {
-      return { ...response, data: request.requestId };
-    }
+    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.REJECT}/${requestId}/reject`;
+    const response = await httpClient.post<ApiResponse<RejectMatchRequestResponse>>(url, request);
     return response;
   },
 
@@ -110,7 +106,9 @@ const matchmakingService = {
     if (!request.originalRequestId?.trim()) throw new Error('Original Request-ID ist erforderlich');
     if (!request.message?.trim()) throw new Error('Nachricht ist erforderlich');
     
-    return httpClient.post<ApiResponse<CreateMatchRequestResponse>>(`${MATCHMAKING_ENDPOINTS.REQUESTS.COUNTER}/${request.originalRequestId}/counter`, request);
+    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.COUNTER}/${request.originalRequestId}/counter`;
+    const response = await httpClient.post<ApiResponse<CreateMatchRequestResponse>>(url, request);
+    return response;
   },
 
   /**
@@ -119,7 +117,8 @@ const matchmakingService = {
   async getMatchRequestThread(threadId: string): Promise<ApiResponse<MatchThreadDisplay>> {
     if (!threadId?.trim()) throw new Error('Thread-ID ist erforderlich');
     
-    return httpClient.get<ApiResponse<MatchThreadDisplay>>(`${MATCHMAKING_ENDPOINTS.REQUESTS.GET_THREAD}/${threadId}`);
+    const response = await httpClient.get<ApiResponse<MatchThreadDisplay>>(`${MATCHMAKING_ENDPOINTS.REQUESTS.GET_THREAD}/${threadId}`);
+    return response;
   },
 
   /**

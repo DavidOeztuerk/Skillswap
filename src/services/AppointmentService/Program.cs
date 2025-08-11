@@ -289,12 +289,12 @@ static async Task<IResult> HandleCreateAppointment(IMediator mediator, ClaimsPri
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleAcceptAppointment(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptAppointmentRequest request)
+static async Task<IResult> HandleAcceptAppointment(IMediator mediator, ClaimsPrincipal user, string appointmentId, [FromBody] AcceptAppointmentRequest? request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new AcceptAppointmentCommand(request.AppointmentId)
+    var command = new AcceptAppointmentCommand(appointmentId)
     {
         UserId = userId
     };
@@ -302,12 +302,12 @@ static async Task<IResult> HandleAcceptAppointment(IMediator mediator, ClaimsPri
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> HandleCancelAppointment(IMediator mediator, ClaimsPrincipal user, [FromBody] CancelAppointmentRequest request)
+static async Task<IResult> HandleCancelAppointment(IMediator mediator, ClaimsPrincipal user, string appointmentId, [FromBody] CancelAppointmentRequest? request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new CancelAppointmentCommand(request.AppointmentId)
+    var command = new CancelAppointmentCommand(appointmentId, request?.Reason)
     {
         UserId = userId
     };

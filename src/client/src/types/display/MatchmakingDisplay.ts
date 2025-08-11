@@ -168,13 +168,23 @@ export interface CreateMatchRequestRequest {
 }
 
 export interface AcceptMatchRequestRequest {
-  requestId: string;
   responseMessage?: string;
 }
 
-export interface RejectMatchRequestRequest {
+export interface AcceptMatchRequestResponse { 
   requestId: string;
+  matchId: string;
+  acceptedAt: Date;
+}
+
+export interface RejectMatchRequestRequest {
   responseMessage?: string;
+}
+
+export interface RejectMatchRequestResponse { 
+  requestId: string;
+  success: boolean;
+  rejectedAt: Date;
 }
 
 export interface CreateCounterOfferRequest {

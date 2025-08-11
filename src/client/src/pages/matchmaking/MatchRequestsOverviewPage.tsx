@@ -1,4 +1,3 @@
-// src/client/src/pages/matchmaking/MatchRequestsOverviewPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -21,7 +20,6 @@ import {
   ListItemIcon,
   ListItemText,
   Tooltip,
-  // Divider,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -52,6 +50,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchIncomingMatchRequests, fetchOutgoingMatchRequests, acceptMatchRequest, rejectMatchRequest } from '../../features/matchmaking/matchmakingSlice';
+import { AcceptMatchRequestRequest, RejectMatchRequestRequest } from '../../types/display/MatchmakingDisplay';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -325,15 +324,15 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
     }
   };
 
-  const handleAcceptRequest = (requestId: string) => {
+  const handleAcceptRequest = (requestId: string, request: AcceptMatchRequestRequest) => {
     if (requestId) {
-      dispatch(acceptMatchRequest({ requestId }));
+      dispatch(acceptMatchRequest({ requestId, request }));
     }
   };
 
-  const handleRejectRequest = (requestId: string) => {
+  const handleRejectRequest = (requestId: string, request: RejectMatchRequestRequest) => {
     if (requestId) {
-      dispatch(rejectMatchRequest({ requestId }));
+      dispatch(rejectMatchRequest({ requestId, request }));
     }
   };
 
@@ -530,8 +529,8 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
                       <Grid size={{ xs: 12, sm: 6, md: 4 }} key={request.id}>
                         <MatchRequestCard
                           request={request}
-                          onAccept={() => handleAcceptRequest(request.id)}
-                          onReject={() => handleRejectRequest(request.id)}
+                          onAccept={() => handleAcceptRequest(request.id, { responseMessage: ""})}
+                          onReject={() => handleRejectRequest(request.id, { responseMessage: ""})}
                           onCounter={() => handleCounterRequest(request.id)}
                           onViewTimeline={() => handleViewTimeline(request.threadId || request.id)}
                         />

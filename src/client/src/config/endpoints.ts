@@ -79,7 +79,7 @@ export const SKILL_ENDPOINTS = {
  */
 export const FAVORITE_ENDPOINTS = {
   GET_FAVORITES: () => `/api/users/favorites`,
-  ADD_FAVORITE: (skillId: string) => `/api/users/favorites/${skillId}`,
+  ADD_FAVORITE: () => `/api/users/favorites`,
   REMOVE_FAVORITE: (skillId: string) => `/api/users/favorites/${skillId}`,
 };
 
@@ -108,8 +108,8 @@ export const MATCHMAKING_ENDPOINTS = {
     GET_OUTGOING: '/api/matches/requests/outgoing',
     GET_ACCEPTED: '/api/matches/requests/accepted',
     GET_THREAD: '/api/matches/requests/thread', // + /{threadId}
-    ACCEPT: '/api/matches/requests/accept',
-    REJECT: '/api/matches/requests/reject',
+    ACCEPT: '/api/matches/requests', // + /{requestId}/accept
+    REJECT: '/api/matches/requests', // + /{requestId}/reject
     COUNTER: '/api/matches/requests', // + /{requestId}/counter
     CANCEL: '/api/matches/requests', // + /{requestId}/cancel
   },

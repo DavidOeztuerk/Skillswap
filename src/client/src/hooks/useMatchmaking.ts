@@ -13,11 +13,12 @@ import {
   rejectMatchRequestOptimistic,
 } from '../features/matchmaking/matchmakingSlice';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
-import { MatchStatus, MatchDisplay } from '../types/display/MatchmakingDisplay';
+import { MatchStatus, MatchDisplay, AcceptMatchRequestResponse, RejectMatchRequestResponse } from '../types/display/MatchmakingDisplay';
 import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
 import { FindMatchRequest } from '../api/services/matchmakingService';
 import { withDefault } from '../utils/safeAccess';
 import { withOptimisticUpdate, generateUpdateId, canPerformOptimisticUpdate } from '../utils/optimisticUpdates';
+import { ApiResponse } from '../types/common/ApiResponse';
 
 /**
  * Hook für Matchmaking-Funktionalität
@@ -110,12 +111,12 @@ export const useMatchmaking = () => {
   const approveMatchRequest = async (
     requestId: string,
     responseMessage?: string
-  ): Promise<string | null> => {
+  ): Promise<ApiResponse<AcceptMatchRequestResponse> | null> => {
     if (!canPerformOptimisticUpdate()) {
       // Fallback to regular update if offline
       const resultAction = await dispatch(acceptMatchRequest({ 
-        requestId: requestId, 
-        responseMessage: responseMessage
+        requestId,
+        request: { responseMessage }
       }));
       return acceptMatchRequest.fulfilled.match(resultAction) ? resultAction.payload : null;
     }
@@ -129,8 +130,8 @@ export const useMatchmaking = () => {
       // Async action
       async () => {
         const resultAction = await dispatch(acceptMatchRequest({ 
-          requestId: requestId, 
-          responseMessage: responseMessage
+          requestId,
+          request: { responseMessage }
         }));
         if (!acceptMatchRequest.fulfilled.match(resultAction)) {
           throw new Error('Failed to accept match');
@@ -165,8 +166,8 @@ export const useMatchmaking = () => {
       // Fallback to regular update if offline
       const resultAction = await dispatch(
         rejectMatchRequest({ 
-          requestId: requestId, 
-          responseMessage: responseMessage
+          requestId,
+          request: { responseMessage }
         })
       );
       return rejectMatchRequest.fulfilled.match(resultAction);
@@ -182,8 +183,8 @@ export const useMatchmaking = () => {
       async () => {
         const resultAction = await dispatch(
           rejectMatchRequest({ 
-            requestId: requestId, 
-            responseMessage: responseMessage
+            requestId,
+            request: { responseMessage }
           })
         );
         if (!rejectMatchRequest.fulfilled.match(resultAction)) {
@@ -209,8 +210,8 @@ export const useMatchmaking = () => {
    * @param matchId - ID des zu akzeptierenden Matches
    * @returns Das aktualisierte Match oder null bei Fehler
    */
-  const approveMatch = async (matchId: string): Promise<string | null> => {
-    const resultAction = await dispatch(acceptMatch({ requestId: matchId }));
+  const approveMatch = async (matchId: string, reason?: string ): Promise<ApiResponse<AcceptMatchRequestResponse> | null> => {
+    const resultAction = await dispatch(acceptMatch({ requestId: matchId, request: { responseMessage: reason }}));
 
     if (acceptMatch.fulfilled.match(resultAction)) {
       return resultAction.payload;
@@ -225,8 +226,8 @@ export const useMatchmaking = () => {
    * @param reason - Optionaler Ablehnungsgrund
    * @returns Das aktualisierte Match oder null bei Fehler
    */
-  const declineMatch = async (matchId: string, reason?: string): Promise<string | null> => {
-    const resultAction = await dispatch(rejectMatch({ requestId: matchId, responseMessage: reason }));
+  const declineMatch = async (matchId: string, reason?: string): Promise<ApiResponse<RejectMatchRequestResponse> | null> => {
+    const resultAction = await dispatch(rejectMatch({ requestId: matchId, request: {responseMessage: reason }}));
 
     if (rejectMatch.fulfilled.match(resultAction)) {
       return resultAction.payload;
