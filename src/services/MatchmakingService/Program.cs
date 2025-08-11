@@ -240,22 +240,22 @@ matchRequests.MapGet("/outgoing", GetOutgoingMatchRequests)
     .WithOpenApi()
     .Produces<PagedResponse<MatchRequestDisplayResponse>>(StatusCodes.Status200OK);
 
-matchRequests.MapPost("/accept", AcceptMatchRequest)
+matchRequests.MapPost("/{requestId}/accept", AcceptMatchRequest)
     .WithName("AcceptMatchRequest")
     .WithSummary("Accept a direct match request")
     .WithDescription("Accept an incoming match request and create a match")
     .WithTags("Match Requests")
     .WithOpenApi()
-    .Produces<AcceptMatchRequestResponse>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<AcceptMatchRequestResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound);
 
-matchRequests.MapPost("/reject", RejectMatchRequest)
+matchRequests.MapPost("/{requestId}/reject", RejectMatchRequest)
     .WithName("RejectMatchRequest")
     .WithSummary("Reject a direct match request")
     .WithDescription("Reject an incoming match request with optional reason")
     .WithTags("Match Requests")
     .WithOpenApi()
-    .Produces<RejectMatchRequestResponse>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<RejectMatchRequestResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound);
 
 matchRequests.MapGet("/thread/{threadId}", GetMatchRequestThread)
@@ -264,7 +264,7 @@ matchRequests.MapGet("/thread/{threadId}", GetMatchRequestThread)
     .WithDescription("Get all requests in a thread between two users for a skill")
     .WithTags("Match Requests")
     .WithOpenApi()
-    .Produces<MatchRequestThreadResponse>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<MatchRequestThreadResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound);
 
 
@@ -317,12 +317,12 @@ static async Task<IResult> GetOutgoingMatchRequests(IMediator mediator, ClaimsPr
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromBody] AcceptMatchProposalRequest request)
+static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromRoute] string requestId, [FromBody] AcceptMatchProposalRequest? request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new AcceptMatchRequestCommand(request.RequestId, request.ResponseMessage)
+    var command = new AcceptMatchRequestCommand(requestId, request?.ResponseMessage)
     {
         UserId = userId
     };
@@ -330,12 +330,12 @@ static async Task<IResult> AcceptMatchRequest(IMediator mediator, ClaimsPrincipa
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> RejectMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromBody] RejectMatchRequestRequest request)
+static async Task<IResult> RejectMatchRequest(IMediator mediator, ClaimsPrincipal user, [FromRoute] string requestId, [FromBody] RejectMatchRequestRequest? request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new RejectMatchRequestCommand(request.RequestId, request.ResponseMessage)
+    var command = new RejectMatchRequestCommand(requestId, request?.ResponseMessage)
     {
         UserId = userId
     };

@@ -145,7 +145,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/users/favorites",
+      "DownstreamPathTemplate": "/users/skills/favorites",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/favorites",
@@ -156,17 +156,17 @@
       "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/users/favorites/{skillId}",
+      "DownstreamPathTemplate": "/users/skills/favorites",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/favorites/{skillId}",
+      "UpstreamPathTemplate": "/api/users/favorites",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
     },
     {
-      "DownstreamPathTemplate": "/users/favorites/{skillId}",
+      "DownstreamPathTemplate": "/users/skills/favorites/{skillId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/favorites/{skillId}",
@@ -504,12 +504,12 @@
       "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/matches/requests/accept",
+      "DownstreamPathTemplate": "/matches/requests/{requestId}/accept",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "matchmakingservice", "Port": 5003 }
       ],
-      "UpstreamPathTemplate": "/api/matches/requests/accept",
+      "UpstreamPathTemplate": "/api/matches/requests/{requestId}/accept",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
@@ -517,12 +517,12 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/matches/requests/reject",
+      "DownstreamPathTemplate": "/matches/requests/{requestId}/reject",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         { "Host": "matchmakingservice", "Port": 5003 }
       ],
-      "UpstreamPathTemplate": "/api/matches/requests/reject",
+      "UpstreamPathTemplate": "/api/matches/requests/{requestId}/reject",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",

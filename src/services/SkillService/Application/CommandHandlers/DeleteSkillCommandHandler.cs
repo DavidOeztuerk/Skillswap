@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using SkillService.Application.Commands;
-using SkillService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.Skill;
 using Contracts.Skill.Responses;
@@ -9,19 +8,14 @@ using CQRS.Models;
 
 namespace SkillService.Application.CommandHandlers;
 
-public class DeleteSkillCommandHandler : BaseCommandHandler<DeleteSkillCommand, DeleteSkillResponse>
+public class DeleteSkillCommandHandler(
+    SkillDbContext dbContext,
+    IDomainEventPublisher eventPublisher,
+    ILogger<DeleteSkillCommandHandler> logger)
+    : BaseCommandHandler<DeleteSkillCommand, DeleteSkillResponse>(logger)
 {
-    private readonly SkillDbContext _dbContext;
-    private readonly IDomainEventPublisher _eventPublisher;
-
-    public DeleteSkillCommandHandler(
-        SkillDbContext dbContext,
-        IDomainEventPublisher eventPublisher,
-        ILogger<DeleteSkillCommandHandler> logger) : base(logger)
-    {
-        _dbContext = dbContext;
-        _eventPublisher = eventPublisher;
-    }
+    private readonly SkillDbContext _dbContext = dbContext;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<DeleteSkillResponse>> Handle(
         DeleteSkillCommand request,
@@ -30,7 +24,7 @@ public class DeleteSkillCommandHandler : BaseCommandHandler<DeleteSkillCommand, 
         try
         {
             var skill = await _dbContext.Skills
-                .Include(s => s.Matches.Where(m => m.Status == MatchStatus.Pending || m.Status == MatchStatus.Accepted))
+                .Include(s => s.Matches.Where(m => m.RequestedSkillId == s.Id || m.OfferedSkillId == s.Id))
                 .FirstOrDefaultAsync(s => s.Id == request.SkillId &&
                                          s.UserId == request.UserId &&
                                          !s.IsDeleted, cancellationToken);

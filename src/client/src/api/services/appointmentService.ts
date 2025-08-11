@@ -79,15 +79,15 @@ const appointmentService = {
    */
   async acceptAppointment(appointmentId: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.ACCEPT}/${appointmentId}/accept`, { AppointmentId: appointmentId });
+    return apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.ACCEPT}/${appointmentId}/accept`, {});
   },
 
   /**
    * Cancel appointment
    */
-  async cancelAppointment(appointmentId: string): Promise<ApiResponse<AppointmentResponse>> {
+  async cancelAppointment(appointmentId: string, reason?: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`, { AppointmentId: appointmentId });
+    return apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`, { reason });
   },
 
   /**

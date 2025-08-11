@@ -278,7 +278,7 @@ const MatchmakingPage: React.FC = () => {
   const handleAcceptRequest = async (requestId: string, message?: string) => {
     try {
       errorService.addBreadcrumb('Accepting match request', 'action', { requestId });
-      await dispatch(acceptMatchRequest({ requestId, responseMessage: message }));
+      await dispatch(acceptMatchRequest({ requestId, request: { responseMessage: message }}));
       errorService.addBreadcrumb('Match request accepted successfully', 'action', { requestId });
       setResponseDialogOpen(false);
       setResponseMessage('');
@@ -299,7 +299,7 @@ const MatchmakingPage: React.FC = () => {
   const handleRejectRequest = async (requestId: string, message?: string) => {
     try {
       errorService.addBreadcrumb('Rejecting match request', 'action', { requestId });
-      await dispatch(rejectMatchRequest({ requestId, responseMessage: message }));
+      await dispatch(rejectMatchRequest({ requestId, request: { responseMessage: message }}));
       errorService.addBreadcrumb('Match request rejected successfully', 'action', { requestId });
       setResponseDialogOpen(false);
       setResponseMessage('');

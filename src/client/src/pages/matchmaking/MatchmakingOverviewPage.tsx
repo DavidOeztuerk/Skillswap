@@ -196,12 +196,14 @@ const MatchmakingOverviewPage: React.FC = () => {
     if (!matchId) return;
 
     try {
-      let success: string | null = null;
+      let success: boolean | null = null;
 
       if (action === 'accept') {
-        success = await approveMatch(matchId);
+        const approved = await approveMatch(matchId);
+        success = approved?.success ?? null
       } else if (action === 'reject') {
-        success = await declineMatch(matchId);
+        const rejected = await declineMatch(matchId);
+        success = rejected?.success ?? null
       }
 
       if (success) {

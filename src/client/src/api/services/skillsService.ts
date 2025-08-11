@@ -8,6 +8,7 @@ import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRe
 import { CreateSkillResponse } from '../../types/contracts/responses/CreateSkillResponse';
 import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkillResponse';
+import { AddFavoriteSkillRequest } from '../../types/contracts/requests/AddFavoriteSkillRequest';
 import { PagedResponse } from '../../types/common/PagedResponse';
 import { ApiResponse } from '../../types/common/ApiResponse';
 import apiClient from '../apiClient';
@@ -260,7 +261,8 @@ const skillService = {
 
   async addFavoriteSkill(skillId: string): Promise<ApiResponse<any>> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
-    return apiClient.post<ApiResponse<any>>(FAVORITE_ENDPOINTS.ADD_FAVORITE(skillId), {});
+    const request: AddFavoriteSkillRequest = { skillId };
+    return apiClient.post<ApiResponse<any>>(FAVORITE_ENDPOINTS.ADD_FAVORITE(), request);
   },
 
   async removeFavoriteSkill(skillId: string): Promise<ApiResponse<any>> {

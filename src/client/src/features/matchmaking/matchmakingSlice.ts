@@ -88,17 +88,17 @@ export const fetchMatches = createAsyncThunk(
 
 export const acceptMatchRequest = createAsyncThunk(
   'matchmaking/acceptMatchRequest',
-  async (request: AcceptMatchRequestRequest) => {
-    await matchmakingService.acceptMatchRequest(request);
-    return request.requestId;
+  async ({requestId, request}:  {requestId: string, request: AcceptMatchRequestRequest}) => {
+    const response = await matchmakingService.acceptMatchRequest(requestId, request);
+    return response;
   }
 );
 
 export const rejectMatchRequest = createAsyncThunk(
   'matchmaking/rejectMatchRequest',
-  async (request: RejectMatchRequestRequest) => {
-    await matchmakingService.rejectMatchRequest(request);
-    return request.requestId;
+  async ({requestId, request}:  {requestId: string,  request: RejectMatchRequestRequest}) => {
+    const response = await matchmakingService.rejectMatchRequest(requestId, request);
+    return response;
   }
 );
 
@@ -323,7 +323,7 @@ const matchmakingSlice = createSlice({
         state.isLoading = false;
         // Remove from incoming requests
         state.incomingRequests = state.incomingRequests.filter(
-          req => req.id !== action.payload
+          req => req.id !== action.payload.data.requestId
         );
       })
       .addCase(acceptMatchRequest.rejected, (state, action) => {
@@ -340,7 +340,7 @@ const matchmakingSlice = createSlice({
         state.isLoading = false;
         // Remove from incoming requests
         state.incomingRequests = state.incomingRequests.filter(
-          req => req.id !== action.payload
+          req => req.id !== action.payload.data.requestId
         );
       })
       .addCase(rejectMatchRequest.rejected, (state, action) => {
