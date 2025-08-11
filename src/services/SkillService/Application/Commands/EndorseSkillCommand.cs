@@ -4,10 +4,6 @@ using FluentValidation;
 
 namespace SkillService.Application.Commands;
 
-// ============================================================================
-// SKILL ENDORSEMENT COMMAND
-// ============================================================================
-
 public record EndorseSkillCommand(
     string SkillId,
     string EndorsedUserId,

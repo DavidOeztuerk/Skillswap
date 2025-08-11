@@ -1,8 +1,9 @@
 using Contracts.User.Responses;
 using CQRS.Extensions;
+using CQRS.Models;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using UserService.Api.Application.Queries;
+using UserService.Application.Queries;
 
 namespace UserService.Api.Extensions;
 
@@ -17,7 +18,7 @@ public static class UserControllerExtensions
             .WithName("CheckEmailAvailability")
             .WithSummary("Check email availability")
             .WithDescription("Checks if an email address is available for registration")
-            .Produces<EmailAvailabilityResponse>(200)
+            .Produces<ApiResponse<EmailAvailabilityResponse>>(200)
             .Produces(400);
 
         static async Task<IResult> HandleCheckEmailAvailability(IMediator mediator, [FromQuery] string email)

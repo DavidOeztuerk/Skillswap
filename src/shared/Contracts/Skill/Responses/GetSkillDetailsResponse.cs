@@ -9,12 +9,11 @@ namespace Contracts.Skill.Responses;
 /// <param name="UserId">User ID who owns the skill</param>
 /// <param name="Name">Name of the skill</param>
 /// <param name="Description">Detailed description of the skill</param>
-/// <param name="IsOffering">Whether the user is offering this skill</param>
+/// <param name="IsOffered">Whether the user offers this skill (true) or seeks to learn it (false)</param>
 /// <param name="Category">Skill category information</param>
 /// <param name="ProficiencyLevel">Proficiency level information</param>
 /// <param name="Tags">Associated tags for the skill</param>
 /// <param name="Requirements">Requirements for the skill</param>
-/// <param name="IsRemoteAvailable">Whether remote learning is available</param>
 /// <param name="EstimatedDurationMinutes">Estimated duration in minutes</param>
 /// <param name="AverageRating">Average rating for the skill</param>
 /// <param name="ReviewCount">Number of reviews for the skill</param>
@@ -30,12 +29,11 @@ public record GetSkillDetailsResponse(
     string UserId,
     string Name,
     string Description,
-    bool IsOffering,
+    bool IsOffered,
     SkillCategoryResponse Category,
     ProficiencyLevelResponse ProficiencyLevel,
     List<string> Tags,
     string? Requirements,
-    bool IsRemoteAvailable,
     int? EstimatedDurationMinutes,
     double? AverageRating,
     int ReviewCount,

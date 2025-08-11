@@ -19,7 +19,6 @@ namespace Contracts.Skill.Responses;
 /// <param name="Endorsements">Number of endorsements</param>
 /// <param name="AvailableHours">Available hours per week</param>
 /// <param name="PreferredSessionDuration">Preferred session duration</param>
-/// <param name="IsRemote">Remote availability</param>
 /// <param name="Status">Current status</param>
 /// <param name="CreatedAt">Creation timestamp</param>
 /// <param name="UpdatedAt">Last update timestamp</param>
@@ -37,7 +36,6 @@ public record SkillDetailsResponse(
     List<SkillEndorsementResponse>? Endorsements,
     int? AvailableHours,
     int? PreferredSessionDuration,
-    bool IsRemote,
     string Status,
     DateTime CreatedAt,
     DateTime? UpdatedAt)

@@ -4,10 +4,6 @@ using Contracts.Skill.Responses;
 
 namespace SkillService.Application.Queries;
 
-// ============================================================================
-// GET USER SKILLS QUERY
-// ============================================================================
-
 public record GetUserSkillsQuery(
     string UserId,
     bool? IsOffering = null,

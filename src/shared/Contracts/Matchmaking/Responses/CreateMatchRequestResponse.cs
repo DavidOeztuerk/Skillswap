@@ -1,3 +1,5 @@
+using Contracts.Common;
+
 namespace Contracts.Matchmaking.Responses;
 
 /// <summary>
@@ -8,6 +10,7 @@ public record CreateMatchRequestResponse(
     string Status,
     DateTime CreatedAt,
     string ThreadId)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this response supports

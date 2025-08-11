@@ -227,6 +227,7 @@ export function transformCreateMatchRequestToMatchRequest(
 ): MatchRequest {
   return {
     id: response.RequestId,
+    threadId : response.ThreadId,
     // matchId: response.RequestId,
     requesterId: 'current-user', // Current user is creating the request
     // requesterName: 'Current User',
@@ -237,8 +238,6 @@ export function transformCreateMatchRequestToMatchRequest(
     message: originalRequest.message,
     isOffered: true, // Default assumption for created requests
     status: response.Status,
-    createdAt: response.CreatedAt,
-    respondedAt: undefined,
     expiresAt: undefined,
   };
 }

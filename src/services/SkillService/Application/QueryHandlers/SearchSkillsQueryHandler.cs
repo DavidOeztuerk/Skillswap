@@ -118,7 +118,6 @@ public class SearchSkillsQueryHandler(
                     s.AverageRating,
                     s.ReviewCount,
                     s.EndorsementCount,
-                    s.IsRemoteAvailable,
                     s.EstimatedDurationMinutes,
                     s.CreatedAt,
                     s.LastViewedAt

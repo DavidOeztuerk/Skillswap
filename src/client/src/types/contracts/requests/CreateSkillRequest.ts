@@ -1,16 +1,10 @@
 export interface CreateSkillRequest {
   name: string;
   description: string;
-  isOffered: boolean;
+  isOffered: boolean; // true = offering, false = seeking to learn
   categoryId: string;
   proficiencyLevelId: string;
   tags?: string[];
   availableHours?: number;
   preferredSessionDuration?: number;
-  isRemote?: boolean;
-}
-
-export interface ExtendedCreateSkillRequest extends CreateSkillRequest {
-  tags?: string[];
-  remoteAvailable?: boolean;
 }

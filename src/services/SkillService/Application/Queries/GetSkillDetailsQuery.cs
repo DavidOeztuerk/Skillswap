@@ -4,10 +4,6 @@ using Contracts.Skill.Responses;
 
 namespace SkillService.Application.Queries;
 
-// ============================================================================
-// GET SKILL DETAILS QUERY
-// ============================================================================
-
 public record GetSkillDetailsQuery(
     string SkillId,
     bool IncludeReviews = false,

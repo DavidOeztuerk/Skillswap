@@ -11,8 +11,6 @@ import {
   getUserMatches,
   acceptMatchRequestOptimistic,
   rejectMatchRequestOptimistic,
-  setIncomingRequests,
-  setMatches,
 } from '../features/matchmaking/matchmakingSlice';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import { MatchStatus, MatchDisplay } from '../types/display/MatchmakingDisplay';
@@ -123,8 +121,6 @@ export const useMatchmaking = () => {
     }
 
     const updateId = generateUpdateId('accept_match');
-    const currentIncoming = [...incomingRequests];
-    const currentMatches = [...matches];
     
     const result = await withOptimisticUpdate(
       updateId,
@@ -143,8 +139,6 @@ export const useMatchmaking = () => {
       },
       // Rollback action
       () => {
-        dispatch(setIncomingRequests(currentIncoming));
-        dispatch(setMatches(currentMatches));
       },
       // Options
       {
@@ -179,7 +173,6 @@ export const useMatchmaking = () => {
     }
 
     const updateId = generateUpdateId('reject_match');
-    const currentIncoming = [...incomingRequests];
     
     const result = await withOptimisticUpdate(
       updateId,
@@ -199,7 +192,7 @@ export const useMatchmaking = () => {
         return resultAction;
       },
       // Rollback action
-      () => dispatch(setIncomingRequests(currentIncoming)),
+      () =>{},
       // Options
       {
         showSuccess: true,

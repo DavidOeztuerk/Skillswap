@@ -6,8 +6,8 @@ import skillService, {
   SkillSearchResultResponse,
 } from '../../api/services/skillsService';
 import { SkillState } from '../../types/states/SkillState';
-import { ExtendedCreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
-import { ExtendedUpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
+import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { SliceError } from '../../store/types';
 import { withDefault } from '../../utils/safeAccess';
 
@@ -148,7 +148,7 @@ export const fetchUserSkills = createAsyncThunk(
 // Create new skill
 export const createSkill = createAsyncThunk(
   'skills/createSkill',
-  async (skillData: ExtendedCreateSkillRequest) => {
+  async (skillData: CreateSkillRequest) => {
     return await skillService.createSkill(skillData);
   }
 );
@@ -156,7 +156,7 @@ export const createSkill = createAsyncThunk(
 // Update existing skill
 export const updateSkill = createAsyncThunk(
   'skills/updateSkill',
-  async ({skillId, updateData}: { skillId: string; updateData: ExtendedUpdateSkillRequest }) => {
+  async ({skillId, updateData}: { skillId: string; updateData: UpdateSkillRequest }) => {
     return await skillService.updateSkill(skillId, updateData);
   }
 );
@@ -516,11 +516,11 @@ const skillsSlice = createSlice({
             isOffered: response.isOffered || false,
             endorsementCount: 0,
             category: { 
-              id: response.categoryName || '', 
+              id: response.categoryId || '', 
               name: '', 
             },
             proficiencyLevel: { 
-              id: response.proficiencyLevelName || '', 
+              id: response.proficiencyLevelId || '', 
               level: '', 
               rank: 0, 
             },

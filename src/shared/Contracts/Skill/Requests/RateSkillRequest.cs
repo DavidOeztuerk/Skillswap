@@ -1,18 +1,18 @@
 using System.ComponentModel.DataAnnotations;
+using Contracts.Common;
 
 namespace Contracts.Skill.Requests;
 
 /// <summary>
 /// API request for rating a skill
 /// </summary>
-/// <param name="RatedUserId">User who owns the skill being rated</param>
+/// <param name="SkillId">ID of the skill being rated</param>
 /// <param name="Rating">Rating from 1-5 stars</param>
 /// <param name="Comment">Optional comment for the rating</param>
 /// <param name="Tags">Optional tags for the rating</param>
 public record RateSkillRequest(
-    string SkillId, 
-    [Required(ErrorMessage = "Rated user ID is required")]
-    string RatedUserId,
+    [Required(ErrorMessage = "Skill ID is required")]
+    string SkillId,
     
     [Required(ErrorMessage = "Rating is required")]
     [Range(1, 5, ErrorMessage = "Rating must be between 1 and 5")]
@@ -23,6 +23,7 @@ public record RateSkillRequest(
     
     [MaxLength(5, ErrorMessage = "Maximum 5 tags allowed")]
     List<string>? Tags = null)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

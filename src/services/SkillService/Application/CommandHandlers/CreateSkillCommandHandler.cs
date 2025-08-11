@@ -90,12 +90,11 @@ public class CreateSkillCommandHandler(
                 skill.Id,
                 skill.Name,
                 skill.Description,
-                skill.SkillCategoryId,
-                skill.ProficiencyLevelId,
+                category.Id,
+                proficiencyLevel.Id,
                 skill.Tags,
                 skill.IsOffered,
-                skill.IsPopular,
-                "",
+                "Active",
                 skill.CreatedAt);
 
             return Success(response, "Skill created successfully");

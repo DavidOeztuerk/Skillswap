@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-// using Infrastructure.Services;
 using SkillService.Application.Queries;
 using System.Text.Json;
 using CQRS.Models;
@@ -10,15 +9,10 @@ namespace SkillService.Application.QueryHandlers;
 
 public class GetSkillRecommendationsQueryHandler(
     SkillDbContext dbContext,
-    // IUserLookupService userLookup,
     ILogger<GetSkillRecommendationsQueryHandler> logger)
-    : BaseQueryHandler<
-    GetSkillRecommendationsQuery,
-    List<SkillRecommendationResponse>>(
-        logger)
+    : BaseQueryHandler<GetSkillRecommendationsQuery, List<SkillRecommendationResponse>>(logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
-    // private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<List<SkillRecommendationResponse>>> Handle(
         GetSkillRecommendationsQuery request,
@@ -58,12 +52,7 @@ public class GetSkillRecommendationsQueryHandler(
                 .Where(s => s.UserId != request.UserId &&
                            s.IsActive &&
                            !s.IsDeleted &&
-                           s.IsOffered); // Recommend offered skills
-
-            if (request.OnlyRemote)
-            {
-                query = query.Where(s => s.IsRemoteAvailable);
-            }
+                           s.IsOffered);
 
             var candidateSkills = await query
                 .Select(s => new
@@ -77,8 +66,12 @@ public class GetSkillRecommendationsQueryHandler(
                     CategoryColor = s.SkillCategory.Color,
                     CategoryIcon = s.SkillCategory.IconName,
                     CategorySkillsCount = s.SkillCategory.Skills.Count,
+                    s.ProficiencyLevelId,
+                    ProficiencyLevel = s.ProficiencyLevel.Level,
+                    ProficiencyRank = s.ProficiencyLevel.Rank,
+                    ProficiencyColor = s.ProficiencyLevel.Color,
+                    ProficiencySkillCount = s.ProficiencyLevel.Skills.Count,
                     s.AverageRating,
-                    s.IsRemoteAvailable,
                     s.TagsJson
                 })
                 .ToListAsync(cancellationToken);
@@ -126,10 +119,6 @@ public class GetSkillRecommendationsQueryHandler(
                 }
 
                 // Remote availability bonus
-                if (request.OnlyRemote && skill.IsRemoteAvailable)
-                {
-                    compatibilityScore += 0.1;
-                }
 
                 if (compatibilityScore > 0.2) // Minimum threshold
                 {
@@ -145,10 +134,16 @@ public class GetSkillRecommendationsQueryHandler(
                             skill.CategoryIcon,
                             skill.CategoryColor,
                             skill.CategorySkillsCount),
+                        new ProficiencyLevelResponse(
+                            skill.ProficiencyLevelId,
+                            skill.ProficiencyLevel,
+                            skill.ProficiencyRank,
+                            skill.ProficiencyColor,
+                            skill.ProficiencySkillCount
+                        ),
                         skill.AverageRating,
                         reason,
-                        Math.Round(compatibilityScore, 2),
-                        skill.IsRemoteAvailable));
+                        Math.Round(compatibilityScore, 2)));
                 }
             }
 

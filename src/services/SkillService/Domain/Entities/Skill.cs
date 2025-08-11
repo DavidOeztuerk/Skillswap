@@ -34,8 +34,6 @@ public class Skill : AuditableEntity
     [MaxLength(1000)]
     public string? Requirements { get; set; }
 
-    public bool IsRemoteAvailable { get; set; } = true;
-
     public int? EstimatedDurationMinutes { get; set; }
 
     // Tags stored as JSON array

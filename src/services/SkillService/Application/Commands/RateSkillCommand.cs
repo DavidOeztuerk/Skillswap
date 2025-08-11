@@ -4,13 +4,8 @@ using FluentValidation;
 
 namespace SkillService.Application.Commands;
 
-// ============================================================================
-// SKILL RATING COMMAND
-// ============================================================================
-
 public record RateSkillCommand(
     string SkillId,
-    string RatedUserId, // User who owns the skill
     int Rating, // 1-5 stars
     string? Comment = null,
     List<string>? Tags = null)
@@ -27,9 +22,6 @@ public class RateSkillCommandValidator : AbstractValidator<RateSkillCommand>
         RuleFor(x => x.SkillId)
             .NotEmpty().WithMessage("Skill ID is required");
 
-        RuleFor(x => x.RatedUserId)
-            .NotEmpty().WithMessage("Rated user ID is required");
-
         RuleFor(x => x.Rating)
             .InclusiveBetween(1, 5).WithMessage("Rating must be between 1 and 5");
 
@@ -41,9 +33,7 @@ public class RateSkillCommandValidator : AbstractValidator<RateSkillCommand>
             .Must(tags => tags == null || tags.Count <= 5)
             .WithMessage("Maximum 5 tags allowed for rating");
 
-        RuleFor(x => x)
-            .Must(x => x.UserId != x.RatedUserId)
-            .WithMessage("Cannot rate your own skill")
-            .When(x => !string.IsNullOrEmpty(x.UserId));
+        // Note: Self-rating check will be done in the handler
+        // after fetching the skill to get the owner's UserId
     }
 }
