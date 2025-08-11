@@ -1,4 +1,3 @@
-// src/components/matchmaking/EnhancedMatchForm.tsx
 import React, { useMemo, useState } from 'react';
 import {
   Dialog,
@@ -21,7 +20,6 @@ import {
   OutlinedInput,
   ListItemText,
   InputAdornment,
-  Switch,
   Slider,
   RadioGroup,
   Radio,
@@ -37,7 +35,6 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  LocationOn as LocationIcon,
   EmojiObjects as SkillIcon,
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
@@ -60,8 +57,6 @@ const enhancedMatchFormSchema = z.object({
   preferredTimes: z.array(z.string()).min(1, 'Wähle mindestens eine Zeit'),
   sessionDuration: z.number().min(30).max(240),
   sessionFrequency: z.enum(['weekly', 'biweekly', 'monthly', 'flexible']),
-  isRemote: z.boolean(),
-  location: z.string().optional(),
   budget: z
     .object({
       min: z.number().min(0),
@@ -115,18 +110,18 @@ const LANGUAGES = [
   'Japanisch',
 ];
 
-const LOCATIONS = [
-  'Berlin',
-  'München',
-  'Hamburg',
-  'Köln',
-  'Frankfurt am Main',
-  'Stuttgart',
-  'Düsseldorf',
-  'Dortmund',
-  'Essen',
-  'Leipzig',
-];
+// const LOCATIONS = [
+//   'Berlin',
+//   'München',
+//   'Hamburg',
+//   'Köln',
+//   'Frankfurt am Main',
+//   'Stuttgart',
+//   'Düsseldorf',
+//   'Dortmund',
+//   'Essen',
+//   'Leipzig',
+// ];
 
 const steps = [
   'Grundeinstellungen',
@@ -153,7 +148,6 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
       preferredTimes: ['18:00', '19:00', '20:00'],
       sessionDuration: 60,
       sessionFrequency: 'weekly' as const,
-      isRemote: true,
       location: '',
       budget: {
         min: 0,
@@ -181,7 +175,6 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
   });
 
   const watchRequestType = watch('requestType');
-  const watchIsRemote = watch('isRemote');
   const watchSessionDuration = watch('sessionDuration');
 
   // Reset when opening
@@ -222,7 +215,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
           'sessionFrequency',
         ];
       case 2:
-        return ['isRemote', 'location'];
+        return [];
       case 3:
         return ['learningGoals'];
       default:
@@ -236,6 +229,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
     try {
       const matchRequest: MatchRequest = {
         id: '', // Wird vom Backend generiert
+        threadId: '',
         // matchId: '', // Wird vom Backend generiert
         requesterId: '', // Muss ggf. im Parent/Context gesetzt werden
         // requesterName: '', // Wird vom Backend gesetzt
@@ -246,7 +240,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
         message: data.learningGoals || '',
         isOffered: data.requestType === 'teach',
         status: 'Pending',
-        createdAt: new Date().toISOString(),
+        // createdAt: new Date().toISOString(),
         // respondedAt und expiresAt optional, werden ggf. vom Backend gesetzt
       };
 
@@ -488,53 +482,6 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
       case 2:
         return (
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12 }}>
-              <Controller
-                name="isRemote"
-                control={control}
-                render={({ field }) => (
-                  <FormControlLabel
-                    control={
-                      <Switch checked={field.value} onChange={field.onChange} />
-                    }
-                    label="Online-Session (Remote)"
-                  />
-                )}
-              />
-            </Grid>
-
-            {!watchIsRemote && (
-              <Grid size={{ xs: 12 }}>
-                <Controller
-                  name="location"
-                  control={control}
-                  render={({ field }) => (
-                    <Autocomplete
-                      {...field}
-                      options={LOCATIONS}
-                      freeSolo
-                      onChange={(_, value) => field.onChange(value || '')}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Ort"
-                          placeholder="Stadt oder Adresse"
-                          InputProps={{
-                            ...params.InputProps,
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <LocationIcon />
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      )}
-                    />
-                  )}
-                />
-              </Grid>
-            )}
-
             <Grid size={{ xs: 12 }}>
               <Typography variant="h6" gutterBottom>
                 Budget (optional)

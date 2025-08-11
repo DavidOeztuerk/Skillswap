@@ -164,7 +164,6 @@ export interface ApiSkillDetails {
   averageRating?: number;
   reviewCount?: number;
   endorsementCount?: number;
-  isRemoteAvailable?: boolean;
   estimatedDurationMinutes?: number;
   createdAt?: string;
   lastActiveAt?: string;
@@ -230,4 +229,5 @@ export interface CreateMatchRequestResponse {
   RequestId: string;
   Status: string;
   CreatedAt: string;
+  ThreadId: string;
 }

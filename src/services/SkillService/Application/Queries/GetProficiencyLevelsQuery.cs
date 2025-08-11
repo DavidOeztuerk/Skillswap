@@ -11,9 +11,3 @@ public record GetProficiencyLevelsQuery(
     public string CacheKey => $"proficiency-levels:{IncludeInactive}:{IncludeSkillCounts}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(30);
 }
-
-// public record ProficiencyLevelResponse(
-//     string LevelId,
-//     string Level,
-//     int Rank,
-//     string? Color);

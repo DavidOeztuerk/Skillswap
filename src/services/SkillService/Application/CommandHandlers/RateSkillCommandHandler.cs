@@ -29,15 +29,20 @@ public class RateSkillCommandHandler : BaseCommandHandler<RateSkillCommand, Rate
     {
         try
         {
-            // Validate skill exists and belongs to the rated user
+            // Validate skill exists
             var skill = await _dbContext.Skills
                 .FirstOrDefaultAsync(s => s.Id == request.SkillId &&
-                                         s.UserId == request.RatedUserId &&
                                          !s.IsDeleted, cancellationToken);
 
             if (skill == null)
             {
                 return Error("Skill not found");
+            }
+
+            // Prevent self-rating
+            if (skill.UserId == request.UserId)
+            {
+                return Error("Cannot rate your own skill");
             }
 
             // Check if user already rated this skill
@@ -56,7 +61,7 @@ public class RateSkillCommandHandler : BaseCommandHandler<RateSkillCommand, Rate
             {
                 SkillId = request.SkillId,
                 ReviewerUserId = request.UserId!,
-                ReviewedUserId = request.RatedUserId,
+                ReviewedUserId = skill.UserId,
                 Rating = request.Rating,
                 Comment = request.Comment?.Trim(),
                 Tags = request.Tags ?? new List<string>(),
@@ -84,7 +89,7 @@ public class RateSkillCommandHandler : BaseCommandHandler<RateSkillCommand, Rate
             // Publish domain event
             await _eventPublisher.Publish(new SkillRatedDomainEvent(
                 request.SkillId,
-                request.RatedUserId,
+                skill.UserId,
                 request.UserId!,
                 request.Rating,
                 newAverageRating,

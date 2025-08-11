@@ -36,8 +36,6 @@ interface MatchRequestCardProps {
   message?: string;
   preferredDays: string[];
   preferredTimes: string[];
-  location?: string;
-  isRemote: boolean;
   createdAt: string;
   status: 'pending' | 'accepted' | 'rejected';
   onAccept?: (id: string) => void;
@@ -56,8 +54,6 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
   message,
   preferredDays,
   preferredTimes,
-  location,
-  isRemote,
   createdAt,
   status,
   onAccept,
@@ -247,7 +243,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <LocationIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
             <Typography variant="body2" color="text.secondary">
-              {isRemote ? 'Online' : location || 'Vor Ort'}
+              Online (Video-Session)
             </Typography>
           </Box>
         </Box>

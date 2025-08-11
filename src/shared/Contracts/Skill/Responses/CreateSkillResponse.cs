@@ -9,19 +9,17 @@ namespace Contracts.Skill.Responses;
 /// <param name="CategoryName">Name of the skill category</param>
 /// <param name="ProficiencyLevelName">Name of the proficiency level</param>
 /// <param name="Tags">Associated tags for the skill</param>
-/// <param name="IsOffered">Whether the user offers this skill</param>
-/// <param name="IsWanted">Whether the user wants to learn this skill</param>
+/// <param name="IsOffered">Whether the user offers this skill (true) or seeks to learn it (false)</param>
 /// <param name="Status">Current status of the skill</param>
 /// <param name="CreatedAt">When the skill was created</param>
 public record CreateSkillResponse(
     string SkillId,
     string Name,
     string Description,
-    string CategoryName,
-    string ProficiencyLevelName,
+    string CategoryId,
+    string ProficiencyLevelId,
     List<string> Tags,
     bool IsOffered,
-    bool IsWanted,
     string Status,
     DateTime CreatedAt)
 {

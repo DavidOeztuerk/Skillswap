@@ -22,6 +22,7 @@ using MediatR;
 using SkillService;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
+using CQRS.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -230,7 +231,7 @@ skills.MapGet("/", SearchSkills)
     .WithDescription("Search and filter skills with pagination")
     .WithTags("Skills")
     .WithOpenApi()
-    .Produces<SkillSearchResultResponse>(StatusCodes.Status200OK);
+    .Produces<PagedResponse<SkillSearchResultResponse>>(StatusCodes.Status200OK);
 
 skills.MapGet("/{id}", GetSkillById)
     .WithName("GetSkillDetails")
@@ -238,7 +239,7 @@ skills.MapGet("/{id}", GetSkillById)
     .WithDescription("Get detailed information about a specific skill")
     .WithTags("SkillDetail")
     .WithOpenApi()
-    .Produces<GetSkillDetailsResponse>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<GetSkillDetailsResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .ProducesProblem(StatusCodes.Status400BadRequest);
 
@@ -248,7 +249,7 @@ skills.MapGet("/my-skills", GetUserSkills)
     .WithDescription("Retrieve all skills for a specific user with pagination")
     .WithTags("UserSkills")
     .WithOpenApi()
-    .Produces<GetUserSkillsResponse>(StatusCodes.Status200OK)
+    .Produces<PagedResponse<GetUserSkillsResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -258,7 +259,7 @@ skills.MapPost("/", CreateNewSkill)
     .WithDescription("Create a new skill with the specified details")
     .WithTags("Skills")
     .WithOpenApi()
-    .Produces<CreateSkillResponse>(StatusCodes.Status201Created)
+    .Produces<ApiResponse<CreateSkillResponse>>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization();
@@ -269,7 +270,7 @@ skills.MapPut("/{id}", UpdateSkill)
     .WithDescription("Update the details of an existing skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<UpdateSkillResponse>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<UpdateSkillResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization();
@@ -280,7 +281,7 @@ skills.MapDelete("/{id}", DeleteSkill)
     .WithDescription("Delete a specific skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<DeleteSkillResponse>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<DeleteSkillResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -290,7 +291,7 @@ skills.MapPost("/{id}/rate", RateSkill)
     .WithDescription("Rate a specific skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<RateSkillResponse>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<RateSkillResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -300,7 +301,7 @@ skills.MapPost("/{id}/endorse", EndorseSkill)
     .WithDescription("Endorse a specific skill by ID")
     .WithTags("Skill")
     .WithOpenApi()
-    .Produces<EndorseSkillResponse>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<EndorseSkillResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -414,7 +415,7 @@ static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, [
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new RateSkillCommand(request.SkillId, request.RatedUserId, request.Rating, request.Comment, request.Tags)
+    var command = new RateSkillCommand(request.SkillId, request.Rating, request.Comment, request.Tags)
     {
         UserId = userId
     };
@@ -446,7 +447,7 @@ categories.MapGet("/", GetCategories)
     .WithDescription("Retrieve all skill categories with pagination")
     .WithTags("SkillCategories")
     .WithOpenApi()
-    .Produces<GetSkillCategoriesResponse>(StatusCodes.Status200OK);
+    .Produces<ApiResponse<GetSkillCategoriesResponse>>(StatusCodes.Status200OK);
 
 categories.MapPost("/", CreateNewCategory)
     .WithName("CreateSkillCategory")
@@ -454,7 +455,7 @@ categories.MapPost("/", CreateNewCategory)
     .WithDescription("Create a new skill category with the specified details")
     .WithTags("SkillCategories")
     .WithOpenApi()
-    .Produces<CreateSkillCategoryResponse>(StatusCodes.Status201Created)
+    .Produces<ApiResponse<CreateSkillCategoryResponse>>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization(Policies.RequireAdminRole);
@@ -465,7 +466,7 @@ categories.MapPut("/{id}", UpdateCategory)
     .WithDescription("Update an existing skill category with the specified details")
     .WithTags("SkillCategories")
     .WithOpenApi()
-    .Produces<UpdateSkillCategoryResponse>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<UpdateSkillCategoryResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization(Policies.RequireAdminRole);
@@ -518,7 +519,7 @@ levels.MapGet("/", GetProficiencyLevels)
     .WithDescription("Retrieve all proficiency levels with pagination")
     .WithTags("ProficiencyLevels")
     .WithOpenApi()
-    .Produces<GetProficiencyLevelsResponse>(StatusCodes.Status200OK);
+    .Produces<ApiResponse<GetProficiencyLevelsResponse>>(StatusCodes.Status200OK);
 
 levels.MapPost("/", CreateNewProficiencyLevel)
     .WithName("CreateProficiencyLevel")
@@ -526,7 +527,7 @@ levels.MapPost("/", CreateNewProficiencyLevel)
     .WithDescription("Create a new proficiency level with the specified details")
     .WithTags("ProficiencyLevels")
     .WithOpenApi()
-    .Produces<CreateProficiencyLevelResponse>(StatusCodes.Status201Created)
+    .Produces<ApiResponse<CreateProficiencyLevelResponse>>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .ProducesProblem(StatusCodes.Status400BadRequest)
     .RequireAuthorization(Policies.RequireAdminRole);
@@ -578,7 +579,9 @@ analytics.MapGet("/popular-tags", GetPopularTags)
     .WithOpenApi()
     .Produces<GetPopularTagsResponse>(StatusCodes.Status200OK);
 
-RouteGroupBuilder rec = app.MapGroup("/recommendations").RequireAuthorization();
+RouteGroupBuilder rec = app.MapGroup("/recommendations")
+    .RequireAuthorization();
+
 rec.MapGet("/", GetSkillRecommendations)
     .WithName("GetSkillRecommendations")
     .WithSummary("Get skill recommendations")
@@ -616,7 +619,7 @@ static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPri
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetSkillRecommendationsQuery(request.UserId, request.MaxRecommendations, request.OnlyRemote);
+    var query = new GetSkillRecommendationsQuery(request.UserId, request.MaxRecommendations);
 
     return await mediator.SendQuery(query);
 }

@@ -12,11 +12,9 @@ namespace Contracts.Skill.Requests;
 /// <param name="CategoryId">Updated skill category identifier</param>
 /// <param name="ProficiencyLevelId">Updated proficiency level identifier</param>
 /// <param name="Tags">Updated associated tags for the skill</param>
-/// <param name="IsOffered">Updated: whether the user offers this skill</param>
-/// <param name="IsWanted">Updated: whether the user wants to learn this skill</param>
+/// <param name="IsOffered">Whether the user offers this skill (true) or seeks to learn it (false)</param>
 /// <param name="AvailableHours">Updated available hours per week for this skill</param>
 /// <param name="PreferredSessionDuration">Updated preferred session duration in minutes</param>
-/// <param name="IsRemote">Updated: whether remote sessions are acceptable</param>
 public record UpdateSkillRequest(
     [Required(ErrorMessage = "Skill ID is required")]
     string SkillId,
@@ -35,10 +33,8 @@ public record UpdateSkillRequest(
 
     bool IsOffered,
 
-    bool IsWanted,
-
     [Range(1, 40, ErrorMessage = "Available hours must be between 1 and 40 per week")]
-    int AvailableHours,
+    int? AvailableHours = null,
 
     [Range(15, 480, ErrorMessage = "Session duration must be between 15 and 480 minutes")]
     int? PreferredSessionDuration = null)

@@ -11,11 +11,9 @@ namespace Contracts.Skill.Requests;
 /// <param name="CategoryId">Skill category identifier</param>
 /// <param name="ProficiencyLevelId">Proficiency level identifier</param>
 /// <param name="Tags">Associated tags for the skill</param>
-/// <param name="IsOffered">Whether the user offers this skill</param>
-/// <param name="IsWanted">Whether the user wants to learn this skill</param>
+/// <param name="IsOffered">Whether the user offers this skill (true) or seeks to learn it (false)</param>
 /// <param name="AvailableHours">Available hours per week for this skill</param>
 /// <param name="PreferredSessionDuration">Preferred session duration in minutes</param>
-/// <param name="IsRemote">Whether remote sessions are acceptable</param>
 public record CreateSkillRequest(
     [Required(ErrorMessage = "Skill name is required")]
     [StringLength(100, MinimumLength = 2, ErrorMessage = "Skill name must be between 2 and 100 characters")]

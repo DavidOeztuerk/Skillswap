@@ -89,13 +89,12 @@ public class GetSkillDetailsQueryHandler(
                     skill.ProficiencyLevel.Skills.Count),
                 skill.Tags,
                 skill.IsOffered,
-                (decimal)skill.AverageRating!,
+                skill.AverageRating != null ? (decimal)skill.AverageRating : null,
                 reviews,
                 endorsements,
-                0,
+                null, // AvailableHours - not stored in skill entity
                 skill.EstimatedDurationMinutes,
-                skill.IsRemoteAvailable,
-                "",
+                skill.IsActive ? "Active" : "Inactive",
                 skill.CreatedAt,
                 skill.UpdatedAt ?? skill.CreatedAt);
 

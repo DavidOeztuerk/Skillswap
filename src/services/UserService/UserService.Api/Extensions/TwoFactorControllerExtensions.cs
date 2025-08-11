@@ -2,11 +2,12 @@ using System.Security.Claims;
 using Contracts.User.Requests;
 using Contracts.User.Responses;
 using CQRS.Extensions;
+using CQRS.Models;
 using Infrastructure.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using UserService.Api.Application.Queries;
 using UserService.Application.Commands;
+using UserService.Application.Queries;
 
 namespace UserService.Api.Extensions;
 
@@ -22,14 +23,14 @@ public static class TwoFactorControllerExtensions
             .WithName("GenerateTwoFactorSecret")
             .WithSummary("Generate 2FA secret")
             .WithDescription("Generates a secret key for two-factor authentication")
-            .Produces<GenerateTwoFactorSecretResponse>(200)
+            .Produces<ApiResponse<GenerateTwoFactorSecretResponse>>(200)
             .Produces(401);
 
         twoFactor.MapPost("/verify", HandleVerifyTwoFactorCode)
             .WithName("VerifyTwoFactorCode")
             .WithSummary("Verify 2FA code")
             .WithDescription("Verifies a TOTP code and enables two-factor authentication")
-            .Produces<VerifyTwoFactorCodeResponse>(200)
+            .Produces<ApiResponse<VerifyTwoFactorCodeResponse>>(200)
             .Produces(400)
             .Produces(401);
 
@@ -37,7 +38,7 @@ public static class TwoFactorControllerExtensions
             .WithName("DisableTwoFactor")
             .WithSummary("Disable 2FA")
             .WithDescription("Disables two-factor authentication for the user")
-            .Produces<DisableTwoFactorResponse>(200)
+            .Produces<ApiResponse<DisableTwoFactorResponse>>(200)
             .Produces(400)
             .Produces(401);
 
@@ -45,7 +46,7 @@ public static class TwoFactorControllerExtensions
             .WithName("GetTwoFactorStatus")
             .WithSummary("Get 2FA status")
             .WithDescription("Gets the current two-factor authentication status")
-            .Produces<GetTwoFactorStatusResponse>(200)
+            .Produces<ApiResponse<GetTwoFactorStatusResponse>>(200)
             .Produces(401);
 
         static async Task<IResult> HandleGenerateTwoFactorSecret(IMediator mediator, ClaimsPrincipal user)

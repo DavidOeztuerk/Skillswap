@@ -15,7 +15,7 @@ import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 
 interface MatchmakingState {
   // Match requests
-  incomingRequests: MatchRequest[];
+  incomingRequests: MatchRequestDisplay[];
   outgoingRequests: MatchRequestDisplay[];
   // Actual matches
   matches: MatchDisplay[];

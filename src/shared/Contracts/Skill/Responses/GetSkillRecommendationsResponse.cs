@@ -30,25 +30,22 @@ public record GetSkillRecommendationsResponse(
 /// <param name="AverageRating">Average rating for the skill</param>
 /// <param name="RecommendationReason">Reason for recommendation</param>
 /// <param name="CompatibilityScore">Compatibility score (0-1)</param>
-/// <param name="IsRemoteAvailable">Whether remote learning is available</param>
 public record SkillRecommendationResponse(
     string SkillId,
     string UserId,
     string Name,
     string Description,
     SkillCategoryResponse Category,
+    ProficiencyLevelResponse ProficiencyLevel,
     double? AverageRating,
     string RecommendationReason,
-    double CompatibilityScore,
-    bool IsRemoteAvailable);
+    double CompatibilityScore);
 
 /// <summary>
 /// Recommendation criteria response
 /// </summary>
 /// <param name="UserId">User ID for whom recommendations were generated</param>
 /// <param name="MaxRecommendations">Maximum number of recommendations requested</param>
-/// <param name="OnlyRemote">Whether only remote skills were considered</param>
 public record RecommendationCriteriaResponse(
     string UserId,
-    int MaxRecommendations,
-    bool OnlyRemote);
+    int MaxRecommendations);

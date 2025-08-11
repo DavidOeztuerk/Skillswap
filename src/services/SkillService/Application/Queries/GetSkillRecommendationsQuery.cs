@@ -4,17 +4,12 @@ using Contracts.Skill.Responses;
 
 namespace SkillService.Application.Queries;
 
-// ============================================================================
-// GET SKILL RECOMMENDATIONS QUERY
-// ============================================================================
-
 public record GetSkillRecommendationsQuery(
     string UserId,
-    int MaxRecommendations = 10,
-    bool OnlyRemote = false)
+    int MaxRecommendations = 10)
     : IQuery<List<SkillRecommendationResponse>>, ICacheableQuery
 {
-    public string CacheKey => $"skill-recommendations:{UserId}:{MaxRecommendations}:{OnlyRemote}";
+    public string CacheKey => $"skill-recommendations:{UserId}:{MaxRecommendations}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(30);
 }
 

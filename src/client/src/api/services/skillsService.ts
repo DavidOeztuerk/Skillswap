@@ -40,7 +40,6 @@ export interface SkillSearchResultResponse{
   averageRating?: number,
   reviewCount: number,
   endorsementCount: number,
-  isRemoteAvailable: boolean,
   estimatedDurationMinutes?: number,
   createdAt: Date,
   lastActiveAt?: Date  // Backend uses 'LastViewedAt' - might need to check this
