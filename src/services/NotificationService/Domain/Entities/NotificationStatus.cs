@@ -6,6 +6,7 @@ namespace NotificationService.Domain.Entities;
 public static class NotificationStatus
 {
     public const string Pending = "Pending";
+    public const string Scheduled = "Scheduled";
     public const string Sent = "Sent";
     public const string Delivered = "Delivered";
     public const string Failed = "Failed";

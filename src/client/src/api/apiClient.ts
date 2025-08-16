@@ -1,387 +1,171 @@
-import axios, { AxiosError, AxiosHeaders, AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
+// src/client/src/api/apiClient.ts
+import axios, {
+  AxiosError,
+  AxiosHeaders,
+  AxiosInstance,
+  AxiosProgressEvent,
+  AxiosRequestConfig,
+  AxiosRequestHeaders,
+  InternalAxiosRequestConfig
+} from "axios";
 import { API_BASE_URL, AUTH_ENDPOINTS } from "../config/endpoints";
 import { API_TIMEOUT } from "../config/constants";
 import { getToken, getRefreshToken, setToken, setRefreshToken, removeToken } from "../utils/authHelpers";
 import { router } from "../routes/Router";
 
-// ---- Helpers (leichtgewichtig, lokal) ----
-type ApiEnvelope<T> = { data?: T; message?: string; [k: string]: any };
-const isApiResponse = <T = unknown>(v: any): v is ApiEnvelope<T> => v && (typeof v === "object") && ("data" in v || "message" in v);
-// const withDefault = <T>(val: T | undefined | null, fallback: T): T => (val == null ? fallback : val);
+// ---- deine Typen bitte aus deinem Projekt importieren ----
+// import type { ApiResponse } from "../types/common/ApiResponse";
+// import type { PagedResponse } from "../types/common/PagedResponse";
+
+// ---- Refresh-Contracts (Server kann beides liefern: flach oder enveloped) ----
+type RefreshTokens = { accessToken: string; refreshToken?: string };
+type MaybeEnvelope<T> = { success?: boolean; data?: T; [k: string]: unknown } | T;
+const unwrap = <T>(v: MaybeEnvelope<T>): T => (typeof v === "object" && v && "data" in v ? (v as any).data as T : (v as T));
+
+// ---- Request-Extras ----
+type RequestExtras = { retries?: number; retryDelay?: number; skipAuth?: boolean; _retry?: boolean };
+export type RequestConfig = AxiosRequestConfig & RequestExtras;
 
 // ---- Axios-Instanz ----
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: API_TIMEOUT,
-  headers: { "Content-Type": "application/json" }
+  timeout: API_TIMEOUT
 });
 
-// ---- Token-Refresh Queue ----
-let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
-const subscribeTokenRefresh = (cb: (token: string) => void) => refreshSubscribers.push(cb);
-const onRefreshed = (token: string) => { refreshSubscribers.forEach(cb => cb(token)); refreshSubscribers = []; };
+// ---- Request-Interceptor (Axios v1 korrekt typisiert) ----
+api.interceptors.request.use((config: InternalAxiosRequestConfig & RequestExtras) => {
+  config.headers = AxiosHeaders.from(config.headers) as AxiosRequestHeaders;
 
-// ---- Request Interceptor (Token anfügen) ----
-api.interceptors.request.use((config) => {
   const token = getToken();
-  const skipAuth = (config as any).skipAuth as boolean | undefined;
-
-  if (token && !skipAuth) {
-    if (config.headers instanceof AxiosHeaders) {
-      config.headers.set("Authorization", `Bearer ${token}`);
-    } else {
-      config.headers = new AxiosHeaders(config.headers);
-      (config.headers as AxiosHeaders).set("Authorization", `Bearer ${token}`);
-    }
+  if (token && !config.skipAuth) {
+    (config.headers as AxiosHeaders).set("Authorization", `Bearer ${token}`);
   }
 
-  if (!(config.headers instanceof AxiosHeaders)) {
-    config.headers = new AxiosHeaders(config.headers);
+  if (!(config.data instanceof FormData)) {
+    (config.headers as AxiosHeaders).set("Content-Type", "application/json");
   }
-  (config.headers as AxiosHeaders).set("Content-Type", "application/json");
 
   if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
     console.debug("🚀 Request:", { url: config.url, method: config.method, params: config.params });
   }
   return config;
 });
 
-// ---- Response Interceptor (401/Refresh, 429-Hinweis) ----
-api.interceptors.response.use(
-  (response) => {
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.debug("✅ Response:", response.status, response.config.url);
-    }
-    return response;
-  },
-  async (error: AxiosError) => {
-    const originalRequest = error.config as (AxiosRequestConfig & { _retry?: boolean });
+// ---- Response-Interceptor (401 Refresh-Queue) ----
+let isRefreshing = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
+const subscribeTokenRefresh = (cb: (t: string) => void) => refreshSubscribers.push(cb);
+const onRefreshed = (t: string) => { refreshSubscribers.forEach(cb => cb(t)); refreshSubscribers = []; };
 
-    // 401 -> Refresh Flow
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+api.interceptors.response.use(
+  r => {
+    if (import.meta.env.DEV) console.debug("✅ Response:", r.status, r.config.url);
+    return r;
+  },
+  async (err: AxiosError) => {
+    const original = (err.config ?? {}) as InternalAxiosRequestConfig & RequestExtras;
+
+    if (err.response?.status === 401 && !original._retry && !original.skipAuth) {
       if (isRefreshing) {
         return new Promise((resolve) => {
           subscribeTokenRefresh((token) => {
-            if (!originalRequest.headers) originalRequest.headers = new AxiosHeaders();
-            if (originalRequest.headers instanceof AxiosHeaders) {
-              originalRequest.headers.set("Authorization", `Bearer ${token}`);
-            } else {
-              (originalRequest.headers as any).Authorization = `Bearer ${token}`;
-            }
-            resolve(api(originalRequest));
+            original.headers = AxiosHeaders.from(original.headers) as AxiosRequestHeaders;
+            (original.headers as AxiosHeaders).set("Authorization", `Bearer ${token}`);
+            resolve(api(original));
           });
         });
       }
 
-      originalRequest._retry = true;
+      original._retry = true;
       isRefreshing = true;
 
       try {
-        const refreshToken = getRefreshToken();
-        if (!refreshToken) throw new Error("No refresh token");
+        const rt = getRefreshToken();
+        if (!rt) throw new Error("No refresh token");
 
-        const res = await axios.post(`${API_BASE_URL}${AUTH_ENDPOINTS.REFRESH_TOKEN}`, {
-          accessToken: getToken(),
-          refreshToken
-        });
+        // Wichtig: native axios, um Interceptor-Loop zu vermeiden
+        const res = await axios.post<MaybeEnvelope<RefreshTokens>>(
+          `${API_BASE_URL}${AUTH_ENDPOINTS.REFRESH_TOKEN}`,
+          { accessToken: getToken(), refreshToken: rt },
+          { headers: new AxiosHeaders({ "Content-Type": "application/json" }) }
+        );
 
-        const newToken =
-          res.data?.data?.accessToken ??
-          res.data?.accessToken;
+        const { accessToken, refreshToken } = unwrap<RefreshTokens>(res.data);
+        const storage = localStorage.getItem("remember_me") === "true" ? "permanent" : "session";
+        setToken(accessToken, storage);
+        if (refreshToken) setRefreshToken(refreshToken, storage);
 
-        const storageType = localStorage.getItem("remember_me") === "true" ? "permanent" : "session";
-        setToken(newToken, storageType);
-
-        const newRt = res.data?.data?.refreshToken ?? res.data?.refreshToken;
-        if (newRt) setRefreshToken(newRt, storageType);
-
-        onRefreshed(newToken);
+        onRefreshed(accessToken);
         isRefreshing = false;
 
-        if (!originalRequest.headers) originalRequest.headers = new AxiosHeaders();
-        if (originalRequest.headers instanceof AxiosHeaders) {
-          originalRequest.headers.set("Authorization", `Bearer ${newToken}`);
-        } else {
-          (originalRequest.headers as any).Authorization = `Bearer ${newToken}`;
-        }
+        original.headers = AxiosHeaders.from(original.headers) as AxiosRequestHeaders;
+        (original.headers as AxiosHeaders).set("Authorization", `Bearer ${accessToken}`);
 
-        return api(originalRequest);
+        return api(original);
       } catch (e) {
-        removeToken();
         isRefreshing = false;
+        removeToken();
         router.navigate("/auth/login");
         return Promise.reject(e);
       }
     }
 
-    // 429 -> Hinweis
-    if (error.response?.status === 429) {
-      const retryAfter = error.response.headers?.["retry-after"];
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.warn(`⚠️ Rate limited. Retry after ${retryAfter ?? 60}s`);
-      }
+    if (err.response?.status === 429 && import.meta.env.DEV) {
+      const retryAfter = err.response.headers?.["retry-after"];
+      console.warn(`⚠️ Rate limited. Retry after ${retryAfter ?? 60}s`);
     }
 
-    // Netzwerkfehler
-    if (!error.response) {
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.error("🔌 Network Error - Check connection");
-      }
-    }
-
-    return Promise.reject(error);
+    if (!err.response && import.meta.env.DEV) console.error("🔌 Network Error");
+    return Promise.reject(err);
   }
 );
 
-// ---- ApiClient mit Cache + Request-Dedup + Upload ----
-interface CacheEntry<T> { data: T; timestamp: number; etag?: string }
-interface PendingRequest { promise: Promise<any>; abortController?: AbortController }
-
-export interface RequestConfig extends AxiosRequestConfig {
-  retries?: number;
-  retryDelay?: number;
-  skipAuth?: boolean;
-}
-
+// ---- Lean Client: du gibst T vor (ApiResponse<X> ODER PagedResponse<Y> ODER raw) ----
 class ApiClient {
-  private cache = new Map<string, CacheEntry<any>>();
-  private pending = new Map<string, PendingRequest>();
-
-  private readonly CACHE_CONFIG: Record<string, number> = {
-    "/api/config": 5 * 60 * 1000,
-    "/api/user/profile": 2 * 60 * 1000,
-    "/api/translations": 30 * 60 * 1000,
-    "/api/countries": 60 * 60 * 1000
-  };
-
-  private shouldCache(url: string): number | false {
-    for (const [pattern, ttl] of Object.entries(this.CACHE_CONFIG)) {
-      if (url?.includes(pattern)) return ttl;
-    }
-    return false;
+  async get<T>(url: string, params?: Record<string, unknown>, config?: RequestConfig): Promise<T> {
+    const res = await api.get<T>(url, { ...config, params });
+    return res.data;
+  }
+  async post<T>(url: string, data?: unknown, config?: RequestConfig): Promise<T> {
+    const res = await api.post<T>(url, data, config);
+    return res.data;
+  }
+  async put<T>(url: string, data?: unknown, config?: RequestConfig): Promise<T> {
+    const res = await api.put<T>(url, data, config);
+    return res.data;
+  }
+  async patch<T>(url: string, data?: unknown, config?: RequestConfig): Promise<T> {
+    const res = await api.patch<T>(url, data, config);
+    return res.data;
+  }
+  async delete<T>(url: string, config?: RequestConfig): Promise<T> {
+    const res = await api.delete<T>(url, config);
+    return res.data;
   }
 
-  private getFromCache<T>(key: string): T | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    const pattern = Object.keys(this.CACHE_CONFIG).find(p => key?.includes(p));
-    const ttl = pattern ? this.CACHE_CONFIG[pattern] : 0;
-    if (Date.now() - entry.timestamp > ttl) {
-      this.cache.delete(key);
-      return null;
-    }
-    return entry.data as T;
-    }
-
-  private createKey(method: string, url: string, data?: unknown, params?: unknown): string {
-    const body = data ? JSON.stringify(data) : "";
-    const p = params ? JSON.stringify(params) : "";
-    return `${method}:${url}:${body}:${p}`;
-  }
-
-  private async deduplicate<T>(
-    key: string,
-    requestFn: () => Promise<T>,
-    abortController?: AbortController
-  ): Promise<T> {
-    const existing = this.pending.get(key);
-    if (existing) {
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.debug("🔄 Reusing pending request:", key);
-      }
-      return existing.promise;
-    }
-
-    const promise = requestFn().finally(() => this.pending.delete(key));
-    this.pending.set(key, { promise, abortController });
-    return promise;
-  }
-
-  cancelRequest(key: string) {
-    const p = this.pending.get(key);
-    p?.abortController?.abort();
-    this.pending.delete(key);
-  }
-
-  cancelAll() {
-    this.pending.forEach(p => p.abortController?.abort());
-    this.pending.clear();
-  }
-
-  clearCache() {
-    this.cache.clear();
-  }
-
-  private invalidateCache(url: string) {
-    const rules: Record<string, string[]> = {
-      "/user": ["/user/profile", "/user/settings"],
-      "/posts": ["/posts", "/feed"],
-      "/comments": ["/posts", "/comments"]
-    };
-
-    for (const [pattern, targets] of Object.entries(rules)) {
-      if (url?.includes(pattern)) {
-        targets.forEach(t => {
-          for (const key of this.cache.keys()) {
-            if (key?.includes(t)) {
-              this.cache.delete(key);
-              if (import.meta.env.DEV) {
-                // eslint-disable-next-line no-console
-                console.debug("🗑️ Cache invalidated:", key);
-              }
-            }
-          }
-        });
-      }
-    }
-  }
-
-  private async request<T>(
-    method: AxiosRequestConfig["method"],
-    url: string,
-    data?: unknown,
-    cfg?: RequestConfig
-  ): Promise<T> {
-    const controller = new AbortController();
-    const config: AxiosRequestConfig = {
-      method,
-      url,
-      data,
-      params: cfg?.params,
-      headers: cfg?.headers,
-      signal: controller.signal,
-      timeout: cfg?.timeout ?? API_TIMEOUT
-    };
-
-    const key = this.createKey(String(method ?? "GET"), url, data, config.params);
-
-    return this.deduplicate<T>(
-      key,
-      async () => {
-        // Cache (nur GET)
-        if ((method ?? "GET").toUpperCase() === "GET" && this.shouldCache(url)) {
-          const cached = this.getFromCache<T>(url);
-          if (cached !== null) {
-            if (import.meta.env.DEV) {
-              // eslint-disable-next-line no-console
-              console.debug("✨ Cache hit:", url);
-            }
-            return cached;
-          }
-        }
-
-        let res: AxiosResponse<any>;
-        try {
-          res = await api.request(config);
-        } catch (err: any) {
-          throw err;
-        }
-
-        const payload = isApiResponse(res.data)
-          ? (res.data as T) 
-          : ({
-              success: true,
-              data: res.data as unknown,
-              message: "",
-              errors: [],
-              timestamp: new Date().toISOString(),
-            } as T);
-
-        if ((method ?? "GET").toUpperCase() === "GET" && this.shouldCache(url)) {
-          this.cache.set(url, {
-            data: payload,
-            timestamp: Date.now(),
-            etag: (res.headers?.etag as string | undefined)
-          });
-          if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
-            console.debug("💾 Cached:", url);
-          }
-        }
-
-        return payload;
-      },
-      controller
-    );
-  }
-
-  async get<T>(url: string, params?: Record<string, unknown>, config?: RequestConfig) {
-    return this.request<T>("GET", url, undefined, { ...config, params });
-  }
-
-  async post<T>(url: string, data?: unknown, config?: RequestConfig) {
-    const r = await this.request<T>("POST", url, data, config);
-    this.invalidateCache(url);
-    return r;
-  }
-
-  async put<T>(url: string, data?: unknown, config?: RequestConfig) {
-    const r = await this.request<T>("PUT", url, data, config);
-    this.invalidateCache(url);
-    return r;
-  }
-
-  async patch<T>(url: string, data?: unknown, config?: RequestConfig) {
-    const r = await this.request<T>("PATCH", url, data, config);
-    this.invalidateCache(url);
-    return r;
-  }
-
-  async delete<T>(url: string, config?: RequestConfig) {
-    const r = await this.request<T>("DELETE", url, undefined, config);
-    this.invalidateCache(url);
-    return r;
-  }
-
-  async prefetch<T>(url: string, params?: Record<string, unknown>) {
-    try { await this.get<T>(url, params); } catch { /* ignore */ }
-  }
-
-  async uploadFile<T>(
-    url: string,
-    fileOrForm: File | FormData,
-    onProgress?: (progress: number) => void
-  ): Promise<T> {
+  async uploadFile<T>(url: string, fileOrForm: File | FormData, onProgress?: (progress: number) => void): Promise<T> {
     const formData = fileOrForm instanceof FormData
       ? fileOrForm
       : (() => { const fd = new FormData(); fd.append("file", fileOrForm); return fd; })();
 
-    const res = await api.post(url, formData, {
-      headers: (() => {
-        const h = new AxiosHeaders();
-        const token = getToken();
-        if (token) h.set("Authorization", `Bearer ${token}`);
-        // Content-Type für FormData NICHT manuell setzen -> Browser setzt Boundary
-        return h;
-      })(),
-      onUploadProgress: (e) => {
+    const res = await api.post<T>(url, formData, {
+      onUploadProgress: (e: AxiosProgressEvent) => {
         if (e.total && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
       }
     });
-
-    return (isApiResponse<T>(res.data) ? res.data.data : res.data) as T;
+    return res.data;
   }
 }
 
-// ---- Singleton + globaler Error-Hook (z.B. Sentry) ----
 const apiClient = new ApiClient();
 
-api.interceptors.response.use(
-  r => r,
-  e => {
-    if (import.meta.env.PROD) {
-      // window.Sentry?.captureException?.(e);
-    }
-    return Promise.reject(e);
+// optional: Prod-Error-Hook
+api.interceptors.response.use(r => r, e => {
+  if (import.meta.env.PROD) {
+    // window.Sentry?.captureException?.(e);
   }
-);
+  return Promise.reject(e);
+});
 
 export default apiClient;
-export { api }; // optional: rohe Axios-Instanz
+export { api };

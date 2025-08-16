@@ -13,10 +13,13 @@ import {
   VpnKey as PasswordIcon,
   DeviceHub as DevicesIcon,
   History as HistoryIcon,
+  Phone as PhoneIcon,
 } from '@mui/icons-material';
 import PageHeader from '../../components/layout/PageHeader';
 import PageContainer from '../../components/layout/PageContainer';
 import TwoFactorManagement from '../../components/auth/TwoFactorManagement';
+import PhoneVerificationSection from '../../components/settings/PhoneVerificationSection';
+import { useAppSelector } from '../../store/store.hooks';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -49,6 +52,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
 
 const SecuritySettings: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
+  const { user, twoFactorEnabled } = useAppSelector((state) => state.auth);
 
   const handleTabChange = useCallback((_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -68,11 +72,18 @@ const SecuritySettings: React.FC = () => {
           onChange={handleTabChange}
           aria-label="security settings tabs"
           sx={{ borderBottom: 1, borderColor: 'divider' }}
+          variant="scrollable"
+          scrollButtons="auto"
         >
           <Tab
             icon={<SecurityIcon />}
             iconPosition="start"
             label="Two-Factor Authentication"
+          />
+          <Tab
+            icon={<PhoneIcon />}
+            iconPosition="start"
+            label="Telefonnummer"
           />
           <Tab
             icon={<PasswordIcon />}
@@ -97,6 +108,13 @@ const SecuritySettings: React.FC = () => {
           </TabPanel>
 
           <TabPanel value={tabValue} index={1}>
+            <PhoneVerificationSection 
+              currentPhone={user?.phoneNumber}
+              isVerified={false}
+            />
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={2}>
             <Typography variant="h6" gutterBottom>
               Password Settings
             </Typography>
@@ -108,7 +126,7 @@ const SecuritySettings: React.FC = () => {
             </Alert>
           </TabPanel>
 
-          <TabPanel value={tabValue} index={2}>
+          <TabPanel value={tabValue} index={3}>
             <Typography variant="h6" gutterBottom>
               Active Sessions
             </Typography>
@@ -120,7 +138,7 @@ const SecuritySettings: React.FC = () => {
             </Alert>
           </TabPanel>
 
-          <TabPanel value={tabValue} index={3}>
+          <TabPanel value={tabValue} index={4}>
             <Typography variant="h6" gutterBottom>
               Login History
             </Typography>
@@ -139,12 +157,36 @@ const SecuritySettings: React.FC = () => {
           Security Recommendations
         </Typography>
         <Stack spacing={2}>
-          <Alert severity="success">
-            ✓ Your email is verified
-          </Alert>
-          <Alert severity="warning">
-            Consider enabling two-factor authentication for enhanced security
-          </Alert>
+          {user?.emailVerified ? (
+            <Alert severity="success">
+              ✓ Your email is verified
+            </Alert>
+          ) : (
+            <Alert severity="warning">
+              Please verify your email address
+            </Alert>
+          )}
+          
+          {user?.permissions ? (
+            <Alert severity="success">
+              ✓ Your phone number is verified
+            </Alert>
+          ) : (
+            <Alert severity="info">
+              Add and verify a phone number for additional security
+            </Alert>
+          )}
+          
+          {twoFactorEnabled ? (
+            <Alert severity="success">
+              ✓ Two-factor authentication is enabled
+            </Alert>
+          ) : (
+            <Alert severity="warning">
+              Consider enabling two-factor authentication for enhanced security
+            </Alert>
+          )}
+          
           <Alert severity="info">
             Last password change: More than 90 days ago
           </Alert>

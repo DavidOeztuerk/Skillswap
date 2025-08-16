@@ -155,6 +155,9 @@ namespace NotificationService.Migrations
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("ScheduledAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("SentAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -188,6 +191,9 @@ namespace NotificationService.Migrations
                         .IsRequired()
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
+
+                    b.Property<string>("Variables")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -299,6 +305,49 @@ namespace NotificationService.Migrations
                     b.ToTable("NotificationCampaigns");
                 });
 
+            modelBuilder.Entity("NotificationService.Domain.Entities.NotificationDigestEntry", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DigestNotificationId")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsProcessed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Template")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("Variables")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("IsProcessed");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("NotificationDigestEntries");
+                });
+
             modelBuilder.Entity("NotificationService.Domain.Entities.NotificationEvent", b =>
                 {
                     b.Property<string>("Id")
@@ -377,10 +426,19 @@ namespace NotificationService.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<int>("DigestHour")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("EmailDigestEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("EmailEnabled")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("EmailMarketing")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("EmailReminders")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("EmailSecurity")
@@ -403,8 +461,14 @@ namespace NotificationService.Migrations
                     b.Property<bool>("PushMarketing")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("PushReminders")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("PushSecurity")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("PushToken")
+                        .HasColumnType("text");
 
                     b.Property<bool>("PushUpdates")
                         .HasColumnType("boolean");

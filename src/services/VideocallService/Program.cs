@@ -48,43 +48,25 @@ builder.Services.AddSignalR(options =>
 });
 
 // Add database
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+var connectionString =
+    Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-if (string.IsNullOrEmpty(connectionString))
+// 2) Service-spezifischer Fallback (nur wenn wirklich nichts gesetzt ist)
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    // ✅ Intelligente Host-Erkennung
-    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
-                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
-                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
-
-    var host = isRunningInContainer ? "postgres" : "localhost";
-
-    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
-        ?? builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
-
-    // Falls Environment Variable einen anderen Host enthält, korrigieren
-    if (connectionString.Contains("Host="))
-    {
-        connectionString = System.Text.RegularExpressions.Regex.Replace(
-            connectionString,
-            @"Host=[^;]+",
-            $"Host={host}"
-        );
-    }
+    var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "skillswap@ditss1990?!";
+    connectionString =
+        $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
 
-// Debug-Ausgabe (ohne Passwort für Logs)
-var safeConnectionString = connectionString.Contains("Password=")
-    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
-    : connectionString;
-
-builder.Services.AddDbContext<VideoCallDbContext>(options =>
-{
-    options.UseNpgsql(connectionString);
-    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
-    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
-});
+builder.Services.AddDbContext<VideoCallDbContext>(opts =>
+    opts.UseNpgsql(connectionString, npg =>
+        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)) // EF-Retry einschalten
+    .EnableDetailedErrors(builder.Environment.IsDevelopment())
+    .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+);
 
 // Event sourcing setup
 builder.Services.AddEventSourcing("VideocallEventStore");
@@ -205,6 +187,21 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+// nach app.Build(), vor app.Run():
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<VideoCallDbContext>();
+    // EF-eigene ExecutionStrategy, damit auch die Verbindungserstellung retried wird
+    var strategy = db.Database.CreateExecutionStrategy();
+    await strategy.ExecuteAsync(async () =>
+    {
+        await db.Database.MigrateAsync();           // ← statt EnsureCreated
+        // optional: Seeding
+        // await VideoCallSeedData.SeedAsync(db);
+    });
+    app.Logger.LogInformation("Database migration completed successfully");
+}
 
 // Use shared infrastructure middleware
 app.UseSharedInfrastructure();

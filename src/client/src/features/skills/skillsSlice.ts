@@ -69,7 +69,7 @@ export const mapSkillResponseToSkill = (response: SkillSearchResultResponse): Sk
   };
 };
 
-export const mapUserSkillsResponseToSkill = (response: GetUserSkillRespone): Skill => {
+export const mapUserSkillsResponseToSkill = (response: any): Skill => {
   return {
     id: response.skillId,
     userId: response.userId,
@@ -140,8 +140,22 @@ export const fetchSkillById = createAsyncThunk(
 // Get user skills
 export const fetchUserSkills = createAsyncThunk(
   'skills/fetchUserSkills',
-  async ({ page = 1, pageSize = 12 }: { page?: number; pageSize?: number }) => {
-    return await skillService.getUserSkills(page, pageSize);
+  async ({ 
+    page = 1, 
+    pageSize = 12,
+    isOffered,
+    categoryId,
+    proficiencyLevelId,
+    includeInactive = false
+  }: { 
+    page?: number; 
+    pageSize?: number;
+    isOffered?: boolean;
+    categoryId?: string;
+    proficiencyLevelId?: string;
+    includeInactive?: boolean;
+  }) => {
+    return await skillService.getUserSkills(page, pageSize, isOffered, categoryId, proficiencyLevelId, includeInactive);
   }
 );
 
@@ -416,7 +430,38 @@ const skillsSlice = createSlice({
           return;
         }
         
-        const skill = action.payload.data;
+        const toIsoOrNull = (v: unknown): string => {
+          if (!v) return "";
+          const d = new Date(v as any);
+          return isNaN(d.getTime()) ? "" : d.toISOString();
+        };
+
+        const skill: Skill = {
+          id: action.payload.data.skillId,
+          userId: action.payload.data.userId,
+          name: action.payload.data.name,
+          description: action.payload.data.description,
+          isOffered: action.payload.data.isOffered,
+          reviewCount: action.payload.data.reviews?.length,
+          endorsementCount: action.payload.data.endorsements?.length ?? 0,
+          createdAt: toIsoOrNull(action.payload.data.createdAt),
+          // du verwendest updatedAt → lastActiveAt: passt, aber guarden
+          lastActiveAt: toIsoOrNull(action.payload.data.updatedAt),
+          tagsJson: JSON.stringify(action.payload.data.tags || []),
+          category: {
+            id: action.payload.data.category.categoryId,
+            name: action.payload.data.category.name,
+            iconName: action.payload.data.category.iconName,
+            color: action.payload.data.category.color,
+          },
+          proficiencyLevel: {
+            id: action.payload.data.proficiencyLevel.levelId,
+            level: action.payload.data.proficiencyLevel.level,
+            rank: action.payload.data.proficiencyLevel.rank,
+            color: action.payload.data.proficiencyLevel.color,
+          }
+        }
+
         state.selectedSkill = skill;
 
         if (skill) {
@@ -424,7 +469,7 @@ const skillsSlice = createSlice({
             const index = array?.findIndex(
               (s) => s.id === skill.id
             );
-            if (index !== undefined && index !== -1 && array) {
+            if (index && array) {
               array[index] = skill;
             }
           };

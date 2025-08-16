@@ -22,12 +22,13 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { usePermission } from '../../contexts/PermissionContext';
-import apiClient from '../../services/apiClient';
 import { Grid } from '../../components/common/GridCompat';
 import { unwrap, withDefault } from '../../utils/safeAccess';
 import { AdminErrorBoundary } from '../../components/error';
 import errorService from '../../services/errorService';
+import { AdminDashboardData } from '../../types/models/Admin';
+import apiClient from '../../api/apiClient';
+import { usePermissions } from '../../contexts/PermissionContext'
 
 interface DashboardStats {
   totalUsers: number;
@@ -95,7 +96,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onClick 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { hasPermission } = usePermission();
+  const { hasPermission } = usePermissions();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +107,7 @@ const AdminDashboard: React.FC = () => {
       setRefreshing(true);
       errorService.addBreadcrumb('Fetching admin dashboard stats', 'admin');
       
-      const response = await apiClient.get<any>('/api/admin/analytics/dashboard');
+      const response = await apiClient.get<AdminDashboardData>('/api/admin/analytics/dashboard');
       const statsData = unwrap<any>(response);
       
       setStats({

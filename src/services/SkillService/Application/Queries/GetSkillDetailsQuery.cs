@@ -5,12 +5,10 @@ using Contracts.Skill.Responses;
 namespace SkillService.Application.Queries;
 
 public record GetSkillDetailsQuery(
-    string SkillId,
-    bool IncludeReviews = false,
-    bool IncludeEndorsements = false)
+    string SkillId)
     : IQuery<SkillDetailsResponse>, ICacheableQuery
 {
-    public string CacheKey => $"skill-details:{SkillId}:{IncludeReviews}:{IncludeEndorsements}";
+    public string CacheKey => $"skill-details:{SkillId}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(10);
 }
 

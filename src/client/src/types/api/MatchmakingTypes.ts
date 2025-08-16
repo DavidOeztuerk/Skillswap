@@ -1,4 +1,3 @@
-// Matchmaking API Types
 export interface MatchRequestThreadResponse {
   threadId: string;
   skill: {

@@ -1,5 +1,6 @@
 using MatchmakingService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace MatchmakingService;
 
@@ -39,12 +40,20 @@ public class MatchmakingDbContext(
             entity.Property(e => e.AgreedDays)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>());
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>())
+                .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                    (a, b) => a != null && b != null && a.SequenceEqual(b),
+                    v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
+                    v => v == null ? new List<string>() : new List<string>(v)));
 
             entity.Property(e => e.AgreedTimes)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>());
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>())
+                .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                    (a, b) => a != null && b != null && a.SequenceEqual(b),
+                    v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
+                    v => v == null ? new List<string>() : new List<string>(v)));
 
             // Indexes
             entity.HasIndex(e => e.ThreadId);
@@ -92,12 +101,20 @@ public class MatchmakingDbContext(
             entity.Property(e => e.PreferredTags)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>());
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>())
+                .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                    (a, b) => a != null && b != null && a.SequenceEqual(b),
+                    v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
+                    v => v == null ? new List<string>() : new List<string>(v)));
 
             entity.Property(e => e.RequiredSkills)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>());
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>())
+                .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                    (a, b) => a != null && b != null && a.SequenceEqual(b),
+                    v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
+                    v => v == null ? new List<string>() : new List<string>(v)));
 
             entity.HasQueryFilter(e => !e.IsDeleted);
         });

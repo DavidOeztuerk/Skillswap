@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { usePermission } from '../contexts/PermissionContext';
+import { usePermissions } from '../contexts/PermissionContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { withDefault } from '../utils/safeAccess';
 
@@ -42,7 +42,7 @@ const useAuthorizationStatus = (
   config: Required<Pick<PrivateRouteConfig, 'roles' | 'permissions'>>
 ) => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const { hasAnyRole, hasAnyPermission, roles: contextRoles, permissions: contextPermissions } = usePermission();
+  const { hasAnyRole, hasAnyPermission, roles: contextRoles, permissions: contextPermissions } = usePermissions();
   
   return useMemo(() => {
     // Schritt 1: Prüfe ob noch geladen wird

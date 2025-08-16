@@ -3,6 +3,7 @@ using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
+using NotificationService.Domain.Enums;
 
 namespace NotificationService.Application.Consumers;
 
@@ -42,7 +43,7 @@ public class SecurityAlertEventConsumer : IConsumer<SecurityAlertEvent>
                 EmailTemplateNames.SecurityAlert,
                 context.Message.Email,
                 variables,
-                NotificationPriority.Urgent,
+                NotificationPriority.Critical.ToString(),
                 CorrelationId: context.ConversationId?.ToString())
             {
                 UserId = context.Message.UserId
@@ -62,7 +63,7 @@ public class SecurityAlertEventConsumer : IConsumer<SecurityAlertEvent>
                 "security-alert",
                 context.Message.UserId, // For push, recipient is user ID
                 pushVariables,
-                NotificationPriority.Urgent,
+                NotificationPriority.Critical.ToString(),
                 CorrelationId: context.ConversationId?.ToString())
             {
                 UserId = context.Message.UserId

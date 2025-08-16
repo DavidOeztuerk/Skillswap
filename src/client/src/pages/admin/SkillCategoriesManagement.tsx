@@ -36,84 +36,82 @@ import {
   Cancel as CancelIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { usePermission } from '../../contexts/PermissionContext';
-import apiClient from '../../services/apiClient';
+import { usePermissions } from '../../contexts/PermissionContext';
 import { Grid } from '../../components/common/GridCompat';
-
-interface SkillCategory {
-  id: string;
-  name: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-  skillCount: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt?: string;
-}
+import { useSkills } from '../../hooks/useSkills';
+import { SkillCategory } from '../../types/models/Skill';
 
 interface CategoryFormData {
   name: string;
-  description: string;
   color: string;
   icon: string;
 }
 
 const SkillCategoriesManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { hasPermission } = usePermission();
-  const [categories, setCategories] = useState<SkillCategory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { hasPermission } = usePermissions();
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<SkillCategory | null>(null);
   const [formData, setFormData] = useState<CategoryFormData>({
     name: '',
-    description: '',
     color: '#2196f3',
     icon: ''
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof CategoryFormData, string>>>({});
   const [saving, setSaving] = useState(false);
-
-  const fetchCategories = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get('/api/categories');
-      // apiClient returns ApiResponse, check structure
-      const categoriesData = response?.data || response || [];
-      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-      setError(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to load categories');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [loading, setLoading] = useState(true);
+  
+  // Use the useSkills hook
+  const { categories, fetchCategories, createCategory, updateCategory, deleteCategory } = useSkills();
 
   useEffect(() => {
     if (!hasPermission('skills:manage_categories')) {
       navigate('/');
       return;
     }
-    fetchCategories();
-  }, [hasPermission, navigate]);
+    
+    // Initial fetch of categories
+    const loadCategories = async () => {
+      setLoading(true);
+      try {
+        await fetchCategories();
+        setError(null);
+      } catch (err: any) {
+        setError('Failed to load categories');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadCategories();
+  }, [hasPermission, navigate, fetchCategories]);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      await fetchCategories();
+      setError(null);
+    } catch (err: any) {
+      setError('Failed to refresh categories');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOpenDialog = (category?: SkillCategory) => {
     if (category) {
       setSelectedCategory(category);
       setFormData({
         name: category.name,
-        description: category.description || '',
         color: category.color || '#2196f3',
-        icon: category.icon || ''
+        icon: category.iconName || ''
       });
     } else {
       setSelectedCategory(null);
       setFormData({
         name: '',
-        description: '',
         color: '#2196f3',
         icon: ''
       });
@@ -127,7 +125,6 @@ const SkillCategoriesManagement: React.FC = () => {
     setSelectedCategory(null);
     setFormData({
       name: '',
-      description: '',
       color: '#2196f3',
       icon: ''
     });
@@ -145,10 +142,6 @@ const SkillCategoriesManagement: React.FC = () => {
       errors.name = 'Category name must not exceed 50 characters';
     }
 
-    if (formData.description && formData.description.length > 200) {
-      errors.description = 'Description must not exceed 200 characters';
-    }
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -158,16 +151,28 @@ const SkillCategoriesManagement: React.FC = () => {
 
     setSaving(true);
     try {
+      let success = false;
+      
       if (selectedCategory) {
-        // Update existing category
-        await apiClient.put(`/api/admin/skills/categories/${selectedCategory.id}`, formData);
+        // Update existing category using the hook
+        success = await updateCategory(
+          selectedCategory.id,
+          formData.name,
+        );
       } else {
-        // Create new category
-        await apiClient.post('/api/admin/skills/categories', formData);
+        // Create new category using the hook
+        success = await createCategory(
+          formData.name,
+        );
       }
-      await fetchCategories();
-      handleCloseDialog();
-      setError(null);
+      
+      if (success) {
+        await fetchCategories(); // Refresh categories
+        handleCloseDialog();
+        setError(null);
+      } else {
+        setError('Failed to save category');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to save category');
     } finally {
@@ -179,10 +184,16 @@ const SkillCategoriesManagement: React.FC = () => {
     if (!selectedCategory) return;
 
     try {
-      await apiClient.delete(`/api/admin/skills/categories/${selectedCategory.id}`);
-      await fetchCategories();
-      setDeleteDialogOpen(false);
-      setSelectedCategory(null);
+      const success = await deleteCategory(selectedCategory.id);
+      
+      if (success) {
+        await fetchCategories(); // Refresh categories
+        setDeleteDialogOpen(false);
+        setSelectedCategory(null);
+        setError(null);
+      } else {
+        setError('Failed to delete category');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete category');
     }
@@ -200,7 +211,7 @@ const SkillCategoriesManagement: React.FC = () => {
     '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'
   ];
 
-  if (loading && categories.length === 0) {
+  if (loading && (!categories || categories.length === 0)) {
     return (
       <Container>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -238,7 +249,7 @@ const SkillCategoriesManagement: React.FC = () => {
                     Total Categories
                   </Typography>
                   <Typography variant="h4">
-                    {categories.length}
+                    {categories?.length || 0}
                   </Typography>
                 </Box>
                 <CategoryIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.3 }} />
@@ -246,7 +257,7 @@ const SkillCategoriesManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        {/* <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -255,14 +266,14 @@ const SkillCategoriesManagement: React.FC = () => {
                     Active Categories
                   </Typography>
                   <Typography variant="h4">
-                    {categories.filter(c => c.isActive).length}
+                    {categories || 0}
                   </Typography>
                 </Box>
                 <CategoryIcon sx={{ fontSize: 40, color: 'success.main', opacity: 0.3 }} />
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> */}
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -272,7 +283,7 @@ const SkillCategoriesManagement: React.FC = () => {
                     Total Skills
                   </Typography>
                   <Typography variant="h4">
-                    {categories.reduce((sum, c) => sum + c.skillCount, 0)}
+                    {categories?.reduce((sum, c) => sum + (c.skillCount || 0), 0) || 0}
                   </Typography>
                 </Box>
                 <CategoryIcon sx={{ fontSize: 40, color: 'info.main', opacity: 0.3 }} />
@@ -289,8 +300,8 @@ const SkillCategoriesManagement: React.FC = () => {
                     Avg Skills/Category
                   </Typography>
                   <Typography variant="h4">
-                    {categories.length > 0 
-                      ? Math.round(categories.reduce((sum, c) => sum + c.skillCount, 0) / categories.length)
+                    {categories && categories.length > 0 
+                      ? Math.round(categories.reduce((sum, c) => sum + (c.skillCount || 0), 0) / categories.length)
                       : 0}
                   </Typography>
                 </Box>
@@ -311,7 +322,7 @@ const SkillCategoriesManagement: React.FC = () => {
           >
             Add Category
           </Button>
-          <IconButton onClick={fetchCategories}>
+          <IconButton onClick={handleRefresh}>
             <RefreshIcon />
           </IconButton>
         </Stack>
@@ -331,17 +342,16 @@ const SkillCategoriesManagement: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {categories.map((category) => (
+            {categories?.map((category) => (
               <TableRow key={category.id}>
                 <TableCell>
                   <Stack direction="row" spacing={1} alignItems="center">
-                    {category.icon && (
-                      <span style={{ fontSize: '1.5rem' }}>{category.icon}</span>
+                    {category.iconName && (
+                      <span style={{ fontSize: '1.5rem' }}>{category.iconName}</span>
                     )}
                     <Typography fontWeight="medium">{category.name}</Typography>
                   </Stack>
                 </TableCell>
-                <TableCell>{category.description || '-'}</TableCell>
                 <TableCell>
                   {category.color && (
                     <Box display="flex" alignItems="center" gap={1}>
@@ -360,14 +370,7 @@ const SkillCategoriesManagement: React.FC = () => {
                   )}
                 </TableCell>
                 <TableCell align="center">
-                  <Chip label={category.skillCount} size="small" />
-                </TableCell>
-                <TableCell align="center">
-                  <Chip
-                    label={category.isActive ? 'Active' : 'Inactive'}
-                    size="small"
-                    color={category.isActive ? 'success' : 'default'}
-                  />
+                  <Chip label={category.skillCount || 0} size="small" />
                 </TableCell>
                 <TableCell align="right">
                   <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -383,7 +386,7 @@ const SkillCategoriesManagement: React.FC = () => {
                       <IconButton
                         size="small"
                         onClick={() => handleOpenDeleteDialog(category)}
-                        disabled={category.skillCount > 0}
+                        disabled={(category.skillCount || 0) > 0}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -411,17 +414,6 @@ const SkillCategoriesManagement: React.FC = () => {
               helperText={formErrors.name}
               fullWidth
               required
-            />
-            
-            <TextField
-              label="Description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              error={!!formErrors.description}
-              helperText={formErrors.description}
-              fullWidth
-              multiline
-              rows={3}
             />
             
             <TextField

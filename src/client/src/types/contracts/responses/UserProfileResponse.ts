@@ -9,6 +9,7 @@ export interface UserProfileResponse {
   timeZone?: string;
   roles: string[];
   permissions?: string[];
+  favoriteSkills: string[];
   emailVerified: boolean;
   accountStatus: string;
   createdAt: string;

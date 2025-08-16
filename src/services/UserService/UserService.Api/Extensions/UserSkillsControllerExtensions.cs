@@ -1,13 +1,11 @@
 using System.Security.Claims;
 using Contracts.User.Requests;
-using Contracts.User.Responses;
 using CQRS.Extensions;
 using CQRS.Models;
 using Infrastructure.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UserService.Application.Commands;
-using UserService.Application.Commands.Favorites;
 using UserService.Application.Queries;
 
 namespace UserService.Api.Extensions;
@@ -23,15 +21,22 @@ public static class UserSkillsControllerExtensions
         skills.MapGet("/favorites", HandleGetFavoriteSkills)
             .WithName("GetFavoriteSkills")
             .WithSummary("Get favorite skills")
-            .WithDescription("Gets the current user's favorite skills")
-            .Produces<PagedResponse<GetFavoriteSkillsResponse>>(200)
+            .WithDescription("Gets the current user's favorite skill IDs")
+            .Produces<PagedResponse<string>>(200)
+            .Produces(401);
+            
+        skills.MapGet("/favorites/details", HandleGetFavoriteSkillsWithDetails)
+            .WithName("GetFavoriteSkillsWithDetails")
+            .WithSummary("Get favorite skills with details")
+            .WithDescription("Gets the current user's favorite skills with full details from SkillService")
+            .Produces<PagedResponse<FavoriteSkillDetailResponse>>(200)
             .Produces(401);
 
         skills.MapPost("/favorites", HandleAddFavoriteSkill)
             .WithName("AddFavoriteSkill")
             .WithSummary("Add favorite skill")
             .WithDescription("Adds a skill to the user's favorites")
-            .Produces<AddFavoriteSkillResponse>(200)
+            .Produces<ApiResponse<bool>>(200)
             .Produces(400)
             .Produces(401);
 
@@ -39,7 +44,7 @@ public static class UserSkillsControllerExtensions
             .WithName("RemoveFavoriteSkill")
             .WithSummary("Remove favorite skill")
             .WithDescription("Removes a skill from the user's favorites")
-            .Produces<RemoveFavoriteSkillResponse>(200)
+            .Produces<ApiResponse<bool>>(200)
             .Produces(400)
             .Produces(401);
 
@@ -49,6 +54,15 @@ public static class UserSkillsControllerExtensions
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
             var query = new GetFavoriteSkillsQuery(userId, PageNumber, PageSize);
+            return await mediator.SendQuery(query);
+        }
+        
+        static async Task<IResult> HandleGetFavoriteSkillsWithDetails(IMediator mediator, ClaimsPrincipal user, [FromQuery] int PageNumber = 1, [FromQuery] int PageSize = 20)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new GetFavoriteSkillsWithDetailsQuery(userId, PageNumber, PageSize);
             return await mediator.SendQuery(query);
         }
 

@@ -51,6 +51,21 @@ public class Appointment : AuditableEntity
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 
+    // Skill Exchange Properties
+    public bool IsSkillExchange { get; set; } = false;
+    [MaxLength(450)]
+    public string? ExchangeSkillId { get; set; }
+
+    // Payment Properties
+    public bool IsMonetary { get; set; } = false;
+    public decimal? Amount { get; set; }
+    [MaxLength(10)]
+    public string? Currency { get; set; }
+
+    // Session Tracking
+    public int SessionNumber { get; set; } = 1;
+    public int TotalSessions { get; set; } = 1;
+
     // Helper properties
     public bool IsPending => Status == AppointmentStatus.Pending;
     public bool IsAccepted => Status == AppointmentStatus.Accepted;
@@ -81,8 +96,27 @@ public class Appointment : AuditableEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void Reschedule(DateTime newScheduledDate, string? reason)
+    public void Reschedule(DateTime newScheduledDate, int? newDurationMinutes, string? reason)
     {
-        this.ScheduledDate = newScheduledDate;
+        ScheduledDate = newScheduledDate;
+        
+        if (newDurationMinutes.HasValue)
+        {
+            DurationMinutes = newDurationMinutes.Value;
+        }
+        
+        // Store the reason in the description or a separate field if needed
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            Description = string.IsNullOrWhiteSpace(Description) 
+                ? $"Rescheduled: {reason}"
+                : $"{Description}\n\nRescheduled: {reason}";
+        }
+        
+        // Reset reminder flags since the schedule changed
+        IsReminder1Sent = false;
+        IsReminder2Sent = false;
+        
+        UpdatedAt = DateTime.UtcNow;
     }
 }

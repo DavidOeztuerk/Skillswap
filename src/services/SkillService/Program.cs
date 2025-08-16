@@ -17,7 +17,6 @@ using Contracts.Skill.Responses;
 using SkillService.Extensions;
 using System.Security.Claims;
 using Infrastructure.Models;
-// using Infrastructure.Services;
 using MediatR;
 using SkillService;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -43,49 +42,25 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
 
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
-// var userServiceUrl = Environment.GetEnvironmentVariable("USERSERVICE_URL") ?? "http://userservice:5001";
-// builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
-// {
-//     client.BaseAddress = new Uri(userServiceUrl);
-// });
+var connectionString =
+    Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
-
-if (string.IsNullOrEmpty(connectionString))
+// 2) Service-spezifischer Fallback (nur wenn wirklich nichts gesetzt ist)
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    // ✅ Intelligente Host-Erkennung
-    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
-                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
-                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
-
-    var host = isRunningInContainer ? "postgres" : "localhost";
-
-    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
-        ?? builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
-
-    // Falls Environment Variable einen anderen Host enthält, korrigieren
-    if (connectionString.Contains("Host="))
-    {
-        connectionString = System.Text.RegularExpressions.Regex.Replace(
-            connectionString,
-            @"Host=[^;]+",
-            $"Host={host}"
-        );
-    }
+    var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "skillswap@ditss1990?!";
+    connectionString =
+        $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
 
-// Debug-Ausgabe (ohne Passwort für Logs)
-var safeConnectionString = connectionString.Contains("Password=")
-    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
-    : connectionString;
-
-builder.Services.AddDbContext<SkillDbContext>(options =>
-{
-    options.UseNpgsql(connectionString);
-    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
-    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
-});
+builder.Services.AddDbContext<SkillDbContext>(opts =>
+    opts.UseNpgsql(connectionString, npg =>
+        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)) // EF-Retry einschalten
+    .EnableDetailedErrors(builder.Environment.IsDevelopment())
+    .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+);
 
 builder.Services.AddEventSourcing("SkillServiceEventStore");
 
@@ -205,21 +180,32 @@ app.UseAuthorization();
 // Permission middleware (after authentication/authorization)
 app.UsePermissionMiddleware();
 
+// nach app.Build(), vor app.Run():
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<SkillDbContext>();
-
-    try
+    var db = scope.ServiceProvider.GetRequiredService<SkillDbContext>();
+    var strategy = db.Database.CreateExecutionStrategy();
+    
+    // Execute migrations with retry strategy
+    await strategy.ExecuteAsync(async () =>
     {
-        // Ensure database is created (for InMemory provider)
-        await context.Database.EnsureCreatedAsync();
-
-        app.Logger.LogInformation("Database initialized successfully");
-    }
-    catch (Exception ex)
+        await db.Database.MigrateAsync();
+    });
+    
+    // Execute seeding with retry strategy
+    await strategy.ExecuteAsync(async () =>
     {
-        app.Logger.LogError(ex, "Error occurred while initializing database");
-    }
+        await SkillService.Infrastructure.Data.SkillSeedData.SeedAsync(db);
+        
+        // Optional: Seed sample skills for development/testing
+        if (app.Environment.IsDevelopment())
+        {
+            // You can pass a test user ID here if needed
+            // await SkillService.Infrastructure.Data.SkillSeedData.SeedSampleSkillsAsync(db, "test-user-id");
+        }
+    });
+    
+    app.Logger.LogInformation("Database migration and skill data seeding completed successfully");
 }
 
 #region Skills Endpoints
@@ -239,7 +225,7 @@ skills.MapGet("/{id}", GetSkillById)
     .WithDescription("Get detailed information about a specific skill")
     .WithTags("SkillDetail")
     .WithOpenApi()
-    .Produces<ApiResponse<GetSkillDetailsResponse>>(StatusCodes.Status200OK)
+    .Produces<ApiResponse<SkillDetailsResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .ProducesProblem(StatusCodes.Status400BadRequest);
 
@@ -249,7 +235,7 @@ skills.MapGet("/my-skills", GetUserSkills)
     .WithDescription("Retrieve all skills for a specific user with pagination")
     .WithTags("UserSkills")
     .WithOpenApi()
-    .Produces<PagedResponse<GetUserSkillsResponse>>(StatusCodes.Status200OK)
+    .Produces<PagedResponse<UserSkillResponse>>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound)
     .RequireAuthorization();
 
@@ -332,14 +318,12 @@ static async Task<IResult> SearchSkills(
 static async Task<IResult> GetSkillById(
     IMediator mediator,
     ClaimsPrincipal user,
-    [FromRoute] string id,
-    [FromQuery] bool includeReviews = false,
-    [FromQuery] bool includeEndorsements = false)
+    [FromRoute] string id)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetSkillDetailsQuery(id, includeReviews, includeEndorsements);
+    var query = new GetSkillDetailsQuery(id);
 
     return await mediator.SendQuery(query);
 }
@@ -349,7 +333,7 @@ static async Task<IResult> GetUserSkills(IMediator mediator, ClaimsPrincipal use
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var query = new GetUserSkillsQuery(userId, request.IsOffering, request.CategoryId, request.IncludeInactive, request.PageNumber, request.PageSize);
+    var query = new GetUserSkillsQuery(userId, request.IsOffered, request.CategoryId, request.ProficiencyLevelId, request.IncludeInactive, request.PageNumber, request.PageSize);
 
     return await mediator.SendQuery(query);
 }
@@ -375,13 +359,13 @@ static async Task<IResult> CreateNewSkill(IMediator mediator, ClaimsPrincipal us
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> UpdateSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateSkillRequest request)
+static async Task<IResult> UpdateSkill(IMediator mediator, ClaimsPrincipal user, [FromRoute] string id, [FromBody] UpdateSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
     var command = new UpdateSkillCommand(
-        request.SkillId,
+        id,
         request.Name,
         request.Description,
         request.CategoryId,
@@ -397,12 +381,12 @@ static async Task<IResult> UpdateSkill(IMediator mediator, ClaimsPrincipal user,
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> DeleteSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] DeleteSkillRequest request)
+static async Task<IResult> DeleteSkill(IMediator mediator, ClaimsPrincipal user, [FromRoute] string id, [FromBody] DeleteSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new DeleteSkillCommand(request.SkillId, request.Reason)
+    var command = new DeleteSkillCommand(id, request.Reason)
     {
         UserId = userId
     };
@@ -410,12 +394,12 @@ static async Task<IResult> DeleteSkill(IMediator mediator, ClaimsPrincipal user,
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] RateSkillRequest request)
+static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, [FromRoute] string id, [FromBody] RateSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new RateSkillCommand(request.SkillId, request.Rating, request.Comment, request.Tags)
+    var command = new RateSkillCommand(id, request.Rating, request.Comment, request.Tags)
     {
         UserId = userId
     };
@@ -423,12 +407,12 @@ static async Task<IResult> RateSkill(IMediator mediator, ClaimsPrincipal user, [
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> EndorseSkill(IMediator mediator, ClaimsPrincipal user, [FromBody] EndorseSkillRequest request)
+static async Task<IResult> EndorseSkill(IMediator mediator, ClaimsPrincipal user, [FromRoute] string id, [FromBody] EndorseSkillRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new EndorseSkillCommand(request.SkillId, request.EndorsedUserId, request.Comment)
+    var command = new EndorseSkillCommand(id, request.EndorsedUserId, request.Comment)
     {
         UserId = userId
     };
@@ -439,7 +423,7 @@ static async Task<IResult> EndorseSkill(IMediator mediator, ClaimsPrincipal user
 #endregion
 
 #region Categories Endpoints
-RouteGroupBuilder categories = app.MapGroup("/categories");
+RouteGroupBuilder categories = skills.MapGroup("/categories");
 
 categories.MapGet("/", GetCategories)
     .WithName("GetSkillCategories")
@@ -472,12 +456,8 @@ categories.MapPut("/{id}", UpdateCategory)
     .RequireAuthorization(Policies.RequireAdminRole);
 
 static async Task<IResult> GetCategories(
-    IMediator mediator,
-    ClaimsPrincipal user)
+    IMediator mediator)
 {
-    var userId = user.GetUserId();
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     var query = new GetSkillCategoriesQuery();
 
     return await mediator.SendQuery(query);
@@ -496,12 +476,12 @@ static async Task<IResult> CreateNewCategory(IMediator mediator, ClaimsPrincipal
     return await mediator.SendCommand(command);
 }
 
-static async Task<IResult> UpdateCategory(IMediator mediator, ClaimsPrincipal user, [FromBody] UpdateSkillCategoryRequest request)
+static async Task<IResult> UpdateCategory(IMediator mediator, ClaimsPrincipal user, [FromRoute] string id, [FromBody] UpdateSkillCategoryRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-    var command = new UpdateSkillCategoryCommand(request.CategoryId, request.Name, request.Description, request.IconName, request.Color, request.SortOrder, request.IsActive)
+    var command = new UpdateSkillCategoryCommand(id, request.Name, request.Description, request.IconName, request.Color, request.SortOrder, request.IsActive)
     {
         UserId = userId
     };
@@ -511,7 +491,7 @@ static async Task<IResult> UpdateCategory(IMediator mediator, ClaimsPrincipal us
 #endregion
 
 #region Proficiency Levels
-RouteGroupBuilder levels = app.MapGroup("/proficiency-levels");
+RouteGroupBuilder levels = skills.MapGroup("/proficiency-levels");
 
 levels.MapGet("/", GetProficiencyLevels)
     .WithName("GetProficiencyLevels")
@@ -534,13 +514,9 @@ levels.MapPost("/", CreateNewProficiencyLevel)
 
 static async Task<IResult> GetProficiencyLevels(
     IMediator mediator,
-    ClaimsPrincipal user,
     [FromQuery] bool includeInactive = false,
     [FromQuery] bool includeSkillCounts = false)
 {
-    var userId = user.GetUserId();
-    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
     var query = new GetProficiencyLevelsQuery(includeInactive, includeSkillCounts);
 
     return await mediator.SendQuery(query);
@@ -561,7 +537,7 @@ static async Task<IResult> CreateNewProficiencyLevel(IMediator mediator, ClaimsP
 #endregion
 
 #region Analytics
-RouteGroupBuilder analytics = app.MapGroup("/analytics");
+RouteGroupBuilder analytics = skills.MapGroup("/analytics");
 
 analytics.MapGet("/statistics", GetSkillStatistics)
     .WithName("GetSkillStatistics")
@@ -579,7 +555,7 @@ analytics.MapGet("/popular-tags", GetPopularTags)
     .WithOpenApi()
     .Produces<GetPopularTagsResponse>(StatusCodes.Status200OK);
 
-RouteGroupBuilder rec = app.MapGroup("/recommendations")
+RouteGroupBuilder rec = skills.MapGroup("/recommendations")
     .RequireAuthorization();
 
 rec.MapGet("/", GetSkillRecommendations)
@@ -590,11 +566,11 @@ rec.MapGet("/", GetSkillRecommendations)
     .WithOpenApi()
     .Produces<GetSkillRecommendationsResponse>(StatusCodes.Status200OK);
 
-app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = _ => true });
+skills.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = _ => true });
 
-app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Name == "self" });
+skills.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Name == "self" });
 
-static async Task<IResult> GetSkillStatistics(IMediator mediator, ClaimsPrincipal user, [FromBody] GetSkillStatisticsRequest request)
+static async Task<IResult> GetSkillStatistics(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetSkillStatisticsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -604,7 +580,7 @@ static async Task<IResult> GetSkillStatistics(IMediator mediator, ClaimsPrincipa
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetPopularTags(IMediator mediator, ClaimsPrincipal user, [FromBody] GetPopularTagsRequest request)
+static async Task<IResult> GetPopularTags(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetPopularTagsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -614,7 +590,7 @@ static async Task<IResult> GetPopularTags(IMediator mediator, ClaimsPrincipal us
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPrincipal user, [FromBody] GetSkillRecommendationsRequest request)
+static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetSkillRecommendationsRequest request)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();

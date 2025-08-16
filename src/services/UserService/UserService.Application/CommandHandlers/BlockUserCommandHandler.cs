@@ -1,7 +1,6 @@
 using Contracts.User.Responses;
 using UserService.Application.Commands;
 using MassTransit;
-using Infrastructure.Models;
 using CQRS.Handlers;
 using UserService.Domain.Models;
 using UserService.Domain.Repositories;

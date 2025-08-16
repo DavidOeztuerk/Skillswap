@@ -36,20 +36,24 @@ export const fetchAppointments = createAsyncThunk(
     const response = await appointmentService.getAppointments(request || {});
     // PagedResponse has data at root level
     return {
-      appointments: response?.data.map(item => ({
-        id: item.AppointmentId,
-        teacherId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
-        teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: item.OtherPartyName } as any,
-        studentId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
-        studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: item.OtherPartyName } as any,
-        skillId: 'unknown-skill', // Not provided by backend
-        skill: { id: 'unknown-skill', name: 'Unknown Skill' } as any,
-        startTime: item.ScheduledDate?.toString(),
-        endTime: new Date(new Date(item.ScheduledDate).getTime() + withDefault(item.DurationMinutes, 0) * 60000).toISOString(),
-        status: item.Status as AppointmentStatus,
-        videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
-        createdAt: new Date().toISOString(),
-      })),
+      appointments: response?.data.map(item => {
+        const scheduledDate = new Date(item.ScheduledDate);
+        const endDate = new Date(scheduledDate.getTime() + withDefault(item.DurationMinutes, 60) * 60000);
+        return {
+          id: item.AppointmentId,
+          title: item.Title,
+          organizerUserId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
+          participantUserId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
+          skillId: 'unknown-skill', // Not provided by backend
+          scheduledDate: scheduledDate.toISOString(),
+          startTime: scheduledDate.toISOString(),
+          endTime: endDate.toISOString(),
+          durationMinutes: withDefault(item.DurationMinutes, 60),
+          status: item.Status as AppointmentStatus,
+          meetingType: item.MeetingType,
+          createdAt: new Date().toISOString(),
+        };
+      }),
       pagination: {
         page: withDefault(response?.pageNumber, 1),
         limit: withDefault(response?.pageSize, 10),
@@ -133,20 +137,24 @@ export const fetchUpcomingAppointments = createAsyncThunk(
   async (params?: { limit?: number }) => {
     const response = await appointmentService.getUpcomingAppointments(params?.limit);
     // PagedResponse has data at root level
-    return response?.data?.map(item => ({
-      id: item.AppointmentId,
-      teacherId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
-      teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: item.OtherPartyName } as any,
-      studentId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
-      studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: item.OtherPartyName } as any,
-      skillId: 'unknown-skill',
-      skill: { id: 'unknown-skill', name: 'Unknown Skill' } as any,
-      startTime: item.ScheduledDate?.toString(),
-      endTime: new Date(new Date(item.ScheduledDate).getTime() + withDefault(item.DurationMinutes, 0) * 60000).toISOString(),
-      status: item.Status as AppointmentStatus,
-      videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
-      createdAt: new Date().toISOString(),
-    }));
+    return response?.data?.map(item => {
+      const scheduledDate = new Date(item.ScheduledDate);
+      const endDate = new Date(scheduledDate.getTime() + withDefault(item.DurationMinutes, 60) * 60000);
+      return {
+        id: item.AppointmentId,
+        title: item.Title,
+        organizerUserId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
+        participantUserId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
+        skillId: 'unknown-skill',
+        scheduledDate: scheduledDate.toISOString(),
+        startTime: scheduledDate.toISOString(),
+        endTime: endDate.toISOString(),
+        durationMinutes: withDefault(item.DurationMinutes, 60),
+        status: item.Status as AppointmentStatus,
+        meetingType: item.MeetingType,
+        createdAt: new Date().toISOString(),
+      };
+    });
   }
 );
 
@@ -155,20 +163,24 @@ export const fetchPastAppointments = createAsyncThunk(
   async (params?: { page?: number; limit?: number }) => {
     const response = await appointmentService.getPastAppointments(params);
     return {
-      data: response?.data?.map(item => ({
-        id: item.AppointmentId,
-        teacherId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
-        teacherDetails: { id: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId, name: item.OtherPartyName } as any,
-        studentId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
-        studentDetails: { id: item.IsOrganizer ? item.OtherPartyUserId : 'current-user', name: item.OtherPartyName } as any,
-        skillId: 'unknown-skill',
-        skill: { id: 'unknown-skill', name: 'Unknown Skill' } as any,
-        startTime: item.ScheduledDate?.toString(),
-        endTime: new Date(new Date(item.ScheduledDate).getTime() + withDefault(item.DurationMinutes, 0) * 60000).toISOString(),
-        status: item.Status as AppointmentStatus,
-        videocallUrl: item.MeetingType === 'VideoCall' ? `/call/${item.AppointmentId}` : undefined,
-        createdAt: new Date().toISOString(),
-      })),
+      data: response?.data?.map(item => {
+        const scheduledDate = new Date(item.ScheduledDate);
+        const endDate = new Date(scheduledDate.getTime() + withDefault(item.DurationMinutes, 60) * 60000);
+        return {
+          id: item.AppointmentId,
+          title: item.Title,
+          organizerUserId: item.IsOrganizer ? 'current-user' : item.OtherPartyUserId,
+          participantUserId: item.IsOrganizer ? item.OtherPartyUserId : 'current-user',
+          skillId: 'unknown-skill',
+          scheduledDate: scheduledDate.toISOString(),
+          startTime: scheduledDate.toISOString(),
+          endTime: endDate.toISOString(),
+          durationMinutes: withDefault(item.DurationMinutes, 60),
+          status: item.Status as AppointmentStatus,
+          meetingType: item.MeetingType,
+          createdAt: new Date().toISOString(),
+        };
+      }),
       page: withDefault(response?.pageNumber, 1),
       limit: withDefault(response?.pageSize, 10),
       total: withDefault(response?.totalRecords, 0),
@@ -197,10 +209,43 @@ export const updateAppointmentDetails = createAsyncThunk(
 
 export const rescheduleAppointment = createAsyncThunk(
   'appointments/reschedule',
-  async (_: { appointmentId: string; newDateTime: string; reason?: string }) => {
-    // This endpoint doesn't exist in backend
-    console.warn('rescheduleAppointment: Backend endpoint not implemented');
-    throw new Error('Reschedule appointment endpoint not implemented');
+  async ({ appointmentId, newDateTime, newDurationMinutes, reason }: { 
+    appointmentId: string; 
+    newDateTime: string; 
+    newDurationMinutes?: number;
+    reason?: string 
+  }) => {
+    const response = await appointmentService.rescheduleAppointment(
+      appointmentId, 
+      newDateTime,
+      newDurationMinutes,
+      reason
+    );
+    
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to reschedule appointment');
+    }
+    
+    // Fetch updated appointment after rescheduling
+    const appointmentResponse = await appointmentService.getAppointment(appointmentId);
+    if (!appointmentResponse.success || !appointmentResponse.data) {
+      throw new Error(appointmentResponse.message || 'Failed to fetch updated appointment');
+    }
+    
+    return appointmentResponse.data;
+  }
+);
+
+export const generateMeetingLink = createAsyncThunk(
+  'appointments/generateMeetingLink',
+  async (appointmentId: string) => {
+    const response = await appointmentService.generateMeetingLink(appointmentId);
+    
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to generate meeting link');
+    }
+    
+    return { appointmentId, meetingLink: response.data };
   }
 );
 
@@ -447,8 +492,58 @@ const appointmentsSlice = createSlice({
       })
       
       // Reschedule Appointment
+      .addCase(rescheduleAppointment.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(rescheduleAppointment.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // Update the appointment in the list
+        const index = state.appointments.findIndex(a => a.id === action.payload.id);
+        if (index !== -1) {
+          state.appointments[index] = action.payload;
+        }
+        // Update active appointment if it's the same
+        if (state.activeAppointment?.id === action.payload.id) {
+          state.activeAppointment = action.payload;
+        }
+        // Update in upcoming appointments
+        const upcomingIndex = state.upcomingAppointments.findIndex(a => a.id === action.payload.id);
+        if (upcomingIndex !== -1) {
+          state.upcomingAppointments[upcomingIndex] = action.payload;
+        }
+      })
       .addCase(rescheduleAppointment.rejected, (state, action) => {
+        state.isLoading = false;
         state.error = { message: action.error.message || 'Reschedule appointment failed' } as SliceError;
+      })
+      
+      // Generate Meeting Link
+      .addCase(generateMeetingLink.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(generateMeetingLink.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const { appointmentId, meetingLink } = action.payload;
+        
+        // Update the appointment in all lists
+        const updateAppointment = (appointment: Appointment) => {
+          if (appointment.id === appointmentId) {
+            appointment.meetingLink = meetingLink;
+          }
+        };
+        
+        state.appointments.forEach(updateAppointment);
+        state.upcomingAppointments.forEach(updateAppointment);
+        
+        if (state.activeAppointment?.id === appointmentId) {
+          state.activeAppointment.meetingLink = meetingLink;
+        }
+      })
+      .addCase(generateMeetingLink.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = { message: action.error.message || 'Failed to generate meeting link' } as SliceError;
       })
       
       // Rate Appointment

@@ -28,7 +28,11 @@
     <ProjectReference Include="../../../shared/Core/CQRS/CQRS.csproj" />
     <ProjectReference Include="../../../shared/Core/Events/Events.csproj" />
     <ProjectReference Include="..\..\..\services\UserService\UserService.Api\UserService.Api.csproj" />
+    <ProjectReference Include="..\..\..\services\UserService\UserService.Application\UserService.Application.csproj" />
+    <ProjectReference Include="..\..\..\services\UserService\UserService.Domain\UserService.Domain.csproj" />
+    <ProjectReference Include="..\..\..\services\UserService\UserService.Infrastructure\UserService.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\shared\Contracts\Contracts.csproj" />
     <ProjectReference Include="..\..\..\shared\Infrastructure\Infrastructure.csproj" />
+    <ProjectReference Include="..\..\shared\Testing\Testing.csproj" />
   </ItemGroup>
 </Project>

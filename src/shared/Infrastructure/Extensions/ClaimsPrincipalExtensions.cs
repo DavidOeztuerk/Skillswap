@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Infrastructure.Extensions;
 
@@ -7,8 +8,25 @@ public static class ClaimsPrincipalExtensions
     public static string? GetUserId(this ClaimsPrincipal user)
     {
         return user.FindFirst("user_id")?.Value
-               ?? user.FindFirst("sub")?.Value
-               ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            ?? user.FindFirst("userId")?.Value
+            ?? user.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? user.FindFirst("sub")?.Value
+            ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? user.FindFirst("uid")?.Value
+            ?? user.FindFirst("id")?.Value;
+    }
+
+    public static IEnumerable<string> GetRolesSafe(this ClaimsPrincipal user)
+    {
+        // Unterstützt ClaimTypes.Role/"role" (mehrfach) und optional "roles" (kommagetrennt)
+        var roles =
+            user.Claims.Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+                       .Select(c => c.Value)
+            .Concat(
+            user.Claims.Where(c => c.Type == "roles")
+                       .SelectMany(c => c.Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
+
+        return roles.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     public static string? GetEmail(this ClaimsPrincipal user)

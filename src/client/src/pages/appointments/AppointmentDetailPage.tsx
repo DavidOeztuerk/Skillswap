@@ -44,6 +44,7 @@ import {
   EventAvailable as EventAvailableIcon,
   EventBusy as EventBusyIcon,
   DoneAll as DoneAllIcon,
+  Update as UpdateIcon,
 } from '@mui/icons-material';
 
 import {
@@ -70,6 +71,9 @@ import {
 import { Appointment } from '../../types/models/Appointment';
 import AppointmentErrorBoundary from '../../components/error/AppointmentErrorBoundary';
 import errorService from '../../services/errorService';
+import RescheduleDialog from '../../components/appointments/RescheduleDialog';
+import appointmentService from '../../api/services/appointmentService';
+import MeetingLinkSection from '../../components/appointments/MeetingLinkSection';
 
 // Mock message interface
 interface AppointmentMessage {
@@ -99,6 +103,7 @@ const AppointmentDetailPage: React.FC = () => {
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [messages, setMessages] = useState<AppointmentMessage[]>([]);
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -128,7 +133,7 @@ const AppointmentDetailPage: React.FC = () => {
         setAppointment(foundAppointment);
         errorService.addBreadcrumb('Appointment loaded successfully', 'data', { 
           appointmentId, 
-          skillName: foundAppointment.skill.name 
+          skillName: foundAppointment.skill?.name || 'Unknown' 
         });
         
         // Inline mock messages laden um Function-Dependency zu vermeiden
@@ -312,9 +317,65 @@ const AppointmentDetailPage: React.FC = () => {
     }
   };
 
+  const handleGenerateMeetingLink = async (): Promise<string> => {
+    // This would call the backend API to generate a meeting link
+    // For now, return a mock URL
+    return `https://meet.skillswap.com/room/${appointmentId}`;
+  };
+
+  const handleRefreshMeetingLink = async (): Promise<string> => {
+    // This would call the backend API to refresh the meeting link
+    // For now, return a mock URL
+    return `https://meet.skillswap.com/room/${appointmentId}?token=${Date.now()}`;
+  };
+
+  const handleReschedule = async (newDateTime: Date, newDuration?: number, reason?: string) => {
+    if (!appointmentId) return;
+    
+    try {
+      errorService.addBreadcrumb('Rescheduling appointment', 'action', { appointmentId, newDateTime: newDateTime.toISOString() });
+      
+      // Note: This will throw an error as the endpoint doesn't exist yet
+      // We're setting it up for future backend implementation
+      await appointmentService.rescheduleAppointment(
+        appointmentId,
+        newDateTime.toISOString(),
+        newDuration,
+        reason
+      );
+      
+      setStatusMessage({
+        text: 'Termin wurde erfolgreich verschoben',
+        type: 'success',
+      });
+      
+      // Refresh appointment data
+      // In real implementation, this would reload the appointment
+      setRescheduleDialogOpen(false);
+    } catch (error) {
+      errorService.addBreadcrumb('Error rescheduling appointment', 'error', { 
+        appointmentId, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      
+      // For now, show a success message since backend isn't ready
+      if (error instanceof Error && error.message.includes('not implemented')) {
+        setStatusMessage({
+          text: 'Termin-Verschiebung wird bald verfügbar sein',
+          type: 'info',
+        });
+      } else {
+        setStatusMessage({
+          text: 'Fehler beim Verschieben des Termins',
+          type: 'error',
+        });
+      }
+    }
+  };
+
   const handleShare = async () => {
     const shareData = {
-      title: `Termin: ${appointment?.skill.name}`,
+      title: `Termin: ${appointment?.skill?.name || 'Unknown'}`,
       text: `Termin am ${appointment ? formatDateTimeRange(appointment.startTime, appointment.endTime) : ''}`,
       url: window.location.href,
     };
@@ -368,6 +429,10 @@ const AppointmentDetailPage: React.FC = () => {
   const canCancel =
     appointment.status === 'Pending' ||
     (appointment.status === 'Confirmed' && !isPastDate(appointment.startTime));
+  const canReschedule = 
+    appointment.status === 'Confirmed' && 
+    !isPastDate(appointment.startTime) &&
+    isTeacher; // Only teacher can reschedule for now
   const canComplete =
     isTeacher &&
     appointment.status === 'Confirmed' &&
@@ -467,7 +532,7 @@ const AppointmentDetailPage: React.FC = () => {
                     size="small"
                   />
                   <Chip
-                    label={appointment.skill.name}
+                    label={appointment.skill?.name || 'Skill'}
                     variant="outlined"
                     size="small"
                     icon={<SkillIcon />}
@@ -475,7 +540,7 @@ const AppointmentDetailPage: React.FC = () => {
                 </Box>
 
                 <Typography variant="h4" component="h1" gutterBottom>
-                  Termin: {appointment.skill.name}
+                  Termin: {appointment.skill?.name || 'Skill'}
                 </Typography>
 
                 <Box
@@ -492,6 +557,13 @@ const AppointmentDetailPage: React.FC = () => {
               </Box>
 
               <Box sx={{ display: 'flex', gap: 1 }}>
+                {canReschedule && (
+                  <Tooltip title="Termin verschieben">
+                    <IconButton onClick={() => setRescheduleDialogOpen(true)}>
+                      <UpdateIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title="Teilen">
                   <IconButton onClick={handleShare}>
                     <ShareIcon />
@@ -512,7 +584,7 @@ const AppointmentDetailPage: React.FC = () => {
               </Avatar>
               <Box>
                 <Typography variant="h6">
-                  {otherUser.firstName} {otherUser.lastName}
+                  {otherUser?.firstName || ''} {otherUser?.lastName || ''}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {isTeacher ? 'Lernende:r' : 'Lehrende:r'}
@@ -599,6 +671,16 @@ const AppointmentDetailPage: React.FC = () => {
                 </Button>
               )}
 
+              {canReschedule && (
+                <Button
+                  variant="outlined"
+                  startIcon={<UpdateIcon />}
+                  onClick={() => setRescheduleDialogOpen(true)}
+                >
+                  Verschieben
+                </Button>
+              )}
+
               <Button
                 variant="outlined"
                 startIcon={<MessageIcon />}
@@ -609,8 +691,23 @@ const AppointmentDetailPage: React.FC = () => {
             </Box>
           </Paper>
 
+          {/* Meeting Link Section */}
+          {appointment.status === 'Confirmed' && (
+            <MeetingLinkSection
+              meetingUrl={appointment.videocallUrl}
+              startTime={appointment.startTime || appointment.scheduledDate}
+              endTime={appointment.endTime || new Date(new Date(appointment.scheduledDate).getTime() + appointment.durationMinutes * 60000).toISOString()}
+              status={appointment.status}
+              isOrganizer={isTeacher}
+              onGenerateLink={!appointment.videocallUrl && isTeacher ? handleGenerateMeetingLink : undefined}
+              onRefreshLink={appointment.videocallUrl && isTeacher ? handleRefreshMeetingLink : undefined}
+              allowEarlyJoin={true}
+              earlyJoinMinutes={5}
+            />
+          )}
+
           {/* Messages timeline */}
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 3, mt: 3 }}>
             <Typography variant="h6" gutterBottom>
               Nachrichten & Aktivitäten
             </Typography>
@@ -765,7 +862,7 @@ const AppointmentDetailPage: React.FC = () => {
             label="Nachricht"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={`Schreibe eine Nachricht an ${otherUser.firstName}...`}
+            placeholder={`Schreibe eine Nachricht an ${otherUser?.firstName || 'Teilnehmer'}...`}
             sx={{ mt: 2 }}
           />
         </DialogContent>
@@ -793,6 +890,18 @@ const AppointmentDetailPage: React.FC = () => {
         cancelLabel="Abbrechen"
         confirmColor={confirmDialog.action === 'cancel' ? 'error' : 'primary'}
       />
+
+      {/* Reschedule Dialog */}
+      {appointment && (
+        <RescheduleDialog
+          open={rescheduleDialogOpen}
+          onClose={() => setRescheduleDialogOpen(false)}
+          appointment={appointment}
+          onReschedule={handleReschedule}
+          // availableSlots would come from API in real implementation
+          availableSlots={[]}
+        />
+      )}
     </Container>
   );
 };

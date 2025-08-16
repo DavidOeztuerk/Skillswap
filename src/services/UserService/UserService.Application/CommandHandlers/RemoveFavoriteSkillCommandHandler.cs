@@ -1,11 +1,10 @@
 using CQRS.Handlers;
 using CQRS.Models;
-using Infrastructure.Models;
 using Microsoft.Extensions.Logging;
-using UserService.Application.Commands.Favorites;
+using UserService.Application.Commands;
 using UserService.Domain.Repositories;
 
-namespace UserService.Application.CommandHandlers.Favorites;
+namespace UserService.Application.CommandHandlers;
 
 public class RemoveFavoriteSkillCommandHandler(
     IUserSkillsRepository userSkillsRepository,

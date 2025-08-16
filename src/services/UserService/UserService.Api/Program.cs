@@ -1,11 +1,8 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text;
-using Contracts.User.Requests;
-using Contracts.User.Responses;
-using Contracts.User.Responses.Auth;
 using CQRS.Extensions;
-using CQRS.Models;
 using EventSourcing;
 using Infrastructure.Authorization;
 using Infrastructure.Extensions;
@@ -13,18 +10,13 @@ using Infrastructure.Middleware;
 using Infrastructure.Models;
 using Infrastructure.Security;
 using MassTransit;
-using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using UserService;
-using UserService.Api.Application.Queries;
 using UserService.Api.Extensions;
-using UserService.Application.Commands;
-using UserService.Application.Commands.Favorites;
-using UserService.Application.Queries;
+using UserService.Infrastructure.Data;
 using UserService.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,48 +58,41 @@ builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environm
 // Add UserService Infrastructure (Repository registration)
 builder.Services.AddInfrastructure();
 
+// Configure HttpClient for SkillService communication
+builder.Services.AddHttpClient("SkillService", client =>
+{
+    var skillServiceUrl = Environment.GetEnvironmentVariable("SKILLSERVICE_URL")
+        ?? builder.Configuration["Services:SkillService:Url"]
+        ?? "http://skillservice:5002";
+
+    client.BaseAddress = new Uri(skillServiceUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 // ============================================================================
 // DATABASE SETUP
 // ============================================================================
 
 // Configure Entity Framework with PostgreSQL
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+var connectionString =
+    Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-if (string.IsNullOrEmpty(connectionString))
+// 2) Service-spezifischer Fallback (nur wenn wirklich nichts gesetzt ist)
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    // ✅ Intelligente Host-Erkennung
-    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
-                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
-                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
-
-    var host = isRunningInContainer ? "postgres" : "localhost";
-
-    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
-        ?? builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
-
-    // Falls Environment Variable einen anderen Host enthält, korrigieren
-    if (connectionString.Contains("Host="))
-    {
-        connectionString = System.Text.RegularExpressions.Regex.Replace(
-            connectionString,
-            @"Host=[^;]+",
-            $"Host={host}"
-        );
-    }
+    var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "skillswap@ditss1990?!";
+    connectionString =
+        $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
 
-// Debug-Ausgabe (ohne Passwort für Logs)
-var safeConnectionString = connectionString.Contains("Password=")
-    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
-    : connectionString;
-
-builder.Services.AddDbContext<UserDbContext>(options =>
-{
-    options.UseNpgsql(connectionString);
-    //options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
-    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
-});
+builder.Services.AddDbContext<UserDbContext>(opts =>
+    opts.UseNpgsql(connectionString, npg => npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null))
+        .EnableDetailedErrors(builder.Environment.IsDevelopment())
+        .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+);
 
 // Event sourcing setup
 builder.Services.AddEventSourcing("UserServiceEventStore");
@@ -165,12 +150,17 @@ builder.Services.Configure<JwtSettings>(options =>
     options.ExpireMinutes = expireMinutes;
 });
 
+
 // Configure JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
-        opts.RequireHttpsMetadata = false; // For development only
+        opts.RequireHttpsMetadata = false;
         opts.SaveToken = true;
+
+        // Behalte Original-Claimnamen (kein automatisches Remapping):
+        opts.MapInboundClaims = false; // .NET 7/8; für .NET 6: JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -180,7 +170,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = issuer,
             ValidAudience = audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+
+            // WICHTIG: passend zu deinem Token:
+            NameClaimType = JwtRegisteredClaimNames.Sub, // wenn deine UserId in "sub" steckt
+            RoleClaimType = ClaimTypes.Role               // du emitierst ClaimTypes.Role (und zusätzlich "role")
         };
 
         // Add custom token validation events
@@ -276,6 +270,37 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// nach app.Build(), vor app.Run():
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<UserDbContext>();
+    var strategy = db.Database.CreateExecutionStrategy();
+
+    // Execute migrations with retry strategy
+    await strategy.ExecuteAsync(async () =>
+    {
+        await db.Database.MigrateAsync();
+    });
+
+    // Execute seeding with retry strategy AND transaction
+    await strategy.ExecuteAsync(async () =>
+    {
+        using var transaction = await db.Database.BeginTransactionAsync();
+        try
+        {
+            await RbacSeedData.SeedAsync(db);
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    });
+
+    app.Logger.LogInformation("Database migration and seeding completed successfully");
+}
+
 // ============================================================================
 // MIDDLEWARE PIPELINE
 // ============================================================================
@@ -316,7 +341,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         // Ensure database is created (for InMemory provider)
-        await context.Database.EnsureCreatedAsync();
+        // await context.Database.EnsureCreatedAsync();
 
         app.Logger.LogInformation("Database initialized successfully");
     }
@@ -331,13 +356,14 @@ using (var scope = app.Services.CreateScope())
 // ============================================================================
 
 app.MapAuthController();
-app.MapUserController();
+app.MapUserVerificationController();
 app.MapUserProfileController();
 app.MapUserSkillsController();
 app.MapUserBlockingController();
 app.MapUserManagementController();
 app.MapTwoFactorController();
 app.MapPermissionController();
+app.MapAdminEndpoints();
 
 // ============================================================================
 // HEALTH CHECKS AND UTILITY ENDPOINTS
@@ -364,26 +390,7 @@ events.MapPost("/replay", ([FromBody] EventReplayService request) =>
 // ============================================================================
 // DATABASE MIGRATION & SEEDING
 // ============================================================================
-
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<UserDbContext>();
-    try
-    {
-        app.Logger.LogInformation("Applying database migrations...");
-        await dbContext.Database.MigrateAsync();
-        
-        app.Logger.LogInformation("Seeding RBAC data...");
-        await UserService.Infrastructure.Data.RbacSeedData.SeedAsync(dbContext);
-        
-        app.Logger.LogInformation("Database initialization complete");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "An error occurred while initializing the database");
-        throw;
-    }
-}
+// Already handled above after app.Build() - removed duplicate
 
 // ============================================================================
 // START APPLICATION

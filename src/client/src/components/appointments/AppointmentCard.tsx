@@ -87,19 +87,21 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const canJoinCall =
     appointment.status === 'Confirmed' &&
     appointment.videocallUrl &&
+    appointment.endTime &&
     !isPastDate(appointment.endTime);
 
   const canConfirm = isTeacher && appointment.status === 'Pending';
 
   const canCancel =
     appointment.status === 'Pending' ||
-    (appointment.status === 'Confirmed' && !isPastDate(appointment.startTime));
+    (appointment.status === 'Confirmed' && appointment.startTime && !isPastDate(appointment.startTime));
 
   const canComplete =
     isTeacher &&
     appointment.status === 'Confirmed' &&
+    appointment.endTime &&
     isPastDate(appointment.endTime) &&
-    !isPastDate(appointment.endTime + 7); // Innerhalb von 7 Tagen nach Ende
+    !isPastDate(new Date(new Date(appointment.endTime).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()); // Innerhalb von 7 Tagen nach Ende
 
   return (
     <Card
@@ -118,7 +120,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
       <CardContent sx={{ flexGrow: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Chip
-            label={appointment.skill.name}
+            label={appointment.skill?.name || 'Skill'}
             size="small"
             color="primary"
             sx={{ fontWeight: 'medium' }}
@@ -142,7 +144,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           /> */}
           <Box sx={{ ml: 1.5 }}>
             <Typography variant="subtitle1" fontWeight="medium">
-              {otherUser.firstName} {otherUser.lastName}
+              {otherUser?.firstName || ''} {otherUser?.lastName || ''}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {isTeacher ? (

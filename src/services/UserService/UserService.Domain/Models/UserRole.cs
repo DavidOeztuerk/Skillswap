@@ -8,13 +8,11 @@ namespace UserService.Domain.Models;
 /// </summary>
 public class UserRole : AuditableEntity
 {
-    [Required]
-    [MaxLength(450)]
+    [Required, MaxLength(450)]
     public string UserId { get; set; } = string.Empty;
 
-    [Required]
-    [MaxLength(50)]
-    public string Role { get; set; } = string.Empty;
+    [Required, MaxLength(450)]
+    public string RoleId { get; set; } = string.Empty;
 
     [MaxLength(450)]
     public string? AssignedBy { get; set; }
@@ -30,4 +28,5 @@ public class UserRole : AuditableEntity
 
     // Navigation properties
     public virtual User User { get; set; } = null!;
+    public virtual Role Role { get; set; } = null!;
 }

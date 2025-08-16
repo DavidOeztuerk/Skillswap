@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Events.Domain.Matchmaking;
-using AppointmentService.Domain.Entities;
 
 namespace AppointmentService.Application.EventHandlers;
 

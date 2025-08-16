@@ -1,6 +1,8 @@
 
 using MediatR;
 using AppointmentService.Application.EventHandlers;
+using AppointmentService.Application.Services;
+using AppointmentService.Infrastructure.Services;
 using Events.Integration.UserManagement;
 using Events.Domain.Skill;
 using Events.Domain.Matchmaking;
@@ -21,6 +23,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationHandler<UserDeletedEvent>, UserDeletedIntegrationEventHandler>();
         services.AddScoped<INotificationHandler<SkillDeletedDomainEvent>, SkillDeletedIntegrationEventHandler>();
         services.AddScoped<INotificationHandler<MatchDeletedDomainEvent>, MatchDeletedIntegrationEventHandler>();
+
+        // Register Meeting Link Service
+        services.AddScoped<IMeetingLinkService, MeetingLinkService>();
 
         return services;
     }

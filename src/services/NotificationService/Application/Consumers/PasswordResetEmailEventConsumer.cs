@@ -3,12 +3,9 @@ using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
+using NotificationService.Domain.Enums;
 
 namespace NotificationService.Application.Consumers;
-
-// ============================================================================
-// PASSWORD MANAGEMENT EVENT CONSUMERS
-// ============================================================================
 
 public class PasswordResetEmailEventConsumer(
     IMediator mediator,
@@ -41,7 +38,7 @@ public class PasswordResetEmailEventConsumer(
                 EmailTemplateNames.PasswordReset,
                 context.Message.Email,
                 variables,
-                NotificationPriority.High,
+                NotificationPriority.High.ToString(),
                 CorrelationId: context.ConversationId?.ToString())
             {
                 UserId = context.Message.UserId

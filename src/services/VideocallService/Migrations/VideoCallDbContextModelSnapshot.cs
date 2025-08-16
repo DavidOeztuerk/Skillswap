@@ -17,7 +17,7 @@ namespace VideocallService.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.2")
+                .HasAnnotation("ProductVersion", "9.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -150,6 +150,10 @@ namespace VideocallService.Migrations
 
                     b.Property<DateTime?>("EndedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HostUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("InitiatorUserId")
                         .IsRequired()

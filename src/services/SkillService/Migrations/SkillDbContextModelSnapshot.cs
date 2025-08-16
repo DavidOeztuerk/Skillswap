@@ -119,9 +119,6 @@ namespace SkillService.Migrations
                     b.Property<bool>("IsOffered")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsRemoteAvailable")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsVerified")
                         .HasColumnType("boolean");
 

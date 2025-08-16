@@ -205,6 +205,7 @@ const authSlice = createSlice({
           lastName: withDefault(userData.lastName, ''),
           userName: withDefault(userData.userName, ''),
           roles: withDefault(userData.roles, []),
+          favoriteSkills: userData.favoriteSkills,
           emailVerified: withDefault(userData.emailVerified, false),
           accountStatus: withDefault(userData.accountStatus, 'active'),
         } : null;
@@ -281,7 +282,8 @@ const authSlice = createSlice({
           firstName: withDefault(userData.firstName, ''),
           lastName: withDefault(userData.lastName, ''),
           userName: withDefault(userData.userName, ''),
-          roles: withDefault(userData.roles, ['User']), // New users get User role by default
+          roles: withDefault(userData.roles, ['User']), 
+          favoriteSkills: userData.favoriteSkills,
           emailVerified: withDefault(userData.emailVerified, false),
           accountStatus: withDefault(userData.accountStatus, 'PendingVerification'),
         } : null;
@@ -385,7 +387,10 @@ const authSlice = createSlice({
         }
         
         const updateData = action.payload.data;
-        state.user = { id: updateData.userId, ...updateData};
+        state.user = { 
+          id: updateData.userId, 
+          favoriteSkills: state.user?.favoriteSkills ?? [],
+          ...updateData};
         state.error = null;
       })
       .addCase(updateProfile.rejected, (state, action) => {

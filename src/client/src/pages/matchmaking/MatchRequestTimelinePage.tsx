@@ -67,7 +67,7 @@ import PageHeader from '../../components/layout/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
 import { Timeline, TimelineConnector, TimelineContent, TimelineDot, TimelineItem, TimelineOppositeContent, TimelineSeparator } from '@mui/lab';
-import { fetchMatchRequestThread, acceptMatchRequest, rejectMatchRequest } from '../../features/matchmaking/matchmakingSlice';
+import { fetchMatchRequestThread, acceptMatchRequest, rejectMatchRequest, createCounterOffer } from '../../features/matchmaking/matchmakingSlice';
 
 /* interface MatchRequestThread { // Removed unused interface - using imported type instead
   threadId: string;
@@ -165,21 +165,23 @@ const MatchRequestTimelinePage: React.FC = () => {
   const handleSendCounterOffer = () => {
     if (!currentThread?.requests?.length) return;
     
-    // const latestRequest = currentThread.requests[currentThread.requests.length - 1];
+    const latestRequest = currentThread.requests[currentThread.requests.length - 1];
     
-    // const counterOffer = {
-    //   message,
-    //   isSkillExchange: offerType === 'exchange',
-    //   exchangeSkillId: offerType === 'exchange' ? selectedExchangeSkill : undefined,
-    //   isMonetaryOffer: offerType === 'monetary',
-    //   offeredAmount: offerType === 'monetary' ? parseFloat(offeredAmount) : undefined,
-    //   preferredDays: selectedDays,
-    //   preferredTimes: selectedTimes,
-    //   sessionDurationMinutes: sessionDuration,
-    //   totalSessions: totalSessions,
-    // };
+    const counterOfferRequest = {
+      originalRequestId: latestRequest.id,
+      message,
+      isSkillExchange: offerType === 'exchange',
+      exchangeSkillId: offerType === 'exchange' ? selectedExchangeSkill : undefined,
+      isMonetary: offerType === 'monetary',
+      offeredAmount: offerType === 'monetary' ? parseFloat(offeredAmount) : undefined,
+      currency: 'EUR',
+      preferredDays: selectedDays,
+      preferredTimes: selectedTimes,
+      sessionDurationMinutes: sessionDuration,
+      totalSessions: totalSessions,
+    };
 
-    // dispatch(createCounterOffer({ requestId: latestRequest.id, counterOffer }));
+    dispatch(createCounterOffer(counterOfferRequest));
     setCounterOfferDialog(false);
     
     // Reset form

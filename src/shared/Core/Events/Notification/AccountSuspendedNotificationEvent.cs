@@ -3,4 +3,6 @@ namespace Events.Notification;
 public record AccountSuspendedNotificationEvent(
     string UserId,
     string Email,
-    string Reason);
+    string UserName,
+    string Reason,
+    DateTime SuspendedAt);

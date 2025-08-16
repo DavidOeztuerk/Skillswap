@@ -121,29 +121,83 @@
 
 ## **⚡ PHASE 2: CQRS IMPLEMENTATION (Woche 3-4)**
 
-### **P2.1 - UserService CQRS Refactoring**
+### **📊 CQRS Migration Status Overview**
 
-- [ ] Commands: RegisterUser, LoginUser, UpdateProfile, ResetPassword
-- [ ] Queries: GetUserProfile, GetUserByEmail, ValidateUser
-- [ ] Command Handlers with Business Logic
-- [ ] Query Handlers with Read Models
-- [ ] Event Sourcing for User Events
+| Service | CQRS Status | Was bereits implementiert | Was fehlt |
+|---------|------------|--------------------------|-----------|
+| **SkillService** | ✅ **100%** | Vollständige CQRS Implementation mit Commands, Queries, Handlers, Validators, Minimal APIs, Event Sourcing | - |
+| **UserService** | ✅ **100%** | Vollständige CQRS Implementation, Clean Architecture, alle Commands/Queries, Admin Features | - |
+| **MatchmakingService** | ✅ **100%** | Vollständige CQRS Implementation mit Commands, Queries, Handlers, komplexe Matching-Logik | - |
+| **AppointmentService** | ✅ **100%** | Vollständige CQRS Implementation mit Commands, Queries, Event Handlers, Integration Events | - |
+| **NotificationService** | ✅ **100%** | Vollständige CQRS Implementation mit Commands, Queries, Event Consumers, Background Services | - |
+| **VideocallService** | ⚠️ **60%** | Basis CQRS Setup, einige Commands/Queries implementiert | EndCallCommand, LeaveCallCommand, GetCallStatisticsQuery fehlen |
 
-### **P2.2 - SkillService CQRS Refactoring**
+### **🎯 Was ist CQRS Migration?**
 
-- [ ] Commands: CreateSkill, UpdateSkill, DeleteSkill, CreateCategory
-- [ ] Queries: GetSkills, SearchSkills, GetCategories, GetUserSkills
-- [ ] Advanced Search with Filtering
-- [ ] Skill Validation Business Rules
-- [ ] Performance Optimization
+**Vorher (Controller-basiert):**
+```csharp
+public class Controller {
+    // Alles vermischt: Validation, Business Logic, DB-Zugriff, Events
+}
+```
 
-### **P2.3 - MatchmakingService CQRS Refactoring**
+**Nachher (CQRS Pattern):**
+```csharp
+1. Command/Query → Was will ich tun?
+2. Validator → Ist es gültig?
+3. Handler → Wie mache ich es? (Business Logic)
+4. Minimal API → Endpoint Routing
+```
 
-- [ ] Commands: FindMatch, AcceptMatch, RejectMatch
-- [ ] Queries: GetMatches, GetMatchHistory, GetMatchStatistics
-- [ ] Advanced Matching Algorithm
-- [ ] Match Scoring System
-- [ ] ML-Ready Data Structure
+### **P2.1 - UserService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Implementation
+- [x] ✅ Clean Architecture implementiert
+- [x] ✅ Alle Commands und Queries vorhanden
+- [x] ✅ Admin Features vollständig
+- [x] ✅ Event Sourcing integriert
+- [x] ✅ Minimal APIs ohne Controller
+
+### **P2.2 - SkillService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Implementation
+- [x] ✅ Alle Commands/Queries implementiert
+- [x] ✅ FluentValidation für alle Commands
+- [x] ✅ Event Sourcing aktiv
+- [x] ✅ Minimal APIs vollständig
+
+### **P2.3 - MatchmakingService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Migration
+- [x] ✅ Alle Commands und Handlers implementiert
+- [x] ✅ Complex Matching-Logik via CQRS
+- [x] ✅ Event Sourcing integriert
+- [x] ✅ Keine Controller mehr - nur Minimal APIs
+
+### **P2.4 - AppointmentService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Implementation
+- [x] ✅ Event Handlers für Integration Events
+- [x] ✅ Commands/Queries vollständig
+- [x] ✅ Minimal APIs implementiert
+
+### **P2.5 - NotificationService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Implementation
+- [x] ✅ Event Consumers für alle Events
+- [x] ✅ Background Services integriert
+- [x] ✅ Commands/Queries vollständig
+
+### **P2.6 - VideocallService CQRS ⚠️ IN ARBEIT**
+
+- [x] ✅ Basis CQRS Setup vorhanden
+- [x] ✅ CreateCallSession, JoinCall Commands
+- [x] ✅ GetCallSession Query
+- [ ] ❌ EndCallCommand + Handler fehlt
+- [ ] ❌ LeaveCallCommand + Handler fehlt
+- [ ] ❌ StartCallCommand Handler fehlt
+- [ ] ❌ GetCallStatisticsQuery + Handler fehlt
+- [ ] ❌ GetUserCallHistoryQuery + Handler fehlt
 
 ## **🏗️ PHASE 3: ADVANCED FEATURES (Woche 5-6)**
 
@@ -440,29 +494,83 @@ Teil 2
 
 ## **⚡ PHASE 2: CQRS IMPLEMENTATION (Woche 3-4)**
 
-### **P2.1 - UserService CQRS Refactoring**
+### **📊 CQRS Migration Status Overview**
 
-- [ ] Commands: RegisterUser, LoginUser, UpdateProfile, ResetPassword
-- [ ] Queries: GetUserProfile, GetUserByEmail, ValidateUser
-- [ ] Command Handlers with Business Logic
-- [ ] Query Handlers with Read Models
-- [ ] Event Sourcing for User Events
+| Service | CQRS Status | Was bereits implementiert | Was fehlt |
+|---------|------------|--------------------------|-----------|
+| **SkillService** | ✅ **100%** | Vollständige CQRS Implementation mit Commands, Queries, Handlers, Validators, Minimal APIs, Event Sourcing | - |
+| **UserService** | ✅ **100%** | Vollständige CQRS Implementation, Clean Architecture, alle Commands/Queries, Admin Features | - |
+| **MatchmakingService** | ✅ **100%** | Vollständige CQRS Implementation mit Commands, Queries, Handlers, komplexe Matching-Logik | - |
+| **AppointmentService** | ✅ **100%** | Vollständige CQRS Implementation mit Commands, Queries, Event Handlers, Integration Events | - |
+| **NotificationService** | ✅ **100%** | Vollständige CQRS Implementation mit Commands, Queries, Event Consumers, Background Services | - |
+| **VideocallService** | ⚠️ **60%** | Basis CQRS Setup, einige Commands/Queries implementiert | EndCallCommand, LeaveCallCommand, GetCallStatisticsQuery fehlen |
 
-### **P2.2 - SkillService CQRS Refactoring**
+### **🎯 Was ist CQRS Migration?**
 
-- [ ] Commands: CreateSkill, UpdateSkill, DeleteSkill, CreateCategory
-- [ ] Queries: GetSkills, SearchSkills, GetCategories, GetUserSkills
-- [ ] Advanced Search with Filtering
-- [ ] Skill Validation Business Rules
-- [ ] Performance Optimization
+**Vorher (Controller-basiert):**
+```csharp
+public class Controller {
+    // Alles vermischt: Validation, Business Logic, DB-Zugriff, Events
+}
+```
 
-### **P2.3 - MatchmakingService CQRS Refactoring**
+**Nachher (CQRS Pattern):**
+```csharp
+1. Command/Query → Was will ich tun?
+2. Validator → Ist es gültig?
+3. Handler → Wie mache ich es? (Business Logic)
+4. Minimal API → Endpoint Routing
+```
 
-- [ ] Commands: FindMatch, AcceptMatch, RejectMatch
-- [ ] Queries: GetMatches, GetMatchHistory, GetMatchStatistics
-- [ ] Advanced Matching Algorithm
-- [ ] Match Scoring System
-- [ ] ML-Ready Data Structure
+### **P2.1 - UserService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Implementation
+- [x] ✅ Clean Architecture implementiert
+- [x] ✅ Alle Commands und Queries vorhanden
+- [x] ✅ Admin Features vollständig
+- [x] ✅ Event Sourcing integriert
+- [x] ✅ Minimal APIs ohne Controller
+
+### **P2.2 - SkillService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Implementation
+- [x] ✅ Alle Commands/Queries implementiert
+- [x] ✅ FluentValidation für alle Commands
+- [x] ✅ Event Sourcing aktiv
+- [x] ✅ Minimal APIs vollständig
+
+### **P2.3 - MatchmakingService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Migration
+- [x] ✅ Alle Commands und Handlers implementiert
+- [x] ✅ Complex Matching-Logik via CQRS
+- [x] ✅ Event Sourcing integriert
+- [x] ✅ Keine Controller mehr - nur Minimal APIs
+
+### **P2.4 - AppointmentService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Implementation
+- [x] ✅ Event Handlers für Integration Events
+- [x] ✅ Commands/Queries vollständig
+- [x] ✅ Minimal APIs implementiert
+
+### **P2.5 - NotificationService CQRS ✅ ABGESCHLOSSEN**
+
+- [x] ✅ Vollständige CQRS Implementation
+- [x] ✅ Event Consumers für alle Events
+- [x] ✅ Background Services integriert
+- [x] ✅ Commands/Queries vollständig
+
+### **P2.6 - VideocallService CQRS ⚠️ IN ARBEIT**
+
+- [x] ✅ Basis CQRS Setup vorhanden
+- [x] ✅ CreateCallSession, JoinCall Commands
+- [x] ✅ GetCallSession Query
+- [ ] ❌ EndCallCommand + Handler fehlt
+- [ ] ❌ LeaveCallCommand + Handler fehlt
+- [ ] ❌ StartCallCommand Handler fehlt
+- [ ] ❌ GetCallStatisticsQuery + Handler fehlt
+- [ ] ❌ GetUserCallHistoryQuery + Handler fehlt
 
 ## **🏗️ PHASE 3: ADVANCED FEATURES (Woche 5-6)**
 

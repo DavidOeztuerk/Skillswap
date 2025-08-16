@@ -3,6 +3,7 @@ using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
+using NotificationService.Domain.Enums;
 
 namespace NotificationService.Application.Consumers;
 
@@ -37,9 +38,9 @@ public class EmailVerificationRequestedEventConsumer(
                 EmailTemplateNames.EmailVerification,
                 context.Message.Email,
                 variables,
-                NotificationPriority.High,
+                NotificationPriority.High.ToString(),
                 CorrelationId: context.ConversationId?.ToString());
-                
+
             command.UserId = context.Message.UserId;
 
             await _mediator.Send(command);

@@ -26,14 +26,14 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppSelector } from '../../store/store.hooks';
-import { usePermission } from '../../contexts/PermissionContext';
+import { usePermissions } from '../../contexts/PermissionContext';
 
 const Tabbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
   const { isAuthenticated } = useAuth();
-  const { hasPermission, isAdmin } = usePermission();
+  const { hasPermission, isAdmin } = usePermissions();
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
   
   

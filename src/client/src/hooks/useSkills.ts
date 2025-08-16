@@ -328,19 +328,38 @@ export const useSkills = () => {
    * Fetch user skills with error handling
    * @param page - Page number
    * @param pageSize - Items per page
+   * @param isOffered - Filter by offered skills
+   * @param categoryId - Filter by category
+   * @param proficiencyLevelId - Filter by proficiency level
+   * @param includeInactive - Include inactive skills
    * @returns Promise<boolean> - Success status
    */
   const fetchUserSkills = useCallback(
-    async (page = 1, pageSize = 12): Promise<boolean> => {
+    async (
+      page = 1, 
+      pageSize = 12,
+      isOffered?: boolean,
+      categoryId?: string,
+      proficiencyLevelId?: string,
+      includeInactive = false
+    ): Promise<boolean> => {
       try {
         console.log(
           '👤 Fetching user skills - page:',
           page,
           'pageSize:',
-          pageSize
+          pageSize,
+          'filters:', { isOffered, categoryId, proficiencyLevelId, includeInactive }
         );
         const resultAction = await dispatch(
-          fetchUserSkillsAction({ page, pageSize })
+          fetchUserSkillsAction({ 
+            page, 
+            pageSize,
+            isOffered,
+            categoryId,
+            proficiencyLevelId,
+            includeInactive
+          })
         );
 
         if (fetchUserSkillsAction.fulfilled.match(resultAction)) {

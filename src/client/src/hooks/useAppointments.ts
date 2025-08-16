@@ -8,7 +8,8 @@ import {
   updateAppointmentStatusOptimistic,
   setAppointments,
   setUpcomingAppointments,
-  setPastAppointments
+  setPastAppointments,
+  generateMeetingLink
 } from '../features/appointments/appointmentsSlice';
 import { AppointmentRequest } from '../types/contracts/requests/AppointmentRequest';
 import { Appointment, AppointmentStatus } from '../types/models/Appointment';
@@ -96,25 +97,25 @@ export const useAppointments = () => {
 
       if (
         filter.fromDate &&
-        appointment.startTime &&
-        new Date(appointment.startTime) < new Date(filter.fromDate)
+        appointment.scheduledDate &&
+        new Date(appointment.scheduledDate) < new Date(filter.fromDate)
       ) {
         return false;
       }
 
       if (
         filter.toDate &&
-        appointment.startTime &&
-        new Date(appointment.startTime) > new Date(filter.toDate)
+        appointment.scheduledDate &&
+        new Date(appointment.scheduledDate) > new Date(filter.toDate)
       ) {
         return false;
       }
 
-      if (filter.role === 'teacher' && appointment.teacherId !== userId) {
+      if (filter.role === 'teacher' && appointment.organizerUserId !== userId) {
         return false;
       }
 
-      if (filter.role === 'student' && appointment.studentId !== userId) {
+      if (filter.role === 'student' && appointment.participantUserId !== userId) {
         return false;
       }
 
@@ -284,6 +285,21 @@ export const useAppointments = () => {
     setFilter((prev) => ({ ...prev, ...newFilter }));
   };
 
+  /**
+   * Generiert einen Meeting-Link für einen Termin
+   * @param appointmentId - ID des Termins
+   * @returns Meeting-Link oder null bei Fehler
+   */
+  const requestMeetingLink = async (appointmentId: string): Promise<string | null> => {
+    const resultAction = await dispatch(generateMeetingLink(appointmentId));
+    
+    if (generateMeetingLink.fulfilled.match(resultAction)) {
+      return resultAction.payload.meetingLink;
+    }
+    
+    return null;
+  };
+
   return {
     // Daten
     appointments: appointments,
@@ -299,5 +315,6 @@ export const useAppointments = () => {
     declineAppointment,
     completeAppointment,
     updateFilter,
+    requestMeetingLink,
   };
 };

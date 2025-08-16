@@ -19,9 +19,12 @@ public class GetUserAppointmentsQueryHandler(
     {
         try
         {
-            Logger.LogInformation("Retrieving appointments for user with parameters: {@Query}", request);
+            Logger.LogInformation("Retrieving appointments for user {UserId} with parameters: {@Query}", request.UserId, request);
 
-            var query = _dbContext.Appointments.AsQueryable();
+            // Filter by user - appointments where user is either organizer or participant
+            var query = _dbContext.Appointments
+                .Where(a => a.OrganizerUserId == request.UserId || a.ParticipantUserId == request.UserId)
+                .AsQueryable();
 
             // Apply filters
             if (!string.IsNullOrEmpty(request.Status))
@@ -60,10 +63,10 @@ public class GetUserAppointmentsQueryHandler(
                     a.ScheduledDate,
                     a.DurationMinutes,
                     a.Status,
-                    a.ParticipantUserId, // This would need user lookup in real scenario
-                    "Other Party Name", // This would come from user service
+                    a.OrganizerUserId == request.UserId ? a.ParticipantUserId : a.OrganizerUserId,
+                    "Other Party Name", // TODO: This would come from user service
                     a.MeetingType ?? "VideoCall",
-                    true // This would be determined by comparing with current user ID
+                    a.OrganizerUserId == request.UserId
                 ))
                 .ToListAsync(cancellationToken);
 

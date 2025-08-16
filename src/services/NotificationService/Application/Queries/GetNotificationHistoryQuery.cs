@@ -14,11 +14,11 @@ public record GetNotificationHistoryQuery(
     string? Status = null,
     DateTime? StartDate = null,
     DateTime? EndDate = null,
-    int Page = 1,
+    int PageNumber = 1,
     int PageSize = 20) : IPagedQuery<NotificationHistoryResponse>
 {
-    public int PageNumber { get; set; } = Page;
-    public int PageSize { get; set; } = PageSize;
+    int IPagedQuery<NotificationHistoryResponse>.PageNumber { get; set; } = PageNumber;
+    int IPagedQuery<NotificationHistoryResponse>.PageSize { get; set; } = PageSize;
 }
 
 public class GetNotificationHistoryQueryValidator : AbstractValidator<GetNotificationHistoryQuery>
@@ -28,8 +28,8 @@ public class GetNotificationHistoryQueryValidator : AbstractValidator<GetNotific
         RuleFor(x => x.UserId)
             .NotEmpty().WithMessage("User ID is required");
 
-        RuleFor(x => x.Page)
-            .GreaterThan(0).WithMessage("Page must be greater than 0");
+        RuleFor(x => x.PageNumber)
+            .GreaterThan(0).WithMessage("PageNumber must be greater than 0");
 
         RuleFor(x => x.PageSize)
             .GreaterThan(0).WithMessage("PageSize must be greater than 0")

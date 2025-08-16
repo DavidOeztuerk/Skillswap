@@ -15,6 +15,7 @@ public class NotificationDbContext(
     public DbSet<NotificationEvent> NotificationEvents { get; set; }
     public DbSet<NotificationCampaign> NotificationCampaigns { get; set; }
     public DbSet<EmailTemplate> EmailTemplates { get; set; }
+    public DbSet<NotificationDigestEntry> NotificationDigestEntries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -112,6 +113,21 @@ public class NotificationDbContext(
             // Unique constraint on Name + Language
             entity.HasIndex(e => new { e.Name, e.Language }).IsUnique();
             entity.HasIndex(e => e.IsActive);
+        });
+        
+        // Configure NotificationDigestEntry entity
+        modelBuilder.Entity<NotificationDigestEntry>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(450);
+            entity.Property(e => e.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.Template).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Variables).IsRequired();
+            
+            // Indexes
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.IsProcessed);
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         // Configure soft delete for all entities

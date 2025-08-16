@@ -13,6 +13,7 @@ import AuthProvider from './features/auth/AuthProvider';
 import { TwoFactorDialogProvider } from './components/auth/TwoFactorDialog';
 import { PermissionProvider } from './contexts/PermissionContext';
 import { LoadingProvider } from './contexts/LoadingContext';
+import { EmailVerificationProvider } from './contexts/EmailVerificationContext';
 import { withDefault } from './utils/safeAccess';
 import GlobalErrorBoundary from './components/error/GlobalErrorBoundary';
 import GlobalLoadingIndicator from './components/common/GlobalLoadingIndicator';
@@ -49,14 +50,15 @@ const App = () => {
         <LoadingProvider>
           <PermissionProvider>
             <ThemeProvider theme={theme}>
-              <TwoFactorDialogProvider>
-                <CssBaseline />
-                <SkipLinks />
-                <GlobalLoadingIndicator position="top" />
-                <NetworkStatusIndicator position="top" compact />
-                <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
-                  <Outlet />
-                </MainLayout>
+              <EmailVerificationProvider>
+                <TwoFactorDialogProvider>
+                  <CssBaseline />
+                  <SkipLinks />
+                  <GlobalLoadingIndicator position="top" />
+                  <NetworkStatusIndicator position="top" compact />
+                  <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
+                    <Outlet />
+                  </MainLayout>
                 <ToastContainer
                   position="bottom-right"
                   autoClose={3000}
@@ -69,7 +71,8 @@ const App = () => {
                   pauseOnHover
                   theme={mode === 'dark' ? 'dark' : 'light'}
                 />
-              </TwoFactorDialogProvider>
+                </TwoFactorDialogProvider>
+              </EmailVerificationProvider>
             </ThemeProvider>
           </PermissionProvider>
         </LoadingProvider>

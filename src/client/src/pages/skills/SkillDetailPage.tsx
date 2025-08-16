@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -60,7 +60,7 @@ const SkillDetailPage: React.FC = () => {
   const { withLoading, isLoading } = useLoading();
   const {
     selectedSkill,
-    userSkills, // ✅ HINZUGEFÜGT: Um zu prüfen ob Skill in userSkills ist
+    userSkills,
     fetchSkillById,
     deleteSkill,
     rateSkill,
@@ -83,10 +83,14 @@ const SkillDetailPage: React.FC = () => {
   const [endorseMessage, setEndorseMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState<{
     text: string;
-    type: 'success' | 'error' | 'info';
+    type: 'success' | 'error' | 'info' | 'warning';
   } | null>(null);
-  const { sendMatchRequest, isLoading: isMatchmakingLoading } =
-    useMatchmaking();
+  const { 
+    sendMatchRequest, 
+    outgoingRequests,
+    loadOutgoingRequests,
+    isLoading: isMatchmakingLoading 
+  } = useMatchmaking();
   // const { user } = useUserById(selectedSkill?.userId);
 
   // Load skill data
@@ -105,10 +109,14 @@ const SkillDetailPage: React.FC = () => {
     selectedSkill &&
     userSkills?.some((userSkill) => userSkill.id === selectedSkill.id);
 
+  // Use ref to prevent double execution in StrictMode
+  const hasOpenedMatchForm = useRef(false);
+
   // Check for automatic match form opening
   useEffect(() => {
     const shouldShowMatchForm = searchParams.get('showMatchForm') === 'true';
-    if (shouldShowMatchForm && selectedSkill && !isOwner) {
+    if (shouldShowMatchForm && selectedSkill && !isOwner && !hasOpenedMatchForm.current) {
+      hasOpenedMatchForm.current = true;
       console.log('🚀 Auto-opening match form from URL parameter');
       setMatchFormOpen(true);
       // Clean up URL parameter
@@ -268,6 +276,8 @@ const SkillDetailPage: React.FC = () => {
     setMatchFormOpen(true);
   };
 
+  const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
+
   const handleMatchSubmit = async (data: CreateMatchRequest) => {
     if (!selectedSkill) {
       errorService.addBreadcrumb('Match submit failed - no skill selected', 'error');
@@ -278,6 +288,29 @@ const SkillDetailPage: React.FC = () => {
       return;
     }
 
+    // Prevent double submission
+    if (isSubmittingMatch) {
+      console.warn('⚠️ Match request already being submitted');
+      return;
+    }
+
+    // Check if user already has a pending request for this skill
+    const existingRequest = outgoingRequests?.find(
+      (req: any) => req.skillId === selectedSkill.id && 
+      (req.status === 'pending' || req.status === 'accepted')
+    );
+
+    if (existingRequest) {
+      setStatusMessage({
+        text: 'Sie haben bereits eine laufende Anfrage für diesen Skill',
+        type: 'warning',
+      });
+      console.warn('⚠️ User already has a pending request for this skill');
+      return;
+    }
+
+    setIsSubmittingMatch(true);
+
     try {
       errorService.addBreadcrumb('Submitting match request', 'form', { skillId: selectedSkill.id, targetUserId: selectedSkill.userId });
       console.log('🤝 Submitting match request from detail page:', data);
@@ -285,10 +318,21 @@ const SkillDetailPage: React.FC = () => {
 
       const command: CreateMatchRequest = {
         skillId: selectedSkill.id,
-        description: data.description || 'Match-Anfrage von Skill-Detail-Seite',
+        targetUserId: selectedSkill.userId,
         message: data.message || 'Ich bin interessiert an diesem Skill!',
-        targetUserId: selectedSkill.userId, 
-        skillName: selectedSkill.name, 
+        isSkillExchange: data.isSkillExchange,
+        exchangeSkillId: data.exchangeSkillId,
+        isMonetary: data.isMonetary,
+        offeredAmount: data.offeredAmount,
+        currency: data.currency,
+        sessionDurationMinutes: data.sessionDurationMinutes,
+        totalSessions: data.totalSessions,
+        preferredDays: data.preferredDays,
+        preferredTimes: data.preferredTimes,
+        // Frontend-only fields
+        description: data.description || 'Match-Anfrage von Skill-Detail-Seite',
+        skillName: selectedSkill.name,
+        exchangeSkillName: data.exchangeSkillName,
       };
 
       console.log('📤 Sending CreateMatchRequestCommand:', command);
@@ -299,9 +343,17 @@ const SkillDetailPage: React.FC = () => {
         errorService.addBreadcrumb('Match request created successfully', 'form', { skillId: selectedSkill.id });
         setMatchFormOpen(false);
         setStatusMessage({
-          text: 'Match-Anfrage erfolgreich erstellt',
+          text: 'Match-Anfrage erfolgreich erstellt! Sie werden zu Ihren Anfragen weitergeleitet...',
           type: 'success',
         });
+        
+        // Reload outgoing requests immediately
+        await loadOutgoingRequests();
+        
+        // Navigate to match requests page after short delay to show success message
+        setTimeout(() => {
+          navigate('/matchmaking?tab=outgoing');
+        }, 1500);
       } else {
         errorService.addBreadcrumb('Match request creation failed', 'error', { skillId: selectedSkill.id });
         setStatusMessage({
@@ -316,6 +368,8 @@ const SkillDetailPage: React.FC = () => {
         text: 'Fehler beim Erstellen der Match-Anfrage',
         type: 'error',
       });
+    } finally {
+      setIsSubmittingMatch(false);
     }
   };
 

@@ -21,7 +21,7 @@ const notificationService = {
   /**
    * Get all user notifications
    */
-  async getNotifications(request?: NotificationHistoryRequest): Promise<PagedResponse<Notification[]>> {
+  async getNotifications(request?: NotificationHistoryRequest): Promise<PagedResponse<Notification>> {
     const queryParams = new URLSearchParams();
     if (request?.Type) queryParams.append('Type', request.Type);
     if (request?.Status) queryParams.append('Status', request.Status);
@@ -31,7 +31,7 @@ const notificationService = {
     if (request?.PageSize) queryParams.append('PageSize', request.PageSize.toString());
     
     const url = `${NOTIFICATION_ENDPOINTS.GET_ALL}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return apiClient.get<PagedResponse<Notification[]>>(url);
+    return apiClient.get<PagedResponse<Notification>>(url);
   },
 
   /**
@@ -79,19 +79,19 @@ const notificationService = {
   },
 
   /**
-   * Subscribe to real-time notifications (placeholder)
+   * Subscribe to real-time notifications
    */
   async subscribeToRealTime(userId: string): Promise<void> {
-    console.log('Subscribing to real-time notifications for user:', userId);
-    // Placeholder for future real-time implementation
+    const { default: notificationHubService } = await import('../../services/signalr/notificationHub');
+    await notificationHubService.connect(userId);
   },
 
   /**
-   * Unsubscribe from real-time notifications (placeholder)
+   * Unsubscribe from real-time notifications
    */
   async unsubscribeFromRealTime(): Promise<void> {
-    console.log('Unsubscribing from real-time notifications');
-    // Placeholder for future real-time implementation
+    const { default: notificationHubService } = await import('../../services/signalr/notificationHub');
+    await notificationHubService.disconnect();
   }
 };
 

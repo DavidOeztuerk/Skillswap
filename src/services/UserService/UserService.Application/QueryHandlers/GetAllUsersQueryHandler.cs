@@ -30,14 +30,14 @@ public class GetAllUsersQueryHandler(
             foreach (var user in users)
             {
                 var userRoles = await _userRepository.GetActiveUserRoles(user.Id, cancellationToken);
-                
+
                 userResponses.Add(new UserAdminResponse(
                     user.Id,
                     user.Email,
                     user.FirstName,
                     user.LastName,
                     user.UserName,
-                    userRoles.Select(ur => ur.Role).ToList(),
+                    userRoles.Select(ur => ur.Role.Name).ToList(),
                     user.EmailVerified,
                     user.AccountStatus.ToString(),
                     user.CreatedAt,

@@ -73,6 +73,18 @@ const protectedRoutes = {
       useSkeleton: true,
       skeletonVariant: 'details',
     }),
+    matches: createLazyRoute(() => import('../pages/matchmaking/MatchesPage'), {
+      roles: ['*'], // Any authenticated user
+      useSkeleton: true,
+      skeletonVariant: 'list',
+      loadingMessage: 'Matches werden geladen...',
+    }),
+    matchDetail: createLazyRoute(() => import('../pages/matchmaking/MatchDetailPage'), {
+      roles: ['*'], // Any authenticated user
+      useSkeleton: true,
+      skeletonVariant: 'details',
+      loadingMessage: 'Match-Details werden geladen...',
+    }),
   },
   
   // Appointments Module
@@ -87,6 +99,12 @@ const protectedRoutes = {
       useSkeleton: true,
       skeletonVariant: 'details',
       loadingMessage: "Termin wird geladen...",
+    }),
+    calendar: createLazyRoute(() => import('../pages/appointments/AppointmentCalendarPage'), {
+      roles: ['*'], // Any authenticated user
+      useSkeleton: true,
+      skeletonVariant: 'dashboard',
+      loadingMessage: "Kalender wird geladen...",
     }),
   },
   
@@ -350,6 +368,14 @@ const routes: RouteObject[] = [
             path: 'timeline/:threadId',
             element: <protectedRoutes.matchmaking.timeline.component />,
           },
+          {
+            path: 'matches',
+            element: <protectedRoutes.matchmaking.matches.component />,
+          },
+          {
+            path: 'matches/:matchId',
+            element: <protectedRoutes.matchmaking.matchDetail.component />,
+          },
         ],
       },
       
@@ -360,6 +386,10 @@ const routes: RouteObject[] = [
           {
             index: true,
             element: <protectedRoutes.appointments.list.component />,
+          },
+          {
+            path: 'calendar',
+            element: <protectedRoutes.appointments.calendar.component />,
           },
           {
             path: ':appointmentId',

@@ -33,14 +33,19 @@ public class GetUserSkillsQueryHandler(
                 query = query.Where(s => s.IsActive);
             }
 
-            if (request.IsOffering.HasValue)
+            if (request.IsOffered.HasValue)
             {
-                query = query.Where(s => s.IsOffered == request.IsOffering.Value);
+                query = query.Where(s => s.IsOffered == request.IsOffered.Value);
             }
 
             if (!string.IsNullOrEmpty(request.CategoryId))
             {
                 query = query.Where(s => s.SkillCategoryId == request.CategoryId);
+            }
+
+            if (!string.IsNullOrEmpty(request.ProficiencyLevelId))
+            {
+                query = query.Where(s => s.ProficiencyLevelId == request.ProficiencyLevelId);
             }
 
             query = query.OrderByDescending(s => s.CreatedAt);

@@ -3,6 +3,7 @@ using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
+using NotificationService.Domain.Enums;
 
 namespace NotificationService.Application.Consumers;
 
@@ -38,7 +39,7 @@ public class AppointmentCreatedEventConsumer(
                 EmailTemplateNames.AppointmentConfirmation,
                 "placeholder@email.com", // We'd need to get email from UserService
                 variables,
-                NotificationPriority.Normal,
+                NotificationPriority.Normal.ToString(),
                 CorrelationId: context.ConversationId?.ToString())
             {
                 UserId = context.Message.CreatedBy
@@ -50,7 +51,7 @@ public class AppointmentCreatedEventConsumer(
                 EmailTemplateNames.AppointmentConfirmation,
                 "placeholder@email.com", // We'd need to get email from UserService
                 variables,
-                NotificationPriority.Normal,
+                NotificationPriority.Normal.ToString(),
                 CorrelationId: context.ConversationId?.ToString())
             {
                 UserId = context.Message.ParticipantId

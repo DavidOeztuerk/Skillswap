@@ -1,213 +1,16 @@
 // src/utils/authHelpers.ts
-import { SessionStorage } from './sessionStorage';
+import { SessionStorage } from "./sessionStorage";
 
-// Storage keys
-const TOKEN_KEY = 'access_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
-const TOKEN_TIMESTAMP_KEY = 'token_timestamp';
-const REMEMBER_ME_KEY = 'remember_me';
+// ----- Keys & constants -----
+const TOKEN_KEY = "access_token";
+const REFRESH_TOKEN_KEY = "refresh_token";
+const TOKEN_TIMESTAMP_KEY = "token_timestamp";
+const REMEMBER_ME_KEY = "remember_me";
 
-// Token expiration buffer (5 minutes)
+// 5 Minuten Puffer
 const TOKEN_EXPIRY_BUFFER = 5 * 60 * 1000;
 
-/**
- * Perfect token management utilities with enhanced security and flexibility
- */
-
-/**
- * Stores the access token with appropriate storage strategy
- * @param token - Access token
- * @param storageType - Storage type: 'session' or 'permanent'
- */
-export const setToken = (
-  token: string,
-  storageType: 'session' | 'permanent' = 'session'
-): void => {
-  try {
-    console.log('💾 setToken called with:', { tokenLength: token?.length, storageType });
-    
-    if (!token?.trim()) {
-      console.warn('Attempted to set empty token');
-      return;
-    }
-
-    const timestamp = Date.now().toString();
-    // Temporarily disable encryption for debugging
-    const encryptedToken = token; // encryptData(token);
-
-    if (storageType === 'session') {
-      console.log('💾 Storing in sessionStorage...');
-      SessionStorage.setItem(TOKEN_KEY, encryptedToken);
-      SessionStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
-      SessionStorage.setItem(REMEMBER_ME_KEY, 'false');
-
-      // Clear localStorage versions to avoid conflicts
-      localStorage?.removeItem(TOKEN_KEY);
-      localStorage?.removeItem(TOKEN_TIMESTAMP_KEY);
-      localStorage?.removeItem(REMEMBER_ME_KEY);
-      
-      console.log('✅ Token stored in sessionStorage');
-    } else if (storageType === 'permanent') {
-      console.log('💾 Storing in localStorage...');
-      localStorage?.setItem(TOKEN_KEY, encryptedToken);
-      localStorage?.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
-      localStorage?.setItem(REMEMBER_ME_KEY, 'true');
-
-      // Clear sessionStorage versions to avoid conflicts
-      SessionStorage.removeItem(TOKEN_KEY);
-      SessionStorage.removeItem(TOKEN_TIMESTAMP_KEY);
-      SessionStorage.removeItem(REMEMBER_ME_KEY);
-      
-      console.log('✅ Token stored in localStorage');
-    }
-  } catch (error) {
-    console.error('Error storing token:', error);
-  }
-};
-
-/**
- * Retrieves the access token from storage
- * @returns Access token or null if not found/expired
- */
-export const getToken = (): string | null => {
-  try {
-    // Check session storage first (priority for current session)
-    let encryptedToken = SessionStorage.getItem(TOKEN_KEY);
-    let timestamp = SessionStorage.getItem(TOKEN_TIMESTAMP_KEY);
-
-    // If not in session storage, check localStorage
-    if (!encryptedToken) {
-      encryptedToken = localStorage?.getItem(TOKEN_KEY);
-      timestamp = localStorage?.getItem(TOKEN_TIMESTAMP_KEY);
-    }
-
-    if (!encryptedToken) {
-      return null;
-    }
-
-    // Temporarily disable decryption for debugging
-    const token = encryptedToken; // decryptData(encryptedToken);
-    if (!token) {
-      console.warn('No token found in storage');
-      removeToken();
-      return null;
-    }
-
-    // Check if token is potentially expired (client-side validation)
-    if (timestamp && !isNaN(parseInt(timestamp)) && isTokenExpired(token, parseInt(timestamp))) {
-      console.info('Token appears to be expired, clearing storage');
-      removeToken();
-      return null;
-    }
-
-    return token;
-  } catch (error) {
-    console.error('Error retrieving token:', error);
-    return null;
-  }
-};
-
-/**
- * Stores the refresh token with same storage strategy as access token
- * @param refreshToken - Refresh token
- * @param storageType - Storage type: 'session' or 'permanent'
- */
-export const setRefreshToken = (
-  refreshToken: string,
-  storageType: 'session' | 'permanent' = 'session'
-): void => {
-  try {
-    if (!refreshToken?.trim()) {
-      console.warn('Attempted to set empty refresh token');
-      return;
-    }
-
-    // Temporarily disable encryption for debugging
-    const encryptedRefreshToken = refreshToken; // encryptData(refreshToken);
-
-    if (storageType === 'session') {
-      SessionStorage.setItem(REFRESH_TOKEN_KEY, encryptedRefreshToken);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-    } else if (storageType === 'permanent') {
-      localStorage.setItem(REFRESH_TOKEN_KEY, encryptedRefreshToken);
-      SessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    }
-  } catch (error) {
-    console.error('Error storing refresh token:', error);
-  }
-};
-
-/**
- * Retrieves the refresh token from storage
- * @returns Refresh token or null if not found
- */
-export const getRefreshToken = (): string | null => {
-  try {
-    // Check session storage first
-    let encryptedRefreshToken = SessionStorage.getItem(REFRESH_TOKEN_KEY);
-
-    // If not in session storage, check localStorage
-    if (!encryptedRefreshToken) {
-      encryptedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-    }
-
-    if (!encryptedRefreshToken) {
-      return null;
-    }
-
-    // Temporarily disable decryption for debugging
-    const refreshToken = encryptedRefreshToken; // decryptData(encryptedRefreshToken);
-    if (!refreshToken) {
-      console.warn('No refresh token found in storage');
-      return null;
-    }
-
-    return refreshToken;
-  } catch (error) {
-    console.error('Error retrieving refresh token:', error);
-    return null;
-  }
-};
-
-/**
- * Removes all authentication tokens and related data from storage
- */
-export const removeToken = (): void => {
-  try {
-    // Clear from both storage types
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
-    localStorage.removeItem(REMEMBER_ME_KEY);
-
-    SessionStorage.removeItem(TOKEN_KEY);
-    SessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    SessionStorage.removeItem(TOKEN_TIMESTAMP_KEY);
-    SessionStorage.removeItem(REMEMBER_ME_KEY);
-  } catch (error) {
-    console.error('Error removing tokens:', error);
-  }
-};
-
-/**
- * Checks if user chose "Remember Me" option
- * @returns true if user wants to be remembered
- */
-export const isRememberMeEnabled = (): boolean => {
-  try {
-    const rememberMe =
-      localStorage.getItem(REMEMBER_ME_KEY) ||
-      SessionStorage.getItem(REMEMBER_ME_KEY);
-    return rememberMe === 'true';
-  } catch (error) {
-    console.error('Error checking remember me status:', error);
-    return false;
-  }
-};
-
-/**
- * JWT payload type for decodeToken
- */
+// ----- Types -----
 export interface JwtPayload {
   exp?: number;
   sub?: string;
@@ -219,259 +22,301 @@ export interface JwtPayload {
   [key: string]: unknown;
 }
 
-/**
- * Decodes JWT token payload (client-side only, for UI purposes)
- * @param token - JWT token
- * @returns Decoded payload or null if invalid
- */
+// ----- Base64URL helper -----
+const b64urlToUtf8 = (input: string): string => {
+  const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=");
+  const bin = atob(padded);
+  try {
+    const bytes = Uint8Array.from({ length: bin.length }, (_, i) => bin.charCodeAt(i));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return bin;
+  }
+};
+
+// ----- Token speichern -----
+export const setToken = (token: string, storageType: "session" | "permanent" = "session"): void => {
+  try {
+    if (!token?.trim()) return;
+
+    const timestamp = String(Date.now());
+    const encryptedToken = token; // optional: encryptData(token)
+
+    if (storageType === "session") {
+      SessionStorage.setItem(TOKEN_KEY, encryptedToken);
+      SessionStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
+      SessionStorage.setItem(REMEMBER_ME_KEY, "false");
+
+      localStorage?.removeItem(TOKEN_KEY);
+      localStorage?.removeItem(TOKEN_TIMESTAMP_KEY);
+      localStorage?.removeItem(REMEMBER_ME_KEY);
+    } else {
+      localStorage?.setItem(TOKEN_KEY, encryptedToken);
+      localStorage?.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
+      localStorage?.setItem(REMEMBER_ME_KEY, "true");
+
+      SessionStorage.removeItem(TOKEN_KEY);
+      SessionStorage.removeItem(TOKEN_TIMESTAMP_KEY);
+      SessionStorage.removeItem(REMEMBER_ME_KEY);
+    }
+  } catch (error) {
+    console.error("Error storing token:", error);
+  }
+};
+
+// ----- Token lesen -----
+export const getToken = (): string | null => {
+  try {
+    let token = SessionStorage.getItem(TOKEN_KEY);
+    let ts = SessionStorage.getItem(TOKEN_TIMESTAMP_KEY);
+
+    if (!token) {
+      token = localStorage?.getItem(TOKEN_KEY) ?? null;
+      ts = localStorage?.getItem(TOKEN_TIMESTAMP_KEY) ?? ts;
+    }
+    if (!token) return null;
+
+    const storedTs = ts ? Number(ts) : undefined;
+    if (isTokenExpired(token, storedTs)) {
+      removeToken();
+      return null;
+    }
+    return token;
+  } catch (error) {
+    console.error("Error retrieving token:", error);
+    return null;
+  }
+};
+
+// ----- Refresh-Token speichern/lesen -----
+export const setRefreshToken = (refreshToken: string, storageType: "session" | "permanent" = "session"): void => {
+  try {
+    if (!refreshToken?.trim()) return;
+
+    const encrypted = refreshToken; // optional: encryptData(refreshToken)
+    if (storageType === "session") {
+      SessionStorage.setItem(REFRESH_TOKEN_KEY, encrypted);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+    } else {
+      localStorage.setItem(REFRESH_TOKEN_KEY, encrypted);
+      SessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
+  } catch (error) {
+    console.error("Error storing refresh token:", error);
+  }
+};
+
+export const getRefreshToken = (): string | null => {
+  try {
+    let v = SessionStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!v) v = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!v) return null;
+
+    const rt = v; // optional: decryptData(v)
+    return rt || null;
+  } catch (error) {
+    console.error("Error retrieving refresh token:", error);
+    return null;
+  }
+};
+
+// ----- Remove all -----
+export const removeToken = (): void => {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
+    localStorage.removeItem(REMEMBER_ME_KEY);
+
+    SessionStorage.removeItem(TOKEN_KEY);
+    SessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    SessionStorage.removeItem(TOKEN_TIMESTAMP_KEY);
+    SessionStorage.removeItem(REMEMBER_ME_KEY);
+  } catch (error) {
+    console.error("Error removing tokens:", error);
+  }
+};
+
+// ----- Remember me -----
+export const isRememberMeEnabled = (): boolean => {
+  try {
+    const v = localStorage.getItem(REMEMBER_ME_KEY) ?? SessionStorage.getItem(REMEMBER_ME_KEY);
+    return v === "true";
+  } catch (error) {
+    console.error("Error checking remember me status:", error);
+    return false;
+  }
+};
+
+// ----- JWT decode -----
 export const decodeToken = (token: string): JwtPayload | null => {
   try {
     if (!token) return null;
-
-    const parts = token.split('.');
+    const parts = token.split(".");
     if (parts.length !== 3) return null;
-
-    const payload = atob(parts[1]);
-    return JSON.parse(payload) as JwtPayload;
+    const payloadJson = b64urlToUtf8(parts[1]);
+    return JSON.parse(payloadJson) as JwtPayload;
   } catch (error) {
-    console.error('Error decoding token:', error);
+    console.error("Error decoding token:", error);
     return null;
   }
 };
 
-/**
- * Checks if token is expired (client-side validation only)
- * @param token - JWT token
- * @param storedTimestamp - When token was stored
- * @returns true if token is likely expired
- */
-export const isTokenExpired = (
-  token: string,
-  storedTimestamp?: number
-): boolean => {
+// ----- Expiry -----
+export const isTokenExpired = (token: string, storedTimestamp?: number): boolean => {
   try {
     const decoded = decodeToken(token);
-    if (!decoded) return true;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const bufferSec = TOKEN_EXPIRY_BUFFER / 1000;
 
-    const currentTime = Math.floor(Date.now() / 1000);
-
-    // Check JWT expiration time
-    if (decoded.exp) {
-      const bufferTime = TOKEN_EXPIRY_BUFFER / 1000; // Convert to seconds
-      return currentTime >= decoded.exp - bufferTime;
+    if (decoded?.exp && Number.isFinite(decoded.exp)) {
+      return nowSec >= decoded.exp - bufferSec;
     }
 
-    // Fallback: check storage timestamp (24 hours default)
-    if (storedTimestamp) {
+    if (typeof storedTimestamp === "number" && Number.isFinite(storedTimestamp)) {
       const tokenAge = Date.now() - storedTimestamp;
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+      const maxAge = 24 * 60 * 60 * 1000; // 24h
       return tokenAge > maxAge;
     }
 
+    // Wenn keine valide Info vorhanden ist, nicht vorschnell verwerfen
     return false;
   } catch (error) {
-    console.error('Error checking token expiration:', error);
-    return true;
+    console.error("Error checking token expiration:", error);
+    return false;
   }
 };
 
-/**
- * Gets token expiration time in milliseconds
- * @param token - JWT token
- * @returns Expiration timestamp or null
- */
 export const getTokenExpiration = (token: string): number | null => {
   try {
     const decoded = decodeToken(token);
-    if (!decoded?.exp) return null;
-
-    return decoded.exp * 1000; // Convert to milliseconds
+    return decoded?.exp ? decoded.exp * 1000 : null;
   } catch (error) {
-    console.error('Error getting token expiration:', error);
+    console.error("Error getting token expiration:", error);
     return null;
   }
 };
 
-/**
- * Gets time until token expires in milliseconds
- * @param token - JWT token
- * @returns Time until expiration in milliseconds, or null if expired/invalid
- */
 export const getTimeUntilExpiration = (token: string): number | null => {
   try {
-    const expiration = getTokenExpiration(token);
-    if (!expiration) return null;
-
-    const timeUntilExpiry = expiration - Date.now();
-    return timeUntilExpiry > 0 ? timeUntilExpiry : null;
+    const exp = getTokenExpiration(token);
+    if (!exp) return null;
+    const diff = exp - Date.now();
+    return diff > 0 ? diff : null;
   } catch (error) {
-    console.error('Error calculating time until expiration:', error);
+    console.error("Error calculating time until expiration:", error);
     return null;
   }
 };
 
-/**
- * Validates token format (basic JWT structure check)
- * @param token - Token to validate
- * @returns true if token has valid format
- */
+// ----- Format check -----
 export const isValidTokenFormat = (token: string): boolean => {
   try {
-    if (!token || typeof token !== 'string') return false;
-
-    const parts = token.split('.');
+    if (typeof token !== "string" || !token.includes(".")) return false;
+    const parts = token.split(".");
     if (parts.length !== 3) return false;
-
-    // Check if each part is valid base64
-    for (const part of parts) {
-      if (!part || part.length === 0) return false;
-    }
-
-    // Try to decode payload
-    const payload = decodeToken(token);
-    return payload !== null;
+    return decodeToken(token) !== null;
   } catch {
     return false;
   }
 };
 
-/**
- * Migrates tokens between storage types
- * @param storageType - Target storage type
- */
-export const migrateTokenStorage = (storageType: 'session' | 'permanent'): void => {
+// ----- Migration -----
+export const migrateTokenStorage = (storageType: "session" | "permanent"): void => {
   try {
     const token = getToken();
-    const refreshToken = getRefreshToken();
-
-    if (token || refreshToken) {
-      // Clear all current storage
+    const rt = getRefreshToken();
+    if (token || rt) {
       removeToken();
-
-      // Re-store with new strategy
-      if (token) {
-        setToken(token, storageType);
-      }
-      if (refreshToken) {
-        setRefreshToken(refreshToken, storageType);
-      }
+      if (token) setToken(token, storageType);
+      if (rt) setRefreshToken(rt, storageType);
     }
   } catch (error) {
-    console.error('Error migrating token storage:', error);
+    console.error("Error migrating token storage:", error);
   }
 };
 
-/**
- * Gets user ID from token (if stored in token payload)
- * @param token - JWT token (optional, uses stored token if not provided)
- * @returns User ID or null
- */
+// ----- Claims helpers -----
 export const getUserIdFromToken = (token?: string): string | null => {
   try {
-    const tokenToUse = token || getToken();
-    if (!tokenToUse) return null;
-
-    const decoded = decodeToken(tokenToUse);
-    return decoded?.sub || decoded?.userId || decoded?.id || null;
+    const t = token || getToken();
+    if (!t) return null;
+    const d = decodeToken(t);
+    return (d?.sub as string) || (d?.userId as string) || (d?.id as string) || null;
   } catch (error) {
-    console.error('Error getting user ID from token:', error);
+    console.error("Error getting user ID from token:", error);
     return null;
   }
 };
 
-/**
- * Gets user roles from token (if stored in token payload)
- * @param token - JWT token (optional, uses stored token if not provided)
- * @returns Array of user roles or empty array
- */
 export const getUserRolesFromToken = (token?: string): string[] => {
   try {
-    const tokenToUse = token || getToken();
-    if (!tokenToUse) return [];
-
-    const decoded = decodeToken(tokenToUse);
-    const roles =
-      decoded?.roles || decoded?.authorities || decoded?.permissions || [];
-
-    return Array.isArray(roles) ? roles : [];
+    const t = token || getToken();
+    if (!t) return [];
+    const d = decodeToken(t);
+    const roles = (d?.roles || d?.authorities || d?.permissions) as unknown;
+    return Array.isArray(roles) ? roles.filter((x): x is string => typeof x === "string") : [];
   } catch (error) {
-    console.error('Error getting user roles from token:', error);
+    console.error("Error getting user roles from token:", error);
     return [];
   }
 };
 
-/**
- * Checks if user has specific role
- * @param role - Role to check
- * @param token - JWT token (optional, uses stored token if not provided)
- * @returns true if user has the role
- */
 export const hasRole = (role: string, token?: string): boolean => {
   try {
-    const roles = getUserRolesFromToken(token);
-    return roles?.includes(role);
+    return getUserRolesFromToken(token).includes(role);
   } catch (error) {
-    console.error('Error checking user role:', error);
+    console.error("Error checking user role:", error);
     return false;
   }
 };
 
-/**
- * Clears expired tokens from storage
- */
+// ----- Cleanup -----
 export const cleanupExpiredTokens = (): void => {
   try {
-    const token = getToken();
-    if (token && isTokenExpired(token)) {
-      console.info('Cleaning up expired tokens');
-      removeToken();
-    }
+    const t = getToken();
+    if (t && isTokenExpired(t)) removeToken();
   } catch (error) {
-    console.error('Error cleaning up expired tokens:', error);
+    console.error("Error cleaning up expired tokens:", error);
   }
 };
 
-/**
- * Gets storage information for debugging
- * @returns Object with storage information
- */
+// ----- Debug info -----
 export const getStorageInfo = (): {
   hasToken: boolean;
   hasRefreshToken: boolean;
   tokenExpiration: number | null;
   timeUntilExpiration: number | null;
   isRemembered: boolean;
-  storageType: 'localStorage' | 'sessionStorage' | 'none';
+  storageType: "localStorage" | "sessionStorage" | "none";
 } => {
   try {
-    const token = getToken();
-    const refreshToken = getRefreshToken();
+    const t = getToken();
+    const rt = getRefreshToken();
     const isRemembered = isRememberMeEnabled();
 
-    let storageType: 'localStorage' | 'sessionStorage' | 'none' = 'none';
-    if (SessionStorage.getItem(TOKEN_KEY)) {
-      storageType = 'sessionStorage';
-    } else if (localStorage.getItem(TOKEN_KEY)) {
-      storageType = 'localStorage';
-    }
+    let storageType: "localStorage" | "sessionStorage" | "none" = "none";
+    if (SessionStorage.getItem(TOKEN_KEY)) storageType = "sessionStorage";
+    else if (localStorage.getItem(TOKEN_KEY)) storageType = "localStorage";
 
     return {
-      hasToken: !!token,
-      hasRefreshToken: !!refreshToken,
-      tokenExpiration: token ? getTokenExpiration(token) : null,
-      timeUntilExpiration: token ? getTimeUntilExpiration(token) : null,
+      hasToken: !!t,
+      hasRefreshToken: !!rt,
+      tokenExpiration: t ? getTokenExpiration(t) : null,
+      timeUntilExpiration: t ? getTimeUntilExpiration(t) : null,
       isRemembered,
-      storageType,
+      storageType
     };
   } catch (error) {
-    console.error('Error getting storage info:', error);
+    console.error("Error getting storage info:", error);
     return {
       hasToken: false,
       hasRefreshToken: false,
       tokenExpiration: null,
       timeUntilExpiration: null,
       isRemembered: false,
-      storageType: 'none',
+      storageType: "none"
     };
   }
 };

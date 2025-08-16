@@ -50,56 +50,41 @@ builder.Services.AddHttpContextAccessor();
 
 // builder.Services.AddMemoryCache();
 
-// var userServiceUrl = Environment.GetEnvironmentVariable("USERSERVICE_URL") ?? "http://userservice:5001";
-// builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
-// {
-//     client.BaseAddress = new Uri(userServiceUrl);
-// });
+// Register HTTP Clients for service communication
+var gatewayUrl = Environment.GetEnvironmentVariable("GATEWAY_URL") ?? "http://gateway:8080";
 
-// var skillServiceUrl = Environment.GetEnvironmentVariable("SKILLSERVICE_URL") ?? "http://skillservice:5002";
-// builder.Services.AddHttpClient<ISkillLookupService, SkillLookupService>(client =>
-// {
-//     client.BaseAddress = new Uri(skillServiceUrl);
-// });
+builder.Services.AddHttpClient<MatchmakingService.Infrastructure.HttpClients.IUserServiceClient,
+    MatchmakingService.Infrastructure.HttpClients.UserServiceClient>(client =>
+{
+    client.BaseAddress = new Uri($"{gatewayUrl}/api/");
+});
+
+builder.Services.AddHttpClient<MatchmakingService.Infrastructure.HttpClients.ISkillServiceClient,
+    MatchmakingService.Infrastructure.HttpClients.SkillServiceClient>(client =>
+{
+    client.BaseAddress = new Uri($"{gatewayUrl}/api/");
+});
 
 // Add database
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+var connectionString =
+    Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-if (string.IsNullOrEmpty(connectionString))
+// 2) Service-spezifischer Fallback (nur wenn wirklich nichts gesetzt ist)
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    // ✅ Intelligente Host-Erkennung
-    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
-                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
-                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
-
-    var host = isRunningInContainer ? "postgres" : "localhost";
-
-    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
-        ?? builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
-
-    // Falls Environment Variable einen anderen Host enthält, korrigieren
-    if (connectionString.Contains("Host="))
-    {
-        connectionString = System.Text.RegularExpressions.Regex.Replace(
-            connectionString,
-            @"Host=[^;]+",
-            $"Host={host}"
-        );
-    }
+    var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "skillswap@ditss1990?!";
+    connectionString =
+        $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
 
-// Debug-Ausgabe (ohne Passwort für Logs)
-var safeConnectionString = connectionString.Contains("Password=")
-    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
-    : connectionString;
-
-builder.Services.AddDbContext<MatchmakingDbContext>(options =>
-{
-    options.UseNpgsql(connectionString);
-    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
-    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
-});
+builder.Services.AddDbContext<MatchmakingDbContext>(opts =>
+    opts.UseNpgsql(connectionString, npg =>
+        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)) // EF-Retry einschalten
+    .EnableDetailedErrors(builder.Environment.IsDevelopment())
+    .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+);
 
 // Event sourcing setup
 builder.Services.AddEventSourcing("MatchmakingEventStore");
@@ -198,6 +183,21 @@ var app = builder.Build();
 // Use shared infrastructure middleware
 app.UseSharedInfrastructure();
 
+// nach app.Build(), vor app.Run():
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<MatchmakingDbContext>();
+    // EF-eigene ExecutionStrategy, damit auch die Verbindungserstellung retried wird
+    var strategy = db.Database.CreateExecutionStrategy();
+    await strategy.ExecuteAsync(async () =>
+    {
+        await db.Database.MigrateAsync();           // ← statt EnsureCreated
+        // optional: Seeding
+        // await MatchmakingSeedData.SeedAsync(db);
+    });
+    app.Logger.LogInformation("Database migration completed successfully");
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -265,6 +265,15 @@ matchRequests.MapGet("/thread/{threadId}", GetMatchRequestThread)
     .WithTags("Match Requests")
     .WithOpenApi()
     .Produces<ApiResponse<MatchRequestThreadResponse>>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
+
+matchRequests.MapPost("/{requestId}/counter", CreateCounterOffer)
+    .WithName("CreateCounterOffer")
+    .WithSummary("Create a counter offer for a match request")
+    .WithDescription("Respond to a match request with a counter offer")
+    .WithTags("Match Requests")
+    .WithOpenApi()
+    .Produces<ApiResponse<CreateMatchRequestResponse>>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status404NotFound);
 
 
@@ -353,6 +362,36 @@ static async Task<IResult> GetMatchRequestThread(IMediator mediator, ClaimsPrinc
     return await mediator.SendQuery(query);
 }
 
+static async Task<IResult> CreateCounterOffer(
+    IMediator mediator, 
+    ClaimsPrincipal user, 
+    [FromRoute] string requestId, 
+    [FromBody] CreateCounterOfferRequest request)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new CreateCounterOfferCommand(
+        requestId,
+        request.Message,
+        request.IsSkillExchange,
+        request.ExchangeSkillId,
+        request.ExchangeSkillName,
+        request.IsMonetaryOffer,
+        request.OfferedAmount,
+        "EUR",  // Default currency
+        request.PreferredDays,
+        request.PreferredTimes,
+        request.SessionDurationMinutes ?? 60,
+        request.TotalSessions ?? 1)
+    {
+        UserId = userId,
+        OriginalRequestId = requestId
+    };
+
+    return await mediator.SendCommand(command);
+}
+
 #endregion
 
 #region Matching Endpoints
@@ -400,6 +439,24 @@ matches.MapGet("/my", GetUserMatches)
     .WithTags("Matching")
     .WithOpenApi()
     .Produces<PagedResponse<UserMatchResponse>>(StatusCodes.Status200OK);
+
+matches.MapPost("/{matchId}/complete", CompleteMatch)
+    .WithName("CompleteMatch")
+    .WithSummary("Complete a match")
+    .WithDescription("Mark a match as completed with optional rating and feedback")
+    .WithTags("Matching")
+    .WithOpenApi()
+    .Produces<CompleteMatchResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
+
+matches.MapPost("/{matchId}/dissolve", DissolveMatch)
+    .WithName("DissolveMatch")
+    .WithSummary("Dissolve a match")
+    .WithDescription("Dissolve an active match with a reason")
+    .WithTags("Matching")
+    .WithOpenApi()
+    .Produces<DissolveMatchResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
 
 // ============================================================================
 // HANDLER METHODS - MATCHES
@@ -454,7 +511,13 @@ static async Task<IResult> GetMatchDetails(IMediator mediator, ClaimsPrincipal u
     return await mediator.SendQuery(query);
 }
 
-static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal user, string? status = null, bool includeCompleted = true, int pageNumber = 1, int pageSize = 20)
+static async Task<IResult> GetUserMatches(
+    IMediator mediator,
+    ClaimsPrincipal user,
+    string? status = null,
+    bool includeCompleted = true,
+    int pageNumber = 1,
+    int pageSize = 20)
 {
     var userId = user.GetUserId();
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
@@ -462,6 +525,41 @@ static async Task<IResult> GetUserMatches(IMediator mediator, ClaimsPrincipal us
     var query = new GetUserMatchesQuery(userId, status, includeCompleted, pageNumber, pageSize);
 
     return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> CompleteMatch(IMediator mediator, ClaimsPrincipal user, string matchId, [FromBody] CompleteMatchRequest? request)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new CompleteMatchCommand(
+        matchId,
+        request?.SessionDurationMinutes,
+        request?.Feedback,
+        request?.Rating)
+    {
+        UserId = userId
+    };
+
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> DissolveMatch(IMediator mediator, ClaimsPrincipal user, string matchId, [FromBody] DissolveMatchRequest request)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    if (string.IsNullOrWhiteSpace(request?.Reason))
+    {
+        return Results.BadRequest("Reason is required for dissolving a match");
+    }
+
+    var command = new DissolveMatchCommand(matchId, request.Reason)
+    {
+        UserId = userId
+    };
+
+    return await mediator.SendCommand(command);
 }
 #endregion
 

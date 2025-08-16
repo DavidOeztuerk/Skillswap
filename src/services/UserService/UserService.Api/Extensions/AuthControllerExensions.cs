@@ -8,6 +8,7 @@ using Infrastructure.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using UserService.Application.Commands;
+using UserService.Application.Queries;
 
 namespace UserService.Api.Extensions;
 
@@ -89,6 +90,35 @@ public static class AuthControllerExensions
             .Produces(400)
             .Produces(401);
 
+        auth.MapPost("/verify-phone/request", HandleRequestPhoneVerification)
+            .WithName("RequestPhoneVerification")
+            .WithSummary("Request phone verification")
+            .WithDescription("Sends SMS verification code to user's phone")
+            .WithTags("Phone Verification")
+            .RequireAuthorization()
+            .Produces<ApiResponse<string>>(200)
+            .Produces(400)
+            .Produces(429);
+
+        auth.MapPost("/verify-phone/confirm", HandleConfirmPhoneVerification)
+            .WithName("ConfirmPhoneVerification")
+            .WithSummary("Confirm phone verification")
+            .WithDescription("Confirms phone number with verification code")
+            .WithTags("Phone Verification")
+            .RequireAuthorization()
+            .Produces<ApiResponse<bool>>(200)
+            .Produces(400)
+            .Produces(401);
+
+        auth.MapGet("/email/verification/status", HandleGetEmailVerificationStatus)
+            .WithName("GetEmailVerificationStatus")
+            .WithSummary("Get email verification status")
+            .WithDescription("Gets the current email verification status including cooldown information")
+            .WithTags("Email Verification")
+            .RequireAuthorization()
+            .Produces<ApiResponse<EmailVerificationStatusResponse>>(200)
+            .Produces(401);
+
 
         static async Task<IResult> HandleRegisterUser(IMediator mediator, [FromBody] RegisterUserRequest request)
         {
@@ -146,6 +176,33 @@ public static class AuthControllerExensions
 
             var command = new ChangePasswordCommand(request.CurrentPassword, request.NewPassword) { UserId = userId };
             return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> HandleRequestPhoneVerification(IMediator mediator, ClaimsPrincipal user, [FromBody] RequestPhoneVerificationRequest request)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new RequestPhoneVerificationCommand(request.PhoneNumber) { UserId = userId };
+            return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> HandleConfirmPhoneVerification(IMediator mediator, ClaimsPrincipal user, [FromBody] ConfirmPhoneVerificationRequest request)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new ConfirmPhoneVerificationCommand(request.VerificationCode) { UserId = userId };
+            return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> HandleGetEmailVerificationStatus(IMediator mediator, ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new GetEmailVerificationStatusQuery(userId);
+            return await mediator.SendQuery(query);
         }
 
         return auth;
