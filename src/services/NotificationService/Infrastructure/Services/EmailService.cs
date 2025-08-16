@@ -1,26 +1,24 @@
 using MailKit.Net.Smtp;
 using MailKit.Security;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using MimeKit;
 using NotificationService.Domain.Entities;
 
 namespace NotificationService.Infrastructure.Services;
 
-public class EmailService : IEmailService
+public class EmailService(
+    ILogger<EmailService> logger,
+    IOptions<EmailConfiguration> configuration,
+    ITemplateEngine templateEngine,
+    NotificationDbContext dbContext)
+    : IEmailService
 {
-    private readonly ILogger<EmailService> _logger;
-    private readonly EmailConfiguration _config;
-    private readonly ITemplateEngine _templateEngine;
-
-    public EmailService(
-        ILogger<EmailService> logger,
-        IConfiguration configuration,
-        ITemplateEngine templateEngine)
-    {
-        _logger = logger;
-        _templateEngine = templateEngine;
-        _config = configuration.GetSection("Email").Get<EmailConfiguration>()
+    private readonly ILogger<EmailService> _logger = logger;
+    private readonly EmailConfiguration _config = configuration.Value
                  ?? throw new InvalidOperationException("Email configuration not found");
-    }
+    private readonly ITemplateEngine _templateEngine = templateEngine;
+    private readonly NotificationDbContext _dbContext = dbContext;
 
     public async Task<bool> SendEmailAsync(string to, string subject, string htmlContent, string textContent, Dictionary<string, string>? headers = null)
     {
@@ -50,8 +48,12 @@ public class EmailService : IEmailService
 
             using var client = new SmtpClient();
 
-            await client.ConnectAsync(_config.SmtpHost, _config.SmtpPort,
-                _config.UseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls);
+            // Determine secure socket options based on configuration
+            var secureSocketOptions = _config.UseSsl ? SecureSocketOptions.SslOnConnect :
+                                     _config.UseStartTls ? SecureSocketOptions.StartTls :
+                                     SecureSocketOptions.Auto;
+            
+            await client.ConnectAsync(_config.SmtpHost, _config.SmtpPort, secureSocketOptions);
 
             if (!string.IsNullOrEmpty(_config.Username))
             {
@@ -97,64 +99,104 @@ public class EmailService : IEmailService
 
     public async Task<EmailTemplate?> GetTemplateAsync(string name, string language = "en")
     {
-        // This would typically query a database
-        // For now, return a simple template
-        await Task.Delay(1); // Simulate async operation
+        try
+        {
+            // First try to get template from database
+            var template = await _dbContext.EmailTemplates
+                .Where(t => t.Name == name && t.Language == language && t.IsActive && !t.IsDeleted)
+                .OrderByDescending(t => t.Version)
+                .FirstOrDefaultAsync();
+
+            if (template != null)
+            {
+                _logger.LogDebug("Template {TemplateName} found in database for language {Language}", name, language);
+                return template;
+            }
+
+            // If not found in database, try English as fallback
+            if (language != "en")
+            {
+                template = await _dbContext.EmailTemplates
+                    .Where(t => t.Name == name && t.Language == "en" && t.IsActive && !t.IsDeleted)
+                    .OrderByDescending(t => t.Version)
+                    .FirstOrDefaultAsync();
+
+                if (template != null)
+                {
+                    _logger.LogDebug("Template {TemplateName} not found in {Language}, using English fallback", name, language);
+                    return template;
+                }
+            }
+
+            // If still not found, use minimal fallback as last resort
+            _logger.LogWarning("Template {TemplateName} not found in database, using minimal fallback", name);
+            return GetMinimalFallbackTemplate(name, language);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving template {TemplateName} from database", name);
+            // Return minimal fallback template
+            return GetMinimalFallbackTemplate(name, language);
+        }
+    }
+
+    /// <summary>
+    /// Returns a minimal fallback template when database is unavailable
+    /// This should only be used as an absolute last resort when:
+    /// 1. Database is down
+    /// 2. Templates haven't been seeded
+    /// 3. Network issues prevent DB access
+    /// </summary>
+    private static EmailTemplate GetMinimalFallbackTemplate(string name, string language)
+    {
+        // These are MINIMAL templates - real templates come from the database via the seeder
+        var (subject, htmlContent, textContent) = name switch
+        {
+            "email-verification" => (
+                "Please verify your email address",
+                "<p>Hi {{FirstName}},</p><p>Please verify your email by clicking: <a href='{{VerificationUrl}}'>Verify Email</a></p><p><strong>This link expires in 72 hours.</strong></p>",
+                "Hi {{FirstName}}, please verify your email: {{VerificationUrl}} (expires in 72 hours)"
+            ),
+            "appointment-confirmation" => (
+                "Your SkillSwap session is confirmed",
+                "<p>Hi {{RecipientFirstName}},</p><p>Your session for <strong>{{SkillName}}</strong> is confirmed:</p><ul><li>Date: {{ScheduledDate}}</li><li>Time: {{ScheduledTime}}</li><li>Duration: {{DurationMinutes}} minutes</li></ul><p>Meeting link: <a href='{{MeetingLink}}'>Join Meeting</a></p>",
+                "Your {{SkillName}} session is confirmed for {{ScheduledDate}} at {{ScheduledTime}}. Meeting link: {{MeetingLink}}"
+            ),
+            "appointment-rescheduled" => (
+                "Your SkillSwap session has been rescheduled",
+                "<p>Hi {{RecipientFirstName}},</p><p>Your session has been rescheduled:</p><p><strong>New time:</strong> {{NewScheduledDate}} at {{NewScheduledTime}}</p><p>Reason: {{Reason}}</p>",
+                "Your session has been rescheduled to {{NewScheduledDate}} at {{NewScheduledTime}}. Reason: {{Reason}}"
+            ),
+            "password-reset" => (
+                "Reset your SkillSwap password",
+                "<p>Hi {{FirstName}},</p><p>Reset your password: <a href='{{ResetUrl}}'>Reset Password</a></p><p>This link expires in 1 hour.</p>",
+                "Hi {{FirstName}}, reset your password: {{ResetUrl}} (expires in 1 hour)"
+            ),
+            "welcome" => (
+                "Welcome to SkillSwap!",
+                "<p>Welcome {{FirstName}}!</p><p>We're excited to have you join SkillSwap. Get started at <a href='{{AppUrl}}'>{{AppUrl}}</a></p>",
+                "Welcome {{FirstName}}! Get started at {{AppUrl}}"
+            ),
+            _ => (
+                "SkillSwap Notification",
+                "<p>{{Content}}</p>",
+                "{{Content}}"
+            )
+        };
 
         return new EmailTemplate
         {
+            Id = Guid.NewGuid().ToString(),
             Name = name,
             Language = language,
-            Subject = GetDefaultSubject(name),
-            HtmlContent = GetDefaultHtmlContent(name),
-            TextContent = GetDefaultTextContent(name)
+            Subject = subject,
+            HtmlContent = htmlContent,
+            TextContent = textContent,
+            IsActive = true,
+            Version = "1.0",  // This is a string
+            Description = "Emergency fallback template - database unavailable",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
     }
-
-    private static string GetDefaultSubject(string templateName) => templateName switch
-    {
-        "welcome" => "Welcome to SkillSwap! 🎉",
-        "email-verification" => "Please verify your email address",
-        "password-reset" => "Reset your SkillSwap password",
-        "password-changed" => "Your password has been changed",
-        "account-suspended" => "Your account has been suspended",
-        "account-reactivated" => "Your account has been reactivated",
-        "security-alert" => "Security Alert - Unusual activity detected",
-        "skill-match-found" => "New skill match found! 🚀",
-        "appointment-reminder" => "Reminder: Your skill session is tomorrow",
-        "appointment-confirmation" => "Your skill session has been confirmed",
-        _ => "SkillSwap Notification"
-    };
-
-    private static string GetDefaultHtmlContent(string templateName) => templateName switch
-    {
-        "welcome" => """
-            <h1>Welcome to SkillSwap, {{FirstName}}!</h1>
-            <p>We're excited to have you join our community of learners and teachers.</p>
-            <p>Start by <a href="{{AppUrl}}/skills">exploring skills</a> or <a href="{{AppUrl}}/profile">completing your profile</a>.</p>
-            """,
-        "email-verification" => """
-            <h1>Verify your email address</h1>
-            <p>Hi {{FirstName}},</p>
-            <p>Please click the button below to verify your email address:</p>
-            <a href="{{VerificationUrl}}" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
-            <p>This link will expire in 24 hours.</p>
-            """,
-        "password-reset" => """
-            <h1>Reset your password</h1>
-            <p>Hi {{FirstName}},</p>
-            <p>You requested to reset your password. Click the button below:</p>
-            <a href="{{ResetUrl}}" style="background: #dc3545; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
-            <p>This link will expire in 1 hour.</p>
-            """,
-        _ => "<p>{{Content}}</p>"
-    };
-
-    private static string GetDefaultTextContent(string templateName) => templateName switch
-    {
-        "welcome" => "Welcome to SkillSwap, {{FirstName}}! We're excited to have you join our community.",
-        "email-verification" => "Hi {{FirstName}}, please verify your email by visiting: {{VerificationUrl}}",
-        "password-reset" => "Hi {{FirstName}}, reset your password by visiting: {{ResetUrl}}",
-        _ => "{{Content}}"
-    };
 }

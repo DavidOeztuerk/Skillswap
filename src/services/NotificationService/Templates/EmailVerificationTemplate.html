@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Mail-Adresse bestätigen - Skillswap</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 32px;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-top: 20px;
+        }
+        .verify-button {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white !important;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .verify-button:hover {
+            background-color: #45a049;
+        }
+        .verification-code {
+            background-color: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            color: #495057;
+        }
+        .expiry-warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px 15px;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        .help-text {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🔄 Skillswap</div>
+            <h1>Willkommen bei Skillswap, {{FirstName}}!</h1>
+        </div>
+
+        <p>Vielen Dank für deine Registrierung bei Skillswap - der Plattform für Skill-Austausch!</p>
+
+        <p>Um deine E-Mail-Adresse zu bestätigen und vollen Zugriff auf alle Funktionen zu erhalten, klicke bitte auf den folgenden Button:</p>
+
+        <div style="text-align: center;">
+            <a href="{{VerificationLink}}" class="verify-button">E-Mail-Adresse bestätigen</a>
+        </div>
+
+        <p class="help-text">Falls der Button nicht funktioniert, kannst du diesen Verifizierungscode manuell eingeben:</p>
+
+        <div class="verification-code">{{VerificationCode}}</div>
+
+        <div class="expiry-warning">
+            <strong>⏰ Wichtig:</strong> Dieser Verifizierungslink ist 72 Stunden gültig. Nach Ablauf dieser Zeit musst du einen neuen Link anfordern.
+        </div>
+
+        <h3>Was passiert nach der Verifizierung?</h3>
+        <ul>
+            <li>✅ Vollständiger Zugriff auf alle Skillswap-Funktionen</li>
+            <li>📚 Erstelle dein Skill-Profil und finde passende Tauschpartner</li>
+            <li>💬 Kommuniziere mit anderen Mitgliedern</li>
+            <li>📅 Vereinbare Termine für Skill-Sessions</li>
+            <li>⭐ Bewerte und werde bewertet</li>
+        </ul>
+
+        <h3>Brauchst du Hilfe?</h3>
+        <p class="help-text">
+            Falls du diese E-Mail nicht angefordert hast, kannst du sie ignorieren. 
+            Dein Account wird nicht aktiviert, bis du deine E-Mail-Adresse bestätigst.
+        </p>
+
+        <p class="help-text">
+            Bei Fragen oder Problemen kontaktiere uns unter: 
+            <a href="mailto:support@skillswap.com">support@skillswap.com</a>
+        </p>
+
+        <div class="footer">
+            <p>© 2024 Skillswap. Alle Rechte vorbehalten.</p>
+            <p>
+                Diese E-Mail wurde an {{Email}} gesendet.<br>
+                Du erhältst diese E-Mail, weil du dich bei Skillswap registriert hast.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

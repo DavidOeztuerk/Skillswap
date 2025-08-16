@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using UserService;
 
 #nullable disable
 
@@ -36,7 +35,8 @@ namespace UserService.Infrastructure.Migrations
 
                     b.Property<string>("BlockedUserId")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -74,9 +74,9 @@ namespace UserService.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BlockedAt");
+                    b.HasIndex("BlockedUserId");
 
-                    b.HasIndex("UserId")
+                    b.HasIndex("UserId", "BlockedUserId")
                         .IsUnique();
 
                     b.ToTable("BlockedUsers");
@@ -147,8 +147,6 @@ namespace UserService.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Category");
 
                     b.HasIndex("IsActive");
 
@@ -336,6 +334,7 @@ namespace UserService.Infrastructure.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("ParentRoleId")
+                        .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
                     b.Property<int>("Priority")
@@ -436,6 +435,9 @@ namespace UserService.Infrastructure.Migrations
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("GrantedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GrantedByUserId")
                         .HasColumnType("character varying(450)");
 
                     b.Property<bool>("IsActive")
@@ -450,6 +452,7 @@ namespace UserService.Infrastructure.Migrations
 
                     b.Property<string>("PermissionId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
                     b.Property<string>("Reason")
@@ -460,10 +463,14 @@ namespace UserService.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RevokedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RevokedByUserId")
                         .HasColumnType("character varying(450)");
 
                     b.Property<string>("RoleId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -476,13 +483,13 @@ namespace UserService.Infrastructure.Migrations
 
                     b.HasIndex("GrantedAt");
 
-                    b.HasIndex("GrantedBy");
+                    b.HasIndex("GrantedByUserId");
 
                     b.HasIndex("IsActive");
 
                     b.HasIndex("PermissionId");
 
-                    b.HasIndex("RevokedBy");
+                    b.HasIndex("RevokedByUserId");
 
                     b.HasIndex("RoleId", "PermissionId")
                         .IsUnique();
@@ -503,8 +510,8 @@ namespace UserService.Infrastructure.Migrations
                     b.Property<string>("AccountStatus")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasDefaultValue("PendingVerification");
 
                     b.Property<string>("AvailabilityJson")
@@ -534,8 +541,16 @@ namespace UserService.Infrastructure.Migrations
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("Email");
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("EmailVerificationAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("EmailVerificationCooldownUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EmailVerificationSentAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("EmailVerificationToken")
                         .HasMaxLength(100)
@@ -568,6 +583,9 @@ namespace UserService.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsSuspended")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -599,21 +617,49 @@ namespace UserService.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PhoneNumber")
+                        .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("PhoneNumber");
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("PhoneVerificationAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PhoneVerificationCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("PhoneVerificationCooldownUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PhoneVerificationExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PhoneVerificationFailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("PhoneVerificationSentAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("PhoneVerified")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
+                    b.Property<DateTime?>("PhoneVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("PreferencesJson")
                         .HasColumnType("text");
 
-                    b.Property<string>("ProfilcePictureUrl")
+                    b.Property<string>("ProfilePictureUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("SuspendedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SuspensionReason")
+                        .HasColumnType("text");
 
                     b.Property<string>("TimeZone")
                         .HasMaxLength(100)
@@ -776,6 +822,7 @@ namespace UserService.Infrastructure.Migrations
                         .HasDefaultValueSql("NOW()");
 
                     b.Property<string>("GrantedBy")
+                        .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
                     b.Property<bool>("IsActive")
@@ -795,6 +842,7 @@ namespace UserService.Infrastructure.Migrations
 
                     b.Property<string>("PermissionId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
                     b.Property<string>("Reason")
@@ -809,6 +857,7 @@ namespace UserService.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RevokedBy")
+                        .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -819,21 +868,18 @@ namespace UserService.Infrastructure.Migrations
 
                     b.Property<string>("UserId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ExpiresAt");
 
-                    b.HasIndex("GrantedBy");
-
                     b.HasIndex("IsActive");
 
+                    b.HasIndex("IsGranted");
+
                     b.HasIndex("PermissionId");
-
-                    b.HasIndex("ResourceId");
-
-                    b.HasIndex("RevokedBy");
 
                     b.HasIndex("UserId", "PermissionId", "ResourceId");
 
@@ -882,12 +928,9 @@ namespace UserService.Infrastructure.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
                     b.Property<string>("RoleId")
+                        .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -903,11 +946,9 @@ namespace UserService.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssignedAt");
-
                     b.HasIndex("RoleId");
 
-                    b.HasIndex("UserId", "Role", "RevokedAt");
+                    b.HasIndex("UserId", "RoleId", "RevokedAt");
 
                     b.ToTable("UserRoles");
                 });
@@ -1002,11 +1043,19 @@ namespace UserService.Infrastructure.Migrations
 
             modelBuilder.Entity("UserService.Domain.Models.BlockedUser", b =>
                 {
+                    b.HasOne("UserService.Domain.Models.User", "BlockedUserRef")
+                        .WithMany("BlockedByOthers")
+                        .HasForeignKey("BlockedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("UserService.Domain.Models.User", "User")
-                        .WithMany("BlockedUsers")
+                        .WithMany("BlockedUsersInitiated")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("BlockedUserRef");
 
                     b.Navigation("User");
                 });
@@ -1035,9 +1084,8 @@ namespace UserService.Infrastructure.Migrations
             modelBuilder.Entity("UserService.Domain.Models.RolePermission", b =>
                 {
                     b.HasOne("UserService.Domain.Models.User", "GrantedByUser")
-                        .WithMany("RolePermissionsGranted")
-                        .HasForeignKey("GrantedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .WithMany()
+                        .HasForeignKey("GrantedByUserId");
 
                     b.HasOne("UserService.Domain.Models.Permission", "Permission")
                         .WithMany("RolePermissions")
@@ -1046,9 +1094,8 @@ namespace UserService.Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("UserService.Domain.Models.User", "RevokedByUser")
-                        .WithMany("RolePermissionsRevoked")
-                        .HasForeignKey("RevokedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .WithMany()
+                        .HasForeignKey("RevokedByUserId");
 
                     b.HasOne("UserService.Domain.Models.Role", "Role")
                         .WithMany("RolePermissions")
@@ -1078,49 +1125,38 @@ namespace UserService.Infrastructure.Migrations
 
             modelBuilder.Entity("UserService.Domain.Models.UserPermission", b =>
                 {
-                    b.HasOne("UserService.Domain.Models.User", "GrantedByUser")
-                        .WithMany("PermissionsGranted")
-                        .HasForeignKey("GrantedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("UserService.Domain.Models.Permission", "Permission")
                         .WithMany("UserPermissions")
                         .HasForeignKey("PermissionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("UserService.Domain.Models.User", "RevokedByUser")
-                        .WithMany("PermissionsRevoked")
-                        .HasForeignKey("RevokedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("UserService.Domain.Models.User", "User")
                         .WithMany("UserPermissions")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("GrantedByUser");
-
                     b.Navigation("Permission");
-
-                    b.Navigation("RevokedByUser");
 
                     b.Navigation("User");
                 });
 
             modelBuilder.Entity("UserService.Domain.Models.UserRole", b =>
                 {
-                    b.HasOne("UserService.Domain.Models.Role", null)
+                    b.HasOne("UserService.Domain.Models.Role", "Role")
                         .WithMany("UserRoles")
                         .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("UserService.Domain.Models.User", "User")
                         .WithMany("UserRoles")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Role");
 
                     b.Navigation("User");
                 });
@@ -1156,17 +1192,11 @@ namespace UserService.Infrastructure.Migrations
                 {
                     b.Navigation("Activities");
 
-                    b.Navigation("BlockedUsers");
+                    b.Navigation("BlockedByOthers");
 
-                    b.Navigation("PermissionsGranted");
-
-                    b.Navigation("PermissionsRevoked");
+                    b.Navigation("BlockedUsersInitiated");
 
                     b.Navigation("RefreshTokens");
-
-                    b.Navigation("RolePermissionsGranted");
-
-                    b.Navigation("RolePermissionsRevoked");
 
                     b.Navigation("Sessions");
 

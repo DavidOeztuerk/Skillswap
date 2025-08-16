@@ -1,156 +1,230 @@
-//using Microsoft.AspNetCore.Hosting;
-//using Microsoft.AspNetCore.Mvc.Testing;
-//using Microsoft.Extensions.DependencyInjection;
-//using Microsoft.EntityFrameworkCore;
-//using Testcontainers.PostgreSql;
-//using Testcontainers.Redis;
-//using Testcontainers.RabbitMq;
-//using Xunit;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using System.Net.Http.Headers;
+using Testcontainers.PostgreSql;
+using Testcontainers.Redis;
+using Testcontainers.RabbitMq;
+using Xunit;
+using MassTransit;
+using StackExchange.Redis;
 
-//namespace Testing;
+namespace Testing;
 
-///// <summary>
-///// Base class for integration tests that sets up TestContainers for PostgreSQL, Redis, and RabbitMQ
-///// </summary>
-///// <typeparam name="TProgram">The Program class of the service being tested</typeparam>
-///// <typeparam name="TDbContext">The DbContext of the service being tested</typeparam>
-//public abstract class BaseIntegrationTest<TProgram, TDbContext> : IClassFixture<IntegrationTestWebAppFactory<TProgram, TDbContext>>, IAsyncLifetime
-//    where TProgram : class
-//    where TDbContext : DbContext
-//{
-//    protected readonly IntegrationTestWebAppFactory<TProgram, TDbContext> Factory;
-//    protected readonly HttpClient Client;
-//    protected readonly IServiceScope Scope;
-//    protected readonly TDbContext DbContext;
+public abstract class BaseIntegrationTest<TProgram, TDbContext> : IClassFixture<IntegrationTestWebAppFactory<TProgram, TDbContext>>, IAsyncLifetime
+    where TProgram : class
+    where TDbContext : DbContext
+{
+    protected readonly IntegrationTestWebAppFactory<TProgram, TDbContext> Factory;
+    protected HttpClient Client { get; private set; } = null!;
+    protected IServiceProvider ServiceProvider { get; private set; } = null!;
+    protected TDbContext DbContext { get; private set; } = null!;
 
-//    protected BaseIntegrationTest(IntegrationTestWebAppFactory<TProgram, TDbContext> factory)
-//    {
-//        Factory = factory;
-//        Client = factory.CreateClient();
-//        Scope = factory.Services.CreateScope();
-//        DbContext = Scope.ServiceProvider.GetRequiredService<TDbContext>();
-//    }
+    protected BaseIntegrationTest(IntegrationTestWebAppFactory<TProgram, TDbContext> factory)
+    {
+        Factory = factory;
+    }
 
-//    public virtual async Task InitializeAsync()
-//    {
-//        await Factory.InitializeAsync();
-//        await DbContext.Database.EnsureCreatedAsync();
-//    }
+    public virtual async Task InitializeAsync()
+    {
+        await Factory.InitializeAsync();
+        
+        Client = Factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
 
-//    public virtual async Task DisposeAsync()
-//    {
-//        await DbContext.Database.EnsureDeletedAsync();
-//        Scope.Dispose();
-//        Client.Dispose();
-//    }
+        ServiceProvider = Factory.Services;
+        
+        using var scope = ServiceProvider.CreateScope();
+        DbContext = scope.ServiceProvider.GetRequiredService<TDbContext>();
+        await DbContext.Database.EnsureCreatedAsync();
+        
+        await SeedDataAsync();
+    }
 
-//    /// <summary>
-//    /// Seeds the database with test data
-//    /// </summary>
-//    protected virtual async Task SeedAsync()
-//    {
-//        // Override in derived classes to seed specific test data
-//    }
+    public virtual async Task DisposeAsync()
+    {
+        await CleanupAsync();
+        Client?.Dispose();
+        await Factory.DisposeAsync();
+    }
 
-//    /// <summary>
-//    /// Cleans up the database after tests
-//    /// </summary>
-//    protected virtual async Task CleanupAsync()
-//    {
-//        // Clear all data from tables
-//        var tableNames = DbContext.Model.GetEntityTypes()
-//            .Select(t => t.GetTableName())
-//            .Distinct()
-//            .ToList();
+    protected virtual async Task SeedDataAsync()
+    {
+        // Override in derived classes to seed test data
+        await Task.CompletedTask;
+    }
 
-//        foreach (var tableName in tableNames)
-//        {
-//            await DbContext.Database.ExecuteSqlRawAsync($"DELETE FROM \"{tableName}\"");
-//        }
-//    }
-//}
+    protected virtual async Task CleanupAsync()
+    {
+        using var scope = ServiceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TDbContext>();
+        
+        var tableNames = context.Model.GetEntityTypes()
+            .Select(t => t.GetTableName())
+            .Distinct()
+            .Where(t => !string.IsNullOrEmpty(t))
+            .ToList();
 
-///// <summary>
-///// Custom WebApplicationFactory for integration tests with TestContainers
-///// </summary>
-///// <typeparam name="TProgram">The Program class of the service being tested</typeparam>
-///// <typeparam name="TDbContext">The DbContext of the service being tested</typeparam>
-//public class IntegrationTestWebAppFactory<TProgram, TDbContext> : WebApplicationFactory<TProgram>, IAsyncLifetime
-//    where TProgram : class
-//    where TDbContext : DbContext
-//{
-//    private readonly PostgreSqlContainer _postgreSqlContainer;
-//    private readonly RedisContainer _redisContainer;
-//    private readonly RabbitMqContainer _rabbitMqContainer;
+        foreach (var tableName in tableNames)
+        {
+            // Using parameterized query to avoid SQL injection warning
+            var sql = $"TRUNCATE TABLE \"{tableName}\" CASCADE";
+            await context.Database.ExecuteSqlRawAsync(sql);
+        }
+    }
 
-//    public IntegrationTestWebAppFactory()
-//    {
-//        _postgreSqlContainer = new PostgreSqlBuilder()
-//            .WithImage("postgres:15-alpine")
-//            .WithDatabase("skillswap_test")
-//            .WithUsername("test")
-//            .WithPassword("test")
-//            .Build();
+    protected void SetAuthorizationHeader(string token)
+    {
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
 
-//        _redisContainer = new RedisBuilder()
-//            .WithImage("redis:7-alpine")
-//            .Build();
+    protected async Task<T> GetServiceAsync<T>() where T : notnull
+    {
+        await Task.CompletedTask; // Suppress async warning
+        using var scope = ServiceProvider.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<T>();
+    }
 
-//        _rabbitMqContainer = new RabbitMqBuilder()
-//            .WithImage("rabbitmq:3-management")
-//            .WithUsername("test")
-//            .WithPassword("test")
-//            .Build();
-//    }
+    protected async Task ExecuteDbContextAsync(Func<TDbContext, Task> action)
+    {
+        using var scope = ServiceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TDbContext>();
+        await action(context);
+    }
 
-//    protected override void ConfigureWebHost(IWebHostBuilder builder)
-//    {
-//        builder.ConfigureServices(services =>
-//        {
-//            // Remove existing DbContext registration
-//            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<TDbContext>));
-//            if (descriptor != null)
-//            {
-//                services.Remove(descriptor);
-//            }
+    protected async Task<T> ExecuteDbContextAsync<T>(Func<TDbContext, Task<T>> action)
+    {
+        using var scope = ServiceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<TDbContext>();
+        return await action(context);
+    }
+}
 
-//            // Add test database
-//            services.AddDbContext<TDbContext>(options =>
-//            {
-//                options.UseNpgsql(_postgreSqlContainer.GetConnectionString());
-//            });
+public class IntegrationTestWebAppFactory<TProgram, TDbContext> : WebApplicationFactory<TProgram>, IAsyncLifetime
+    where TProgram : class
+    where TDbContext : DbContext
+{
+    private PostgreSqlContainer? _postgreSqlContainer;
+    private RedisContainer? _redisContainer;
+    private RabbitMqContainer? _rabbitMqContainer;
 
-//            // Configure test Redis
-//            services.AddSingleton(sp =>
-//            {
-//                var multiplexer = StackExchange.Redis.ConnectionMultiplexer.Connect(_redisContainer.GetConnectionString());
-//                return multiplexer;
-//            });
+    public string PostgresConnectionString { get; private set; } = string.Empty;
+    public string RedisConnectionString { get; private set; } = string.Empty;
+    public string RabbitMqConnectionString { get; private set; } = string.Empty;
 
-//            // Configure test RabbitMQ
-//            services.Configure<MassTransit.RabbitMqTransportOptions>(options =>
-//            {
-//                options.Host = _rabbitMqContainer.Hostname;
-//                options.Port = _rabbitMqContainer.GetMappedPublicPort(5672);
-//                options.Username = "test";
-//                options.Password = "test";
-//            });
-//        });
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureServices(services =>
+        {
+            RemoveExistingServices(services);
+            ConfigureTestServices(services);
+        });
 
-//        builder.UseEnvironment("Test");
-//    }
+        builder.UseEnvironment("Testing");
+    }
 
-//    public async Task InitializeAsync()
-//    {
-//        await _postgreSqlContainer.StartAsync();
-//        await _redisContainer.StartAsync();
-//        await _rabbitMqContainer.StartAsync();
-//    }
+    private void RemoveExistingServices(IServiceCollection services)
+    {
+        // Remove existing database registrations
+        services.RemoveAll(typeof(DbContextOptions<TDbContext>));
+        services.RemoveAll(typeof(DbContext));
+        
+        // Remove existing MassTransit registrations
+        services.RemoveAll(typeof(IBusControl));
+        services.RemoveAll(typeof(IBus));
+        services.RemoveAll(typeof(IPublishEndpoint));
+        services.RemoveAll(typeof(ISendEndpointProvider));
+        
+        // Remove existing Redis registrations
+        services.RemoveAll(typeof(IConnectionMultiplexer));
+    }
 
-//    public new async Task DisposeAsync()
-//    {
-//        await _postgreSqlContainer.DisposeAsync();
-//        await _redisContainer.DisposeAsync();
-//        await _rabbitMqContainer.DisposeAsync();
-//    }
-//}
+    private void ConfigureTestServices(IServiceCollection services)
+    {
+        // Add test database
+        services.AddDbContext<TDbContext>(options =>
+        {
+            options.UseNpgsql(PostgresConnectionString);
+        });
+
+        // Add test Redis
+        services.AddSingleton<IConnectionMultiplexer>(_ => 
+            ConnectionMultiplexer.Connect(RedisConnectionString));
+
+        // Add test MassTransit
+        services.AddMassTransit(x =>
+        {
+            x.SetKebabCaseEndpointNameFormatter();
+            
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(RabbitMqConnectionString);
+            });
+        });
+
+        // Add test logging
+        services.AddLogging(builder =>
+        {
+            builder.AddConsole();
+            builder.SetMinimumLevel(LogLevel.Warning);
+        });
+    }
+
+    public async Task InitializeAsync()
+    {
+        _postgreSqlContainer = new PostgreSqlBuilder()
+            .WithImage("postgres:16-alpine")
+            .WithDatabase("testdb")
+            .WithUsername("test")
+            .WithPassword("test123")
+            .Build();
+
+        _redisContainer = new RedisBuilder()
+            .WithImage("redis:7-alpine")
+            .Build();
+
+        _rabbitMqContainer = new RabbitMqBuilder()
+            .WithImage("rabbitmq:3-management-alpine")
+            .WithUsername("test")
+            .WithPassword("test123")
+            .Build();
+
+        await Task.WhenAll(
+            _postgreSqlContainer.StartAsync(),
+            _redisContainer.StartAsync(),
+            _rabbitMqContainer.StartAsync()
+        );
+
+        PostgresConnectionString = _postgreSqlContainer.GetConnectionString();
+        RedisConnectionString = _redisContainer.GetConnectionString();
+        RabbitMqConnectionString = _rabbitMqContainer.GetConnectionString();
+    }
+
+    public new async Task DisposeAsync()
+    {
+        if (_postgreSqlContainer != null)
+        {
+            await _postgreSqlContainer.StopAsync();
+            await _postgreSqlContainer.DisposeAsync();
+        }
+
+        if (_redisContainer != null)
+        {
+            await _redisContainer.StopAsync();
+            await _redisContainer.DisposeAsync();
+        }
+
+        if (_rabbitMqContainer != null)
+        {
+            await _rabbitMqContainer.StopAsync();
+            await _rabbitMqContainer.DisposeAsync();
+        }
+    }
+}

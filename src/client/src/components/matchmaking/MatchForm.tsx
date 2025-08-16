@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   Button,
   FormControl,
@@ -17,6 +17,8 @@ import {
   ListItemText,
   InputAdornment,
   Grid,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import FormDialog from '../ui/FormDialog';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
@@ -26,6 +28,10 @@ import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
 import LoadingButton from '../ui/LoadingButton';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { Skill } from '../../types/models/Skill';
+import { GetUserSkillRespone } from '../../api/services/skillsService';
+import { SkillService } from '../../api/services/skillsService';
+import QuickSkillCreate from './QuickSkillCreate';
+import { Add as AddIcon } from '@mui/icons-material';
 
 // Schema angepasst für CreateMatchRequest
 const matchFormSchema = z.object({
@@ -39,13 +45,27 @@ const matchFormSchema = z.object({
     .max(500, 'Nachricht darf maximal 500 Zeichen enthalten')
     .optional(),
   isOffering: z.boolean(),
+  isSkillExchange: z.boolean().optional(),
+  exchangeSkillId: z.string().optional(),
   preferredDays: z.array(z.string()).min(1, 'Wähle mindestens einen Tag'),
   preferredTimes: z.array(z.string()).min(1, 'Wähle mindestens eine Zeit'),
   additionalNotes: z
     .string()
     .max(500, 'Notizen dürfen maximal 500 Zeichen enthalten')
     .optional(),
-});
+}).refine(
+  (data) => {
+    // Wenn Skill-Tausch gewählt ist, muss auch ein Tausch-Skill ausgewählt sein
+    if (data.isSkillExchange && !data.exchangeSkillId) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'Bei einem Skill-Tausch muss ein eigener Skill ausgewählt werden',
+    path: ['exchangeSkillId'],
+  }
+);
 
 type MatchFormValues = z.infer<typeof matchFormSchema>;
 
@@ -57,6 +77,7 @@ interface MatchFormProps {
   targetUserId: string; // ✅ VEREINFACHT: Direkt targetUserId anstatt User-Objekt
   targetUserName?: string; // ✅ Optional: Name für Anzeige
   isLoading?: boolean;
+  userSkills?: GetUserSkillRespone[]; // Skills des aktuellen Users für Tausch
 }
 
 const ITEM_HEIGHT = 48;
@@ -81,13 +102,70 @@ const MatchForm: React.FC<MatchFormProps> = ({
   targetUserId,
   targetUserName,
   isLoading = false,
+  userSkills: providedUserSkills,
 }) => {
+  const [userSkills, setUserSkills] = useState<GetUserSkillRespone[]>(providedUserSkills || []);
+  const [loadingSkills, setLoadingSkills] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [proficiencyLevels, setProficiencyLevels] = useState<any[]>([]);
+
+  // Lade User Skills wenn Dialog geöffnet wird und keine bereitgestellt wurden
+  useEffect(() => {
+    if (open) {
+      if (!providedUserSkills) {
+        loadUserSkills();
+      } else {
+        setUserSkills(providedUserSkills);
+      }
+      // Lade Kategorien und Levels für Quick Create
+      loadCategoriesAndLevels();
+    }
+  }, [open, providedUserSkills]);
+
+  const loadUserSkills = async () => {
+    try {
+      setLoadingSkills(true);
+      const response = await SkillService.getUserSkills(1, 50, true); // Nur angebotene Skills
+      if (response.data) {
+        setUserSkills(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading user skills:', error);
+      setUserSkills([]);
+    } finally {
+      setLoadingSkills(false);
+    }
+  };
+
+  const loadCategoriesAndLevels = async () => {
+    try {
+      const [catResponse, levelResponse] = await Promise.all([
+        SkillService.getCategories(),
+        SkillService.getProficiencyLevels(),
+      ]);
+      if (catResponse.data) setCategories(catResponse.data);
+      if (levelResponse.data) setProficiencyLevels(levelResponse.data);
+    } catch (error) {
+      console.error('Error loading categories/levels:', error);
+    }
+  };
+
+  const handleQuickSkillCreated = async (skillId: string, _skillName: string) => {
+    // Skill wurde erstellt, lade Skills neu und wähle den neuen Skill aus
+    await loadUserSkills();
+    // Setze den neuen Skill als ausgewählt
+    setValue('exchangeSkillId', skillId);
+    setQuickCreateOpen(false);
+  };
   // Default-Werte
   const defaultValues = useMemo(() => {
     return {
       skillId: skill.id,
       description: skill.isOffered ? 'Ich möchte diesen Skill lernen' : 'Ich kann bei diesem Skill helfen',
       isOffering: !skill.isOffered, // Umgekehrt: wenn der Nutzer den Skill anbietet, will er ihn hier lernen
+      isSkillExchange: false,
+      exchangeSkillId: '',
       preferredDays: ['Montag', 'Dienstag', 'Mittwoch'],
       preferredTimes: ['18:00', '19:00'],
       message: '',
@@ -101,6 +179,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
     formState: { errors },
     watch,
     reset,
+    setValue,
   } = useForm<MatchFormValues>({
     resolver: zodResolver(matchFormSchema),
     defaultValues,
@@ -123,10 +202,21 @@ const MatchForm: React.FC<MatchFormProps> = ({
 
       const matchRequest: CreateMatchRequest = {
         skillId: data.skillId,
-        description: data.description || (data.isOffering ? 'Ich möchte diesen Skill anbieten' : 'Ich möchte diesen Skill lernen'),
-        message: data.message || '',
-        targetUserId: targetUserId, // ✅ VEREINFACHT: Direkt targetUserId verwenden
+        targetUserId: targetUserId,
+        message: data.message || data.description || (data.isOffering ? 'Ich möchte diesen Skill anbieten' : 'Ich möchte diesen Skill lernen'),
+        isSkillExchange: data.isSkillExchange || false,
+        exchangeSkillId: data.exchangeSkillId,
+        isMonetary: false, // Vorerst kein Geld-Austausch
+        sessionDurationMinutes: 60, // Standard: 60 Minuten
+        totalSessions: 1, // Standard: 1 Session
+        preferredDays: data.preferredDays,
+        preferredTimes: data.preferredTimes,
+        // Frontend-only fields for display
+        description: data.description,
         skillName: skill.name,
+        exchangeSkillName: data.exchangeSkillId 
+          ? userSkills.find(s => s.skillId === data.exchangeSkillId)?.name
+          : undefined,
       };
 
       await onSubmit(matchRequest);
@@ -171,6 +261,12 @@ const MatchForm: React.FC<MatchFormProps> = ({
                 {skill.description}
               </Typography>
             </Box>
+
+            {loadingSkills && (
+              <Box display="flex" justifyContent="center" p={2}>
+                <CircularProgress size={24} />
+              </Box>
+            )}
 
             {targetUserName && (
               <Box
@@ -228,6 +324,90 @@ const MatchForm: React.FC<MatchFormProps> = ({
                 )}
               />
             </FormControl>
+            
+            {/* Skill Exchange Option */}
+            <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
+              <Controller
+                name="isSkillExchange"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={field.value || false}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        disabled={isLoading}
+                      />
+                    }
+                    label="Skill-Tausch: Ich möchte einen eigenen Skill im Austausch anbieten"
+                  />
+                )}
+              />
+            </FormControl>
+
+            {/* Exchange Skill Selection */}
+            {watch('isSkillExchange') && (
+              <Controller
+                name="exchangeSkillId"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth error={!!errors.exchangeSkillId} sx={{ mb: 2 }}>
+                    <FormLabel>Wähle deinen Skill für den Tausch</FormLabel>
+                    <Select
+                      {...field}
+                      value={field.value || ''}
+                      disabled={isLoading || userSkills.length === 0}
+                      displayEmpty
+                    >
+                      <MenuItem value="" disabled>
+                        {userSkills.length === 0 
+                          ? 'Keine eigenen Skills vorhanden'
+                          : 'Wähle einen Skill aus'}
+                      </MenuItem>
+                      {userSkills.map((userSkill) => (
+                        <MenuItem key={userSkill.skillId} value={userSkill.skillId}>
+                          <Box>
+                            <Typography variant="body1">{userSkill.name}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {userSkill.category.name} • {userSkill.proficiencyLevel.level}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {errors.exchangeSkillId && (
+                      <FormHelperText>{errors.exchangeSkillId.message}</FormHelperText>
+                    )}
+                    {userSkills.length === 0 && (
+                      <Alert severity="info" sx={{ mt: 1 }}>
+                        Du hast noch keine eigenen Skills. 
+                        <Button 
+                          size="small" 
+                          color="primary" 
+                          sx={{ ml: 1 }}
+                          onClick={() => setQuickCreateOpen(true)}
+                          startIcon={<AddIcon />}
+                        >
+                          Skill erstellen
+                        </Button>
+                      </Alert>
+                    )}
+                    {userSkills.length > 0 && (
+                      <Box sx={{ mt: 1 }}>
+                        <Button
+                          size="small"
+                          startIcon={<AddIcon />}
+                          onClick={() => setQuickCreateOpen(true)}
+                        >
+                          Neuen Skill erstellen
+                        </Button>
+                      </Box>
+                    )}
+                  </FormControl>
+                )}
+              />
+            )}
+            
             <Divider sx={{ my: 2 }} />
           </Grid>
 
@@ -376,6 +556,15 @@ const MatchForm: React.FC<MatchFormProps> = ({
           </Grid>
         </Grid>
       </form>
+      
+      {/* Quick Skill Create Dialog */}
+      <QuickSkillCreate
+        open={quickCreateOpen}
+        onClose={() => setQuickCreateOpen(false)}
+        onSkillCreated={handleQuickSkillCreated}
+        categories={categories}
+        proficiencyLevels={proficiencyLevels}
+      />
     </FormDialog>
   );
 };

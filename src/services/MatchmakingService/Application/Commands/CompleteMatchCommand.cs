@@ -1,3 +1,4 @@
+using Contracts.Matchmaking.Responses;
 using CQRS.Interfaces;
 
 namespace MatchmakingService.Application.Commands;
@@ -12,7 +13,7 @@ public record CompleteMatchCommand(
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
-public record CompleteMatchResponse(
-    string MatchId,
-    string Status,
-    DateTime CompletedAt);
+// public record CompleteMatchResponse(
+//     string MatchId,
+//     string Status,
+//     DateTime CompletedAt);

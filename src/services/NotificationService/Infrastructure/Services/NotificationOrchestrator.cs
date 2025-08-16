@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Domain.Entities;
+using NotificationService.Hubs;
 using System.Text.Json;
 
 namespace NotificationService.Infrastructure.Services;
@@ -9,7 +11,8 @@ public class NotificationOrchestrator(
     ISmsService smsService,
     IPushNotificationService pushService,
     ILogger<NotificationOrchestrator> logger,
-    NotificationDbContext dbContext)
+    NotificationDbContext dbContext,
+    IHubContext<NotificationHub> hubContext)
     : INotificationOrchestrator
 {
     private readonly IEmailService _emailService = emailService;
@@ -17,6 +20,7 @@ public class NotificationOrchestrator(
     private readonly IPushNotificationService _pushService = pushService;
     private readonly ILogger<NotificationOrchestrator> _logger = logger;
     private readonly NotificationDbContext _dbContext = dbContext;
+    private readonly IHubContext<NotificationHub> _hubContext = hubContext;
 
     public async Task<bool> SendNotificationAsync(Notification notification)
     {
@@ -136,6 +140,124 @@ public class NotificationOrchestrator(
         }
     }
 
+    public async Task<bool> SendImmediateNotificationAsync(
+        string userId,
+        string type,
+        string template,
+        string recipient,
+        Dictionary<string, string> variables,
+        string priority = "Normal")
+    {
+        try
+        {
+            _logger.LogInformation("Sending immediate {Type} notification to {Recipient}", type, recipient);
+            
+            // Check user preferences first
+            if (!await ShouldSendNotificationAsync(userId, type, template))
+            {
+                _logger.LogInformation("Notification blocked by user preferences for user {UserId}", userId);
+                return false;
+            }
+            
+            // Send directly based on type
+            bool success = false;
+            switch (type.ToUpperInvariant())
+            {
+                case "EMAIL":
+                    success = await _emailService.SendTemplatedEmailAsync(recipient, template, variables);
+                    break;
+                    
+                case "SMS":
+                    success = await _smsService.SendTemplatedSmsAsync(recipient, template, variables);
+                    break;
+                    
+                case "PUSH":
+                    var title = variables.GetValueOrDefault("Title", "SkillSwap Notification");
+                    var body = variables.GetValueOrDefault("Body", "You have a new notification");
+                    success = await _pushService.SendPushNotificationAsync(recipient, title, body, variables);
+                    break;
+                    
+                default:
+                    _logger.LogWarning("Unknown notification type: {Type}", type);
+                    return false;
+            }
+            
+            // Optionally log to database for audit trail (but don't require it for success)
+            try
+            {
+                var notification = new Notification
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    UserId = userId,
+                    Type = type,
+                    Template = template,
+                    Recipient = recipient,
+                    Subject = variables.GetValueOrDefault("Subject", template),
+                    Content = "Immediate notification sent",
+                    MetadataJson = JsonSerializer.Serialize(new NotificationMetadata { Variables = variables }),
+                    Status = success ? NotificationStatus.Sent : NotificationStatus.Failed,
+                    Priority = priority,
+                    SentAt = success ? DateTime.UtcNow : null,
+                    CreatedAt = DateTime.UtcNow
+                };
+                
+                _dbContext.Notifications.Add(notification);
+                await _dbContext.SaveChangesAsync();
+                await LogNotificationEventAsync(notification.Id, success ? NotificationEventTypes.Sent : NotificationEventTypes.Failed);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log immediate notification to database, but notification was sent");
+            }
+            
+            return success;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send immediate notification");
+            return false;
+        }
+    }
+    
+    public async Task<bool> SendNotificationAsync(
+        string recipientUserId,
+        string type,
+        string title,
+        string message,
+        string priority = "Normal",
+        Dictionary<string, object>? metadata = null)
+    {
+        try
+        {
+            // Create and save notification
+            var notification = new Notification
+            {
+                UserId = recipientUserId,
+                Type = type,
+                Template = type.ToLower().Replace(" ", "_"),
+                Recipient = recipientUserId, // Will be resolved to actual email/phone
+                Subject = title,
+                Content = message,
+                Priority = priority,
+                Status = "Pending",
+                MetadataJson = metadata != null ? JsonSerializer.Serialize(metadata) : null,
+                CreatedAt = DateTime.UtcNow,
+                ScheduledAt = DateTime.UtcNow
+            };
+
+            _dbContext.Notifications.Add(notification);
+            await _dbContext.SaveChangesAsync();
+
+            // Send the notification
+            return await SendNotificationAsync(notification);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send notification to user {UserId}", recipientUserId);
+            return false;
+        }
+    }
+
     public async Task LogNotificationEventAsync(string notificationId, string eventType, string? details = null)
     {
         try
@@ -228,5 +350,87 @@ public class NotificationOrchestrator(
             "skill-match-found" => preferences.PushUpdates,
             _ => preferences.PushUpdates
         };
+    }
+    
+    public async Task<bool> ScheduleNotificationAsync(
+        string userId,
+        string type,
+        string template,
+        string recipient,
+        Dictionary<string, string> variables,
+        DateTime scheduledFor,
+        string priority = "Normal")
+    {
+        try
+        {
+            // Create notification with scheduled time
+            var notification = new Notification
+            {
+                Id = Guid.NewGuid().ToString(),
+                UserId = userId,
+                Type = type,
+                Template = template,
+                Recipient = recipient,
+                Variables = System.Text.Json.JsonSerializer.Serialize(variables),
+                Priority = priority,
+                Status = NotificationStatus.Scheduled,
+                ScheduledAt = scheduledFor,
+                CreatedAt = DateTime.UtcNow
+            };
+            
+            // Save to database
+            _dbContext.Notifications.Add(notification);
+            await _dbContext.SaveChangesAsync();
+            
+            _logger.LogInformation(
+                "Scheduled notification {NotificationId} for user {UserId} at {ScheduledTime}",
+                notification.Id, userId, scheduledFor);
+            
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to schedule notification for user {UserId}",
+                userId);
+            return false;
+        }
+    }
+    
+    public async Task<bool> AddToDigestAsync(
+        string userId,
+        string template,
+        Dictionary<string, string> variables)
+    {
+        try
+        {
+            // Create digest entry
+            var digestEntry = new NotificationDigestEntry
+            {
+                Id = Guid.NewGuid().ToString(),
+                UserId = userId,
+                Template = template,
+                Variables = System.Text.Json.JsonSerializer.Serialize(variables),
+                CreatedAt = DateTime.UtcNow,
+                IsProcessed = false
+            };
+            
+            // Save to database
+            _dbContext.NotificationDigestEntries.Add(digestEntry);
+            await _dbContext.SaveChangesAsync();
+            
+            _logger.LogInformation(
+                "Added notification to digest for user {UserId}, template {Template}",
+                userId, template);
+            
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to add notification to digest for user {UserId}",
+                userId);
+            return false;
+        }
     }
 }

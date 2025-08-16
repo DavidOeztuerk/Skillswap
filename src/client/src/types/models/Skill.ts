@@ -24,7 +24,7 @@ export interface SkillCategory {
   name: string;
   iconName?: string;
   color?: string;
-  skillCoun?: number;
+  skillCount?: number;
 }
 
 export interface ProficiencyLevel {

@@ -4,7 +4,6 @@ using CQRS.Handlers;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
 using UserService.Domain.Repositories;
-using Contracts.User.Responses;
 
 namespace UserService.Application.QueryHandlers;
 
@@ -35,7 +34,7 @@ public class SearchUsersQueryHandler(
 
             if (!string.IsNullOrEmpty(request.Role))
             {
-                query = query.Where(u => u.UserRoles.Any(ur => ur.Role == request.Role && ur.IsActive));
+                query = query.Where(u => u.UserRoles.Any(ur => ur.Role.Name == request.Role && ur.IsActive));
             }
 
             if (!string.IsNullOrEmpty(request.AccountStatus?.ToString()))
@@ -73,7 +72,7 @@ public class SearchUsersQueryHandler(
                     u.LastName,
                     u.UserName,
                     u.FavoriteSkillIds, // Skills
-                    u.UserRoles.Select(ur => ur.Role).ToList(), // Rating - not implemented yet
+                    u.UserRoles.Select(ur => ur.Role.Name).ToList(), // Rating - not implemented yet
                     u.EmailVerified, // ReviewCount - not implemented yet
                     u.AccountStatus.ToString(), // IsAvailable - default to true
                     u.CreatedAt,

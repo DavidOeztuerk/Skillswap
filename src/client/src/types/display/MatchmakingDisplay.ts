@@ -53,13 +53,18 @@ export interface MatchDisplay {
   skillId: string;
   skillName: string;
   skillCategory: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled';
+  status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled' | 'active' | 'dissolved';
   
   // Partner info
   partnerId: string;
   partnerName: string;
   partnerRating: number;
   partnerAvatar?: string;
+  
+  // Additional user info
+  otherUserName?: string;
+  otherUserRating?: number;
+  otherUserId?: string;
   
   // Legacy compatibility properties
   requesterId: string;
@@ -79,9 +84,28 @@ export interface MatchDisplay {
     category: string;
   };
   
+  // Exchange info
+  isSkillExchange?: boolean;
+  exchangeSkillId?: string;
+  exchangeSkillName?: string;
+  
+  // Monetary info
+  isMonetary?: boolean;
+  offeredAmount?: number;
+  currency?: string;
+  
+  // Session info
+  sessionInfo?: {
+    completedSessions: number;
+    totalSessions: number;
+    nextSessionDate?: string;
+  };
+  
   // Match details
   isOffering: boolean; // Am I offering this skill?
   compatibilityScore?: number;
+  location?: string;
+  rating?: number;
   
   // Timestamps
   createdAt: string;

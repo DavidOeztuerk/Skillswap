@@ -337,7 +337,7 @@ const DashboardPage: React.FC = () => {
                               }}
                             >
                               <Typography variant="subtitle1">
-                                {appointment.skill.name}
+                                {appointment.skill?.name || 'Skill'}
                               </Typography>
                               <Chip
                                 label={formatDateTimeRange(
@@ -362,8 +362,8 @@ const DashboardPage: React.FC = () => {
                                   : 'Lehrer:in'}
                                 :{' '}
                                 {appointment.teacherId === user?.id
-                                  ? `${appointment.studentDetails.firstName} ${appointment.studentDetails.lastName}`
-                                  : `${appointment.teacherDetails.firstName} ${appointment.teacherDetails.lastName}`}
+                                  ? `${appointment.studentDetails?.firstName || ''} ${appointment.studentDetails?.lastName || ''}`
+                                  : `${appointment.teacherDetails?.firstName || ''} ${appointment.teacherDetails?.lastName || ''}`}
                               </Typography>
                               {appointment.notes && (
                                 <Typography

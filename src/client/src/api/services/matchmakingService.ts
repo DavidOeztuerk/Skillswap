@@ -1,5 +1,4 @@
 import { MATCHMAKING_ENDPOINTS } from '../../config/endpoints';
-import httpClient from '../httpClient';
 import { ApiResponse } from '../../types/common/ApiResponse';
 import { PagedResponse } from '../../types/common/PagedResponse';
 import {
@@ -12,149 +11,153 @@ import {
   MatchRequestDisplay,
   MatchDisplay,
   AcceptMatchRequestResponse,
-  RejectMatchRequestResponse
+  RejectMatchRequestResponse,
 } from '../../types/display/MatchmakingDisplay';
+import apiClient from '../apiClient';
 
 export interface GetMatchRequestsParams {
   pageNumber?: number;
   pageSize?: number;
-  page?: number;
-  limit?: number;
   status?: string;
 }
 
-// Legacy alias for backwards compatibility
-export type FindMatchRequest = CreateMatchRequestRequest;
+const qp = (p: GetMatchRequestsParams = {}) => {
+  const pageNumber = (p.pageNumber ?? 1).toString();
+  const pageSize = (p.pageSize ?? 12).toString();
+  const q = new URLSearchParams();
+  q.append('pageNumber', pageNumber);
+  q.append('pageSize', pageSize);
+  if (p.status) q.append('status', p.status);
+  return `?${q.toString()}`;
+};
 
-/**
- * New matchmaking service - direct display data, no transformations
- */
 const matchmakingService = {
-  /**
-   * Create a match request
-   */
-  async createMatchRequest(request: CreateMatchRequestRequest): Promise<ApiResponse<CreateMatchRequestResponse>> {
-    if (!request.skillId) throw new Error('Skill-ID ist erforderlich');
-    if (!request.targetUserId) throw new Error('Target User-ID ist erforderlich');
-    if (!request.message?.trim()) throw new Error('Nachricht ist erforderlich');
+  async createMatchRequest(req: CreateMatchRequestRequest): Promise<ApiResponse<CreateMatchRequestResponse>> {
+    console.log('🚀 [MatchmakingService] Creating match request:', req);
     
-    return httpClient.post<ApiResponse<CreateMatchRequestResponse>>(MATCHMAKING_ENDPOINTS.REQUESTS.CREATE, request);
+    if (!req.skillId) throw new Error('Skill-ID ist erforderlich');
+    if (!req.targetUserId) throw new Error('Target User-ID ist erforderlich');
+    if (!req.message?.trim()) throw new Error('Nachricht ist erforderlich');
+    
+    try {
+      const response = await apiClient.post<ApiResponse<CreateMatchRequestResponse>>(MATCHMAKING_ENDPOINTS.REQUESTS.CREATE, req);
+      console.log('✅ [MatchmakingService] Match request created successfully:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [MatchmakingService] Failed to create match request:', error);
+      throw error;
+    }
   },
 
-  /**
-   * Get incoming match requests - returns display-ready data
-   */
-  async getIncomingMatchRequests(params: GetMatchRequestsParams = {}): Promise<PagedResponse<MatchRequestDisplay[]>> {
-    const queryParams = new URLSearchParams();
-    queryParams.append('PageNumber', (params.pageNumber || params.page || 1).toString());
-    queryParams.append('PageSize', (params.pageSize || params.limit || 20).toString());
+  async getIncomingMatchRequests(params: GetMatchRequestsParams = {}): Promise<PagedResponse<MatchRequestDisplay>> {
+    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_INCOMING}${qp(params)}`;
+    console.log('📥 [MatchmakingService] Fetching incoming requests:', url);
     
-    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_INCOMING}?${queryParams.toString()}`;
-    return httpClient.get<PagedResponse<MatchRequestDisplay[]>>(url);
+    try {
+      const response = await apiClient.get<PagedResponse<MatchRequestDisplay>>(url);
+      console.log('✅ [MatchmakingService] Incoming requests fetched:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [MatchmakingService] Failed to fetch incoming requests:', error);
+      throw error;
+    }
   },
 
-  /**
-   * Get outgoing match requests - returns display-ready data
-   */
-  async getOutgoingMatchRequests(params: GetMatchRequestsParams = {}): Promise<PagedResponse<MatchRequestDisplay[]>> {
-    const queryParams = new URLSearchParams();
-    queryParams.append('PageNumber', (params.pageNumber || params.page || 1).toString());
-    queryParams.append('PageSize', (params.pageSize || params.limit || 20).toString());
-    
-    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_OUTGOING}?${queryParams.toString()}`;
-    return httpClient.get<PagedResponse<MatchRequestDisplay[]>>(url);
+  async getOutgoingMatchRequests(params: GetMatchRequestsParams = {}): Promise<PagedResponse<MatchRequestDisplay>> {
+    return apiClient.get<PagedResponse<MatchRequestDisplay>>(
+      `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_OUTGOING}${qp(params)}`
+    );
   },
 
-  /**
-   * Get accepted match requests (actual matches) - returns display-ready data
-   */
-  async getAcceptedMatchRequests(params: GetMatchRequestsParams = {}): Promise<PagedResponse<MatchDisplay[]>> {
-    const queryParams = new URLSearchParams();
-    queryParams.append('PageNumber', (params.pageNumber || params.page || 1).toString());
-    queryParams.append('PageSize', (params.pageSize || params.limit || 20).toString());
-    
-    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_ACCEPTED}?${queryParams.toString()}`;
-    return httpClient.get<PagedResponse<MatchDisplay[]>>(url);
+  async getAcceptedMatchRequests(params: GetMatchRequestsParams = {}): Promise<PagedResponse<MatchDisplay>> {
+    return apiClient.get<PagedResponse<MatchDisplay>>(
+      `${MATCHMAKING_ENDPOINTS.REQUESTS.ACCEPT}${qp(params)}`
+    );
   },
 
-  /**
-   * Accept a match request
-   */
-  async acceptMatchRequest(requestId: string, request: AcceptMatchRequestRequest): Promise<ApiResponse<AcceptMatchRequestResponse>> {
+  async acceptMatchRequest(requestId: string, req: AcceptMatchRequestRequest): Promise<ApiResponse<AcceptMatchRequestResponse>> {
     if (!requestId?.trim()) throw new Error('Request-ID ist erforderlich');
-    
-    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.ACCEPT}/${requestId}/accept`;
-    const response = await httpClient.post<ApiResponse<AcceptMatchRequestResponse>>(url, request);
-    return response;
+    return apiClient.post<ApiResponse<AcceptMatchRequestResponse>>(
+      `${MATCHMAKING_ENDPOINTS.REQUESTS.ACCEPT}/${requestId}/accept`,
+      req
+    );
   },
 
-  /**
-   * Reject a match request
-   */
-  async rejectMatchRequest(requestId: string, request: RejectMatchRequestRequest): Promise<ApiResponse<RejectMatchRequestResponse>> {
+  async rejectMatchRequest(requestId: string, req: RejectMatchRequestRequest): Promise<ApiResponse<RejectMatchRequestResponse>> {
     if (!requestId?.trim()) throw new Error('Request-ID ist erforderlich');
-    
-    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.REJECT}/${requestId}/reject`;
-    const response = await httpClient.post<ApiResponse<RejectMatchRequestResponse>>(url, request);
-    return response;
+    return apiClient.post<ApiResponse<RejectMatchRequestResponse>>(
+      `${MATCHMAKING_ENDPOINTS.REQUESTS.REJECT}/${requestId}/reject`,
+      req
+    );
   },
 
-  /**
-   * Create a counter offer
-   */
-  async createCounterOffer(request: CreateCounterOfferRequest): Promise<ApiResponse<CreateMatchRequestResponse>> {
-    if (!request.originalRequestId?.trim()) throw new Error('Original Request-ID ist erforderlich');
-    if (!request.message?.trim()) throw new Error('Nachricht ist erforderlich');
-    
-    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.COUNTER}/${request.originalRequestId}/counter`;
-    const response = await httpClient.post<ApiResponse<CreateMatchRequestResponse>>(url, request);
-    return response;
+  async createCounterOffer(req: CreateCounterOfferRequest): Promise<ApiResponse<CreateMatchRequestResponse>> {
+    if (!req.originalRequestId?.trim()) throw new Error('Original Request-ID ist erforderlich');
+    if (!req.message?.trim()) throw new Error('Nachricht ist erforderlich');
+    return apiClient.post<ApiResponse<CreateMatchRequestResponse>>(
+      `${MATCHMAKING_ENDPOINTS.REQUESTS.COUNTER}/${req.originalRequestId}/counter`,
+      req
+    );
   },
 
-  /**
-   * Get match request thread - returns display-ready data
-   */
   async getMatchRequestThread(threadId: string): Promise<ApiResponse<MatchThreadDisplay>> {
     if (!threadId?.trim()) throw new Error('Thread-ID ist erforderlich');
-    
-    const response = await httpClient.get<ApiResponse<MatchThreadDisplay>>(`${MATCHMAKING_ENDPOINTS.REQUESTS.GET_THREAD}/${threadId}`);
-    return response;
+    return apiClient.get<ApiResponse<MatchThreadDisplay>>(
+      `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_THREAD}/${threadId}`
+    );
   },
 
-  /**
-   * Get user matches - returns display-ready data
-   */
-  async getUserMatches(params: GetMatchRequestsParams = {}): Promise<PagedResponse<MatchDisplay[]>> {
-    const queryParams = new URLSearchParams();
-    queryParams.append('PageNumber', (params.pageNumber || params.page || 1).toString());
-    queryParams.append('PageSize', (params.pageSize || params.limit || 20).toString());
-    
-    const url = `${MATCHMAKING_ENDPOINTS.GET_USER_MATCHES}?${queryParams.toString()}`;
-    return httpClient.get<PagedResponse<MatchDisplay[]>>(url);
+  async getUserMatches(params: GetMatchRequestsParams = {}): Promise<PagedResponse<MatchDisplay>> {
+    return apiClient.get<PagedResponse<MatchDisplay>>(
+      `${MATCHMAKING_ENDPOINTS.MATCHES.USER}${qp(params)}`
+    );
   },
 
-  /**
-   * Search for matches
-   */
-  async searchMatches(request: CreateMatchRequestRequest): Promise<ApiResponse<MatchDisplay[]>> {
-    return httpClient.post<ApiResponse<MatchDisplay[]>>(MATCHMAKING_ENDPOINTS.FIND_MATCHES, request);
+  async searchMatches(req: CreateMatchRequestRequest): Promise<PagedResponse<MatchDisplay>> {
+    return apiClient.post<PagedResponse<MatchDisplay>>(MATCHMAKING_ENDPOINTS.MATCHES.SEARCH, req);
   },
 
-  /**
-   * Get match details
-   */
   async getMatchDetails(matchId: string): Promise<ApiResponse<MatchDisplay>> {
     if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
-    
-    return httpClient.get<ApiResponse<MatchDisplay>>(`${MATCHMAKING_ENDPOINTS.GET_MATCH}/${matchId}`);
+    return apiClient.get<ApiResponse<MatchDisplay>>(`${MATCHMAKING_ENDPOINTS.MATCHES.DETAILS}/${matchId}`);
   },
 
-  /**
-   * Legacy alias for findMatch
-   */
-  async findMatch(request: FindMatchRequest): Promise<ApiResponse<MatchDisplay[]>> {
-    return this.searchMatches(request);
-  }
+  async dissolveMatch(matchId: string, reason: string): Promise<ApiResponse<{ matchId: string; status: string; dissolvedAt: string }>> {
+    if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
+    if (!reason?.trim()) throw new Error('Grund ist erforderlich');
+    
+    console.log('🔚 [MatchmakingService] Dissolving match:', matchId);
+    
+    return apiClient.post<ApiResponse<{ matchId: string; status: string; dissolvedAt: string }>>(
+      `${MATCHMAKING_ENDPOINTS.MATCHES.DETAILS}/${matchId}/dissolve`,
+      { reason }
+    );
+  },
+
+  async completeMatch(
+    matchId: string, 
+    rating: number, 
+    sessionDurationMinutes: number,
+    feedback?: string,
+    wouldMatchAgain: boolean = true
+  ): Promise<ApiResponse<{ matchId: string; status: string; completedAt: string }>> {
+    if (!matchId?.trim()) throw new Error('Match-ID ist erforderlich');
+    if (!rating || rating < 1 || rating > 5) throw new Error('Bewertung muss zwischen 1 und 5 liegen');
+    if (!sessionDurationMinutes || sessionDurationMinutes < 1) throw new Error('Session-Dauer ist erforderlich');
+    
+    console.log('✅ [MatchmakingService] Completing match:', matchId);
+    
+    return apiClient.post<ApiResponse<{ matchId: string; status: string; completedAt: string }>>(
+      `${MATCHMAKING_ENDPOINTS.MATCHES.DETAILS}/${matchId}/complete`,
+      { 
+        matchId,
+        rating, 
+        sessionDurationMinutes,
+        feedback,
+        wouldMatchAgain
+      }
+    );
+  },
 };
 
 export default matchmakingService;

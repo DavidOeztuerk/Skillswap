@@ -50,7 +50,7 @@ public class GetNotificationHistoryQueryHandler(
             // Apply pagination and get notifications
             var notifications = await query
                 .OrderByDescending(n => n.CreatedAt)
-                .Skip((request.Page - 1) * request.PageSize)
+                .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .Select(n => new NotificationHistoryResponse
                 {
@@ -69,7 +69,7 @@ public class GetNotificationHistoryQueryHandler(
                 })
                 .ToListAsync(cancellationToken);
 
-            return Success(notifications, request.Page, request.PageSize, totalCount);
+            return Success(notifications, request.PageNumber, request.PageSize, totalCount);
         }
         catch (Exception ex)
         {

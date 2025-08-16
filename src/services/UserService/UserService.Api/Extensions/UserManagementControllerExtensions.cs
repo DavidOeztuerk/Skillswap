@@ -1,11 +1,8 @@
-using System.Security.Claims;
 using Contracts.User.Requests;
 using Contracts.User.Responses;
 using CQRS.Extensions;
-using Infrastructure.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using UserService.Api.Application.Queries;
 using UserService.Application.Commands;
 using UserService.Application.Queries;
 

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
 
@@ -11,12 +12,12 @@ public class SmsService : ISmsService
 
     public SmsService(
         ILogger<SmsService> logger,
-        IConfiguration configuration,
+        IOptions<SmsConfiguration> configuration,
         ITemplateEngine templateEngine)
     {
         _logger = logger;
         _templateEngine = templateEngine;
-        _config = configuration.GetSection("Sms").Get<SmsConfiguration>()
+        _config = configuration.Value
                  ?? throw new InvalidOperationException("SMS configuration not found");
 
         if (!string.IsNullOrEmpty(_config.TwilioAccountSid) && !string.IsNullOrEmpty(_config.TwilioAuthToken))

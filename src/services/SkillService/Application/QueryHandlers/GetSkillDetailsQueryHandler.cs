@@ -8,7 +8,6 @@ namespace SkillService.Application.QueryHandlers;
 
 public class GetSkillDetailsQueryHandler(
     SkillDbContext dbContext,
-    // IUserLookupService userLookup,
     ILogger<GetSkillDetailsQueryHandler> logger)
     : BaseQueryHandler<
     GetSkillDetailsQuery,
@@ -16,7 +15,6 @@ public class GetSkillDetailsQueryHandler(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
-    // private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<SkillDetailsResponse>> Handle(
         GetSkillDetailsQuery request,
@@ -35,40 +33,6 @@ public class GetSkillDetailsQueryHandler(
             {
                 return NotFound("Skill not found");
             }
-
-            List<SkillReviewResponse>? reviews = null;
-            if (request.IncludeReviews && skill.Reviews.Count != 0)
-            {
-                reviews = [];
-                foreach (var r in skill.Reviews.Take(10))
-                {
-                    // var reviewer = await _userLookup.GetUserAsync(r.ReviewerUserId, cancellationToken);
-                    reviews.Add(new SkillReviewResponse(
-                        r.Id,
-                        r.ReviewerUserId,
-                        r.Rating,
-                        r.Comment,
-                        r.Tags,
-                        r.CreatedAt));
-                }
-            }
-
-            List<SkillEndorsementResponse>? endorsements = null;
-            if (request.IncludeEndorsements && skill.Endorsements.Count != 0)
-            {
-                endorsements = [];
-                foreach (var e in skill.Endorsements.Take(10))
-                {
-                    // var endorser = await _userLookup.GetUserAsync(e.EndorserUserId, cancellationToken);
-                    endorsements.Add(new SkillEndorsementResponse(
-                        e.Id,
-                        e.EndorserUserId,
-                        e.Message,
-                        e.CreatedAt));
-                }
-            }
-
-            // var owner = await _userLookup.GetUserAsync(skill.UserId, cancellationToken);
 
             var response = new SkillDetailsResponse(
                 skill.Id,
@@ -90,8 +54,20 @@ public class GetSkillDetailsQueryHandler(
                 skill.Tags,
                 skill.IsOffered,
                 skill.AverageRating != null ? (decimal)skill.AverageRating : null,
-                reviews,
-                endorsements,
+                skill.Reviews.Select(x => new SkillReviewResponse(
+                    x.Id,
+                    x.ReviewerUserId,
+                    x.Rating,
+                    x.Comment,
+                    x.Tags,
+                    x.CreatedAt
+                )).ToList(),
+                skill.Endorsements.Select(x => new SkillEndorsementResponse(
+                    x.Id,
+                    x.EndorserUserId,
+                    x.Message,
+                    x.CreatedAt
+                )).ToList(),
                 null, // AvailableHours - not stored in skill entity
                 skill.EstimatedDurationMinutes,
                 skill.IsActive ? "Active" : "Inactive",

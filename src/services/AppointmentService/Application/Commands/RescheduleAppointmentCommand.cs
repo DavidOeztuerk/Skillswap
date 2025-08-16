@@ -5,7 +5,8 @@ namespace AppointmentService.Application.Commands;
 
 public record RescheduleAppointmentCommand(
     string AppointmentId,
-    DateTime NewScheduledDate,
+    DateTimeOffset NewScheduledDate,
+    int? NewDurationMinutes = null,
     string? Reason = null) 
     : ICommand<RescheduleAppointmentResponse>, IAuditableCommand
 {

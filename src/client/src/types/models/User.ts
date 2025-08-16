@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -10,6 +9,7 @@ export interface User {
   timeZone?: string;
   roles?: string[];
   permissions?: string[];
+  favoriteSkills: string[];
   emailVerified?: boolean;
   accountStatus?: string;
   createdAt?: string;

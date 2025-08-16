@@ -43,7 +43,7 @@ import {
   acceptMatchRequest,
   rejectMatchRequest,
   createMatchRequest,
-  getUserMatches,
+  fetchUserMatches
 } from '../../features/matchmaking/matchmakingSlice';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
@@ -137,7 +137,7 @@ const MatchmakingPage: React.FC = () => {
     withLoading(LoadingKeys.FETCH_MATCHES, async () => {
       errorService.addBreadcrumb('Loading matchmaking page data', 'navigation');
       await Promise.all([
-        dispatch(getUserMatches({})),
+        dispatch(fetchUserMatches({})),
         dispatch(fetchIncomingMatchRequests({})),
         dispatch(fetchOutgoingMatchRequests({}))
       ]);
@@ -150,22 +150,25 @@ const MatchmakingPage: React.FC = () => {
 
     // Process incoming requests
     incoming.forEach((request) => {
-      // ✅ KORRIGIERT: Verwende echte ThreadId aus Backend anstatt generierte threadKey
-      const threadId = request.threadId || `${request.requesterId}-${request.skillId}`;
+      // Verwende die tatsächlichen Felder aus MatchRequestDisplay
+      const threadId = request.threadId || `${request.otherUserId}-${request.skillId}`;
+      
       if (!threadsMap.has(threadId)) {
         threadsMap.set(threadId, {
           threadId: threadId,
           otherUser: {
-            id: request.requesterId,
-            name: request.requesterName || 'Unbekannter Nutzer',
+            id: request.otherUserId,
+            name: request.otherUserName || 'Unbekannter Nutzer',
+            avatar: request.otherUserAvatar,
           },
           skill: {
             id: request.skillId,
             name: request.skillName || 'Unbekannter Skill',
+            category: request.skillCategory,
           },
           requests: [],
           latestRequest: {
-            id: request.matchId,
+            id: request.id,
             status: request.status,
             createdAt: request.createdAt,
             type: 'incoming',
@@ -176,11 +179,12 @@ const MatchmakingPage: React.FC = () => {
 
       const thread = threadsMap.get(threadId)!;
       thread.requests.push({
-        id: request.matchId,
+        id: request.id,
         type: 'incoming',
         status: request.status,
         message: request.message || 'Neue Match-Anfrage',
         createdAt: request.createdAt,
+        updatedAt: request.respondedAt,
       });
 
       // Update latest if this is newer
@@ -284,7 +288,7 @@ const MatchmakingPage: React.FC = () => {
       setResponseMessage('');
       setSelectedRequest(null);
       // Refresh data
-      dispatch(getUserMatches({}));
+      dispatch(fetchUserMatches({}));
       dispatch(fetchIncomingMatchRequests({}));
       dispatch(fetchOutgoingMatchRequests({}));
     } catch (error) {
@@ -305,7 +309,7 @@ const MatchmakingPage: React.FC = () => {
       setResponseMessage('');
       setSelectedRequest(null);
       // Refresh data
-      dispatch(getUserMatches({}));
+      dispatch(fetchUserMatches({}));
       dispatch(fetchIncomingMatchRequests({}));
       dispatch(fetchOutgoingMatchRequests({}));
     } catch (error) {
@@ -337,7 +341,7 @@ const MatchmakingPage: React.FC = () => {
         setCounterOfferMessage('');
         setSelectedRequest(null);
         // Refresh data
-        dispatch(getUserMatches({}));
+        dispatch(fetchUserMatches({}));
         dispatch(fetchIncomingMatchRequests({}));
         dispatch(fetchOutgoingMatchRequests({}));
       } catch (error) {
@@ -374,7 +378,7 @@ const MatchmakingPage: React.FC = () => {
     await withLoading('refreshMatches', async () => {
       errorService.addBreadcrumb('Refreshing matchmaking data', 'action');
       await Promise.all([
-        dispatch(getUserMatches({})),
+        dispatch(fetchUserMatches({})),
         dispatch(fetchIncomingMatchRequests({})),
         dispatch(fetchOutgoingMatchRequests({}))
       ]);

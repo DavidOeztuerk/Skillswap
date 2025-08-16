@@ -1,12 +1,11 @@
 using UserService.Application.Queries;
 using System.Text.Json;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using Contracts.User.Responses;
 using UserService.Domain.Repositories;
 using Microsoft.Extensions.Logging;
-using UserService.Api.Application.Queries;
 using CQRS.Models;
+using System.Linq;
 
 namespace UserService.Application.QueryHandlers;
 
@@ -21,24 +20,22 @@ public class GetUserProfileQueryHandler(
         GetUserProfileQuery request,
         CancellationToken cancellationToken)
     {
+        Logger.LogInformation("Retrieve user from db with claims {UserId}", request.UserId);
+
         try
         {
             var user = await _userProfileRepository.GetUserProfile(request.UserId, cancellationToken);
-
             if (user == null)
-            {
                 return NotFound("User not found");
-            }
 
-            var preferences = string.IsNullOrEmpty(user.PreferencesJson)
+            var preferences = string.IsNullOrWhiteSpace(user.PreferencesJson)
                 ? new Dictionary<string, string>()
-                : JsonSerializer.Deserialize<Dictionary<string, string>>(user.PreferencesJson)
-                  ?? new Dictionary<string, string>();
+                : (JsonSerializer.Deserialize<Dictionary<string, string>>(user.PreferencesJson)
+                    ?? new Dictionary<string, string>());
 
-            // Filter aktive Rollen nach dem Laden
             var activeRoles = user.UserRoles
-                .Where(ur => ur.IsActive)
-                .Select(ur => ur.Role)
+                .Where(ur => ur.IsActive && ur.Role != null)
+                .Select(ur => ur.Role.Name)
                 .ToList();
 
             var response = new UserProfileResponse(
@@ -50,13 +47,13 @@ public class GetUserProfileQueryHandler(
                 user.PhoneNumber,
                 user.Bio,
                 user.TimeZone,
-                activeRoles, // Gefilterte Rollen verwenden
+                activeRoles,
                 user.EmailVerified,
                 user.AccountStatus.ToString(),
                 user.CreatedAt,
                 user.LastLoginAt,
                 preferences,
-                user.ProfilcePictureUrl);
+                user.ProfilePictureUrl);
 
             Logger.LogInformation("Retrieved profile for user {UserId}", request.UserId);
             return Success(response);

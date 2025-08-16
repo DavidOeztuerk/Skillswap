@@ -41,32 +41,19 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { usePermission } from '../../contexts/PermissionContext';
-import apiClient from '../../services/apiClient';
+import { usePermissions } from '../../contexts/PermissionContext';
 import { format } from 'date-fns';
 import { unwrap, withDefault } from '../../utils/safeAccess';
 import { AdminErrorBoundary } from '../../components/error';
 import errorService from '../../services/errorService';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
-
-interface User {
-  id: string;
-  email: string;
-  userName: string;
-  firstName: string;
-  lastName: string;
-  roles: string[];
-  accountStatus: string;
-  emailVerified: boolean;
-  createdAt: string;
-  lastLogin?: string;
-}
-
+import apiClient from '../../api/apiClient';
+import { User } from '../../types/models/User';
 
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { hasPermission, isSuperAdmin, isAdmin } = usePermission();
+  const { hasPermission, isSuperAdmin, isAdmin } = usePermissions();
   const { withLoading, isLoading } = useLoading();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -320,7 +307,7 @@ const UserManagement: React.FC = () => {
                 <TableCell>{`${user.firstName} ${user.lastName}`}</TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={0.5}>
-                    {user.roles.map((role) => (
+                    {user.roles?.map((role) => (
                       <Chip
                         key={role}
                         label={role}
@@ -334,7 +321,7 @@ const UserManagement: React.FC = () => {
                   <Chip
                     label={user.accountStatus}
                     size="small"
-                    color={getStatusColor(user.accountStatus) as any}
+                    color={getStatusColor(user.accountStatus ?? "")}
                   />
                 </TableCell>
                 <TableCell>
@@ -344,10 +331,10 @@ const UserManagement: React.FC = () => {
                     color={user.emailVerified ? 'success' : 'warning'}
                   />
                 </TableCell>
-                <TableCell>{format(new Date(user.createdAt), 'MMM dd, yyyy')}</TableCell>
+                <TableCell>{user.createdAt ? format(new Date(user.createdAt), 'MMM dd, yyyy'): 'Never'}</TableCell>
                 <TableCell>
-                  {user.lastLogin
-                    ? format(new Date(user.lastLogin), 'MMM dd, yyyy')
+                  {user.lastLoginAt
+                    ? format(new Date(user.lastLoginAt), 'MMM dd, yyyy')
                     : 'Never'}
                 </TableCell>
                 <TableCell align="right">
@@ -424,7 +411,7 @@ const UserManagement: React.FC = () => {
         <DialogTitle>Manage User Roles</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            Current roles: {selectedUser?.roles.join(', ')}
+            Current roles: {selectedUser?.roles?.join(', ')}
           </Typography>
           {!isSuperAdmin && selectedUser?.roles?.includes('SuperAdmin') ? (
             <Alert severity="warning">

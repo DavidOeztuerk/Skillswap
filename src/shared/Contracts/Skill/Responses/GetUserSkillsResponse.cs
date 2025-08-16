@@ -1,20 +1,4 @@
-using Contracts.Common;
-
 namespace Contracts.Skill.Responses;
-
-/// <summary>
-/// API response for GetUserSkills operation
-/// </summary>
-/// <param name="Skills">List of user skills</param>
-public record GetUserSkillsResponse(
-    List<UserSkillResponse> Skills)
-    : IVersionedContract
-{
-    /// <summary>
-    /// API Version this response supports
-    /// </summary>
-    public string ApiVersion => "v1";
-}
 
 /// <summary>
 /// Individual user skill response

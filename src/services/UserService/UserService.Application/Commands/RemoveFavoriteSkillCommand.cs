@@ -1,6 +1,6 @@
 using CQRS.Interfaces;
 
-namespace UserService.Application.Commands.Favorites;
+namespace UserService.Application.Commands;
 
 public record RemoveFavoriteSkillCommand(
     string SkillId) 

@@ -1,3 +1,7 @@
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using CQRS.Handlers;
 using CQRS.Models;
 using Microsoft.Extensions.Logging;
@@ -8,39 +12,40 @@ namespace UserService.Application.QueryHandlers;
 
 public class GetUserRolesQueryHandler(
     IUserRepository userRepository,
-    ILogger<GetUserRolesQueryHandler> logger) 
+    IPermissionRepository permissionRepository,
+    ILogger<GetUserRolesQueryHandler> logger)
     : BaseQueryHandler<GetUserRolesQuery, UserRolesResponse>(logger)
 {
-    private readonly IUserRepository _userRepository = userRepository;
+    private readonly IUserRepository _users = userRepository;
+    private readonly IPermissionRepository _perms = permissionRepository;
 
     public override async Task<ApiResponse<UserRolesResponse>> Handle(
-        GetUserRolesQuery request, 
-        CancellationToken cancellationToken)
+        GetUserRolesQuery request,
+        CancellationToken ct)
     {
         try
         {
-            var user = await _userRepository.GetUserWithRoles(request.UserId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(request.UserId))
+                return Error("UserId is required");
 
-            if (user == null || user.IsDeleted)
-            {
+            var user = await _users.GetUserWithRoles(request.UserId, ct);
+            if (user is null || user.IsDeleted)
                 return NotFound("User not found");
-            }
 
-            var roles = user.UserRoles.Select(ur => ur.Role).ToList();
-            
-            // Map roles to permissions (simplified - in real app this would be from a permissions table)
-            var permissions = new List<string>();
-            foreach (var role in roles)
-            {
-                permissions.AddRange(GetPermissionsForRole(role));
-            }
+            var roles = user.UserRoles
+                .Where(ur => ur.RevokedAt == null)
+                .Select(ur => ur.Role.Name)
+                .Distinct()
+                .ToList();
 
+            // hol aus DB (inkl. Rollen-Inheritance & direkte User-Permissions)
+            var permissionNames = await _perms.GetUserPermissionNamesAsync(user.Id, ct);
             var response = new UserRolesResponse(
                 user.Id,
                 roles,
-                permissions.Distinct().ToList());
+                permissionNames.Distinct().OrderBy(x => x).ToList());
 
-            Logger.LogInformation("Retrieved roles for user {UserId}", request.UserId);
+            Logger.LogInformation("Retrieved roles & permissions for user {UserId}", request.UserId);
             return Success(response);
         }
         catch (Exception ex)
@@ -48,41 +53,5 @@ public class GetUserRolesQueryHandler(
             Logger.LogError(ex, "Error retrieving roles for user {UserId}", request.UserId);
             return Error("An error occurred while retrieving user roles");
         }
-    }
-
-    private static List<string> GetPermissionsForRole(string role)
-    {
-        return role switch
-        {
-            "SuperAdmin" => new List<string>
-            {
-                "users:read", "users:write", "users:delete", "users:manage_roles",
-                "skills:read", "skills:write", "skills:delete", "skills:manage_categories",
-                "matching:access", "matching:view_all",
-                "appointments:read", "appointments:write", "appointments:delete",
-                "videocalls:access", "videocalls:manage",
-                "system:admin_panel", "system:logs", "system:manage"
-            },
-            "Admin" => new List<string>
-            {
-                "users:read", "users:write", "users:manage_roles",
-                "skills:read", "skills:write", "skills:manage_categories",
-                "matching:access", "matching:view_all",
-                "appointments:read", "appointments:write",
-                "videocalls:access",
-                "system:admin_panel", "system:logs"
-            },
-            "Moderator" => new List<string>
-            {
-                "users:read", "skills:read", "skills:write",
-                "matching:access", "appointments:read", "videocalls:access"
-            },
-            "User" => new List<string>
-            {
-                "skills:read", "skills:write", "matching:access",
-                "appointments:read", "appointments:write", "videocalls:access"
-            },
-            _ => new List<string>()
-        };
     }
 }

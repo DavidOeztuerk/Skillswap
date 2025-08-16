@@ -38,7 +38,6 @@ public class User : AuditableEntity
     [MaxLength(100)]
     public string? TimeZone { get; set; }
 
-    [MaxLength(20)]
     public AccountStatus AccountStatus { get; set; } = AccountStatus.PendingVerification;
 
     public bool EmailVerified { get; set; } = false;
@@ -52,6 +51,19 @@ public class User : AuditableEntity
     [MaxLength(100)]
     public string? EmailVerificationToken { get; set; }
     public DateTime? EmailVerificationTokenExpiresAt { get; set; }
+    public DateTime? EmailVerificationSentAt { get; set; }
+    public DateTime? EmailVerificationCooldownUntil { get; set; }
+    public int EmailVerificationAttempts { get; set; } = 0;
+
+    // Phone verification
+    [MaxLength(100)]
+    public string? PhoneVerificationCode { get; set; }
+    public DateTime? PhoneVerificationExpiresAt { get; set; }
+    public DateTime? PhoneVerificationSentAt { get; set; }
+    public DateTime? PhoneVerificationCooldownUntil { get; set; }
+    public int PhoneVerificationAttempts { get; set; } = 0;
+    public int PhoneVerificationFailedAttempts { get; set; } = 0;
+    public DateTime? PhoneVerifiedAt { get; set; }
 
     // Password reset
     [MaxLength(100)]
@@ -66,9 +78,14 @@ public class User : AuditableEntity
     public int FailedLoginAttempts { get; set; } = 0;
     public DateTime? AccountLockedUntil { get; set; }
 
+    // Admin fields
+    public bool IsSuspended { get; set; } = false;
+    public DateTime? SuspendedAt { get; set; }
+    public string? SuspensionReason { get; set; }
+
     // Avatar URL (replaces ProfilePictureUrl)
     [MaxLength(500)]
-    public string? ProfilcePictureUrl { get; set; }
+    public string? ProfilePictureUrl { get; set; }
 
     // Availability and scheduling (stored as JSON)
     public string? AvailabilityJson { get; set; }
@@ -81,18 +98,13 @@ public class User : AuditableEntity
     public string? PreferencesJson { get; set; }
 
     // Navigation properties
-    public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
-    public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
-    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
-    public virtual ICollection<UserActivity> Activities { get; set; } = new List<UserActivity>();
-    public virtual ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();
-    public virtual ICollection<BlockedUser> BlockedUsers { get; set; } = new List<BlockedUser>();
-    
-    // Permissions granted/revoked by this user
-    public virtual ICollection<UserPermission> PermissionsGranted { get; set; } = new List<UserPermission>();
-    public virtual ICollection<UserPermission> PermissionsRevoked { get; set; } = new List<UserPermission>();
-    public virtual ICollection<RolePermission> RolePermissionsGranted { get; set; } = new List<RolePermission>();
-    public virtual ICollection<RolePermission> RolePermissionsRevoked { get; set; } = new List<RolePermission>();
+    public virtual ICollection<UserRole> UserRoles { get; set; } = [];
+    public virtual ICollection<UserPermission> UserPermissions { get; set; } = [];
+    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = [];
+    public virtual ICollection<UserActivity> Activities { get; set; } = [];
+    public virtual ICollection<UserSession> Sessions { get; set; } = [];
+    public virtual ICollection<BlockedUser> BlockedUsersInitiated { get; set; } = [];
+    public virtual ICollection<BlockedUser> BlockedByOthers { get; set; } = [];
 
     /// <summary>
     /// List of Skill IDs that this user has marked as favorite

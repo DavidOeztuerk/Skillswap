@@ -6,17 +6,18 @@ namespace SkillService.Application.Queries;
 
 public record GetUserSkillsQuery(
     string UserId,
-    bool? IsOffering = null,
+    bool? IsOffered = null,
     string? CategoryId = null,
+    string? ProficiencyLevelId = null,
     bool IncludeInactive = false,
     int PageNumber = 1,
     int PageSize = 20)
     : IPagedQuery<UserSkillResponse>, ICacheableQuery
 {
-    int IPagedQuery<UserSkillResponse>.PageNumber { get; set; } = PageNumber;
-    int IPagedQuery<UserSkillResponse>.PageSize { get; set; } = PageSize;
+    public int PageNumber { get; set; } = PageNumber;
+    public int PageSize { get; set; } = PageSize;
 
-    public string CacheKey => $"user-skills:{UserId}:{IsOffering}:{CategoryId}:{IncludeInactive}:{PageNumber}:{PageSize}";
+    public string CacheKey => $"user-skills:{UserId}:{IsOffered}:{CategoryId}:{ProficiencyLevelId}:{IncludeInactive}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 

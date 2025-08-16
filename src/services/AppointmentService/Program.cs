@@ -19,6 +19,9 @@ using AppointmentService;
 using AppointmentService.Consumer;
 using AppointmentService.Application.Commands;
 using AppointmentService.Application.Queries;
+using AppointmentService.Application.EventHandlers;
+using AppointmentService.Application.Services;
+using Events.Domain.Appointment;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,43 +46,24 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
 // Add database
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+var connectionString =
+    Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-if (string.IsNullOrEmpty(connectionString))
+// 2) Service-spezifischer Fallback (nur wenn wirklich nichts gesetzt ist)
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    // ✅ Intelligente Host-Erkennung
-    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
-                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
-                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
-
-    var host = isRunningInContainer ? "postgres" : "localhost";
-
-    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
-        ?? builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
-
-    // Falls Environment Variable einen anderen Host enthält, korrigieren
-    if (connectionString.Contains("Host="))
-    {
-        connectionString = System.Text.RegularExpressions.Regex.Replace(
-            connectionString,
-            @"Host=[^;]+",
-            $"Host={host}"
-        );
-    }
+    var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "skillswap@ditss1990?!";
+    connectionString =
+        $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
-
-// Debug-Ausgabe (ohne Passwort für Logs)
-var safeConnectionString = connectionString.Contains("Password=")
-    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
-    : connectionString;
-
-builder.Services.AddDbContext<AppointmentDbContext>(options =>
-{
-    options.UseNpgsql(connectionString);
-    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
-    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
-});
+builder.Services.AddDbContext<AppointmentDbContext>(opts =>
+    opts.UseNpgsql(connectionString, npg =>
+        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)) // EF-Retry einschalten
+    .EnableDetailedErrors(builder.Environment.IsDevelopment())
+    .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+);
 
 // Event sourcing setup
 builder.Services.AddEventSourcing("AppointmentEventStore");
@@ -94,6 +78,28 @@ builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecuting
 
 // Add AppointmentService-specific dependencies
 builder.Services.AddAppointmentServiceDependencies();
+
+// Add services for appointment data enrichment
+builder.Services.AddScoped<AppointmentDataEnrichmentService>();
+
+// Add HttpClients for inter-service communication
+builder.Services.AddHttpClient("VideocallService", client =>
+{
+    client.BaseAddress = new Uri("http://videocallservice:5006");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+});
+
+builder.Services.AddHttpClient("UserService", client =>
+{
+    client.BaseAddress = new Uri("http://userservice:5001");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+});
+
+builder.Services.AddHttpClient("SkillService", client =>
+{
+    client.BaseAddress = new Uri("http://skillservice:5002");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+});
 
 // Add MassTransit
 builder.Services.AddMassTransit(x =>
@@ -207,6 +213,21 @@ app.UseAuthorization();
 // Permission middleware (after authentication/authorization)
 app.UsePermissionMiddleware();
 
+// nach app.Build(), vor app.Run():
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppointmentDbContext>();
+    // EF-eigene ExecutionStrategy, damit auch die Verbindungserstellung retried wird
+    var strategy = db.Database.CreateExecutionStrategy();
+    await strategy.ExecuteAsync(async () =>
+    {
+        await db.Database.MigrateAsync();           // ← statt EnsureCreated
+        // optional: Seeding
+        // await AppointmentSeedData.SeedAsync(db);
+    });
+    app.Logger.LogInformation("Database migration completed successfully");
+}
+
 // API Endpoints
 
 // Grouped endpoints for appointments
@@ -230,13 +251,26 @@ appointments.MapPost("/{appointmentId}/cancel", HandleCancelAppointment)
     .WithDescription("Cancels an appointment for the authenticated user.")
     .RequireAuthorization();
 
+appointments.MapPost("/{appointmentId}/reschedule", HandleRescheduleAppointment)
+    .WithName("RescheduleAppointment")
+    .WithSummary("Reschedule an appointment")
+    .WithDescription("Reschedules an appointment to a new date and time.")
+    .RequireAuthorization();
+
+appointments.MapPost("/{appointmentId}/meeting-link", HandleGenerateMeetingLink)
+    .WithName("GenerateMeetingLink")
+    .WithSummary("Generate meeting link")
+    .WithDescription("Generates a meeting link for the appointment with 5-minute activation delay.")
+    .RequireAuthorization();
+
 appointments.MapGet("/{appointmentId}", HandleGetAppointmentDetails)
     .WithName("GetAppointmentDetails")
     .WithSummary("Get appointment details")
     .WithDescription("Retrieves details for a specific appointment.");
 
 // Grouped endpoints for user appointments
-var myAppointments = app.MapGroup("/my/appointments").WithTags("Appointments");
+var myAppointments = app.MapGroup("/my/appointments")
+    .WithTags("Appointments");
 
 myAppointments.MapGet("/", HandleGetUserAppointments)
     .WithName("GetMyAppointments")
@@ -330,6 +364,7 @@ static async Task<IResult> HandleGetUserAppointments(IMediator mediator, ClaimsP
     if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
     var query = new GetUserAppointmentsQuery(
+        userId,
         request.Status,
         request.FromDate,
         request.ToDate,
@@ -338,6 +373,33 @@ static async Task<IResult> HandleGetUserAppointments(IMediator mediator, ClaimsP
         request.PageSize);
 
     return await mediator.SendQuery(query);
+}
+
+static async Task<IResult> HandleRescheduleAppointment(IMediator mediator, ClaimsPrincipal user, 
+    [FromRoute] string appointmentId, [FromBody] RescheduleAppointmentRequest request)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new RescheduleAppointmentCommand(
+        appointmentId,
+        request.NewScheduledDate,
+        request.NewDurationMinutes,
+        request.Reason)
+    {
+        UserId = userId
+    };
+
+    return await mediator.SendCommand(command);
+}
+
+static async Task<IResult> HandleGenerateMeetingLink(IMediator mediator, ClaimsPrincipal user, string appointmentId)
+{
+    var userId = user.GetUserId();
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var command = new GenerateMeetingLinkCommand(appointmentId);
+    return await mediator.SendCommand(command);
 }
 
 // Initialize database

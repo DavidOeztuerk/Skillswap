@@ -5,8 +5,7 @@ using UserService.Domain.Enums;
 
 namespace UserService.Infrastructure.Repositories;
 
-public class UserProfileRepository(
-    UserDbContext userDbContext) : IUserProfileRepository
+public class UserProfileRepository(UserDbContext userDbContext) : IUserProfileRepository
 {
     private readonly UserDbContext _dbContext = userDbContext;
 
@@ -15,9 +14,12 @@ public class UserProfileRepository(
         try
         {
             return await _dbContext.Users
-                .Include(u => u.UserRoles)
+                .Where(u => u.Id == userId)
+                .Include(u => u.UserRoles)                 // Lade UserRoles
+                    .ThenInclude(ur => ur.Role)            // und die zugehörige Role
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+                .AsSplitQuery()                            // vermeidet Cartesische Explosionen
+                .FirstOrDefaultAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -29,33 +31,22 @@ public class UserProfileRepository(
     {
         try
         {
-            // Check if the requesting user is blocked by the target user
             var isBlocked = await _dbContext.BlockedUsers
                 .AnyAsync(bu => bu.UserId == userId && bu.BlockedUserId == requestingUserId, cancellationToken);
 
             if (isBlocked)
-            {
-                return null; // Return null if blocked to protect privacy
-            }
+                return null;
 
+            // WICHTIG: Keine Projection auf neue User-Entität + Include mischen.
+            // Entweder sauber projizieren ODER volle Entität laden. Wir laden die Entität
+            // inkl. gefilterter aktiver Rollen und deren Role-Navigation.
             return await _dbContext.Users
+                .Where(u => u.Id == userId && !u.IsDeleted && u.AccountStatus == AccountStatus.Active)
                 .Include(u => u.UserRoles.Where(ur => ur.IsActive))
+                    .ThenInclude(ur => ur.Role)
                 .AsNoTracking()
-                .Select(u => new User
-                {
-                    Id = u.Id,
-                    UserName = u.UserName,
-                    FirstName = u.FirstName,
-                    LastName = u.LastName,
-                    Bio = u.Bio,
-                    ProfilcePictureUrl = u.ProfilcePictureUrl,
-                    FavoriteSkillIds = u.FavoriteSkillIds,
-                    CreatedAt = u.CreatedAt,
-                    AccountStatus = u.AccountStatus,
-                    UserRoles = u.UserRoles.Where(ur => ur.IsActive).ToList(),
-                    // Exclude sensitive information like email, password, etc.
-                })
-                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted && u.AccountStatus == AccountStatus.Active, cancellationToken);
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -69,25 +60,20 @@ public class UserProfileRepository(
         {
             var user = await _dbContext.Users.FindAsync([userId], cancellationToken);
             if (user == null)
-            {
                 throw new InvalidOperationException($"User with ID {userId} not found");
-            }
 
-            // Check if username is already taken by another user
             if (!string.IsNullOrEmpty(userName) && userName != user.UserName)
             {
                 var isUsernameTaken = await _dbContext.Users
                     .AnyAsync(u => u.UserName == userName && u.Id != userId, cancellationToken);
 
                 if (isUsernameTaken)
-                {
                     throw new InvalidOperationException("Username is already taken");
-                }
             }
 
             user.FirstName = firstName;
             user.LastName = lastName;
-            user.UserName = userName ?? user.UserName;
+            user.UserName = string.IsNullOrWhiteSpace(userName) ? user.UserName : userName;
             user.Bio = bio;
             user.UpdatedAt = DateTime.UtcNow;
 
@@ -106,21 +92,14 @@ public class UserProfileRepository(
         {
             var user = await _dbContext.Users.FindAsync([userId], cancellationToken);
             if (user == null)
-            {
                 return false;
-            }
 
-            // Verify current password
             if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
-            {
                 return false;
-            }
 
-            // Update password
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             user.UpdatedAt = DateTime.UtcNow;
 
-            // Revoke all refresh tokens to force re-login
             var refreshTokens = await _dbContext.RefreshTokens
                 .Where(rt => rt.UserId == userId && !rt.IsRevoked)
                 .ToListAsync(cancellationToken);
@@ -147,15 +126,10 @@ public class UserProfileRepository(
         {
             var user = await _dbContext.Users.FindAsync([userId], cancellationToken);
             if (user == null)
-            {
                 throw new InvalidOperationException($"User with ID {userId} not found");
-            }
 
-            // In a real implementation, you would upload to cloud storage (AWS S3, Azure Blob, etc.)
-            // For now, we'll create a placeholder URL
             var avatarUrl = $"/avatars/{userId}/{fileName}";
-
-            user.ProfilcePictureUrl = avatarUrl;
+            user.ProfilePictureUrl = avatarUrl;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -172,12 +146,9 @@ public class UserProfileRepository(
         {
             var user = await _dbContext.Users.FindAsync([userId], cancellationToken);
             if (user == null)
-            {
                 throw new InvalidOperationException($"User with ID {userId} not found");
-            }
 
-            // In a real implementation, you would also delete the file from cloud storage
-            user.ProfilcePictureUrl = null;
+            user.ProfilePictureUrl = null;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync(cancellationToken);

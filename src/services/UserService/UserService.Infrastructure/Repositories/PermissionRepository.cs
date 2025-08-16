@@ -16,37 +16,27 @@ public class PermissionRepository : IPermissionRepository
         _logger = logger;
     }
 
-    // Permission operations
-    public async Task<Permission?> GetPermissionByIdAsync(string id, CancellationToken cancellationToken = default)
-    {
-        return await _context.Permissions
+    // ---------- Permission ----------
+    public async Task<Permission?> GetPermissionByIdAsync(string id, CancellationToken cancellationToken = default) =>
+        await _context.Permissions
             .Include(p => p.RolePermissions)
             .Include(p => p.UserPermissions)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
-    }
 
-    public async Task<Permission?> GetPermissionByNameAsync(string name, CancellationToken cancellationToken = default)
-    {
-        return await _context.Permissions
-            .FirstOrDefaultAsync(p => p.Name == name && p.IsActive, cancellationToken);
-    }
+    public async Task<Permission?> GetPermissionByNameAsync(string name, CancellationToken cancellationToken = default) =>
+        await _context.Permissions.FirstOrDefaultAsync(p => p.Name == name && p.IsActive, cancellationToken);
 
-    public async Task<IEnumerable<Permission>> GetAllPermissionsAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.Permissions
+    public async Task<IEnumerable<Permission>> GetAllPermissionsAsync(CancellationToken cancellationToken = default) =>
+        await _context.Permissions
             .Where(p => p.IsActive)
-            .OrderBy(p => p.Category)
-            .ThenBy(p => p.Name)
+            .OrderBy(p => p.Category).ThenBy(p => p.Name)
             .ToListAsync(cancellationToken);
-    }
 
-    public async Task<IEnumerable<Permission>> GetPermissionsByCategoryAsync(string category, CancellationToken cancellationToken = default)
-    {
-        return await _context.Permissions
+    public async Task<IEnumerable<Permission>> GetPermissionsByCategoryAsync(string category, CancellationToken cancellationToken = default) =>
+        await _context.Permissions
             .Where(p => p.Category == category && p.IsActive)
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
-    }
 
     public async Task<Permission> AddPermissionAsync(Permission permission, CancellationToken cancellationToken = default)
     {
@@ -64,40 +54,29 @@ public class PermissionRepository : IPermissionRepository
     public async Task DeletePermissionAsync(string id, CancellationToken cancellationToken = default)
     {
         var permission = await GetPermissionByIdAsync(id, cancellationToken);
-        if (permission != null)
-        {
-            permission.Deactivate();
-            await _context.SaveChangesAsync(cancellationToken);
-        }
+        if (permission is null) return;
+        permission.Deactivate(); // Soft delete
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
-    // Role operations
-    public async Task<Role?> GetRoleByIdAsync(string id, CancellationToken cancellationToken = default)
-    {
-        return await _context.Roles
-            .Include(r => r.RolePermissions)
-                .ThenInclude(rp => rp.Permission)
+    // ---------- Role ----------
+    public async Task<Role?> GetRoleByIdAsync(string id, CancellationToken cancellationToken = default) =>
+        await _context.Roles
+            .Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission)
             .Include(r => r.ParentRole)
             .Include(r => r.ChildRoles)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
-    }
 
-    public async Task<Role?> GetRoleByNameAsync(string name, CancellationToken cancellationToken = default)
-    {
-        return await _context.Roles
-            .Include(r => r.RolePermissions)
-                .ThenInclude(rp => rp.Permission)
+    public async Task<Role?> GetRoleByNameAsync(string name, CancellationToken cancellationToken = default) =>
+        await _context.Roles
+            .Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(r => r.Name == name && r.IsActive, cancellationToken);
-    }
 
-    public async Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.Roles
+    public async Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken = default) =>
+        await _context.Roles
             .Where(r => r.IsActive)
-            .OrderByDescending(r => r.Priority)
-            .ThenBy(r => r.Name)
+            .OrderByDescending(r => r.Priority).ThenBy(r => r.Name)
             .ToListAsync(cancellationToken);
-    }
 
     public async Task<Role> AddRoleAsync(Role role, CancellationToken cancellationToken = default)
     {
@@ -115,24 +94,20 @@ public class PermissionRepository : IPermissionRepository
     public async Task DeleteRoleAsync(string id, CancellationToken cancellationToken = default)
     {
         var role = await GetRoleByIdAsync(id, cancellationToken);
-        if (role != null && !role.IsSystemRole)
-        {
-            role.Deactivate();
-            await _context.SaveChangesAsync(cancellationToken);
-        }
+        if (role is null || role.IsSystemRole) return;
+        role.Deactivate(); // Soft delete
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
-    // User permissions
-    public async Task<IEnumerable<UserPermission>> GetUserPermissionsAsync(string userId, CancellationToken cancellationToken = default)
-    {
-        return await _context.UserPermissions
+    // ---------- UserPermissions ----------
+    public async Task<IEnumerable<UserPermission>> GetUserPermissionsAsync(string userId, CancellationToken cancellationToken = default) =>
+        await _context.UserPermissions
             .Include(up => up.Permission)
-            .Where(up => up.UserId == userId &&
-                       up.IsActive &&
-                       up.IsGranted &&
-                       (up.ExpiresAt == null || up.ExpiresAt > DateTime.UtcNow))
+            .Where(up => up.UserId == userId
+                         && up.IsActive
+                         && up.IsGranted
+                         && (up.ExpiresAt == null || up.ExpiresAt > DateTime.UtcNow))
             .ToListAsync(cancellationToken);
-    }
 
     public async Task<UserPermission?> GetUserPermissionAsync(string userId, string permissionId, string? resourceId = null, CancellationToken cancellationToken = default)
     {
@@ -140,10 +115,8 @@ public class PermissionRepository : IPermissionRepository
             .Include(up => up.Permission)
             .Where(up => up.UserId == userId && up.PermissionId == permissionId);
 
-        if (resourceId != null)
-        {
+        if (!string.IsNullOrEmpty(resourceId))
             query = query.Where(up => up.ResourceId == resourceId);
-        }
 
         return await query.FirstOrDefaultAsync(cancellationToken);
     }
@@ -163,40 +136,32 @@ public class PermissionRepository : IPermissionRepository
 
     public async Task DeleteUserPermissionAsync(string id, CancellationToken cancellationToken = default)
     {
-        var userPermission = await _context.UserPermissions.FindAsync([id], cancellationToken);
-        if (userPermission != null)
-        {
-            _context.UserPermissions.Remove(userPermission);
-            await _context.SaveChangesAsync(cancellationToken);
-        }
+        var entity = await _context.UserPermissions.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return;
+        _context.UserPermissions.Remove(entity);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<UserPermission>> GetUserPermissionHistoryAsync(string userId, CancellationToken cancellationToken = default)
-    {
-        return await _context.UserPermissions
+    public async Task<IEnumerable<UserPermission>> GetUserPermissionHistoryAsync(string userId, CancellationToken cancellationToken = default) =>
+        await _context.UserPermissions
             .Include(up => up.Permission)
-            .Include(up => up.GrantedByUser)
-            .Include(up => up.RevokedByUser)
+            .Include(up => up.GrantedBy)
+            .Include(up => up.RevokedBy)
             .Where(up => up.UserId == userId)
             .OrderByDescending(up => up.GrantedAt)
             .ToListAsync(cancellationToken);
-    }
 
-    // Role permissions
-    public async Task<IEnumerable<RolePermission>> GetRolePermissionsAsync(string roleId, CancellationToken cancellationToken = default)
-    {
-        return await _context.RolePermissions
+    // ---------- RolePermissions ----------
+    public async Task<IEnumerable<RolePermission>> GetRolePermissionsAsync(string roleId, CancellationToken cancellationToken = default) =>
+        await _context.RolePermissions
             .Include(rp => rp.Permission)
             .Where(rp => rp.RoleId == roleId && rp.IsActive)
             .ToListAsync(cancellationToken);
-    }
 
-    public async Task<RolePermission?> GetRolePermissionAsync(string roleId, string permissionId, CancellationToken cancellationToken = default)
-    {
-        return await _context.RolePermissions
+    public async Task<RolePermission?> GetRolePermissionAsync(string roleId, string permissionId, CancellationToken cancellationToken = default) =>
+        await _context.RolePermissions
             .Include(rp => rp.Permission)
             .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId, cancellationToken);
-    }
 
     public async Task<RolePermission> AddRolePermissionAsync(RolePermission rolePermission, CancellationToken cancellationToken = default)
     {
@@ -213,38 +178,34 @@ public class PermissionRepository : IPermissionRepository
 
     public async Task DeleteRolePermissionAsync(string id, CancellationToken cancellationToken = default)
     {
-        var rolePermission = await _context.RolePermissions.FindAsync([id], cancellationToken);
-        if (rolePermission != null)
-        {
-            _context.RolePermissions.Remove(rolePermission);
-            await _context.SaveChangesAsync(cancellationToken);
-        }
+        var entity = await _context.RolePermissions.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return;
+        _context.RolePermissions.Remove(entity);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<RolePermission>> GetRolePermissionHistoryAsync(string roleId, CancellationToken cancellationToken = default)
-    {
-        return await _context.RolePermissions
+    public async Task<IEnumerable<RolePermission>> GetRolePermissionHistoryAsync(string roleId, CancellationToken cancellationToken = default) =>
+        await _context.RolePermissions
             .Include(rp => rp.Permission)
             .Include(rp => rp.GrantedByUser)
             .Include(rp => rp.RevokedByUser)
             .Where(rp => rp.RoleId == roleId)
             .OrderByDescending(rp => rp.GrantedAt)
             .ToListAsync(cancellationToken);
-    }
 
-    // User roles
-    public async Task<IEnumerable<UserRole>> GetUserRolesAsync(string userId, CancellationToken cancellationToken = default)
-    {
-        return await _context.UserRoles
+    // ---------- UserRoles ----------
+    public async Task<IEnumerable<UserRole>> GetUserRolesAsync(string userId, CancellationToken cancellationToken = default) =>
+        await _context.UserRoles
+            .Include(ur => ur.Role)
             .Where(ur => ur.UserId == userId && ur.RevokedAt == null)
             .ToListAsync(cancellationToken);
-    }
 
-    public async Task<UserRole?> GetUserRoleAsync(string userId, string roleName, CancellationToken cancellationToken = default)
-    {
-        return await _context.UserRoles
-            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.Role == roleName, cancellationToken);
-    }
+    public async Task<UserRole?> GetUserRoleAsync(string userId, string roleName, CancellationToken cancellationToken = default) =>
+        await _context.UserRoles
+            .Include(ur => ur.Role)
+            .FirstOrDefaultAsync(ur => ur.UserId == userId
+                                       && ur.RevokedAt == null
+                                       && ur.Role.Name == roleName, cancellationToken);
 
     public async Task<UserRole> AddUserRoleAsync(UserRole userRole, CancellationToken cancellationToken = default)
     {
@@ -261,50 +222,42 @@ public class PermissionRepository : IPermissionRepository
 
     public async Task DeleteUserRoleAsync(string id, CancellationToken cancellationToken = default)
     {
-        var userRole = await _context.UserRoles.FindAsync([id], cancellationToken);
-        if (userRole != null)
-        {
-            _context.UserRoles.Remove(userRole);
-            await _context.SaveChangesAsync(cancellationToken);
-        }
+        var entity = await _context.UserRoles.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null) return;
+        _context.UserRoles.Remove(entity);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
-    // Utility methods
+    // ---------- Utils ----------
     public async Task<bool> UserHasPermissionAsync(string userId, string permissionName, string? resourceId = null, CancellationToken cancellationToken = default)
     {
-        // Check direct user permissions
-        var hasDirectPermission = await _context.UserPermissions
-            .AnyAsync(up => up.UserId == userId &&
-                           up.Permission.Name == permissionName &&
-                           up.IsActive &&
-                           up.IsGranted &&
-                           (resourceId == null || up.ResourceId == resourceId) &&
-                           (up.ExpiresAt == null || up.ExpiresAt > DateTime.UtcNow), cancellationToken);
+        // direkt
+        var hasDirect = await _context.UserPermissions
+            .AnyAsync(up => up.UserId == userId
+                            && up.Permission.Name == permissionName
+                            && up.IsActive
+                            && up.IsGranted
+                            && (resourceId == null || up.ResourceId == resourceId)
+                            && (up.ExpiresAt == null || up.ExpiresAt > DateTime.UtcNow), cancellationToken);
+        if (hasDirect) return true;
 
-        if (hasDirectPermission) return true;
-
-        // Check permissions from roles
-        var userRoleNames = await GetUserRoleNamesAsync(userId, cancellationToken);
-
-        foreach (var roleName in userRoleNames)
+        // aus Rollen (inkl. Vererbung in Role.HasPermission)
+        var roleNames = await GetUserRoleNamesAsync(userId, cancellationToken);
+        foreach (var roleName in roleNames)
         {
             var role = await GetRoleByNameAsync(roleName, cancellationToken);
             if (role != null && role.HasPermission(permissionName))
-            {
                 return true;
-            }
         }
-
         return false;
     }
 
-    public async Task<bool> UserHasRoleAsync(string userId, string roleName, CancellationToken cancellationToken = default)
-    {
-        return await _context.UserRoles
-            .AnyAsync(ur => ur.UserId == userId &&
-                          ur.Role == roleName &&
-                          ur.RevokedAt == null, cancellationToken);
-    }
+    public async Task<bool> UserHasRoleAsync(string userId, string roleName, CancellationToken cancellationToken = default) =>
+        await _context.UserRoles
+            .Include(ur => ur.Role)
+            .AnyAsync(ur => ur.UserId == userId
+                            && ur.RevokedAt == null
+                            && ur.Role.Name == roleName, cancellationToken);
 
     public async Task<bool> RoleHasPermissionAsync(string roleId, string permissionName, CancellationToken cancellationToken = default)
     {
@@ -314,139 +267,104 @@ public class PermissionRepository : IPermissionRepository
 
     public async Task<IEnumerable<string>> GetUserPermissionNamesAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var permissions = new HashSet<string>();
+        var names = new HashSet<string>(StringComparer.Ordinal);
 
-        // Get direct user permissions
-        var directPermissions = await _context.UserPermissions
+        var direct = await _context.UserPermissions
             .Include(up => up.Permission)
-            .Where(up => up.UserId == userId &&
-                       up.IsActive &&
-                       up.IsGranted &&
-                       (up.ExpiresAt == null || up.ExpiresAt > DateTime.UtcNow))
+            .Where(up => up.UserId == userId
+                         && up.IsActive
+                         && up.IsGranted
+                         && (up.ExpiresAt == null || up.ExpiresAt > DateTime.UtcNow))
             .Select(up => up.Permission.Name)
             .ToListAsync(cancellationToken);
+        foreach (var p in direct) names.Add(p);
 
-        foreach (var permission in directPermissions)
+        var roleNames = await GetUserRoleNamesAsync(userId, cancellationToken);
+        foreach (var rn in roleNames)
         {
-            permissions.Add(permission);
+            var role = await GetRoleByNameAsync(rn, cancellationToken);
+            if (role is null) continue;
+            foreach (var p in role.GetAllPermissions()) names.Add(p.Name);
         }
 
-        // Get permissions from roles
-        var userRoleNames = await GetUserRoleNamesAsync(userId, cancellationToken);
-
-        foreach (var roleName in userRoleNames)
-        {
-            var role = await GetRoleByNameAsync(roleName, cancellationToken);
-            if (role != null)
-            {
-                var rolePermissions = role.GetAllPermissions();
-                foreach (var permission in rolePermissions)
-                {
-                    permissions.Add(permission.Name);
-                }
-            }
-        }
-
-        return permissions;
+        return names;
     }
 
     public async Task<Dictionary<string, List<string>>> GetUserPermissionsByCategoryAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var permissionsByCategory = new Dictionary<string, List<string>>();
+        var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
-        // Get all user permissions with categories
-        var userPermissions = await GetUserPermissionNamesAsync(userId, cancellationToken);
-
-        // Get permission details to group by category
-        var permissions = await _context.Permissions
-            .Where(p => userPermissions.Contains(p.Name))
+        var names = await GetUserPermissionNamesAsync(userId, cancellationToken);
+        var perms = await _context.Permissions
+            .Where(p => names.Contains(p.Name))
+            .Select(p => new { p.Category, p.Name })
             .ToListAsync(cancellationToken);
 
-        foreach (var permission in permissions)
+        foreach (var p in perms)
         {
-            if (!permissionsByCategory.ContainsKey(permission.Category))
-            {
-                permissionsByCategory[permission.Category] = new List<string>();
-            }
-            permissionsByCategory[permission.Category].Add(permission.Name);
+            if (!result.TryGetValue(p.Category, out var list))
+                result[p.Category] = list = new List<string>();
+            list.Add(p.Name);
         }
 
-        return permissionsByCategory;
+        return result;
     }
 
-    public async Task<IEnumerable<string>> GetUserRoleNamesAsync(string userId, CancellationToken cancellationToken = default)
-    {
-        return await _context.UserRoles
+    public async Task<IEnumerable<string>> GetUserRoleNamesAsync(string userId, CancellationToken cancellationToken = default) =>
+        await _context.UserRoles
+            .Include(ur => ur.Role)
             .Where(ur => ur.UserId == userId && ur.RevokedAt == null)
-            .Select(ur => ur.Role)
+            .Select(ur => ur.Role.Name)
             .ToListAsync(cancellationToken);
-    }
 
     public async Task<IEnumerable<string>> GetRolePermissionNamesAsync(string roleId, CancellationToken cancellationToken = default)
     {
         var role = await GetRoleByIdAsync(roleId, cancellationToken);
-        if (role == null) return Enumerable.Empty<string>();
-
+        if (role is null) return Enumerable.Empty<string>();
         return role.GetAllPermissions().Select(p => p.Name);
     }
 
-    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.SaveChangesAsync(cancellationToken);
-    }
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        await _context.SaveChangesAsync(cancellationToken);
 
-    // High-level operations implementation
     public async Task<bool> UserHasAnyPermissionAsync(string userId, IEnumerable<string> permissionNames, CancellationToken cancellationToken = default)
     {
-        foreach (var permissionName in permissionNames)
-        {
-            if (await UserHasPermissionAsync(userId, permissionName, null, cancellationToken))
-                return true;
-        }
+        foreach (var name in permissionNames)
+            if (await UserHasPermissionAsync(userId, name, null, cancellationToken)) return true;
         return false;
     }
 
     public async Task<bool> UserHasAllPermissionsAsync(string userId, IEnumerable<string> permissionNames, CancellationToken cancellationToken = default)
     {
-        foreach (var permissionName in permissionNames)
-        {
-            if (!await UserHasPermissionAsync(userId, permissionName, null, cancellationToken))
-                return false;
-        }
+        foreach (var name in permissionNames)
+            if (!await UserHasPermissionAsync(userId, name, null, cancellationToken)) return false;
         return true;
     }
 
     public async Task AssignRoleToUserAsync(Guid userId, string roleName, Guid? assignedBy = null, string? reason = null, CancellationToken cancellationToken = default)
     {
-        var role = await GetRoleByNameAsync(roleName, cancellationToken);
-        if (role == null)
-            throw new ArgumentException("Role not found", nameof(roleName));
+        var role = await GetRoleByNameAsync(roleName, cancellationToken)
+                   ?? throw new ArgumentException("Role not found", nameof(roleName));
 
-        var existingUserRole = await GetUserRoleAsync(userId.ToString(), roleName, cancellationToken);
+        var existing = await _context.UserRoles
+            .FirstOrDefaultAsync(ur => ur.UserId == userId.ToString()
+                                       && ur.RoleId == role.Id
+                                       && ur.RevokedAt == null, cancellationToken);
 
-        if (existingUserRole != null)
+        if (existing is null)
         {
-            if (existingUserRole.RevokedAt.HasValue)
-            {
-                // Reactivate the role
-                existingUserRole.RevokedAt = null;
-                existingUserRole.RevokedBy = null;
-                existingUserRole.AssignedAt = DateTime.UtcNow;
-                existingUserRole.AssignedBy = assignedBy?.ToString();
-                await UpdateUserRoleAsync(existingUserRole, cancellationToken);
-            }
-        }
-        else
-        {
-            var userRole = new UserRole
+            await AddUserRoleAsync(new UserRole
             {
                 Id = Guid.NewGuid().ToString(),
                 UserId = userId.ToString(),
-                Role = roleName,
+                RoleId = role.Id,
                 AssignedAt = DateTime.UtcNow,
                 AssignedBy = assignedBy?.ToString()
-            };
-            await AddUserRoleAsync(userRole, cancellationToken);
+            }, cancellationToken);
+        }
+        else
+        {
+            // already active -> no-op
         }
 
         _logger.LogInformation("Assigned role {Role} to user {UserId}", roleName, userId);
@@ -454,12 +372,18 @@ public class PermissionRepository : IPermissionRepository
 
     public async Task RemoveRoleFromUserAsync(Guid userId, string roleName, Guid? removedBy = null, string? reason = null, CancellationToken cancellationToken = default)
     {
-        var userRole = await GetUserRoleAsync(userId.ToString(), roleName, cancellationToken);
-        if (userRole != null && !userRole.RevokedAt.HasValue)
+        var role = await GetRoleByNameAsync(roleName, cancellationToken);
+        if (role is null) return;
+
+        var link = await _context.UserRoles
+            .FirstOrDefaultAsync(ur => ur.UserId == userId.ToString()
+                                       && ur.RoleId == role.Id
+                                       && ur.RevokedAt == null, cancellationToken);
+        if (link is not null)
         {
-            userRole.RevokedAt = DateTime.UtcNow;
-            userRole.RevokedBy = removedBy?.ToString();
-            await UpdateUserRoleAsync(userRole, cancellationToken);
+            link.RevokedAt = DateTime.UtcNow;
+            link.RevokedBy = removedBy?.ToString();
+            await UpdateUserRoleAsync(link, cancellationToken);
         }
 
         _logger.LogInformation("Removed role {Role} from user {UserId}", roleName, userId);
@@ -467,44 +391,30 @@ public class PermissionRepository : IPermissionRepository
 
     public async Task GrantPermissionToUserAsync(Guid userId, string permissionName, Guid? grantedBy = null, DateTime? expiresAt = null, string? resourceId = null, string? reason = null, CancellationToken cancellationToken = default)
     {
-        var permission = await GetPermissionByNameAsync(permissionName, cancellationToken);
-        if (permission == null)
-            throw new ArgumentException("Permission not found", nameof(permissionName));
+        var permission = await GetPermissionByNameAsync(permissionName, cancellationToken)
+                         ?? throw new ArgumentException("Permission not found", nameof(permissionName));
 
-        // Check if permission already exists
-        var existingPermission = await GetUserPermissionAsync(
-            userId.ToString(), permission.Id, resourceId, cancellationToken);
-
-        if (existingPermission != null)
+        var existing = await GetUserPermissionAsync(userId.ToString(), permission.Id, resourceId, cancellationToken);
+        if (existing is not null)
         {
-            if (!existingPermission.IsActive || !existingPermission.IsGranted)
+            if (!existing.IsActive || !existing.IsGranted)
             {
-                // Reactivate existing permission
-                existingPermission.IsActive = true;
-                existingPermission.IsGranted = true;
-                existingPermission.GrantedAt = DateTime.UtcNow;
-                existingPermission.GrantedBy = grantedBy?.ToString();
-                existingPermission.Reason = reason;
-                existingPermission.UpdatedAt = DateTime.UtcNow;
+                existing.IsActive = true;
+                existing.IsGranted = true;
+                existing.GrantedAt = DateTime.UtcNow;
+                existing.GrantedBy = grantedBy?.ToString();
+                existing.Reason = reason;
+                existing.UpdatedAt = DateTime.UtcNow;
             }
-            if (expiresAt.HasValue)
-            {
-                existingPermission.UpdateExpiration(expiresAt);
-            }
-            await UpdateUserPermissionAsync(existingPermission, cancellationToken);
+            if (expiresAt.HasValue) existing.UpdateExpiration(expiresAt);
+            await UpdateUserPermissionAsync(existing, cancellationToken);
         }
         else
         {
-            var userPermission = UserPermission.Create(
-                userId.ToString(),
-                permission.Id,
-                true,
-                grantedBy?.ToString(),
-                expiresAt,
-                resourceId,
-                null,
-                reason);
-            await AddUserPermissionAsync(userPermission, cancellationToken);
+            var up = UserPermission.Create(
+                userId.ToString(), permission.Id, true, grantedBy?.ToString(),
+                expiresAt, resourceId, null, reason);
+            await AddUserPermissionAsync(up, cancellationToken);
         }
 
         _logger.LogInformation("Granted permission {Permission} to user {UserId}", permissionName, userId);
@@ -513,16 +423,18 @@ public class PermissionRepository : IPermissionRepository
     public async Task RevokePermissionFromUserAsync(Guid userId, string permissionName, Guid? revokedBy = null, string? reason = null, CancellationToken cancellationToken = default)
     {
         var permission = await GetPermissionByNameAsync(permissionName, cancellationToken);
-        if (permission == null) return;
+        if (permission is null) return;
 
-        var userPermissions = await GetUserPermissionsAsync(userId.ToString(), cancellationToken);
-        var permissionsToRevoke = userPermissions
-            .Where(up => up.PermissionId == permission.Id && up.IsActive);
+        var items = await _context.UserPermissions
+            .Where(up => up.UserId == userId.ToString()
+                         && up.PermissionId == permission.Id
+                         && up.IsActive)
+            .ToListAsync(cancellationToken);
 
-        foreach (var userPermission in permissionsToRevoke)
+        foreach (var up in items)
         {
-            userPermission.Revoke(revokedBy?.ToString(), reason);
-            await UpdateUserPermissionAsync(userPermission, cancellationToken);
+            up.Revoke(revokedBy?.ToString(), reason);
+            await UpdateUserPermissionAsync(up, cancellationToken);
         }
 
         _logger.LogInformation("Revoked permission {Permission} from user {UserId}", permissionName, userId);
@@ -530,32 +442,25 @@ public class PermissionRepository : IPermissionRepository
 
     public async Task GrantPermissionToRoleAsync(Guid roleId, string permissionName, Guid? grantedBy = null, string? reason = null, CancellationToken cancellationToken = default)
     {
-        var role = await GetRoleByIdAsync(roleId.ToString(), cancellationToken);
-        if (role == null)
-            throw new ArgumentException("Role not found", nameof(roleId));
+        var role = await GetRoleByIdAsync(roleId.ToString(), cancellationToken)
+                   ?? throw new ArgumentException("Role not found", nameof(roleId));
 
-        var permission = await GetPermissionByNameAsync(permissionName, cancellationToken);
-        if (permission == null)
-            throw new ArgumentException("Permission not found", nameof(permissionName));
+        var permission = await GetPermissionByNameAsync(permissionName, cancellationToken)
+                         ?? throw new ArgumentException("Permission not found", nameof(permissionName));
 
-        var existingPermission = await GetRolePermissionAsync(roleId.ToString(), permission.Id, cancellationToken);
-
-        if (existingPermission != null)
+        var existing = await GetRolePermissionAsync(roleId.ToString(), permission.Id, cancellationToken);
+        if (existing is not null)
         {
-            if (!existingPermission.IsActive)
+            if (!existing.IsActive)
             {
-                existingPermission.Reactivate(grantedBy?.ToString(), reason);
-                await UpdateRolePermissionAsync(existingPermission, cancellationToken);
+                existing.Reactivate(grantedBy?.ToString(), reason);
+                await UpdateRolePermissionAsync(existing, cancellationToken);
             }
         }
         else
         {
-            var rolePermission = RolePermission.Create(
-                roleId.ToString(),
-                permission.Id,
-                grantedBy?.ToString(),
-                reason);
-            await AddRolePermissionAsync(rolePermission, cancellationToken);
+            var rp = RolePermission.Create(roleId.ToString(), permission.Id, grantedBy?.ToString(), reason);
+            await AddRolePermissionAsync(rp, cancellationToken);
         }
 
         _logger.LogInformation("Granted permission {Permission} to role {RoleId}", permissionName, roleId);
@@ -564,13 +469,13 @@ public class PermissionRepository : IPermissionRepository
     public async Task RevokePermissionFromRoleAsync(Guid roleId, string permissionName, Guid? revokedBy = null, string? reason = null, CancellationToken cancellationToken = default)
     {
         var permission = await GetPermissionByNameAsync(permissionName, cancellationToken);
-        if (permission == null) return;
+        if (permission is null) return;
 
-        var rolePermission = await GetRolePermissionAsync(roleId.ToString(), permission.Id, cancellationToken);
-        if (rolePermission != null && rolePermission.IsActive)
+        var rp = await GetRolePermissionAsync(roleId.ToString(), permission.Id, cancellationToken);
+        if (rp is not null && rp.IsActive)
         {
-            rolePermission.Revoke(revokedBy?.ToString(), reason);
-            await UpdateRolePermissionAsync(rolePermission, cancellationToken);
+            rp.Revoke(revokedBy?.ToString(), reason);
+            await UpdateRolePermissionAsync(rp, cancellationToken);
         }
 
         _logger.LogInformation("Revoked permission {Permission} from role {RoleId}", permissionName, roleId);
@@ -578,72 +483,52 @@ public class PermissionRepository : IPermissionRepository
 
     public async Task<Role> CreateRoleAsync(string name, string description, int priority = 0, Guid? parentRoleId = null, CancellationToken cancellationToken = default)
     {
-        var existingRole = await GetRoleByNameAsync(name, cancellationToken);
-        if (existingRole != null)
+        if (await GetRoleByNameAsync(name, cancellationToken) is not null)
             throw new ArgumentException("Role already exists", nameof(name));
 
         var role = Role.Create(name, description, priority, false, parentRoleId?.ToString());
         await AddRoleAsync(role, cancellationToken);
-
         _logger.LogInformation("Created role {Role}", name);
         return role;
     }
 
     public async Task SyncUserPermissionsAsync(Guid userId, IEnumerable<string> permissionNames, CancellationToken cancellationToken = default)
     {
-        var currentPermissions = await GetUserPermissionNamesAsync(userId.ToString(), cancellationToken);
-        var targetPermissions = new HashSet<string>(permissionNames);
+        var current = await GetUserPermissionNamesAsync(userId.ToString(), cancellationToken);
+        var target = new HashSet<string>(permissionNames);
 
-        // Revoke permissions that are not in the target list
-        var toRevoke = currentPermissions.Where(p => !targetPermissions.Contains(p));
-        foreach (var permissionName in toRevoke)
-        {
-            await RevokePermissionFromUserAsync(userId, permissionName, null, "Permission sync", cancellationToken);
-        }
+        var toRevoke = current.Where(p => !target.Contains(p));
+        foreach (var p in toRevoke)
+            await RevokePermissionFromUserAsync(userId, p, null, "Permission sync", cancellationToken);
 
-        // Grant permissions that are in the target list but not current
-        var toGrant = targetPermissions.Where(p => !currentPermissions.Contains(p));
-        foreach (var permissionName in toGrant)
-        {
-            await GrantPermissionToUserAsync(userId, permissionName, null, null, null, "Permission sync", cancellationToken);
-        }
+        var toGrant = target.Where(p => !current.Contains(p));
+        foreach (var p in toGrant)
+            await GrantPermissionToUserAsync(userId, p, null, null, null, "Permission sync", cancellationToken);
     }
 
     public async Task<IEnumerable<Permission>> GetUserPermissionsWithRolesAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var permissions = new HashSet<Permission>();
+        var set = new HashSet<Permission>();
 
-        // Get direct user permissions
-        var userPermissions = await GetUserPermissionsAsync(userId, cancellationToken);
-        foreach (var up in userPermissions)
+        var ups = await GetUserPermissionsAsync(userId, cancellationToken);
+        foreach (var up in ups)
+            if (up.Permission is not null) set.Add(up.Permission);
+
+        var roleNames = await GetUserRoleNamesAsync(userId, cancellationToken);
+        foreach (var rn in roleNames)
         {
-            if (up.Permission != null)
-                permissions.Add(up.Permission);
+            var role = await GetRoleByNameAsync(rn, cancellationToken);
+            if (role is null) continue;
+            foreach (var p in role.GetAllPermissions()) set.Add(p);
         }
 
-        // Get permissions from roles
-        var userRoleNames = await GetUserRoleNamesAsync(userId, cancellationToken);
-        foreach (var roleName in userRoleNames)
-        {
-            var role = await GetRoleByNameAsync(roleName, cancellationToken);
-            if (role != null)
-            {
-                var rolePermissions = role.GetAllPermissions();
-                foreach (var permission in rolePermissions)
-                {
-                    permissions.Add(permission);
-                }
-            }
-        }
-
-        return permissions;
+        return set;
     }
 
     public async Task<IEnumerable<Permission>> GetRolePermissionsWithInheritanceAsync(string roleId, CancellationToken cancellationToken = default)
     {
         var role = await GetRoleByIdAsync(roleId, cancellationToken);
-        if (role == null) return Enumerable.Empty<Permission>();
-
+        if (role is null) return Enumerable.Empty<Permission>();
         return role.GetAllPermissions();
     }
 }

@@ -3,6 +3,7 @@ using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
+using NotificationService.Domain.Enums;
 
 namespace NotificationService.Application.Consumers;
 
@@ -35,7 +36,7 @@ public class WelcomeEmailEventConsumer(
                 EmailTemplateNames.Welcome,
                 context.Message.Email,
                 variables,
-                NotificationPriority.Normal,
+                NotificationPriority.Normal.ToString(),
                 CorrelationId: context.ConversationId?.ToString())
             {
                 UserId = context.Message.UserId

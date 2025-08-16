@@ -23,8 +23,10 @@ using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using NotificationService;
 using NotificationService.Extensions;
+using NotificationService.Hubs;
 using CQRS.Models;
 using Contracts.Notification.Responses;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,43 +57,25 @@ builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environm
 // ============================================================================
 
 // Configure Entity Framework with InMemory for development
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
+var connectionString =
+    Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-if (string.IsNullOrEmpty(connectionString))
+// 2) Service-spezifischer Fallback (nur wenn wirklich nichts gesetzt ist)
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    // ✅ Intelligente Host-Erkennung
-    var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
-                               Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") != null ||
-                               File.Exists("/.dockerenv"); // Docker-spezifische Datei
-
-    var host = isRunningInContainer ? "postgres" : "localhost";
-
-    connectionString = Environment.GetEnvironmentVariable("DefaultConnection")
-        ?? builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? $"Host={host};Database=skillswap;Username=skillswap;Password=skillswap@ditss1990?!;Port=5432;TrustServerCertificate=True;";
-
-    // Falls Environment Variable einen anderen Host enthält, korrigieren
-    if (connectionString.Contains("Host="))
-    {
-        connectionString = System.Text.RegularExpressions.Regex.Replace(
-            connectionString,
-            @"Host=[^;]+",
-            $"Host={host}"
-        );
-    }
+    var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "skillswap@ditss1990?!";
+    connectionString =
+        $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
 
-// Debug-Ausgabe (ohne Passwort für Logs)
-var safeConnectionString = connectionString.Contains("Password=")
-    ? System.Text.RegularExpressions.Regex.Replace(connectionString, @"Password=[^;]*", "Password=***")
-    : connectionString;
-
-builder.Services.AddDbContext<NotificationDbContext>(options =>
-{
-    options.UseNpgsql(connectionString);
-    options.EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
-    options.EnableDetailedErrors(builder.Environment.IsDevelopment());
-});
+builder.Services.AddDbContext<NotificationDbContext>(opts =>
+    opts.UseNpgsql(connectionString, npg =>
+        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)) // EF-Retry einschalten
+    .EnableDetailedErrors(builder.Environment.IsDevelopment())
+    .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+);
 
 // ============================================================================
 // CQRS & MEDIATR SETUP
@@ -128,11 +112,65 @@ if (FirebaseApp.DefaultInstance == null)
     });
 }
 
+// Configure Email settings from environment variables
+builder.Services.Configure<EmailConfiguration>(options =>
+{
+    options.SmtpHost = Environment.GetEnvironmentVariable("SMTP_HOST")
+        ?? builder.Configuration["Email:smtpHost"]
+        ?? "smtp.gmail.com";
+    options.SmtpPort = int.Parse(Environment.GetEnvironmentVariable("SMTP_PORT")
+        ?? builder.Configuration["Email:smtpPort"]
+        ?? "587");
+    options.Username = Environment.GetEnvironmentVariable("SMTP_USERNAME")
+        ?? builder.Configuration["Email:username"]
+        ?? "";
+    options.Password = Environment.GetEnvironmentVariable("SMTP_PASSWORD")
+        ?? builder.Configuration["Email:password"]
+        ?? "";
+    options.UseSsl = bool.Parse(Environment.GetEnvironmentVariable("SMTP_USE_SSL")
+        ?? builder.Configuration["Email:useSsl"]
+        ?? "false");
+    options.UseStartTls = bool.Parse(Environment.GetEnvironmentVariable("SMTP_USE_STARTTLS")
+        ?? builder.Configuration["Email:useStartTls"]
+        ?? "true");
+    options.FromAddress = Environment.GetEnvironmentVariable("SMTP_FROM_ADDRESS")
+        ?? builder.Configuration["Email:fromAddress"]
+        ?? "noreply@skillswap.com";
+    options.FromName = Environment.GetEnvironmentVariable("SMTP_FROM_NAME")
+        ?? builder.Configuration["Email:fromName"]
+        ?? "SkillSwap";
+});
+
+// Configure SMS settings from environment variables
+builder.Services.Configure<SmsConfiguration>(options =>
+{
+    options.TwilioAccountSid = Environment.GetEnvironmentVariable("SMS_API_KEY")
+        ?? builder.Configuration["SMS:twilioAccountSid"]
+        ?? "";
+    options.TwilioAuthToken = Environment.GetEnvironmentVariable("SMS_API_SECRET")
+        ?? builder.Configuration["SMS:twilioAuthToken"]
+        ?? "";
+    options.FromNumber = Environment.GetEnvironmentVariable("SMS_FROM_NUMBER")
+        ?? builder.Configuration["SMS:fromNumber"]
+        ?? "";
+});
+
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
 builder.Services.AddScoped<ITemplateEngine, HandlebarsTemplateEngine>();
 builder.Services.AddScoped<INotificationOrchestrator, NotificationOrchestrator>();
+builder.Services.AddScoped<ISmartNotificationRouter, SmartNotificationRouter>();
+
+// Configure HttpClient for UserService
+builder.Services.AddHttpClient("UserService", client =>
+{
+    var userServiceUrl = Environment.GetEnvironmentVariable("USER_SERVICE_URL")
+        ?? builder.Configuration["Services:UserService:Url"]
+        ?? "http://gateway:8080/api/users";
+    client.BaseAddress = new Uri(userServiceUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+});
 
 // Add NotificationService-specific dependencies
 builder.Services.AddNotificationServiceDependencies();
@@ -146,6 +184,7 @@ builder.Services.AddMassTransit(x =>
     // Register all consumers
     x.AddConsumer<UserRegisteredEventConsumer>();
     x.AddConsumer<EmailVerificationRequestedEventConsumer>();
+    x.AddConsumer<UserEmailVerificationRequestedEventConsumer>(); // New consumer for resend verification
     x.AddConsumer<WelcomeEmailEventConsumer>();
     x.AddConsumer<PasswordResetEmailEventConsumer>();
     x.AddConsumer<PasswordChangedNotificationEventConsumer>();
@@ -155,6 +194,14 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<AccountReactivatedNotificationEventConsumer>();
     x.AddConsumer<SkillMatchFoundEventConsumer>();
     x.AddConsumer<AppointmentCreatedEventConsumer>();
+    x.AddConsumer<AppointmentAcceptedIntegrationEventConsumer>();
+    x.AddConsumer<AppointmentRescheduledIntegrationEventConsumer>();
+
+    // Matchmaking Event Consumer
+    x.AddConsumer<MatchRequestCreatedIntegrationEventConsumer>();
+    x.AddConsumer<MatchAcceptedIntegrationEventConsumer>();
+    x.AddConsumer<MatchRequestRejectedIntegrationEventConsumer>();
+
     x.AddConsumer<GenericEventLoggingConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
@@ -199,6 +246,24 @@ builder.Services.AddMassTransit(x =>
         cfg.ReceiveEndpoint("notification-appointment-events", e =>
         {
             e.ConfigureConsumer<AppointmentCreatedEventConsumer>(context);
+            e.ConfigureConsumer<AppointmentAcceptedIntegrationEventConsumer>(context);
+            e.ConfigureConsumer<AppointmentRescheduledIntegrationEventConsumer>(context);
+        });
+
+        // Neue Endpoints für Matchmaking Events
+        cfg.ReceiveEndpoint("notification-match-request-created", e =>
+        {
+            e.ConfigureConsumer<MatchRequestCreatedIntegrationEventConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("notification-match-accepted", e =>
+        {
+            e.ConfigureConsumer<MatchAcceptedIntegrationEventConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("notification-match-rejected", e =>
+        {
+            e.ConfigureConsumer<MatchRequestRejectedIntegrationEventConsumer>(context);
         });
 
         cfg.ReceiveEndpoint("notification-debug-events", e =>
@@ -246,6 +311,37 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 // Add SkillSwap authorization policies
 builder.Services.AddSkillSwapAuthorization();
+
+// ============================================================================
+// SIGNALR CONFIGURATION
+// ============================================================================
+
+// Add SignalR for real-time notifications
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+}).AddJsonProtocol(options =>
+{
+    options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+});
+
+// Configure CORS for SignalR
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("SignalRCors", policy =>
+    {
+        policy.WithOrigins(
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:8080"
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+    });
+});
 
 // ============================================================================
 // RATE LIMITING SETUP
@@ -311,12 +407,38 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// nach app.Build(), vor app.Run():
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<NotificationService.Infrastructure.Data.EmailTemplateSeeder>>();
+    var strategy = db.Database.CreateExecutionStrategy();
+
+    // Execute migrations with retry strategy
+    await strategy.ExecuteAsync(async () =>
+    {
+        await db.Database.MigrateAsync();
+    });
+
+    // Execute seeding with retry strategy
+    await strategy.ExecuteAsync(async () =>
+    {
+        var seeder = new NotificationService.Infrastructure.Data.EmailTemplateSeeder(db, logger);
+        await seeder.SeedAsync();
+    });
+
+    app.Logger.LogInformation("Database migration and email template seeding completed successfully");
+}
+
 // ============================================================================
 // MIDDLEWARE PIPELINE
 // ============================================================================
 
 // Use shared infrastructure middleware
 app.UseSharedInfrastructure();
+
+// Enable CORS for SignalR
+app.UseCors("SignalRCors");
 
 // Rate limiting
 app.UseMiddleware<RateLimitingMiddleware>();
@@ -340,21 +462,10 @@ app.UseAuthorization();
 // DATABASE INITIALIZATION
 // ============================================================================
 
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+// Database initialization already handled above after app.Build()
 
-    try
-    {
-        await context.Database.EnsureCreatedAsync();
-
-        app.Logger.LogInformation("NotificationService database initialized successfully");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "Error occurred while initializing NotificationService database");
-    }
-}
+// Map SignalR hub
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 // Grouped endpoints for notifications
 var notifications = app.MapGroup("/notifications").WithTags("Notifications");

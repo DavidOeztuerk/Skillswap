@@ -79,8 +79,8 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
           : appointment.teacherDetails;
 
       const otherUserName =
-        `${otherUser.firstName} ${otherUser.lastName}`.toLowerCase();
-      const skillName = appointment.skill.name.toLowerCase();
+        `${otherUser?.firstName} ${otherUser?.lastName}`.toLowerCase();
+      const skillName = appointment.skill?.name.toLowerCase();
 
       // Suche (Skill oder Personenname)
       const matchesSearch =
@@ -95,7 +95,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
       // Datum
       let matchesDate = true;
       if (selectedDate) {
-        const appointmentDate = new Date(appointment.startTime);
+        const appointmentDate = appointment.startTime ? new Date(appointment.startTime) : new Date();
         const filterStartDate = startOfDay(selectedDate);
         const filterEndDate = endOfDay(selectedDate);
 
@@ -117,7 +117,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
       } else if (tabValue === 3) {
         // Vergangen: endTime < now ODER Cancelled/Completed
         matchesTab =
-          isBefore(new Date(appointment.endTime), new Date()) ||
+          (appointment.endTime && isBefore(new Date(appointment.endTime), new Date())) ||
           appointment.status === 'Cancelled' ||
           appointment.status === 'Completed';
       }

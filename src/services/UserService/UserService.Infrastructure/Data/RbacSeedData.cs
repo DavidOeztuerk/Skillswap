@@ -11,119 +11,121 @@ public static class RbacSeedData
 {
     public static async Task SeedAsync(UserDbContext context)
     {
-        // Seed Permissions
+        // No manual transaction here - will be wrapped by ExecutionStrategy in Program.cs
+        
+        // ✅ 1. Zuerst Permissions (keine Abhängigkeiten)
         await SeedPermissionsAsync(context);
+        await context.SaveChangesAsync();
 
-        // Seed Roles
+        // ✅ 2. Dann Roles (braucht nur Permissions)
         await SeedRolesAsync(context);
+        await context.SaveChangesAsync();
 
-        // Seed Role-Permission mappings
+        // ✅ 3. Dann RolePermissions (braucht Roles + Permissions)
         await SeedRolePermissionsAsync(context);
+        await context.SaveChangesAsync();
 
-        // Seed Super Admin user if not exists
+        // ✅ 4. Zuletzt SuperAdmin (braucht alles andere)
         await SeedSuperAdminAsync(context);
-
         await context.SaveChangesAsync();
     }
 
     private static async Task SeedPermissionsAsync(UserDbContext context)
     {
-        var permissions = new List<(string Id, string Name, string Category, string Description)>
+        var permissions = new List<(string Name, string Category, string Description)>
         {
-            // System Permissions
-            (Guid.NewGuid().ToString(), Permissions.SystemManageAll, "System", "Full system management access"),
-            (Guid.NewGuid().ToString(), Permissions.SystemViewLogs, "System", "View system logs"),
-            (Guid.NewGuid().ToString(), Permissions.SystemManageSettings, "System", "Manage system settings"),
-            (Guid.NewGuid().ToString(), Permissions.SystemManageIntegrations, "System", "Manage system integrations"),
-            
-            // User Management
-            (Guid.NewGuid().ToString(), Permissions.UsersCreate, "Users", "Create new users"),
-            (Guid.NewGuid().ToString(), Permissions.UsersRead, "Users", "Read user information"),
-            (Guid.NewGuid().ToString(), Permissions.UsersReadOwn, "Users", "Read own user information"),
-            (Guid.NewGuid().ToString(), Permissions.UsersUpdate, "Users", "Update user information"),
-            (Guid.NewGuid().ToString(), Permissions.UsersUpdateOwn, "Users", "Update own user information"),
-            (Guid.NewGuid().ToString(), Permissions.UsersDelete, "Users", "Delete users"),
-            (Guid.NewGuid().ToString(), Permissions.UsersViewAll, "Users", "View all users"),
-            (Guid.NewGuid().ToString(), Permissions.UsersViewReported, "Users", "View reported users"),
-            (Guid.NewGuid().ToString(), Permissions.UsersBlock, "Users", "Block users"),
-            (Guid.NewGuid().ToString(), Permissions.UsersUnblock, "Users", "Unblock users"),
-            (Guid.NewGuid().ToString(), Permissions.UsersManageRoles, "Users", "Manage user roles"),
-            
-            // Profile Management
-            (Guid.NewGuid().ToString(), Permissions.ProfileViewOwn, "Profile", "View own profile"),
-            (Guid.NewGuid().ToString(), Permissions.ProfileUpdateOwn, "Profile", "Update own profile"),
-            (Guid.NewGuid().ToString(), Permissions.ProfileViewAny, "Profile", "View any profile"),
-            
-            // Skill Management
-            (Guid.NewGuid().ToString(), Permissions.SkillsCreateOwn, "Skills", "Create own skills"),
-            (Guid.NewGuid().ToString(), Permissions.SkillsUpdateOwn, "Skills", "Update own skills"),
-            (Guid.NewGuid().ToString(), Permissions.SkillsDeleteOwn, "Skills", "Delete own skills"),
-            (Guid.NewGuid().ToString(), Permissions.SkillsVerify, "Skills", "Verify skills"),
-            (Guid.NewGuid().ToString(), Permissions.SkillsManageCategories, "Skills", "Manage skill categories"),
-            (Guid.NewGuid().ToString(), Permissions.SkillsManageProficiency, "Skills", "Manage proficiency levels"),
-            (Guid.NewGuid().ToString(), Permissions.SkillsViewAll, "Skills", "View all skills"),
-            
+            // System
+            (Permissions.SystemManageAll,        "System", "Full system management access"),
+            (Permissions.SystemViewLogs,         "System", "View system logs"),
+            (Permissions.SystemManageSettings,   "System", "Manage system settings"),
+            (Permissions.SystemManageIntegrations,"System","Manage system integrations"),
+
+            // Users
+            (Permissions.UsersCreate,            "Users",  "Create new users"),
+            (Permissions.UsersRead,              "Users",  "Read user information"),
+            (Permissions.UsersReadOwn,           "Users",  "Read own user information"),
+            (Permissions.UsersUpdate,            "Users",  "Update user information"),
+            (Permissions.UsersUpdateOwn,         "Users",  "Update own user information"),
+            (Permissions.UsersDelete,            "Users",  "Delete users"),
+            (Permissions.UsersViewAll,           "Users",  "View all users"),
+            (Permissions.UsersViewReported,      "Users",  "View reported users"),
+            (Permissions.UsersBlock,             "Users",  "Block users"),
+            (Permissions.UsersUnblock,           "Users",  "Unblock users"),
+            (Permissions.UsersManageRoles,       "Users",  "Manage user roles"),
+
+            // Profile
+            (Permissions.ProfileViewOwn,         "Profile","View own profile"),
+            (Permissions.ProfileUpdateOwn,       "Profile","Update own profile"),
+            (Permissions.ProfileViewAny,         "Profile","View any profile"),
+
+            // Skills
+            (Permissions.SkillsCreateOwn,        "Skills", "Create own skills"),
+            (Permissions.SkillsUpdateOwn,        "Skills", "Update own skills"),
+            (Permissions.SkillsDeleteOwn,        "Skills", "Delete own skills"),
+            (Permissions.SkillsVerify,           "Skills", "Verify skills"),
+            (Permissions.SkillsManageCategories, "Skills", "Manage skill categories"),
+            (Permissions.SkillsManageProficiency,"Skills", "Manage proficiency levels"),
+            (Permissions.SkillsViewAll,          "Skills", "View all skills"),
+
             // Appointments
-            (Guid.NewGuid().ToString(), Permissions.AppointmentsCreate, "Appointments", "Create appointments"),
-            (Guid.NewGuid().ToString(), Permissions.AppointmentsViewOwn, "Appointments", "View own appointments"),
-            (Guid.NewGuid().ToString(), Permissions.AppointmentsCancelOwn, "Appointments", "Cancel own appointments"),
-            (Guid.NewGuid().ToString(), Permissions.AppointmentsViewAll, "Appointments", "View all appointments"),
-            (Guid.NewGuid().ToString(), Permissions.AppointmentsCancelAny, "Appointments", "Cancel any appointment"),
-            (Guid.NewGuid().ToString(), Permissions.AppointmentsManage, "Appointments", "Manage all appointments"),
-            
+            (Permissions.AppointmentsCreate,     "Appointments","Create appointments"),
+            (Permissions.AppointmentsViewOwn,    "Appointments","View own appointments"),
+            (Permissions.AppointmentsCancelOwn,  "Appointments","Cancel own appointments"),
+            (Permissions.AppointmentsViewAll,    "Appointments","View all appointments"),
+            (Permissions.AppointmentsCancelAny,  "Appointments","Cancel any appointment"),
+            (Permissions.AppointmentsManage,     "Appointments","Manage all appointments"),
+
             // Matching
-            (Guid.NewGuid().ToString(), Permissions.MatchingAccess, "Matching", "Access matching features"),
-            (Guid.NewGuid().ToString(), Permissions.MatchingViewAll, "Matching", "View all matches"),
-            (Guid.NewGuid().ToString(), Permissions.MatchingManage, "Matching", "Manage matching system"),
-            
+            (Permissions.MatchingAccess,         "Matching","Access matching features"),
+            (Permissions.MatchingViewAll,        "Matching","View all matches"),
+            (Permissions.MatchingManage,         "Matching","Manage matching system"),
+
             // Reviews
-            (Guid.NewGuid().ToString(), Permissions.ReviewsCreate, "Reviews", "Create reviews"),
-            (Guid.NewGuid().ToString(), Permissions.ReviewsModerate, "Reviews", "Moderate reviews"),
-            (Guid.NewGuid().ToString(), Permissions.ReviewsDelete, "Reviews", "Delete reviews"),
-            
+            (Permissions.ReviewsCreate,          "Reviews","Create reviews"),
+            (Permissions.ReviewsModerate,        "Reviews","Moderate reviews"),
+            (Permissions.ReviewsDelete,          "Reviews","Delete reviews"),
+
             // Messages
-            (Guid.NewGuid().ToString(), Permissions.MessagesSend, "Messages", "Send messages"),
-            (Guid.NewGuid().ToString(), Permissions.MessagesViewOwn, "Messages", "View own messages"),
-            (Guid.NewGuid().ToString(), Permissions.MessagesViewAll, "Messages", "View all messages"),
-            
+            (Permissions.MessagesSend,           "Messages","Send messages"),
+            (Permissions.MessagesViewOwn,        "Messages","View own messages"),
+            (Permissions.MessagesViewAll,        "Messages","View all messages"),
+
             // Video Calls
-            (Guid.NewGuid().ToString(), Permissions.VideoCallsAccess, "VideoCall", "Access video calls"),
-            (Guid.NewGuid().ToString(), Permissions.VideoCallsManage, "VideoCall", "Manage video calls"),
-            
-            // Content Moderation
-            (Guid.NewGuid().ToString(), Permissions.ContentModerate, "Moderation", "Moderate content"),
-            (Guid.NewGuid().ToString(), Permissions.ReportsHandle, "Moderation", "Handle reports"),
-            (Guid.NewGuid().ToString(), Permissions.ReportsViewAll, "Moderation", "View all reports"),
-            
-            // Admin Panel
-            (Guid.NewGuid().ToString(), Permissions.AdminAccessDashboard, "Admin", "Access admin dashboard"),
-            (Guid.NewGuid().ToString(), Permissions.AdminViewStatistics, "Admin", "View platform statistics"),
-            (Guid.NewGuid().ToString(), Permissions.AdminManageAll, "Admin", "Full admin management"),
-            
-            // Moderator Panel
-            (Guid.NewGuid().ToString(), Permissions.ModeratorAccessPanel, "Moderator", "Access moderator panel"),
-            
-            // Role Management
-            (Guid.NewGuid().ToString(), Permissions.RolesCreate, "Roles", "Create roles"),
-            (Guid.NewGuid().ToString(), Permissions.RolesUpdate, "Roles", "Update roles"),
-            (Guid.NewGuid().ToString(), Permissions.RolesDelete, "Roles", "Delete roles"),
-            (Guid.NewGuid().ToString(), Permissions.RolesView, "Roles", "View roles"),
-            (Guid.NewGuid().ToString(), Permissions.PermissionsManage, "Roles", "Manage permissions")
+            (Permissions.VideoCallsAccess,       "VideoCall","Access video calls"),
+            (Permissions.VideoCallsManage,       "VideoCall","Manage video calls"),
+
+            // Moderation
+            (Permissions.ContentModerate,        "Moderation","Moderate content"),
+            (Permissions.ReportsHandle,          "Moderation","Handle reports"),
+            (Permissions.ReportsViewAll,         "Moderation","View all reports"),
+
+            // Admin
+            (Permissions.AdminAccessDashboard,   "Admin","Access admin dashboard"),
+            (Permissions.AdminViewStatistics,    "Admin","View platform statistics"),
+            (Permissions.AdminManageAll,         "Admin","Full admin management"),
+
+            // Moderator
+            (Permissions.ModeratorAccessPanel,   "Moderator","Access moderator panel"),
+
+            // Roles / RBAC
+            (Permissions.RolesCreate,            "Roles","Create roles"),
+            (Permissions.RolesUpdate,            "Roles","Update roles"),
+            (Permissions.RolesDelete,            "Roles","Delete roles"),
+            (Permissions.RolesView,              "Roles","View roles"),
+            (Permissions.PermissionsManage,      "Roles","Manage permissions"),
         };
 
-        foreach (var (id, name, category, description) in permissions)
+        foreach (var (name, category, description) in permissions)
         {
-            var exists = await context.Permissions
-                .AnyAsync(p => p.Name == name);
-
+            var exists = await context.Permissions.AnyAsync(p => p.Name == name);
             if (!exists)
             {
                 context.Permissions.Add(Permission.Create(
-                    name,
-                    category,
-                    description,
-                    "", // resource
-                    category == "System" || category == "Roles" // isSystemPermission
+                    name: name,
+                    category: category,
+                    description: description,
+                    resource: "",
+                    isSystemPermission: category is "System" or "Roles"
                 ));
             }
         }
@@ -131,35 +133,44 @@ public static class RbacSeedData
 
     private static async Task SeedRolesAsync(UserDbContext context)
     {
-        var roles = new List<(string Id, string Name, string Description, int Priority, string? ParentRoleId)>
+        // Use same priorities as in migration
+        var roles = new List<(string Name, string Description, int Priority)>
         {
-            (Guid.NewGuid().ToString(), Roles.SuperAdmin, "System administrator with full access", 1000, null),
-            (Guid.NewGuid().ToString(), Roles.Admin, "Platform administrator", 100, null),
-            (Guid.NewGuid().ToString(), Roles.Moderator, "Content moderator", 50, null),
-            (Guid.NewGuid().ToString(), Roles.User, "Regular platform user", 10, null)
+            (Roles.SuperAdmin, "System administrator with full access", 1000),
+            (Roles.Admin,      "Platform administrator",                900),  // Fixed: was 100
+            (Roles.Moderator,  "Content moderator",                     500),  // Fixed: was 50
+            (Roles.User,       "Regular platform user",                 100)   // Fixed: was 10
         };
 
-        foreach (var (id, name, description, priority, parentRoleId) in roles)
+        foreach (var (name, description, priority) in roles)
         {
-            var exists = await context.Roles
-                .AnyAsync(r => r.Name == name);
-
-            if (!exists)
+            var role = await context.Roles.FirstOrDefaultAsync(r => r.Name == name);
+            if (role is null)
             {
                 context.Roles.Add(Role.Create(
-                    name,
-                    description,
-                    priority,
-                    true, // isSystemRole
-                    parentRoleId
+                    name: name,
+                    description: description,
+                    priority: priority,
+                    isSystemRole: true,
+                    parentRoleId: null
                 ));
+            }
+            else
+            {
+                // Update existing role if values differ
+                bool changed = false;
+                if (role.Description != description) { role.Description = description; changed = true; }
+                if (role.Priority != priority) { role.Priority = priority; changed = true; }
+                if (!role.IsSystemRole) { role.IsSystemRole = true; changed = true; }
+                if (changed) context.Roles.Update(role);
             }
         }
     }
 
     private static async Task SeedRolePermissionsAsync(UserDbContext context)
     {
-        await context.SaveChangesAsync(); // Save roles and permissions first
+        // ✅ Sicherstellen, dass alle Daten committed sind
+        await context.SaveChangesAsync();
 
         var rolePermissionMappings = new Dictionary<string, string[]>
         {
@@ -171,29 +182,42 @@ public static class RbacSeedData
 
         foreach (var (roleName, permissionNames) in rolePermissionMappings)
         {
-            var role = await context.Roles
-                .FirstOrDefaultAsync(r => r.Name == roleName);
-
-            if (role == null) continue;
+            var role = await context.Roles.FirstOrDefaultAsync(r => r.Name == roleName);
+            if (role is null)
+            {
+                // ✅ Warnung statt Silent Skip
+                Console.WriteLine($"WARNING: Role '{roleName}' not found during seeding");
+                continue;
+            }
 
             foreach (var permissionName in permissionNames)
             {
-                var permission = await context.Permissions
-                    .FirstOrDefaultAsync(p => p.Name == permissionName);
-
-                if (permission == null) continue;
+                var permission = await context.Permissions.FirstOrDefaultAsync(p => p.Name == permissionName);
+                if (permission is null)
+                {
+                    // ✅ Warnung statt Silent Skip
+                    Console.WriteLine($"WARNING: Permission '{permissionName}' not found during seeding");
+                    continue;
+                }
 
                 var exists = await context.RolePermissions
                     .AnyAsync(rp => rp.RoleId == role.Id && rp.PermissionId == permission.Id);
-
                 if (!exists)
                 {
-                    context.RolePermissions.Add(RolePermission.Create(
-                        role.Id,
-                        permission.Id,
-                        null,
-                        "Initial role permission"
-                    ));
+                    var rolePermission = RolePermission.Create(
+                        roleId: role.Id,
+                        permissionId: permission.Id,
+                        grantedBy: null,
+                        reason: "Initial role permission"
+                    );
+
+                    // ✅ Validation
+                    if (string.IsNullOrEmpty(rolePermission.RoleId) || string.IsNullOrEmpty(rolePermission.PermissionId))
+                    {
+                        throw new InvalidOperationException($"Invalid RolePermission: RoleId='{rolePermission.RoleId}', PermissionId='{rolePermission.PermissionId}'");
+                    }
+
+                    context.RolePermissions.Add(rolePermission);
                 }
             }
         }
@@ -201,12 +225,25 @@ public static class RbacSeedData
 
     private static async Task SeedSuperAdminAsync(UserDbContext context)
     {
-        const string superAdminEmail = "admin@skillswap.com";
+        // Get credentials from environment or use fallback
+        var superAdminEmail = Environment.GetEnvironmentVariable("SUPERADMIN_EMAIL") ?? "admin@skillswap.com";
+        var superAdminPassword = Environment.GetEnvironmentVariable("SUPERADMIN_PASSWORD");
+        
+        // Only use hardcoded password in development
+        if (string.IsNullOrEmpty(superAdminPassword))
+        {
+            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+            {
+                superAdminPassword = "Admin123!@#"; // Dev only
+            }
+            else
+            {
+                throw new InvalidOperationException("SUPERADMIN_PASSWORD must be set for production");
+            }
+        }
 
-        var superAdminUser = await context.Users
-            .FirstOrDefaultAsync(u => u.Email == superAdminEmail);
-
-        if (superAdminUser == null)
+        var superAdminUser = await context.Users.FirstOrDefaultAsync(u => u.Email == superAdminEmail);
+        if (superAdminUser is null)
         {
             superAdminUser = new User
             {
@@ -215,68 +252,72 @@ public static class RbacSeedData
                 UserName = "superadmin",
                 FirstName = "Super",
                 LastName = "Admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!@#"), // Change this in production!
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(superAdminPassword),
                 EmailVerified = true,
-                AccountStatus = Domain.Enums.AccountStatus.Active,
-                CreatedAt = DateTime.UtcNow
+                AccountStatus = UserService.Domain.Enums.AccountStatus.Active,
+                CreatedAt = DateTime.UtcNow,
+                
+                // ✅ FIX: Add required fields
+                PhoneNumber = "+10000000000",
+                FavoriteSkillIds = new List<string>()  // Empty list
             };
 
             context.Users.Add(superAdminUser);
             await context.SaveChangesAsync();
         }
 
-        // Assign SuperAdmin role if not already assigned
-        var superAdminRole = await context.Roles
-            .FirstOrDefaultAsync(r => r.Name == Roles.SuperAdmin);
+        var superAdminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == Roles.SuperAdmin) ?? throw new InvalidOperationException($"SuperAdmin role '{Roles.SuperAdmin}' not found. Make sure roles are seeded first.");
 
-        if (superAdminRole != null)
+        var linkExists = await context.UserRoles
+            .AnyAsync(ur => ur.UserId == superAdminUser.Id &&
+                           ur.RoleId == superAdminRole.Id &&
+                           ur.RevokedAt == null);
+
+        if (!linkExists)
         {
-            var userRoleExists = await context.UserRoles
-                .AnyAsync(ur => ur.UserId == superAdminUser.Id && ur.Role == Roles.SuperAdmin);
-
-            if (!userRoleExists)
+            var userRole = new UserRole
             {
-                context.UserRoles.Add(new UserRole
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    UserId = superAdminUser.Id,
-                    Role = superAdminRole.Name,
-                    AssignedAt = DateTime.UtcNow,
-                    CreatedAt = DateTime.UtcNow
-                });
-                await context.SaveChangesAsync();
+                UserId = superAdminUser.Id,
+                RoleId = superAdminRole.Id,
+                AssignedAt = DateTime.UtcNow,
+                AssignedBy = superAdminUser.Id
+            };
+
+            if (string.IsNullOrEmpty(userRole.RoleId))
+            {
+                throw new InvalidOperationException("RoleId cannot be null or empty");
             }
+
+            context.UserRoles.Add(userRole);
+            await context.SaveChangesAsync();
         }
 
-        // Assign all permissions directly to SuperAdmin user
         await AssignAllPermissionsToSuperAdmin(context, superAdminUser.Id);
     }
 
     private static async Task AssignAllPermissionsToSuperAdmin(UserDbContext context, string superAdminUserId)
     {
-        var allPermissions = await context.Permissions.ToListAsync();
+        var allPermissions = await context.Permissions.Select(p => new { p.Id }).ToListAsync();
 
-        foreach (var permission in allPermissions)
+        foreach (var p in allPermissions)
         {
-            var existingUserPermission = await context.UserPermissions
+            var exists = await context.UserPermissions
                 .AnyAsync(up => up.UserId == superAdminUserId &&
-                               up.PermissionId == permission.Id &&
-                               up.IsActive);
-
-            if (!existingUserPermission)
+                                up.PermissionId == p.Id &&
+                                up.IsActive);
+            if (!exists)
             {
-                var userPermission = UserPermission.Create(
+                var up = UserPermission.Create(
                     userId: superAdminUserId,
-                    permissionId: permission.Id,
+                    permissionId: p.Id,
                     isGranted: true,
-                    grantedBy: superAdminUserId,  // ← Verwende die User ID statt "System"
+                    grantedBy: superAdminUserId,
                     expiresAt: null,
                     resourceId: null,
                     conditions: null,
                     reason: "SuperAdmin initial setup"
                 );
-
-                context.UserPermissions.Add(userPermission);
+                context.UserPermissions.Add(up);
             }
         }
 
@@ -284,11 +325,10 @@ public static class RbacSeedData
     }
 
     /// <summary>
-    /// Apply seed data through Entity Framework migrations
+    /// Optionally call from OnModelCreating to include seed in migrations.
     /// </summary>
     public static void ApplySeedData(ModelBuilder modelBuilder)
     {
-        // This method can be called from OnModelCreating to include seed data in migrations
-        // However, for complex seeding with dependencies, it's better to use SeedAsync
+        // For complex seeding we keep runtime SeedAsync.
     }
 }

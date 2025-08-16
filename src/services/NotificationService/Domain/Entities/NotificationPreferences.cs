@@ -18,6 +18,8 @@ public class NotificationPreferences : AuditableEntity
     public bool EmailMarketing { get; set; } = true;
     public bool EmailSecurity { get; set; } = true;
     public bool EmailUpdates { get; set; } = true;
+    public bool EmailReminders { get; set; } = true;
+    public bool EmailDigestEnabled { get; set; } = false;
 
     // SMS preferences
     public bool SmsEnabled { get; set; } = false;
@@ -29,6 +31,8 @@ public class NotificationPreferences : AuditableEntity
     public bool PushMarketing { get; set; } = false;
     public bool PushSecurity { get; set; } = true;
     public bool PushUpdates { get; set; } = true;
+    public bool PushReminders { get; set; } = true;
+    public string? PushToken { get; set; } // Device token for push notifications
 
     // Quiet hours
     public TimeOnly? QuietHoursStart { get; set; }
@@ -40,8 +44,12 @@ public class NotificationPreferences : AuditableEntity
     // Frequency settings
     [MaxLength(50)]
     public string DigestFrequency { get; set; } = "Daily"; // Immediate, Daily, Weekly, Never
+    public int DigestHour { get; set; } = 18; // Hour of day (0-23) to send digest
 
     // Language preference
     [MaxLength(10)]
     public string Language { get; set; } = "en";
+    
+    // Timezone property (alias for TimeZone for compatibility)
+    public string Timezone => TimeZone;
 }

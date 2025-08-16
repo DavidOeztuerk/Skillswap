@@ -22,9 +22,9 @@ public record SearchUsersQuery(
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
 
-    public string CacheKey => throw new NotImplementedException();
+    public string CacheKey => $"users:search:{SearchTerm}:{IsAvailable}:{MinRating}:{SortBy}:{SortDescending}:{EmailVerified}:{Role}:{AccountStatus}:{PageNumber}:{PageSize}";
 
-    public TimeSpan CacheDuration => throw new NotImplementedException();
+    public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 
 public record UserSearchResultResponse(

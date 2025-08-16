@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using Domain.Abstractions;
-using Infrastructure.Models;
 
 namespace NotificationService.Domain.Entities;
 
@@ -21,6 +20,9 @@ public class NotificationEvent : AuditableEntity
     public string? Details { get; set; }
 
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    
+    // OccurredAt property (alias for Timestamp for compatibility)
+    public DateTime OccurredAt => Timestamp;
 
     // Navigation properties
     public virtual Notification Notification { get; set; } = null!;

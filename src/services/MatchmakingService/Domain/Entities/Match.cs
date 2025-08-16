@@ -66,9 +66,13 @@ public class Match : AuditableEntity
     public DateTime? RejectedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? ExpiredAt { get; set; }
+    public DateTime? DissolvedAt { get; set; }
 
     [MaxLength(500)]
     public string? RejectionReason { get; set; }
+
+    [MaxLength(500)]
+    public string? DissolutionReason { get; set; }
 
     [MaxLength(1000)]
     public string? CompletionNotes { get; set; }
@@ -83,6 +87,7 @@ public class Match : AuditableEntity
     public bool IsCompleted => Status == MatchStatus.Completed;
     public bool IsRejected => Status == MatchStatus.Rejected;
     public bool IsExpired => Status == MatchStatus.Expired;
+    public bool IsDissolved => Status == MatchStatus.Dissolved;
     public bool IsActive => IsPending || IsAccepted;
     public bool AllSessionsCompleted => CompletedSessions >= TotalSessionsPlanned;
 
@@ -126,6 +131,14 @@ public class Match : AuditableEntity
     {
         Status = MatchStatus.Expired;
         ExpiredAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void Dissolve(string? reason = null)
+    {
+        Status = MatchStatus.Dissolved;
+        DissolutionReason = reason;
+        DissolvedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
     }
 }

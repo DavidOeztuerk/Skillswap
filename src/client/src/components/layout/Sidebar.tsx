@@ -41,7 +41,7 @@ import {
   Security as SecurityIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
-import { usePermission } from '../../contexts/PermissionContext';
+import { usePermissions } from '../../contexts/PermissionContext';
 
 interface SidebarProps {
   drawerWidth: number;
@@ -68,7 +68,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { isAuthenticated } = useAuth();
-  const { hasPermission, isAdmin: isAdminFromContext, loading: permissionsLoading } = usePermission();
+  const { hasPermission, isAdmin: isAdminFromContext, loading: permissionsLoading } = usePermissions();
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
   
   // Memoize isAdmin check - Re-evaluate when context changes or loading completes
@@ -122,6 +122,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       icon: <MatchmakingIcon />,
       path: '/matchmaking',
       authRequired: true,
+      children: [
+        { text: 'Anfragen', icon: null, path: '/matchmaking', authRequired: true },
+        { text: 'Meine Matches', icon: null, path: '/matchmaking/matches', authRequired: true },
+      ],
     },
     {
       text: 'Termine',

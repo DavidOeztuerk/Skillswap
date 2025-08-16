@@ -72,6 +72,13 @@ namespace MatchmakingService.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("DissolutionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("DissolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ExchangeSkillId")
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");

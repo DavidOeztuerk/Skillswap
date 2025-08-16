@@ -34,112 +34,97 @@ import {
   TrendingUp as LevelIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
-  DragIndicator as DragIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { usePermission } from '../../contexts/PermissionContext';
-import apiClient from '../../services/apiClient';
+import { usePermissions } from '../../contexts/PermissionContext';
 import { Grid } from '../../components/common/GridCompat';
-
-interface ProficiencyLevel {
-  id: string;
-  name: string;
-  level: number;
-  description?: string;
-  color?: string;
-  minScore: number;
-  maxScore: number;
-  displayOrder: number;
-  isActive: boolean;
-  skillCount: number;
-  createdAt: string;
-  updatedAt?: string;
-}
+import { ProficiencyLevel } from '../../types/models/Skill';
+import { useSkills } from '../../hooks/useSkills';
 
 interface LevelFormData {
-  name: string;
-  level: number;
-  description: string;
+  level: string;
+  rank: number;
   color: string;
-  minScore: number;
-  maxScore: number;
-  displayOrder: number;
 }
 
 const ProficiencyLevelsManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { hasPermission } = usePermission();
-  const [levels, setLevels] = useState<ProficiencyLevel[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { hasPermission } = usePermissions();
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<ProficiencyLevel | null>(null);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<LevelFormData>({
-    name: '',
-    level: 1,
-    description: '',
+    level: '',
+    rank: 1,
     color: '#2196f3',
-    minScore: 0,
-    maxScore: 100,
-    displayOrder: 1
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof LevelFormData, string>>>({});
   const [saving, setSaving] = useState(false);
-
-  const fetchLevels = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get('/api/proficiency-levels');
-      // apiClient returns ApiResponse, check structure
-      const levelsData = response?.data || response || [];
-      const sortedLevels = (Array.isArray(levelsData) ? levelsData : []).sort(
-        (a: ProficiencyLevel, b: ProficiencyLevel) => a.displayOrder - b.displayOrder
-      );
-      setLevels(sortedLevels);
-      setError(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to load proficiency levels');
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+  // Use the useSkills hook
+  const { 
+    proficiencyLevels, 
+    fetchProficiencyLevels, 
+    createProficiencyLevel, 
+    updateProficiencyLevel, 
+    deleteProficiencyLevel 
+  } = useSkills();
 
   useEffect(() => {
     if (!hasPermission('skills:manage_proficiency')) {
       navigate('/');
       return;
     }
-    fetchLevels();
-  }, [hasPermission, navigate]);
+    
+    // Initial fetch of proficiency levels
+    const loadLevels = async () => {
+      setLoading(true);
+      try {
+        await fetchProficiencyLevels();
+        setError(null);
+      } catch (err: any) {
+        setError('Failed to load proficiency levels');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadLevels();
+  }, [hasPermission, navigate, fetchProficiencyLevels]);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      await fetchProficiencyLevels();
+      setError(null);
+    } catch (err: any) {
+      setError('Failed to refresh proficiency levels');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOpenDialog = (level?: ProficiencyLevel) => {
     if (level) {
       setSelectedLevel(level);
       setFormData({
-        name: level.name,
         level: level.level,
-        description: level.description || '',
+        rank: level.rank,
         color: level.color || '#2196f3',
-        minScore: level.minScore,
-        maxScore: level.maxScore,
-        displayOrder: level.displayOrder
       });
     } else {
       setSelectedLevel(null);
-      const nextOrder = levels.length > 0 
-        ? Math.max(...levels.map(l => l.displayOrder)) + 1 
+      const nextRank = proficiencyLevels && proficiencyLevels.length > 0 
+        ? Math.max(...proficiencyLevels.map(l => l.rank)) + 1 
         : 1;
       setFormData({
-        name: '',
-        level: levels.length + 1,
-        description: '',
+        level: '',
+        rank: nextRank,
         color: '#2196f3',
-        minScore: 0,
-        maxScore: 100,
-        displayOrder: nextOrder
       });
     }
     setFormErrors({});
@@ -150,13 +135,9 @@ const ProficiencyLevelsManagement: React.FC = () => {
     setDialogOpen(false);
     setSelectedLevel(null);
     setFormData({
-      name: '',
-      level: 1,
-      description: '',
+      level: '',
+      rank: 1,
       color: '#2196f3',
-      minScore: 0,
-      maxScore: 100,
-      displayOrder: 1
     });
     setFormErrors({});
   };
@@ -164,32 +145,16 @@ const ProficiencyLevelsManagement: React.FC = () => {
   const validateForm = (): boolean => {
     const errors: Partial<Record<keyof LevelFormData, string>> = {};
     
-    if (!formData.name.trim()) {
-      errors.name = 'Level name is required';
-    } else if (formData.name.length < 2) {
-      errors.name = 'Level name must be at least 2 characters';
-    } else if (formData.name.length > 50) {
-      errors.name = 'Level name must not exceed 50 characters';
+    if (!formData.level.trim()) {
+      errors.level = 'Level name is required';
+    } else if (formData.level.length < 2) {
+      errors.level = 'Level name must be at least 2 characters';
+    } else if (formData.level.length > 50) {
+      errors.level = 'Level name must not exceed 50 characters';
     }
 
-    if (formData.level < 1 || formData.level > 10) {
-      errors.level = 'Level must be between 1 and 10';
-    }
-
-    if (formData.minScore < 0 || formData.minScore > 100) {
-      errors.minScore = 'Min score must be between 0 and 100';
-    }
-
-    if (formData.maxScore < 0 || formData.maxScore > 100) {
-      errors.maxScore = 'Max score must be between 0 and 100';
-    }
-
-    if (formData.minScore >= formData.maxScore) {
-      errors.maxScore = 'Max score must be greater than min score';
-    }
-
-    if (formData.description && formData.description.length > 200) {
-      errors.description = 'Description must not exceed 200 characters';
+    if (formData.rank < 1 || formData.rank > 10) {
+      errors.rank = 'Rank must be between 1 and 10';
     }
 
     setFormErrors(errors);
@@ -201,16 +166,30 @@ const ProficiencyLevelsManagement: React.FC = () => {
 
     setSaving(true);
     try {
+      let success = false;
+      
       if (selectedLevel) {
-        // Update existing level
-        await apiClient.put(`/api/admin/skills/proficiency-levels/${selectedLevel.id}`, formData);
+        // Update existing level using the hook
+        success = await updateProficiencyLevel(
+          selectedLevel.id,
+          formData.level,
+          formData.rank
+        );
       } else {
-        // Create new level
-        await apiClient.post('/api/admin/skills/proficiency-levels', formData);
+        // Create new level using the hook
+        success = await createProficiencyLevel(
+          formData.level,
+          formData.rank
+        );
       }
-      await fetchLevels();
-      handleCloseDialog();
-      setError(null);
+      
+      if (success) {
+        await fetchProficiencyLevels(); // Refresh levels
+        handleCloseDialog();
+        setError(null);
+      } else {
+        setError('Failed to save proficiency level');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to save proficiency level');
     } finally {
@@ -222,10 +201,16 @@ const ProficiencyLevelsManagement: React.FC = () => {
     if (!selectedLevel) return;
 
     try {
-      await apiClient.delete(`/api/admin/skills/proficiency-levels/${selectedLevel.id}`);
-      await fetchLevels();
-      setDeleteDialogOpen(false);
-      setSelectedLevel(null);
+      const success = await deleteProficiencyLevel(selectedLevel.id);
+      
+      if (success) {
+        await fetchProficiencyLevels(); // Refresh levels
+        setDeleteDialogOpen(false);
+        setSelectedLevel(null);
+        setError(null);
+      } else {
+        setError('Failed to delete proficiency level');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete proficiency level');
     }
@@ -236,10 +221,10 @@ const ProficiencyLevelsManagement: React.FC = () => {
     setDeleteDialogOpen(true);
   };
 
-  const getLevelIcon = (level: number) => {
+  const getLevelIcon = (rank: number) => {
     const stars = [];
     for (let i = 0; i < 5; i++) {
-      if (i < level) {
+      if (i < rank) {
         stars.push(<StarIcon key={i} sx={{ fontSize: 16, color: 'warning.main' }} />);
       } else {
         stars.push(<StarBorderIcon key={i} sx={{ fontSize: 16, color: 'action.disabled' }} />);
@@ -256,14 +241,14 @@ const ProficiencyLevelsManagement: React.FC = () => {
   ];
 
   const predefinedLevelNames = [
-    { name: 'Beginner', level: 1, color: '#4caf50' },
-    { name: 'Elementary', level: 2, color: '#8bc34a' },
-    { name: 'Intermediate', level: 3, color: '#ffeb3b' },
-    { name: 'Advanced', level: 4, color: '#ff9800' },
-    { name: 'Expert', level: 5, color: '#f44336' },
+    { name: 'Beginner', rank: 1, color: '#4caf50' },
+    { name: 'Elementary', rank: 2, color: '#8bc34a' },
+    { name: 'Intermediate', rank: 3, color: '#ffeb3b' },
+    { name: 'Advanced', rank: 4, color: '#ff9800' },
+    { name: 'Expert', rank: 5, color: '#f44336' },
   ];
 
-  if (loading && levels.length === 0) {
+  if (loading && (!proficiencyLevels || proficiencyLevels.length === 0)) {
     return (
       <Container>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -280,7 +265,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
           Proficiency Levels Management
         </Typography>
         <Typography variant="body1" color="textSecondary">
-          Manage skill proficiency levels and their scoring ranges
+          Manage skill proficiency levels
         </Typography>
       </Box>
 
@@ -301,7 +286,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                     Total Levels
                   </Typography>
                   <Typography variant="h4">
-                    {levels.length}
+                    {proficiencyLevels?.length || 0}
                   </Typography>
                 </Box>
                 <LevelIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.3 }} />
@@ -309,7 +294,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        {/* <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -318,14 +303,14 @@ const ProficiencyLevelsManagement: React.FC = () => {
                     Active Levels
                   </Typography>
                   <Typography variant="h4">
-                    {levels.filter(l => l.isActive).length}
+                    {proficiencyLevels?.filter(l => l.isActive).length || 0}
                   </Typography>
                 </Box>
                 <LevelIcon sx={{ fontSize: 40, color: 'success.main', opacity: 0.3 }} />
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> */}
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -335,7 +320,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                     Total Skills
                   </Typography>
                   <Typography variant="h4">
-                    {levels.reduce((sum, l) => sum + l.skillCount, 0)}
+                    {proficiencyLevels?.reduce((sum, l) => sum + (l.skillCount || 0), 0) || 0}
                   </Typography>
                 </Box>
                 <LevelIcon sx={{ fontSize: 40, color: 'info.main', opacity: 0.3 }} />
@@ -349,10 +334,10 @@ const ProficiencyLevelsManagement: React.FC = () => {
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="textSecondary" gutterBottom variant="body2">
-                    Score Range
+                    Rank Range
                   </Typography>
                   <Typography variant="h4">
-                    0-100
+                    1-10
                   </Typography>
                 </Box>
                 <LevelIcon sx={{ fontSize: 40, color: 'warning.main', opacity: 0.3 }} />
@@ -372,7 +357,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
           >
             Add Proficiency Level
           </Button>
-          <IconButton onClick={fetchLevels}>
+          <IconButton onClick={handleRefresh}>
             <RefreshIcon />
           </IconButton>
         </Stack>
@@ -383,24 +368,20 @@ const ProficiencyLevelsManagement: React.FC = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Order</TableCell>
-              <TableCell>Name</TableCell>
+              <TableCell>Rank</TableCell>
               <TableCell>Level</TableCell>
-              <TableCell>Score Range</TableCell>
-              <TableCell>Description</TableCell>
+              <TableCell>Visual</TableCell>
+              <TableCell>Color</TableCell>
               <TableCell align="center">Skills</TableCell>
               <TableCell align="center">Status</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {levels.map((level) => (
+            {proficiencyLevels?.map((level) => (
               <TableRow key={level.id}>
                 <TableCell>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <DragIcon sx={{ color: 'action.disabled' }} />
-                    <Typography>{level.displayOrder}</Typography>
-                  </Stack>
+                  <Typography fontWeight="medium">{level.rank}</Typography>
                 </TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={1} alignItems="center">
@@ -412,28 +393,37 @@ const ProficiencyLevelsManagement: React.FC = () => {
                         backgroundColor: level.color || '#2196f3'
                       }}
                     />
-                    <Typography fontWeight="medium">{level.name}</Typography>
+                    <Typography fontWeight="medium">{level.level}</Typography>
                   </Stack>
                 </TableCell>
-                <TableCell>{getLevelIcon(level.level)}</TableCell>
+                <TableCell>{getLevelIcon(level.rank)}</TableCell>
                 <TableCell>
-                  <Chip
-                    label={`${level.minScore} - ${level.maxScore}`}
-                    size="small"
-                    variant="outlined"
-                  />
+                  {level.color && (
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Box
+                        sx={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 1,
+                          backgroundColor: level.color,
+                          border: '1px solid',
+                          borderColor: 'divider'
+                        }}
+                      />
+                      <Typography variant="caption">{level.color}</Typography>
+                    </Box>
+                  )}
                 </TableCell>
-                <TableCell>{level.description || '-'}</TableCell>
                 <TableCell align="center">
-                  <Chip label={level.skillCount} size="small" />
+                  <Chip label={level.skillCount || 0} size="small" />
                 </TableCell>
-                <TableCell align="center">
+                {/* <TableCell align="center">
                   <Chip
                     label={level.isActive ? 'Active' : 'Inactive'}
                     size="small"
                     color={level.isActive ? 'success' : 'default'}
                   />
-                </TableCell>
+                </TableCell> */}
                 <TableCell align="right">
                   <Stack direction="row" spacing={1} justifyContent="flex-end">
                     <Tooltip title="Edit">
@@ -448,7 +438,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                       <IconButton
                         size="small"
                         onClick={() => handleOpenDeleteDialog(level)}
-                        disabled={level.skillCount > 0}
+                        disabled={(level.skillCount || 0) > 0}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -481,11 +471,11 @@ const ProficiencyLevelsManagement: React.FC = () => {
                       label={template.name}
                       onClick={() => setFormData({
                         ...formData,
-                        name: template.name,
-                        level: template.level,
+                        level: template.name,
+                        rank: template.rank,
                         color: template.color
                       })}
-                      variant={formData.name === template.name ? 'filled' : 'outlined'}
+                      variant={formData.level === template.name ? 'filled' : 'outlined'}
                       size="small"
                     />
                   ))}
@@ -495,76 +485,32 @@ const ProficiencyLevelsManagement: React.FC = () => {
 
             <TextField
               label="Level Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              error={!!formErrors.name}
-              helperText={formErrors.name}
+              value={formData.level}
+              onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+              error={!!formErrors.level}
+              helperText={formErrors.level}
               fullWidth
               required
             />
             
             <Box>
               <Typography gutterBottom>
-                Level: {formData.level}
+                Rank: {formData.rank}
               </Typography>
               <Slider
-                value={formData.level}
-                onChange={(_, value) => setFormData({ ...formData, level: value as number })}
+                value={formData.rank}
+                onChange={(_, value) => setFormData({ ...formData, rank: value as number })}
                 min={1}
                 max={10}
                 marks
                 valueLabelDisplay="auto"
               />
-              {formErrors.level && (
+              {formErrors.rank && (
                 <Typography color="error" variant="caption">
-                  {formErrors.level}
+                  {formErrors.rank}
                 </Typography>
               )}
             </Box>
-            
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="Min Score"
-                type="number"
-                value={formData.minScore}
-                onChange={(e) => setFormData({ ...formData, minScore: Number(e.target.value) })}
-                error={!!formErrors.minScore}
-                helperText={formErrors.minScore}
-                fullWidth
-                InputProps={{ inputProps: { min: 0, max: 100 } }}
-              />
-              
-              <TextField
-                label="Max Score"
-                type="number"
-                value={formData.maxScore}
-                onChange={(e) => setFormData({ ...formData, maxScore: Number(e.target.value) })}
-                error={!!formErrors.maxScore}
-                helperText={formErrors.maxScore}
-                fullWidth
-                InputProps={{ inputProps: { min: 0, max: 100 } }}
-              />
-            </Stack>
-            
-            <TextField
-              label="Description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              error={!!formErrors.description}
-              helperText={formErrors.description}
-              fullWidth
-              multiline
-              rows={3}
-            />
-            
-            <TextField
-              label="Display Order"
-              type="number"
-              value={formData.displayOrder}
-              onChange={(e) => setFormData({ ...formData, displayOrder: Number(e.target.value) })}
-              fullWidth
-              InputProps={{ inputProps: { min: 1 } }}
-            />
             
             <Box>
               <Typography gutterBottom variant="body2">
@@ -592,6 +538,14 @@ const ProficiencyLevelsManagement: React.FC = () => {
                   </IconButton>
                 ))}
               </Stack>
+              <TextField
+                label="Custom Color"
+                type="color"
+                value={formData.color}
+                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                fullWidth
+                sx={{ mt: 2 }}
+              />
             </Box>
           </Stack>
         </DialogContent>
@@ -615,7 +569,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the proficiency level "{selectedLevel?.name}"?
+            Are you sure you want to delete the proficiency level "{selectedLevel?.level}"?
             {selectedLevel?.skillCount ? (
               <Alert severity="warning" sx={{ mt: 2 }}>
                 This level has {selectedLevel.skillCount} skills associated with it.

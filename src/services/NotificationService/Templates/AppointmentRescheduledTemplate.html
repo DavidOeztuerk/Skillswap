@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termin verschoben - Skillswap</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            margin: -30px -30px 30px -30px;
+        }
+        .reschedule-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .change-comparison {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 20px;
+            margin: 20px 0;
+            align-items: center;
+        }
+        .old-time {
+            background-color: #ffebee;
+            border: 2px solid #ef5350;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+        }
+        .old-time::after {
+            content: "ALT";
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ef5350;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .new-time {
+            background-color: #e8f5e9;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+        }
+        .new-time::after {
+            content: "NEU";
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .arrow {
+            font-size: 24px;
+            color: #666;
+        }
+        .strikethrough {
+            text-decoration: line-through;
+            color: #999;
+        }
+        .reason-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .appointment-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .detail-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            margin: 10px 0;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #666;
+        }
+        .meeting-link-section {
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .meeting-link {
+            display: inline-block;
+            background-color: #2196f3;
+            color: white !important;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .action-required {
+            background-color: #ffebee;
+            border: 2px solid #ef5350;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .action-button {
+            display: inline-block;
+            padding: 10px 25px;
+            margin: 10px 5px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .btn-accept {
+            background-color: #4CAF50;
+            color: white !important;
+        }
+        .btn-decline {
+            background-color: #f44336;
+            color: white !important;
+        }
+        .btn-propose {
+            background-color: #ff9800;
+            color: white !important;
+        }
+        .calendar-update {
+            background-color: #e8f5e9;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="reschedule-icon">📅</div>
+            <h1>Termin wurde verschoben</h1>
+        </div>
+
+        <p>Hallo {{RecipientName}},</p>
+        
+        <p><strong>{{RescheduledByName}}</strong> hat den Termin für <strong>{{SkillName}}</strong> verschoben.</p>
+
+        <div class="change-comparison">
+            <div class="old-time">
+                <div class="strikethrough">
+                    <strong>{{OldDate}}</strong><br>
+                    {{OldTime}}<br>
+                    {{OldDuration}} Minuten
+                </div>
+            </div>
+            <div class="arrow">➜</div>
+            <div class="new-time">
+                <strong>{{NewDate}}</strong><br>
+                <strong>{{NewTime}}</strong><br>
+                {{NewDuration}} Minuten
+            </div>
+        </div>
+
+        {{#if RescheduleReason}}
+        <div class="reason-box">
+            <strong>📝 Grund für die Verschiebung:</strong><br>
+            {{RescheduleReason}}
+        </div>
+        {{/if}}
+
+        <div class="action-required">
+            <h3 style="margin-top: 0;">⚠️ Deine Bestätigung erforderlich</h3>
+            <p>Bitte bestätige den neuen Termin oder schlage eine Alternative vor:</p>
+            <div>
+                <a href="{{AcceptLink}}" class="action-button btn-accept">Neuen Termin bestätigen</a>
+                <a href="{{DeclineLink}}" class="action-button btn-decline">Termin ablehnen</a>
+                <a href="{{ProposeAlternativeLink}}" class="action-button btn-propose">Alternative vorschlagen</a>
+            </div>
+        </div>
+
+        <div class="appointment-details">
+            <h3 style="margin-top: 0;">📋 Termin-Übersicht</h3>
+            <div class="detail-row">
+                <span class="detail-label">Skill:</span>
+                <span>{{SkillName}}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Partner:</span>
+                <span>{{PartnerName}}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Neues Datum:</span>
+                <span><strong>{{NewDate}}, {{NewTime}}</strong></span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Dauer:</span>
+                <span>{{NewDuration}} Minuten</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Format:</span>
+                <span>Videocall 💻</span>
+            </div>
+        </div>
+
+        <div class="meeting-link-section">
+            <h3 style="margin-top: 0;">🔗 Meeting-Link bleibt gleich</h3>
+            <p>Der Meeting-Link für den Termin bleibt unverändert:</p>
+            <a href="{{MeetingLink}}" class="meeting-link">Meeting-Link anzeigen</a>
+            <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                Der Link wird zum neuen Zeitpunkt aktiviert
+            </p>
+        </div>
+
+        <div class="calendar-update">
+            <strong>📅 Kalender aktualisieren:</strong>
+            <p>Vergiss nicht, den Termin in deinem Kalender zu aktualisieren!</p>
+            <div style="margin-top: 10px;">
+                <a href="{{NewGoogleCalendarLink}}" class="action-button" style="background-color: #4285f4; color: white;">Google Calendar</a>
+                <a href="{{NewOutlookCalendarLink}}" class="action-button" style="background-color: #0078d4; color: white;">Outlook</a>
+                <a href="{{NewICalDownloadLink}}" class="action-button" style="background-color: #666; color: white;">iCal (.ics)</a>
+            </div>
+        </div>
+
+        <p style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <strong>💡 Tipp:</strong> Wenn der neue Termin nicht passt, kannst du über den Button "Alternative vorschlagen" einen anderen Zeitpunkt wählen. {{PartnerName}} wird dann benachrichtigt.
+        </p>
+
+        <div class="footer">
+            <p>© 2024 Skillswap. Alle Rechte vorbehalten.</p>
+            <p>
+                Diese E-Mail wurde an {{RecipientEmail}} gesendet.<br>
+                Termin-ID: {{AppointmentId}}
+            </p>
+            <p style="margin-top: 10px;">
+                <a href="{{HelpLink}}" style="color: #666; margin: 0 10px;">Hilfe</a>
+                <a href="{{UnsubscribeLink}}" style="color: #666; margin: 0 10px;">E-Mail-Einstellungen</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

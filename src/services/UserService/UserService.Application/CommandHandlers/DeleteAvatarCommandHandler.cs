@@ -2,7 +2,6 @@ using Contracts.User.Responses;
 using UserService.Application.Commands;
 using MassTransit;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using UserService.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;

@@ -66,9 +66,9 @@ export const SKILL_ENDPOINTS = {
   UPDATE_SKILL: '/api/skills',
   DELETE_SKILL: '/api/skills',
   RATE_SKILL: '/api/skills', // + /{skillId}/rate
-  ENDORSE_SKILL: '/api/skills', // + /{skillId}/endorse
-  CATEGORIES: '/api/categories',
-  PROFICIENCY_LEVELS: '/api/proficiency-levels',
+  ENDORSE_SKILL: '/api/skills/skills', // + /{skillId}/endorse
+  CATEGORIES: '/api/skills/categories',
+  PROFICIENCY_LEVELS: '/api/skills/proficiency-levels',
   ANALYTICS_STATS: '/api/skills/analytics/statistics',
   ANALYTICS_TAGS: '/api/skills/analytics/popular-tags',
   RECOMMENDATIONS: '/api/skills/recommendations',
@@ -108,11 +108,16 @@ export const MATCHMAKING_ENDPOINTS = {
     GET_OUTGOING: '/api/matches/requests/outgoing',
     GET_ACCEPTED: '/api/matches/requests/accepted',
     GET_THREAD: '/api/matches/requests/thread', // + /{threadId}
-    ACCEPT: '/api/matches/requests', // + /{requestId}/accept
-    REJECT: '/api/matches/requests', // + /{requestId}/reject
-    COUNTER: '/api/matches/requests', // + /{requestId}/counter
+    ACCEPT: '/api/matches/requests', // Base path, append /{requestId}/accept
+    REJECT: '/api/matches/requests', // Base path, append /{requestId}/reject
+    COUNTER: '/api/matches/requests', // Base path, append /{requestId}/counter
     CANCEL: '/api/matches/requests', // + /{requestId}/cancel
   },
+  MATCHES: {
+  USER: '/api/matches/my',
+  SEARCH: '/api/matches/search',
+  DETAILS: '/api/matches',
+},
   
   // Match analytics
   STATISTICS: '/api/matches/statistics',
@@ -136,7 +141,8 @@ export const APPOINTMENT_ENDPOINTS = {
   // Appointment actions
   ACCEPT: '/api/appointments', // + /{appointmentId}/accept
   CANCEL: '/api/appointments', // + /{appointmentId}/cancel
-  RESCHEDULE: '/api/appointments', // + /{appointmentId}/reschedule
+  RESCHEDULE: '/api/appointments/{appointmentId}/reschedule',
+  GENERATE_MEETING_LINK: '/api/appointments/{appointmentId}/meeting-link',
   
   // Availability and scheduling
   GET_AVAILABILITY: '/api/appointments/availability', // + /{userId}
@@ -198,7 +204,7 @@ export const VIDEOCALL_ENDPOINTS = {
 export const PROFILE_ENDPOINTS = {
   UPDATE: '/api/users/profile',
   UPLOAD_AVATAR: '/api/users/profile/avatar',
-  GET_USER: '/api/users', // + /{userId}
+  GET_USER: '/api/users/profile', //
   FEEDBACK: '/api/users/feedback',
 };
 
@@ -222,8 +228,8 @@ export const NOTIFICATION_ENDPOINTS = {
   UNSUBSCRIBE: '/api/notifications/unsubscribe',
   
   // Settings and preferences
-  SETTINGS: '/api/notifications/settings',
-  UPDATE_SETTINGS: '/api/notifications/settings',
+  SETTINGS: '/api/notifications/preferences',
+  UPDATE_SETTINGS: '/api/notifications/preferences',
   GET_PREFERENCES: '/api/notifications/preferences',
   UPDATE_PREFERENCES: '/api/notifications/preferences',
   

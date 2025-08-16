@@ -2,6 +2,7 @@ using Contracts.Matchmaking.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
 using MatchmakingService.Application.Queries;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace MatchmakingService.Application.QueryHandlers;
@@ -9,11 +10,13 @@ namespace MatchmakingService.Application.QueryHandlers;
 public class GetIncomingMatchRequestsQueryHandler(
     MatchmakingDbContext dbContext,
     HttpClient httpClient,
+    IHttpContextAccessor httpContextAccessor,
     ILogger<GetIncomingMatchRequestsQueryHandler> logger)
     : BasePagedQueryHandler<GetIncomingMatchRequestsQuery, MatchRequestDisplayResponse>(logger)
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
     private readonly HttpClient _httpClient = httpClient;
+    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
 
     public override async Task<PagedResponse<MatchRequestDisplayResponse>> Handle(
         GetIncomingMatchRequestsQuery request,
@@ -62,7 +65,7 @@ public class GetIncomingMatchRequestsQueryHandler(
                     SkillName: skillData?.Name ?? "Unknown Skill",
                     SkillCategory: skillData?.Category ?? "General",
                     Message: mr.Message,
-                    Status: mr.Status,
+                    Status: mr.Status?.ToLowerInvariant() ?? "pending",
                     Type: "incoming",
                     OtherUserId: mr.RequesterId,
                     OtherUserName: requesterData?.Name ?? "Unknown User",
@@ -101,7 +104,17 @@ public class GetIncomingMatchRequestsQueryHandler(
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/api/skills/{skillId}", cancellationToken);
+            // Auth Token weitergeben
+            var token = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"]
+                .FirstOrDefault()?.Split(" ").Last();
+            
+            if (!string.IsNullOrEmpty(token))
+            {
+                _httpClient.DefaultRequestHeaders.Authorization = 
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            }
+
+            var response = await _httpClient.GetAsync($"skills/{skillId}", cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 Logger.LogWarning("Failed to get skill data for {SkillId}, status: {StatusCode}", skillId, response.StatusCode);
@@ -130,7 +143,17 @@ public class GetIncomingMatchRequestsQueryHandler(
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/api/users/{userId}/profile", cancellationToken);
+            // Auth Token weitergeben
+            var token = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"]
+                .FirstOrDefault()?.Split(" ").Last();
+            
+            if (!string.IsNullOrEmpty(token))
+            {
+                _httpClient.DefaultRequestHeaders.Authorization = 
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            }
+
+            var response = await _httpClient.GetAsync($"users/{userId}", cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 Logger.LogWarning("Failed to get user data for {UserId}, status: {StatusCode}", userId, response.StatusCode);

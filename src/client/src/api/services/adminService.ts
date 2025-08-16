@@ -26,13 +26,13 @@ export class AdminService {
     page?: number;
     limit?: number;
     filters?: any;
-  }): Promise<PagedResponse<AdminUser[]>> {
+  }): Promise<PagedResponse<AdminUser>> {
     const url = getUrlWithParams(ADMIN_ENDPOINTS.USER_MANAGEMENT.GET_ALL, {
       page: params.page || 1,
       limit: params.limit || 20,
       ...params.filters,
     });
-    return await apiClient.get<PagedResponse<AdminUser[]>>(url);
+    return await apiClient.get<PagedResponse<AdminUser>>(url);
   }
 
   async getUserById(userId: string): Promise<AdminUser> {
@@ -73,13 +73,13 @@ export class AdminService {
     page?: number;
     limit?: number;
     filters?: any;
-  }): Promise<PagedResponse<AdminSkill[]>> {
+  }): Promise<PagedResponse<AdminSkill>> {
     const url = getUrlWithParams(ADMIN_ENDPOINTS.SKILLS, {
       page: params.page || 1,
       limit: params.limit || 20,
       ...params.filters,
     });
-    return await apiClient.get<PagedResponse<AdminSkill[]>>(url);
+    return await apiClient.get<PagedResponse<AdminSkill>>(url);
   }
 
   async moderateSkill(skillId: string, action: 'approve' | 'reject' | 'quarantine', reason?: string): Promise<AdminSkill> {
@@ -99,13 +99,13 @@ export class AdminService {
     page?: number;
     limit?: number;
     filters?: any;
-  }): Promise<PagedResponse<AdminAppointment[]>> {
+  }): Promise<PagedResponse<AdminAppointment>> {
     const url = getUrlWithParams(ADMIN_ENDPOINTS.APPOINTMENTS, {
       page: params.page || 1,
       limit: params.limit || 20,
       ...params.filters,
     });
-    return await apiClient.get<PagedResponse<AdminAppointment[]>>(url);
+    return await apiClient.get<PagedResponse<AdminAppointment>>(url);
   }
 
   // Matches Management
@@ -113,13 +113,13 @@ export class AdminService {
     page?: number;
     limit?: number;
     filters?: any;
-  }): Promise<PagedResponse<AdminMatch[]>> {
+  }): Promise<PagedResponse<AdminMatch>> {
     const url = getUrlWithParams(ADMIN_ENDPOINTS.MATCHES, {
       page: params.page || 1,
       limit: params.limit || 20,
       ...params.filters,
     });
-    return await apiClient.get<PagedResponse<AdminMatch[]>>(url);
+    return await apiClient.get<PagedResponse<AdminMatch>>(url);
   }
 
   // Analytics
@@ -140,13 +140,13 @@ export class AdminService {
     page?: number;
     limit?: number;
     filters?: any;
-  }): Promise<PagedResponse<AuditLog[]>> {
+  }): Promise<PagedResponse<AuditLog>> {
     const url = getUrlWithParams(ADMIN_ENDPOINTS.AUDIT_LOGS, {
       page: params.page || 1,
       limit: params.limit || 50,
       ...params.filters,
     });
-    return await apiClient.get<PagedResponse<AuditLog[]>>(url);
+    return await apiClient.get<PagedResponse<AuditLog>>(url);
   }
 
   // Moderation Reports
@@ -154,13 +154,13 @@ export class AdminService {
     page?: number;
     limit?: number;
     filters?: any;
-  }): Promise<PagedResponse<ModerationReport[]>> {
+  }): Promise<PagedResponse<ModerationReport>> {
     const url = getUrlWithParams(ADMIN_ENDPOINTS.REPORTS, {
       page: params.page || 1,
       limit: params.limit || 20,
       ...params.filters,
     });
-    return await apiClient.get<PagedResponse<ModerationReport[]>>(url);
+    return await apiClient.get<PagedResponse<ModerationReport>>(url);
   }
 
   async handleModerationReport(

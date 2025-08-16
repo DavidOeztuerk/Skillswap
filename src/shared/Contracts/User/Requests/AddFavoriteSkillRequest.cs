@@ -1,3 +1,5 @@
+using Contracts.Common;
+
 namespace Contracts.User.Requests;
 
 /// <summary>
@@ -5,6 +7,7 @@ namespace Contracts.User.Requests;
 /// </summary>
 public record AddFavoriteSkillRequest(
     string SkillId)
+    : IVersionedContract
 {
     /// <summary>
     /// API Version this request supports

@@ -5,9 +5,12 @@ using Microsoft.EntityFrameworkCore;
 using EventSourcing;
 using Events.Domain.Matchmaking;
 using CQRS.Models;
+using Contracts.Matchmaking.Responses;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
+// TODO: Sollte villt ein COnsumer sein wenn der letzte videocall beendet wurde soll ein event erzeugt werden inkl. bewertung usw.
+// dann sollen appointments und matches und videocalls als completed gelten um nicht mehr in den listen angezeigt zu werde. höchsten noch irgendwie in einer historie 
 public class CompleteMatchCommandHandler(
     MatchmakingDbContext dbContext,
     IDomainEventPublisher eventPublisher,
@@ -64,7 +67,7 @@ public class CompleteMatchCommandHandler(
 
             return Success(new CompleteMatchResponse(
                 match.Id,
-                match.Status,
+                match.Status == MatchStatus.Completed,
                 match.CompletedAt!.Value));
         }
         catch (Exception ex)

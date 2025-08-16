@@ -1,5 +1,5 @@
 export interface ApiResponse<T> {
-  success: boolean;  // Backend uses "Success" with capital S, but JSON serialization makes it lowercase
+  success: boolean;
   data: T;
   message?: string;
   errors?: string[];

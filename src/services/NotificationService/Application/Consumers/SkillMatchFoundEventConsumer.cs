@@ -3,6 +3,7 @@ using MassTransit;
 using MediatR;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
+using NotificationService.Domain.Enums;
 
 namespace NotificationService.Application.Consumers;
 
@@ -37,7 +38,7 @@ public class SkillMatchFoundEventConsumer(
                 EmailTemplateNames.SkillMatchFound,
                 "placeholder@email.com", // We'd need to get email from UserService
                 searcherVariables,
-                NotificationPriority.Normal,
+                NotificationPriority.Normal.ToString(),
                 CorrelationId: context.ConversationId?.ToString())
             {
                 UserId = context.Message.SkillSearcherId
@@ -58,7 +59,7 @@ public class SkillMatchFoundEventConsumer(
                 EmailTemplateNames.SkillMatchFound,
                 "placeholder@email.com", // We'd need to get email from UserService
                 creatorVariables,
-                NotificationPriority.Normal,
+                NotificationPriority.Normal.ToString(),
                 CorrelationId: context.ConversationId?.ToString())
             {
                 UserId = context.Message.SkillCreatorId

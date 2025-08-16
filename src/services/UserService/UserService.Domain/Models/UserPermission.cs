@@ -20,8 +20,6 @@ public class UserPermission : AuditableEntity
     // Navigation properties
     public virtual User User { get; set; } = null!;
     public virtual Permission Permission { get; set; } = null!;
-    public virtual User? GrantedByUser { get; set; }
-    public virtual User? RevokedByUser { get; set; }
 
     private UserPermission() { }
 

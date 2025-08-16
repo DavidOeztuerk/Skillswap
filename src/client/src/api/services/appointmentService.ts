@@ -2,6 +2,8 @@ import { APPOINTMENT_ENDPOINTS } from '../../config/endpoints';
 import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import { AppointmentResponse } from '../../types/contracts/responses/AppointmentResponse';
+import { RescheduleAppointmentRequest } from '../../types/contracts/requests/RescheduleAppointmentRequest';
+import { RescheduleAppointmentResponse } from '../../types/contracts/responses/RescheduleAppointmentResponse';
 import apiClient from '../apiClient';
 import { ApiResponse } from '../../types/common/ApiResponse';
 import { PagedResponse } from '../../types/common/PagedResponse';
@@ -43,17 +45,17 @@ const appointmentService = {
   /**
    * Get all user appointments
    */
-  async getAppointments(request: GetUserAppointmentsRequest = {}): Promise<PagedResponse<UserAppointmentResponse[]>> {
-    const queryParams = new URLSearchParams();
-    if (request.Status) queryParams.append('Status', request.Status);
-    if (request.FromDate) queryParams.append('FromDate', request.FromDate.toISOString());
-    if (request.ToDate) queryParams.append('ToDate', request.ToDate.toISOString());
-    if (request.IncludePast !== undefined) queryParams.append('IncludePast', request.IncludePast.toString());
-    if (request.PageNumber) queryParams.append('PageNumber', request.PageNumber.toString());
-    if (request.PageSize) queryParams.append('PageSize', request.PageSize.toString());
+  async getAppointments(request: GetUserAppointmentsRequest): Promise<PagedResponse<UserAppointmentResponse>> {
+    const q = new URLSearchParams();
+    if (request.Status != null) q.append('status', request.Status);
+    if (request.FromDate != null) q.append('fromDate', request.FromDate.toISOString());
+    if (request.ToDate != null) q.append('toDate', request.ToDate.toISOString());
+    if (request.IncludePast != undefined) q.append('includePast', String(request.IncludePast)); // false wird gesendet
+    if (request.PageNumber != null) q.append('pageNumber', String(request.PageNumber));
+    if (request.PageSize != null) q.append('pageSize', String(request.PageSize));
     
-    const url = `${APPOINTMENT_ENDPOINTS.GET_MY}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return apiClient.get<PagedResponse<UserAppointmentResponse[]>>(url);
+    const url = `${APPOINTMENT_ENDPOINTS.GET_MY}${q.toString() ? `?${q}` : ''}`;
+    return apiClient.get<PagedResponse<UserAppointmentResponse>>(url);
   },
 
   /**
@@ -61,7 +63,7 @@ const appointmentService = {
    */
   async getAppointment(appointmentId: string): Promise<ApiResponse<Appointment>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return apiClient.get<ApiResponse<Appointment>>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}`);
+    return await apiClient.get<ApiResponse<Appointment>>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}`, {});
   },
 
   /**
@@ -71,7 +73,7 @@ const appointmentService = {
     if (!appointmentData.matchId) throw new Error('Match-ID ist erforderlich');
     if (!appointmentData.startTime) throw new Error('Startzeitpunkt ist erforderlich');
     if (!appointmentData.endTime) throw new Error('Endzeitpunkt ist erforderlich');
-    return apiClient.post<ApiResponse<Appointment>>(APPOINTMENT_ENDPOINTS.CREATE, appointmentData);
+    return await apiClient.post<ApiResponse<Appointment>>(APPOINTMENT_ENDPOINTS.CREATE, appointmentData);
   },
 
   /**
@@ -79,7 +81,7 @@ const appointmentService = {
    */
   async acceptAppointment(appointmentId: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.ACCEPT}/${appointmentId}/accept`, {});
+    return await apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.ACCEPT}/${appointmentId}/accept`);
   },
 
   /**
@@ -87,7 +89,7 @@ const appointmentService = {
    */
   async cancelAppointment(appointmentId: string, reason?: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`, { reason });
+    return await apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`, { reason });
   },
 
   /**
@@ -116,7 +118,7 @@ const appointmentService = {
   /**
    * Get upcoming appointments (filtered version of getAppointments)
    */
-  async getUpcomingAppointments(limit?: number): Promise<PagedResponse<UserAppointmentResponse[]>> {
+  async getUpcomingAppointments(limit?: number): Promise<PagedResponse<UserAppointmentResponse>> {
     const now = new Date();
     const request: GetUserAppointmentsRequest = {
       FromDate: now,
@@ -129,7 +131,7 @@ const appointmentService = {
   /**
    * Get past appointments with pagination (filtered version of getAppointments)
    */
-  async getPastAppointments(params?: { page?: number; limit?: number }): Promise<PagedResponse<UserAppointmentResponse[]>> {
+  async getPastAppointments(params?: { page?: number; limit?: number }): Promise<PagedResponse<UserAppointmentResponse>> {
     const now = new Date();
     const request: GetUserAppointmentsRequest = {
       ToDate: now,
@@ -160,13 +162,39 @@ const appointmentService = {
   },
 
   /**
-   * Reschedule appointment - Note: This endpoint may not exist in backend
+   * Reschedule appointment
    */
-  async rescheduleAppointment(appointmentId: string, newDateTime: string, _?: string): Promise<Appointment> {
+  async rescheduleAppointment(
+    appointmentId: string, 
+    newScheduledDate: string,
+    newDuration?: number,
+    reason?: string
+  ): Promise<ApiResponse<RescheduleAppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    if (!newDateTime?.trim()) throw new Error('Neuer Zeitpunkt ist erforderlich');
-    // This endpoint doesn't exist in backend - would need to be implemented
-    throw new Error('Reschedule appointment endpoint not implemented in backend');
+    if (!newScheduledDate) throw new Error('Neuer Zeitpunkt ist erforderlich');
+    
+    const request: RescheduleAppointmentRequest = {
+      newScheduledDate,
+      newDurationMinutes: newDuration,
+      reason
+    };
+    
+    return apiClient.post<ApiResponse<RescheduleAppointmentResponse>>(
+      `${APPOINTMENT_ENDPOINTS.RESCHEDULE.replace('{appointmentId}', appointmentId)}`,
+      request
+    );
+  },
+
+  /**
+   * Generate meeting link for appointment
+   */
+  async generateMeetingLink(appointmentId: string): Promise<ApiResponse<string>> {
+    if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
+    
+    return apiClient.post<ApiResponse<string>>(
+      APPOINTMENT_ENDPOINTS.GENERATE_MEETING_LINK.replace('{appointmentId}', appointmentId),
+      {}
+    );
   },
 
   /**

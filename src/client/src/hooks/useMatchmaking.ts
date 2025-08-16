@@ -1,318 +1,217 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import {
-  findMatch,
-  acceptMatch,
-  rejectMatch,
   fetchIncomingMatchRequests,
   fetchOutgoingMatchRequests,
   createMatchRequest,
   acceptMatchRequest,
   rejectMatchRequest,
-  getUserMatches,
   acceptMatchRequestOptimistic,
   rejectMatchRequestOptimistic,
+  fetchUserMatches,
+  fetchMatches,
 } from '../features/matchmaking/matchmakingSlice';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
-import { MatchStatus, MatchDisplay, AcceptMatchRequestResponse, RejectMatchRequestResponse } from '../types/display/MatchmakingDisplay';
+import { MatchStatus, MatchDisplay, AcceptMatchRequestResponse } from '../types/display/MatchmakingDisplay';
 import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
-import { FindMatchRequest } from '../api/services/matchmakingService';
 import { withDefault } from '../utils/safeAccess';
 import { withOptimisticUpdate, generateUpdateId, canPerformOptimisticUpdate } from '../utils/optimisticUpdates';
 import { ApiResponse } from '../types/common/ApiResponse';
 
-/**
- * Hook für Matchmaking-Funktionalität
- * Bietet Methoden für das Suchen und Verwalten von Skill-Matches
- */
 export const useMatchmaking = () => {
   const dispatch = useAppDispatch();
+  const didInit = useRef(false);
   const {
-    matches,
-    incomingRequests,
-    outgoingRequests,
-    isLoading,
-    error,
-    matchRequestSent,
-    currentThread,
-  } = useAppSelector((state) => state.matchmaking);
-  
-  // Legacy compatibility
-  const matchResults = matches; // Alias for compatibility
-  const activeMatch = currentThread; // Alias for compatibility
+    matches, incomingRequests, outgoingRequests,
+    isLoading, error, matchRequestSent, currentThread,
+  } = useAppSelector((s) => s.matchmaking);
 
-  /**
-   * Lädt alle Matches für den aktuellen Benutzer
-   */
-  const loadMatches = useCallback(async (params: { page?: number; limit?: number; status?: string } = {}): Promise<boolean> => {
-    const resultAction = await dispatch(getUserMatches(params));
-    return getUserMatches.fulfilled.match(resultAction);
+  const loadMatches = useCallback(async (params: { page?: number; limit?: number; status?: string } = {}) => {
+    console.log('📥 [useMatchmaking] Loading matches with params:', params);
+    
+    try {
+      const r = await dispatch(fetchUserMatches(params));
+      const success = fetchUserMatches.fulfilled.match(r);
+      
+      if (success) {
+        console.log('✅ [useMatchmaking] Matches loaded successfully');
+      } else {
+        console.error('❌ [useMatchmaking] Failed to load matches:', r);
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('❌ [useMatchmaking] Error loading matches:', error);
+      return false;
+    }
   }, [dispatch]);
 
-  /**
-   * ✅ NEU: Lädt alle eingehenden Match-Anfragen
-   */
-  const loadIncomingRequests = useCallback(async (params = {}): Promise<boolean> => {
-    const resultAction = await dispatch(fetchIncomingMatchRequests(params));
-    return fetchIncomingMatchRequests.fulfilled.match(resultAction);
+  const loadIncomingRequests = useCallback(async (params = {}) => {
+    const r = await dispatch(fetchIncomingMatchRequests(params));
+    return fetchIncomingMatchRequests.fulfilled.match(r);
   }, [dispatch]);
 
-  /**
-   * ✅ NEU: Lädt alle ausgehenden Match-Anfragen
-   */
-  const loadOutgoingRequests = useCallback(async (params = {}): Promise<boolean> => {
-    const resultAction = await dispatch(fetchOutgoingMatchRequests(params));
-    return fetchOutgoingMatchRequests.fulfilled.match(resultAction);
+  const loadOutgoingRequests = useCallback(async (params = {}) => {
+    const r = await dispatch(fetchOutgoingMatchRequests(params));
+    return fetchOutgoingMatchRequests.fulfilled.match(r);
   }, [dispatch]);
 
-  // Lade Matches beim ersten Rendern
   useEffect(() => {
-    // Funktionen innerhalb des useEffect aufrufen, um keine Functions als Dependencies zu haben
+    let isMounted = true;
+    const abortController = new AbortController();
+    
+    // Guard against duplicate initialization in StrictMode
+    if (didInit.current) {
+      console.log('⏭️ [useMatchmaking] Already initialized, skipping');
+      return;
+    }
+    didInit.current = true;
+    
+    console.log('🚀 [useMatchmaking] Initial load of all match data');
+    
     const loadInitialData = async () => {
-      await Promise.all([
-        dispatch(getUserMatches({})),
-        dispatch(fetchIncomingMatchRequests({})),
-        dispatch(fetchOutgoingMatchRequests({}))
-      ]);
+      try {
+        if (!isMounted) return;
+        
+        await Promise.all([
+          dispatch(fetchUserMatches({})),
+          dispatch(fetchIncomingMatchRequests({})),
+          dispatch(fetchOutgoingMatchRequests({})),
+        ]);
+      } catch (error) {
+        if (isMounted) {
+          console.error('❌ [useMatchmaking] Error loading initial data:', error);
+        }
+      }
     };
     
-    void loadInitialData();
-  }, [dispatch]); // Nur dispatch als Dependency, welches stabil ist
+    loadInitialData();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      abortController.abort();
+      // Reset for next mount in StrictMode
+      didInit.current = false;
+    };
+  }, [dispatch]);
 
-  /**
-   * ✅ NEU: Erstellt eine manuelle Match-Anfrage (das was wir brauchen!)
-   * @param matchRequest - Anfragedaten für die direkte Match-Anfrage
-   * @returns true bei Erfolg, false bei Fehler
-   */
-  const sendMatchRequest = async (
-    matchRequest: CreateMatchRequest
-  ): Promise<boolean> => {
-    const resultAction = await dispatch(createMatchRequest(matchRequest));
-    return createMatchRequest.fulfilled.match(resultAction);
+  const sendMatchRequest = async (req: CreateMatchRequest): Promise<boolean> => {
+    console.log('🚀 [useMatchmaking] Sending match request:', req);
+    
+    try {
+      const r = await dispatch(createMatchRequest(req as any));
+      const success = createMatchRequest.fulfilled.match(r);
+      
+      if (success) {
+        console.log('✅ [useMatchmaking] Match request sent successfully');
+      } else {
+        console.error('❌ [useMatchmaking] Match request failed:', r);
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('❌ [useMatchmaking] Error sending match request:', error);
+      return false;
+    }
   };
 
-  /**
-   * Sucht nach passenden Nutzern für einen bestimmten Skill (automatisch)
-   * @param matchRequest - Anfragedaten für das automatische Matching
-   * @returns true bei Erfolg, false bei Fehler
-   */
-  const searchMatches = async (
-    matchRequest: FindMatchRequest
-  ): Promise<boolean> => {
-    const resultAction = await dispatch(findMatch(matchRequest));
-    return findMatch.fulfilled.match(resultAction);
+  const search = async (req: CreateMatchRequest): Promise<boolean> => {
+    const r = await dispatch(fetchMatches(req as any));
+    return fetchMatches.fulfilled.match(r);
   };
 
-  /**
-   * ✅ NEU: Akzeptiert eine eingehende Match-Anfrage
-   * @param requestId - ID der zu akzeptierenden Match-Anfrage
-   * @param responseMessage - Optionale Antwort-Nachricht
-   * @returns Das resultierende Match oder null bei Fehler
-   */
   const approveMatchRequest = async (
     requestId: string,
     responseMessage?: string
   ): Promise<ApiResponse<AcceptMatchRequestResponse> | null> => {
     if (!canPerformOptimisticUpdate()) {
-      // Fallback to regular update if offline
-      const resultAction = await dispatch(acceptMatchRequest({ 
-        requestId,
-        request: { responseMessage }
-      }));
-      return acceptMatchRequest.fulfilled.match(resultAction) ? resultAction.payload : null;
+      const r = await dispatch(acceptMatchRequest({ requestId, request: { responseMessage } }));
+      return acceptMatchRequest.fulfilled.match(r) ? r.payload : null;
     }
-
-    const updateId = generateUpdateId('accept_match');
-    
-    const result = await withOptimisticUpdate(
-      updateId,
-      // Optimistic action
+    const id = generateUpdateId('accept_match');
+    const res = await withOptimisticUpdate(
+      id,
       () => dispatch(acceptMatchRequestOptimistic(requestId)),
-      // Async action
       async () => {
-        const resultAction = await dispatch(acceptMatchRequest({ 
-          requestId,
-          request: { responseMessage }
-        }));
-        if (!acceptMatchRequest.fulfilled.match(resultAction)) {
-          throw new Error('Failed to accept match');
-        }
-        return resultAction.payload;
+        const r = await dispatch(acceptMatchRequest({ requestId, request: { responseMessage } }));
+        if (!acceptMatchRequest.fulfilled.match(r)) throw new Error('Failed to accept match');
+        return r.payload;
       },
-      // Rollback action
-      () => {
-      },
-      // Options
-      {
-        showSuccess: true,
-        successMessage: 'Match request accepted',
-        errorMessage: 'Failed to accept match request',
-      }
+      () => {},
+      { showSuccess: true, successMessage: 'Match request accepted', errorMessage: 'Failed to accept match request' }
     );
-    
-    return result;
+    return res;
   };
 
-  /**
-   * ✅ NEU: Lehnt eine eingehende Match-Anfrage ab
-   * @param requestId - ID der abzulehnenden Match-Anfrage
-   * @param responseMessage - Optionale Ablehnungs-Nachricht
-   * @returns true bei Erfolg, false bei Fehler
-   */
-  const declineMatchRequest = async (
-    requestId: string,
-    responseMessage?: string
-  ): Promise<boolean> => {
+  const declineMatchRequest = async (requestId: string, responseMessage?: string): Promise<boolean> => {
     if (!canPerformOptimisticUpdate()) {
-      // Fallback to regular update if offline
-      const resultAction = await dispatch(
-        rejectMatchRequest({ 
-          requestId,
-          request: { responseMessage }
-        })
-      );
-      return rejectMatchRequest.fulfilled.match(resultAction);
+      const r = await dispatch(rejectMatchRequest({ requestId, request: { responseMessage } }));
+      return rejectMatchRequest.fulfilled.match(r);
     }
-
-    const updateId = generateUpdateId('reject_match');
-    
-    const result = await withOptimisticUpdate(
-      updateId,
-      // Optimistic action
+    const id = generateUpdateId('reject_match');
+    const res = await withOptimisticUpdate(
+      id,
       () => dispatch(rejectMatchRequestOptimistic(requestId)),
-      // Async action
       async () => {
-        const resultAction = await dispatch(
-          rejectMatchRequest({ 
-            requestId,
-            request: { responseMessage }
-          })
-        );
-        if (!rejectMatchRequest.fulfilled.match(resultAction)) {
-          throw new Error('Failed to reject match');
-        }
-        return resultAction;
+        const r = await dispatch(rejectMatchRequest({ requestId, request: { responseMessage } }));
+        if (!rejectMatchRequest.fulfilled.match(r)) throw new Error('Failed to reject match');
+        return r;
       },
-      // Rollback action
-      () =>{},
-      // Options
-      {
-        showSuccess: true,
-        successMessage: 'Match request declined',
-        errorMessage: 'Failed to decline match request',
-      }
+      () => {},
+      { showSuccess: true, successMessage: 'Match request declined', errorMessage: 'Failed to decline match request' }
     );
+    return res !== null;
+  };
+
+  const approveMatch = async (matchId: string, reason?: string ) => {
+    console.log('✅ [useMatchmaking] Approving match:', matchId, reason);
     
-    return result !== null;
-  };
-
-  /**
-   * Akzeptiert ein Match (bestehende Funktionalität)
-   * @param matchId - ID des zu akzeptierenden Matches
-   * @returns Das aktualisierte Match oder null bei Fehler
-   */
-  const approveMatch = async (matchId: string, reason?: string ): Promise<ApiResponse<AcceptMatchRequestResponse> | null> => {
-    const resultAction = await dispatch(acceptMatch({ requestId: matchId, request: { responseMessage: reason }}));
-
-    if (acceptMatch.fulfilled.match(resultAction)) {
-      return resultAction.payload;
+    try {
+      const r = await dispatch(acceptMatchRequest({ requestId: matchId, request: { responseMessage: reason }}));
+      const result = acceptMatchRequest.fulfilled.match(r) ? r.payload : null;
+      
+      if (result) {
+        console.log('✅ [useMatchmaking] Match approved successfully:', result);
+      } else {
+        console.error('❌ [useMatchmaking] Failed to approve match:', r);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ [useMatchmaking] Error approving match:', error);
+      return null;
     }
-
-    return null;
   };
 
-  /**
-   * Lehnt ein Match ab (bestehende Funktionalität)
-   * @param matchId - ID des abzulehnenden Matches
-   * @param reason - Optionaler Ablehnungsgrund
-   * @returns Das aktualisierte Match oder null bei Fehler
-   */
-  const declineMatch = async (matchId: string, reason?: string): Promise<ApiResponse<RejectMatchRequestResponse> | null> => {
-    const resultAction = await dispatch(rejectMatch({ requestId: matchId, request: {responseMessage: reason }}));
-
-    if (rejectMatch.fulfilled.match(resultAction)) {
-      return resultAction.payload;
-    }
-
-    return null;
+  const declineMatch = async (matchId: string, reason?: string) => {
+    const r = await dispatch(rejectMatchRequest({ requestId: matchId, request: { responseMessage: reason }}));
+    return rejectMatchRequest.fulfilled.match(r) ? r.payload : null;
   };
 
-  /**
-   * Filtert Matches nach Status
-   * @param status - Zu filternder Status
-   * @returns Gefilterte Matches
-   */
-  const getMatchesByStatus = (status: MatchStatus): MatchDisplay[] => {
-    const safeMatches = matches;
-    return safeMatches.filter((match) => match?.status === status.toLowerCase() as any);
-  };
+  const getMatchesByStatus = (status: MatchStatus): MatchDisplay[] =>
+    matches.filter((m) => m?.status === status.toLowerCase());
 
-  /**
-   * Filtert Matches nach Rolle (Anforderer oder Antwortender)
-   * @param isRequester - true für Anforderer, false für Antwortender
-   * @returns Gefilterte Matches
-   */
-  const userId = useAppSelector((state) => state.auth.user?.id);
-
+  const userId = useAppSelector((s) => s.auth.user?.id);
   const getMatchesByRole = (isRequester: boolean): MatchDisplay[] => {
     if (!userId) return [];
-
-    const safeMatches = matches;
-    return safeMatches.filter((match) =>
-      match && (isRequester ? match.requesterId === userId : match.responderId === userId)
-    );
+    return matches.filter((m) => isRequester ? m.requesterId === userId : m.responderId === userId);
   };
 
-  /**
-   * ✅ NEU: Filtert Match-Anfragen nach Status
-   * @param status - Zu filternder Status
-   * @param incoming - true für eingehende, false für ausgehende Anfragen
-   * @returns Gefilterte Match-Anfragen
-   */
-  const getRequestsByStatus = (
-    status: string,
-    incoming: boolean = true
-  ) => {
-    const requests = incoming ? incomingRequests : outgoingRequests;
-    return requests.filter((request) => request?.status === status);
-  };
+  const getRequestsByStatus = (status: string, incoming = true) =>
+    (incoming ? incomingRequests : outgoingRequests).filter((r) => r?.status === status);
 
-  /**
-   * Prüft, ob ein Match ausstehend ist
-   * @param matchId - ID des zu prüfenden Matches
-   * @returns true, wenn das Match ausstehend ist, sonst false
-   */
-  const isMatchPending = (matchId: string): boolean => {
-    const safeMatches = matches;
-    const match = safeMatches.find((m) => m?.id === matchId);
-    return match?.status === 'pending';
-  };
+  const isMatchPending = (matchId: string) => matches.find((m) => m?.id === matchId)?.status === 'pending';
 
   return {
-    // Daten
-    matches: matches,
-    matchResults: matchResults,
-    activeMatch,
-    incomingRequests: incomingRequests,
-    outgoingRequests: outgoingRequests,
-    isLoading: withDefault(isLoading, false),
-    error,
-    matchRequestSent: withDefault(matchRequestSent, false),
+    matches, incomingRequests, outgoingRequests, activeMatch: currentThread,
+    isLoading: withDefault(isLoading, false), error, matchRequestSent: withDefault(matchRequestSent, false),
 
-    // Aktionen
-    loadMatches,
-    loadIncomingRequests,
-    loadOutgoingRequests,
-    sendMatchRequest,
-    searchMatches,
-    approveMatch,
-    declineMatch,
-    approveMatchRequest,
-    declineMatchRequest,
+    loadMatches, loadIncomingRequests, loadOutgoingRequests,
+    sendMatchRequest, 
+    submitMatchRequest: sendMatchRequest, // Alias for compatibility
+    searchMatches: search,
+    approveMatch, declineMatch, approveMatchRequest, declineMatchRequest,
 
-    // Hilfsfunktionen
-    getMatchesByStatus,
-    getMatchesByRole,
-    getRequestsByStatus,
-    isMatchPending,
+    getMatchesByStatus, getMatchesByRole, getRequestsByStatus, isMatchPending,
   };
 };

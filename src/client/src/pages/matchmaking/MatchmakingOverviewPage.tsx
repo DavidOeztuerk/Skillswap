@@ -1,15 +1,11 @@
-// src/pages/matchmaking/MatchmakingOverviewPage.tsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Tabs,
   Tab,
-  // Typography,
   Button,
-  // Container,
   Paper,
-  // Alert,
   Fab,
   Tooltip,
 } from '@mui/material';
@@ -18,21 +14,16 @@ import {
   MailOutline as RequestsIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-
 import PageHeader from '../../components/layout/PageHeader';
 import PageContainer from '../../components/layout/PageContainer';
 import MatchList from '../../components/matchmaking/MatchList';
-import MatchForm from '../../components/matchmaking/MatchForm';
 import AppointmentForm from '../../components/appointments/AppointmentForm';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { useSkills } from '../../hooks/useSkills';
 import { useAppointments } from '../../hooks/useAppointments';
 import { Match } from '../../types/models/Match';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
-import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
-import { Skill } from '../../types/models/Skill';
 import MatchRequestsOverviewPage from './MatchRequestsOverviewPage';
 
 interface TabPanelProps {
@@ -71,26 +62,27 @@ function a11yProps(index: number) {
  */
 const MatchmakingOverviewPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const didInitialLoad = useRef(false);
+  const lastTabValue = useRef<number | null>(null);
   
-  // Tab-State wird nur intern verwaltet, nicht über URL
-  const [tabValue, setTabValue] = useState(0);
+  // Tab-State basierend auf URL-Parameter
+  const tabFromUrl = searchParams.get('tab');
+  const initialTab = tabFromUrl === 'outgoing' ? 2 : tabFromUrl === 'incoming' ? 1 : 0;
+  const [tabValue, setTabValue] = useState(initialTab);
   
   const {
     matches,
     isLoading,
     error,
     loadMatches,
-    // sendMatchRequest, // ❌ ENTFERNT: Wird nicht verwendet da allgemeine Match-Anfragen deaktiviert sind
+    loadIncomingRequests,
+    loadOutgoingRequests,
     approveMatch,
     declineMatch,
   } = useMatchmaking();
 
-  const { userSkills, fetchUserSkills } = useSkills();
   const { scheduleAppointment } = useAppointments();
-
-  // State für Dialoge
-  const [matchFormOpen, setMatchFormOpen] = useState(false);
-  const [selectedUserSkill, setSelectedUserSkill] = useState<Skill | null>(null);
   const [appointmentFormOpen, setAppointmentFormOpen] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
@@ -115,46 +107,51 @@ const MatchmakingOverviewPage: React.FC = () => {
     type: 'success' | 'error' | 'info';
   } | null>(null);
 
-  // Daten laden
+  // Initial data load based on tab
   useEffect(() => {
-    // Initial load
-    void fetchUserSkills();
-  }, [fetchUserSkills]);
-  
-  // Load matches when tab changes
-  useEffect(() => {
+    if (didInitialLoad.current) {
+      console.log('⏭️ [MatchmakingOverviewPage] Already did initial load, skipping');
+      return;
+    }
+    didInitialLoad.current = true;
+    
+    console.log(`🚀 [MatchmakingOverviewPage] Initial load for tab ${tabValue}`);
+    
+    // Load data based on initial tab
     if (tabValue === 0) {
       void loadMatches();
+    } else if (tabValue === 1) {
+      void loadIncomingRequests();
+    } else if (tabValue === 2) {
+      void loadOutgoingRequests();
     }
-  }, [tabValue, loadMatches]);
+  }, []);
+  
+  // Load data when tab changes
+  useEffect(() => {
+    // Skip if same tab
+    if (lastTabValue.current === tabValue) {
+      console.log('⏭️ [MatchmakingOverviewPage] Same tab, skipping reload');
+      return;
+    }
+    lastTabValue.current = tabValue;
+    
+    console.log(`📥 [MatchmakingOverviewPage] Tab changed to ${tabValue}, loading data`);
+    
+    if (tabValue === 0) {
+      void loadMatches();
+    } else if (tabValue === 1) {
+      void loadIncomingRequests();
+    } else if (tabValue === 2) {
+      void loadOutgoingRequests();
+    }
+  }, [tabValue, loadMatches, loadIncomingRequests, loadOutgoingRequests]);
 
   // Tab-Handler - nur lokaler State, keine URL-Navigation
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  // Handler für das Öffnen des Match-Formulars
-  const handleOpenMatchForm = (userSkill: Skill) => {
-    setSelectedUserSkill(userSkill);
-    setMatchFormOpen(true);
-  };
-
-  // Handler für das Schließen des Match-Formulars
-  const handleCloseMatchForm = () => {
-    setMatchFormOpen(false);
-    setSelectedUserSkill(null);
-  };
-
-  // ❌ DEAKTIVIERT: Allgemeine Match-Anfragen sind nicht implementiert
-  // Das Backend benötigt eine spezifische TargetUserId
-  // Match-Anfragen sollten nur von SkillDetailPage aus erstellt werden
-  const handleSubmitMatchForm = async (_data: CreateMatchRequest) => {
-    setStatusMessage({
-      text: 'Diese Funktionalität ist noch nicht verfügbar. Bitte erstelle Match-Anfragen direkt von der Skill-Detail-Seite.',
-      type: 'info',
-    });
-    handleCloseMatchForm();
-  };
 
   // Handler für das Öffnen des Bestätigungsdialogs
   const handleConfirmDialogOpen = (
@@ -264,40 +261,9 @@ const MatchmakingOverviewPage: React.FC = () => {
 
   // Lehrbare oder lernbare Skills des Benutzers finden
   const renderMatchButton = () => {
-    // Skills, die der Benutzer lehren oder lernen kann
-    const teachableSkills = userSkills?.filter((skill) => skill.isOffered);
-    const learnableSkills = userSkills?.filter((skill) => !skill.isOffered);
-
-    // Wenn Benutzer sowohl lehrbare als auch lernbare Skills hat, zeige beide Optionen
-    if (teachableSkills && learnableSkills && teachableSkills?.length > 0 && learnableSkills?.length > 0) {
-      return {
-        label: 'Match erstellen',
-        onClick: () => {
-          // Für dieses Beispiel nehmen wir einfach den ersten lehrbaren Skill
-          handleOpenMatchForm(teachableSkills[0]);
-        },
-      };
-    }
-
-    // Wenn Benutzer nur lehrbare Skills hat
-    if (teachableSkills && teachableSkills.length > 0) {
-      return {
-        label: 'Als Lehrer:in anbieten',
-        onClick: () => handleOpenMatchForm(teachableSkills[0]),
-      };
-    }
-
-    // Wenn Benutzer nur lernbare Skills hat
-    if (learnableSkills && learnableSkills.length > 0) {
-      return {
-        label: 'Lehrer:in finden',
-        onClick: () => handleOpenMatchForm(learnableSkills[0]),
-      };
-    }
-
-    // Wenn Benutzer keine Skills hat, zeige einen Link zur Skills-Seite
+    // Navigiere zur Skills-Seite, um dort Skills zu finden und Match-Anfragen zu erstellen
     return {
-      label: 'Skills hinzufügen',
+      label: 'Skills durchsuchen',
       onClick: () => navigate('/skills'),
     };
   };
@@ -331,6 +297,9 @@ const MatchmakingOverviewPage: React.FC = () => {
           onClose={() => setStatusMessage(null)}
         />
       )}
+
+      {/* Debug Panel - nur in Entwicklung */}
+      {/* {import.meta.env.DEV && <MatchmakingDebugPanel />} */}
 
       {/* Tab-Navigation */}
       <Paper sx={{ mb: 3 }}>
@@ -387,18 +356,6 @@ const MatchmakingOverviewPage: React.FC = () => {
         <MatchRequestsOverviewPage embedded={true} />
       </TabPanel>
 
-      {/* Match-Formular */}
-      {selectedUserSkill && (
-        <MatchForm
-          open={matchFormOpen}
-          onClose={handleCloseMatchForm}
-          onSubmit={handleSubmitMatchForm}
-          skill={selectedUserSkill}
-          targetUserId="placeholder" // ❌ DEAKTIVIERT: Allgemeine Match-Anfragen sind nicht verfügbar
-          targetUserName="Unbekannt"
-          isLoading={isLoading}
-        />
-      )}
 
       {/* Termin-Formular */}
       {selectedMatch && (

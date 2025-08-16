@@ -45,12 +45,23 @@ public class AcceptAppointmentCommandHandler(
             appointment.Accept();
             await _dbContext.SaveChangesAsync(cancellationToken);
 
+            // Determine if both parties have accepted (for simplicity, we assume accepted after participant accepts)
+            var bothPartiesAccepted = appointment.Status == AppointmentStatus.Accepted;
+            
+            // Determine the other participant
+            var otherParticipantId = appointment.ParticipantUserId == request.UserId 
+                ? appointment.OrganizerUserId 
+                : appointment.ParticipantUserId;
+
             // Publish domain event
             await _eventPublisher.Publish(new AppointmentAcceptedDomainEvent(
                 appointment.Id,
-                appointment.OrganizerUserId,
-                appointment.ParticipantUserId,
-                appointment.ScheduledDate), cancellationToken);
+                request.UserId!,
+                otherParticipantId,
+                appointment.ScheduledDate,
+                appointment.DurationMinutes,
+                appointment.SkillId, // Pass SkillId instead of SkillName
+                bothPartiesAccepted), cancellationToken);
 
             var response = new AcceptAppointmentResponse(
                 appointment.Id,

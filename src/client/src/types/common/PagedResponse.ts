@@ -1,6 +1,6 @@
 import { ApiResponse } from "./ApiResponse";
 
-export interface PagedResponse<T> extends ApiResponse<T> {
+export interface PagedResponse<T> extends ApiResponse<T[]> {
   pageNumber: number;
   pageSize: number;
   totalPages: number;

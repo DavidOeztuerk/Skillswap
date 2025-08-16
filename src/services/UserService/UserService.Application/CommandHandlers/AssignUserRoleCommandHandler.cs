@@ -1,10 +1,8 @@
 using CQRS.Handlers;
 using EventSourcing;
-using Microsoft.EntityFrameworkCore;
 using UserService.Application.Commands;
 using Events.Domain.User;
 using Microsoft.Extensions.Logging;
-using UserService.Domain.Models;
 using Contracts.User.Responses;
 using CQRS.Models;
 using UserService.Domain.Repositories;

@@ -1,8 +1,6 @@
 using CQRS.Handlers;
-using Infrastructure.Models;
 using UserService.Application.Commands;
 using EventSourcing;
-using Events.Domain.User;
 using Contracts.User.Responses;
 using UserService.Domain.Repositories;
 using Microsoft.Extensions.Logging;
@@ -20,7 +18,7 @@ public class RequestPasswordResetCommandHandler(
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<RequestPasswordResetResponse>> Handle(
-        RequestPasswordResetCommand request, 
+        RequestPasswordResetCommand request,
         CancellationToken cancellationToken)
     {
         try
@@ -28,7 +26,7 @@ public class RequestPasswordResetCommandHandler(
             await _authRepository.RequestPasswordReset(request.Email, cancellationToken);
 
             var response = new RequestPasswordResetResponse(
-                true, 
+                true,
                 "If an account with this email exists, you will receive password reset instructions.");
 
             Logger.LogInformation("Password reset requested for email {Email}", request.Email);
