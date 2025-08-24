@@ -1,28 +1,41 @@
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-// namespace Infrastructure.HealthChecks;
+namespace Infrastructure.HealthChecks;
 
-// public interface IComprehensiveHealthCheckService
-// {
-//     Task<GetHealthStatusResponse> GetDetailedHealthStatusAsync(
-//         string serviceName,
-//         bool includeDependencies = true,
-//         bool includeMetrics = false,
-//         CancellationToken cancellationToken = default);
+public interface IComprehensiveHealthCheckService
+{
+    /// <summary>
+    /// Register a custom health check
+    /// </summary>
+    void RegisterHealthCheck(string name, Func<Task<HealthCheckResult>> healthCheck);
 
-//     Task<Dictionary<string, GetHealthStatusResponse>> GetAllServicesHealthAsync(
-//         CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Get a comprehensive health report for all registered checks
+    /// </summary>
+    Task<HealthReport> GetHealthReportAsync(CancellationToken cancellationToken = default);
 
-//     Task<bool> IsServiceHealthyAsync(string serviceName, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Check the overall health of all registered components
+    /// </summary>
+    Task<ComprehensiveHealthCheckResult> CheckHealthAsync(CancellationToken cancellationToken = default);
 
-//     Task RegisterHealthCheckAsync(string checkName, Func<CancellationToken, Task<HealthCheckResult>> check);
+    /// <summary>
+    /// Check if all registered components are healthy
+    /// </summary>
+    Task<bool> IsHealthyAsync(CancellationToken cancellationToken = default);
 
-//     Task<HealthCheckResult> ExecuteHealthCheckAsync(string checkName, CancellationToken cancellationToken = default);
-// }
+    /// <summary>
+    /// Check database health specifically
+    /// </summary>
+    Task<HealthCheckResult> CheckDatabaseHealthAsync(CancellationToken cancellationToken = default);
 
-// public record HealthCheckResult(
-//     string Name,
-//     HealthStatus Status,
-//     TimeSpan ResponseTime,
-//     string? ErrorMessage = null,
-//     Dictionary<string, object>? Data = null
-// );
+    /// <summary>
+    /// Check Redis health specifically
+    /// </summary>
+    Task<HealthCheckResult> CheckRedisHealthAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Check RabbitMQ health specifically
+    /// </summary>
+    Task<HealthCheckResult> CheckRabbitMQHealthAsync(CancellationToken cancellationToken = default);
+}

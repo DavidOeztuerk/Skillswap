@@ -1,159 +1,154 @@
-//using Microsoft.EntityFrameworkCore;
-//using Microsoft.EntityFrameworkCore.Infrastructure;
-//using Microsoft.Extensions.Diagnostics.HealthChecks;
-//using Microsoft.Extensions.Logging;
-//using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
-//namespace Infrastructure.HealthChecks;
+namespace Infrastructure.HealthChecks;
 
-///// <summary>
-///// Health check for database connectivity and basic operations
-///// </summary>
-//public class DatabaseHealthCheck : IHealthCheck
-//{
-//    private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
-//    private readonly ILogger<DatabaseHealthCheck> _logger;
+/// <summary>
+/// Health check for database connectivity and basic operations
+/// </summary>
+public class DatabaseHealthCheck : IHealthCheck
+{
+    private readonly DbContext _dbContext;
+    private readonly ILogger<DatabaseHealthCheck> _logger;
 
-//    public DatabaseHealthCheck(
-//        IDbContextFactory<ApplicationDbContext> dbContextFactory,
-//        ILogger<DatabaseHealthCheck> logger)
-//    {
-//        _dbContextFactory = dbContextFactory;
-//        _logger = logger;
-//    }
+    public DatabaseHealthCheck(
+        DbContext dbContext,
+        ILogger<DatabaseHealthCheck> logger)
+    {
+        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
-//    public async Task<HealthCheckResult> CheckHealthAsync(
-//        HealthCheckContext context,
-//        CancellationToken cancellationToken = default)
-//    {
-//        try
-//        {
-//            var stopwatch = Stopwatch.StartNew();
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var stopwatch = Stopwatch.StartNew();
 
-//            using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+            // Try to open connection and execute a simple query
+            var canConnect = await _dbContext.Database.CanConnectAsync(cancellationToken);
 
-//            // Test basic connectivity
-//            var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
-//            if (!canConnect)
-//            {
-//                return HealthCheckResult.Unhealthy("Cannot connect to database");
-//            }
+            stopwatch.Stop();
 
-//            // Test a simple query
-//            var userCount = await dbContext.Users.CountAsync(cancellationToken);
+            if (!canConnect)
+            {
+                _logger.LogWarning("Database connection check failed");
+                return HealthCheckResult.Unhealthy("Cannot connect to database");
+            }
 
-//            stopwatch.Stop();
+            var data = new Dictionary<string, object>
+            {
+                ["responseTime"] = $"{stopwatch.ElapsedMilliseconds}ms",
+                ["provider"] = _dbContext.Database.ProviderName ?? "Unknown",
+                ["database"] = _dbContext.Database.GetDbConnection().Database ?? "Unknown"
+            };
 
-//            var data = new Dictionary<string, object>
-//            {
-//                ["connection_test"] = "passed",
-//                ["query_test"] = "passed",
-//                ["user_count"] = userCount,
-//                ["response_time_ms"] = stopwatch.ElapsedMilliseconds,
-//                ["database_provider"] = dbContext.Database.ProviderName ?? "unknown"
-//            };
+            // Check if response time is acceptable
+            if (stopwatch.ElapsedMilliseconds > 1000)
+            {
+                _logger.LogWarning("Database response time is slow: {ElapsedMilliseconds}ms", 
+                    stopwatch.ElapsedMilliseconds);
+                return HealthCheckResult.Degraded("Database is slow", data: data);
+            }
 
-//            if (stopwatch.ElapsedMilliseconds > 1000)
-//            {
-//                _logger.LogWarning("Database health check slow response: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
-//                return HealthCheckResult.Degraded($"Database responding slowly: {stopwatch.ElapsedMilliseconds}ms", data: data);
-//            }
+            _logger.LogDebug("Database health check completed in {ElapsedMilliseconds}ms", 
+                stopwatch.ElapsedMilliseconds);
 
-//            return HealthCheckResult.Healthy("Database is healthy", data);
-//        }
-//        catch (Exception ex)
-//        {
-//            _logger.LogError(ex, "Database health check failed");
-//            return HealthCheckResult.Unhealthy($"Database health check failed: {ex.Message}", ex);
-//        }
-//    }
-//}
+            return HealthCheckResult.Healthy("Database is accessible", data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database health check failed");
+            return HealthCheckResult.Unhealthy("Database check failed", ex);
+        }
+    }
+}
 
-///// <summary>
-///// Health check for database connection pool status
-///// </summary>
-//public class DatabaseConnectionPoolHealthCheck : IHealthCheck
-//{
-//    private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
-//    private readonly ILogger<DatabaseConnectionPoolHealthCheck> _logger;
+/// <summary>
+/// Generic database health check that can work with any DbContext type
+/// </summary>
+public class DatabaseHealthCheck<TContext> : IHealthCheck where TContext : DbContext
+{
+    private readonly TContext _dbContext;
+    private readonly ILogger<DatabaseHealthCheck<TContext>> _logger;
 
-//    public DatabaseConnectionPoolHealthCheck(
-//        IDbContextFactory<ApplicationDbContext> dbContextFactory,
-//        ILogger<DatabaseConnectionPoolHealthCheck> logger)
-//    {
-//        _dbContextFactory = dbContextFactory;
-//        _logger = logger;
-//    }
+    public DatabaseHealthCheck(
+        TContext dbContext,
+        ILogger<DatabaseHealthCheck<TContext>> logger)
+    {
+        _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
-//    public async Task<HealthCheckResult> CheckHealthAsync(
-//        HealthCheckContext context,
-//        CancellationToken cancellationToken = default)
-//    {
-//        try
-//        {
-//            // Test multiple concurrent connections to check pool health
-//            var tasks = new List<Task<TimeSpan>>();
-//            for (int i = 0; i < 5; i++)
-//            {
-//                tasks.Add(TestConnectionAsync(cancellationToken));
-//            }
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var stopwatch = Stopwatch.StartNew();
 
-//            var results = await Task.WhenAll(tasks);
-//            var averageTime = results.Average(t => t.TotalMilliseconds);
-//            var maxTime = results.Max(t => t.TotalMilliseconds);
+            // Try to open connection and execute a simple query
+            var canConnect = await _dbContext.Database.CanConnectAsync(cancellationToken);
 
-//            var data = new Dictionary<string, object>
-//            {
-//                ["concurrent_connections_tested"] = tasks.Count,
-//                ["average_response_time_ms"] = averageTime,
-//                ["max_response_time_ms"] = maxTime,
-//                ["all_connections_successful"] = true
-//            };
+            stopwatch.Stop();
 
-//            if (maxTime > 2000)
-//            {
-//                return HealthCheckResult.Degraded($"Connection pool under stress - max response time: {maxTime:F0}ms", data: data);
-//            }
+            if (!canConnect)
+            {
+                _logger.LogWarning("Database connection check failed for {ContextType}", typeof(TContext).Name);
+                return HealthCheckResult.Unhealthy($"Cannot connect to database ({typeof(TContext).Name})");
+            }
 
-//            if (averageTime > 500)
-//            {
-//                return HealthCheckResult.Degraded($"Connection pool performance degraded - average response time: {averageTime:F0}ms", data: data);
-//            }
+            var data = new Dictionary<string, object>
+            {
+                ["responseTime"] = $"{stopwatch.ElapsedMilliseconds}ms",
+                ["contextType"] = typeof(TContext).Name,
+                ["provider"] = _dbContext.Database.ProviderName ?? "Unknown",
+                ["database"] = _dbContext.Database.GetDbConnection().Database ?? "Unknown"
+            };
 
-//            return HealthCheckResult.Healthy("Database connection pool is healthy", data);
-//        }
-//        catch (Exception ex)
-//        {
-//            _logger.LogError(ex, "Database connection pool health check failed");
-//            return HealthCheckResult.Unhealthy($"Database connection pool check failed: {ex.Message}", ex);
-//        }
-//    }
+            // Try to get pending migrations count
+            try
+            {
+                var pendingMigrations = await _dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
+                var pendingCount = pendingMigrations.Count();
+                data["pendingMigrations"] = pendingCount;
 
-//    private async Task<TimeSpan> TestConnectionAsync(CancellationToken cancellationToken)
-//    {
-//        var stopwatch = Stopwatch.StartNew();
+                if (pendingCount > 0)
+                {
+                    _logger.LogWarning("Database has {PendingMigrations} pending migrations", pendingCount);
+                    return HealthCheckResult.Degraded($"Database has {pendingCount} pending migrations", data: data);
+                }
+            }
+            catch (Exception migrationEx)
+            {
+                _logger.LogDebug(migrationEx, "Could not check for pending migrations");
+                // This is not critical, continue with health check
+            }
 
-//        using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-//        // await dbContext.Database.ExecuteSqlRawAsync("SELECT 1", cancellationToken);
+            // Check if response time is acceptable
+            if (stopwatch.ElapsedMilliseconds > 1000)
+            {
+                _logger.LogWarning("Database response time is slow for {ContextType}: {ElapsedMilliseconds}ms", 
+                    typeof(TContext).Name, stopwatch.ElapsedMilliseconds);
+                return HealthCheckResult.Degraded("Database is slow", data: data);
+            }
 
-//        stopwatch.Stop();
-//        return stopwatch.Elapsed;
-//    }
-//}
+            _logger.LogDebug("Database health check completed for {ContextType} in {ElapsedMilliseconds}ms", 
+                typeof(TContext).Name, stopwatch.ElapsedMilliseconds);
 
-//// Placeholder DbContext - should reference actual application DbContext
-//public class ApplicationDbContext : DbContext
-//{
-//    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
-
-//    public DbSet<User> Users { get; set; } = null!;
-//}
-
-//// Placeholder User entity
-//public class User
-//{
-//    public string Id { get; set; } = string.Empty;
-//    public string Email { get; set; } = string.Empty;
-//    public string FirstName { get; set; } = string.Empty;
-//    public string LastName { get; set; } = string.Empty;
-//}
+            return HealthCheckResult.Healthy("Database is accessible", data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database health check failed for {ContextType}", typeof(TContext).Name);
+            return HealthCheckResult.Unhealthy($"Database check failed ({typeof(TContext).Name})", ex);
+        }
+    }
+}

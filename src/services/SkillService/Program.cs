@@ -50,7 +50,7 @@ var connectionString =
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
-    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "skillswap@ditss1990?!";
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
     connectionString =
         $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
@@ -67,7 +67,7 @@ builder.Services.AddEventSourcing("SkillServiceEventStore");
 var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
-    ?? "localhost:6379";
+    ?? builder.Configuration["Redis:ConnectionString"] ?? throw new InvalidOperationException("Redis connection string not configured");
 
 builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecutingAssembly());
 

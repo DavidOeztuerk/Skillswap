@@ -5,6 +5,7 @@ using Infrastructure.Middleware;
 using Infrastructure.Logging;
 using Infrastructure.Observability;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Serilog;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http.Json;
@@ -28,6 +29,29 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IJwtService, JwtService>();
         services.AddSingleton<ITotpService, TotpService>();
+        
+        // Add Token Revocation Service - use Redis if available, otherwise in-memory
+        var redisConnectionString = configuration.GetConnectionString("Redis");
+        if (!string.IsNullOrEmpty(redisConnectionString))
+        {
+            // Register Redis-based token revocation (reuse existing connection multiplexer)
+            services.AddSingleton<ITokenRevocationService>(provider =>
+            {
+                var multiplexer = provider.GetService<IConnectionMultiplexer>();
+                if (multiplexer == null)
+                {
+                    // If not yet registered, create it
+                    multiplexer = ConnectionMultiplexer.Connect(redisConnectionString);
+                }
+                var logger = provider.GetRequiredService<ILogger<RedisTokenRevocationService>>();
+                return new RedisTokenRevocationService(multiplexer, logger);
+            });
+        }
+        else
+        {
+            // Fallback to in-memory token revocation
+            services.AddSingleton<ITokenRevocationService, InMemoryTokenRevocationService>();
+        }
 
         // Configure Serilog
         LoggingConfiguration.ConfigureSerilog(configuration, environment, serviceName);
