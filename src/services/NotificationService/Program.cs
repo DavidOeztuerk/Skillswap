@@ -65,7 +65,7 @@ var connectionString =
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
-    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "skillswap@ditss1990?!";
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
     connectionString =
         $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
@@ -85,7 +85,7 @@ builder.Services.AddDbContext<NotificationDbContext>(opts =>
 var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
-    ?? "localhost:6379"; // Default Redis connection string
+    ?? builder.Configuration["Redis:ConnectionString"] ?? throw new InvalidOperationException("Redis connection string not configured");
 
 builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecutingAssembly());
 
@@ -98,18 +98,36 @@ builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection(
 builder.Services.Configure<SmsConfiguration>(builder.Configuration.GetSection("SMS"));
 builder.Services.Configure<PushNotificationPreferences>(builder.Configuration.GetSection("PushNotifications"));
 
-var path = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS")
-    ?? builder.Configuration["Firebase:CredentialsPath"];
+// Firebase initialization - make it optional for development
+var firebaseEnabled = bool.Parse(Environment.GetEnvironmentVariable("FIREBASE_ENABLED") 
+    ?? builder.Configuration["Firebase:Enabled"] 
+    ?? "false");
 
-if (!File.Exists(path))
-    throw new FileNotFoundException($"Firebase credentials file not found at path: {path}");
-
-if (FirebaseApp.DefaultInstance == null)
+if (firebaseEnabled)
 {
-    FirebaseApp.Create(new AppOptions()
+    var path = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS")
+        ?? builder.Configuration["Firebase:CredentialsPath"]
+        ?? "/app/secrets/firebase-key.json";
+
+    if (File.Exists(path))
     {
-        Credential = GoogleCredential.FromFile(path)
-    });
+        if (FirebaseApp.DefaultInstance == null)
+        {
+            FirebaseApp.Create(new AppOptions()
+            {
+                Credential = GoogleCredential.FromFile(path)
+            });
+        }
+        Console.WriteLine($"[INFO] Firebase initialized successfully from: {path}");
+    }
+    else
+    {
+        Console.WriteLine($"[WARNING] Firebase credentials file not found at path: {path}. Push notifications will be disabled.");
+    }
+}
+else
+{
+    Console.WriteLine("[INFO] Firebase is disabled. Push notifications will not be available.");
 }
 
 // Configure Email settings from environment variables

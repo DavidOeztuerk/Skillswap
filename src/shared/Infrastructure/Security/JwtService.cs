@@ -6,41 +6,103 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Infrastructure.Models;
+using System.Text.RegularExpressions;
 
 namespace Infrastructure.Security;
 
-public class JwtService(
-    IOptions<JwtSettings> jwtSettings,
-    ILogger<JwtService> logger) 
-    : IJwtService
+public class JwtService : IJwtService
 {
-    private readonly JwtSettings _jwtSettings = jwtSettings.Value;
-    private readonly ILogger<JwtService> _logger = logger;
-    private static readonly HashSet<string> RevokedTokens = [];
+    private readonly JwtSettings _jwtSettings;
+    private readonly ILogger<JwtService> _logger;
+    private readonly ITokenRevocationService _tokenRevocationService;
+    private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
+
+    public JwtService(
+        IOptions<JwtSettings> jwtSettings,
+        ILogger<JwtService> logger,
+        ITokenRevocationService tokenRevocationService)
+    {
+        _jwtSettings = jwtSettings.Value;
+        _logger = logger;
+        _tokenRevocationService = tokenRevocationService;
+        ValidateJwtSettings();
+    }
+
+    private void ValidateJwtSettings()
+    {
+        if (string.IsNullOrWhiteSpace(_jwtSettings.Secret) || _jwtSettings.Secret.Length < 32)
+        {
+            throw new InvalidOperationException("JWT Secret must be at least 32 characters long");
+        }
+
+        if (string.IsNullOrWhiteSpace(_jwtSettings.Issuer))
+        {
+            throw new InvalidOperationException("JWT Issuer is required");
+        }
+
+        if (string.IsNullOrWhiteSpace(_jwtSettings.Audience))
+        {
+            throw new InvalidOperationException("JWT Audience is required");
+        }
+
+        // Allow negative values for testing expired tokens
+        if (_jwtSettings.ExpireMinutes == 0)
+        {
+            throw new InvalidOperationException("JWT ExpireMinutes cannot be 0");
+        }
+    }
 
     public async Task<TokenResult> GenerateTokenAsync(UserClaims user)
     {
+        ValidateUserClaims(user);
+
+        // Merge role permissions with explicit user permissions
         user.Permissions = [.. RolePermissions
             .GetPermissionsForRoles(user.Roles)
-            .Union(user.Permissions)
+            .Union(user.Permissions ?? Enumerable.Empty<string>())
             .Distinct()];
 
-        var accessToken = await GenerateAccessTokenAsync(user);
+        var jti = Guid.NewGuid().ToString();
+        var accessToken = await GenerateAccessTokenAsync(user, jti);
         var refreshToken = await GenerateRefreshTokenAsync();
+        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes);
 
-        _logger.LogInformation("Generated tokens for user {UserId} with roles {Roles}",
-            user.UserId, string.Join(", ", user.Roles));
+        _logger.LogInformation("Generated tokens for user {UserId} with roles {Roles} and JTI {Jti}",
+            user.UserId, string.Join(", ", user.Roles), jti);
 
         return new TokenResult
         {
             AccessToken = accessToken,
             RefreshToken = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes),
+            ExpiresAt = expiresAt,
             TokenType = "Bearer"
         };
     }
 
-    private async Task<string> GenerateAccessTokenAsync(UserClaims user)
+    private void ValidateUserClaims(UserClaims user)
+    {
+        if (string.IsNullOrWhiteSpace(user.UserId))
+        {
+            throw new ArgumentException("UserId is required", nameof(user));
+        }
+
+        if (string.IsNullOrWhiteSpace(user.Email) || !EmailRegex.IsMatch(user.Email))
+        {
+            throw new ArgumentException("Valid email is required", nameof(user));
+        }
+
+        if (string.IsNullOrWhiteSpace(user.FirstName))
+        {
+            throw new ArgumentException("FirstName is required", nameof(user));
+        }
+
+        if (string.IsNullOrWhiteSpace(user.LastName))
+        {
+            throw new ArgumentException("LastName is required", nameof(user));
+        }
+    }
+
+    private async Task<string> GenerateAccessTokenAsync(UserClaims user, string jti)
     {
         var signingCredentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret)),
@@ -53,7 +115,7 @@ public class JwtService(
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.GivenName, user.FirstName),
             new(JwtRegisteredClaimNames.FamilyName, user.LastName),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(JwtRegisteredClaimNames.Jti, jti),
             new(JwtRegisteredClaimNames.Iat,
                 new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds().ToString(),
                 ClaimValueTypes.Integer64),
@@ -145,6 +207,11 @@ public class JwtService(
 
     public async Task<ClaimsPrincipal?> ValidateTokenAsync(string token)
     {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
         var tokenValidationParameters = new TokenValidationParameters
         {
             ValidateAudience = true,
@@ -165,13 +232,21 @@ public class JwtService(
 
             // Check if token is revoked
             var jti = principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
-            if (!string.IsNullOrEmpty(jti) && RevokedTokens.Contains(jti))
+            if (!string.IsNullOrEmpty(jti) && await _tokenRevocationService.IsTokenRevokedAsync(jti))
             {
                 _logger.LogWarning("Token with JTI {Jti} has been revoked", jti);
                 return null;
             }
 
-            return await Task.FromResult(principal);
+            // Additional security checks
+            if (securityToken is not JwtSecurityToken jwtSecurityToken ||
+                !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+            {
+                _logger.LogWarning("Invalid token algorithm or format");
+                return null;
+            }
+
+            return principal;
         }
         catch (SecurityTokenExpiredException)
         {
@@ -185,14 +260,29 @@ public class JwtService(
         }
     }
 
+    public async Task RevokeTokenAsync(string jti, string userId)
+    {
+        var request = new TokenRevocationRequest
+        {
+            Jti = jti,
+            UserId = userId,
+            Reason = TokenRevocationReason.UserRequested,
+            TokenExpiry = TimeSpan.FromMinutes(_jwtSettings.ExpireMinutes)
+        };
+        
+        await _tokenRevocationService.RevokeTokenAsync(request);
+        _logger.LogInformation("Token with JTI {Jti} revoked for user {UserId}", jti, userId);
+    }
+
     public async Task RevokeRefreshTokenAsync(string refreshToken)
     {
-        // In a real implementation, this would be stored in a database or Redis
-        // For now, we'll use an in-memory set
-        RevokedTokens.Add(refreshToken);
-
+        await _tokenRevocationService.RevokeRefreshTokenAsync(refreshToken);
         _logger.LogInformation("Refresh token revoked");
+    }
 
-        await Task.CompletedTask;
+    public async Task RevokeAllUserTokensAsync(string userId)
+    {
+        await _tokenRevocationService.RevokeUserTokensAsync(userId);
+        _logger.LogInformation("All tokens revoked for user {UserId}", userId);
     }
 }
