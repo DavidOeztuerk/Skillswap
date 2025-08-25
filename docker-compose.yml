@@ -1,28 +1,31 @@
+# docker-compose.yml
+# Base configuration for SkillSwap microservices
+# This file contains the core service definitions without environment-specific settings
+
 services:
+  # ================== Frontend ==================
   frontend:
     build:
       context: ./src
       dockerfile: client/Dockerfile
       args:
-        - VITE_API_BASE_URL=http://localhost:8080
-    container_name: "frontend"
-    ports:
-      - "3000:3000"
-    depends_on:
-      - gateway
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8080
-      - VITE_SIGNALR_URL=http://localhost:8080/videocall
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080}
+    container_name: "skillswap-frontend"
+    networks:
+      - skillswap-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
 
+  # ================== Infrastructure ==================
   rabbitmq:
-    image: "rabbitmq:3-management"
-    container_name: "rabbitmq"
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+    image: "rabbitmq:3-management-alpine"
+    container_name: "skillswap-rabbitmq"
+    networks:
+      - skillswap-network
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -32,12 +35,17 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   redis:
     image: redis:7-alpine
-    container_name: "redis"
-    ports:
-      - "6379:6379"
+    container_name: "skillswap-redis"
+    networks:
+      - skillswap-network
     volumes:
       - redis_data:/data
     healthcheck:
@@ -47,12 +55,18 @@ services:
       retries: 5
       start_period: 5s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
 
+  # ================== API Gateway ==================
   gateway:
     build:
       context: ./src
       dockerfile: services/Gateway/Dockerfile
-    container_name: "gateway"
+    container_name: "skillswap-gateway"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -68,10 +82,9 @@ services:
         condition: service_started
       notificationservice:
         condition: service_started
-    ports:
-      - "8080:8080"
+    networks:
+      - skillswap-network
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - RABBITMQ_HOST=rabbitmq
       - USERSERVICE_URL=http://userservice:5001
@@ -80,19 +93,22 @@ services:
       - APPOINTMENTSERVICE_URL=http://appointmentservice:5004
       - VIDEOCALLSERVICE_URL=http://videocallservice:5005
       - NOTIFICATIONSERVICE_URL=http://notificationservice:5006
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ISSUER=${JWT_ISSUER}
-      - JWT_AUDIENCE=${JWT_AUDIENCE}
-      - ALLOWED_ORIGINS=http://localhost:3000
+      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
+      - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
-  # ================== Services ==================
-
+  # ================== Microservices ==================
   userservice:
     build:
       context: ./src
       dockerfile: services/UserService/UserService.Api/Dockerfile
-    container_name: "userservice"
+    container_name: "skillswap-userservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -100,19 +116,16 @@ services:
         condition: service_healthy
       postgres_userservice:
         condition: service_healthy
-    ports:
-      - "5001:5001"
+    networks:
+      - skillswap-network
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5001
       - DOTNET_RUNNING_IN_CONTAINER=true
       - RABBITMQ_HOST=rabbitmq
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ISSUER=${JWT_ISSUER}
-      - JWT_AUDIENCE=${JWT_AUDIENCE}
-      - JWT_EXPIRE=${JWT_EXPIRE}
+      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
+      - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
-      - ConnectionStrings__DefaultConnection=Host=postgres_userservice;Database=userservice;Username=${POSTGRES_USER:-skillswap};Password=${POSTGRES_PASSWORD:-skillswap@ditss1990?!};Port=5432;TrustServerCertificate=True;
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health/live"]
       interval: 30s
@@ -120,12 +133,17 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   skillservice:
     build:
       context: ./src
       dockerfile: services/SkillService/Dockerfile
-    container_name: "skillservice"
+    container_name: "skillswap-skillservice"
     depends_on:
       postgres_skillservice:
         condition: service_healthy
@@ -133,19 +151,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "5002:5002"
+    networks:
+      - skillswap-network
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5002
       - DOTNET_RUNNING_IN_CONTAINER=true
       - RABBITMQ_HOST=rabbitmq
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ISSUER=${JWT_ISSUER}
-      - JWT_AUDIENCE=${JWT_AUDIENCE}
-      - JWT_EXPIRE=${JWT_EXPIRE}
+      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
+      - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
-      - ConnectionStrings__DefaultConnection=Host=postgres_skillservice;Database=skillservice;Username=${POSTGRES_USER:-skillswap};Password=${POSTGRES_PASSWORD:-skillswap@ditss1990?!};Port=5432;TrustServerCertificate=True;
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health/live"]
       interval: 30s
@@ -153,30 +168,32 @@ services:
       retries: 5
       start_period: 60s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   matchmakingservice:
     build:
       context: ./src
       dockerfile: services/MatchmakingService/Dockerfile
-    container_name: "matchmakingservice"
+    container_name: "skillswap-matchmakingservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
       postgres_matchmakingservice:
         condition: service_healthy
-    ports:
-      - "5003:5003"
+    networks:
+      - skillswap-network
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5003
       - DOTNET_RUNNING_IN_CONTAINER=true
       - RABBITMQ_HOST=rabbitmq
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ISSUER=${JWT_ISSUER}
-      - JWT_AUDIENCE=${JWT_AUDIENCE}
-      - JWT_EXPIRE=${JWT_EXPIRE}
+      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
+      - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
-      - ConnectionStrings__DefaultConnection=Host=postgres_matchmakingservice;Database=matchmakingservice;Username=${POSTGRES_USER:-skillswap};Password=${POSTGRES_PASSWORD:-skillswap@ditss1990?!};Port=5432;TrustServerCertificate=True;
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5003/health/live"]
       interval: 30s
@@ -184,30 +201,32 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   appointmentservice:
     build:
       context: ./src
       dockerfile: services/AppointmentService/Dockerfile
-    container_name: "appointmentservice"
+    container_name: "skillswap-appointmentservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
       postgres_appointmentservice:
         condition: service_healthy
-    ports:
-      - "5004:5004"
+    networks:
+      - skillswap-network
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5004
       - DOTNET_RUNNING_IN_CONTAINER=true
       - RABBITMQ_HOST=rabbitmq
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ISSUER=${JWT_ISSUER}
-      - JWT_AUDIENCE=${JWT_AUDIENCE}
-      - JWT_EXPIRE=${JWT_EXPIRE}
+      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
+      - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
-      - ConnectionStrings__DefaultConnection=Host=postgres_appointmentservice;Database=appointmentservice;Username=${POSTGRES_USER:-skillswap};Password=${POSTGRES_PASSWORD:-skillswap@ditss1990?!};Port=5432;TrustServerCertificate=True;
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health/live"]
       interval: 30s
@@ -215,30 +234,32 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   videocallservice:
     build:
       context: ./src
       dockerfile: services/VideocallService/Dockerfile
-    container_name: "videocallservice"
+    container_name: "skillswap-videocallservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
       postgres_videocallservice:
         condition: service_healthy
-    ports:
-      - "5005:5005"
+    networks:
+      - skillswap-network
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5005
       - DOTNET_RUNNING_IN_CONTAINER=true
       - RABBITMQ_HOST=rabbitmq
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ISSUER=${JWT_ISSUER}
-      - JWT_AUDIENCE=${JWT_AUDIENCE}
-      - JWT_EXPIRE=${JWT_EXPIRE}
+      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
+      - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
-      - ConnectionStrings__DefaultConnection=Host=postgres_videocallservice;Database=videocallservice;Username=${POSTGRES_USER:-skillswap};Password=${POSTGRES_PASSWORD:-skillswap@ditss1990?!};Port=5432;TrustServerCertificate=True;
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5005/health/live"]
       interval: 30s
@@ -246,12 +267,17 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   notificationservice:
     build:
       context: ./src
       dockerfile: services/NotificationService/Dockerfile
-    container_name: "notificationservice"
+    container_name: "skillswap-notificationservice"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -259,31 +285,20 @@ services:
         condition: service_healthy
       postgres_notificationservice:
         condition: service_healthy
-    ports:
-      - "5006:5006"
+    networks:
+      - skillswap-network
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5006
       - DOTNET_RUNNING_IN_CONTAINER=true
       - RABBITMQ_HOST=rabbitmq
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ISSUER=${JWT_ISSUER}
-      - JWT_AUDIENCE=${JWT_AUDIENCE}
-      - JWT_EXPIRE=${JWT_EXPIRE}
+      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
+      - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
-      - ConnectionStrings__DefaultConnection=Host=postgres_notificationservice;Database=notificationservice;Username=${POSTGRES_USER:-skillswap};Password=${POSTGRES_PASSWORD:-skillswap@ditss1990?!};Port=5432;TrustServerCertificate=True;
       - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USERNAME=${SMTP_USERNAME}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_USE_SSL=${SMTP_USE_SSL:-true}
       - SMS_PROVIDER=${SMS_PROVIDER:-twilio}
-      - SMS_API_KEY=${SMS_API_KEY}
-      - SMS_API_SECRET=${SMS_API_SECRET}
-      - SMS_FROM_NUMBER=${SMS_FROM_NUMBER}
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/firebase-key.json
-    volumes:
-      - ./secrets/firebase-key.json:/app/secrets/firebase-key.json:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5006/health/live"]
       interval: 30s
@@ -291,111 +306,151 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
-  # ================== Postgres pro Service ==================
-
+  # ================== Database Services ==================
   postgres_userservice:
     image: postgres:15-alpine
-    container_name: "postgres_userservice"
+    container_name: "skillswap-postgres-userservice"
+    networks:
+      - skillswap-network
     environment:
       POSTGRES_DB: userservice
-      POSTGRES_USER: ${POSTGRES_USER:-skillswap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skillswap@ditss1990?!}
     volumes:
       - postgres_userservice_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skillswap} -d userservice"]
+      test: ["CMD-SHELL", "pg_isready -U skillswap -d userservice"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   postgres_skillservice:
     image: postgres:15-alpine
-    container_name: "postgres_skillservice"
+    container_name: "skillswap-postgres-skillservice"
+    networks:
+      - skillswap-network
     environment:
       POSTGRES_DB: skillservice
-      POSTGRES_USER: ${POSTGRES_USER:-skillswap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skillswap@ditss1990?!}
     volumes:
       - postgres_skillservice_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skillswap} -d skillservice"]
+      test: ["CMD-SHELL", "pg_isready -U skillswap -d skillservice"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   postgres_matchmakingservice:
     image: postgres:15-alpine
-    container_name: "postgres_matchmakingservice"
+    container_name: "skillswap-postgres-matchmakingservice"
+    networks:
+      - skillswap-network
     environment:
       POSTGRES_DB: matchmakingservice
-      POSTGRES_USER: ${POSTGRES_USER:-skillswap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skillswap@ditss1990?!}
     volumes:
       - postgres_matchmakingservice_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skillswap} -d matchmakingservice"]
+      test: ["CMD-SHELL", "pg_isready -U skillswap -d matchmakingservice"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   postgres_appointmentservice:
     image: postgres:15-alpine
-    container_name: "postgres_appointmentservice"
+    container_name: "skillswap-postgres-appointmentservice"
+    networks:
+      - skillswap-network
     environment:
       POSTGRES_DB: appointmentservice
-      POSTGRES_USER: ${POSTGRES_USER:-skillswap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skillswap@ditss1990?!}
     volumes:
       - postgres_appointmentservice_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skillswap} -d appointmentservice"]
+      test: ["CMD-SHELL", "pg_isready -U skillswap -d appointmentservice"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   postgres_videocallservice:
     image: postgres:15-alpine
-    container_name: "postgres_videocallservice"
+    container_name: "skillswap-postgres-videocallservice"
+    networks:
+      - skillswap-network
     environment:
       POSTGRES_DB: videocallservice
-      POSTGRES_USER: ${POSTGRES_USER:-skillswap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skillswap@ditss1990?!}
     volumes:
       - postgres_videocallservice_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skillswap} -d videocallservice"]
+      test: ["CMD-SHELL", "pg_isready -U skillswap -d videocallservice"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   postgres_notificationservice:
     image: postgres:15-alpine
-    container_name: "postgres_notificationservice"
+    container_name: "skillswap-postgres-notificationservice"
+    networks:
+      - skillswap-network
     environment:
       POSTGRES_DB: notificationservice
-      POSTGRES_USER: ${POSTGRES_USER:-skillswap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skillswap@ditss1990?!}
     volumes:
       - postgres_notificationservice_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skillswap} -d notificationservice"]
+      test: ["CMD-SHELL", "pg_isready -U skillswap -d notificationservice"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
+# ================== Networks ==================
+networks:
+  skillswap-network:
+    driver: bridge
+    name: skillswap-network
+
+# ================== Volumes ==================
 volumes:
   redis_data:
     name: skillswap_redis_data
   rabbitmq_data:
     name: skillswap_rabbitmq_data
-
   postgres_userservice_data:
     name: skillswap_pg_userservice
   postgres_skillservice_data:

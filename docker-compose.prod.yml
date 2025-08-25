@@ -1,0 +1,198 @@
+# docker-compose.prod.yml
+# Production-like configuration for testing
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  frontend:
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Only Gateway is exposed to the outside world in production
+  gateway:
+    ports:
+      - "443:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ENABLE_SWAGGER=false
+      - LOG_LEVEL=Warning
+      - USE_HTTPS_REDIRECTION=true
+      - ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+    secrets:
+      - jwt_secret
+      - ssl_cert
+      - ssl_key
+
+  userservice:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ENABLE_SWAGGER=false
+      - LOG_LEVEL=Warning
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  skillservice:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ENABLE_SWAGGER=false
+      - LOG_LEVEL=Warning
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  matchmakingservice:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ENABLE_SWAGGER=false
+      - LOG_LEVEL=Warning
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  appointmentservice:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ENABLE_SWAGGER=false
+      - LOG_LEVEL=Warning
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  videocallservice:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ENABLE_SWAGGER=false
+      - LOG_LEVEL=Warning
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  notificationservice:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ENABLE_SWAGGER=false
+      - LOG_LEVEL=Warning
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+      - smtp_username
+      - smtp_password
+      - sms_api_key
+      - sms_api_secret
+
+  rabbitmq:
+    environment:
+      RABBITMQ_DEFAULT_USER_FILE: /run/secrets/rabbitmq_user
+      RABBITMQ_DEFAULT_PASS_FILE: /run/secrets/rabbitmq_password
+      RABBITMQ_MANAGEMENT_SSL_VERIFY: "verify_peer"
+      RABBITMQ_MANAGEMENT_SSL_FAIL_IF_NO_PEER_CERT: "true"
+    secrets:
+      - rabbitmq_user
+      - rabbitmq_password
+
+  redis:
+    command: redis-server --requirepass-file /run/secrets/redis_password --appendonly yes
+    secrets:
+      - redis_password
+
+  postgres_userservice:
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_skillservice:
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_matchmakingservice:
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_appointmentservice:
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_videocallservice:
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_notificationservice:
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+# ================== Production Secrets (Docker Swarm) ==================
+# These would be external secrets in real production with Docker Swarm
+# For testing purposes, we use the same file-based secrets
+secrets:
+  jwt_secret:
+    external: false
+    file: ./secrets/jwt_secret.txt
+  postgres_user:
+    external: false
+    file: ./secrets/postgres_user.txt
+  postgres_password:
+    external: false
+    file: ./secrets/postgres_password.txt
+  rabbitmq_user:
+    external: false
+    file: ./secrets/rabbitmq_user.txt
+  rabbitmq_password:
+    external: false
+    file: ./secrets/rabbitmq_password.txt
+  redis_password:
+    external: false
+    file: ./secrets/redis_password.txt
+  smtp_username:
+    external: false
+    file: ./secrets/smtp_username.txt
+  smtp_password:
+    external: false
+    file: ./secrets/smtp_password.txt
+  sms_api_key:
+    external: false
+    file: ./secrets/sms_api_key.txt
+  sms_api_secret:
+    external: false
+    file: ./secrets/sms_api_secret.txt
+  ssl_cert:
+    external: false
+    file: ./secrets/ssl_cert.pem
+  ssl_key:
+    external: false
+    file: ./secrets/ssl_key.pem
