@@ -1,0 +1,228 @@
+# docker-compose.override.yml
+# Development-specific configuration
+# This file is automatically loaded by docker-compose and overrides base settings
+
+services:
+  frontend:
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_BASE_URL=http://localhost:8080
+      - VITE_SIGNALR_URL=http://localhost:8080/videocall
+    volumes:
+      - ./src/client:/app
+      - /app/node_modules
+    depends_on:
+      - gateway
+
+  rabbitmq:
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER_FILE: /run/secrets/rabbitmq_user
+      RABBITMQ_DEFAULT_PASS_FILE: /run/secrets/rabbitmq_password
+    secrets:
+      - rabbitmq_user
+      - rabbitmq_password
+
+  redis:
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass-file /run/secrets/redis_password
+    secrets:
+      - redis_password
+
+  gateway:
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ENABLE_SWAGGER=true
+      - LOG_LEVEL=Debug
+      - CORS_ALLOW_ALL_ORIGINS_IN_DEV=true
+      - CORS_LOCAL_ORIGINS=${CORS_LOCAL_ORIGINS:-http://localhost:3000}
+    volumes:
+      - ./src/services/Gateway:/app
+    secrets:
+      - jwt_secret
+
+  userservice:
+    ports:
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - ENABLE_SWAGGER=true
+      - LOG_LEVEL=Debug
+    volumes:
+      - ./src/services/UserService:/app
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  skillservice:
+    ports:
+      - "5002:5002"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - ENABLE_SWAGGER=true
+      - LOG_LEVEL=Debug
+    volumes:
+      - ./src/services/SkillService:/app
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  matchmakingservice:
+    ports:
+      - "5003:5003"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - ENABLE_SWAGGER=true
+      - LOG_LEVEL=Debug
+    volumes:
+      - ./src/services/MatchmakingService:/app
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  appointmentservice:
+    ports:
+      - "5004:5004"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - ENABLE_SWAGGER=true
+      - LOG_LEVEL=Debug
+    volumes:
+      - ./src/services/AppointmentService:/app
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  videocallservice:
+    ports:
+      - "5005:5005"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - ENABLE_SWAGGER=true
+      - LOG_LEVEL=Debug
+    volumes:
+      - ./src/services/VideocallService:/app
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+
+  notificationservice:
+    ports:
+      - "5006:5006"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - ENABLE_SWAGGER=true
+      - LOG_LEVEL=Debug
+    volumes:
+      - ./src/services/NotificationService:/app
+      - ./secrets/firebase-key.json:/app/secrets/firebase-key.json:ro
+    secrets:
+      - jwt_secret
+      - postgres_user
+      - postgres_password
+      - smtp_username
+      - smtp_password
+      - sms_api_key
+      - sms_api_secret
+
+  # ================== Database Services with Secrets ==================
+  postgres_userservice:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_skillservice:
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_matchmakingservice:
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_appointmentservice:
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_videocallservice:
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+  postgres_notificationservice:
+    ports:
+      - "5437:5432"
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_user
+      - postgres_password
+
+# ================== Docker Secrets (File-based for Development) ==================
+secrets:
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  postgres_user:
+    file: ./secrets/postgres_user.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  rabbitmq_user:
+    file: ./secrets/rabbitmq_user.txt
+  rabbitmq_password:
+    file: ./secrets/rabbitmq_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+  smtp_username:
+    file: ./secrets/smtp_username.txt
+  smtp_password:
+    file: ./secrets/smtp_password.txt
+  sms_api_key:
+    file: ./secrets/sms_api_key.txt
+  sms_api_secret:
+    file: ./secrets/sms_api_secret.txt
