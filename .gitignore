@@ -337,9 +337,10 @@ temp/
 
 # Docker files
 .dockerignore
-docker-compose.override.yml
-docker-compose.*.yml
-!docker-compose.yml
+docker-compose.override.yml.local
+# Keep override files but not custom ones
+!docker-compose.override.yml
+!docker-compose.prod.yml
 
 # ============================================================================
 # Databases
@@ -556,3 +557,53 @@ uploads/
 temp-files/
 cache/
 firebase-key.json
+
+# ============================================================================
+# SECURITY - NEVER COMMIT THESE!
+# ============================================================================
+
+# Docker Secrets Directory - CRITICAL SECURITY
+secrets/
+*.secret
+*.secrets
+
+# Environment Files with Sensitive Data
+.env
+.env.*
+!.env.example
+
+# SSL Certificates and Keys
+*.pem
+*.key
+*.crt
+*.csr
+*.pfx
+*.p12
+*.cer
+*.der
+
+# API Keys and Tokens
+*api-key*
+*api_key*
+*auth-token*
+*auth_token*
+*access-token*
+*access_token*
+
+# Database Credentials
+*password*
+*credentials*
+*connection-string*
+
+# Backup Files That Might Contain Secrets
+backups/
+*.sql.gz
+*.dump
+
+# Firebase Service Account Keys
+*firebase*key*.json
+*service-account*.json
+
+# JWT Secrets
+*jwt*secret*
+*jwt*key*
