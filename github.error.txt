@@ -1,0 +1,1267 @@
+4s
+Current runner version: '2.328.0'
+Runner Image Provisioner
+  Hosted Compute Agent
+  Version: 20250818.377
+  Commit: 3c593e9f75fe0b87e893bca80d6e12ba089c61fc
+  Build Date: 2025-08-18T14:52:18Z
+Operating System
+  Ubuntu
+  24.04.2
+  LTS
+Runner Image
+  Image: ubuntu-24.04
+  Version: 20250818.1.0
+  Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250818.1/images/ubuntu/Ubuntu2404-Readme.md
+  Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250818.1
+GITHUB_TOKEN Permissions
+  Contents: read
+  Metadata: read
+  Packages: read
+Secret source: Actions
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@v3' (SHA:f43a0e5ff2bd294095638e18286ca9a3d1956744)
+Download action repository 'azure/login@v1' (SHA:cb79c773a3cfa27f31f25eb3f677781210c9ce3d)
+Complete job name: deploy-infrastructure
+22s
+Run azure/login@v1
+  with:
+    creds: ***
+    enable-AzPSSession: false
+    environment: azurecloud
+    allow-no-subscriptions: false
+    audience: api://AzureADTokenExchange
+    auth-type: SERVICE_PRINCIPAL
+  env:
+    ENVIRONMENT: staging
+    RESOURCE_GROUP: skillswap-staging-rg
+    LOCATION: westeurope
+Clearing azure cli accounts from the local cache.
+/usr/bin/az account clear
+1s
+Run actions/checkout@v3
+  with:
+    repository: DavidOeztuerk/Skillswap
+    token: ***
+    ssh-strict: true
+    persist-credentials: true
+    clean: true
+    sparse-checkout-cone-mode: true
+    fetch-depth: 1
+    fetch-tags: false
+    lfs: false
+    submodules: false
+    set-safe-directory: true
+  env:
+    ENVIRONMENT: staging
+    RESOURCE_GROUP: skillswap-staging-rg
+    LOCATION: westeurope
+Syncing repository: DavidOeztuerk/Skillswap
+Getting Git version info
+  Working directory is '/home/runner/work/Skillswap/Skillswap'
+  /usr/bin/git version
+  git version 2.51.0
+Temporarily overriding HOME='/home/runner/work/_temp/c68e4473-b394-4591-9455-1a7df3ffc72b' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+/usr/bin/git config --global --add safe.directory /home/runner/work/Skillswap/Skillswap
+Deleting the contents of '/home/runner/work/Skillswap/Skillswap'
+Initializing the repository
+  /usr/bin/git init /home/runner/work/Skillswap/Skillswap
+  hint: Using 'master' as the name for the initial branch. This default branch name
+  hint: is subject to change. To configure the initial branch name to use in all
+  hint: of your new repositories, which will suppress this warning, call:
+  hint:
+  hint: 	git config --global init.defaultBranch <name>
+  hint:
+  hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+  hint: 'development'. The just-created branch can be renamed via this command:
+  hint:
+  hint: 	git branch -m <name>
+  hint:
+  hint: Disable this message with "git config set advice.defaultBranchName false"
+  Initialized empty Git repository in /home/runner/work/Skillswap/Skillswap/.git/
+  /usr/bin/git remote add origin https://github.com/DavidOeztuerk/Skillswap
+Disabling automatic garbage collection
+  /usr/bin/git config --local gc.auto 0
+Setting up auth
+  /usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+  /usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+  /usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+  /usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+  /usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Fetching the repository
+  /usr/bin/git -c protocol.version=2 fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin +2a98787770ed7a66632039af2686f7f1f32e3749:refs/remotes/origin/staging
+  remote: Enumerating objects: 1700, done.        
+  remote: Counting objects:   0% (1/1700)        
+  remote: Counting objects:   1% (17/1700)        
+  remote: Counting objects:   2% (34/1700)        
+  remote: Counting objects:   3% (51/1700)        
+  remote: Counting objects:   4% (68/1700)        
+  remote: Counting objects:   5% (85/1700)        
+  remote: Counting objects:   6% (102/1700)        
+  remote: Counting objects:   7% (119/1700)        
+  remote: Counting objects:   8% (136/1700)        
+  remote: Counting objects:   9% (153/1700)        
+  remote: Counting objects:  10% (170/1700)        
+  remote: Counting objects:  11% (187/1700)        
+  remote: Counting objects:  12% (204/1700)        
+  remote: Counting objects:  13% (221/1700)        
+  remote: Counting objects:  14% (238/1700)        
+  remote: Counting objects:  15% (255/1700)        
+  remote: Counting objects:  16% (272/1700)        
+  remote: Counting objects:  17% (289/1700)        
+  remote: Counting objects:  18% (306/1700)        
+  remote: Counting objects:  19% (323/1700)        
+  remote: Counting objects:  20% (340/1700)        
+  remote: Counting objects:  21% (357/1700)        
+  remote: Counting objects:  22% (374/1700)        
+  remote: Counting objects:  23% (391/1700)        
+  remote: Counting objects:  24% (408/1700)        
+  remote: Counting objects:  25% (425/1700)        
+  remote: Counting objects:  26% (442/1700)        
+  remote: Counting objects:  27% (459/1700)        
+  remote: Counting objects:  28% (476/1700)        
+  remote: Counting objects:  29% (493/1700)        
+  remote: Counting objects:  30% (510/1700)        
+  remote: Counting objects:  31% (527/1700)        
+  remote: Counting objects:  32% (544/1700)        
+  remote: Counting objects:  33% (561/1700)        
+  remote: Counting objects:  34% (578/1700)        
+  remote: Counting objects:  35% (595/1700)        
+  remote: Counting objects:  36% (612/1700)        
+  remote: Counting objects:  37% (629/1700)        
+  remote: Counting objects:  38% (646/1700)        
+  remote: Counting objects:  39% (663/1700)        
+  remote: Counting objects:  40% (680/1700)        
+  remote: Counting objects:  41% (697/1700)        
+  remote: Counting objects:  42% (714/1700)        
+  remote: Counting objects:  43% (731/1700)        
+  remote: Counting objects:  44% (748/1700)        
+  remote: Counting objects:  45% (765/1700)        
+  remote: Counting objects:  46% (782/1700)        
+  remote: Counting objects:  47% (799/1700)        
+  remote: Counting objects:  48% (816/1700)        
+  remote: Counting objects:  49% (833/1700)        
+  remote: Counting objects:  50% (850/1700)        
+  remote: Counting objects:  51% (867/1700)        
+  remote: Counting objects:  52% (884/1700)        
+  remote: Counting objects:  53% (901/1700)        
+  remote: Counting objects:  54% (918/1700)        
+  remote: Counting objects:  55% (935/1700)        
+  remote: Counting objects:  56% (952/1700)        
+  remote: Counting objects:  57% (969/1700)        
+  remote: Counting objects:  58% (986/1700)        
+  remote: Counting objects:  59% (1003/1700)        
+  remote: Counting objects:  60% (1020/1700)        
+  remote: Counting objects:  61% (1037/1700)        
+  remote: Counting objects:  62% (1054/1700)        
+  remote: Counting objects:  63% (1071/1700)        
+  remote: Counting objects:  64% (1088/1700)        
+  remote: Counting objects:  65% (1105/1700)        
+  remote: Counting objects:  66% (1122/1700)        
+  remote: Counting objects:  67% (1139/1700)        
+  remote: Counting objects:  68% (1156/1700)        
+  remote: Counting objects:  69% (1173/1700)        
+  remote: Counting objects:  70% (1190/1700)        
+  remote: Counting objects:  71% (1207/1700)        
+  remote: Counting objects:  72% (1224/1700)        
+  remote: Counting objects:  73% (1241/1700)        
+  remote: Counting objects:  74% (1258/1700)        
+  remote: Counting objects:  75% (1275/1700)        
+  remote: Counting objects:  76% (1292/1700)        
+  remote: Counting objects:  77% (1309/1700)        
+  remote: Counting objects:  78% (1326/1700)        
+  remote: Counting objects:  79% (1343/1700)        
+  remote: Counting objects:  80% (1360/1700)        
+  remote: Counting objects:  81% (1377/1700)        
+  remote: Counting objects:  82% (1394/1700)        
+  remote: Counting objects:  83% (1411/1700)        
+  remote: Counting objects:  84% (1428/1700)        
+  remote: Counting objects:  85% (1445/1700)        
+  remote: Counting objects:  86% (1462/1700)        
+  remote: Counting objects:  87% (1479/1700)        
+  remote: Counting objects:  88% (1496/1700)        
+  remote: Counting objects:  89% (1513/1700)        
+  remote: Counting objects:  90% (1530/1700)        
+  remote: Counting objects:  91% (1547/1700)        
+  remote: Counting objects:  92% (1564/1700)        
+  remote: Counting objects:  93% (1581/1700)        
+  remote: Counting objects:  94% (1598/1700)        
+  remote: Counting objects:  95% (1615/1700)        
+  remote: Counting objects:  96% (1632/1700)        
+  remote: Counting objects:  97% (1649/1700)        
+  remote: Counting objects:  98% (1666/1700)        
+  remote: Counting objects:  99% (1683/1700)        
+  remote: Counting objects: 100% (1700/1700)        
+  remote: Counting objects: 100% (1700/1700), done.        
+  remote: Compressing objects:   0% (1/1319)        
+  remote: Compressing objects:   1% (14/1319)        
+  remote: Compressing objects:   2% (27/1319)        
+  remote: Compressing objects:   3% (40/1319)        
+  remote: Compressing objects:   4% (53/1319)        
+  remote: Compressing objects:   5% (66/1319)        
+  remote: Compressing objects:   6% (80/1319)        
+  remote: Compressing objects:   7% (93/1319)        
+  remote: Compressing objects:   8% (106/1319)        
+  remote: Compressing objects:   9% (119/1319)        
+  remote: Compressing objects:  10% (132/1319)        
+  remote: Compressing objects:  11% (146/1319)        
+  remote: Compressing objects:  12% (159/1319)        
+  remote: Compressing objects:  13% (172/1319)        
+  remote: Compressing objects:  14% (185/1319)        
+  remote: Compressing objects:  15% (198/1319)        
+  remote: Compressing objects:  16% (212/1319)        
+  remote: Compressing objects:  17% (225/1319)        
+  remote: Compressing objects:  18% (238/1319)        
+  remote: Compressing objects:  19% (251/1319)        
+  remote: Compressing objects:  20% (264/1319)        
+  remote: Compressing objects:  21% (277/1319)        
+  remote: Compressing objects:  22% (291/1319)        
+  remote: Compressing objects:  23% (304/1319)        
+  remote: Compressing objects:  24% (317/1319)        
+  remote: Compressing objects:  25% (330/1319)        
+  remote: Compressing objects:  26% (343/1319)        
+  remote: Compressing objects:  27% (357/1319)        
+  remote: Compressing objects:  28% (370/1319)        
+  remote: Compressing objects:  29% (383/1319)        
+  remote: Compressing objects:  30% (396/1319)        
+  remote: Compressing objects:  31% (409/1319)        
+  remote: Compressing objects:  32% (423/1319)        
+  remote: Compressing objects:  33% (436/1319)        
+  remote: Compressing objects:  34% (449/1319)        
+  remote: Compressing objects:  35% (462/1319)        
+  remote: Compressing objects:  36% (475/1319)        
+  remote: Compressing objects:  37% (489/1319)        
+  remote: Compressing objects:  38% (502/1319)        
+  remote: Compressing objects:  39% (515/1319)        
+  remote: Compressing objects:  40% (528/1319)        
+  remote: Compressing objects:  41% (541/1319)        
+  remote: Compressing objects:  42% (554/1319)        
+  remote: Compressing objects:  43% (568/1319)        
+  remote: Compressing objects:  44% (581/1319)        
+  remote: Compressing objects:  45% (594/1319)        
+  remote: Compressing objects:  46% (607/1319)        
+  remote: Compressing objects:  47% (620/1319)        
+  remote: Compressing objects:  48% (634/1319)        
+  remote: Compressing objects:  49% (647/1319)        
+  remote: Compressing objects:  50% (660/1319)        
+  remote: Compressing objects:  51% (673/1319)        
+  remote: Compressing objects:  52% (686/1319)        
+  remote: Compressing objects:  53% (700/1319)        
+  remote: Compressing objects:  54% (713/1319)        
+  remote: Compressing objects:  55% (726/1319)        
+  remote: Compressing objects:  56% (739/1319)        
+  remote: Compressing objects:  57% (752/1319)        
+  remote: Compressing objects:  58% (766/1319)        
+  remote: Compressing objects:  59% (779/1319)        
+  remote: Compressing objects:  60% (792/1319)        
+  remote: Compressing objects:  61% (805/1319)        
+  remote: Compressing objects:  62% (818/1319)        
+  remote: Compressing objects:  63% (831/1319)        
+  remote: Compressing objects:  64% (845/1319)        
+  remote: Compressing objects:  65% (858/1319)        
+  remote: Compressing objects:  66% (871/1319)        
+  remote: Compressing objects:  67% (884/1319)        
+  remote: Compressing objects:  68% (897/1319)        
+  remote: Compressing objects:  69% (911/1319)        
+  remote: Compressing objects:  70% (924/1319)        
+  remote: Compressing objects:  71% (937/1319)        
+  remote: Compressing objects:  72% (950/1319)        
+  remote: Compressing objects:  73% (963/1319)        
+  remote: Compressing objects:  74% (977/1319)        
+  remote: Compressing objects:  75% (990/1319)        
+  remote: Compressing objects:  76% (1003/1319)        
+  remote: Compressing objects:  77% (1016/1319)        
+  remote: Compressing objects:  78% (1029/1319)        
+  remote: Compressing objects:  79% (1043/1319)        
+  remote: Compressing objects:  80% (1056/1319)        
+  remote: Compressing objects:  81% (1069/1319)        
+  remote: Compressing objects:  82% (1082/1319)        
+  remote: Compressing objects:  83% (1095/1319)        
+  remote: Compressing objects:  84% (1108/1319)        
+  remote: Compressing objects:  85% (1122/1319)        
+  remote: Compressing objects:  86% (1135/1319)        
+  remote: Compressing objects:  87% (1148/1319)        
+  remote: Compressing objects:  88% (1161/1319)        
+  remote: Compressing objects:  89% (1174/1319)        
+  remote: Compressing objects:  90% (1188/1319)        
+  remote: Compressing objects:  91% (1201/1319)        
+  remote: Compressing objects:  92% (1214/1319)        
+  remote: Compressing objects:  93% (1227/1319)        
+  remote: Compressing objects:  94% (1240/1319)        
+  remote: Compressing objects:  95% (1254/1319)        
+  remote: Compressing objects:  96% (1267/1319)        
+  remote: Compressing objects:  97% (1280/1319)        
+  remote: Compressing objects:  98% (1293/1319)        
+  remote: Compressing objects:  99% (1306/1319)        
+  remote: Compressing objects: 100% (1319/1319)        
+  remote: Compressing objects: 100% (1319/1319), done.        
+  Receiving objects:   0% (1/1700)
+  Receiving objects:   1% (17/1700)
+  Receiving objects:   2% (34/1700)
+  Receiving objects:   3% (51/1700)
+  Receiving objects:   4% (68/1700)
+  Receiving objects:   5% (85/1700)
+  Receiving objects:   6% (102/1700)
+  Receiving objects:   7% (119/1700)
+  Receiving objects:   8% (136/1700)
+  Receiving objects:   9% (153/1700)
+  Receiving objects:  10% (170/1700)
+  Receiving objects:  11% (187/1700)
+  Receiving objects:  12% (204/1700)
+  Receiving objects:  13% (221/1700)
+  Receiving objects:  14% (238/1700)
+  Receiving objects:  15% (255/1700)
+  Receiving objects:  16% (272/1700)
+  Receiving objects:  17% (289/1700)
+  Receiving objects:  18% (306/1700)
+  Receiving objects:  19% (323/1700)
+  Receiving objects:  20% (340/1700)
+  Receiving objects:  21% (357/1700)
+  Receiving objects:  22% (374/1700)
+  Receiving objects:  23% (391/1700)
+  Receiving objects:  24% (408/1700)
+  Receiving objects:  25% (425/1700)
+  Receiving objects:  26% (442/1700)
+  Receiving objects:  27% (459/1700)
+  Receiving objects:  28% (476/1700)
+  Receiving objects:  29% (493/1700)
+  Receiving objects:  30% (510/1700)
+  Receiving objects:  31% (527/1700)
+  Receiving objects:  32% (544/1700)
+  Receiving objects:  33% (561/1700)
+  Receiving objects:  34% (578/1700)
+  Receiving objects:  35% (595/1700)
+  Receiving objects:  36% (612/1700)
+  Receiving objects:  37% (629/1700)
+  Receiving objects:  38% (646/1700)
+  Receiving objects:  39% (663/1700)
+  Receiving objects:  40% (680/1700)
+  Receiving objects:  41% (697/1700)
+  Receiving objects:  42% (714/1700)
+  Receiving objects:  43% (731/1700)
+  Receiving objects:  44% (748/1700)
+  Receiving objects:  45% (765/1700)
+  Receiving objects:  46% (782/1700)
+  Receiving objects:  47% (799/1700)
+  Receiving objects:  48% (816/1700)
+  Receiving objects:  49% (833/1700)
+  Receiving objects:  50% (850/1700)
+  Receiving objects:  51% (867/1700)
+  Receiving objects:  52% (884/1700)
+  Receiving objects:  53% (901/1700)
+  Receiving objects:  54% (918/1700)
+  Receiving objects:  55% (935/1700)
+  Receiving objects:  56% (952/1700)
+  Receiving objects:  57% (969/1700)
+  Receiving objects:  58% (986/1700)
+  Receiving objects:  59% (1003/1700)
+  Receiving objects:  60% (1020/1700)
+  Receiving objects:  61% (1037/1700)
+  Receiving objects:  62% (1054/1700)
+  Receiving objects:  63% (1071/1700)
+  Receiving objects:  64% (1088/1700)
+  Receiving objects:  65% (1105/1700)
+  Receiving objects:  66% (1122/1700)
+  Receiving objects:  67% (1139/1700)
+  Receiving objects:  68% (1156/1700)
+  Receiving objects:  69% (1173/1700)
+  Receiving objects:  70% (1190/1700)
+  Receiving objects:  71% (1207/1700)
+  Receiving objects:  72% (1224/1700)
+  Receiving objects:  73% (1241/1700)
+  Receiving objects:  74% (1258/1700)
+  Receiving objects:  75% (1275/1700)
+  Receiving objects:  76% (1292/1700)
+  Receiving objects:  77% (1309/1700)
+  Receiving objects:  78% (1326/1700)
+  Receiving objects:  79% (1343/1700)
+  Receiving objects:  80% (1360/1700)
+  Receiving objects:  81% (1377/1700)
+  Receiving objects:  82% (1394/1700)
+  Receiving objects:  83% (1411/1700)
+  Receiving objects:  84% (1428/1700)
+  Receiving objects:  85% (1445/1700)
+  Receiving objects:  86% (1462/1700)
+  Receiving objects:  87% (1479/1700)
+  Receiving objects:  88% (1496/1700)
+  Receiving objects:  89% (1513/1700)
+  Receiving objects:  90% (1530/1700)
+  Receiving objects:  91% (1547/1700)
+  Receiving objects:  92% (1564/1700)
+  Receiving objects:  93% (1581/1700)
+  Receiving objects:  94% (1598/1700)
+  Receiving objects:  95% (1615/1700)
+  Receiving objects:  96% (1632/1700)
+  Receiving objects:  97% (1649/1700)
+  remote: Total 1700 (delta 550), reused 1105 (delta 336), pack-reused 0 (from 0)        
+  Receiving objects:  98% (1666/1700)
+  Receiving objects:  99% (1683/1700)
+  Receiving objects: 100% (1700/1700)
+  Receiving objects: 100% (1700/1700), 1.25 MiB | 5.14 MiB/s, done.
+  Resolving deltas:   0% (0/550)
+  Resolving deltas:   1% (6/550)
+  Resolving deltas:   2% (11/550)
+  Resolving deltas:   3% (17/550)
+  Resolving deltas:   4% (22/550)
+  Resolving deltas:   5% (28/550)
+  Resolving deltas:   6% (33/550)
+  Resolving deltas:   7% (39/550)
+  Resolving deltas:   8% (44/550)
+  Resolving deltas:   9% (51/550)
+  Resolving deltas:  10% (55/550)
+  Resolving deltas:  11% (61/550)
+  Resolving deltas:  12% (66/550)
+  Resolving deltas:  13% (72/550)
+  Resolving deltas:  14% (77/550)
+  Resolving deltas:  15% (83/550)
+  Resolving deltas:  16% (88/550)
+  Resolving deltas:  17% (94/550)
+  Resolving deltas:  18% (99/550)
+  Resolving deltas:  19% (105/550)
+  Resolving deltas:  20% (110/550)
+  Resolving deltas:  21% (116/550)
+  Resolving deltas:  22% (121/550)
+  Resolving deltas:  23% (127/550)
+  Resolving deltas:  24% (133/550)
+  Resolving deltas:  25% (139/550)
+  Resolving deltas:  26% (143/550)
+  Resolving deltas:  27% (149/550)
+  Resolving deltas:  28% (154/550)
+  Resolving deltas:  29% (160/550)
+  Resolving deltas:  30% (166/550)
+  Resolving deltas:  31% (171/550)
+  Resolving deltas:  32% (176/550)
+  Resolving deltas:  33% (182/550)
+  Resolving deltas:  34% (187/550)
+  Resolving deltas:  35% (194/550)
+  Resolving deltas:  36% (198/550)
+  Resolving deltas:  37% (204/550)
+  Resolving deltas:  38% (209/550)
+  Resolving deltas:  39% (215/550)
+  Resolving deltas:  40% (220/550)
+  Resolving deltas:  41% (226/550)
+  Resolving deltas:  42% (232/550)
+  Resolving deltas:  43% (237/550)
+  Resolving deltas:  44% (242/550)
+  Resolving deltas:  45% (248/550)
+  Resolving deltas:  46% (253/550)
+  Resolving deltas:  47% (259/550)
+  Resolving deltas:  48% (264/550)
+  Resolving deltas:  49% (270/550)
+  Resolving deltas:  50% (275/550)
+  Resolving deltas:  51% (281/550)
+  Resolving deltas:  52% (286/550)
+  Resolving deltas:  53% (292/550)
+  Resolving deltas:  54% (297/550)
+  Resolving deltas:  55% (303/550)
+  Resolving deltas:  56% (309/550)
+  Resolving deltas:  57% (314/550)
+  Resolving deltas:  58% (319/550)
+  Resolving deltas:  59% (325/550)
+  Resolving deltas:  60% (330/550)
+  Resolving deltas:  61% (337/550)
+  Resolving deltas:  62% (341/550)
+  Resolving deltas:  63% (347/550)
+  Resolving deltas:  64% (353/550)
+  Resolving deltas:  65% (359/550)
+  Resolving deltas:  66% (363/550)
+  Resolving deltas:  67% (369/550)
+  Resolving deltas:  68% (374/550)
+  Resolving deltas:  69% (380/550)
+  Resolving deltas:  70% (385/550)
+  Resolving deltas:  71% (391/550)
+  Resolving deltas:  72% (396/550)
+  Resolving deltas:  73% (402/550)
+  Resolving deltas:  74% (407/550)
+  Resolving deltas:  75% (413/550)
+  Resolving deltas:  76% (418/550)
+  Resolving deltas:  77% (424/550)
+  Resolving deltas:  78% (429/550)
+  Resolving deltas:  79% (435/550)
+  Resolving deltas:  80% (440/550)
+  Resolving deltas:  81% (446/550)
+  Resolving deltas:  82% (451/550)
+  Resolving deltas:  83% (457/550)
+  Resolving deltas:  84% (462/550)
+  Resolving deltas:  85% (468/550)
+  Resolving deltas:  86% (473/550)
+  Resolving deltas:  87% (479/550)
+  Resolving deltas:  88% (484/550)
+  Resolving deltas:  89% (490/550)
+  Resolving deltas:  90% (495/550)
+  Resolving deltas:  91% (502/550)
+  Resolving deltas:  92% (506/550)
+  Resolving deltas:  93% (512/550)
+  Resolving deltas:  94% (517/550)
+  Resolving deltas:  95% (523/550)
+  Resolving deltas:  96% (528/550)
+  Resolving deltas:  97% (534/550)
+  Resolving deltas:  98% (539/550)
+  Resolving deltas:  99% (545/550)
+  Resolving deltas: 100% (550/550)
+  Resolving deltas: 100% (550/550), done.
+  From https://github.com/DavidOeztuerk/Skillswap
+   * [new ref]         2a98787770ed7a66632039af2686f7f1f32e3749 -> origin/staging
+Determining the checkout info
+Checking out the ref
+  /usr/bin/git checkout --progress --force -B staging refs/remotes/origin/staging
+  Switched to a new branch 'staging'
+  branch 'staging' set up to track 'origin/staging'.
+/usr/bin/git log -1 --format='%H'
+'2a98787770ed7a66632039af2686f7f1f32e3749'
+3s
+Run azure/login@v1
+  with:
+    creds: ***
+    enable-AzPSSession: false
+    environment: azurecloud
+    allow-no-subscriptions: false
+    audience: api://AzureADTokenExchange
+    auth-type: SERVICE_PRINCIPAL
+  env:
+    ENVIRONMENT: staging
+    RESOURCE_GROUP: skillswap-staging-rg
+    LOCATION: westeurope
+Running Azure CLI Login.
+/usr/bin/az cloud set -n azurecloud
+Done setting cloud: "azurecloud"
+Note: Azure/login action also supports OIDC login mechanism. Refer https://github.com/azure/login#configure-a-service-principal-with-a-federated-credential-to-use-oidc-based-authentication for more details.
+Attempting Azure CLI login by using service principal with secret...
+Subscription is set successfully.
+Azure CLI login succeeds by using service principal with secret.
+2s
+Run az group create \
+  az group create \
+    --name skillswap-staging-rg \
+    --location westeurope || true
+  shell: /usr/bin/bash -e ***0***
+  env:
+    ENVIRONMENT: staging
+    RESOURCE_GROUP: skillswap-staging-rg
+    LOCATION: westeurope
+ERROR: (AuthorizationFailed) The client 'af5c2ebe-4e6b-4327-98df-7b1f7b922547' with object id 'af5c2ebe-4e6b-4327-98df-7b1f7b922547' does not have authorization to perform action 'Microsoft.Resources/subscriptions/resourcegroups/write' over scope '/subscriptions/b3116698-7aef-4ec6-939b-84b3f6789bfa/resourcegroups/skillswap-staging-rg' or the scope is invalid. If access was recently granted, please refresh your credentials.
+Code: AuthorizationFailed
+Message: The client 'af5c2ebe-4e6b-4327-98df-7b1f7b922547' with object id 'af5c2ebe-4e6b-4327-98df-7b1f7b922547' does not have authorization to perform action 'Microsoft.Resources/subscriptions/resourcegroups/write' over scope '/subscriptions/b3116698-7aef-4ec6-939b-84b3f6789bfa/resourcegroups/skillswap-staging-rg' or the scope is invalid. If access was recently granted, please refresh your credentials.
+8s
+Run # Generate secure passwords if not provided
+  # Generate secure passwords if not provided
+  POSTGRES_PASSWORD=""
+  if [ -z "$POSTGRES_PASSWORD" ]; then
+    POSTGRES_PASSWORD=$(openssl rand -base64 32)
+  fi
+  
+  JWT_SECRET=""
+  if [ -z "$JWT_SECRET" ]; then
+    JWT_SECRET=$(openssl rand -base64 32)
+  fi
+  
+  # Deploy infrastructure with explicit name
+  az deployment group create \
+    --name skillswap-infrastructure \
+    --resource-group skillswap-staging-rg \
+    --template-file azure-deploy/bicep/infrastructure.bicep \
+    --parameters environmentName=staging \
+    --parameters postgresPassword="$POSTGRES_PASSWORD" \
+    --parameters jwtSecret="$JWT_SECRET" \
+    --output none
+  
+  # Get outputs separately after deployment
+  REGISTRY_NAME=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerRegistryName.value -o tsv)
+  REGISTRY_LOGIN_SERVER=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerRegistryLoginServer.value -o tsv)
+  REGISTRY_USERNAME=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerRegistryUsername.value -o tsv)
+  REGISTRY_PASSWORD=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerRegistryPassword.value -o tsv)
+  POSTGRES_CONNECTION=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.postgresConnectionString.value -o tsv)
+  REDIS_CONNECTION=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.redisConnectionString.value -o tsv)
+  SERVICEBUS_CONNECTION=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.serviceBusConnectionString.value -o tsv)
+  CONTAINER_ENV_ID=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerAppEnvironmentId.value -o tsv)
+  JWT_SECRET_OUTPUT=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.jwtSecret.value -o tsv)
+  
+  # Write outputs to GITHUB_OUTPUT
+  echo "registry_name=$REGISTRY_NAME" >> $GITHUB_OUTPUT
+  echo "registry_login_server=$REGISTRY_LOGIN_SERVER" >> $GITHUB_OUTPUT
+  echo "registry_username=$REGISTRY_USERNAME" >> $GITHUB_OUTPUT
+  echo "registry_password=$REGISTRY_PASSWORD" >> $GITHUB_OUTPUT
+  echo "postgres_connection=$POSTGRES_CONNECTION" >> $GITHUB_OUTPUT
+  echo "redis_connection=$REDIS_CONNECTION" >> $GITHUB_OUTPUT
+  echo "servicebus_connection=$SERVICEBUS_CONNECTION" >> $GITHUB_OUTPUT
+  echo "container_env_id=$CONTAINER_ENV_ID" >> $GITHUB_OUTPUT
+  echo "jwt_secret=$JWT_SECRET_OUTPUT" >> $GITHUB_OUTPUT
+  shell: /usr/bin/bash -e ***0***
+  env:
+    ENVIRONMENT: staging
+    RESOURCE_GROUP: skillswap-staging-rg
+    LOCATION: westeurope
+WARNING: /home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(154,43) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: function 'listCredentials' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+/home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(155,1) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: output name 'containerRegistryPassword' suggests a secret [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+/home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(155,43) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: function 'listCredentials' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+/home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(157,162) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: secure value 'postgresPassword' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+/home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(159,90) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: function 'listKeys' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+/home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(160,44) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: function 'listKeys' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+/home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(163,27) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: secure value 'jwtSecret' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+
+ERROR: The content for this response was already consumed
+Error: Process completed with exit code 1.
+0s
+Post job cleanup.
+/usr/bin/git version
+git version 2.51.0
+Temporarily overriding HOME='/home/runner/work/_temp/18140ea0-cf4c-4847-8e0e-4edc9fa417dc' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+/usr/bin/git config --global --add safe.directory /home/runner/work/Skillswap/Skillswap
+/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+http.https://github.com/.extraheader
+/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+1s
+Post job cleanup.
+Clearing azure cli accounts from the local cache.
+/usr/bin/az account clear
+0s
+Evaluate and set job outputs
+Cleaning up orphan processes
+Terminate orphan process: pid (2364) (python3)
+
+
+
+
+/// LOGS
+
+2025-08-26T15:03:36.9062006Z Current runner version: '2.328.0'
+2025-08-26T15:03:36.9087820Z ##[group]Runner Image Provisioner
+2025-08-26T15:03:36.9089086Z Hosted Compute Agent
+2025-08-26T15:03:36.9090025Z Version: 20250818.377
+2025-08-26T15:03:36.9090960Z Commit: 3c593e9f75fe0b87e893bca80d6e12ba089c61fc
+2025-08-26T15:03:36.9092065Z Build Date: 2025-08-18T14:52:18Z
+2025-08-26T15:03:36.9092951Z ##[endgroup]
+2025-08-26T15:03:36.9094043Z ##[group]Operating System
+2025-08-26T15:03:36.9094987Z Ubuntu
+2025-08-26T15:03:36.9095855Z 24.04.2
+2025-08-26T15:03:36.9096680Z LTS
+2025-08-26T15:03:36.9097492Z ##[endgroup]
+2025-08-26T15:03:36.9098288Z ##[group]Runner Image
+2025-08-26T15:03:36.9099137Z Image: ubuntu-24.04
+2025-08-26T15:03:36.9099996Z Version: 20250818.1.0
+2025-08-26T15:03:36.9101320Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250818.1/images/ubuntu/Ubuntu2404-Readme.md
+2025-08-26T15:03:36.9103264Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250818.1
+2025-08-26T15:03:36.9104846Z ##[endgroup]
+2025-08-26T15:03:36.9106531Z ##[group]GITHUB_TOKEN Permissions
+2025-08-26T15:03:36.9108979Z Contents: read
+2025-08-26T15:03:36.9109806Z Metadata: read
+2025-08-26T15:03:36.9110674Z Packages: read
+2025-08-26T15:03:36.9111479Z ##[endgroup]
+2025-08-26T15:03:36.9114007Z Secret source: Actions
+2025-08-26T15:03:36.9115081Z Prepare workflow directory
+2025-08-26T15:03:36.9692347Z Prepare all required actions
+2025-08-26T15:03:36.9729847Z Getting action download info
+2025-08-26T15:03:37.4099552Z Download action repository 'actions/checkout@v3' (SHA:f43a0e5ff2bd294095638e18286ca9a3d1956744)
+2025-08-26T15:03:37.6482963Z Download action repository 'azure/login@v1' (SHA:cb79c773a3cfa27f31f25eb3f677781210c9ce3d)
+2025-08-26T15:03:40.1113128Z Complete job name: deploy-infrastructure
+2025-08-26T15:03:40.1760474Z ##[group]Run azure/login@v1
+2025-08-26T15:03:40.1761237Z with:
+2025-08-26T15:03:40.1763960Z   creds: ***
+2025-08-26T15:03:40.1764349Z   enable-AzPSSession: false
+2025-08-26T15:03:40.1764747Z   environment: azurecloud
+2025-08-26T15:03:40.1765172Z   allow-no-subscriptions: false
+2025-08-26T15:03:40.1765599Z   audience: api://AzureADTokenExchange
+2025-08-26T15:03:40.1766047Z   auth-type: SERVICE_PRINCIPAL
+2025-08-26T15:03:40.1766678Z env:
+2025-08-26T15:03:40.1767023Z   ENVIRONMENT: staging
+2025-08-26T15:03:40.1767425Z   RESOURCE_GROUP: skillswap-staging-rg
+2025-08-26T15:03:40.1767838Z   LOCATION: westeurope
+2025-08-26T15:03:40.1768185Z ##[endgroup]
+2025-08-26T15:03:40.2589974Z Clearing azure cli accounts from the local cache.
+2025-08-26T15:03:40.2590545Z [command]/usr/bin/az account clear
+2025-08-26T15:04:02.8038950Z ##[group]Run actions/checkout@v3
+2025-08-26T15:04:02.8039408Z with:
+2025-08-26T15:04:02.8039787Z   repository: DavidOeztuerk/Skillswap
+2025-08-26T15:04:02.8040347Z   token: ***
+2025-08-26T15:04:02.8040692Z   ssh-strict: true
+2025-08-26T15:04:02.8041068Z   persist-credentials: true
+2025-08-26T15:04:02.8041454Z   clean: true
+2025-08-26T15:04:02.8041822Z   sparse-checkout-cone-mode: true
+2025-08-26T15:04:02.8042245Z   fetch-depth: 1
+2025-08-26T15:04:02.8042589Z   fetch-tags: false
+2025-08-26T15:04:02.8042936Z   lfs: false
+2025-08-26T15:04:02.8043269Z   submodules: false
+2025-08-26T15:04:02.8043759Z   set-safe-directory: true
+2025-08-26T15:04:02.8044155Z env:
+2025-08-26T15:04:02.8044516Z   ENVIRONMENT: staging
+2025-08-26T15:04:02.8044930Z   RESOURCE_GROUP: skillswap-staging-rg
+2025-08-26T15:04:02.8045349Z   LOCATION: westeurope
+2025-08-26T15:04:02.8045700Z ##[endgroup]
+2025-08-26T15:04:02.8871586Z Syncing repository: DavidOeztuerk/Skillswap
+2025-08-26T15:04:02.8874413Z ##[group]Getting Git version info
+2025-08-26T15:04:02.8875419Z Working directory is '/home/runner/work/Skillswap/Skillswap'
+2025-08-26T15:04:02.8876880Z [command]/usr/bin/git version
+2025-08-26T15:04:02.8972426Z git version 2.51.0
+2025-08-26T15:04:02.9001649Z ##[endgroup]
+2025-08-26T15:04:02.9018470Z Temporarily overriding HOME='/home/runner/work/_temp/c68e4473-b394-4591-9455-1a7df3ffc72b' before making global git config changes
+2025-08-26T15:04:02.9020535Z Adding repository directory to the temporary git global config as a safe directory
+2025-08-26T15:04:02.9023275Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Skillswap/Skillswap
+2025-08-26T15:04:02.9062052Z Deleting the contents of '/home/runner/work/Skillswap/Skillswap'
+2025-08-26T15:04:02.9066568Z ##[group]Initializing the repository
+2025-08-26T15:04:02.9070137Z [command]/usr/bin/git init /home/runner/work/Skillswap/Skillswap
+2025-08-26T15:04:02.9187955Z hint: Using 'master' as the name for the initial branch. This default branch name
+2025-08-26T15:04:02.9189231Z hint: is subject to change. To configure the initial branch name to use in all
+2025-08-26T15:04:02.9189944Z hint: of your new repositories, which will suppress this warning, call:
+2025-08-26T15:04:02.9191125Z hint:
+2025-08-26T15:04:02.9191749Z hint: 	git config --global init.defaultBranch <name>
+2025-08-26T15:04:02.9192223Z hint:
+2025-08-26T15:04:02.9192882Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2025-08-26T15:04:02.9194298Z hint: 'development'. The just-created branch can be renamed via this command:
+2025-08-26T15:04:02.9195296Z hint:
+2025-08-26T15:04:02.9195987Z hint: 	git branch -m <name>
+2025-08-26T15:04:02.9196656Z hint:
+2025-08-26T15:04:02.9197547Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2025-08-26T15:04:02.9198843Z Initialized empty Git repository in /home/runner/work/Skillswap/Skillswap/.git/
+2025-08-26T15:04:02.9204478Z [command]/usr/bin/git remote add origin https://github.com/DavidOeztuerk/Skillswap
+2025-08-26T15:04:02.9244277Z ##[endgroup]
+2025-08-26T15:04:02.9245433Z ##[group]Disabling automatic garbage collection
+2025-08-26T15:04:02.9248028Z [command]/usr/bin/git config --local gc.auto 0
+2025-08-26T15:04:02.9276839Z ##[endgroup]
+2025-08-26T15:04:02.9277941Z ##[group]Setting up auth
+2025-08-26T15:04:02.9282358Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-08-26T15:04:02.9310111Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-08-26T15:04:02.9680061Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-08-26T15:04:02.9708757Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-08-26T15:04:02.9934336Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2025-08-26T15:04:02.9968481Z ##[endgroup]
+2025-08-26T15:04:02.9969223Z ##[group]Fetching the repository
+2025-08-26T15:04:02.9977026Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --progress --no-recurse-submodules --depth=1 origin +2a98787770ed7a66632039af2686f7f1f32e3749:refs/remotes/origin/staging
+2025-08-26T15:04:03.4108351Z remote: Enumerating objects: 1700, done.        
+2025-08-26T15:04:03.4109865Z remote: Counting objects:   0% (1/1700)        
+2025-08-26T15:04:03.4112104Z remote: Counting objects:   1% (17/1700)        
+2025-08-26T15:04:03.4113002Z remote: Counting objects:   2% (34/1700)        
+2025-08-26T15:04:03.4113968Z remote: Counting objects:   3% (51/1700)        
+2025-08-26T15:04:03.4114752Z remote: Counting objects:   4% (68/1700)        
+2025-08-26T15:04:03.4115521Z remote: Counting objects:   5% (85/1700)        
+2025-08-26T15:04:03.4116340Z remote: Counting objects:   6% (102/1700)        
+2025-08-26T15:04:03.4117138Z remote: Counting objects:   7% (119/1700)        
+2025-08-26T15:04:03.4117928Z remote: Counting objects:   8% (136/1700)        
+2025-08-26T15:04:03.4118731Z remote: Counting objects:   9% (153/1700)        
+2025-08-26T15:04:03.4119496Z remote: Counting objects:  10% (170/1700)        
+2025-08-26T15:04:03.4120236Z remote: Counting objects:  11% (187/1700)        
+2025-08-26T15:04:03.4121456Z remote: Counting objects:  12% (204/1700)        
+2025-08-26T15:04:03.4122174Z remote: Counting objects:  13% (221/1700)        
+2025-08-26T15:04:03.4122900Z remote: Counting objects:  14% (238/1700)        
+2025-08-26T15:04:03.4123829Z remote: Counting objects:  15% (255/1700)        
+2025-08-26T15:04:03.4124572Z remote: Counting objects:  16% (272/1700)        
+2025-08-26T15:04:03.4125310Z remote: Counting objects:  17% (289/1700)        
+2025-08-26T15:04:03.4126048Z remote: Counting objects:  18% (306/1700)        
+2025-08-26T15:04:03.4126796Z remote: Counting objects:  19% (323/1700)        
+2025-08-26T15:04:03.4127545Z remote: Counting objects:  20% (340/1700)        
+2025-08-26T15:04:03.4128285Z remote: Counting objects:  21% (357/1700)        
+2025-08-26T15:04:03.4129024Z remote: Counting objects:  22% (374/1700)        
+2025-08-26T15:04:03.4129774Z remote: Counting objects:  23% (391/1700)        
+2025-08-26T15:04:03.4130537Z remote: Counting objects:  24% (408/1700)        
+2025-08-26T15:04:03.4131384Z remote: Counting objects:  25% (425/1700)        
+2025-08-26T15:04:03.4132138Z remote: Counting objects:  26% (442/1700)        
+2025-08-26T15:04:03.4132873Z remote: Counting objects:  27% (459/1700)        
+2025-08-26T15:04:03.4133915Z remote: Counting objects:  28% (476/1700)        
+2025-08-26T15:04:03.4134737Z remote: Counting objects:  29% (493/1700)        
+2025-08-26T15:04:03.4135515Z remote: Counting objects:  30% (510/1700)        
+2025-08-26T15:04:03.4136261Z remote: Counting objects:  31% (527/1700)        
+2025-08-26T15:04:03.4137084Z remote: Counting objects:  32% (544/1700)        
+2025-08-26T15:04:03.4137832Z remote: Counting objects:  33% (561/1700)        
+2025-08-26T15:04:03.4138591Z remote: Counting objects:  34% (578/1700)        
+2025-08-26T15:04:03.4139433Z remote: Counting objects:  35% (595/1700)        
+2025-08-26T15:04:03.4140209Z remote: Counting objects:  36% (612/1700)        
+2025-08-26T15:04:03.4140954Z remote: Counting objects:  37% (629/1700)        
+2025-08-26T15:04:03.4141728Z remote: Counting objects:  38% (646/1700)        
+2025-08-26T15:04:03.4142483Z remote: Counting objects:  39% (663/1700)        
+2025-08-26T15:04:03.4143230Z remote: Counting objects:  40% (680/1700)        
+2025-08-26T15:04:03.4144236Z remote: Counting objects:  41% (697/1700)        
+2025-08-26T15:04:03.4144983Z remote: Counting objects:  42% (714/1700)        
+2025-08-26T15:04:03.4145728Z remote: Counting objects:  43% (731/1700)        
+2025-08-26T15:04:03.4146498Z remote: Counting objects:  44% (748/1700)        
+2025-08-26T15:04:03.4147562Z remote: Counting objects:  45% (765/1700)        
+2025-08-26T15:04:03.4148357Z remote: Counting objects:  46% (782/1700)        
+2025-08-26T15:04:03.4149117Z remote: Counting objects:  47% (799/1700)        
+2025-08-26T15:04:03.4149893Z remote: Counting objects:  48% (816/1700)        
+2025-08-26T15:04:03.4150641Z remote: Counting objects:  49% (833/1700)        
+2025-08-26T15:04:03.4151400Z remote: Counting objects:  50% (850/1700)        
+2025-08-26T15:04:03.4152133Z remote: Counting objects:  51% (867/1700)        
+2025-08-26T15:04:03.4152859Z remote: Counting objects:  52% (884/1700)        
+2025-08-26T15:04:03.4153819Z remote: Counting objects:  53% (901/1700)        
+2025-08-26T15:04:03.4154560Z remote: Counting objects:  54% (918/1700)        
+2025-08-26T15:04:03.4155298Z remote: Counting objects:  55% (935/1700)        
+2025-08-26T15:04:03.4156026Z remote: Counting objects:  56% (952/1700)        
+2025-08-26T15:04:03.4156747Z remote: Counting objects:  57% (969/1700)        
+2025-08-26T15:04:03.4157494Z remote: Counting objects:  58% (986/1700)        
+2025-08-26T15:04:03.4158401Z remote: Counting objects:  59% (1003/1700)        
+2025-08-26T15:04:03.4159137Z remote: Counting objects:  60% (1020/1700)        
+2025-08-26T15:04:03.4159877Z remote: Counting objects:  61% (1037/1700)        
+2025-08-26T15:04:03.4160671Z remote: Counting objects:  62% (1054/1700)        
+2025-08-26T15:04:03.4161411Z remote: Counting objects:  63% (1071/1700)        
+2025-08-26T15:04:03.4189273Z remote: Counting objects:  64% (1088/1700)        
+2025-08-26T15:04:03.4190164Z remote: Counting objects:  65% (1105/1700)        
+2025-08-26T15:04:03.4190974Z remote: Counting objects:  66% (1122/1700)        
+2025-08-26T15:04:03.4191849Z remote: Counting objects:  67% (1139/1700)        
+2025-08-26T15:04:03.4192547Z remote: Counting objects:  68% (1156/1700)        
+2025-08-26T15:04:03.4192992Z remote: Counting objects:  69% (1173/1700)        
+2025-08-26T15:04:03.4193411Z remote: Counting objects:  70% (1190/1700)        
+2025-08-26T15:04:03.4194064Z remote: Counting objects:  71% (1207/1700)        
+2025-08-26T15:04:03.4194479Z remote: Counting objects:  72% (1224/1700)        
+2025-08-26T15:04:03.4194879Z remote: Counting objects:  73% (1241/1700)        
+2025-08-26T15:04:03.4195287Z remote: Counting objects:  74% (1258/1700)        
+2025-08-26T15:04:03.4195689Z remote: Counting objects:  75% (1275/1700)        
+2025-08-26T15:04:03.4196082Z remote: Counting objects:  76% (1292/1700)        
+2025-08-26T15:04:03.4196492Z remote: Counting objects:  77% (1309/1700)        
+2025-08-26T15:04:03.4196882Z remote: Counting objects:  78% (1326/1700)        
+2025-08-26T15:04:03.4197309Z remote: Counting objects:  79% (1343/1700)        
+2025-08-26T15:04:03.4197709Z remote: Counting objects:  80% (1360/1700)        
+2025-08-26T15:04:03.4198102Z remote: Counting objects:  81% (1377/1700)        
+2025-08-26T15:04:03.4198530Z remote: Counting objects:  82% (1394/1700)        
+2025-08-26T15:04:03.4198931Z remote: Counting objects:  83% (1411/1700)        
+2025-08-26T15:04:03.4199350Z remote: Counting objects:  84% (1428/1700)        
+2025-08-26T15:04:03.4199781Z remote: Counting objects:  85% (1445/1700)        
+2025-08-26T15:04:03.4200180Z remote: Counting objects:  86% (1462/1700)        
+2025-08-26T15:04:03.4200577Z remote: Counting objects:  87% (1479/1700)        
+2025-08-26T15:04:03.4200980Z remote: Counting objects:  88% (1496/1700)        
+2025-08-26T15:04:03.4201377Z remote: Counting objects:  89% (1513/1700)        
+2025-08-26T15:04:03.4201777Z remote: Counting objects:  90% (1530/1700)        
+2025-08-26T15:04:03.4202177Z remote: Counting objects:  91% (1547/1700)        
+2025-08-26T15:04:03.4385503Z remote: Counting objects:  92% (1564/1700)        
+2025-08-26T15:04:03.4386420Z remote: Counting objects:  93% (1581/1700)        
+2025-08-26T15:04:03.4387289Z remote: Counting objects:  94% (1598/1700)        
+2025-08-26T15:04:03.4387821Z remote: Counting objects:  95% (1615/1700)        
+2025-08-26T15:04:03.4388687Z remote: Counting objects:  96% (1632/1700)        
+2025-08-26T15:04:03.4389214Z remote: Counting objects:  97% (1649/1700)        
+2025-08-26T15:04:03.4389735Z remote: Counting objects:  98% (1666/1700)        
+2025-08-26T15:04:03.4390249Z remote: Counting objects:  99% (1683/1700)        
+2025-08-26T15:04:03.4390854Z remote: Counting objects: 100% (1700/1700)        
+2025-08-26T15:04:03.4391724Z remote: Counting objects: 100% (1700/1700), done.        
+2025-08-26T15:04:03.4392304Z remote: Compressing objects:   0% (1/1319)        
+2025-08-26T15:04:03.4392845Z remote: Compressing objects:   1% (14/1319)        
+2025-08-26T15:04:03.4393386Z remote: Compressing objects:   2% (27/1319)        
+2025-08-26T15:04:03.4394170Z remote: Compressing objects:   3% (40/1319)        
+2025-08-26T15:04:03.4394699Z remote: Compressing objects:   4% (53/1319)        
+2025-08-26T15:04:03.4395222Z remote: Compressing objects:   5% (66/1319)        
+2025-08-26T15:04:03.4512145Z remote: Compressing objects:   6% (80/1319)        
+2025-08-26T15:04:03.4513017Z remote: Compressing objects:   7% (93/1319)        
+2025-08-26T15:04:03.4548574Z remote: Compressing objects:   8% (106/1319)        
+2025-08-26T15:04:03.4671514Z remote: Compressing objects:   9% (119/1319)        
+2025-08-26T15:04:03.4675942Z remote: Compressing objects:  10% (132/1319)        
+2025-08-26T15:04:03.4678010Z remote: Compressing objects:  11% (146/1319)        
+2025-08-26T15:04:03.4708429Z remote: Compressing objects:  12% (159/1319)        
+2025-08-26T15:04:03.4747140Z remote: Compressing objects:  13% (172/1319)        
+2025-08-26T15:04:03.4765498Z remote: Compressing objects:  14% (185/1319)        
+2025-08-26T15:04:03.4785958Z remote: Compressing objects:  15% (198/1319)        
+2025-08-26T15:04:03.4787147Z remote: Compressing objects:  16% (212/1319)        
+2025-08-26T15:04:03.4789022Z remote: Compressing objects:  17% (225/1319)        
+2025-08-26T15:04:03.4798185Z remote: Compressing objects:  18% (238/1319)        
+2025-08-26T15:04:03.4832912Z remote: Compressing objects:  19% (251/1319)        
+2025-08-26T15:04:03.4905466Z remote: Compressing objects:  20% (264/1319)        
+2025-08-26T15:04:03.4935862Z remote: Compressing objects:  21% (277/1319)        
+2025-08-26T15:04:03.4954296Z remote: Compressing objects:  22% (291/1319)        
+2025-08-26T15:04:03.4970487Z remote: Compressing objects:  23% (304/1319)        
+2025-08-26T15:04:03.4978229Z remote: Compressing objects:  24% (317/1319)        
+2025-08-26T15:04:03.4987639Z remote: Compressing objects:  25% (330/1319)        
+2025-08-26T15:04:03.4996389Z remote: Compressing objects:  26% (343/1319)        
+2025-08-26T15:04:03.5005243Z remote: Compressing objects:  27% (357/1319)        
+2025-08-26T15:04:03.5020494Z remote: Compressing objects:  28% (370/1319)        
+2025-08-26T15:04:03.5024744Z remote: Compressing objects:  29% (383/1319)        
+2025-08-26T15:04:03.5032224Z remote: Compressing objects:  30% (396/1319)        
+2025-08-26T15:04:03.5038038Z remote: Compressing objects:  31% (409/1319)        
+2025-08-26T15:04:03.5045741Z remote: Compressing objects:  32% (423/1319)        
+2025-08-26T15:04:03.5048357Z remote: Compressing objects:  33% (436/1319)        
+2025-08-26T15:04:03.5053783Z remote: Compressing objects:  34% (449/1319)        
+2025-08-26T15:04:03.5060356Z remote: Compressing objects:  35% (462/1319)        
+2025-08-26T15:04:03.5064738Z remote: Compressing objects:  36% (475/1319)        
+2025-08-26T15:04:03.5066003Z remote: Compressing objects:  37% (489/1319)        
+2025-08-26T15:04:03.5087622Z remote: Compressing objects:  38% (502/1319)        
+2025-08-26T15:04:03.5088272Z remote: Compressing objects:  39% (515/1319)        
+2025-08-26T15:04:03.5088837Z remote: Compressing objects:  40% (528/1319)        
+2025-08-26T15:04:03.5089384Z remote: Compressing objects:  41% (541/1319)        
+2025-08-26T15:04:03.5089890Z remote: Compressing objects:  42% (554/1319)        
+2025-08-26T15:04:03.5090401Z remote: Compressing objects:  43% (568/1319)        
+2025-08-26T15:04:03.5090921Z remote: Compressing objects:  44% (581/1319)        
+2025-08-26T15:04:03.5135513Z remote: Compressing objects:  45% (594/1319)        
+2025-08-26T15:04:03.5152879Z remote: Compressing objects:  46% (607/1319)        
+2025-08-26T15:04:03.5179745Z remote: Compressing objects:  47% (620/1319)        
+2025-08-26T15:04:03.5247361Z remote: Compressing objects:  48% (634/1319)        
+2025-08-26T15:04:03.5248043Z remote: Compressing objects:  49% (647/1319)        
+2025-08-26T15:04:03.5248563Z remote: Compressing objects:  50% (660/1319)        
+2025-08-26T15:04:03.5249026Z remote: Compressing objects:  51% (673/1319)        
+2025-08-26T15:04:03.5301577Z remote: Compressing objects:  52% (686/1319)        
+2025-08-26T15:04:03.5324009Z remote: Compressing objects:  53% (700/1319)        
+2025-08-26T15:04:03.5334132Z remote: Compressing objects:  54% (713/1319)        
+2025-08-26T15:04:03.5356460Z remote: Compressing objects:  55% (726/1319)        
+2025-08-26T15:04:03.5406542Z remote: Compressing objects:  56% (739/1319)        
+2025-08-26T15:04:03.5434033Z remote: Compressing objects:  57% (752/1319)        
+2025-08-26T15:04:03.5447006Z remote: Compressing objects:  58% (766/1319)        
+2025-08-26T15:04:03.5475806Z remote: Compressing objects:  59% (779/1319)        
+2025-08-26T15:04:03.5490248Z remote: Compressing objects:  60% (792/1319)        
+2025-08-26T15:04:03.5522157Z remote: Compressing objects:  61% (805/1319)        
+2025-08-26T15:04:03.5526358Z remote: Compressing objects:  62% (818/1319)        
+2025-08-26T15:04:03.5535455Z remote: Compressing objects:  63% (831/1319)        
+2025-08-26T15:04:03.5547270Z remote: Compressing objects:  64% (845/1319)        
+2025-08-26T15:04:03.5554760Z remote: Compressing objects:  65% (858/1319)        
+2025-08-26T15:04:03.5557237Z remote: Compressing objects:  66% (871/1319)        
+2025-08-26T15:04:03.5561118Z remote: Compressing objects:  67% (884/1319)        
+2025-08-26T15:04:03.5567727Z remote: Compressing objects:  68% (897/1319)        
+2025-08-26T15:04:03.5588342Z remote: Compressing objects:  69% (911/1319)        
+2025-08-26T15:04:03.5634830Z remote: Compressing objects:  70% (924/1319)        
+2025-08-26T15:04:03.5650858Z remote: Compressing objects:  71% (937/1319)        
+2025-08-26T15:04:03.5651674Z remote: Compressing objects:  72% (950/1319)        
+2025-08-26T15:04:03.5659271Z remote: Compressing objects:  73% (963/1319)        
+2025-08-26T15:04:03.5663063Z remote: Compressing objects:  74% (977/1319)        
+2025-08-26T15:04:03.5688013Z remote: Compressing objects:  75% (990/1319)        
+2025-08-26T15:04:03.5724895Z remote: Compressing objects:  76% (1003/1319)        
+2025-08-26T15:04:03.5765627Z remote: Compressing objects:  77% (1016/1319)        
+2025-08-26T15:04:03.5825900Z remote: Compressing objects:  78% (1029/1319)        
+2025-08-26T15:04:03.5847728Z remote: Compressing objects:  79% (1043/1319)        
+2025-08-26T15:04:03.5855690Z remote: Compressing objects:  80% (1056/1319)        
+2025-08-26T15:04:03.5900437Z remote: Compressing objects:  81% (1069/1319)        
+2025-08-26T15:04:03.5931653Z remote: Compressing objects:  82% (1082/1319)        
+2025-08-26T15:04:03.5935616Z remote: Compressing objects:  83% (1095/1319)        
+2025-08-26T15:04:03.5936486Z remote: Compressing objects:  84% (1108/1319)        
+2025-08-26T15:04:03.5937064Z remote: Compressing objects:  85% (1122/1319)        
+2025-08-26T15:04:03.5937984Z remote: Compressing objects:  86% (1135/1319)        
+2025-08-26T15:04:03.5939394Z remote: Compressing objects:  87% (1148/1319)        
+2025-08-26T15:04:03.5940452Z remote: Compressing objects:  88% (1161/1319)        
+2025-08-26T15:04:03.5941204Z remote: Compressing objects:  89% (1174/1319)        
+2025-08-26T15:04:03.5944349Z remote: Compressing objects:  90% (1188/1319)        
+2025-08-26T15:04:03.5945095Z remote: Compressing objects:  91% (1201/1319)        
+2025-08-26T15:04:03.5946336Z remote: Compressing objects:  92% (1214/1319)        
+2025-08-26T15:04:03.5947670Z remote: Compressing objects:  93% (1227/1319)        
+2025-08-26T15:04:03.5949868Z remote: Compressing objects:  94% (1240/1319)        
+2025-08-26T15:04:03.5950671Z remote: Compressing objects:  95% (1254/1319)        
+2025-08-26T15:04:03.5951944Z remote: Compressing objects:  96% (1267/1319)        
+2025-08-26T15:04:03.5952692Z remote: Compressing objects:  97% (1280/1319)        
+2025-08-26T15:04:03.5954929Z remote: Compressing objects:  98% (1293/1319)        
+2025-08-26T15:04:03.5963994Z remote: Compressing objects:  99% (1306/1319)        
+2025-08-26T15:04:03.5964775Z remote: Compressing objects: 100% (1319/1319)        
+2025-08-26T15:04:03.5965490Z remote: Compressing objects: 100% (1319/1319), done.        
+2025-08-26T15:04:03.6018124Z Receiving objects:   0% (1/1700)
+2025-08-26T15:04:03.6229171Z Receiving objects:   1% (17/1700)
+2025-08-26T15:04:03.7094097Z Receiving objects:   2% (34/1700)
+2025-08-26T15:04:03.7125061Z Receiving objects:   3% (51/1700)
+2025-08-26T15:04:03.7136558Z Receiving objects:   4% (68/1700)
+2025-08-26T15:04:03.7145059Z Receiving objects:   5% (85/1700)
+2025-08-26T15:04:03.7161432Z Receiving objects:   6% (102/1700)
+2025-08-26T15:04:03.7205535Z Receiving objects:   7% (119/1700)
+2025-08-26T15:04:03.7265434Z Receiving objects:   8% (136/1700)
+2025-08-26T15:04:03.7285012Z Receiving objects:   9% (153/1700)
+2025-08-26T15:04:03.7297401Z Receiving objects:  10% (170/1700)
+2025-08-26T15:04:03.7362881Z Receiving objects:  11% (187/1700)
+2025-08-26T15:04:03.7695410Z Receiving objects:  12% (204/1700)
+2025-08-26T15:04:03.7702755Z Receiving objects:  13% (221/1700)
+2025-08-26T15:04:03.7714676Z Receiving objects:  14% (238/1700)
+2025-08-26T15:04:03.7727756Z Receiving objects:  15% (255/1700)
+2025-08-26T15:04:03.7738334Z Receiving objects:  16% (272/1700)
+2025-08-26T15:04:03.7745423Z Receiving objects:  17% (289/1700)
+2025-08-26T15:04:03.7748472Z Receiving objects:  18% (306/1700)
+2025-08-26T15:04:03.7749745Z Receiving objects:  19% (323/1700)
+2025-08-26T15:04:03.7751565Z Receiving objects:  20% (340/1700)
+2025-08-26T15:04:03.7754014Z Receiving objects:  21% (357/1700)
+2025-08-26T15:04:03.7760606Z Receiving objects:  22% (374/1700)
+2025-08-26T15:04:03.7765204Z Receiving objects:  23% (391/1700)
+2025-08-26T15:04:03.7768740Z Receiving objects:  24% (408/1700)
+2025-08-26T15:04:03.7771711Z Receiving objects:  25% (425/1700)
+2025-08-26T15:04:03.7774861Z Receiving objects:  26% (442/1700)
+2025-08-26T15:04:03.7780650Z Receiving objects:  27% (459/1700)
+2025-08-26T15:04:03.7787892Z Receiving objects:  28% (476/1700)
+2025-08-26T15:04:03.7792850Z Receiving objects:  29% (493/1700)
+2025-08-26T15:04:03.7795826Z Receiving objects:  30% (510/1700)
+2025-08-26T15:04:03.7798221Z Receiving objects:  31% (527/1700)
+2025-08-26T15:04:03.7801199Z Receiving objects:  32% (544/1700)
+2025-08-26T15:04:03.7802951Z Receiving objects:  33% (561/1700)
+2025-08-26T15:04:03.7806671Z Receiving objects:  34% (578/1700)
+2025-08-26T15:04:03.7809691Z Receiving objects:  35% (595/1700)
+2025-08-26T15:04:03.7812609Z Receiving objects:  36% (612/1700)
+2025-08-26T15:04:03.7815844Z Receiving objects:  37% (629/1700)
+2025-08-26T15:04:03.7817915Z Receiving objects:  38% (646/1700)
+2025-08-26T15:04:03.7820852Z Receiving objects:  39% (663/1700)
+2025-08-26T15:04:03.7825757Z Receiving objects:  40% (680/1700)
+2025-08-26T15:04:03.7837011Z Receiving objects:  41% (697/1700)
+2025-08-26T15:04:03.7840749Z Receiving objects:  42% (714/1700)
+2025-08-26T15:04:03.7842805Z Receiving objects:  43% (731/1700)
+2025-08-26T15:04:03.7845812Z Receiving objects:  44% (748/1700)
+2025-08-26T15:04:03.7847987Z Receiving objects:  45% (765/1700)
+2025-08-26T15:04:03.7852134Z Receiving objects:  46% (782/1700)
+2025-08-26T15:04:03.7857346Z Receiving objects:  47% (799/1700)
+2025-08-26T15:04:03.7861263Z Receiving objects:  48% (816/1700)
+2025-08-26T15:04:03.7870763Z Receiving objects:  49% (833/1700)
+2025-08-26T15:04:03.7872932Z Receiving objects:  50% (850/1700)
+2025-08-26T15:04:03.7876263Z Receiving objects:  51% (867/1700)
+2025-08-26T15:04:03.7876897Z Receiving objects:  52% (884/1700)
+2025-08-26T15:04:03.7879295Z Receiving objects:  53% (901/1700)
+2025-08-26T15:04:03.7889025Z Receiving objects:  54% (918/1700)
+2025-08-26T15:04:03.7892342Z Receiving objects:  55% (935/1700)
+2025-08-26T15:04:03.7895667Z Receiving objects:  56% (952/1700)
+2025-08-26T15:04:03.7939875Z Receiving objects:  57% (969/1700)
+2025-08-26T15:04:03.7944884Z Receiving objects:  58% (986/1700)
+2025-08-26T15:04:03.7953164Z Receiving objects:  59% (1003/1700)
+2025-08-26T15:04:03.7956602Z Receiving objects:  60% (1020/1700)
+2025-08-26T15:04:03.8245830Z Receiving objects:  61% (1037/1700)
+2025-08-26T15:04:03.8246874Z Receiving objects:  62% (1054/1700)
+2025-08-26T15:04:03.8250819Z Receiving objects:  63% (1071/1700)
+2025-08-26T15:04:03.8252551Z Receiving objects:  64% (1088/1700)
+2025-08-26T15:04:03.8269362Z Receiving objects:  65% (1105/1700)
+2025-08-26T15:04:03.8272092Z Receiving objects:  66% (1122/1700)
+2025-08-26T15:04:03.8275981Z Receiving objects:  67% (1139/1700)
+2025-08-26T15:04:03.8276609Z Receiving objects:  68% (1156/1700)
+2025-08-26T15:04:03.8278778Z Receiving objects:  69% (1173/1700)
+2025-08-26T15:04:03.8282104Z Receiving objects:  70% (1190/1700)
+2025-08-26T15:04:03.8284114Z Receiving objects:  71% (1207/1700)
+2025-08-26T15:04:03.8286016Z Receiving objects:  72% (1224/1700)
+2025-08-26T15:04:03.8287953Z Receiving objects:  73% (1241/1700)
+2025-08-26T15:04:03.8290622Z Receiving objects:  74% (1258/1700)
+2025-08-26T15:04:03.8291490Z Receiving objects:  75% (1275/1700)
+2025-08-26T15:04:03.8296169Z Receiving objects:  76% (1292/1700)
+2025-08-26T15:04:03.8297106Z Receiving objects:  77% (1309/1700)
+2025-08-26T15:04:03.8297706Z Receiving objects:  78% (1326/1700)
+2025-08-26T15:04:03.8299500Z Receiving objects:  79% (1343/1700)
+2025-08-26T15:04:03.8300107Z Receiving objects:  80% (1360/1700)
+2025-08-26T15:04:03.8301497Z Receiving objects:  81% (1377/1700)
+2025-08-26T15:04:03.8302084Z Receiving objects:  82% (1394/1700)
+2025-08-26T15:04:03.8303783Z Receiving objects:  83% (1411/1700)
+2025-08-26T15:04:03.8304380Z Receiving objects:  84% (1428/1700)
+2025-08-26T15:04:03.8306126Z Receiving objects:  85% (1445/1700)
+2025-08-26T15:04:03.8306725Z Receiving objects:  86% (1462/1700)
+2025-08-26T15:04:03.8307914Z Receiving objects:  87% (1479/1700)
+2025-08-26T15:04:03.8309693Z Receiving objects:  88% (1496/1700)
+2025-08-26T15:04:03.8311472Z Receiving objects:  89% (1513/1700)
+2025-08-26T15:04:03.8313458Z Receiving objects:  90% (1530/1700)
+2025-08-26T15:04:03.8321706Z Receiving objects:  91% (1547/1700)
+2025-08-26T15:04:03.8333242Z Receiving objects:  92% (1564/1700)
+2025-08-26T15:04:03.8342174Z Receiving objects:  93% (1581/1700)
+2025-08-26T15:04:03.8352479Z Receiving objects:  94% (1598/1700)
+2025-08-26T15:04:03.8371577Z Receiving objects:  95% (1615/1700)
+2025-08-26T15:04:03.8398984Z Receiving objects:  96% (1632/1700)
+2025-08-26T15:04:03.8408160Z Receiving objects:  97% (1649/1700)
+2025-08-26T15:04:03.8408981Z remote: Total 1700 (delta 550), reused 1105 (delta 336), pack-reused 0 (from 0)        
+2025-08-26T15:04:03.8436194Z Receiving objects:  98% (1666/1700)
+2025-08-26T15:04:03.8442623Z Receiving objects:  99% (1683/1700)
+2025-08-26T15:04:03.8443298Z Receiving objects: 100% (1700/1700)
+2025-08-26T15:04:03.8444473Z Receiving objects: 100% (1700/1700), 1.25 MiB | 5.14 MiB/s, done.
+2025-08-26T15:04:03.8452783Z Resolving deltas:   0% (0/550)
+2025-08-26T15:04:03.8456396Z Resolving deltas:   1% (6/550)
+2025-08-26T15:04:03.8458982Z Resolving deltas:   2% (11/550)
+2025-08-26T15:04:03.8462886Z Resolving deltas:   3% (17/550)
+2025-08-26T15:04:03.8463743Z Resolving deltas:   4% (22/550)
+2025-08-26T15:04:03.8468007Z Resolving deltas:   5% (28/550)
+2025-08-26T15:04:03.8470051Z Resolving deltas:   6% (33/550)
+2025-08-26T15:04:03.8470961Z Resolving deltas:   7% (39/550)
+2025-08-26T15:04:03.8473311Z Resolving deltas:   8% (44/550)
+2025-08-26T15:04:03.8474180Z Resolving deltas:   9% (51/550)
+2025-08-26T15:04:03.8477534Z Resolving deltas:  10% (55/550)
+2025-08-26T15:04:03.8478891Z Resolving deltas:  11% (61/550)
+2025-08-26T15:04:03.8479991Z Resolving deltas:  12% (66/550)
+2025-08-26T15:04:03.8481334Z Resolving deltas:  13% (72/550)
+2025-08-26T15:04:03.8482544Z Resolving deltas:  14% (77/550)
+2025-08-26T15:04:03.8486552Z Resolving deltas:  15% (83/550)
+2025-08-26T15:04:03.8490401Z Resolving deltas:  16% (88/550)
+2025-08-26T15:04:03.8492539Z Resolving deltas:  17% (94/550)
+2025-08-26T15:04:03.8496492Z Resolving deltas:  18% (99/550)
+2025-08-26T15:04:03.8497337Z Resolving deltas:  19% (105/550)
+2025-08-26T15:04:03.8498281Z Resolving deltas:  20% (110/550)
+2025-08-26T15:04:03.8501847Z Resolving deltas:  21% (116/550)
+2025-08-26T15:04:03.8508429Z Resolving deltas:  22% (121/550)
+2025-08-26T15:04:03.8509578Z Resolving deltas:  23% (127/550)
+2025-08-26T15:04:03.8510219Z Resolving deltas:  24% (133/550)
+2025-08-26T15:04:03.8510825Z Resolving deltas:  25% (139/550)
+2025-08-26T15:04:03.8511386Z Resolving deltas:  26% (143/550)
+2025-08-26T15:04:03.8511956Z Resolving deltas:  27% (149/550)
+2025-08-26T15:04:03.8514154Z Resolving deltas:  28% (154/550)
+2025-08-26T15:04:03.8515101Z Resolving deltas:  29% (160/550)
+2025-08-26T15:04:03.8515725Z Resolving deltas:  30% (166/550)
+2025-08-26T15:04:03.8517046Z Resolving deltas:  31% (171/550)
+2025-08-26T15:04:03.8518073Z Resolving deltas:  32% (176/550)
+2025-08-26T15:04:03.8519868Z Resolving deltas:  33% (182/550)
+2025-08-26T15:04:03.8520470Z Resolving deltas:  34% (187/550)
+2025-08-26T15:04:03.8521052Z Resolving deltas:  35% (194/550)
+2025-08-26T15:04:03.8522160Z Resolving deltas:  36% (198/550)
+2025-08-26T15:04:03.8525201Z Resolving deltas:  37% (204/550)
+2025-08-26T15:04:03.8528985Z Resolving deltas:  38% (209/550)
+2025-08-26T15:04:03.8532783Z Resolving deltas:  39% (215/550)
+2025-08-26T15:04:03.8533500Z Resolving deltas:  40% (220/550)
+2025-08-26T15:04:03.8534375Z Resolving deltas:  41% (226/550)
+2025-08-26T15:04:03.8536050Z Resolving deltas:  42% (232/550)
+2025-08-26T15:04:03.8540390Z Resolving deltas:  43% (237/550)
+2025-08-26T15:04:03.8541046Z Resolving deltas:  44% (242/550)
+2025-08-26T15:04:03.8541665Z Resolving deltas:  45% (248/550)
+2025-08-26T15:04:03.8544867Z Resolving deltas:  46% (253/550)
+2025-08-26T15:04:03.8545804Z Resolving deltas:  47% (259/550)
+2025-08-26T15:04:03.8546424Z Resolving deltas:  48% (264/550)
+2025-08-26T15:04:03.8547391Z Resolving deltas:  49% (270/550)
+2025-08-26T15:04:03.8547988Z Resolving deltas:  50% (275/550)
+2025-08-26T15:04:03.8548581Z Resolving deltas:  51% (281/550)
+2025-08-26T15:04:03.8549239Z Resolving deltas:  52% (286/550)
+2025-08-26T15:04:03.8549907Z Resolving deltas:  53% (292/550)
+2025-08-26T15:04:03.8552827Z Resolving deltas:  54% (297/550)
+2025-08-26T15:04:03.8553756Z Resolving deltas:  55% (303/550)
+2025-08-26T15:04:03.8555515Z Resolving deltas:  56% (309/550)
+2025-08-26T15:04:03.8558798Z Resolving deltas:  57% (314/550)
+2025-08-26T15:04:03.8559937Z Resolving deltas:  58% (319/550)
+2025-08-26T15:04:03.8560583Z Resolving deltas:  59% (325/550)
+2025-08-26T15:04:03.8562429Z Resolving deltas:  60% (330/550)
+2025-08-26T15:04:03.8563067Z Resolving deltas:  61% (337/550)
+2025-08-26T15:04:03.8564050Z Resolving deltas:  62% (341/550)
+2025-08-26T15:04:03.8565797Z Resolving deltas:  63% (347/550)
+2025-08-26T15:04:03.8566404Z Resolving deltas:  64% (353/550)
+2025-08-26T15:04:03.8567005Z Resolving deltas:  65% (359/550)
+2025-08-26T15:04:03.8567596Z Resolving deltas:  66% (363/550)
+2025-08-26T15:04:03.8568216Z Resolving deltas:  67% (369/550)
+2025-08-26T15:04:03.8568845Z Resolving deltas:  68% (374/550)
+2025-08-26T15:04:03.8570284Z Resolving deltas:  69% (380/550)
+2025-08-26T15:04:03.8571369Z Resolving deltas:  70% (385/550)
+2025-08-26T15:04:03.8572116Z Resolving deltas:  71% (391/550)
+2025-08-26T15:04:03.8572752Z Resolving deltas:  72% (396/550)
+2025-08-26T15:04:03.8574597Z Resolving deltas:  73% (402/550)
+2025-08-26T15:04:03.8575518Z Resolving deltas:  74% (407/550)
+2025-08-26T15:04:03.8576210Z Resolving deltas:  75% (413/550)
+2025-08-26T15:04:03.8578033Z Resolving deltas:  76% (418/550)
+2025-08-26T15:04:03.8580686Z Resolving deltas:  77% (424/550)
+2025-08-26T15:04:03.8581331Z Resolving deltas:  78% (429/550)
+2025-08-26T15:04:03.8581954Z Resolving deltas:  79% (435/550)
+2025-08-26T15:04:03.8582909Z Resolving deltas:  80% (440/550)
+2025-08-26T15:04:03.8583747Z Resolving deltas:  81% (446/550)
+2025-08-26T15:04:03.8584417Z Resolving deltas:  82% (451/550)
+2025-08-26T15:04:03.8585023Z Resolving deltas:  83% (457/550)
+2025-08-26T15:04:03.8585636Z Resolving deltas:  84% (462/550)
+2025-08-26T15:04:03.8586253Z Resolving deltas:  85% (468/550)
+2025-08-26T15:04:03.8587670Z Resolving deltas:  86% (473/550)
+2025-08-26T15:04:03.8588345Z Resolving deltas:  87% (479/550)
+2025-08-26T15:04:03.8588934Z Resolving deltas:  88% (484/550)
+2025-08-26T15:04:03.8593136Z Resolving deltas:  89% (490/550)
+2025-08-26T15:04:03.8594789Z Resolving deltas:  90% (495/550)
+2025-08-26T15:04:03.8595430Z Resolving deltas:  91% (502/550)
+2025-08-26T15:04:03.8596033Z Resolving deltas:  92% (506/550)
+2025-08-26T15:04:03.8596638Z Resolving deltas:  93% (512/550)
+2025-08-26T15:04:03.8598286Z Resolving deltas:  94% (517/550)
+2025-08-26T15:04:03.8598901Z Resolving deltas:  95% (523/550)
+2025-08-26T15:04:03.8599517Z Resolving deltas:  96% (528/550)
+2025-08-26T15:04:03.8603783Z Resolving deltas:  97% (534/550)
+2025-08-26T15:04:03.8607759Z Resolving deltas:  98% (539/550)
+2025-08-26T15:04:03.8608403Z Resolving deltas:  99% (545/550)
+2025-08-26T15:04:03.8618626Z Resolving deltas: 100% (550/550)
+2025-08-26T15:04:03.8619293Z Resolving deltas: 100% (550/550), done.
+2025-08-26T15:04:03.8746860Z From https://github.com/DavidOeztuerk/Skillswap
+2025-08-26T15:04:03.8749163Z  * [new ref]         2a98787770ed7a66632039af2686f7f1f32e3749 -> origin/staging
+2025-08-26T15:04:03.8797648Z ##[endgroup]
+2025-08-26T15:04:03.8798669Z ##[group]Determining the checkout info
+2025-08-26T15:04:03.8799996Z ##[endgroup]
+2025-08-26T15:04:03.8800897Z ##[group]Checking out the ref
+2025-08-26T15:04:03.8805533Z [command]/usr/bin/git checkout --progress --force -B staging refs/remotes/origin/staging
+2025-08-26T15:04:03.9573180Z Switched to a new branch 'staging'
+2025-08-26T15:04:03.9575026Z branch 'staging' set up to track 'origin/staging'.
+2025-08-26T15:04:03.9584902Z ##[endgroup]
+2025-08-26T15:04:03.9624223Z [command]/usr/bin/git log -1 --format='%H'
+2025-08-26T15:04:03.9647748Z '2a98787770ed7a66632039af2686f7f1f32e3749'
+2025-08-26T15:04:03.9804829Z ##[group]Run azure/login@v1
+2025-08-26T15:04:03.9805222Z with:
+2025-08-26T15:04:03.9807587Z   creds: ***
+2025-08-26T15:04:03.9807914Z   enable-AzPSSession: false
+2025-08-26T15:04:03.9808263Z   environment: azurecloud
+2025-08-26T15:04:03.9808606Z   allow-no-subscriptions: false
+2025-08-26T15:04:03.9808999Z   audience: api://AzureADTokenExchange
+2025-08-26T15:04:03.9809388Z   auth-type: SERVICE_PRINCIPAL
+2025-08-26T15:04:03.9809700Z env:
+2025-08-26T15:04:03.9809982Z   ENVIRONMENT: staging
+2025-08-26T15:04:03.9810317Z   RESOURCE_GROUP: skillswap-staging-rg
+2025-08-26T15:04:03.9810668Z   LOCATION: westeurope
+2025-08-26T15:04:03.9810969Z ##[endgroup]
+2025-08-26T15:04:04.0565573Z Running Azure CLI Login.
+2025-08-26T15:04:04.5768230Z [command]/usr/bin/az cloud set -n azurecloud
+2025-08-26T15:04:04.8099761Z Done setting cloud: "azurecloud"
+2025-08-26T15:04:04.8101767Z Note: Azure/login action also supports OIDC login mechanism. Refer https://github.com/azure/login#configure-a-service-principal-with-a-federated-credential-to-use-oidc-based-authentication for more details.
+2025-08-26T15:04:04.8103373Z Attempting Azure CLI login by using service principal with secret...
+2025-08-26T15:04:06.4090159Z Subscription is set successfully.
+2025-08-26T15:04:06.4091540Z Azure CLI login succeeds by using service principal with secret.
+2025-08-26T15:04:06.4212797Z ##[group]Run az group create \
+2025-08-26T15:04:06.4213465Z [36;1maz group create \[0m
+2025-08-26T15:04:06.4214341Z [36;1m  --name skillswap-staging-rg \[0m
+2025-08-26T15:04:06.4214960Z [36;1m  --location westeurope || true[0m
+2025-08-26T15:04:06.4295332Z shell: /usr/bin/bash -e ***0***
+2025-08-26T15:04:06.4295733Z env:
+2025-08-26T15:04:06.4296035Z   ENVIRONMENT: staging
+2025-08-26T15:04:06.4296387Z   RESOURCE_GROUP: skillswap-staging-rg
+2025-08-26T15:04:06.4296784Z   LOCATION: westeurope
+2025-08-26T15:04:06.4297100Z ##[endgroup]
+2025-08-26T15:04:08.7132362Z ERROR: (AuthorizationFailed) The client 'af5c2ebe-4e6b-4327-98df-7b1f7b922547' with object id 'af5c2ebe-4e6b-4327-98df-7b1f7b922547' does not have authorization to perform action 'Microsoft.Resources/subscriptions/resourcegroups/write' over scope '/subscriptions/b3116698-7aef-4ec6-939b-84b3f6789bfa/resourcegroups/skillswap-staging-rg' or the scope is invalid. If access was recently granted, please refresh your credentials.
+2025-08-26T15:04:08.7135813Z Code: AuthorizationFailed
+2025-08-26T15:04:08.7138531Z Message: The client 'af5c2ebe-4e6b-4327-98df-7b1f7b922547' with object id 'af5c2ebe-4e6b-4327-98df-7b1f7b922547' does not have authorization to perform action 'Microsoft.Resources/subscriptions/resourcegroups/write' over scope '/subscriptions/b3116698-7aef-4ec6-939b-84b3f6789bfa/resourcegroups/skillswap-staging-rg' or the scope is invalid. If access was recently granted, please refresh your credentials.
+2025-08-26T15:04:08.8182281Z ##[group]Run # Generate secure passwords if not provided
+2025-08-26T15:04:08.8182898Z [36;1m# Generate secure passwords if not provided[0m
+2025-08-26T15:04:08.8183320Z [36;1mPOSTGRES_PASSWORD=""[0m
+2025-08-26T15:04:08.8184004Z [36;1mif [ -z "$POSTGRES_PASSWORD" ]; then[0m
+2025-08-26T15:04:08.8184504Z [36;1m  POSTGRES_PASSWORD=$(openssl rand -base64 32)[0m
+2025-08-26T15:04:08.8184908Z [36;1mfi[0m
+2025-08-26T15:04:08.8185185Z [36;1m[0m
+2025-08-26T15:04:08.8185719Z [36;1mJWT_SECRET=""[0m
+2025-08-26T15:04:08.8186060Z [36;1mif [ -z "$JWT_SECRET" ]; then[0m
+2025-08-26T15:04:08.8186456Z [36;1m  JWT_SECRET=$(openssl rand -base64 32)[0m
+2025-08-26T15:04:08.8186826Z [36;1mfi[0m
+2025-08-26T15:04:08.8187107Z [36;1m[0m
+2025-08-26T15:04:08.8187439Z [36;1m# Deploy infrastructure with explicit name[0m
+2025-08-26T15:04:08.8187849Z [36;1maz deployment group create \[0m
+2025-08-26T15:04:08.8188246Z [36;1m  --name skillswap-infrastructure \[0m
+2025-08-26T15:04:08.8188723Z [36;1m  --resource-group skillswap-staging-rg \[0m
+2025-08-26T15:04:08.8189216Z [36;1m  --template-file azure-deploy/bicep/infrastructure.bicep \[0m
+2025-08-26T15:04:08.8189710Z [36;1m  --parameters environmentName=staging \[0m
+2025-08-26T15:04:08.8190196Z [36;1m  --parameters postgresPassword="$POSTGRES_PASSWORD" \[0m
+2025-08-26T15:04:08.8190657Z [36;1m  --parameters jwtSecret="$JWT_SECRET" \[0m
+2025-08-26T15:04:08.8191044Z [36;1m  --output none[0m
+2025-08-26T15:04:08.8191356Z [36;1m[0m
+2025-08-26T15:04:08.8191687Z [36;1m# Get outputs separately after deployment[0m
+2025-08-26T15:04:08.8192574Z [36;1mREGISTRY_NAME=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerRegistryName.value -o tsv)[0m
+2025-08-26T15:04:08.8194425Z [36;1mREGISTRY_LOGIN_SERVER=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerRegistryLoginServer.value -o tsv)[0m
+2025-08-26T15:04:08.8195869Z [36;1mREGISTRY_USERNAME=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerRegistryUsername.value -o tsv)[0m
+2025-08-26T15:04:08.8197245Z [36;1mREGISTRY_PASSWORD=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerRegistryPassword.value -o tsv)[0m
+2025-08-26T15:04:08.8198622Z [36;1mPOSTGRES_CONNECTION=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.postgresConnectionString.value -o tsv)[0m
+2025-08-26T15:04:08.8199987Z [36;1mREDIS_CONNECTION=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.redisConnectionString.value -o tsv)[0m
+2025-08-26T15:04:08.8201369Z [36;1mSERVICEBUS_CONNECTION=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.serviceBusConnectionString.value -o tsv)[0m
+2025-08-26T15:04:08.8202760Z [36;1mCONTAINER_ENV_ID=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.containerAppEnvironmentId.value -o tsv)[0m
+2025-08-26T15:04:08.8204220Z [36;1mJWT_SECRET_OUTPUT=$(az deployment group show --resource-group skillswap-staging-rg --name skillswap-infrastructure --query properties.outputs.jwtSecret.value -o tsv)[0m
+2025-08-26T15:04:08.8205008Z [36;1m[0m
+2025-08-26T15:04:08.8205321Z [36;1m# Write outputs to GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8205774Z [36;1mecho "registry_name=$REGISTRY_NAME" >> $GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8206321Z [36;1mecho "registry_login_server=$REGISTRY_LOGIN_SERVER" >> $GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8206891Z [36;1mecho "registry_username=$REGISTRY_USERNAME" >> $GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8207599Z [36;1mecho "registry_password=$REGISTRY_PASSWORD" >> $GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8208171Z [36;1mecho "postgres_connection=$POSTGRES_CONNECTION" >> $GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8208721Z [36;1mecho "redis_connection=$REDIS_CONNECTION" >> $GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8209277Z [36;1mecho "servicebus_connection=$SERVICEBUS_CONNECTION" >> $GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8209835Z [36;1mecho "container_env_id=$CONTAINER_ENV_ID" >> $GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8210339Z [36;1mecho "jwt_secret=$JWT_SECRET_OUTPUT" >> $GITHUB_OUTPUT[0m
+2025-08-26T15:04:08.8250834Z shell: /usr/bin/bash -e ***0***
+2025-08-26T15:04:08.8251197Z env:
+2025-08-26T15:04:08.8251485Z   ENVIRONMENT: staging
+2025-08-26T15:04:08.8251845Z   RESOURCE_GROUP: skillswap-staging-rg
+2025-08-26T15:04:08.8252221Z   LOCATION: westeurope
+2025-08-26T15:04:08.8252525Z ##[endgroup]
+2025-08-26T15:04:15.6704592Z WARNING: /home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(154,43) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: function 'listCredentials' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+2025-08-26T15:04:15.6707743Z /home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(155,1) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: output name 'containerRegistryPassword' suggests a secret [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+2025-08-26T15:04:15.6710327Z /home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(155,43) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: function 'listCredentials' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+2025-08-26T15:04:15.6712771Z /home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(157,162) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: secure value 'postgresPassword' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+2025-08-26T15:04:15.6715628Z /home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(159,90) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: function 'listKeys' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+2025-08-26T15:04:15.6718057Z /home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(160,44) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: function 'listKeys' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+2025-08-26T15:04:15.6720529Z /home/runner/work/Skillswap/Skillswap/azure-deploy/bicep/infrastructure.bicep(163,27) : Warning outputs-should-not-contain-secrets: Outputs should not contain secrets. Found possible secret: secure value 'jwtSecret' [https://aka.ms/bicep/linter-diagnostics#outputs-should-not-contain-secrets]
+2025-08-26T15:04:15.6721889Z 
+2025-08-26T15:04:16.4058026Z ERROR: The content for this response was already consumed
+2025-08-26T15:04:16.5032640Z ##[error]Process completed with exit code 1.
+2025-08-26T15:04:16.5154043Z Post job cleanup.
+2025-08-26T15:04:16.5974295Z [command]/usr/bin/git version
+2025-08-26T15:04:16.6012424Z git version 2.51.0
+2025-08-26T15:04:16.6056968Z Temporarily overriding HOME='/home/runner/work/_temp/18140ea0-cf4c-4847-8e0e-4edc9fa417dc' before making global git config changes
+2025-08-26T15:04:16.6058510Z Adding repository directory to the temporary git global config as a safe directory
+2025-08-26T15:04:16.6061554Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Skillswap/Skillswap
+2025-08-26T15:04:16.6092401Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-08-26T15:04:16.6121615Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-08-26T15:04:16.6356017Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-08-26T15:04:16.6375792Z http.https://github.com/.extraheader
+2025-08-26T15:04:16.6387360Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2025-08-26T15:04:16.6415782Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-08-26T15:04:16.6807723Z Post job cleanup.
+2025-08-26T15:04:16.7571275Z Clearing azure cli accounts from the local cache.
+2025-08-26T15:04:16.7579966Z [command]/usr/bin/az account clear
+2025-08-26T15:04:17.1379225Z Evaluate and set job outputs
+2025-08-26T15:04:17.1387730Z Cleaning up orphan processes
+2025-08-26T15:04:17.1736854Z Terminate orphan process: pid (2364) (python3)
