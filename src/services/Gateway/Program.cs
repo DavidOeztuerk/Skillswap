@@ -23,10 +23,17 @@ builder.Configuration
     .AddJsonFile(ocelotConfigFile, optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 
-// JWT-Einstellungen aus ENV
-var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "";
-var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "";
-var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "";
+// JWT-Einstellungen aus ENV oder Configuration
+var secret = builder.Configuration["Jwt:Secret"] 
+    ?? Environment.GetEnvironmentVariable("JWT_SECRET") 
+    ?? Environment.GetEnvironmentVariable("Jwt__Secret") 
+    ?? "";
+var issuer = builder.Configuration["Jwt:Issuer"] 
+    ?? Environment.GetEnvironmentVariable("JWT_ISSUER") 
+    ?? "Skillswap";
+var audience = builder.Configuration["Jwt:Audience"] 
+    ?? Environment.GetEnvironmentVariable("JWT_AUDIENCE") 
+    ?? "Skillswap";
 
 builder.Services.AddCors(options =>
 {
