@@ -181,20 +181,55 @@ jobs:
       
       - name: Deploy Container Apps
         run: |
+          echo "🚀 Fetching deployment credentials from Azure..."
+          
+          # Get Container Registry credentials
+          REGISTRY_NAME="skillswapstagingacr"
+          ACR_CREDENTIALS=$(az acr credential show --name "$REGISTRY_NAME" --resource-group ${{ env.RESOURCE_GROUP }} -o json)
+          REGISTRY_USERNAME=$(echo "$ACR_CREDENTIALS" | jq -r '.username')
+          REGISTRY_PASSWORD=$(echo "$ACR_CREDENTIALS" | jq -r '.passwords[0].value')
+          
+          # Get Container App Environment ID
+          CONTAINER_ENV_ID=$(az containerapp env show --name "skillswap-staging-env" --resource-group ${{ env.RESOURCE_GROUP }} --query id -o tsv)
+          
+          # Build connection strings
+          POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+          if [ -z "$POSTGRES_PASSWORD" ]; then
+            POSTGRES_PASSWORD=$(openssl rand -base64 32)
+          fi
+          POSTGRES_CONNECTION="Host=skillswap-staging-postgres.postgres.database.azure.com;Database=skillswap_users;Username=skillswapadmin;Password=${POSTGRES_PASSWORD}"
+          
+          # Get Redis connection
+          REDIS_KEY=$(az redis list-keys --name "skillswapstagingredis" --resource-group ${{ env.RESOURCE_GROUP }} --query primaryKey -o tsv)
+          REDIS_CONNECTION="skillswapstagingredis.redis.cache.windows.net:6379,password=${REDIS_KEY},ssl=True,abortConnect=False"
+          
+          # Get Service Bus connection
+          SERVICEBUS_CONNECTION=$(az servicebus namespace authorization-rule keys list \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --namespace-name "skillswap-staging-bus" \
+            --name RootManageSharedAccessKey \
+            --query primaryConnectionString -o tsv)
+          
+          # Get JWT Secret
+          JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          if [ -z "$JWT_SECRET" ]; then
+            JWT_SECRET=$(openssl rand -base64 32)
+          fi
+          
           echo "🚀 Deploying Container Apps..."
           
           az deployment group create \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --template-file azure-deploy/bicep/container-apps.bicep \
-            --parameters containerRegistryLoginServer="${{ needs.deploy-infrastructure.outputs.registry_login_server }}" \
-            --parameters containerRegistryName="${{ needs.deploy-infrastructure.outputs.registry_name }}" \
-            --parameters containerRegistryUsername="${{ needs.deploy-infrastructure.outputs.registry_username }}" \
-            --parameters containerRegistryPassword="${{ needs.deploy-infrastructure.outputs.registry_password }}" \
-            --parameters containerAppEnvironmentId="${{ needs.deploy-infrastructure.outputs.container_env_id }}" \
-            --parameters postgresConnectionString="${{ needs.deploy-infrastructure.outputs.postgres_connection }}" \
-            --parameters redisConnectionString="${{ needs.deploy-infrastructure.outputs.redis_connection }}" \
-            --parameters serviceBusConnectionString="${{ needs.deploy-infrastructure.outputs.servicebus_connection }}" \
-            --parameters jwtSecret="${{ needs.deploy-infrastructure.outputs.jwt_secret }}" \
+            --parameters containerRegistryLoginServer="${REGISTRY_NAME}.azurecr.io" \
+            --parameters containerRegistryName="$REGISTRY_NAME" \
+            --parameters containerRegistryUsername="$REGISTRY_USERNAME" \
+            --parameters containerRegistryPassword="$REGISTRY_PASSWORD" \
+            --parameters containerAppEnvironmentId="$CONTAINER_ENV_ID" \
+            --parameters postgresConnectionString="$POSTGRES_CONNECTION" \
+            --parameters redisConnectionString="$REDIS_CONNECTION" \
+            --parameters serviceBusConnectionString="$SERVICEBUS_CONNECTION" \
+            --parameters jwtSecret="$JWT_SECRET" \
             --parameters imageTag="${{ github.sha }}" \
             --output none
           
