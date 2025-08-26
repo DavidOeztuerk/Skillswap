@@ -81,15 +81,26 @@ jobs:
             --output none
           
           # Get outputs separately after deployment
-          echo "registry_name=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryName.value -o tsv)" >> $GITHUB_OUTPUT
-          echo "registry_login_server=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryLoginServer.value -o tsv)" >> $GITHUB_OUTPUT
-          echo "registry_username=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryUsername.value -o tsv)" >> $GITHUB_OUTPUT
-          echo "registry_password=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryPassword.value -o tsv)" >> $GITHUB_OUTPUT
-          echo "postgres_connection=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.postgresConnectionString.value -o tsv)" >> $GITHUB_OUTPUT
-          echo "redis_connection=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.redisConnectionString.value -o tsv)" >> $GITHUB_OUTPUT
-          echo "servicebus_connection=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.serviceBusConnectionString.value -o tsv)" >> $GITHUB_OUTPUT
-          echo "container_env_id=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerAppEnvironmentId.value -o tsv)" >> $GITHUB_OUTPUT
-          echo "jwt_secret=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.jwtSecret.value -o tsv)" >> $GITHUB_OUTPUT
+          REGISTRY_NAME=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryName.value -o tsv)
+          REGISTRY_LOGIN_SERVER=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryLoginServer.value -o tsv)
+          REGISTRY_USERNAME=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryUsername.value -o tsv)
+          REGISTRY_PASSWORD=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryPassword.value -o tsv)
+          POSTGRES_CONNECTION=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.postgresConnectionString.value -o tsv)
+          REDIS_CONNECTION=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.redisConnectionString.value -o tsv)
+          SERVICEBUS_CONNECTION=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.serviceBusConnectionString.value -o tsv)
+          CONTAINER_ENV_ID=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerAppEnvironmentId.value -o tsv)
+          JWT_SECRET_OUTPUT=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.jwtSecret.value -o tsv)
+          
+          # Write outputs to GITHUB_OUTPUT
+          echo "registry_name=$REGISTRY_NAME" >> $GITHUB_OUTPUT
+          echo "registry_login_server=$REGISTRY_LOGIN_SERVER" >> $GITHUB_OUTPUT
+          echo "registry_username=$REGISTRY_USERNAME" >> $GITHUB_OUTPUT
+          echo "registry_password=$REGISTRY_PASSWORD" >> $GITHUB_OUTPUT
+          echo "postgres_connection=$POSTGRES_CONNECTION" >> $GITHUB_OUTPUT
+          echo "redis_connection=$REDIS_CONNECTION" >> $GITHUB_OUTPUT
+          echo "servicebus_connection=$SERVICEBUS_CONNECTION" >> $GITHUB_OUTPUT
+          echo "container_env_id=$CONTAINER_ENV_ID" >> $GITHUB_OUTPUT
+          echo "jwt_secret=$JWT_SECRET_OUTPUT" >> $GITHUB_OUTPUT
 
   # Phase 2: Build and Push Docker Images
   build-images:
