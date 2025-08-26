@@ -155,12 +155,13 @@ jobs:
           echo "🔨 Building ${{ matrix.service.name }}..."
           
           # Use Azure ACR build (no local Docker needed)
+          # Build context is 'src/' directory where shared folder exists
           az acr build \
             --registry ${{ needs.deploy-infrastructure.outputs.registry_name }} \
             --image ${{ matrix.service.name }}:${{ github.sha }} \
             --image ${{ matrix.service.name }}:latest \
             --file ${{ matrix.service.dockerfile }} \
-            .
+            src/
           
           echo "✅ ${{ matrix.service.name }} built and pushed"
 
