@@ -154,14 +154,28 @@ jobs:
         run: |
           echo "🔨 Building ${{ matrix.service.name }}..."
           
-          # Use Azure ACR build (no local Docker needed)
-          # Build context is 'src/' directory where shared folder exists
-          az acr build \
-            --registry ${{ needs.deploy-infrastructure.outputs.registry_name }} \
-            --image ${{ matrix.service.name }}:${{ github.sha }} \
-            --image ${{ matrix.service.name }}:latest \
-            --file ${{ matrix.service.dockerfile }} \
-            src/
+          # Special handling for frontend to set correct API URL
+          if [ "${{ matrix.service.name }}" = "frontend" ]; then
+            # Get the gateway URL for the frontend
+            GATEWAY_URL="https://gateway.victoriousocean-546beaa5.westeurope.azurecontainerapps.io"
+            
+            # Build with correct API URL
+            az acr build \
+              --registry ${{ needs.deploy-infrastructure.outputs.registry_name }} \
+              --image ${{ matrix.service.name }}:${{ github.sha }} \
+              --image ${{ matrix.service.name }}:latest \
+              --file ${{ matrix.service.dockerfile }} \
+              --build-arg VITE_API_BASE_URL="${GATEWAY_URL}" \
+              src/
+          else
+            # Regular build for other services
+            az acr build \
+              --registry ${{ needs.deploy-infrastructure.outputs.registry_name }} \
+              --image ${{ matrix.service.name }}:${{ github.sha }} \
+              --image ${{ matrix.service.name }}:latest \
+              --file ${{ matrix.service.dockerfile }} \
+              src/
+          fi
           
           echo "✅ ${{ matrix.service.name }} built and pushed"
 
