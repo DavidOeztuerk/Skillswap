@@ -17,6 +17,10 @@ appsettings.Production.json
 appsettings.Staging.json
 secrets.json
 config.json
+azure-config.env
+*.pem
+*.key
+*.pfx
 
 # ============================================================================
 # .NET Core / C#
