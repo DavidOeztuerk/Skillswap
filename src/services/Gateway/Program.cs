@@ -13,8 +13,14 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 
 var serviceName = "gateway";
 
+// Use environment-specific Ocelot config
+var environment = builder.Environment.EnvironmentName;
+var ocelotConfigFile = environment == "Production" || environment == "Staging" 
+    ? "ocelot.azure.json" 
+    : "ocelot.json";
+
 builder.Configuration
-    .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
+    .AddJsonFile(ocelotConfigFile, optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 
 // JWT-Einstellungen aus ENV
