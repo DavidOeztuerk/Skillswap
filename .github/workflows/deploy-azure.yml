@@ -73,7 +73,7 @@ jobs:
         run: |
           # Generate secure passwords if not provided
           POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-          if [ -z "$POSTGRES_PASSWORD" ますら]; then
+          if [ -z "$POSTGRES_PASSWORD" ]; then
             POSTGRES_PASSWORD=$(openssl rand -base64 32)
           fi
           
