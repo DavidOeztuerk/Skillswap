@@ -543,6 +543,15 @@ local.settings.json
 # Azure
 .azure/
 
+# Temporary debug and error files
+github.error.txt
+*.error.txt
+debug.txt
+*.debug.txt
+*.debug
+error.log
+*.error
+
 # Terraform
 *.tfstate
 *.tfstate.*
