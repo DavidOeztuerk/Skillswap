@@ -148,17 +148,12 @@ resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' 
   }
 }
 
-// Outputs for next phase
+// Outputs for next phase (only non-sensitive values)
 output containerRegistryLoginServer string = containerRegistry.properties.loginServer
 output containerRegistryName string = containerRegistry.name
-output containerRegistryUsername string = containerRegistry.listCredentials().username
-output containerRegistryPassword string = containerRegistry.listCredentials().passwords[0].value
 output postgresServerName string = postgresServer.properties.fullyQualifiedDomainName
-output postgresConnectionString string = 'Host=${postgresServer.properties.fullyQualifiedDomainName};Database=skillswap_users;Username=skillswapadmin;Password=${postgresPassword}'
 output redisHostName string = redisCache.properties.hostName
-output redisConnectionString string = '${redisCache.properties.hostName}:6379,password=${redisCache.listKeys().primaryKey},ssl=True,abortConnect=False'
-output serviceBusConnectionString string = listKeys('${serviceBusNamespace.id}/AuthorizationRules/RootManageSharedAccessKey', serviceBusNamespace.apiVersion).primaryConnectionString
+output serviceBusNamespaceName string = serviceBusNamespace.name
 output containerAppEnvironmentId string = containerAppEnvironment.id
 output containerAppEnvironmentName string = containerAppEnvironment.name
-output jwtSecret string = jwtSecret
 output resourceGroupName string = resourceGroup().name
