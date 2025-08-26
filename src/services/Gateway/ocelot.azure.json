@@ -1,0 +1,119 @@
+{
+  "Routes": [
+    {
+      "DownstreamPathTemplate": "/users/auth/register",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${USERSERVICE_HOST}", "Port": "${USERSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/users/register",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 5
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/auth/login",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${USERSERVICE_HOST}", "Port": "${USERSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/users/login",
+      "UpstreamHttpMethod": ["POST"],
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 10
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/auth/refresh-token",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${USERSERVICE_HOST}", "Port": "${USERSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/users/refresh-token",
+      "UpstreamHttpMethod": ["POST"]
+    },
+    {
+      "DownstreamPathTemplate": "/users/auth/verify-email",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${USERSERVICE_HOST}", "Port": "${USERSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/users/verify-email",
+      "UpstreamHttpMethod": ["POST"]
+    },
+    {
+      "DownstreamPathTemplate": "/users/profile",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${USERSERVICE_HOST}", "Port": "${USERSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/users/profile",
+      "UpstreamHttpMethod": ["GET", "PUT"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/skills",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${SKILLSERVICE_HOST}", "Port": "${SKILLSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/skills",
+      "UpstreamHttpMethod": ["GET", "POST"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/skills/{skillId}",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${SKILLSERVICE_HOST}", "Port": "${SKILLSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/skills/{skillId}",
+      "UpstreamHttpMethod": ["GET", "PUT", "DELETE"]
+    },
+    {
+      "DownstreamPathTemplate": "/matches/find",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${MATCHMAKINGSERVICE_HOST}", "Port": "${MATCHMAKINGSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/matches/find",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/appointments",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${APPOINTMENTSERVICE_HOST}", "Port": "${APPOINTMENTSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/appointments",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/calls/create",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${VIDEOCALLSERVICE_HOST}", "Port": "${VIDEOCALLSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/calls/create",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/notifications/send",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${NOTIFICATIONSERVICE_HOST}", "Port": "${NOTIFICATIONSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/notifications/send",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "${GATEWAY_BASE_URL}",
+    "RateLimitOptions": {
+      "QuotaExceededMessage": "Rate limit exceeded. Please try again later.",
+      "HttpStatusCode": 429,
+      "ClientIdHeader": "ClientId"
+    }
+  }
+}
