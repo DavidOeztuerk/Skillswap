@@ -22,8 +22,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y gettext-base && rm -rf /var/lib/apt/lists/*
 
 COPY --from=publish /app/publish .
-COPY services/Gateway/docker-entrypoint.sh /app/
-COPY services/Gateway/ocelot.azure.json /app/
+
+# Copy entrypoint script and config from build context
+COPY --from=build /src/services/Gateway/docker-entrypoint.sh /app/
+COPY --from=build /src/services/Gateway/ocelot.azure.json /app/
 
 RUN chmod +x /app/docker-entrypoint.sh
 
