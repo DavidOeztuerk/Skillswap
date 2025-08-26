@@ -1,0 +1,210 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: 
+      - develop    # → Dev Environment
+      - staging    # → Staging Environment
+      - main       # → Production Environment
+  pull_request:
+    branches: [main, staging]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+
+env:
+  # Dynamic environment based on branch
+  ENVIRONMENT: ${{ 
+    github.event.inputs.environment || 
+    (github.ref == 'refs/heads/main' && 'production') ||
+    (github.ref == 'refs/heads/staging' && 'staging') ||
+    (github.ref == 'refs/heads/develop' && 'dev') ||
+    'dev' 
+  }}
+  RESOURCE_GROUP: skillswap-${{ 
+    github.event.inputs.environment || 
+    (github.ref == 'refs/heads/main' && 'production') ||
+    (github.ref == 'refs/heads/staging' && 'staging') ||
+    (github.ref == 'refs/heads/develop' && 'dev') ||
+    'dev' 
+  }}-rg
+  LOCATION: westeurope
+
+jobs:
+  # Phase 1: Deploy Infrastructure
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    outputs:
+      registry_name: ${{ steps.deploy.outputs.registry_name }}
+      registry_login_server: ${{ steps.deploy.outputs.registry_login_server }}
+      registry_username: ${{ steps.deploy.outputs.registry_username }}
+      registry_password: ${{ steps.deploy.outputs.registry_password }}
+      postgres_connection: ${{ steps.deploy.outputs.postgres_connection }}
+      redis_connection: ${{ steps.deploy.outputs.redis_connection }}
+      servicebus_connection: ${{ steps.deploy.outputs.servicebus_connection }}
+      container_env_id: ${{ steps.deploy.outputs.container_env_id }}
+      jwt_secret: ${{ steps.deploy.outputs.jwt_secret }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Create Resource Group
+        run: |
+          az group create \
+            --name ${{ env.RESOURCE_GROUP }} \
+            --location ${{ env.LOCATION }} || true
+      
+      - name: Deploy Infrastructure
+        id: deploy
+        run: |
+          # Generate secure passwords if not provided
+          POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+          if [ -z "$POSTGRES_PASSWORD" ますら]; then
+            POSTGRES_PASSWORD=$(openssl rand -base64 32)
+          fi
+          
+          JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          if [ -z "$JWT_SECRET" ]; then
+            JWT_SECRET=$(openssl rand -base64 32)
+          fi
+          
+          # Deploy infrastructure
+          DEPLOYMENT_OUTPUT=$(az deployment group create \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --template-file azure-deploy/bicep/infrastructure.bicep \
+            --parameters environmentName=${{ env.ENVIRONMENT }} \
+            --parameters postgresPassword="$POSTGRES_PASSWORD" \
+            --parameters jwtSecret="$JWT_SECRET" \
+            --query properties.outputs \
+            -o json)
+          
+          # Extract outputs
+          echo "registry_name=$(echo $DEPLOYMENT_OUTPUT | jq -r '.containerRegistryName.value')" >> $GITHUB_OUTPUT
+          echo "registry_login_server=$(echo $DEPLOYMENT_OUTPUT | jq -r '.containerRegistryLoginServer.value')" >> $GITHUB_OUTPUT
+          echo "registry_username=$(echo $DEPLOYMENT_OUTPUT | jq -r '.containerRegistryUsername.value')" >> $GITHUB_OUTPUT
+          echo "registry_password=$(echo $DEPLOYMENT_OUTPUT | jq -r '.containerRegistryPassword.value')" >> $GITHUB_OUTPUT
+          echo "postgres_connection=$(echo $DEPLOYMENT_OUTPUT | jq -r '.postgresConnectionString.value')" >> $GITHUB_OUTPUT
+          echo "redis_connection=$(echo $DEPLOYMENT_OUTPUT | jq -r '.redisConnectionString.value')" >> $GITHUB_OUTPUT
+          echo "servicebus_connection=$(echo $DEPLOYMENT_OUTPUT | jq -r '.serviceBusConnectionString.value')" >> $GITHUB_OUTPUT
+          echo "container_env_id=$(echo $DEPLOYMENT_OUTPUT | jq -r '.containerAppEnvironmentId.value')" >> $GITHUB_OUTPUT
+          echo "jwt_secret=$(echo $DEPLOYMENT_OUTPUT | jq -r '.jwtSecret.value')" >> $GITHUB_OUTPUT
+
+  # Phase 2: Build and Push Docker Images
+  build-images:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: gateway
+            dockerfile: src/services/Gateway/Dockerfile
+          - name: userservice
+            dockerfile: src/services/UserService/UserService.Api/Dockerfile
+          - name: skillservice
+            dockerfile: src/services/SkillService/Dockerfile
+          - name: matchmakingservice
+            dockerfile: src/services/MatchmakingService/Dockerfile
+          - name: appointmentservice
+            dockerfile: src/services/AppointmentService/Dockerfile
+          - name: notificationservice
+            dockerfile: src/services/NotificationService/Dockerfile
+          - name: videocallservice
+            dockerfile: src/services/VideocallService/Dockerfile
+          - name: frontend
+            dockerfile: src/client/Dockerfile
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Build and push ${{ matrix.service.name }}
+        run: |
+          echo "🔨 Building ${{ matrix.service.name }}..."
+          
+          # Use Azure ACR build (no local Docker needed)
+          az acr build \
+            --registry ${{ needs.deploy-infrastructure.outputs.registry_name }} \
+            --image ${{ matrix.service.name }}:${{ github.sha }} \
+            --image ${{ matrix.service.name }}:latest \
+            --file ${{ matrix.service.dockerfile }} \
+            .
+          
+          echo "✅ ${{ matrix.service.name }} built and pushed"
+
+  # Phase 3: Deploy Container Apps
+  deploy-apps:
+    needs: [deploy-infrastructure, build-images]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Deploy Container Apps
+        run: |
+          echo "🚀 Deploying Container Apps..."
+          
+          az deployment group create \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --template-file azure-deploy/bicep/container-apps.bicep \
+            --parameters containerRegistryLoginServer="${{ needs.deploy-infrastructure.outputs.registry_login_server }}" \
+            --parameters containerRegistryName="${{ needs.deploy-infrastructure.outputs.registry_name }}" \
+            --parameters containerRegistryUsername="${{ needs.deploy-infrastructure.outputs.registry_username }}" \
+            --parameters containerRegistryPassword="${{ needs.deploy-infrastructure.outputs.registry_password }}" \
+            --parameters containerAppEnvironmentId="${{ needs.deploy-infrastructure.outputs.container_env_id }}" \
+            --parameters postgresConnectionString="${{ needs.deploy-infrastructure.outputs.postgres_connection }}" \
+            --parameters redisConnectionString="${{ needs.deploy-infrastructure.outputs.redis_connection }}" \
+            --parameters serviceBusConnectionString="${{ needs.deploy-infrastructure.outputs.servicebus_connection }}" \
+            --parameters jwtSecret="${{ needs.deploy-infrastructure.outputs.jwt_secret }}" \
+            --parameters imageTag="${{ github.sha }}" \
+            --output none
+          
+          echo "✅ Container Apps deployed"
+      
+      - name: Get Application URLs
+        run: |
+          echo "# 🎉 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          GATEWAY_URL=$(az containerapp show \
+            --name gateway \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          
+          FRONTEND_URL=$(az containerapp show \
+            --name frontend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          
+          echo "## 🌐 Application URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend:** https://$FRONTEND_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Gateway:** https://$GATEWAY_URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Deployment Info:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Resource Group:** ${{ env.RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
