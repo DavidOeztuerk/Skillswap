@@ -70,25 +70,26 @@ jobs:
             JWT_SECRET=$(openssl rand -base64 32)
           fi
           
-          # Deploy infrastructure
-          DEPLOYMENT_OUTPUT=$(az deployment group create \
+          # Deploy infrastructure with explicit name
+          az deployment group create \
+            --name skillswap-infrastructure \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --template-file azure-deploy/bicep/infrastructure.bicep \
             --parameters environmentName=${{ env.ENVIRONMENT }} \
             --parameters postgresPassword="$POSTGRES_PASSWORD" \
             --parameters jwtSecret="$JWT_SECRET" \
-            -o json)
+            --output none
           
-          # Extract outputs from the full deployment result
-          echo "registry_name=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.containerRegistryName.value')" >> $GITHUB_OUTPUT
-          echo "registry_login_server=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.containerRegistryLoginServer.value')" >> $GITHUB_OUTPUT
-          echo "registry_username=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.containerRegistryUsername.value')" >> $GITHUB_OUTPUT
-          echo "registry_password=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.containerRegistryPassword.value')" >> $GITHUB_OUTPUT
-          echo "postgres_connection=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.postgresConnectionString.value')" >> $GITHUB_OUTPUT
-          echo "redis_connection=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.redisConnectionString.value')" >> $GITHUB_OUTPUT
-          echo "servicebus_connection=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.serviceBusConnectionString.value')" >> $GITHUB_OUTPUT
-          echo "container_env_id=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.containerAppEnvironmentId.value')" >> $GITHUB_OUTPUT
-          echo "jwt_secret=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.jwtSecret.value')" >> $GITHUB_OUTPUT
+          # Get outputs separately after deployment
+          echo "registry_name=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryName.value -o tsv)" >> $GITHUB_OUTPUT
+          echo "registry_login_server=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryLoginServer.value -o tsv)" >> $GITHUB_OUTPUT
+          echo "registry_username=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryUsername.value -o tsv)" >> $GITHUB_OUTPUT
+          echo "registry_password=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerRegistryPassword.value -o tsv)" >> $GITHUB_OUTPUT
+          echo "postgres_connection=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.postgresConnectionString.value -o tsv)" >> $GITHUB_OUTPUT
+          echo "redis_connection=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.redisConnectionString.value -o tsv)" >> $GITHUB_OUTPUT
+          echo "servicebus_connection=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.serviceBusConnectionString.value -o tsv)" >> $GITHUB_OUTPUT
+          echo "container_env_id=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.containerAppEnvironmentId.value -o tsv)" >> $GITHUB_OUTPUT
+          echo "jwt_secret=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name skillswap-infrastructure --query properties.outputs.jwtSecret.value -o tsv)" >> $GITHUB_OUTPUT
 
   # Phase 2: Build and Push Docker Images
   build-images:
