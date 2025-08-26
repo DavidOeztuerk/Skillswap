@@ -15,9 +15,9 @@ var serviceName = "gateway";
 
 // Use environment-specific Ocelot config
 var environment = builder.Environment.EnvironmentName;
-var ocelotConfigFile = environment == "Production" || environment == "Staging" 
-    ? "ocelot.azure.json" 
-    : "ocelot.json";
+var ocelotConfigFile = environment == "Production" || environment == "Staging"
+    ? "ocelot.staging.json" // Use staging config for Azure
+    : "ocelot.json"; // Use local config for development
 
 builder.Configuration
     .AddJsonFile(ocelotConfigFile, optional: false, reloadOnChange: true)
