@@ -17,5 +17,14 @@ RUN dotnet publish -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
+
+# Install envsubst for environment variable substitution
+RUN apt-get update && apt-get install -y gettext-base && rm -rf /var/lib/apt/lists/*
+
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Gateway.dll"]
+COPY services/Gateway/docker-entrypoint.sh /app/
+COPY services/Gateway/ocelot.azure.json /app/
+
+RUN chmod +x /app/docker-entrypoint.sh
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
