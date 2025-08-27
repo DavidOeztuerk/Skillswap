@@ -279,6 +279,11 @@ using (var scope = app.Services.CreateScope())
     // Execute migrations with retry strategy
     await strategy.ExecuteAsync(async () =>
     {
+        // EnsureCreated erstellt die Datenbank falls sie nicht existiert
+        // aber verwendet KEINE Migrations. Für Production besser Datenbank manuell erstellen.
+        // await db.Database.EnsureCreatedAsync();
+        
+        // MigrateAsync erstellt auch die Datenbank und wendet Migrations an
         await db.Database.MigrateAsync();
     });
 
