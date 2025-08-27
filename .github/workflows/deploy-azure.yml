@@ -56,12 +56,12 @@ jobs:
           # Generate secure passwords if not provided
           POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
           if [ -z "$POSTGRES_PASSWORD" ]; then
-            POSTGRES_PASSWORD=$(openssl rand -base64 32)
+            POSTGRES_PASSWORD="SkillSwap2024SecurePassword!"
           fi
           
           JWT_SECRET="${{ secrets.JWT_SECRET }}"
           if [ -z "$JWT_SECRET" ]; then
-            JWT_SECRET=$(openssl rand -base64 32)
+            JWT_SECRET="your-super-secure-jwt-secret-key-that-is-at-least-32-characters"
           fi
           
           # Deploy infrastructure
@@ -209,7 +209,7 @@ jobs:
           # Build connection strings
           POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
           if [ -z "$POSTGRES_PASSWORD" ]; then
-            POSTGRES_PASSWORD=$(openssl rand -base64 32)
+            POSTGRES_PASSWORD="SkillSwap2024SecurePassword!"
           fi
           POSTGRES_CONNECTION="Host=skillswap-staging-postgres.postgres.database.azure.com;Database=skillswap_users;Username=skillswapadmin;Password=${POSTGRES_PASSWORD}"
           
@@ -227,7 +227,13 @@ jobs:
           # Get JWT Secret
           JWT_SECRET="${{ secrets.JWT_SECRET }}"
           if [ -z "$JWT_SECRET" ]; then
-            JWT_SECRET=$(openssl rand -base64 32)
+            JWT_SECRET="your-super-secure-jwt-secret-key-that-is-at-least-32-characters"
+          fi
+          
+          # Get Superadmin Password
+          SUPERADMIN_PASSWORD="${{ secrets.SUPERADMIN_PASSWORD }}"
+          if [ -z "$SUPERADMIN_PASSWORD" ]; then
+            SUPERADMIN_PASSWORD="Admin123!@#"
           fi
           
           echo "🚀 Deploying Container Apps..."
@@ -244,6 +250,7 @@ jobs:
             --parameters redisConnectionString="$REDIS_CONNECTION" \
             --parameters serviceBusConnectionString="$SERVICEBUS_CONNECTION" \
             --parameters jwtSecret="$JWT_SECRET" \
+            --parameters superadminPassword="$SUPERADMIN_PASSWORD" \
             --parameters imageTag="${{ github.sha }}" \
             --output none
           
