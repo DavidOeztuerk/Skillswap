@@ -3,7 +3,6 @@ name: Deploy to Azure
 on:
   push:
     branches: 
-      - develop    # → Dev Environment
       - staging    # → Staging Environment
       - main       # → Production Environment
   pull_request:
@@ -13,16 +12,15 @@ on:
       environment:
         description: 'Environment to deploy'
         required: true
-        default: 'dev'
+        default: 'staging'
         type: choice
         options:
-          - dev
           - staging
           - production
 
 env:
   # Dynamic environment based on branch
-  ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || (github.ref == 'refs/heads/staging' && 'staging') || (github.ref == 'refs/heads/develop' && 'dev') || 'dev' }}
+  ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || (github.ref == 'refs/heads/staging' && 'staging') || 'staging' }}
   RESOURCE_GROUP: skillswap-rg  # Using existing resource group
   LOCATION: westeurope
 
