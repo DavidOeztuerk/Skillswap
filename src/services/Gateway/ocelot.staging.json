@@ -3,7 +3,7 @@
     {
       "DownstreamPathTemplate": "/users/auth/register",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "userservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/register",
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "RateLimitOptions": {
@@ -17,7 +17,7 @@
     {
       "DownstreamPathTemplate": "/users/auth/login",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "userservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/login",
       "UpstreamHttpMethod": ["POST"],
       "RateLimitOptions": {
@@ -31,21 +31,21 @@
     {
       "DownstreamPathTemplate": "/users/auth/refresh-token",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "userservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/refresh-token",
       "UpstreamHttpMethod": ["POST"]
     },
     {
       "DownstreamPathTemplate": "/users/auth/verify-email",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "userservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/verify-email",
       "UpstreamHttpMethod": ["POST"]
     },
     {
       "DownstreamPathTemplate": "/users/profile",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "userservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/profile",
       "UpstreamHttpMethod": ["GET", "PUT"],
       "AuthenticationOptions": {
@@ -55,7 +55,7 @@
     {
       "DownstreamPathTemplate": "/skills",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "skillservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills",
       "UpstreamHttpMethod": ["GET", "POST"],
       "AddQueriesToRequest": true
@@ -63,14 +63,14 @@
     {
       "DownstreamPathTemplate": "/skills/{skillId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "skillservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/{skillId}",
       "UpstreamHttpMethod": ["GET", "PUT", "DELETE"]
     },
     {
       "DownstreamPathTemplate": "/matches/find",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "matchmakingservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5003 }],
+      "DownstreamHostAndPorts": [{ "Host": "matchmakingservice", "Port": 5003 }],
       "UpstreamPathTemplate": "/api/matches/find",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -80,7 +80,7 @@
     {
       "DownstreamPathTemplate": "/appointments",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "appointmentservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5004 }],
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice", "Port": 5004 }],
       "UpstreamPathTemplate": "/api/appointments",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -90,7 +90,7 @@
     {
       "DownstreamPathTemplate": "/calls/create",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "videocallservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/create",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -100,7 +100,7 @@
     {
       "DownstreamPathTemplate": "/notifications/send",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "notificationservice.internal.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 5006 }],
+      "DownstreamHostAndPorts": [{ "Host": "notificationservice", "Port": 5006 }],
       "UpstreamPathTemplate": "/api/notifications/send",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
