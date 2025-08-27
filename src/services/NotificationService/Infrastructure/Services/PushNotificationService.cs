@@ -6,23 +6,37 @@ namespace NotificationService.Infrastructure.Services;
 public class PushNotificationService : IPushNotificationService
 {
     private readonly ILogger<PushNotificationService> _logger;
-    private readonly FirebaseMessaging _messaging;
+    private readonly FirebaseMessaging? _messaging;
 
     public PushNotificationService(ILogger<PushNotificationService> logger)
     {
         _logger = logger;
 
-        // Initialize Firebase Admin SDK
-        if (FirebaseApp.DefaultInstance == null)
+        try
         {
-            FirebaseApp.Create();
+            // Initialize Firebase Admin SDK
+            if (FirebaseApp.DefaultInstance == null)
+            {
+                FirebaseApp.Create();
+            }
+            _messaging = FirebaseMessaging.DefaultInstance;
+            _logger.LogInformation("Firebase initialized successfully");
         }
-
-        _messaging = FirebaseMessaging.DefaultInstance;
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Firebase initialization failed. Push notifications will be disabled");
+            _messaging = null;
+        }
     }
 
     public async Task<bool> SendPushNotificationAsync(string deviceToken, string title, string body, Dictionary<string, string>? data = null)
     {
+        if (_messaging == null)
+        {
+            _logger.LogDebug("Push notification skipped - Firebase not configured");
+            return false;
+        }
+
         try
         {
             var message = new Message()

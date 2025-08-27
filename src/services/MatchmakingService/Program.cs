@@ -27,7 +27,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient();
 
 var serviceName = "MatchmakingService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") 
+    ?? builder.Configuration["RabbitMQ:Host"] 
+    ?? "localhost";
 
 // JWT Configuration
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
@@ -191,7 +193,16 @@ using (var scope = app.Services.CreateScope())
     var strategy = db.Database.CreateExecutionStrategy();
     await strategy.ExecuteAsync(async () =>
     {
-        await db.Database.MigrateAsync();           // ← statt EnsureCreated
+        try 
+        {
+            await db.Database.MigrateAsync();
+        }
+        catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P07") // Table already exists
+        {
+            app.Logger.LogWarning("Tables already exist, skipping migration. This happens when EnsureCreated was used before.");
+            // Optionally ensure migrations table exists for future migrations
+            await db.Database.EnsureCreatedAsync();
+        }
         // optional: Seeding
         // await MatchmakingSeedData.SeedAsync(db);
     });

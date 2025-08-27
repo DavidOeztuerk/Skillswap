@@ -27,7 +27,9 @@ using Microsoft.AspNetCore.Mvc;
 var builder = WebApplication.CreateBuilder(args);
 
 var serviceName = "AppointmentService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") 
+    ?? builder.Configuration["RabbitMQ:Host"] 
+    ?? "localhost";
 
 // JWT Configuration
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")

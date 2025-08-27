@@ -24,22 +24,24 @@ builder.Configuration
     .AddEnvironmentVariables();
 
 // JWT-Einstellungen aus ENV oder Configuration
-var secret = builder.Configuration["Jwt:Secret"] 
-    ?? Environment.GetEnvironmentVariable("JWT_SECRET") 
-    ?? Environment.GetEnvironmentVariable("Jwt__Secret") 
-    ?? "";
-var issuer = builder.Configuration["Jwt:Issuer"] 
-    ?? Environment.GetEnvironmentVariable("JWT_ISSUER") 
+var secret = Environment.GetEnvironmentVariable("JWT_SECRET") 
+    ?? builder.Configuration["JwtSettings:Secret"]
+    ?? throw new InvalidOperationException("JWT Secret not configured");
+var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") 
+    ?? builder.Configuration["JwtSettings:Issuer"]
     ?? "Skillswap";
-var audience = builder.Configuration["Jwt:Audience"] 
-    ?? Environment.GetEnvironmentVariable("JWT_AUDIENCE") 
+var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") 
+    ?? builder.Configuration["JwtSettings:Audience"]
     ?? "Skillswap";
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowOrigins", policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        policy.WithOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
     });
 });
 
@@ -67,12 +69,13 @@ builder.Services.AddOcelot(builder.Configuration);
 
 var app = builder.Build();
 
-app.UseAuthentication();
-app.UseAuthorization();
-
+// CORS muss als erstes kommen für Preflight requests!
 app.UseCors("AllowOrigins");
 
 app.UseSharedInfrastructure();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 await app.UseOcelot();
 
