@@ -33,6 +33,10 @@ param serviceBusConnectionString string
 @description('JWT Secret')
 param jwtSecret string
 
+@secure()
+@description('Superadmin Password')
+param superadminPassword string = 'Admin123!@#'
+
 @description('Image Tag')
 param imageTag string = 'latest'
 
@@ -72,6 +76,10 @@ resource gatewayApp 'Microsoft.App/containerApps@2023-05-01' = {
         {
           name: 'jwt-secret'
           value: jwtSecret
+        }
+        {
+          name: 'superadmin-password'
+          value: superadminPassword
         }
       ]
     }
@@ -148,6 +156,10 @@ resource userServiceApp 'Microsoft.App/containerApps@2023-05-01' = {
           name: 'jwt-secret'
           value: jwtSecret
         }
+        {
+          name: 'superadmin-password'
+          value: superadminPassword
+        }
       ]
     }
     template: {
@@ -179,6 +191,10 @@ resource userServiceApp 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'Jwt__Secret'
               secretRef: 'jwt-secret'
+            }
+            {
+              name: 'SUPERADMIN_PASSWORD'
+              secretRef: 'superadmin-password'
             }
           ]
           resources: {

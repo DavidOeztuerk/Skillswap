@@ -477,12 +477,132 @@ az containerapp update \
 6. ⏳ Custom Domain hinzufügen
 
 ### Später (Production):
-1. ⏸️ SSL-Zertifikate konfigurieren
-2. ⏸️ Backup-Strategie implementieren
-3. ⏸️ Disaster Recovery Plan
-4. ⏸️ Multi-Region Deployment
-5. ⏸️ Azure Front Door für Global CDN
-6. ⏸️ Advanced Security (WAF, DDoS Protection)
+1. ⏸️ Separate Resource Groups für Umgebungen erstellen
+2. ⏸️ SSL-Zertifikate konfigurieren
+3. ⏸️ Backup-Strategie implementieren
+4. ⏸️ Disaster Recovery Plan
+5. ⏸️ Multi-Region Deployment
+6. ⏸️ Azure Front Door für Global CDN
+7. ⏸️ Advanced Security (WAF, DDoS Protection)
+
+---
+
+## 🌍 Multi-Environment Strategy (Production-Ready Setup)
+
+### **Aktuelle Situation (MVP/Staging)**
+- Eine Resource Group: `skillswap-rg` 
+- Wird für Staging-Umgebung genutzt
+- Alle Services mit `-staging` Suffix benannt
+- Funktioniert für MVP und Entwicklung
+
+### **Ziel-Architektur für Production**
+
+#### Resource Group Struktur:
+```
+Azure Subscription
+├── skillswap-dev-rg          # Development Environment
+│   ├── Dev Container Apps
+│   ├── Dev PostgreSQL
+│   └── Dev Redis/Service Bus
+├── skillswap-staging-rg      # Staging Environment
+│   ├── Staging Container Apps
+│   ├── Staging PostgreSQL
+│   └── Staging Redis/Service Bus
+└── skillswap-production-rg   # Production Environment
+    ├── Prod Container Apps
+    ├── Prod PostgreSQL (mit Backup)
+    └── Prod Redis/Service Bus (HA)
+```
+
+#### Vorteile der Trennung:
+- ✅ **Isolation**: Keine gegenseitige Beeinflussung
+- ✅ **Sicherheit**: Unterschiedliche Zugriffsrechte pro Umgebung
+- ✅ **Kosten-Tracking**: Klare Kostenzuordnung pro Umgebung
+- ✅ **Compliance**: Production kann spezielle Requirements erfüllen
+- ✅ **Disaster Recovery**: Staging als Fallback für Production
+
+### **Migration zu Multi-Environment (TODO für Production)**
+
+#### 1. Resource Groups erstellen:
+```bash
+# Neue Resource Groups erstellen
+az group create --name skillswap-dev-rg --location westeurope
+az group create --name skillswap-staging-rg --location westeurope  
+az group create --name skillswap-production-rg --location westeurope
+
+# Aktuelle skillswap-rg später umbenennen oder migrieren
+```
+
+#### 2. Service Principal Berechtigungen erweitern:
+```bash
+# Service Principal ID
+SERVICE_PRINCIPAL_ID="af5c2ebe-4e6b-4327-98df-7b1f7b922547"
+
+# Contributor-Rechte für jede Resource Group
+az role assignment create \
+  --assignee $SERVICE_PRINCIPAL_ID \
+  --role Contributor \
+  --scope /subscriptions/b3116698-7aef-4ec6-939b-84b3f6789bfa/resourceGroups/skillswap-dev-rg
+
+az role assignment create \
+  --assignee $SERVICE_PRINCIPAL_ID \
+  --role Contributor \
+  --scope /subscriptions/b3116698-7aef-4ec6-939b-84b3f6789bfa/resourceGroups/skillswap-staging-rg
+
+az role assignment create \
+  --assignee $SERVICE_PRINCIPAL_ID \
+  --role Contributor \
+  --scope /subscriptions/b3116698-7aef-4ec6-939b-84b3f6789bfa/resourceGroups/skillswap-production-rg
+```
+
+#### 3. GitHub Actions Workflow anpassen:
+```yaml
+env:
+  # Dynamic environment based on branch
+  ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || (github.ref == 'refs/heads/staging' && 'staging') || (github.ref == 'refs/heads/develop' && 'dev') || 'dev' }}
+  
+  # Dynamic resource group based on environment
+  RESOURCE_GROUP: skillswap-${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || (github.ref == 'refs/heads/staging' && 'staging') || (github.ref == 'refs/heads/develop' && 'dev') || 'dev' }}-rg
+```
+
+#### 4. Secrets pro Umgebung:
+```bash
+# GitHub Repository Secrets strukturieren:
+AZURE_CREDENTIALS          # Service Principal (gleich für alle)
+POSTGRES_PASSWORD_DEV       # Dev DB Password
+POSTGRES_PASSWORD_STAGING   # Staging DB Password  
+POSTGRES_PASSWORD_PROD      # Production DB Password
+JWT_SECRET_DEV             # Dev JWT Secret
+JWT_SECRET_STAGING         # Staging JWT Secret
+JWT_SECRET_PROD            # Production JWT Secret
+```
+
+#### 5. Bicep Templates erweitern:
+```bicep
+// Parameters für unterschiedliche SKUs
+@allowed(['dev', 'staging', 'production'])
+param environment string
+
+// Conditional SKUs basierend auf Environment
+var containerAppSku = environment == 'production' ? 'P1V2' : 'B1'
+var postgresSku = environment == 'production' ? 'Standard_D2ds_v4' : 'Standard_B1ms'
+var redisSku = environment == 'production' ? 'Standard' : 'Basic'
+```
+
+### **Kosten-Implikationen**
+
+| Umgebung | Monatliche Kosten (geschätzt) | Bemerkungen |
+|----------|------------------------------|-------------|
+| Dev | $10-20 | Scale to Zero, minimale Resources |
+| Staging | $30-50 | Wie aktuell, immer verfügbar |
+| Production | $150-300 | HA, Backup, bessere Performance |
+
+### **Migrations-Timeline**
+
+1. **Phase 1 (Aktuell)**: MVP in `skillswap-rg`
+2. **Phase 2 (Bei Bedarf)**: Dev-Umgebung hinzufügen
+3. **Phase 3 (Vor Go-Live)**: Production-Setup mit separaten RGs
+4. **Phase 4 (Nach Go-Live)**: Alte RG cleanup
 
 ---
 
