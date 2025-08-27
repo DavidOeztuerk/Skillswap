@@ -31,7 +31,9 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 
 var serviceName = "NotificationService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") 
+    ?? builder.Configuration["RabbitMQ:Host"] 
+    ?? "localhost";
 
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]

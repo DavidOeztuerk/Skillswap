@@ -26,7 +26,9 @@ using CQRS.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 var serviceName = "SkillService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") 
+    ?? builder.Configuration["RabbitMQ:Host"] 
+    ?? "localhost";
 
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
