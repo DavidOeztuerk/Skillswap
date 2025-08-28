@@ -21,6 +21,7 @@ public class GetNotificationHistoryQueryHandler(
         try
         {
             var query = _context.Notifications
+                .AsNoTracking() // Performance: Read-only query
                 .Where(n => n.UserId == request.UserId && !n.IsDeleted);
 
             // Apply filters

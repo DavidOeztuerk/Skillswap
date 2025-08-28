@@ -24,6 +24,7 @@ public class GetAppointmentDetailsQueryHandler(
             Logger.LogInformation("Retrieving appointment details for ID: {AppointmentId}", request.AppointmentId);
 
             var appointment = await _dbContext.Appointments
+                .AsNoTracking() // Performance: Read-only query
                 .FirstOrDefaultAsync(a => a.Id == request.AppointmentId, cancellationToken);
 
             if (appointment == null)

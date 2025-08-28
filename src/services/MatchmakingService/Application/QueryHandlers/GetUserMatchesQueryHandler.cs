@@ -24,6 +24,7 @@ public class GetUserMatchesQueryHandler(
         {
             // Filter matches for the specific user (either as offering or requesting user)
             var query = _dbContext.Matches
+                .AsNoTracking() // Performance: Read-only query
                 .Where(m => !m.IsDeleted && (m.OfferingUserId == request.UserId || m.RequestingUserId == request.UserId));
 
             if (!string.IsNullOrEmpty(request.Status))
