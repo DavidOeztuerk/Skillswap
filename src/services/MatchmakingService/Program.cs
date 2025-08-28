@@ -1,9 +1,13 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using RabbitMQ.Client;
 using CQRS.Extensions;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Application.Queries;
@@ -14,24 +18,32 @@ using System.Security.Claims;
 using MediatR;
 using MatchmakingService;
 using MatchmakingService.Consumer;
-// using Infrastructure.Services;
 using EventSourcing;
-// using MatchmakingService.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 using Infrastructure.Extensions;
 using Infrastructure.Security;
 using CQRS.Models;
 
+// ============================================================================
+// PERFORMANCE OPTIMIZATION - Thread Pool Configuration
+// ============================================================================
+ThreadPool.SetMinThreads(200, 200);
+ThreadPool.SetMaxThreads(1000, 1000);
+AppContext.SetSwitch("System.Runtime.ServerGarbageCollection", true);
+
+Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] MatchmakingService starting...");
+Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Thread Pool - Min Threads: 200, Max Threads: 1000");
+
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddHttpClient();
-
+// ============================================================================
+// CONFIGURATION SETUP
+// ============================================================================
 var serviceName = "MatchmakingService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") 
-    ?? builder.Configuration["RabbitMQ:Host"] 
-    ?? "localhost";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST")
+    ?? builder.Configuration["RabbitMQ:Host"]
+    ?? "rabbitmq";
 
-// JWT Configuration
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
     ?? throw new InvalidOperationException("JWT Secret not configured");
@@ -44,65 +56,88 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
     ?? builder.Configuration["JwtSettings:Audience"]
     ?? throw new InvalidOperationException("JWT Audience not configured");
 
-// Add shared infrastructure
+var expireString = Environment.GetEnvironmentVariable("JWT_EXPIRE")
+    ?? builder.Configuration["JwtSettings:ExpireMinutes"]
+    ?? "60";
+
+var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
+
+// ============================================================================
+// SHARED INFRASTRUCTURE & HTTP CLIENTS
+// ============================================================================
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
-// Add HttpContextAccessor for forwarding authentication
 builder.Services.AddHttpContextAccessor();
 
-// builder.Services.AddMemoryCache();
-
-// Register HTTP Clients for service communication
 var gatewayUrl = Environment.GetEnvironmentVariable("GATEWAY_URL") ?? "http://gateway:8080";
 
 builder.Services.AddHttpClient<MatchmakingService.Infrastructure.HttpClients.IUserServiceClient,
     MatchmakingService.Infrastructure.HttpClients.UserServiceClient>(client =>
 {
     client.BaseAddress = new Uri($"{gatewayUrl}/api/");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
 });
 
 builder.Services.AddHttpClient<MatchmakingService.Infrastructure.HttpClients.ISkillServiceClient,
     MatchmakingService.Infrastructure.HttpClients.SkillServiceClient>(client =>
 {
     client.BaseAddress = new Uri($"{gatewayUrl}/api/");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// Add database
+// ============================================================================
+// DATABASE SETUP
+// ============================================================================
 var connectionString =
     Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-// 2) Service-spezifischer Fallback (nur wenn wirklich nichts gesetzt ist)
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
-    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD")
+        ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
     connectionString =
         $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
 
 builder.Services.AddDbContext<MatchmakingDbContext>(opts =>
     opts.UseNpgsql(connectionString, npg =>
-        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)) // EF-Retry einschalten
+        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null))
     .EnableDetailedErrors(builder.Environment.IsDevelopment())
     .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 
-// Event sourcing setup
+// Event Sourcing
 builder.Services.AddEventSourcing("MatchmakingEventStore");
 
-// Add CQRS
-var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+// ============================================================================
+// CQRS & CACHING
+// ============================================================================
+var redisConnectionString =
+    Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
-    ?? builder.Configuration["Redis:ConnectionString"] ?? throw new InvalidOperationException("Redis connection string not configured");
+    ?? builder.Configuration["Redis:ConnectionString"]
+    ?? "redis:6379";
 
-builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecutingAssembly());
+builder.Services
+    .AddCaching(redisConnectionString)
+    .AddCQRS(Assembly.GetExecutingAssembly());
 
 // Add MatchmakingService-specific dependencies
 builder.Services.AddMatchmakingServiceDependencies();
 
-// Add MassTransit
+// ============================================================================
+// MESSAGE BUS (MassTransit + RabbitMQ)
+// ============================================================================
+var rabbitMqConnection =
+    Environment.GetEnvironmentVariable("RABBITMQ_CONNECTION")
+    ?? builder.Configuration.GetConnectionString("RabbitMQ")
+    ?? $"amqp://guest:guest@{rabbitHost}:5672";
+
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<SkillCreatedConsumer>();
@@ -119,15 +154,28 @@ builder.Services.AddMassTransit(x =>
         {
             e.ConfigureConsumer<SkillCreatedConsumer>(context);
         });
+
+        cfg.ConfigureEndpoints(context);
+    });
+
+    x.ConfigureHealthCheckOptions(opt =>
+    {
+        opt.Name = "masstransit";
+        opt.Tags.Add("ready");
+        opt.MinimalFailureStatus = HealthStatus.Unhealthy;
     });
 });
 
-// Add JWT authentication
+// ============================================================================
+// AUTHN / AUTHZ
+// ============================================================================
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
         opts.RequireHttpsMetadata = false;
         opts.SaveToken = true;
+        opts.MapInboundClaims = false;
+
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -139,39 +187,58 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
             ClockSkew = TimeSpan.Zero
         };
+
+        opts.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                if (context.Exception is SecurityTokenExpiredException)
+                    context.Response.Headers.Append("Token-Expired", "true");
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                var result = JsonSerializer.Serialize(new { error = "unauthorized", message = "You are not authorized to access this resource" });
+                return context.Response.WriteAsync(result);
+            }
+        };
     });
 
-// Add authorization
 builder.Services.AddSkillSwapAuthorization();
 
-// Add API documentation
+// ============================================================================
+// SWAGGER
+// ============================================================================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "SkillSwap MatchmakingService API",
         Version = "v1",
         Description = "Intelligent skill matching service with CQRS architecture"
     });
 
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme",
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
         Name = "Authorization",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
 
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            new OpenApiSecurityScheme
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                Reference = new OpenApiReference
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
             },
@@ -180,34 +247,41 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// ============================================================================
+// HEALTH CHECKS (BEFORE app.Build())
+// ============================================================================
+var rabbitConn = new Lazy<Task<IConnection>>(() =>
+{
+    var factory = new ConnectionFactory { Uri = new Uri(rabbitMqConnection) };
+    return factory.CreateConnectionAsync();
+});
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
+    .AddDbContextCheck<MatchmakingDbContext>(name: "postgresql", tags: new[] { "ready", "db" })
+    .AddRedis(redisConnectionString, name: "redis", tags: new[] { "ready", "cache" }, timeout: TimeSpan.FromSeconds(2))
+    .AddRabbitMQ(sp => rabbitConn.Value, name: "rabbitmq", tags: new[] { "ready", "messaging" }, timeout: TimeSpan.FromSeconds(2));
+
+// ============================================================================
+// BUILD APPLICATION
+// ============================================================================
 var app = builder.Build();
 
-// Use shared infrastructure middleware
-app.UseSharedInfrastructure();
-
-// nach app.Build(), vor app.Run():
+// DB Migration + Seeding
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MatchmakingDbContext>();
-    // EF-eigene ExecutionStrategy, damit auch die Verbindungserstellung retried wird
     var strategy = db.Database.CreateExecutionStrategy();
-    await strategy.ExecuteAsync(async () =>
-    {
-        try 
-        {
-            await db.Database.MigrateAsync();
-        }
-        catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P07") // Table already exists
-        {
-            app.Logger.LogWarning("Tables already exist, skipping migration. This happens when EnsureCreated was used before.");
-            // Optionally ensure migrations table exists for future migrations
-            await db.Database.EnsureCreatedAsync();
-        }
-        // optional: Seeding
-        // await MatchmakingSeedData.SeedAsync(db);
-    });
+
+    await strategy.ExecuteAsync(async () => { await db.Database.MigrateAsync(); });
+
     app.Logger.LogInformation("Database migration completed successfully");
 }
+
+// ============================================================================
+// MIDDLEWARE PIPELINE
+// ============================================================================
+app.UseSharedInfrastructure();
 
 if (app.Environment.IsDevelopment())
 {
@@ -222,6 +296,62 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ============================================================================
+// HEALTH ENDPOINTS
+// ============================================================================
+static Task WriteHealthResponse(HttpContext ctx, HealthReport report)
+{
+    ctx.Response.ContentType = "application/json";
+    var payload = new
+    {
+        status = report.Status.ToString(),
+        timestamp = DateTime.UtcNow,
+        durationMs = report.TotalDuration.TotalMilliseconds,
+        checks = report.Entries.Select(e => new
+        {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            durationMs = e.Value.Duration.TotalMilliseconds,
+            tags = e.Value.Tags,
+            error = e.Value.Exception?.Message
+        })
+    };
+    return ctx.Response.WriteAsync(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+}
+
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("live"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status200OK,
+        [HealthStatus.Unhealthy] = StatusCodes.Status200OK
+    }
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+    }
+});
+
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => true,
+    ResponseWriter = WriteHealthResponse
+});
+
+// ============================================================================
+// ENDPOINT MAPPINGS
+// ============================================================================
 #region Match Requests Endpoints
 RouteGroupBuilder matchRequests = app.MapGroup("/matches/requests").RequireAuthorization();
 
@@ -286,7 +416,6 @@ matchRequests.MapPost("/{requestId}/counter", CreateCounterOffer)
     .WithOpenApi()
     .Produces<ApiResponse<CreateMatchRequestResponse>>(StatusCodes.Status201Created)
     .ProducesProblem(StatusCodes.Status404NotFound);
-
 
 // ============================================================================
 // HANDLER METHODS - MATCH REQUESTS
@@ -600,42 +729,14 @@ static async Task<IResult> GetMatchStatistics(IMediator mediator, ClaimsPrincipa
 }
 #endregion
 
-#region Health Checks
-app.MapGet("/health/ready", async (MatchmakingDbContext dbContext) =>
-{
-    try
-    {
-        await dbContext.Database.CanConnectAsync();
-        return Results.Ok(new { status = "ready", timestamp = DateTime.UtcNow });
-    }
-    catch (Exception ex)
-    {
-        return Results.Problem($"Health check failed: {ex.Message}");
-    }
-})
-.WithName("HealthReady")
-.WithTags("Health");
+// ============================================================================
+// START APPLICATION
+// ============================================================================
+app.Logger.LogInformation("Starting {ServiceName}", serviceName);
+app.Logger.LogInformation("JWT Configuration: Issuer={Issuer}, Audience={Audience}, Expiry={Expiry}min",
+    issuer, audience, expireMinutes);
 
-app.MapGet("/health/live", () => Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }))
-.WithName("HealthLive")
-.WithTags("Health");
-#endregion
-
-// Database initialization - ✅ ERWEITERT für neue Entity
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<MatchmakingDbContext>();
-    try
-    {
-        await context.Database.EnsureDeletedAsync();
-        await context.Database.EnsureCreatedAsync();
-        app.Logger.LogInformation("MatchmakingService database initialized successfully");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "Error occurred while initializing MatchmakingService database");
-    }
-}
-
-app.Logger.LogInformation("Starting {ServiceName} with intelligent skill matching capabilities", serviceName);
 app.Run();
+
+// Make the implicit Program class public for testing
+public partial class Program { }

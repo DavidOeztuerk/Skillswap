@@ -22,6 +22,24 @@ using SkillService;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using CQRS.Models;
+using RabbitMQ.Client;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using System.IdentityModel.Tokens.Jwt;
+using System.Text.Json;
+using Microsoft.OpenApi.Models;
+using SkillService.Infrastructure.Data;
+
+// ============================================================================
+// PERFORMANCE OPTIMIZATION - Thread Pool Configuration
+// ============================================================================
+ThreadPool.SetMinThreads(200, 200);  // Start with 200 worker and I/O threads
+ThreadPool.SetMaxThreads(1000, 1000); // Maximum 1000 threads
+
+// Optional: Configure Garbage Collection for better performance
+AppContext.SetSwitch("System.Runtime.ServerGarbageCollection", true);
+
+Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] SkillService starting...");
+Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Thread Pool - Min Threads: 200, Max Threads: 1000");
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +60,12 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
     ?? builder.Configuration["JwtSettings:Audience"]
     ?? throw new InvalidOperationException("JWT Audience not configured");
 
+var expireString = Environment.GetEnvironmentVariable("JWT_EXPIRE")
+    ?? builder.Configuration["JwtSettings:ExpireMinutes"]
+    ?? "60";
+
+var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
+
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
 var connectionString =
@@ -52,32 +76,45 @@ var connectionString =
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
-    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD")
+        ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
     connectionString =
         $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
 
 builder.Services.AddDbContext<SkillDbContext>(opts =>
     opts.UseNpgsql(connectionString, npg =>
-        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)) // EF-Retry einschalten
+        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)) 
     .EnableDetailedErrors(builder.Environment.IsDevelopment())
     .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 
 builder.Services.AddEventSourcing("SkillServiceEventStore");
 
-var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+
+var redisConnectionString =
+    Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
-    ?? builder.Configuration["Redis:ConnectionString"] ?? throw new InvalidOperationException("Redis connection string not configured");
+    ?? builder.Configuration["Redis:ConnectionString"]
+    ?? "redis:6379";
 
-builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecutingAssembly());
+builder.Services
+    .AddCaching(redisConnectionString)
+    .AddCQRS(Assembly.GetExecutingAssembly());
 
-// Add SkillService-specific dependencies
-builder.Services.AddSkillServiceDependencies();
+// ============================================================================
+// HEALTH CHECKS SETUP
+// ============================================================================
+var rabbitMqConnection =
+    Environment.GetEnvironmentVariable("RABBITMQ_CONNECTION")
+    ?? builder.Configuration.GetConnectionString("RabbitMQ")
+    ?? $"amqp://guest:guest@{rabbitHost}:5672";
 
 builder.Services.AddMassTransit(x =>
 {
+    x.AddConsumers(Assembly.GetExecutingAssembly());
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(rabbitHost, "/", h =>
@@ -85,6 +122,14 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
+        cfg.ConfigureEndpoints(context);
+    });
+
+    x.ConfigureHealthCheckOptions(opt =>
+    {
+        opt.Name = "masstransit";
+        opt.Tags.Add("ready");
+        opt.MinimalFailureStatus = HealthStatus.Unhealthy;
     });
 });
 
@@ -93,7 +138,7 @@ builder.Services.Configure<JwtSettings>(options =>
     options.Secret = secret;
     options.Issuer = issuer;
     options.Audience = audience;
-    options.ExpireMinutes = 60;
+    options.ExpireMinutes = expireMinutes;
 });
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -101,6 +146,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         opts.RequireHttpsMetadata = false;
         opts.SaveToken = true;
+        opts.MapInboundClaims = false;
+
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -110,25 +157,41 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = issuer,
             ValidAudience = audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+            RoleClaimType = ClaimTypes.Role
+        };
+
+        opts.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                if (context.Exception is SecurityTokenExpiredException)
+                    context.Response.Headers.Append("Token-Expired", "true");
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                var result = JsonSerializer.Serialize(new { error = "unauthorized", message = "You are not authorized to access this resource" });
+                return context.Response.WriteAsync(result);
+            }
         };
     });
 
+builder.Services.AddSkillServiceDependencies();
 builder.Services.AddSkillSwapAuthorization();
-
-// Add permission-based authorization
 builder.Services.AddPermissionAuthorization();
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPermissionPolicies();
-});
+builder.Services.AddAuthorization(options => options.AddPermissionPolicies());
 
 builder.Services.Configure<RateLimitingOptions>(builder.Configuration.GetSection("RateLimiting"));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "SkillSwap SkillService API",
         Version = "v1",
@@ -136,23 +199,23 @@ builder.Services.AddSwaggerGen(c =>
     });
 
     // Add JWT authentication to Swagger
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
         Name = "Authorization",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
 
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            new OpenApiSecurityScheme
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                Reference = new OpenApiReference
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
             },
@@ -161,7 +224,52 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+
+var rabbitConn = new Lazy<Task<IConnection>>(() =>
+{
+    var factory = new ConnectionFactory { Uri = new Uri(rabbitMqConnection) };
+    return factory.CreateConnectionAsync();
+});
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
+    .AddDbContextCheck<SkillDbContext>(name: "postgresql", tags: new[] { "ready", "db" })
+    .AddRedis(redisConnectionString, name: "redis", tags: new[] { "ready", "cache" }, timeout: TimeSpan.FromSeconds(2))
+    .AddRabbitMQ(sp => rabbitConn.Value, name: "rabbitmq", tags: new[] { "ready", "messaging" }, timeout: TimeSpan.FromSeconds(2));
+
 var app = builder.Build();
+
+// nach app.Build(), vor app.Run():
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<SkillDbContext>();
+    var strategy = db.Database.CreateExecutionStrategy();
+
+    await strategy.ExecuteAsync(async () =>
+    {
+        await db.Database.MigrateAsync();
+    });
+
+    await strategy.ExecuteAsync(async () =>
+    {
+        using var tx = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            await SkillSeedData.SeedAsync(db);
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    });
+
+    app.Logger.LogInformation("Database migration and skill data seeding completed successfully");
+}
+
+app.UseSharedInfrastructure();
+app.UseMiddleware<RateLimitingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -173,42 +281,9 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseSharedInfrastructure();
-app.UseMiddleware<RateLimitingMiddleware>();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
-// Permission middleware (after authentication/authorization)
 app.UsePermissionMiddleware();
-
-// nach app.Build(), vor app.Run():
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<SkillDbContext>();
-    var strategy = db.Database.CreateExecutionStrategy();
-    
-    // Execute migrations with retry strategy
-    await strategy.ExecuteAsync(async () =>
-    {
-        await db.Database.MigrateAsync();
-    });
-    
-    // Execute seeding with retry strategy
-    await strategy.ExecuteAsync(async () =>
-    {
-        await SkillService.Infrastructure.Data.SkillSeedData.SeedAsync(db);
-        
-        // Optional: Seed sample skills for development/testing
-        if (app.Environment.IsDevelopment())
-        {
-            // You can pass a test user ID here if needed
-            // await SkillService.Infrastructure.Data.SkillSeedData.SeedSampleSkillsAsync(db, "test-user-id");
-        }
-    });
-    
-    app.Logger.LogInformation("Database migration and skill data seeding completed successfully");
-}
 
 #region Skills Endpoints
 RouteGroupBuilder skills = app.MapGroup("/skills");
@@ -568,9 +643,7 @@ rec.MapGet("/", GetSkillRecommendations)
     .WithOpenApi()
     .Produces<GetSkillRecommendationsResponse>(StatusCodes.Status200OK);
 
-skills.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = _ => true });
-
-skills.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Name == "self" });
+// Removed duplicate health check mappings - they are already defined below
 
 static async Task<IResult> GetSkillStatistics(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetSkillStatisticsRequest request)
 {
@@ -603,6 +676,61 @@ static async Task<IResult> GetSkillRecommendations(IMediator mediator, ClaimsPri
 }
 
 #endregion
+
+// ============================================================================
+// HEALTH CHECK ENDPOINTS
+// ============================================================================
+
+static Task WriteHealthResponse(HttpContext ctx, HealthReport report)
+{
+    ctx.Response.ContentType = "application/json";
+    var payload = new
+    {
+        status = report.Status.ToString(),
+        timestamp = DateTime.UtcNow,
+        durationMs = report.TotalDuration.TotalMilliseconds,
+        checks = report.Entries.Select(e => new
+        {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            durationMs = e.Value.Duration.TotalMilliseconds,
+            tags = e.Value.Tags,
+            error = e.Value.Exception?.Message
+        })
+    };
+    return ctx.Response.WriteAsync(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+}
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("live"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status200OK,
+        [HealthStatus.Unhealthy] = StatusCodes.Status200OK
+    }
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+    }
+});
+
+app.MapHealthChecks("/health", new
+HealthCheckOptions
+{
+    Predicate = _ => true,
+    ResponseWriter = WriteHealthResponse
+});
 
 app.Logger.LogInformation("Starting {ServiceName} with comprehensive skill management capabilities", serviceName);
 app.Run();
