@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using CQRS.Extensions;
 using EventSourcing;
 using Infrastructure.Authorization;
@@ -13,22 +14,33 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using RabbitMQ.Client;
 using UserService.Api.Extensions;
 using UserService.Infrastructure.Data;
 using UserService.Infrastructure.Extensions;
+
+// ============================================================================
+// PERFORMANCE OPTIMIZATION - Thread Pool Configuration
+// ============================================================================
+ThreadPool.SetMinThreads(200, 200);
+ThreadPool.SetMaxThreads(1000, 1000);
+AppContext.SetSwitch("System.Runtime.ServerGarbageCollection", true);
+
+Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] UserService starting...");
+Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Thread Pool - Min Threads: 200, Max Threads: 1000");
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================================================
 // CONFIGURATION SETUP
 // ============================================================================
-
 var serviceName = "UserService";
 var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST")
     ?? builder.Configuration["RabbitMQ:Host"]
-    ?? "localhost";
+    ?? "rabbitmq";
 
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
@@ -49,22 +61,16 @@ var expireString = Environment.GetEnvironmentVariable("JWT_EXPIRE")
 var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
 
 // ============================================================================
-// SHARED INFRASTRUCTURE SERVICES
+// SHARED INFRASTRUCTURE & HTTP CLIENTS
 // ============================================================================
-
-// Add shared infrastructure (logging, middleware, etc.)
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
-
-// Add UserService Infrastructure (Repository registration)
 builder.Services.AddInfrastructure();
 
-// Configure HttpClient for SkillService communication
 builder.Services.AddHttpClient("SkillService", client =>
 {
     var skillServiceUrl = Environment.GetEnvironmentVariable("SKILLSERVICE_URL")
         ?? builder.Configuration["Services:SkillService:Url"]
         ?? "http://skillservice:5002";
-
     client.BaseAddress = new Uri(skillServiceUrl);
     client.DefaultRequestHeaders.Add("Accept", "application/json");
     client.Timeout = TimeSpan.FromSeconds(30);
@@ -73,55 +79,56 @@ builder.Services.AddHttpClient("SkillService", client =>
 // ============================================================================
 // DATABASE SETUP
 // ============================================================================
-
-// Configure Entity Framework with PostgreSQL
 var connectionString =
     Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-// 2) Service-spezifischer Fallback (nur wenn wirklich nichts gesetzt ist)
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
-    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD")
+        ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
     connectionString =
         $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
 
 builder.Services.AddDbContext<UserDbContext>(opts =>
-    opts.UseNpgsql(connectionString, npg => npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null))
-        .EnableDetailedErrors(builder.Environment.IsDevelopment())
-        .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+    opts.UseNpgsql(connectionString, npg =>
+        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null))
+    .EnableDetailedErrors(builder.Environment.IsDevelopment())
+    .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 
-// Event sourcing setup
+// Event Sourcing
 builder.Services.AddEventSourcing("UserServiceEventStore");
 
 // ============================================================================
-// CQRS & MEDIATR SETUP
+// CQRS & CACHING
 // ============================================================================
-
-// Add CQRS with caching support
-var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+var redisConnectionString =
+    Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
-    ?? builder.Configuration["Redis:ConnectionString"] ?? throw new InvalidOperationException("Redis connection string not configured");
+    ?? builder.Configuration["Redis:ConnectionString"]
+    ?? "redis:6379";
 
 var applicationAssembly = Assembly.Load("UserService.Application");
-
-System.Console.WriteLine(applicationAssembly);
+Console.WriteLine(applicationAssembly);
 
 builder.Services
     .AddCaching(redisConnectionString)
     .AddCQRS(applicationAssembly);
 
 // ============================================================================
-// MESSAGE BUS SETUP (MassTransit + RabbitMQ)
+// MESSAGE BUS (MassTransit + RabbitMQ)
 // ============================================================================
+var rabbitMqConnection =
+    Environment.GetEnvironmentVariable("RABBITMQ_CONNECTION")
+    ?? builder.Configuration.GetConnectionString("RabbitMQ")
+    ?? $"amqp://guest:guest@{rabbitHost}:5672";
 
 builder.Services.AddMassTransit(x =>
 {
-    // Register all consumers from current assembly
     x.AddConsumers(Assembly.GetExecutingAssembly());
 
     x.UsingRabbitMq((context, cfg) =>
@@ -131,17 +138,20 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
-
-        // Configure endpoints for domain event handlers
         cfg.ConfigureEndpoints(context);
+    });
+
+    x.ConfigureHealthCheckOptions(opt =>
+    {
+        opt.Name = "masstransit";
+        opt.Tags.Add("ready");
+        opt.MinimalFailureStatus = HealthStatus.Unhealthy;
     });
 });
 
 // ============================================================================
-// JWT & AUTHENTICATION SETUP
+// AUTHN / AUTHZ
 // ============================================================================
-
-// Configure JWT settings
 builder.Services.Configure<JwtSettings>(options =>
 {
     options.Secret = secret;
@@ -150,16 +160,12 @@ builder.Services.Configure<JwtSettings>(options =>
     options.ExpireMinutes = expireMinutes;
 });
 
-
-// Configure JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
         opts.RequireHttpsMetadata = false;
         opts.SaveToken = true;
-
-        // Behalte Original-Claimnamen (kein automatisches Remapping):
-        opts.MapInboundClaims = false; // .NET 7/8; für .NET 6: JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+        opts.MapInboundClaims = false;
 
         opts.TokenValidationParameters = new TokenValidationParameters
         {
@@ -171,21 +177,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
             ClockSkew = TimeSpan.Zero,
-
-            // WICHTIG: passend zu deinem Token:
-            NameClaimType = JwtRegisteredClaimNames.Sub, // wenn deine UserId in "sub" steckt
-            RoleClaimType = ClaimTypes.Role               // du emitierst ClaimTypes.Role (und zusätzlich "role")
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+            RoleClaimType = ClaimTypes.Role
         };
 
-        // Add custom token validation events
         opts.Events = new JwtBearerEvents
         {
             OnAuthenticationFailed = context =>
             {
-                if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
-                {
+                if (context.Exception is SecurityTokenExpiredException)
                     context.Response.Headers.Append("Token-Expired", "true");
-                }
                 return Task.CompletedTask;
             },
             OnChallenge = context =>
@@ -193,41 +194,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 context.HandleResponse();
                 context.Response.StatusCode = 401;
                 context.Response.ContentType = "application/json";
-                var result = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    error = "unauthorized",
-                    message = "You are not authorized to access this resource"
-                });
+                var result = JsonSerializer.Serialize(new { error = "unauthorized", message = "You are not authorized to access this resource" });
                 return context.Response.WriteAsync(result);
             }
         };
     });
 
-// ============================================================================
-// AUTHORIZATION SETUP
-// ============================================================================
-
-// Add SkillSwap authorization policies
 builder.Services.AddSkillSwapAuthorization();
-
-// Add permission-based authorization
 builder.Services.AddPermissionAuthorization();
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPermissionPolicies();
-});
+builder.Services.AddAuthorization(options => options.AddPermissionPolicies());
 
 // ============================================================================
-// RATE LIMITING SETUP
+// RATE LIMITING
 // ============================================================================
-
-// Configure rate limiting
 builder.Services.Configure<RateLimitingOptions>(builder.Configuration.GetSection("RateLimiting"));
 
 // ============================================================================
-// API DOCUMENTATION
+// SWAGGER
 // ============================================================================
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -238,7 +222,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Advanced UserService with CQRS, Event Sourcing, and comprehensive security"
     });
 
-    // Add JWT authentication to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
@@ -265,40 +248,44 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // ============================================================================
+// HEALTH CHECKS (v9 RabbitMQ signature)  << BEFORE app.Build()
+// ============================================================================
+var rabbitConn = new Lazy<Task<IConnection>>(() =>
+{
+    var factory = new ConnectionFactory { Uri = new Uri(rabbitMqConnection) };
+    return factory.CreateConnectionAsync();
+});
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
+    .AddDbContextCheck<UserDbContext>(name: "postgresql", tags: new[] { "ready", "db" })
+    .AddRedis(redisConnectionString, name: "redis", tags: new[] { "ready", "cache" }, timeout: TimeSpan.FromSeconds(2))
+    .AddRabbitMQ(sp => rabbitConn.Value, name: "rabbitmq", tags: new[] { "ready", "messaging" }, timeout: TimeSpan.FromSeconds(2));
+
+// ============================================================================
 // BUILD APPLICATION
 // ============================================================================
-
 var app = builder.Build();
 
-// nach app.Build(), vor app.Run():
+// DB Migration + Seeding
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<UserDbContext>();
     var strategy = db.Database.CreateExecutionStrategy();
 
-    // Execute migrations with retry strategy
-    await strategy.ExecuteAsync(async () =>
-    {
-        // EnsureCreated erstellt die Datenbank falls sie nicht existiert
-        // aber verwendet KEINE Migrations. Für Production besser Datenbank manuell erstellen.
-        // await db.Database.EnsureCreatedAsync();
-        
-        // MigrateAsync erstellt auch die Datenbank und wendet Migrations an
-        await db.Database.MigrateAsync();
-    });
+    await strategy.ExecuteAsync(async () => { await db.Database.MigrateAsync(); });
 
-    // Execute seeding with retry strategy AND transaction
     await strategy.ExecuteAsync(async () =>
     {
-        using var transaction = await db.Database.BeginTransactionAsync();
+        using var tx = await db.Database.BeginTransactionAsync();
         try
         {
             await RbacSeedData.SeedAsync(db);
-            await transaction.CommitAsync();
+            await tx.CommitAsync();
         }
         catch
         {
-            await transaction.RollbackAsync();
+            await tx.RollbackAsync();
             throw;
         }
     });
@@ -309,57 +296,79 @@ using (var scope = app.Services.CreateScope())
 // ============================================================================
 // MIDDLEWARE PIPELINE
 // ============================================================================
-
-// Use shared infrastructure middleware (security headers, logging, etc.)
 app.UseSharedInfrastructure();
-
-// Rate limiting (after shared infrastructure)
 app.UseMiddleware<RateLimitingMiddleware>();
 
-// Development-specific middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "UserService API v1");
-        c.RoutePrefix = string.Empty; // Serve Swagger UI at root
+        c.RoutePrefix = string.Empty;
     });
 }
 
-// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
-
-// Permission middleware (after authentication/authorization)
 app.UsePermissionMiddleware();
 
 // ============================================================================
-// DATABASE INITIALIZATION
+// HEALTH ENDPOINTS
 // ============================================================================
-
-// Initialize database with seed data
-using (var scope = app.Services.CreateScope())
+static Task WriteHealthResponse(HttpContext ctx, HealthReport report)
 {
-    var context = scope.ServiceProvider.GetRequiredService<UserDbContext>();
-
-    try
+    ctx.Response.ContentType = "application/json";
+    var payload = new
     {
-        // Ensure database is created (for InMemory provider)
-        // await context.Database.EnsureCreatedAsync();
-
-        app.Logger.LogInformation("Database initialized successfully");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "Error occurred while initializing database");
-    }
+        status = report.Status.ToString(),
+        timestamp = DateTime.UtcNow,
+        durationMs = report.TotalDuration.TotalMilliseconds,
+        checks = report.Entries.Select(e => new
+        {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            durationMs = e.Value.Duration.TotalMilliseconds,
+            tags = e.Value.Tags,
+            error = e.Value.Exception?.Message
+        })
+    };
+    return ctx.Response.WriteAsync(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
 }
+
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("live"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status200OK,
+        [HealthStatus.Unhealthy] = StatusCodes.Status200OK
+    }
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+    }
+});
+
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => true,
+    ResponseWriter = WriteHealthResponse
+});
 
 // ============================================================================
 // CONTROLLER ENDPOINTS
 // ============================================================================
-
 app.MapAuthController();
 app.MapUserVerificationController();
 app.MapUserProfileController();
@@ -370,37 +379,16 @@ app.MapTwoFactorController();
 app.MapPermissionController();
 app.MapAdminEndpoints();
 
-// ============================================================================
-// HEALTH CHECKS AND UTILITY ENDPOINTS
-// ============================================================================
-
-var health = app.MapGroup("/health");
-health.MapGet("/ready", () => Results.Ok(new { Status = "Ready", Timestamp = DateTime.UtcNow }))
-    .WithName("HealthReady")
-    .WithSummary("Readiness check")
-    .WithTags("Health");
-
-health.MapGet("/live", () => Results.Ok(new { Status = "Alive", Timestamp = DateTime.UtcNow }))
-    .WithName("HealthLive")
-    .WithSummary("Liveness check")
-    .WithTags("Health");
-
 var events = app.MapGroup("/events");
 events.MapPost("/replay", ([FromBody] EventReplayService request) =>
-    Results.Ok(new { Message = "Event replay initiated", }))
+    Results.Ok(new { Message = "Event replay initiated" }))
     .WithName("ReplayEvents")
     .WithSummary("Replay domain events")
     .WithTags("Events");
 
 // ============================================================================
-// DATABASE MIGRATION & SEEDING
-// ============================================================================
-// Already handled above after app.Build() - removed duplicate
-
-// ============================================================================
 // START APPLICATION
 // ============================================================================
-
 app.Logger.LogInformation("Starting {ServiceName}", serviceName);
 app.Logger.LogInformation("JWT Configuration: Issuer={Issuer}, Audience={Audience}, Expiry={Expiry}min",
     issuer, audience, expireMinutes);

@@ -64,6 +64,12 @@ public class PushNotificationService : IPushNotificationService
 
     public async Task<bool> SendTopicNotificationAsync(string topic, string title, string body, Dictionary<string, string>? data = null)
     {
+        if (_messaging == null)
+        {
+            _logger.LogDebug("Topic notification skipped - Firebase not configured");
+            return false;
+        }
+
         try
         {
             var message = new Message()
