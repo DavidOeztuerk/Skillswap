@@ -21,6 +21,7 @@ public class SearchSkillsQueryHandler(
         try
         {
             var query = _dbContext.Skills
+                .AsNoTracking() // Performance: Read-only query
                 .Include(s => s.SkillCategory)
                 .Include(s => s.ProficiencyLevel)
                 .Where(s => s.IsActive && !s.IsDeleted && s.UserId != request.UserId);
@@ -105,14 +106,14 @@ public class SearchSkillsQueryHandler(
                         s.SkillCategory.Name,
                         s.SkillCategory.IconName,
                         s.SkillCategory.Color,
-                        s.SkillCategory.Skills.Count
+                        0 // Count entfernt - N+1 Query Problem vermieden
                      ),
                     new ProficiencyLevelResponse(
                         s.ProficiencyLevel.Id,
                         s.ProficiencyLevel.Level,
                         s.ProficiencyLevel.Rank,
                         s.ProficiencyLevel.Color,
-                        s.ProficiencyLevel.Skills.Count
+                        0 // Count entfernt - N+1 Query Problem vermieden
                      ),
                     s.TagsJson ?? string.Empty,
                     s.AverageRating,

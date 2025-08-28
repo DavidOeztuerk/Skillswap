@@ -20,6 +20,7 @@ public class GetEmailTemplatesQueryHandler(
         try
         {
             var query = _context.EmailTemplates
+                .AsNoTracking() // Performance: Read-only query
                 .Where(t => !t.IsDeleted);
 
             // Apply filters

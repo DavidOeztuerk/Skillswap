@@ -24,6 +24,7 @@ public class GetNotificationStatisticsQueryHandler(
             var endDate = request.EndDate ?? DateTime.UtcNow;
 
             var query = _context.Notifications
+                .AsNoTracking() // Performance: Read-only query
                 .Where(n => n.CreatedAt >= startDate && n.CreatedAt <= endDate && !n.IsDeleted);
 
             // Apply filters
