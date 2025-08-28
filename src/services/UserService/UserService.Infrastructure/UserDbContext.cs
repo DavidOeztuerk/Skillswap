@@ -87,6 +87,14 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasIndex(x => x.EmailVerified);
         e.HasIndex(x => x.TwoFactorEnabled);
         e.HasIndex(x => x.IsDeleted);
+        
+        // Composite indexes for common queries
+        e.HasIndex(x => new { x.IsDeleted, x.AccountStatus, x.CreatedAt })
+            .HasDatabaseName("IX_Users_Search");
+        e.HasIndex(x => new { x.EmailVerified, x.AccountStatus })
+            .HasDatabaseName("IX_Users_VerificationStatus");
+        e.HasIndex(x => new { x.FirstName, x.LastName })
+            .HasDatabaseName("IX_Users_Name");
 
         // ValueConverter + ValueComparer für List<string>
         e.Property(x => x.FavoriteSkillIds)

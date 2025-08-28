@@ -20,6 +20,7 @@ public class GetNotificationPreferencesQueryHandler(
         try
         {
             var preferences = await _context.NotificationPreferences
+                .AsNoTracking() // Performance: Read-only query
                 .FirstOrDefaultAsync(p => p.UserId == request.UserId && !p.IsDeleted, cancellationToken);
 
             if (preferences == null)
