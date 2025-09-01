@@ -31,7 +31,7 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 
 var serviceName = "NotificationService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
 
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
@@ -175,7 +175,7 @@ builder.Services.Configure<SmsConfiguration>(options =>
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
-builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+builder.Services.AddSingleton<IPushNotificationService, PushNotificationService>();
 builder.Services.AddScoped<ITemplateEngine, HandlebarsTemplateEngine>();
 builder.Services.AddScoped<INotificationOrchestrator, NotificationOrchestrator>();
 builder.Services.AddScoped<ISmartNotificationRouter, SmartNotificationRouter>();
