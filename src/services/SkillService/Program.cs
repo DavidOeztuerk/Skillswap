@@ -44,9 +44,7 @@ Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Thread Pool - Min Th
 var builder = WebApplication.CreateBuilder(args);
 
 var serviceName = "SkillService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") 
-    ?? builder.Configuration["RabbitMQ:Host"] 
-    ?? "localhost";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
 
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
@@ -243,20 +241,21 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SkillDbContext>();
-    var strategy = db.Database.CreateExecutionStrategy();
 
-    await strategy.ExecuteAsync(async () =>
-    {
-        await db.Database.MigrateAsync();
-    });
+   var strategy = db.Database.CreateExecutionStrategy();
+
+    await strategy.ExecuteAsync(async () => { await db.Database.MigrateAsync(); });
+
+
+       await strategy.ExecuteAsync(async () => { await db.Database.MigrateAsync(); });
 
     await strategy.ExecuteAsync(async () =>
     {
         using var tx = await db.Database.BeginTransactionAsync();
-
         try
         {
             await SkillSeedData.SeedAsync(db);
+            await tx.CommitAsync();
         }
         catch
         {
@@ -265,7 +264,7 @@ using (var scope = app.Services.CreateScope())
         }
     });
 
-    app.Logger.LogInformation("Database migration and skill data seeding completed successfully");
+    app.Logger.LogInformation("Database migration and seeding completed successfully");
 }
 
 app.UseSharedInfrastructure();

@@ -210,7 +210,7 @@ builder.Services.Configure<PushNotificationPreferences>(builder.Configuration.Ge
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
-builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+builder.Services.AddSingleton<IPushNotificationService, PushNotificationService>();
 builder.Services.AddScoped<ITemplateEngine, HandlebarsTemplateEngine>();
 builder.Services.AddScoped<INotificationOrchestrator, NotificationOrchestrator>();
 builder.Services.AddScoped<ISmartNotificationRouter, SmartNotificationRouter>();

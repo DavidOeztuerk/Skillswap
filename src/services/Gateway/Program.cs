@@ -1,12 +1,17 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
-using System.Text.Json;
+using Infrastructure.Authorization;
+using Infrastructure.Extensions;
+using Infrastructure.Models;
+using Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
-using Infrastructure.Extensions;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
+using System.Text.Json;
 
 // ============================================================================
 // PERFORMANCE OPTIMIZATION - Thread Pool Configuration
@@ -39,6 +44,11 @@ builder.Configuration
     .AddJsonFile(ocelotConfigFile, optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 
+// JWT-Einstellungen aus Configuration (mit Fallback auf ENV)
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST")
+    ?? builder.Configuration["RabbitMQ:Host"]
+    ?? "localhost";
+
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
     ?? throw new InvalidOperationException("JWT Secret not configured");
@@ -57,34 +67,51 @@ var expireString = Environment.GetEnvironmentVariable("JWT_EXPIRE")
 
 var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
 
-// ============================================================================
-// SHARED INFRASTRUCTURE & CORS
-// ============================================================================
-builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
+// builder.Services.AddCors(options =>
+// {
+//     options.AddPolicy("AllowOrigins", policy =>
+//     {
+//         policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+//     });
+// });
 
-builder.Services.AddCors(options =>
+builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
+builder.Services.AddSkillSwapAuthorization();
+
+// Add permission-based authorization
+builder.Services.AddPermissionAuthorization();
+builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AllowOrigins", policy =>
-    {
-        policy.WithOrigins("http://localhost:3000", "http://127.0.0.1:3000")
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
-    });
+    options.AddPermissionPolicies();
 });
 
 // ============================================================================
-// AUTHN / AUTHZ
+// RATE LIMITING SETUP
 // ============================================================================
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.RequireHttpsMetadata = false;
-        options.SaveToken = true;
-        options.MapInboundClaims = false;
 
-        options.TokenValidationParameters = new TokenValidationParameters
+// Configure rate limiting
+builder.Services.Configure<RateLimitingOptions>(builder.Configuration.GetSection("RateLimiting"));
+
+builder.Services.Configure<JwtSettings>(options =>
+{
+    options.Secret = secret;
+    options.Issuer = issuer;
+    options.Audience = audience;
+    options.ExpireMinutes = expireMinutes;
+});
+
+
+// Configure JWT authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opts =>
+    {
+        opts.RequireHttpsMetadata = false;
+        opts.SaveToken = true;
+
+        // Behalte Original-Claimnamen (kein automatisches Remapping):
+        opts.MapInboundClaims = false; // .NET 7/8; für .NET 6: JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
+        opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
@@ -93,15 +120,22 @@ builder.Services
             ValidIssuer = issuer,
             ValidAudience = audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+
+            // WICHTIG: passend zu deinem Token:
+            NameClaimType = JwtRegisteredClaimNames.Sub, // wenn deine UserId in "sub" steckt
+            RoleClaimType = ClaimTypes.Role               // du emitierst ClaimTypes.Role (und zusätzlich "role")
         };
 
-        options.Events = new JwtBearerEvents
+        // Add custom token validation events
+        opts.Events = new JwtBearerEvents
         {
             OnAuthenticationFailed = context =>
             {
-                if (context.Exception is SecurityTokenExpiredException)
+                if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+                {
                     context.Response.Headers.Append("Token-Expired", "true");
+                }
                 return Task.CompletedTask;
             },
             OnChallenge = context =>
@@ -109,7 +143,11 @@ builder.Services
                 context.HandleResponse();
                 context.Response.StatusCode = 401;
                 context.Response.ContentType = "application/json";
-                var result = JsonSerializer.Serialize(new { error = "unauthorized", message = "You are not authorized to access this resource" });
+                var result = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    error = "unauthorized",
+                    message = "You are not authorized to access this resource"
+                });
                 return context.Response.WriteAsync(result);
             }
         };
@@ -131,11 +169,8 @@ builder.Services.AddHealthChecks()
 // ============================================================================
 var app = builder.Build();
 
-// ============================================================================
-// MIDDLEWARE PIPELINE
-// ============================================================================
-// CORS must come first for preflight requests
-app.UseCors("AllowOrigins");
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseSharedInfrastructure();
 
