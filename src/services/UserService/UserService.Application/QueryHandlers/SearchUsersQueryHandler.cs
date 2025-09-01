@@ -58,7 +58,7 @@ public class SearchUsersQueryHandler(
             }
 
             // Get total count
-            var totalCount = query.Count();
+            var totalCount = await query.CountAsync(cancellationToken);
 
             // Apply paging and sorting
             var users = await query

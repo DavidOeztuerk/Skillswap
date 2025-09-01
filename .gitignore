@@ -577,6 +577,24 @@ uploads/
 temp-files/
 cache/
 firebase-key.json
+firebase.json
+.firebaserc
+
+# Local development scripts
+start-all.sh
+start-dev.sh
+stop-all.sh
+SERVICE_SCRIPTS.md
+
+# Client environment files (specific patterns)
+src/client/.env*
+!src/client/.env.example
+
+# Error and debug files
+github.error.txt
+*.error.txt
+debug.txt
+*.debug.txt
 
 # ============================================================================
 # SECURITY - NEVER COMMIT THESE!

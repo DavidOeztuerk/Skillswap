@@ -19,7 +19,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/login",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "RateLimitOptions": {
         "ClientWhitelist": [],
         "EnableRateLimiting": true,
@@ -47,7 +47,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/resend-verification",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "RateLimitOptions": {
         "ClientWhitelist": [],
         "EnableRateLimiting": true,
@@ -61,7 +61,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/verify-phone/request",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -79,7 +79,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/verify-phone/confirm",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -90,7 +90,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/request-password-reset",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "RateLimitOptions": {
         "ClientWhitelist": [],
         "EnableRateLimiting": true,
@@ -111,7 +111,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/change-password",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -152,7 +152,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/phone/send-verification",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -169,7 +169,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/phone/verify",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -230,7 +230,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/favorites",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -271,7 +271,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/check",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -291,7 +291,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/admin/grant",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -301,7 +301,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/admin/revoke",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -311,7 +311,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/admin/assign-role",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -321,7 +321,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/admin/remove-role",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -358,7 +358,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -378,7 +378,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/{skillId}/rate",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -388,7 +388,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/{skillId}/endorse",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -414,7 +414,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/categories",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -450,7 +450,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/proficiency-levels",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -489,7 +489,7 @@
         { "Host": "localhost", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/find",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -515,7 +515,7 @@
         { "Host": "localhost", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/{matchId}/accept",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -528,7 +528,7 @@
         { "Host": "localhost", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/{matchId}/reject",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -566,7 +566,7 @@
         { "Host": "localhost", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/requests",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -607,7 +607,7 @@
         { "Host": "localhost", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/requests/{requestId}/accept",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -620,7 +620,7 @@
         { "Host": "localhost", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/requests/{requestId}/reject",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -646,7 +646,7 @@
         { "Host": "localhost", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -659,7 +659,7 @@
         { "Host": "localhost", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments/{appointmentId}/accept",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -672,7 +672,7 @@
         { "Host": "localhost", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments/{appointmentId}/cancel",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -685,7 +685,7 @@
         { "Host": "localhost", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments/{appointmentId}/reschedule",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -723,7 +723,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/create",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -734,7 +734,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/join",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -745,7 +745,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/leave",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -756,7 +756,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/start",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -767,7 +767,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/end",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -811,7 +811,7 @@
         { "Host": "localhost", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/send",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -824,7 +824,7 @@
         { "Host": "localhost", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/bulk",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -837,7 +837,7 @@
         { "Host": "localhost", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/{notificationId}/cancel",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -850,7 +850,7 @@
         { "Host": "localhost", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/{notificationId}/retry",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -863,7 +863,7 @@
         { "Host": "localhost", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/{notificationId}/read",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -941,7 +941,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/export",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
@@ -1089,7 +1089,7 @@
         { "Host": "localhost", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/read-all",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -1100,7 +1100,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/generate",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
     },
     {
@@ -1108,7 +1108,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/verify",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
     },
     {
@@ -1116,7 +1116,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/disable",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
     },
     {
@@ -1160,7 +1160,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/users/{userId}/block",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1173,7 +1173,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/users/{userId}/unblock",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1220,7 +1220,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/permission/grant",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1233,7 +1233,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/permission/revoke",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1260,7 +1260,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/roles",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1273,7 +1273,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/permission/assign-role",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1286,7 +1286,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/permission/remove-role",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1300,7 +1300,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/admin/skills/categories",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1326,7 +1326,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/admin/skills/proficiency-levels",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1352,7 +1352,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/admin/skills/{skillId}/verify",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1380,7 +1380,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5004 }],
       "UpstreamPathTemplate": "/api/admin/appointments/{appointmentId}/cancel",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1450,7 +1450,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/moderate/reports/{reportId}/handle",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },
@@ -1477,7 +1477,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/moderate/reviews/{reviewId}",
-      "UpstreamHttpMethod": ["POST"],
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       },

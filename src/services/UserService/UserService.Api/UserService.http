@@ -27,3 +27,26 @@ Content-Type: application/json
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYWE5OGE5OC0zNWZlLTQxYzgtODZhYi02MzQ3MDY4ZjEwYTIiLCJnaXZlbl9uYW1lIjoiRGF2aWQiLCJmYW1pbHlfbmFtZSI6IkFyYW1pcyIsImp0aSI6ImNlNGQ2MGRmLTYxYWMtNGI0NS1hZWVmLTQ1MGZmYzk5ZjFmMSIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6InVzZXJAZW1haWwuZGUiLCJleHAiOjE3NDEwNDE2ODEsImlzcyI6IlNraWxsc3dhcElzc3VlciIsImF1ZCI6IlNraWxsc3dhcEF1ZGllbmNlIn0.UfvpTZTie6f0vayKduYhw9fFzFonTfXSVZxN6a1qBIg
 
 ###
+
+
+
+@base = http://localhost:5001
+@json = application/json
+
+### Live
+GET {{base}}/health/live
+
+### Ready
+GET {{base}}/health/ready
+
+### OpenAPI
+GET {{base}}/swagger/v1/swagger.json
+
+### (Optional) Login – anpassen auf deinen Auth-Endpoint/Payload
+POST {{base}}/users/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "admin@skillswap.com",
+  "password": "Admin123!@#"
+}

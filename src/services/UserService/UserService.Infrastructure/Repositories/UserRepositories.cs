@@ -15,8 +15,10 @@ public class UserRepository(UserDbContext userDbContext) : IUserRepository
         try
         {
             return _dbContext.Users
+                .AsNoTracking() // Performance: Read-only query
                 .Include(u => u.UserRoles.Where(ur => ur.RevokedAt == null && !ur.IsDeleted))
                     .ThenInclude(ur => ur.Role)
+                .AsSplitQuery() // Performance: Vermeidet Cartesian Product bei Multiple Includes
                 .AsQueryable();
         }
         catch (Exception ex)

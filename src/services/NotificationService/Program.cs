@@ -1,16 +1,20 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using RabbitMQ.Client;
 using Infrastructure.Extensions;
 using Infrastructure.Security;
 using Infrastructure.Middleware;
+using Infrastructure.Models;
 using CQRS.Extensions;
 using NotificationService.Infrastructure.Services;
 using NotificationService.Application.Consumers;
-using Infrastructure.Models;
 using NotificationService.Application.Commands;
 using NotificationService.Infrastructure.BackgroundServices;
 using MediatR;
@@ -26,12 +30,26 @@ using NotificationService.Extensions;
 using NotificationService.Hubs;
 using CQRS.Models;
 using Contracts.Notification.Responses;
-using System.Text.Json;
+
+// ============================================================================
+// PERFORMANCE OPTIMIZATION - Thread Pool Configuration
+// ============================================================================
+ThreadPool.SetMinThreads(200, 200);
+ThreadPool.SetMaxThreads(1000, 1000);
+AppContext.SetSwitch("System.Runtime.ServerGarbageCollection", true);
+
+Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] NotificationService starting...");
+Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Thread Pool - Min Threads: 200, Max Threads: 1000");
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ============================================================================
+// CONFIGURATION SETUP
+// ============================================================================
 var serviceName = "NotificationService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST")
+    ?? builder.Configuration["RabbitMQ:Host"]
+    ?? "rabbitmq";
 
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
@@ -45,58 +63,71 @@ var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
     ?? builder.Configuration["JwtSettings:Audience"]
     ?? throw new InvalidOperationException("JWT Audience not configured");
 
-// ============================================================================
-// SHARED INFRASTRUCTURE SERVICES
-// ============================================================================
+var expireString = Environment.GetEnvironmentVariable("JWT_EXPIRE")
+    ?? builder.Configuration["JwtSettings:ExpireMinutes"]
+    ?? "60";
 
-// Add shared infrastructure (logging, middleware, etc.)
+var expireMinutes = int.TryParse(expireString, out var tmp) ? tmp : 60;
+
+// ============================================================================
+// SHARED INFRASTRUCTURE & HTTP CLIENTS
+// ============================================================================
 builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
+
+// Configure HttpClient for UserService
+builder.Services.AddHttpClient("UserService", client =>
+{
+    var userServiceUrl = Environment.GetEnvironmentVariable("USER_SERVICE_URL")
+        ?? builder.Configuration["Services:UserService:Url"]
+        ?? "http://gateway:8080/api/users";
+    client.BaseAddress = new Uri(userServiceUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 // ============================================================================
 // DATABASE SETUP
 // ============================================================================
-
-// Configure Entity Framework with InMemory for development
 var connectionString =
     Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-// 2) Service-spezifischer Fallback (nur wenn wirklich nichts gesetzt ist)
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
-    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
+    var pgPass = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD")
+        ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
     connectionString =
         $"Host=postgres_userservice;Database=userservice;Username={pgUser};Password={pgPass};Port=5432;Trust Server Certificate=true";
 }
 
 builder.Services.AddDbContext<NotificationDbContext>(opts =>
     opts.UseNpgsql(connectionString, npg =>
-        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)) // EF-Retry einschalten
+        npg.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null))
     .EnableDetailedErrors(builder.Environment.IsDevelopment())
     .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 
 // ============================================================================
-// CQRS & MEDIATR SETUP
+// CQRS & CACHING
 // ============================================================================
-
-// Add CQRS with caching support
-var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
+var redisConnectionString =
+    Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("Redis")
     ?? builder.Configuration["ConnectionStrings:Redis"]
-    ?? builder.Configuration["Redis:ConnectionString"] ?? throw new InvalidOperationException("Redis connection string not configured");
+    ?? builder.Configuration["Redis:ConnectionString"]
+    ?? "redis:6379";
 
-builder.Services.AddCaching(redisConnectionString).AddCQRS(Assembly.GetExecutingAssembly());
+builder.Services
+    .AddCaching(redisConnectionString)
+    .AddCQRS(Assembly.GetExecutingAssembly());
+
+// Add NotificationService-specific dependencies
+builder.Services.AddNotificationServiceDependencies();
 
 // ============================================================================
-// NOTIFICATION SERVICES
+// NOTIFICATION SERVICES SETUP
 // ============================================================================
-
-// Register notification services
-builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("Email"));
-builder.Services.Configure<SmsConfiguration>(builder.Configuration.GetSection("SMS"));
-builder.Services.Configure<PushNotificationPreferences>(builder.Configuration.GetSection("PushNotifications"));
 
 // Firebase initialization - make it optional for development
 var firebaseEnabled = bool.Parse(Environment.GetEnvironmentVariable("FIREBASE_ENABLED") 
@@ -173,6 +204,10 @@ builder.Services.Configure<SmsConfiguration>(options =>
         ?? "";
 });
 
+builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<SmsConfiguration>(builder.Configuration.GetSection("SMS"));
+builder.Services.Configure<PushNotificationPreferences>(builder.Configuration.GetSection("PushNotifications"));
+
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddSingleton<IPushNotificationService, PushNotificationService>();
@@ -180,29 +215,20 @@ builder.Services.AddScoped<ITemplateEngine, HandlebarsTemplateEngine>();
 builder.Services.AddScoped<INotificationOrchestrator, NotificationOrchestrator>();
 builder.Services.AddScoped<ISmartNotificationRouter, SmartNotificationRouter>();
 
-// Configure HttpClient for UserService
-builder.Services.AddHttpClient("UserService", client =>
-{
-    var userServiceUrl = Environment.GetEnvironmentVariable("USER_SERVICE_URL")
-        ?? builder.Configuration["Services:UserService:Url"]
-        ?? "http://gateway:8080/api/users";
-    client.BaseAddress = new Uri(userServiceUrl);
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-});
-
-// Add NotificationService-specific dependencies
-builder.Services.AddNotificationServiceDependencies();
-
 // ============================================================================
-// MESSAGE BUS SETUP (MassTransit + RabbitMQ)
+// MESSAGE BUS (MassTransit + RabbitMQ)
 // ============================================================================
+var rabbitMqConnection =
+    Environment.GetEnvironmentVariable("RABBITMQ_CONNECTION")
+    ?? builder.Configuration.GetConnectionString("RabbitMQ")
+    ?? $"amqp://guest:guest@{rabbitHost}:5672";
 
 builder.Services.AddMassTransit(x =>
 {
     // Register all consumers
     x.AddConsumer<UserRegisteredEventConsumer>();
     x.AddConsumer<EmailVerificationRequestedEventConsumer>();
-    x.AddConsumer<UserEmailVerificationRequestedEventConsumer>(); // New consumer for resend verification
+    x.AddConsumer<UserEmailVerificationRequestedEventConsumer>();
     x.AddConsumer<WelcomeEmailEventConsumer>();
     x.AddConsumer<PasswordResetEmailEventConsumer>();
     x.AddConsumer<PasswordChangedNotificationEventConsumer>();
@@ -214,12 +240,9 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<AppointmentCreatedEventConsumer>();
     x.AddConsumer<AppointmentAcceptedIntegrationEventConsumer>();
     x.AddConsumer<AppointmentRescheduledIntegrationEventConsumer>();
-
-    // Matchmaking Event Consumer
     x.AddConsumer<MatchRequestCreatedIntegrationEventConsumer>();
     x.AddConsumer<MatchAcceptedIntegrationEventConsumer>();
     x.AddConsumer<MatchRequestRejectedIntegrationEventConsumer>();
-
     x.AddConsumer<GenericEventLoggingConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
@@ -268,7 +291,6 @@ builder.Services.AddMassTransit(x =>
             e.ConfigureConsumer<AppointmentRescheduledIntegrationEventConsumer>(context);
         });
 
-        // Neue Endpoints für Matchmaking Events
         cfg.ReceiveEndpoint("notification-match-request-created", e =>
         {
             e.ConfigureConsumer<MatchRequestCreatedIntegrationEventConsumer>(context);
@@ -288,28 +310,36 @@ builder.Services.AddMassTransit(x =>
         {
             e.ConfigureConsumer<GenericEventLoggingConsumer>(context);
         });
+
+        cfg.ConfigureEndpoints(context);
+    });
+
+    x.ConfigureHealthCheckOptions(opt =>
+    {
+        opt.Name = "masstransit";
+        opt.Tags.Add("ready");
+        opt.MinimalFailureStatus = HealthStatus.Unhealthy;
     });
 });
 
 // ============================================================================
-// JWT & AUTHENTICATION SETUP
+// AUTHN / AUTHZ
 // ============================================================================
-
-// Configure JWT settings
 builder.Services.Configure<JwtSettings>(options =>
 {
     options.Secret = secret;
     options.Issuer = issuer;
     options.Audience = audience;
-    options.ExpireMinutes = 60;
+    options.ExpireMinutes = expireMinutes;
 });
 
-// Configure JWT authentication (for admin endpoints)
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
         opts.RequireHttpsMetadata = false;
         opts.SaveToken = true;
+        opts.MapInboundClaims = false;
+
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -321,20 +351,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
             ClockSkew = TimeSpan.Zero
         };
+
+        opts.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                if (context.Exception is SecurityTokenExpiredException)
+                    context.Response.Headers.Append("Token-Expired", "true");
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                var result = JsonSerializer.Serialize(new { error = "unauthorized", message = "You are not authorized to access this resource" });
+                return context.Response.WriteAsync(result);
+            }
+        };
     });
 
-// ============================================================================
-// AUTHORIZATION SETUP
-// ============================================================================
-
-// Add SkillSwap authorization policies
 builder.Services.AddSkillSwapAuthorization();
 
 // ============================================================================
 // SIGNALR CONFIGURATION
 // ============================================================================
-
-// Add SignalR for real-time notifications
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
@@ -345,7 +386,6 @@ builder.Services.AddSignalR(options =>
     options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
 });
 
-// Configure CORS for SignalR
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("SignalRCors", policy =>
@@ -362,16 +402,9 @@ builder.Services.AddCors(options =>
 });
 
 // ============================================================================
-// RATE LIMITING SETUP
+// RATE LIMITING & BACKGROUND SERVICES
 // ============================================================================
-
-// Configure rate limiting
 builder.Services.Configure<RateLimitingOptions>(builder.Configuration.GetSection("RateLimiting"));
-// builder.Services.AddMemoryCache();
-
-// ============================================================================
-// BACKGROUND SERVICES
-// ============================================================================
 
 // Add background service for processing notifications
 builder.Services.AddHostedService<NotificationProcessorService>();
@@ -380,37 +413,35 @@ builder.Services.AddHostedService<NotificationProcessorService>();
 builder.Services.AddHostedService<NotificationCleanupService>();
 
 // ============================================================================
-// API DOCUMENTATION
+// SWAGGER
 // ============================================================================
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "SkillSwap NotificationService API",
         Version = "v1",
         Description = "Comprehensive notification service with email, SMS, and push notifications"
     });
 
-    // Add JWT authentication to Swagger
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
         Name = "Authorization",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
 
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            new OpenApiSecurityScheme
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                Reference = new OpenApiReference
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
             },
@@ -420,25 +451,34 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // ============================================================================
+// HEALTH CHECKS (BEFORE app.Build())
+// ============================================================================
+var rabbitConn = new Lazy<Task<IConnection>>(() =>
+{
+    var factory = new ConnectionFactory { Uri = new Uri(rabbitMqConnection) };
+    return factory.CreateConnectionAsync();
+});
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
+    .AddDbContextCheck<NotificationDbContext>(name: "postgresql", tags: new[] { "ready", "db" })
+    .AddRedis(redisConnectionString, name: "redis", tags: new[] { "ready", "cache" }, timeout: TimeSpan.FromSeconds(2))
+    .AddRabbitMQ(sp => rabbitConn.Value, name: "rabbitmq", tags: new[] { "ready", "messaging" }, timeout: TimeSpan.FromSeconds(2));
+
+// ============================================================================
 // BUILD APPLICATION
 // ============================================================================
-
 var app = builder.Build();
 
-// nach app.Build(), vor app.Run():
+// DB Migration + Seeding
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<NotificationService.Infrastructure.Data.EmailTemplateSeeder>>();
     var strategy = db.Database.CreateExecutionStrategy();
 
-    // Execute migrations with retry strategy
-    await strategy.ExecuteAsync(async () =>
-    {
-        await db.Database.MigrateAsync();
-    });
+    await strategy.ExecuteAsync(async () => { await db.Database.MigrateAsync(); });
 
-    // Execute seeding with retry strategy
     await strategy.ExecuteAsync(async () =>
     {
         var seeder = new NotificationService.Infrastructure.Data.EmailTemplateSeeder(db, logger);
@@ -451,17 +491,10 @@ using (var scope = app.Services.CreateScope())
 // ============================================================================
 // MIDDLEWARE PIPELINE
 // ============================================================================
-
-// Use shared infrastructure middleware
 app.UseSharedInfrastructure();
-
-// Enable CORS for SignalR
 app.UseCors("SignalRCors");
-
-// Rate limiting
 app.UseMiddleware<RateLimitingMiddleware>();
 
-// Development-specific middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -472,15 +505,65 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 // ============================================================================
-// DATABASE INITIALIZATION
+// HEALTH ENDPOINTS
 // ============================================================================
+static Task WriteHealthResponse(HttpContext ctx, HealthReport report)
+{
+    ctx.Response.ContentType = "application/json";
+    var payload = new
+    {
+        status = report.Status.ToString(),
+        timestamp = DateTime.UtcNow,
+        durationMs = report.TotalDuration.TotalMilliseconds,
+        checks = report.Entries.Select(e => new
+        {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            durationMs = e.Value.Duration.TotalMilliseconds,
+            tags = e.Value.Tags,
+            error = e.Value.Exception?.Message
+        })
+    };
+    return ctx.Response.WriteAsync(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+}
 
-// Database initialization already handled above after app.Build()
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("live"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status200OK,
+        [HealthStatus.Unhealthy] = StatusCodes.Status200OK
+    }
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+    }
+});
+
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => true,
+    ResponseWriter = WriteHealthResponse
+});
+
+// ============================================================================
+// SIGNALR HUB & ENDPOINT MAPPINGS
+// ============================================================================
 
 // Map SignalR hub
 app.MapHub<NotificationHub>("/hubs/notifications");
@@ -681,48 +764,12 @@ analytics.MapGet("/statistics", async (IMediator mediator, ClaimsPrincipal claim
 .RequireAuthorization(Policies.RequireAdminRole)
 .Produces<NotificationStatisticsResponse>(200);
 
-// Grouped endpoints for health
-var health = app.MapGroup("/health").WithTags("Health");
-
-health.MapGet("/ready", async (NotificationDbContext dbContext, IEmailService emailService) =>
-{
-    try
-    {
-        // Check database connectivity
-        await dbContext.Database.CanConnectAsync();
-        // Could add more health checks here (SMTP, SMS, etc.)
-        return Results.Ok(new
-        {
-            status = "ready",
-            timestamp = DateTime.UtcNow,
-            services = new
-            {
-                database = "healthy",
-                email = "healthy",
-                messaging = "healthy"
-            }
-        });
-    }
-    catch (Exception ex)
-    {
-        return Results.Problem($"Health check failed: {ex.Message}");
-    }
-})
-    .WithName("HealthReady")
-    .WithSummary("Readiness check");
-
-health.MapGet("/live", () =>
-{
-    return Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow });
-})
-    .WithName("HealthLive")
-    .WithSummary("Liveness check");
-
 // ============================================================================
-// RUN APPLICATION
+// START APPLICATION
 // ============================================================================
-
-app.Logger.LogInformation("Starting {ServiceName} with comprehensive notification capabilities", serviceName);
+app.Logger.LogInformation("Starting {ServiceName}", serviceName);
+app.Logger.LogInformation("JWT Configuration: Issuer={Issuer}, Audience={Audience}, Expiry={Expiry}min",
+    issuer, audience, expireMinutes);
 
 app.Run();
 

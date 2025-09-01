@@ -23,6 +23,7 @@ public class GetUserAppointmentsQueryHandler(
 
             // Filter by user - appointments where user is either organizer or participant
             var query = _dbContext.Appointments
+                .AsNoTracking() // Performance: Read-only query
                 .Where(a => a.OrganizerUserId == request.UserId || a.ParticipantUserId == request.UserId)
                 .AsQueryable();
 
