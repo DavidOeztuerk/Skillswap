@@ -48,12 +48,18 @@ export const useNotifications = () => {
     await dispatch(fetchNotificationSettings());
   }, [dispatch]);
 
-  // Lade Benachrichtigungen beim ersten Rendern
+  // Lade Benachrichtigungen beim ersten Rendern nur wenn authentifiziert
+  const user = useAppSelector((state) => state.auth.user);
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  
   useEffect(() => {
-    // Direkt dispatch aufrufen um Function-Dependencies zu vermeiden
-    void dispatch(fetchNotifications());
-    void dispatch(fetchNotificationSettings());
-  }, [dispatch]); // Nur dispatch als Dependency
+    // Nur laden wenn User authentifiziert ist
+    if (isAuthenticated && user) {
+      // Direkt dispatch aufrufen um Function-Dependencies zu vermeiden
+      void dispatch(fetchNotifications());
+      void dispatch(fetchNotificationSettings());
+    }
+  }, [dispatch, isAuthenticated, user]); // Dependencies erweitert
 
   /**
    * Markiert eine Benachrichtigung als gelesen

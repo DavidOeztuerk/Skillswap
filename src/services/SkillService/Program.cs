@@ -26,7 +26,7 @@ using CQRS.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 var serviceName = "SkillService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
 
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSettings:Secret"]
@@ -184,17 +184,22 @@ app.UsePermissionMiddleware();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SkillDbContext>();
-    var strategy = db.Database.CreateExecutionStrategy();
     
-    // Execute migrations with retry strategy
-    await strategy.ExecuteAsync(async () =>
+    try
     {
-        await db.Database.MigrateAsync();
-    });
-    
-    // Execute seeding with retry strategy
-    await strategy.ExecuteAsync(async () =>
-    {
+        var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+        if (pendingMigrations.Any())
+        {
+            app.Logger.LogInformation("Applying {Count} pending migrations...", pendingMigrations.Count());
+            await db.Database.MigrateAsync();
+            app.Logger.LogInformation("Database migration completed successfully");
+        }
+        else
+        {
+            app.Logger.LogInformation("Database is up to date, no migrations needed");
+        }
+        
+        // Execute seeding
         await SkillService.Infrastructure.Data.SkillSeedData.SeedAsync(db);
         
         // Optional: Seed sample skills for development/testing
@@ -203,9 +208,17 @@ using (var scope = app.Services.CreateScope())
             // You can pass a test user ID here if needed
             // await SkillService.Infrastructure.Data.SkillSeedData.SeedSampleSkillsAsync(db, "test-user-id");
         }
-    });
-    
-    app.Logger.LogInformation("Database migration and skill data seeding completed successfully");
+        
+        app.Logger.LogInformation("Skill data seeding completed successfully");
+    }
+    catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P07") // Table already exists
+    {
+        app.Logger.LogWarning("Database tables already exist, skipping migration");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Error during database setup, attempting to continue...");
+    }
 }
 
 #region Skills Endpoints

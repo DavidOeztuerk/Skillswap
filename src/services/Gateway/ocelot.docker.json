@@ -3,7 +3,7 @@
     {
       "DownstreamPathTemplate": "/users/auth/register",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/register",
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "RateLimitOptions": {
@@ -17,7 +17,7 @@
     {
       "DownstreamPathTemplate": "/users/auth/login",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/login",
       "UpstreamHttpMethod": ["POST"],
       "RateLimitOptions": {
@@ -31,21 +31,21 @@
     {
       "DownstreamPathTemplate": "/users/auth/refresh-token",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/refresh-token",
       "UpstreamHttpMethod": ["POST"]
     },
     {
       "DownstreamPathTemplate": "/users/auth/verify-email",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/verify-email",
       "UpstreamHttpMethod": ["POST"]
     },
     {
       "DownstreamPathTemplate": "/users/auth/resend-verification",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/resend-verification",
       "UpstreamHttpMethod": ["POST"],
       "RateLimitOptions": {
@@ -59,7 +59,7 @@
     {
       "DownstreamPathTemplate": "/users/auth/verify-phone/request",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/verify-phone/request",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -77,7 +77,7 @@
     {
       "DownstreamPathTemplate": "/users/auth/verify-phone/confirm",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/verify-phone/confirm",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -88,7 +88,7 @@
     {
       "DownstreamPathTemplate": "/users/auth/request-password-reset",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/request-password-reset",
       "UpstreamHttpMethod": ["POST"],
       "RateLimitOptions": {
@@ -102,14 +102,14 @@
     {
       "DownstreamPathTemplate": "/users/auth/reset-password",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/reset-password",
       "UpstreamHttpMethod": ["POST"]
     },
     {
       "DownstreamPathTemplate": "/users/auth/change-password",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/change-password",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -119,7 +119,7 @@
     {
       "DownstreamPathTemplate": "/users/profile",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/profile",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -129,7 +129,7 @@
     {
       "DownstreamPathTemplate": "/users/profile",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/profile",
       "UpstreamHttpMethod": ["PUT"],
       "AuthenticationOptions": {
@@ -139,7 +139,7 @@
     {
       "DownstreamPathTemplate": "/users/search",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/search",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -150,7 +150,7 @@
     {
       "DownstreamPathTemplate": "/users/phone/send-verification",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/phone/send-verification",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -167,7 +167,7 @@
     {
       "DownstreamPathTemplate": "/users/phone/verify",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/phone/verify",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -177,7 +177,7 @@
     {
       "DownstreamPathTemplate": "/users/statistics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/statistics",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -188,7 +188,7 @@
     {
       "DownstreamPathTemplate": "/users/{userId}/activity",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/{userId}/activity",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -199,7 +199,7 @@
     {
       "DownstreamPathTemplate": "/users/email-availability",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/email-availability",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -207,7 +207,7 @@
     {
       "DownstreamPathTemplate": "/users/{userId}/roles",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/{userId}/roles",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -217,7 +217,7 @@
     {
       "DownstreamPathTemplate": "/users/skills/favorites",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/favorites",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -228,7 +228,7 @@
     {
       "DownstreamPathTemplate": "/users/skills/favorites",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/favorites",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -238,7 +238,7 @@
     {
       "DownstreamPathTemplate": "/users/skills/favorites/details",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/favorites/details",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -249,7 +249,7 @@
     {
       "DownstreamPathTemplate": "/users/skills/favorites/{skillId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/favorites/{skillId}",
       "UpstreamHttpMethod": ["DELETE"],
       "AuthenticationOptions": {
@@ -259,7 +259,7 @@
     {
       "DownstreamPathTemplate": "/users/permissions/my",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/my",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -269,7 +269,7 @@
     {
       "DownstreamPathTemplate": "/users/permissions/check",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/check",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -279,7 +279,7 @@
     {
       "DownstreamPathTemplate": "/users/permissions/admin/user/{userId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/admin/user/{userId}",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -289,7 +289,7 @@
     {
       "DownstreamPathTemplate": "/users/permissions/admin/grant",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/admin/grant",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -299,7 +299,7 @@
     {
       "DownstreamPathTemplate": "/users/permissions/admin/revoke",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/admin/revoke",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -309,7 +309,7 @@
     {
       "DownstreamPathTemplate": "/users/permissions/admin/assign-role",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/admin/assign-role",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -319,7 +319,7 @@
     {
       "DownstreamPathTemplate": "/users/permissions/admin/remove-role",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/permissions/admin/remove-role",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -329,7 +329,7 @@
     {
       "DownstreamPathTemplate": "/skills/my-skills",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/my-skills",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -340,7 +340,7 @@
     {
       "DownstreamPathTemplate": "/skills",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -348,7 +348,7 @@
     {
       "DownstreamPathTemplate": "/skills/{skillId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/{skillId}",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -356,7 +356,7 @@
     {
       "DownstreamPathTemplate": "/skills",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -366,7 +366,7 @@
     {
       "DownstreamPathTemplate": "/skills/{skillId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/{skillId}",
       "UpstreamHttpMethod": ["PUT", "DELETE"],
       "AuthenticationOptions": {
@@ -376,7 +376,7 @@
     {
       "DownstreamPathTemplate": "/skills/{skillId}/rate",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/{skillId}/rate",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -386,7 +386,7 @@
     {
       "DownstreamPathTemplate": "/skills/{skillId}/endorse",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/{skillId}/endorse",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -396,7 +396,7 @@
     {
       "DownstreamPathTemplate": "/skills/categories",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/categories",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -404,7 +404,7 @@
     {
       "DownstreamPathTemplate": "/categories",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/categories",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -412,7 +412,7 @@
     {
       "DownstreamPathTemplate": "/categories",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/categories",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -422,7 +422,7 @@
     {
       "DownstreamPathTemplate": "/categories/{categoryId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/categories/{categoryId}",
       "UpstreamHttpMethod": ["PUT"],
       "AuthenticationOptions": {
@@ -432,7 +432,7 @@
     {
       "DownstreamPathTemplate": "/skills/proficiency-levels",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/proficiency-levels",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -440,7 +440,7 @@
     {
       "DownstreamPathTemplate": "/proficiency-levels",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/proficiency-levels",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -448,7 +448,7 @@
     {
       "DownstreamPathTemplate": "/proficiency-levels",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/proficiency-levels",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -458,7 +458,7 @@
     {
       "DownstreamPathTemplate": "/analytics/statistics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/analytics/statistics",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -466,7 +466,7 @@
     {
       "DownstreamPathTemplate": "/analytics/popular-tags",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/analytics/popular-tags",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -474,7 +474,7 @@
     {
       "DownstreamPathTemplate": "/recommendations",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/recommendations",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -486,7 +486,7 @@
       "DownstreamPathTemplate": "/matches/find",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/find",
       "UpstreamHttpMethod": ["POST"],
@@ -499,7 +499,7 @@
       "DownstreamPathTemplate": "/matches/{matchId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/{matchId}",
       "UpstreamHttpMethod": ["GET"],
@@ -512,7 +512,7 @@
       "DownstreamPathTemplate": "/matches/{matchId}/accept",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/{matchId}/accept",
       "UpstreamHttpMethod": ["POST"],
@@ -525,7 +525,7 @@
       "DownstreamPathTemplate": "/matches/{matchId}/reject",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/{matchId}/reject",
       "UpstreamHttpMethod": ["POST"],
@@ -538,7 +538,7 @@
       "DownstreamPathTemplate": "/matches/my",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/my",
       "UpstreamHttpMethod": ["GET"],
@@ -552,7 +552,7 @@
       "DownstreamPathTemplate": "/analytics/statistics",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/statistics",
       "UpstreamHttpMethod": ["GET"],
@@ -563,7 +563,7 @@
       "DownstreamPathTemplate": "/matches/requests",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/requests",
       "UpstreamHttpMethod": ["POST"],
@@ -576,7 +576,7 @@
       "DownstreamPathTemplate": "/matches/requests/incoming",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/requests/incoming",
       "UpstreamHttpMethod": ["GET"],
@@ -590,7 +590,7 @@
       "DownstreamPathTemplate": "/matches/requests/outgoing",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/requests/outgoing",
       "UpstreamHttpMethod": ["GET"],
@@ -604,7 +604,7 @@
       "DownstreamPathTemplate": "/matches/requests/{requestId}/accept",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/requests/{requestId}/accept",
       "UpstreamHttpMethod": ["POST"],
@@ -617,7 +617,7 @@
       "DownstreamPathTemplate": "/matches/requests/{requestId}/reject",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/requests/{requestId}/reject",
       "UpstreamHttpMethod": ["POST"],
@@ -630,7 +630,7 @@
       "DownstreamPathTemplate": "/matches/requests/thread/{threadId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5003 }
+        { "Host": "matchmakingservice", "Port": 5003 }
       ],
       "UpstreamPathTemplate": "/api/matches/requests/thread/{threadId}",
       "UpstreamHttpMethod": ["GET"],
@@ -643,7 +643,7 @@
       "DownstreamPathTemplate": "/appointments",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5004 }
+        { "Host": "appointmentservice", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments",
       "UpstreamHttpMethod": ["POST"],
@@ -656,7 +656,7 @@
       "DownstreamPathTemplate": "/appointments/{appointmentId}/accept",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5004 }
+        { "Host": "appointmentservice", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments/{appointmentId}/accept",
       "UpstreamHttpMethod": ["POST"],
@@ -669,7 +669,7 @@
       "DownstreamPathTemplate": "/appointments/{appointmentId}/cancel",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5004 }
+        { "Host": "appointmentservice", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments/{appointmentId}/cancel",
       "UpstreamHttpMethod": ["POST"],
@@ -682,7 +682,7 @@
       "DownstreamPathTemplate": "/appointments/{appointmentId}/reschedule",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5004 }
+        { "Host": "appointmentservice", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments/{appointmentId}/reschedule",
       "UpstreamHttpMethod": ["POST"],
@@ -695,7 +695,7 @@
       "DownstreamPathTemplate": "/appointments/{appointmentId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5004 }
+        { "Host": "appointmentservice", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/appointments/{appointmentId}",
       "UpstreamHttpMethod": ["GET"],
@@ -708,7 +708,7 @@
       "DownstreamPathTemplate": "/my/appointments",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5004 }
+        { "Host": "appointmentservice", "Port": 5004 }
       ],
       "UpstreamPathTemplate": "/api/my/appointments",
       "UpstreamHttpMethod": ["GET"],
@@ -721,7 +721,7 @@
     {
       "DownstreamPathTemplate": "/calls/create",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/create",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -732,7 +732,7 @@
     {
       "DownstreamPathTemplate": "/calls/join",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/join",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -743,7 +743,7 @@
     {
       "DownstreamPathTemplate": "/calls/leave",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/leave",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -754,7 +754,7 @@
     {
       "DownstreamPathTemplate": "/calls/start",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/start",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -765,7 +765,7 @@
     {
       "DownstreamPathTemplate": "/calls/end",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/end",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -776,7 +776,7 @@
     {
       "DownstreamPathTemplate": "/calls/{sessionId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/{sessionId}",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -787,7 +787,7 @@
     {
       "DownstreamPathTemplate": "/my/calls",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/my/calls",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -799,7 +799,7 @@
     {
       "DownstreamPathTemplate": "/statistics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/statistics",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -808,7 +808,7 @@
       "DownstreamPathTemplate": "/notifications/send",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/send",
       "UpstreamHttpMethod": ["POST"],
@@ -821,7 +821,7 @@
       "DownstreamPathTemplate": "/notifications/bulk",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/bulk",
       "UpstreamHttpMethod": ["POST"],
@@ -834,7 +834,7 @@
       "DownstreamPathTemplate": "/notifications/{notificationId}/cancel",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/{notificationId}/cancel",
       "UpstreamHttpMethod": ["POST"],
@@ -847,7 +847,7 @@
       "DownstreamPathTemplate": "/notifications/{notificationId}/retry",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/{notificationId}/retry",
       "UpstreamHttpMethod": ["POST"],
@@ -860,7 +860,7 @@
       "DownstreamPathTemplate": "/notifications/{notificationId}/read",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/{notificationId}/read",
       "UpstreamHttpMethod": ["POST"],
@@ -873,7 +873,7 @@
       "DownstreamPathTemplate": "/preferences",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/preferences",
       "UpstreamHttpMethod": ["GET", "PUT"],
@@ -886,7 +886,7 @@
       "DownstreamPathTemplate": "/preferences",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/settings",
       "UpstreamHttpMethod": ["GET", "PUT"],
@@ -899,7 +899,7 @@
       "DownstreamPathTemplate": "/templates",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/templates",
       "UpstreamHttpMethod": ["GET", "POST"],
@@ -913,7 +913,7 @@
       "DownstreamPathTemplate": "/templates/{templateId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/templates/{templateId}",
       "UpstreamHttpMethod": ["PUT"],
@@ -926,7 +926,7 @@
       "DownstreamPathTemplate": "/analytics/statistics",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/analytics/statistics",
       "UpstreamHttpMethod": ["GET"],
@@ -939,7 +939,7 @@
     {
       "DownstreamPathTemplate": "/skills/export",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/export",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -949,7 +949,7 @@
     {
       "DownstreamPathTemplate": "/skills/{skillId}/similar",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/skills/{skillId}/similar",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
@@ -957,7 +957,7 @@
     {
       "DownstreamPathTemplate": "/calls/{sessionId}/quality-metrics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
       "UpstreamPathTemplate": "/api/calls/{sessionId}/quality-metrics",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -969,91 +969,91 @@
     {
       "DownstreamPathTemplate": "/health/status",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/system/health/users",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/system/health/userservice",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/health/status",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/system/health/skills",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/system/health/skillservice",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/health/status",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5003 }],
-      "UpstreamPathTemplate": "/api/system/health/matches",
+      "DownstreamHostAndPorts": [{ "Host": "matchmakingservice", "Port": 5003 }],
+      "UpstreamPathTemplate": "/api/system/health/matchmakingservice",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/health/status",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5004 }],
-      "UpstreamPathTemplate": "/api/system/health/appointments",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice", "Port": 5004 }],
+      "UpstreamPathTemplate": "/api/system/health/appointmentservice",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/health/status",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/system/health/calls",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/system/health/videocallservice",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/health/status",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
-      "UpstreamPathTemplate": "/api/system/health/notifications",
+      "DownstreamHostAndPorts": [{ "Host": "notificationservice", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/system/health/notificationservice",
       "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
     {
       "DownstreamPathTemplate": "/metrics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/system/metrics/users",
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/system/metrics/userservice",
       "UpstreamHttpMethod": ["GET"]
     },
     {
       "DownstreamPathTemplate": "/metrics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
-      "UpstreamPathTemplate": "/api/system/metrics/skills",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/system/metrics/skillservice",
       "UpstreamHttpMethod": ["GET"]
     },
     {
       "DownstreamPathTemplate": "/metrics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5003 }],
-      "UpstreamPathTemplate": "/api/system/metrics/matches",
+      "DownstreamHostAndPorts": [{ "Host": "matchmakingservice", "Port": 5003 }],
+      "UpstreamPathTemplate": "/api/system/metrics/matchmakingservice",
       "UpstreamHttpMethod": ["GET"]
     },
     {
       "DownstreamPathTemplate": "/metrics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5004 }],
-      "UpstreamPathTemplate": "/api/system/metrics/appointments",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice", "Port": 5004 }],
+      "UpstreamPathTemplate": "/api/system/metrics/appointmentservice",
       "UpstreamHttpMethod": ["GET"]
     },
     {
       "DownstreamPathTemplate": "/metrics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/system/metrics/calls",
+      "DownstreamHostAndPorts": [{ "Host": "videocallservice", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/system/metrics/videocallservice",
       "UpstreamHttpMethod": ["GET"]
     },
     {
       "DownstreamPathTemplate": "/metrics",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
-      "UpstreamPathTemplate": "/api/system/metrics/notifications",
+      "DownstreamHostAndPorts": [{ "Host": "notificationservice", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/system/metrics/notificationservice",
       "UpstreamHttpMethod": ["GET"]
     },
     {
@@ -1072,7 +1072,7 @@
       "DownstreamPathTemplate": "/notifications",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications",
       "UpstreamHttpMethod": ["GET"],
@@ -1086,7 +1086,7 @@
       "DownstreamPathTemplate": "/notifications/read-all",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/read-all",
       "UpstreamHttpMethod": ["POST"],
@@ -1098,7 +1098,7 @@
     {
       "DownstreamPathTemplate": "/users/2fa/generate",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/generate",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
@@ -1106,7 +1106,7 @@
     {
       "DownstreamPathTemplate": "/users/2fa/verify",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/verify",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
@@ -1114,7 +1114,7 @@
     {
       "DownstreamPathTemplate": "/users/2fa/disable",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/disable",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
@@ -1122,7 +1122,7 @@
     {
       "DownstreamPathTemplate": "/users/2fa/status",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/status",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
@@ -1131,7 +1131,7 @@
       "DownstreamPathTemplate": "/notifications/{notificationId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
-        { "Host": "localhost", "Port": 5006 }
+        { "Host": "notificationservice", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/{notificationId}",
       "UpstreamHttpMethod": ["DELETE"],
@@ -1144,7 +1144,7 @@
       "Comment": "========== ADMIN ROUTES - USER MANAGEMENT ==========",
       "DownstreamPathTemplate": "/api/admin/users",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/users",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1158,7 +1158,7 @@
     {
       "DownstreamPathTemplate": "/users/admin/{userId}/block",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/users/{userId}/block",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1171,7 +1171,7 @@
     {
       "DownstreamPathTemplate": "/users/admin/{userId}/unblock",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/users/{userId}/unblock",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1184,7 +1184,7 @@
     {
       "DownstreamPathTemplate": "/users/admin/{userId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/users/{userId}",
       "UpstreamHttpMethod": ["DELETE"],
       "AuthenticationOptions": {
@@ -1198,7 +1198,7 @@
       "Comment": "========== PERMISSION MANAGEMENT ROUTES ==========",
       "DownstreamPathTemplate": "/permission/check",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/permission/check",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1208,7 +1208,7 @@
     {
       "DownstreamPathTemplate": "/permission/my-permissions",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/permission/my-permissions",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1218,7 +1218,7 @@
     {
       "DownstreamPathTemplate": "/permission/grant",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/permission/grant",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1231,7 +1231,7 @@
     {
       "DownstreamPathTemplate": "/permission/revoke",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/permission/revoke",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1245,7 +1245,7 @@
       "Comment": "========== ROLE MANAGEMENT ROUTES ==========",
       "DownstreamPathTemplate": "/permission/roles",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/roles",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1258,7 +1258,7 @@
     {
       "DownstreamPathTemplate": "/permission/roles",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/roles",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1271,7 +1271,7 @@
     {
       "DownstreamPathTemplate": "/permission/assign-role",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/permission/assign-role",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1284,7 +1284,7 @@
     {
       "DownstreamPathTemplate": "/permission/remove-role",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/permission/remove-role",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1298,7 +1298,7 @@
       "Comment": "========== ADMIN SKILL MANAGEMENT ROUTES ==========",
       "DownstreamPathTemplate": "/categories",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/admin/skills/categories",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1311,7 +1311,7 @@
     {
       "DownstreamPathTemplate": "/categories/{categoryId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/admin/skills/categories/{categoryId}",
       "UpstreamHttpMethod": ["PUT", "DELETE"],
       "AuthenticationOptions": {
@@ -1324,7 +1324,7 @@
     {
       "DownstreamPathTemplate": "/proficiency-levels",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/admin/skills/proficiency-levels",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1337,7 +1337,7 @@
     {
       "DownstreamPathTemplate": "/proficiency-levels/{levelId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/admin/skills/proficiency-levels/{levelId}",
       "UpstreamHttpMethod": ["PUT", "DELETE"],
       "AuthenticationOptions": {
@@ -1350,7 +1350,7 @@
     {
       "DownstreamPathTemplate": "/skills/admin/verify/{skillId}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/admin/skills/{skillId}/verify",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1364,7 +1364,7 @@
       "Comment": "========== ADMIN APPOINTMENT MANAGEMENT ==========",
       "DownstreamPathTemplate": "/appointments/admin/all",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5004 }],
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice", "Port": 5004 }],
       "UpstreamPathTemplate": "/api/admin/appointments",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1378,7 +1378,7 @@
     {
       "DownstreamPathTemplate": "/appointments/admin/{appointmentId}/cancel",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5004 }],
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice", "Port": 5004 }],
       "UpstreamPathTemplate": "/api/admin/appointments/{appointmentId}/cancel",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1392,7 +1392,7 @@
       "Comment": "========== ADMIN STATISTICS & ANALYTICS ==========",
       "DownstreamPathTemplate": "/api/admin/dashboard",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/analytics/dashboard",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1405,7 +1405,7 @@
     {
       "DownstreamPathTemplate": "/analytics/admin/users",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/admin/analytics/users",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1419,7 +1419,7 @@
     {
       "DownstreamPathTemplate": "/analytics/admin/skills",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/admin/analytics/skills",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1434,7 +1434,7 @@
       "Comment": "========== MODERATION ROUTES ==========",
       "DownstreamPathTemplate": "/reports",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/moderate/reports",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1448,7 +1448,7 @@
     {
       "DownstreamPathTemplate": "/reports/{reportId}/handle",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/moderate/reports/{reportId}/handle",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1461,7 +1461,7 @@
     {
       "DownstreamPathTemplate": "/reviews/moderate",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/moderate/reviews",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1475,7 +1475,7 @@
     {
       "DownstreamPathTemplate": "/reviews/{reviewId}/moderate",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
       "UpstreamPathTemplate": "/api/moderate/reviews/{reviewId}",
       "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
@@ -1489,7 +1489,7 @@
       "Comment": "========== SYSTEM MANAGEMENT ROUTES (SUPER ADMIN ONLY) ==========",
       "DownstreamPathTemplate": "/system/settings",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/system/settings",
       "UpstreamHttpMethod": ["GET", "PUT"],
       "AuthenticationOptions": {
@@ -1502,7 +1502,7 @@
     {
       "DownstreamPathTemplate": "/system/logs",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/system/logs",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1516,7 +1516,7 @@
     {
       "DownstreamPathTemplate": "/system/integrations",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/system/integrations",
       "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE"],
       "AuthenticationOptions": {
@@ -1529,7 +1529,7 @@
     {
       "DownstreamPathTemplate": "/users/auth/email/verification/status",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "DownstreamHostAndPorts": [{ "Host": "userservice", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/auth/email/verification/status",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
@@ -1539,7 +1539,7 @@
     {
       "DownstreamPathTemplate": "/notifications/clear-all",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "DownstreamHostAndPorts": [{ "Host": "notificationservice", "Port": 5006 }],
       "UpstreamPathTemplate": "/api/notifications/clear-all",
       "UpstreamHttpMethod": ["DELETE"],
       "AuthenticationOptions": {
@@ -1550,7 +1550,7 @@
     {
       "DownstreamPathTemplate": "/matches",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5003 }],
+      "DownstreamHostAndPorts": [{ "Host": "matchmakingservice", "Port": 5003 }],
       "UpstreamPathTemplate": "/api/matches",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {

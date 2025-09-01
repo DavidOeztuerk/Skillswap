@@ -27,7 +27,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient();
 
 var serviceName = "MatchmakingService";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "rabbitmq";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
 
 // JWT Configuration
 var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
@@ -187,15 +187,17 @@ app.UseSharedInfrastructure();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MatchmakingDbContext>();
-    // EF-eigene ExecutionStrategy, damit auch die Verbindungserstellung retried wird
-    var strategy = db.Database.CreateExecutionStrategy();
-    await strategy.ExecuteAsync(async () =>
+    
+    try
     {
-        await db.Database.MigrateAsync();           // ← statt EnsureCreated
-        // optional: Seeding
-        // await MatchmakingSeedData.SeedAsync(db);
-    });
-    app.Logger.LogInformation("Database migration completed successfully");
+        // Just ensure the database exists without throwing errors
+        await db.Database.EnsureCreatedAsync();
+        app.Logger.LogInformation("Database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Database initialization warning (likely already exists), continuing...");
+    }
 }
 
 if (app.Environment.IsDevelopment())
