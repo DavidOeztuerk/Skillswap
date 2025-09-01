@@ -43,6 +43,16 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             entity.HasIndex(e => e.IsActive);
             entity.HasIndex(e => e.AverageRating);
             entity.HasIndex(e => new { e.IsActive, e.AverageRating });
+            
+            // Composite index for most common search query
+            entity.HasIndex(e => new { e.IsActive, e.IsDeleted, e.UserId })
+                .HasDatabaseName("IX_Skills_ActiveSearch");
+            
+            // Index for text search
+            entity.HasIndex(e => e.Name)
+                .HasDatabaseName("IX_Skills_Name");
+            entity.HasIndex(e => e.SearchKeywords)
+                .HasDatabaseName("IX_Skills_SearchKeywords");
 
             // Foreign Key Relationships
             entity.HasOne(s => s.SkillCategory)

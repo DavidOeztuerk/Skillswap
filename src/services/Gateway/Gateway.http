@@ -1,6 +1,11 @@
-@Gateway_HostAddress = http://localhost:5040
+@Gateway_HostAddress = https://gateway.victoriousocean-546beaa5.westeurope.azurecontainerapps.io
 
-GET {{Gateway_HostAddress}}/weatherforecast/
+POST {{Gateway_HostAddress}}/api/users/login
 Accept: application/json
+
+{
+    "email": "user@example.com",
+    "password": "password123"
+}
 
 ###
