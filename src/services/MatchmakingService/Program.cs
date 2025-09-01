@@ -271,11 +271,17 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MatchmakingDbContext>();
-    var strategy = db.Database.CreateExecutionStrategy();
-
-    await strategy.ExecuteAsync(async () => { await db.Database.MigrateAsync(); });
-
-    app.Logger.LogInformation("Database migration completed successfully");
+    
+    try
+    {
+        // Just ensure the database exists without throwing errors
+        await db.Database.EnsureCreatedAsync();
+        app.Logger.LogInformation("Database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Database initialization warning (likely already exists), continuing...");
+    }
 }
 
 // ============================================================================

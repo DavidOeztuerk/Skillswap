@@ -1,8 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
-using System;
-using System.IO;
 
 namespace UserService.Infrastructure;
 
@@ -28,11 +26,10 @@ public class UserDbContextFactory : IDesignTimeDbContextFactory<UserDbContext>
             // Fallback for design-time migrations
             var host = Environment.GetEnvironmentVariable("POSTGRES_HOST") ?? "localhost";
             var port = Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432";
-            var database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "skillswap";
+            var database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "skillswap_userservice";
             var username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
             var password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
-            
-            connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password}";
+            connectionString = $"Host={host};Database={database};Username={username};Password={password};Port={port}";
         }
         
         Console.WriteLine($"[DEBUG] UserService Design-Time using connection to: {ExtractHostFromConnectionString(connectionString)}");
