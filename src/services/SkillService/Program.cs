@@ -267,7 +267,7 @@ using (var scope = app.Services.CreateScope())
     app.Logger.LogInformation("Database migration and seeding completed successfully");
 }
 
-app.UseSharedInfrastructure();
+builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 app.UseMiddleware<RateLimitingMiddleware>();
 
 if (app.Environment.IsDevelopment())

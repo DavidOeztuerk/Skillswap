@@ -13,6 +13,18 @@ using StackExchange.Redis;
 using System.Reflection;
 using Microsoft.Extensions.Caching.Distributed;
 using Infrastructure.Security;
+using Infrastructure.Resilience;
+using Infrastructure.Security.Encryption;
+using Infrastructure.Security.InputSanitization;
+using Infrastructure.HealthChecks;
+using Infrastructure.Caching;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Infrastructure.Models;
+using Microsoft.AspNetCore.Http;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Infrastructure.Extensions;
 
@@ -27,11 +39,14 @@ public static class ServiceCollectionExtensions
         IHostEnvironment environment,
         string serviceName)
     {
+        // Core Security Services
         services.AddScoped<IJwtService, JwtService>();
         services.AddSingleton<ITotpService, TotpService>();
         
         // Add Token Revocation Service - use Redis if available, otherwise in-memory
-        var redisConnectionString = configuration.GetConnectionString("Redis");
+        var redisConnectionString = configuration.GetConnectionString("Redis") 
+            ?? configuration["Redis:ConnectionString"];
+            
         if (!string.IsNullOrEmpty(redisConnectionString))
         {
             // Register Redis-based token revocation (reuse existing connection multiplexer)
@@ -57,8 +72,41 @@ public static class ServiceCollectionExtensions
         LoggingConfiguration.ConfigureSerilog(configuration, environment, serviceName);
         services.AddSerilog();
 
-        // Add health checks
+        // Add Swagger Documentation
+        services.AddEndpointsApiExplorer();
+        services.AddSwaggerDocumentation(serviceName);
+
+        // Add Resilience patterns (Circuit Breaker, Retry)
+        services.AddResilience();
+
+        // Add Security Services
+        services.AddSecretManagement(configuration);
+        services.AddSecurityAuditLogging();
+        
+        // Add Data Encryption
+        services.AddDataEncryption(configuration);
+        
+        // Add Input Sanitization
+        services.AddInputSanitization(configuration);
+        
+        // Add Distributed Rate Limiting
+        services.AddDistributedRateLimiting(configuration);
+
+        // Add Comprehensive Health Checks
         services.AddHealthChecks();
+        services.AddComprehensiveHealthChecks(configuration);
+
+        // Add Caching Services
+        if (!string.IsNullOrEmpty(redisConnectionString))
+        {
+            services.AddSingleton<IDistributedCacheService, RedisDistributedCacheService>();
+            services.AddSingleton<IDistributedRateLimitStore, RedisDistributedRateLimitStore>();
+        }
+        else
+        {
+            services.AddSingleton<IDistributedRateLimitStore, InMemoryRateLimitStore>();
+        }
+        services.AddSingleton<CacheInvalidationService>();
 
         // Configure JSON serialization for APIs to use camelCase
         services.ConfigureHttpJsonOptions(options =>
@@ -110,16 +158,24 @@ public static class ServiceCollectionExtensions
     /// Configures the middleware pipeline with all infrastructure components
     /// </summary>
     public static IApplicationBuilder UseSharedInfrastructure(
-        this IApplicationBuilder app)
+        this IApplicationBuilder app,
+        IHostEnvironment environment,
+        string serviceName)
     {
         // Security headers (should be first)
         app.UseMiddleware<SecurityHeadersMiddleware>();
+
+        // Correlation ID (should be early in pipeline)
+        app.UseMiddleware<CorrelationIdMiddleware>();
 
         // Request logging (after correlation ID)
         app.UseMiddleware<RequestLoggingMiddleware>();
 
         // Global exception handling (should catch all exceptions)
         app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
+
+        // Input Sanitization (should be early to clean input)
+        app.UseMiddleware<InputSanitizationMiddleware>();
 
         // Add Serilog request logging
         app.UseSerilogRequestLogging(options =>
@@ -142,12 +198,29 @@ public static class ServiceCollectionExtensions
         // CORS
         app.UseCors();
 
+        // Swagger in Development
+        if (environment.IsDevelopment())
+        {
+            app.UseSwaggerDocumentation(serviceName);
+        }
+
+        // Rate Limiting Middleware
+        app.UseMiddleware<DistributedRateLimitingMiddleware>();
+
         // Telemetry and performance monitoring
         app.UseTelemetry().UseCorrelationId().UsePerformancee();
         app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
-        // Health checks endpoint
-        app.UseHealthChecks("/health");
+        // Configure health check endpoints
+        ConfigureHealthCheckEndpoints(app);
+
+        app.UseAuthentication();
+        app.UseAuthorization();
+        
+        // Security Audit (after authentication to track user actions)
+        app.UseMiddleware<SecurityAuditMiddleware>();
+        
+        app.UsePermissionMiddleware();
 
         return app;
     }
@@ -208,6 +281,149 @@ public static class ServiceCollectionExtensions
         }
 
         return services;
+    }
+
+    /// <summary>
+    /// Adds JWT Authentication with complete configuration
+    /// </summary>
+    public static IServiceCollection AddJwtAuthentication(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var jwtSettings = configuration.GetSection("JwtSettings");
+        services.Configure<JwtSettings>(jwtSettings);
+        
+        var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
+            ?? jwtSettings["Secret"]
+            ?? throw new InvalidOperationException("JWT Secret not configured");
+            
+        var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+            ?? jwtSettings["Issuer"]
+            ?? throw new InvalidOperationException("JWT Issuer not configured");
+            
+        var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+            ?? jwtSettings["Audience"]
+            ?? throw new InvalidOperationException("JWT Audience not configured");
+
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(opts =>
+            {
+                opts.RequireHttpsMetadata = false;
+                opts.SaveToken = true;
+                opts.MapInboundClaims = false;
+
+                opts.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidateLifetime = true,
+                    ValidIssuer = issuer,
+                    ValidAudience = audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+                    ClockSkew = TimeSpan.Zero,
+                    NameClaimType = JwtRegisteredClaimNames.Sub,
+                    RoleClaimType = System.Security.Claims.ClaimTypes.Role
+                };
+
+                opts.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var tokenRevocationService = context.HttpContext.RequestServices
+                            .GetRequiredService<ITokenRevocationService>();
+
+                        var jti = context.Principal?.FindFirst("jti")?.Value;
+                        if (!string.IsNullOrEmpty(jti))
+                        {
+                            var isRevoked = await tokenRevocationService.IsTokenRevokedAsync(jti);
+                            if (isRevoked)
+                            {
+                                context.Fail("Token has been revoked");
+                            }
+                        }
+                    },
+                    OnAuthenticationFailed = context =>
+                    {
+                        if (context.Exception is SecurityTokenExpiredException)
+                            context.Response.Headers.Append("Token-Expired", "true");
+                        return Task.CompletedTask;
+                    },
+                    OnChallenge = async context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.StatusCode = 401;
+                        context.Response.ContentType = "application/json";
+                        var result = System.Text.Json.JsonSerializer.Serialize(new { 
+                            error = "unauthorized", 
+                            message = "You are not authorized to access this resource" 
+                        });
+                        await context.Response.WriteAsync(result);
+                    }
+                };
+            });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Configures health check endpoints with proper response formatting
+    /// </summary>
+    private static void ConfigureHealthCheckEndpoints(IApplicationBuilder app)
+    {
+        var healthCheckOptions = new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+        {
+            ResponseWriter = async (context, report) =>
+            {
+                context.Response.ContentType = "application/json";
+                var response = new
+                {
+                    status = report.Status.ToString(),
+                    timestamp = DateTime.UtcNow,
+                    durationMs = report.TotalDuration.TotalMilliseconds,
+                    checks = report.Entries.Select(e => new
+                    {
+                        name = e.Key,
+                        status = e.Value.Status.ToString(),
+                        durationMs = e.Value.Duration.TotalMilliseconds,
+                        tags = e.Value.Tags,
+                        error = e.Value.Exception?.Message
+                    })
+                };
+                await context.Response.WriteAsync(
+                    System.Text.Json.JsonSerializer.Serialize(response, 
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            }
+        };
+
+        // General health endpoint
+        app.UseHealthChecks("/health", healthCheckOptions);
+
+        // Liveness probe - only checks if the service is alive
+        app.UseHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+        {
+            Predicate = r => r.Tags.Contains("live"),
+            ResponseWriter = healthCheckOptions.ResponseWriter,
+            ResultStatusCodes =
+            {
+                [HealthStatus.Healthy] = StatusCodes.Status200OK,
+                [HealthStatus.Degraded] = StatusCodes.Status200OK,
+                [HealthStatus.Unhealthy] = StatusCodes.Status200OK
+            }
+        });
+
+        // Readiness probe - checks if the service is ready to handle requests
+        app.UseHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+        {
+            Predicate = r => r.Tags.Contains("ready"),
+            ResponseWriter = healthCheckOptions.ResponseWriter,
+            ResultStatusCodes =
+            {
+                [HealthStatus.Healthy] = StatusCodes.Status200OK,
+                [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable,
+                [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+            }
+        });
     }
 
     /// <summary>

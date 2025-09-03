@@ -157,7 +157,8 @@ public static class SecurityExtensions
         this IServiceCollection services)
     {
         services.AddSingleton<ISecurityAuditLogger, SecurityAuditLogger>();
-        services.AddTransient<SecurityAuditMiddleware>();
+        // SecurityAuditMiddleware should not be registered as a service
+        // It will be used directly via UseMiddleware<SecurityAuditMiddleware>()
         
         return services;
     }

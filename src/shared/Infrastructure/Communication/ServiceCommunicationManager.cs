@@ -13,7 +13,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<ServiceCommunicationManager> _logger;
     private readonly IConfiguration _configuration;
-    private readonly CircuitBreaker _circuitBreaker;
+    private readonly ICircuitBreaker? _circuitBreaker;
     private readonly Dictionary<string, string> _serviceUrls;
     private readonly JsonSerializerOptions _jsonOptions;
 
@@ -22,13 +22,13 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         IPublishEndpoint publishEndpoint,
         ILogger<ServiceCommunicationManager> logger,
         IConfiguration configuration,
-        CircuitBreaker circuitBreaker)
+        ICircuitBreakerFactory? circuitBreakerFactory = null)
     {
         _httpClient = httpClient;
         _publishEndpoint = publishEndpoint;
         _logger = logger;
         _configuration = configuration;
-        _circuitBreaker = circuitBreaker;
+        _circuitBreaker = circuitBreakerFactory?.GetCircuitBreaker("ServiceCommunication");
         
         _serviceUrls = InitializeServiceUrls();
         _jsonOptions = new JsonSerializerOptions

@@ -292,7 +292,7 @@ using (var scope = app.Services.CreateScope())
 // ============================================================================
 // MIDDLEWARE PIPELINE
 // ============================================================================
-app.UseSharedInfrastructure();
+builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 app.UseMiddleware<RateLimitingMiddleware>();
 
 if (app.Environment.IsDevelopment())
