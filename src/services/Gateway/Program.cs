@@ -172,7 +172,7 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseSharedInfrastructure();
+builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -289,7 +289,7 @@ using (var scope = app.Services.CreateScope())
 // ============================================================================
 // MIDDLEWARE PIPELINE
 // ============================================================================
-app.UseSharedInfrastructure();
+builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 app.UseCors();
 
 if (app.Environment.IsDevelopment())

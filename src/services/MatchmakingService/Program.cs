@@ -287,7 +287,7 @@ using (var scope = app.Services.CreateScope())
 // ============================================================================
 // MIDDLEWARE PIPELINE
 // ============================================================================
-app.UseSharedInfrastructure();
+builder.Services.AddSharedInfrastructure(builder.Configuration, builder.Environment, serviceName);
 
 if (app.Environment.IsDevelopment())
 {
