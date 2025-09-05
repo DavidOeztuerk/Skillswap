@@ -9,10 +9,17 @@ public record RateSkillCommand(
     int Rating, // 1-5 stars
     string? Comment = null,
     List<string>? Tags = null)
-    : ICommand<RateSkillResponse>, IAuditableCommand
+    : ICommand<RateSkillResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "skill-details:*",
+        "skill-reviews:*",
+        "skill-statistics:*"
+    };
 }
 
 public class RateSkillCommandValidator : AbstractValidator<RateSkillCommand>

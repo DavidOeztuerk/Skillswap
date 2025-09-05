@@ -1,3 +1,11 @@
+using System.Reflection;
+using CQRS.Extensions;
+using EventSourcing;
+using Infrastructure.Authorization;
+using Infrastructure.Extensions;
+using Infrastructure.Security;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UserService.Domain.Repositories;
 using UserService.Infrastructure.Repositories;
@@ -6,7 +14,11 @@ namespace UserService.Infrastructure.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IWebHostEnvironment environment,
+        string serviceName)
     {
         // Repository registration
         services.AddScoped<IUserRepository, UserRepository>();
@@ -18,10 +30,29 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserActivityRepository, UserActivityRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
 
-        // Permission service registration is handled in Application layer
+        services.AddSharedInfrastructure(configuration, environment, serviceName);
 
-        // Infrastructure services (these should be already registered by shared Infrastructure)
-        // But we ensure they're available
+        services.AddJwtAuthentication(configuration);
+
+        services.AddDatabaseContext<UserDbContext>(
+            configuration,
+            serviceName,
+            "UserService.Infrastructure");
+
+        services.AddEventSourcing("UserServiceEventStore");
+
+        var applicationAssembly = Assembly.Load("UserService.Application");
+        services.AddCQRS(applicationAssembly);
+
+        services.AddMessaging(
+            configuration,
+            Assembly.GetExecutingAssembly());
+
+        services.AddEventBus();
+
+        services.AddSkillSwapAuthorization();
+        services.AddPermissionAuthorization();
+        services.AddAuthorization(options => options.AddPermissionPolicies());
 
         return services;
     }

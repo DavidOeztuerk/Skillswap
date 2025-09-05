@@ -13,7 +13,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<ServiceCommunicationManager> _logger;
     private readonly IConfiguration _configuration;
-    private readonly CircuitBreaker _circuitBreaker;
+    private readonly ICircuitBreaker? _circuitBreaker;
     private readonly Dictionary<string, string> _serviceUrls;
     private readonly JsonSerializerOptions _jsonOptions;
 
@@ -22,13 +22,13 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         IPublishEndpoint publishEndpoint,
         ILogger<ServiceCommunicationManager> logger,
         IConfiguration configuration,
-        CircuitBreaker circuitBreaker)
+        ICircuitBreakerFactory? circuitBreakerFactory = null)
     {
         _httpClient = httpClient;
         _publishEndpoint = publishEndpoint;
         _logger = logger;
         _configuration = configuration;
-        _circuitBreaker = circuitBreaker;
+        _circuitBreaker = circuitBreakerFactory?.GetCircuitBreaker("ServiceCommunication");
         
         _serviceUrls = InitializeServiceUrls();
         _jsonOptions = new JsonSerializerOptions
@@ -54,47 +54,65 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         }
 
         var requestUri = $"{baseUrl.TrimEnd('/')}/{endpoint.TrimStart('/')}";
-        
-        return await _circuitBreaker.ExecuteAsync(async () =>
+
+        // Execute with circuit breaker if available, otherwise execute directly
+        if (_circuitBreaker != null)
         {
-            try
-            {
-                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, requestUri)
-                {
-                    Content = JsonContent.Create(request, options: _jsonOptions)
-                };
+            return await _circuitBreaker.ExecuteAsync(async () => 
+                await SendHttpRequestAsync<TRequest, TResponse>(serviceName, requestUri, request, headers, cancellationToken));
+        }
+        else
+        {
+            return await SendHttpRequestAsync<TRequest, TResponse>(serviceName, requestUri, request, headers, cancellationToken);
+        }
+    }
 
-                if (headers != null)
-                {
-                    foreach (var header in headers)
-                    {
-                        httpRequest.Headers.Add(header.Key, header.Value);
-                    }
-                }
-
-                _logger.LogDebug("Sending request to {ServiceName} at {RequestUri}", serviceName, requestUri);
-                
-                using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
-                    _logger.LogDebug("Successfully received response from {ServiceName}", serviceName);
-                    return result;
-                }
-                
-                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogWarning("Request to {ServiceName} failed with status {StatusCode}: {Error}", 
-                    serviceName, response.StatusCode, errorContent);
-                
-                return default;
-            }
-            catch (Exception ex)
+    private async Task<TResponse?> SendHttpRequestAsync<TRequest, TResponse>(
+        string serviceName,
+        string requestUri,
+        TRequest request,
+        Dictionary<string, string>? headers,
+        CancellationToken cancellationToken)
+        where TRequest : class
+        where TResponse : class
+    {
+        try
+        {
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, requestUri)
             {
-                _logger.LogError(ex, "Error communicating with {ServiceName} at {RequestUri}", serviceName, requestUri);
-                throw;
+                Content = JsonContent.Create(request, options: _jsonOptions)
+            };
+
+            if (headers != null)
+            {
+                foreach (var header in headers)
+                {
+                    httpRequest.Headers.Add(header.Key, header.Value);
+                }
             }
-        });
+
+            _logger.LogDebug("Sending request to {ServiceName} at {RequestUri}", serviceName, requestUri);
+            
+            using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions, cancellationToken);
+                _logger.LogDebug("Successfully received response from {ServiceName}", serviceName);
+                return result;
+            }
+            
+            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Request to {ServiceName} failed with status {StatusCode}: {Error}", 
+                serviceName, response.StatusCode, errorContent);
+            
+            return default;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error communicating with {ServiceName} at {RequestUri}", serviceName, requestUri);
+            throw;
+        }
     }
 
     public async Task PublishEventAsync<TEvent>(TEvent eventData, CancellationToken cancellationToken = default)

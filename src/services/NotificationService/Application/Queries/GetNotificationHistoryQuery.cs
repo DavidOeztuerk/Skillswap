@@ -15,10 +15,13 @@ public record GetNotificationHistoryQuery(
     DateTime? StartDate = null,
     DateTime? EndDate = null,
     int PageNumber = 1,
-    int PageSize = 20) : IPagedQuery<NotificationHistoryResponse>
+    int PageSize = 20) : IPagedQuery<NotificationHistoryResponse>, ICacheableQuery
 {
     int IPagedQuery<NotificationHistoryResponse>.PageNumber { get; set; } = PageNumber;
     int IPagedQuery<NotificationHistoryResponse>.PageSize { get; set; } = PageSize;
+
+    public string CacheKey => $"notification-history:{UserId}:{PageNumber}:{PageSize}";
+    public TimeSpan CacheDuration => TimeSpan.FromMinutes(2);
 }
 
 public class GetNotificationHistoryQueryValidator : AbstractValidator<GetNotificationHistoryQuery>

@@ -8,12 +8,12 @@ namespace AppointmentService.Application.QueryHandlers;
 
 public class GetAppointmentDetailsQueryHandler(
     AppointmentDbContext dbContext,
-    AppointmentDataEnrichmentService enrichmentService,
+    IAppointmentDataEnrichmentService enrichmentService,
     ILogger<GetAppointmentDetailsQueryHandler> logger)
     : BaseQueryHandler<GetAppointmentDetailsQuery, AppointmentDetailsResponse>(logger)
 {
     private readonly AppointmentDbContext _dbContext = dbContext;
-    private readonly AppointmentDataEnrichmentService _enrichmentService = enrichmentService;
+    private readonly IAppointmentDataEnrichmentService _enrichmentService = enrichmentService;
 
     public override async Task<ApiResponse<AppointmentDetailsResponse>> Handle(
         GetAppointmentDetailsQuery request,

@@ -22,10 +22,15 @@ public record UpdateNotificationPreferencesCommand(
     string? TimeZone = null,
     string? DigestFrequency = null,
     string? Language = null) 
-    : ICommand<UpdateNotificationPreferencesResponse>, IAuditableCommand
+    : ICommand<UpdateNotificationPreferencesResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     string? IAuditableCommand.UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "notification-preferences:*"
+    };
 }
 
 public class UpdateNotificationPreferencesCommandValidator : AbstractValidator<UpdateNotificationPreferencesCommand>

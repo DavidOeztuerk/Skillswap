@@ -8,8 +8,13 @@ namespace UserService.Application.Commands;
 /// <param name="UserId">The ID of the skill to add to the user favorte list</param>
 public record AddFavoriteSkillCommand(
     string SkillId)
-    : ICommand<bool>, IAuditableCommand
+    : ICommand<bool>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "favorite-skills:*"
+    };
 }

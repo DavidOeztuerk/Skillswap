@@ -17,13 +17,19 @@ public record CreateMatchRequestCommand(
     int TotalSessions = 1,
     string[]? PreferredDays = null,
     string[]? PreferredTimes = null)
-    : ICommand<CreateMatchRequestResponse>, IAuditableCommand
+    : ICommand<CreateMatchRequestResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     
     // Helper properties for backward compatibility
     public string? Description => Message;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "outgoing-match-requests:*",
+        "match-statistics"
+    };
 }
 
 public class CreateMatchRequestCommandValidator : AbstractValidator<CreateMatchRequestCommand>

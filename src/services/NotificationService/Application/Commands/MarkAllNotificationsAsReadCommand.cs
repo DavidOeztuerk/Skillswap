@@ -9,10 +9,15 @@ namespace NotificationService.Application.Commands;
 
 public record MarkAllNotificationsAsReadCommand(
     string UserId) 
-    : ICommand<MarkAllNotificationsAsReadResponse>, IAuditableCommand
+    : ICommand<MarkAllNotificationsAsReadResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     string? IAuditableCommand.UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "notification-history:*"
+    };
 }
 
 public record MarkAllNotificationsAsReadResponse(

@@ -645,3 +645,4 @@ backups/
 # JWT Secrets
 *jwt*secret*
 *jwt*key*
+.claude/agents/elite-infrastructure-architect.md
