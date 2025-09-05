@@ -11,23 +11,15 @@
     <PackageReference Include="FirebaseAdmin" Version="3.2.0" />
     <PackageReference Include="Handlebars.Net" Version="2.1.6" />
     <PackageReference Include="MailKit" Version="4.12.1" />
-    <PackageReference Include="MassTransit" Version="8.5.2" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.5" />
-    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="9.0.4" />
-    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.4" />
     <PackageReference Include="Twilio.AspNet.Core" Version="8.1.1" />
-    <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
-    <PackageReference Include="AspNetCore.HealthChecks.RabbitMQ" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../shared/Core/CQRS/CQRS.csproj" />
     <ProjectReference Include="../../shared/Core/Events/Events.csproj" />
+    <ProjectReference Include="../../shared/Core/EventSourcing/EventSourcing.csproj" />
     <ProjectReference Include="..\..\shared\Core\Domain.Absractions\Domain.Abstractions.csproj" />
     <ProjectReference Include="..\..\shared\Infrastructure\Infrastructure.csproj" />
     <ProjectReference Include="..\..\shared\Contracts\Contracts.csproj" />

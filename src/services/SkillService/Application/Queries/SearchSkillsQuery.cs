@@ -21,7 +21,9 @@ public record SearchSkillsQuery(
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
 
-    public string CacheKey => $"skills-search:{SearchTerm}:{CategoryId}:{ProficiencyLevelId}:{IsOffered}:{string.Join(",", Tags != null ? Tags : "")}:{PageNumber}:{PageSize}";
+    // Include UserId in cache key to ensure user-specific results are cached separately
+    // This prevents users from getting cached results meant for other users
+    public string CacheKey => $"skills-search:{UserId}:{SearchTerm}:{CategoryId}:{ProficiencyLevelId}:{IsOffered}:{string.Join(",", Tags != null ? Tags : "")}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 

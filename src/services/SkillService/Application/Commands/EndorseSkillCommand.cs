@@ -8,10 +8,16 @@ public record EndorseSkillCommand(
     string SkillId,
     string EndorsedUserId,
     string? Message = null)
-    : ICommand<EndorseSkillResponse>, IAuditableCommand
+    : ICommand<EndorseSkillResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; } // User giving the endorsement
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "skill-details:*",
+        "skill-statistics:*"
+    };
 }
 
 public class EndorseSkillCommandValidator : AbstractValidator<EndorseSkillCommand>

@@ -7,10 +7,16 @@ public record CompleteMatchCommand(
     string MatchId,
     int? SessionDurationMinutes = null,
     string? CompletionNotes = null,
-    int? Rating = null) : ICommand<CompleteMatchResponse>, IAuditableCommand
+    int? Rating = null) : ICommand<CompleteMatchResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "user-matches:*",
+        "match-statistics"
+    };
 }
 
 // public record CompleteMatchResponse(

@@ -8,10 +8,16 @@ public record CreateCallSessionCommand(
     string? AppointmentId = null,
     string? MatchId = null,
     bool IsRecorded = false,
-    int MaxParticipants = 2) : ICommand<CreateCallSessionResponse>, IAuditableCommand
+    int MaxParticipants = 2) : ICommand<CreateCallSessionResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "call-history:*",
+        "call-statistics"
+    };
 }
 
 public record CreateCallSessionResponse(

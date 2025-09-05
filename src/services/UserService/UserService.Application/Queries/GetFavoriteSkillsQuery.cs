@@ -10,6 +10,6 @@ public record GetFavoriteSkillsQuery(
 {
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
-    public string CacheKey => $"user-favourites:{UserId}";
-    public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
+    public string CacheKey => $"favorite-skills:{UserId}";
+    public TimeSpan CacheDuration => TimeSpan.FromMinutes(10);
 }

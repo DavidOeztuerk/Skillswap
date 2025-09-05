@@ -17,7 +17,7 @@ public class AppointmentAcceptedEventHandler(
     AppointmentDbContext dbContext,
     IDomainEventPublisher eventPublisher,
     IPublishEndpoint publishEndpoint,
-    AppointmentDataEnrichmentService enrichmentService,
+    IAppointmentDataEnrichmentService enrichmentService,
     ILogger<AppointmentAcceptedEventHandler> logger,
     IHttpClientFactory httpClientFactory)
     : BaseDomainEventHandler<AppointmentAcceptedDomainEvent>(logger)
@@ -25,7 +25,7 @@ public class AppointmentAcceptedEventHandler(
     private readonly AppointmentDbContext _dbContext = dbContext;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
     private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
-    private readonly AppointmentDataEnrichmentService _enrichmentService = enrichmentService;
+    private readonly IAppointmentDataEnrichmentService _enrichmentService = enrichmentService;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 
     protected override async Task HandleDomainEvent(AppointmentAcceptedDomainEvent notification, CancellationToken cancellationToken)

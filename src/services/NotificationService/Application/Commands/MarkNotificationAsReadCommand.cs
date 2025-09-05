@@ -6,10 +6,15 @@ namespace NotificationService.Application.Commands;
 
 public record MarkNotificationAsReadCommand(
     string NotificationId,
-    string UserId) : ICommand<MarkNotificationAsReadResponse>, IAuditableCommand
+    string UserId) : ICommand<MarkNotificationAsReadResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     string? IAuditableCommand.UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "notification-history:*"
+    };
 }
 
 public class MarkNotificationAsReadCommandValidator : AbstractValidator<MarkNotificationAsReadCommand>

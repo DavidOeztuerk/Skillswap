@@ -1,6 +1,4 @@
-using EventSourcing;
 using Infrastructure.Extensions;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UserService.Api.Extensions;
 using UserService.Infrastructure.Data;
@@ -20,7 +18,6 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment, s
 
 var app = builder.Build();
 
-// DB Migration + Seeding
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<UserDbContext>();
@@ -57,13 +54,7 @@ app.MapUserManagementController();
 app.MapTwoFactorController();
 app.MapPermissionController();
 app.MapAdminEndpoints();
-
-var events = app.MapGroup("/events");
-events.MapPost("/replay", ([FromBody] EventReplayService request) =>
-    Results.Ok(new { Message = "Event replay initiated" }))
-    .WithName("ReplayEvents")
-    .WithSummary("Replay domain events")
-    .WithTags("Events");
+app.MapEventController();
 
 app.Logger.LogInformation("Starting {ServiceName}", serviceName);
 

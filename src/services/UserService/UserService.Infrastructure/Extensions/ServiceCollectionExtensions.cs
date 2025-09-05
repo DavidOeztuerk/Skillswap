@@ -9,7 +9,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UserService.Domain.Repositories;
 using UserService.Infrastructure.Repositories;
-using UserService.Infrastructure.Data;
 
 namespace UserService.Infrastructure.Extensions;
 
