@@ -1,9 +1,7 @@
 using AppointmentService.Application.Services;
-using AppointmentService.Domain.Entities;
 using Events.Domain.Appointment;
 using EventSourcing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
 
 namespace AppointmentService.Infrastructure.Services;

@@ -12,10 +12,17 @@ public record UpdateUserProfileCommand(
     string? Bio = null,
     string? TimeZone = null,
     Dictionary<string, string>? Preferences = null)
-    : ICommand<UpdateUserProfileResponse>, IAuditableCommand
+    : ICommand<UpdateUserProfileResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "user-profile:*",
+        "public-profile:*",
+        "user-statistics:*"
+    };
 }
 
 public class UpdateUserProfileCommandValidator : AbstractValidator<UpdateUserProfileCommand>

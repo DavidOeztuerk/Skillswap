@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 using System.Text;
 using System.Text.Json;
 
@@ -81,7 +83,7 @@ public class InputSanitizationMiddleware
 
     private async Task SanitizeQueryParameters(HttpContext context)
     {
-        var sanitizedQuery = new Dictionary<string, string>();
+        var sanitizedQuery = new Dictionary<string, StringValues>();
         var hasInjection = false;
 
         foreach (var param in context.Request.Query)
@@ -112,9 +114,13 @@ public class InputSanitizationMiddleware
                 values[i] = sanitized;
             }
 
-            // Reconstruct query string with sanitized values
-            context.Request.QueryString = context.Request.QueryString.Add(key, string.Join(",", values));
+            // Store sanitized values for later reconstruction
+            sanitizedQuery[key] = new StringValues(values);
         }
+
+        // Rebuild the entire query string at once with all sanitized values
+        var queryBuilder = new QueryBuilder(sanitizedQuery);
+        context.Request.QueryString = queryBuilder.ToQueryString();
 
         if (hasInjection && _options.LogInjectionAttempts)
         {
@@ -124,7 +130,8 @@ public class InputSanitizationMiddleware
 
     private async Task SanitizeHeaders(HttpContext context)
     {
-        var headersToSanitize = new[] { "User-Agent", "Referer", "X-Forwarded-For", "X-Real-IP" };
+        // Skip User-Agent validation as it contains legitimate characters that trigger false positives
+        var headersToSanitize = new[] { "Referer", "X-Forwarded-For", "X-Real-IP" };
         
         foreach (var headerName in headersToSanitize)
         {
@@ -204,19 +211,9 @@ public class InputSanitizationMiddleware
     {
         try
         {
-            // Detect injection in raw JSON
-            var injectionResult = _inputSanitizer.DetectInjectionAttempt(jsonBody);
-            if (injectionResult.InjectionDetected)
-            {
-                await LogInjectionAttempt(context, "JsonBody", "RequestBody", jsonBody, injectionResult);
-                
-                if (_options.BlockOnInjectionDetection)
-                {
-                    await HandleInjectionAttempt(context, injectionResult);
-                    return;
-                }
-            }
-
+            // Skip injection detection on raw JSON as it contains legitimate characters
+            // Instead, parse JSON first and then check individual values
+            
             // Parse and sanitize JSON
             var jsonDoc = JsonDocument.Parse(jsonBody);
             var sanitized = SanitizeJsonElement(jsonDoc.RootElement);
@@ -362,12 +359,22 @@ public class InputSanitizationMiddleware
 
             case JsonValueKind.String:
                 var stringValue = element.GetString() ?? "";
-                return _inputSanitizer.SanitizeText(stringValue, new TextSanitizationOptions
+                // Only sanitize for actual dangerous patterns, not JSON syntax
+                // Skip email validation as @ is legitimate in emails
+                if (!stringValue.Contains("@") || !IsLikelyEmail(stringValue))
                 {
-                    AllowHtml = false,
-                    MaxLength = _options.MaxTextFieldLength,
-                    RemoveControlCharacters = true
-                });
+                    // Check for actual injection attempts in string values
+                    if (ContainsDangerousPattern(stringValue))
+                    {
+                        return _inputSanitizer.SanitizeText(stringValue, new TextSanitizationOptions
+                        {
+                            AllowHtml = false,
+                            MaxLength = _options.MaxTextFieldLength,
+                            RemoveControlCharacters = true
+                        });
+                    }
+                }
+                return stringValue;
 
             case JsonValueKind.Number:
                 return element.GetDecimal();
@@ -582,6 +589,32 @@ public class InputSanitizationMiddleware
         }
 
         return context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+    }
+
+    private static bool IsLikelyEmail(string value)
+    {
+        // Simple email check - contains @ and a dot after it
+        var atIndex = value.IndexOf('@');
+        if (atIndex > 0 && atIndex < value.Length - 1)
+        {
+            var domainPart = value.Substring(atIndex + 1);
+            return domainPart.Contains('.');
+        }
+        return false;
+    }
+
+    private static bool ContainsDangerousPattern(string value)
+    {
+        // Only check for actual dangerous patterns, not JSON/email syntax
+        var dangerousPatterns = new[]
+        {
+            "<script", "</script>", "javascript:", "onerror=", "onclick=",
+            "DROP TABLE", "DELETE FROM", "INSERT INTO", "UPDATE SET",
+            "../", "..\\", "cmd.exe", "/bin/bash", "powershell.exe"
+        };
+
+        var valueLower = value.ToLowerInvariant();
+        return dangerousPatterns.Any(pattern => valueLower.Contains(pattern.ToLowerInvariant()));
     }
 }
 

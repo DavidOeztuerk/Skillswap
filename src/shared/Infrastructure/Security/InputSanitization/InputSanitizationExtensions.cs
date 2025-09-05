@@ -22,8 +22,8 @@ public static class InputSanitizationExtensions
         services.AddSingleton<IInputValidator, InputValidator>();
         services.AddSingleton<IInjectionDetector, InjectionDetector>();
 
-        // Register middleware
-        services.AddTransient<InputSanitizationMiddleware>();
+        // InputSanitizationMiddleware should not be registered as a service
+        // It will be used directly via UseMiddleware<InputSanitizationMiddleware>()
 
         // Configure options
         services.Configure<InputSanitizationOptions>(configuration.GetSection("InputSanitization"));
@@ -36,7 +36,7 @@ public static class InputSanitizationExtensions
     /// </summary>
     public static IServiceCollection AddInputSanitizationMiddleware(this IServiceCollection services)
     {
-        services.AddTransient<InputSanitizationMiddleware>();
+        // Middleware should not be registered as a service
         return services;
     }
 

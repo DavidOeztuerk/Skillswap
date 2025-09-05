@@ -13,10 +13,15 @@ public record CreateAppointmentCommand(
     string? SkillId = null,
     string? MatchId = null,
     string? MeetingType = "VideoCall")
-    : ICommand<CreateAppointmentResponse>, IAuditableCommand
+    : ICommand<CreateAppointmentResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "user-appointments:*"
+    };
 }
 
 

@@ -73,11 +73,16 @@ public class PermissionMiddleware
             "/auth",           // Authentication endpoints
             "/users/auth",     // User authentication endpoints
             "/api/auth",       // API authentication endpoints
-            "/register",       // Registration endpoint
-            "/login",          // Login endpoint
-            "/forgot-password", // Password reset endpoints
-            "/reset-password",
-            "/verify-email"    // Email verification endpoint
+            "/api/users/login", // User login endpoint
+            "/api/users/register", // User registration endpoint
+            "/api/users/forgot-password", // Password reset endpoints
+            "/api/users/reset-password",
+            "/api/users/verify-email", // Email verification endpoint
+            "/register",       // Registration endpoint (legacy)
+            "/login",          // Login endpoint (legacy)
+            "/forgot-password", // Password reset endpoints (legacy)
+            "/reset-password", // (legacy)
+            "/verify-email"    // Email verification endpoint (legacy)
         };
 
         return publicPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));

@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using Events.Integration.UserManagement;
-using SkillService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.Skill;
 

@@ -21,7 +21,7 @@ public class SearchSkillsQueryHandler(
         try
         {
             var query = _dbContext.Skills
-                .AsNoTracking() // Performance: Read-only query
+                .AsNoTracking()
                 .Include(s => s.SkillCategory)
                 .Include(s => s.ProficiencyLevel)
                 .Where(s => s.IsActive && !s.IsDeleted && s.UserId != request.UserId);

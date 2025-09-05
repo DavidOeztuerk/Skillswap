@@ -6,10 +6,17 @@ namespace MatchmakingService.Application.Commands;
 public record AcceptDirectMatchRequestCommand(
     string RequestId,
     string? ResponseMessage = null)
-    : ICommand<DirectMatchRequestResponse>, IAuditableCommand
+    : ICommand<DirectMatchRequestResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "user-matches:*",
+        "match-requests:*",
+        "accepted-match-requests:*"
+    };
 }
 
 public class AcceptDirectMatchRequestCommandValidator : AbstractValidator<AcceptDirectMatchRequestCommand>

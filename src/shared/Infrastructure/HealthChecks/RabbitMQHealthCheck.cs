@@ -16,7 +16,7 @@ public class RabbitMQHealthCheck : IHealthCheck
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public Task<HealthCheckResult> CheckHealthAsync(
+    public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
@@ -27,14 +27,14 @@ public class RabbitMQHealthCheck : IHealthCheck
             if (!_connection.IsOpen)
             {
                 _logger.LogWarning("RabbitMQ connection is closed");
-                return Task.FromResult(HealthCheckResult.Unhealthy("RabbitMQ connection is closed"));
+                return HealthCheckResult.Unhealthy("RabbitMQ connection is closed");
             }
 
-            using var channel = _connection.CreateModel();
+            using var channel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
             if (!channel.IsOpen)
             {
                 _logger.LogWarning("RabbitMQ channel could not be opened");
-                return Task.FromResult(HealthCheckResult.Unhealthy("RabbitMQ channel could not be opened"));
+                return HealthCheckResult.Unhealthy("RabbitMQ channel could not be opened");
             }
 
             stopwatch.Stop();
@@ -49,12 +49,12 @@ public class RabbitMQHealthCheck : IHealthCheck
             _logger.LogDebug("RabbitMQ health check completed in {ElapsedMilliseconds}ms", 
                 stopwatch.ElapsedMilliseconds);
 
-            return Task.FromResult(HealthCheckResult.Healthy("RabbitMQ is accessible", data));
+            return HealthCheckResult.Healthy("RabbitMQ is accessible", data);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "RabbitMQ health check failed");
-            return Task.FromResult(HealthCheckResult.Unhealthy("RabbitMQ check failed", ex));
+            return HealthCheckResult.Unhealthy("RabbitMQ check failed", ex);
         }
     }
 }
