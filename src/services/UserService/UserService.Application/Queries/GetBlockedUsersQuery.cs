@@ -8,10 +8,13 @@ public record GetBlockedUsersQuery(
     string UserId,
     int PageNumber = 1,
     int PageSize = 20)
-    : IPagedQuery<GetBlockedUsersResponse>
+    : IPagedQuery<GetBlockedUsersResponse>, ICacheableQuery
 {
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
+
+    public string CacheKey => $"blocked-users:{UserId}:{PageNumber}:{PageSize}";
+    public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 
 public class GetBlockedUsersQueryValidator : AbstractValidator<GetBlockedUsersQuery>

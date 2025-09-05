@@ -13,10 +13,19 @@ public record CreateSkillCommand(
     bool IsOffered,
     int? AvailableHours = null,
     int? PreferredSessionDuration = 60)
-    : ICommand<CreateSkillResponse>, IAuditableCommand
+    : ICommand<CreateSkillResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    
+    // ICacheInvalidatingCommand implementation
+    // Invalidate all skill-related caches when a new skill is created
+    public string[] InvalidationPatterns => new[]
+    {
+        "skills-search:*",  // All search queries
+        "user-skills:*",    // All user skill lists
+        "skill-categories:*" // Category statistics might change
+    };
 }
 
 public class CreateSkillCommandValidator : AbstractValidator<CreateSkillCommand>

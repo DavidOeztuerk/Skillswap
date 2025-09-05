@@ -8,7 +8,7 @@ namespace AppointmentService.Application.Services;
 /// This service fetches all necessary data within the AppointmentService
 /// to create complete integration events without relying on other services
 /// </summary>
-public class AppointmentDataEnrichmentService
+public class AppointmentDataEnrichmentService : IAppointmentDataEnrichmentService
 {
     private readonly AppointmentDbContext _dbContext;
     private readonly IHttpClientFactory _httpClientFactory;

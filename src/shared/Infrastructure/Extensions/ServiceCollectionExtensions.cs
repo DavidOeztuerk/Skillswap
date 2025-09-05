@@ -94,8 +94,16 @@ public static class ServiceCollectionExtensions
 
         // Add Comprehensive Health Checks
         services.AddHealthChecks();
-        services.AddComprehensiveHealthChecks(configuration);
+        
+        // Skip ServiceCommunicationManager for Gateway (doesn't need service-to-service communication)
+        if (!serviceName.Equals("Gateway", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddComprehensiveHealthChecks(configuration);
+        }
 
+        // Add Caching with Redis or fallback to Memory
+        services.AddCaching(redisConnectionString ?? string.Empty);
+        
         // Add Caching Services
         if (!string.IsNullOrEmpty(redisConnectionString))
         {
@@ -106,7 +114,11 @@ public static class ServiceCollectionExtensions
         {
             services.AddSingleton<IDistributedRateLimitStore, InMemoryRateLimitStore>();
         }
-        services.AddSingleton<CacheInvalidationService>();
+        // Skip CacheInvalidationService for Gateway (doesn't need cache invalidation)
+        if (!serviceName.Equals("Gateway", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<CacheInvalidationService>();
+        }
 
         // Configure JSON serialization for APIs to use camelCase
         services.ConfigureHttpJsonOptions(options =>
@@ -256,7 +268,8 @@ public static class ServiceCollectionExtensions
 
                 connectionMultiplexer = ConnectionMultiplexer.Connect(configOptions);
 
-                // Register ConnectionMultiplexer as singleton
+                // Register ConnectionMultiplexer as singleton for all services to use
+                services.AddSingleton<IConnectionMultiplexer>(connectionMultiplexer);
                 services.AddSingleton(connectionMultiplexer);
 
                 // Add Redis cache
@@ -265,6 +278,13 @@ public static class ServiceCollectionExtensions
                     options.ConnectionMultiplexerFactory = () => Task.FromResult(connectionMultiplexer);
                     options.InstanceName = GetCurrentServiceName() + ":";
                 });
+
+                // Add Redis health check
+                services.AddHealthChecks()
+                    .AddRedis(redisConnectionString, 
+                        name: "redis", 
+                        tags: new[] { "ready", "cache" },
+                        timeout: TimeSpan.FromSeconds(2));
 
                 Console.WriteLine($"[DEBUG] Redis cache configured successfully");
             }

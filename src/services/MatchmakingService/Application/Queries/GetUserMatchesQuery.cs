@@ -13,7 +13,7 @@ public record GetUserMatchesQuery(
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
 
-    public string CacheKey => $"user-matches:{Status}:{IncludeCompleted}:{PageNumber}:{PageSize}";
+    public string CacheKey => $"user-matches:{UserId}:{Status}:{IncludeCompleted}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(2);
 }
 

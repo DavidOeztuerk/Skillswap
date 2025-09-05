@@ -16,14 +16,14 @@ public class RescheduleAppointmentCommandHandler(
     AppointmentDbContext dbContext,
     IDomainEventPublisher eventPublisher,
     IPublishEndpoint publishEndpoint,
-    AppointmentDataEnrichmentService enrichmentService,
+    IAppointmentDataEnrichmentService enrichmentService,
     ILogger<RescheduleAppointmentCommandHandler> logger)
     : BaseCommandHandler<RescheduleAppointmentCommand, RescheduleAppointmentResponse>(logger)
 {
     private readonly AppointmentDbContext _dbContext = dbContext;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
     private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
-    private readonly AppointmentDataEnrichmentService _enrichmentService = enrichmentService;
+    private readonly IAppointmentDataEnrichmentService _enrichmentService = enrichmentService;
 
     public override async Task<ApiResponse<RescheduleAppointmentResponse>> Handle(
         RescheduleAppointmentCommand request,

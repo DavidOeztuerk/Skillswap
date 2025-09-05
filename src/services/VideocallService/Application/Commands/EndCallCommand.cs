@@ -11,8 +11,14 @@ public record EndCallCommand(
     int DurationSeconds,
     int? Rating = null,
     string? Feedback = null) 
-    : ICommand<EndCallResponse>, IAuditableCommand
+    : ICommand<EndCallResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "call-history:*",
+        "call-session:*"
+    };
 }

@@ -15,10 +15,19 @@ public record UpdateSkillCommand(
     int? AvailableHours = null,
     int? PreferredSessionDuration = 60,
     bool? IsActive = null)
-    : ICommand<UpdateSkillResponse>, IAuditableCommand
+    : ICommand<UpdateSkillResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    
+    // ICacheInvalidatingCommand implementation
+    // Invalidate specific skill cache and all search caches
+    public string[] InvalidationPatterns => new[]
+    {
+        "skills-search:*",
+        "user-skills:*",
+        "skill-details:*"
+    };
 }
 
 public class UpdateSkillCommandValidator : AbstractValidator<UpdateSkillCommand>

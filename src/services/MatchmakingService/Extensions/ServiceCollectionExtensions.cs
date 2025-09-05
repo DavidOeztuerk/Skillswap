@@ -2,6 +2,13 @@ using MediatR;
 using MatchmakingService.Application.EventHandlers;
 using Events.Integration.UserManagement;
 using Events.Domain.Skill;
+using Infrastructure.Extensions;
+using EventSourcing;
+using CQRS.Extensions;
+using System.Reflection;
+using MatchmakingService.Infrastructure.HttpClients;
+using Infrastructure.Security;
+using Infrastructure.Authorization;
 
 namespace MatchmakingService.Extensions;
 
@@ -13,11 +20,55 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Adds MatchmakingService-specific dependencies to the DI container
     /// </summary>
-    public static IServiceCollection AddMatchmakingServiceDependencies(this IServiceCollection services)
+    public static IServiceCollection AddInfrastructure(
+         this IServiceCollection services,
+        IConfiguration configuration,
+        IWebHostEnvironment environment,
+        string serviceName)
     {
         // Register cascading delete event handlers
         services.AddScoped<INotificationHandler<UserDeletedEvent>, UserDeletedIntegrationEventHandler>();
         services.AddScoped<INotificationHandler<SkillDeletedDomainEvent>, SkillDeletedIntegrationEventHandler>();
+
+        services.AddSharedInfrastructure(configuration, environment, serviceName);
+
+        services.AddJwtAuthentication(configuration);
+
+        services.AddDatabaseContext<MatchmakingDbContext>(
+            configuration, 
+            serviceName);
+
+        services.AddEventSourcing("MatchmakingServiceEventStore");
+
+        services.AddCQRS(Assembly.GetExecutingAssembly());
+
+        services.AddMessaging(
+            configuration,
+            Assembly.GetExecutingAssembly());
+
+        services.AddHttpContextAccessor();
+
+        var gatewayUrl = Environment.GetEnvironmentVariable("GATEWAY_URL") ?? "http://gateway:8080";
+
+        services.AddHttpClient<IUserServiceClient, UserServiceClient>(client =>
+        {
+            client.BaseAddress = new Uri($"{gatewayUrl}/api/");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        services.AddHttpClient<ISkillServiceClient, SkillServiceClient>(client =>
+        {
+            client.BaseAddress = new Uri($"{gatewayUrl}/api/");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        services.AddEventBus();
+
+        services.AddSkillSwapAuthorization();
+        services.AddPermissionAuthorization();
+        services.AddAuthorization(options => options.AddPermissionPolicies());
 
         return services;
     }

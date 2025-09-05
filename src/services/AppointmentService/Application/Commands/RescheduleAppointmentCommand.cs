@@ -8,8 +8,14 @@ public record RescheduleAppointmentCommand(
     DateTimeOffset NewScheduledDate,
     int? NewDurationMinutes = null,
     string? Reason = null) 
-    : ICommand<RescheduleAppointmentResponse>, IAuditableCommand
+    : ICommand<RescheduleAppointmentResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "user-appointments:*",
+        "appointment-details:*"
+    };
 }

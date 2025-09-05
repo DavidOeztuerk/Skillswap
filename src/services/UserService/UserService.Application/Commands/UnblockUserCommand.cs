@@ -6,10 +6,15 @@ namespace UserService.Application.Commands;
 
 public record UnblockUserCommand(
     string BlockedUserId)
-    : ICommand<UnblockUserResponse>, IAuditableCommand
+    : ICommand<UnblockUserResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "blocked-users:*"
+    };
 }
 
 public class UnblockUserCommandValidator : AbstractValidator<UnblockUserCommand>

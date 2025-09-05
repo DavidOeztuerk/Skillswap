@@ -6,10 +6,17 @@ namespace MatchmakingService.Application.Commands;
 public record AcceptMatchRequestCommand(
     string RequestId,
     string? ResponseMessage = null)
-    : ICommand<bool>, IAuditableCommand
+    : ICommand<bool>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "user-matches:*",
+        "match-requests:*", 
+        "accepted-match-requests:*"
+    };
 }
 
 public class AcceptMatchRequestCommandValidator : AbstractValidator<AcceptMatchRequestCommand>

@@ -4,10 +4,15 @@ namespace MatchmakingService.Application.Commands;
 
 public record DissolveMatchCommand(
     string MatchId,
-    string Reason) : ICommand<DissolveMatchResponse>, IAuditableCommand
+    string Reason) : ICommand<DissolveMatchResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "user-matches:*"
+    };
 }
 
 public record DissolveMatchResponse(

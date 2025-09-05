@@ -65,13 +65,8 @@ public static class MessagingExtensions
             });
         });
         
-        // Add RabbitMQ health check
-        services.AddHealthChecks()
-            .AddRabbitMQ(
-                rabbitMqSettings.ConnectionString,
-                name: "rabbitmq", 
-                tags: new[] { "ready", "messaging" }, 
-                timeout: TimeSpan.FromSeconds(2));
+        // Note: RabbitMQ health check removed due to version conflicts
+        // MassTransit already provides its own health checks
         
         return services;
     }
