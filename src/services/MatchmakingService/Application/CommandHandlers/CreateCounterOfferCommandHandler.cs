@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
 using Contracts.Matchmaking.Responses;
+using Core.Common.Exceptions;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
@@ -21,14 +22,13 @@ public class CreateCounterOfferCommandHandler(
         CreateCounterOfferCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             // Validate required fields
             if (string.IsNullOrWhiteSpace(request.UserId) ||
                 string.IsNullOrWhiteSpace(request.OriginalRequestId) ||
                 string.IsNullOrWhiteSpace(request.Message))
             {
-                return Error("Missing required fields");
+                return Error("Missing required fields", ErrorCodes.RequiredFieldMissing);
             }
 
             Logger.LogInformation("Creating counter offer for request: {RequestId} by user: {UserId}", 
@@ -41,7 +41,7 @@ public class CreateCounterOfferCommandHandler(
             if (originalRequest == null)
             {
                 Logger.LogWarning("Original request not found: {RequestId}", request.OriginalRequestId);
-                return Error($"Request {request.OriginalRequestId} not found");
+                return Error($"Request {request.OriginalRequestId} not found", ErrorCodes.ResourceNotFound);
             }
 
             // Mark original request as countered
@@ -94,11 +94,6 @@ public class CreateCounterOfferCommandHandler(
             );
 
             return Success(response, "Counter offer created successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error creating counter offer for request: {RequestId}", request.OriginalRequestId);
-            return Error("An error occurred while creating the counter offer");
         }
     }
 }

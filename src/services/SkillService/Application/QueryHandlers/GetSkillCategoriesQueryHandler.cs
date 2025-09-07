@@ -20,7 +20,6 @@ public class GetSkillCategoriesQueryHandler(
         GetSkillCategoriesQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var query = _dbContext.SkillCategories.AsQueryable();
 
@@ -36,11 +35,6 @@ public class GetSkillCategoriesQueryHandler(
                 .ToListAsync(cancellationToken);
 
             return Success(categories);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting skill categories");
-            return Error("An error occurred while retrieving skill categories");
         }
     }
 }

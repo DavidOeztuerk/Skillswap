@@ -4,6 +4,7 @@ using EventSourcing;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers.Permissions;
 
@@ -26,14 +27,14 @@ public class SyncUserPermissionsCommandHandler(
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             if (request.PermissionNames == null || !request.PermissionNames.Any())
-                return Error("PermissionNames cannot be empty");
+                return Error("PermissionNames cannot be empty", ErrorCodes.RequiredFieldMissing);
 
             // Parse UserId to Guid
             if (!Guid.TryParse(request.UserId, out var userId))
-                return Error("Invalid UserId format");
+                return Error("Invalid UserId format", ErrorCodes.InvalidFormat);
 
             await _permissionRepository.SyncUserPermissionsAsync(userId, request.PermissionNames);
 
@@ -48,7 +49,7 @@ public class SyncUserPermissionsCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error syncing permissions for user {UserId}", request.UserId);
-            return Error("An error occurred while syncing permissions");
+            return Error("An error occurred while syncing permissions", ErrorCodes.InternalError);
         }
     }
 }

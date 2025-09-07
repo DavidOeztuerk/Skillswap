@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using UserService.Domain.Models;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Infrastructure.Repositories;
 
@@ -344,7 +345,7 @@ public class PermissionRepository : IPermissionRepository
     public async Task AssignRoleToUserAsync(Guid userId, string roleName, Guid? assignedBy = null, string? reason = null, CancellationToken cancellationToken = default)
     {
         var role = await GetRoleByNameAsync(roleName, cancellationToken)
-                   ?? throw new ArgumentException("Role not found", nameof(roleName));
+                   ?? throw new ResourceNotFoundException("Role", roleName);
 
         var existing = await _context.UserRoles
             .FirstOrDefaultAsync(ur => ur.UserId == userId.ToString()
@@ -392,7 +393,7 @@ public class PermissionRepository : IPermissionRepository
     public async Task GrantPermissionToUserAsync(Guid userId, string permissionName, Guid? grantedBy = null, DateTime? expiresAt = null, string? resourceId = null, string? reason = null, CancellationToken cancellationToken = default)
     {
         var permission = await GetPermissionByNameAsync(permissionName, cancellationToken)
-                         ?? throw new ArgumentException("Permission not found", nameof(permissionName));
+                         ?? throw new ResourceNotFoundException("Permission", permissionName);
 
         var existing = await GetUserPermissionAsync(userId.ToString(), permission.Id, resourceId, cancellationToken);
         if (existing is not null)
@@ -443,10 +444,10 @@ public class PermissionRepository : IPermissionRepository
     public async Task GrantPermissionToRoleAsync(Guid roleId, string permissionName, Guid? grantedBy = null, string? reason = null, CancellationToken cancellationToken = default)
     {
         var role = await GetRoleByIdAsync(roleId.ToString(), cancellationToken)
-                   ?? throw new ArgumentException("Role not found", nameof(roleId));
+                   ?? throw new ResourceNotFoundException("Role", roleId.ToString());
 
         var permission = await GetPermissionByNameAsync(permissionName, cancellationToken)
-                         ?? throw new ArgumentException("Permission not found", nameof(permissionName));
+                         ?? throw new ResourceNotFoundException("Permission", permissionName);
 
         var existing = await GetRolePermissionAsync(roleId.ToString(), permission.Id, cancellationToken);
         if (existing is not null)
@@ -484,7 +485,7 @@ public class PermissionRepository : IPermissionRepository
     public async Task<Role> CreateRoleAsync(string name, string description, int priority = 0, Guid? parentRoleId = null, CancellationToken cancellationToken = default)
     {
         if (await GetRoleByNameAsync(name, cancellationToken) is not null)
-            throw new ArgumentException("Role already exists", nameof(name));
+            throw new ResourceAlreadyExistsException("Role", "name", name);
 
         var role = Role.Create(name, description, priority, false, parentRoleId?.ToString());
         await AddRoleAsync(role, cancellationToken);

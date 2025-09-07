@@ -17,7 +17,6 @@ public class GetUserAppointmentsQueryHandler(
         GetUserAppointmentsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             Logger.LogInformation("Retrieving appointments for user {UserId} with parameters: {@Query}", request.UserId, request);
 
@@ -72,11 +71,6 @@ public class GetUserAppointmentsQueryHandler(
                 .ToListAsync(cancellationToken);
 
             return Success(appointments, request.PageNumber, request.PageSize, totalCount);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error retrieving user appointments");
-            return Error("An error occurred while retrieving appointments");
         }
     }
 }

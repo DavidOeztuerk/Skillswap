@@ -3,6 +3,7 @@ using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Queries;
 using NotificationService.Domain.ResponseModels;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Application.QueryHandlers;
 
@@ -67,7 +68,7 @@ public class GetEmailTemplatesQueryHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error retrieving email templates");
-            return Error("An error occurred while retrieving email templates");
+            return Error("An error occurred while retrieving email templates", ErrorCodes.InternalError);
         }
     }
 }

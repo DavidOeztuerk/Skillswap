@@ -11,14 +11,8 @@ import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/Verif
 import { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
 import { SliceError } from '../../store/types';
 import { withDefault, isDefined } from '../../utils/safeAccess';
+import { serializeError } from '../../utils/reduxHelpers';
 import errorService from '../../services/errorService';
-
-// Helper to create standardized error
-const createStandardError = (error: any): SliceError => ({
-  message: error?.message || error?.data?.message || 'Ein unbekannter Fehler ist aufgetreten',
-  code: error?.status || error?.code || 'UNKNOWN_ERROR',
-  details: error?.data || error
-});
 
 const initialState: AuthState = {
   user: null,
@@ -35,113 +29,179 @@ const initialState: AuthState = {
 // Async thunks
 export const login = createAsyncThunk(
   'auth/login',
-  async (credentials: LoginRequest) => {
-    return await authService.login(credentials);
+  async (credentials: LoginRequest, { rejectWithValue }) => {
+    try {
+      return await authService.login(credentials);
+    } catch (error: any) {
+      // Preserve the full AxiosError structure including response.data
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 export const register = createAsyncThunk(
   'auth/register',
-  async (userData: RegisterRequest) => {
-    return await authService.register(userData);
+  async (userData: RegisterRequest, { rejectWithValue }) => {
+    try {
+      return await authService.register(userData);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const refreshToken = createAsyncThunk(
   'auth/refreshToken',
-  async () => {
-    return await authService.refreshToken();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await authService.refreshToken();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const getProfile = createAsyncThunk(
   'auth/getProfile',
-  async () => {
-    return await authService.getProfile();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await authService.getProfile();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
-  async (profileData: UpdateProfileRequest) => {
-    return await authService.updateProfile(profileData);
+  async (profileData: UpdateProfileRequest, { rejectWithValue }) => {
+    try {
+      return await authService.updateProfile(profileData);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const uploadProfilePicture = createAsyncThunk(
   'auth/uploadProfilePicture',
-  async (file: File) => {
-    return await authService.uploadProfilePicture(file);
+  async (file: File, { rejectWithValue }) => {
+    try {
+      return await authService.uploadProfilePicture(file);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const changePassword = createAsyncThunk(
   'auth/changePassword',
-  async (passwordData: ChangePasswordRequest) => {
-    return await authService.changePassword(passwordData);
+  async (passwordData: ChangePasswordRequest, { rejectWithValue }) => {
+    try {
+      return await authService.changePassword(passwordData);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const silentLogin = createAsyncThunk(
   'auth/silentLogin',
-  async () => {
-    return await authService.silentLogin();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await authService.silentLogin();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const logout = createAsyncThunk(
   'auth/logout',
-  async () => {
-    await authService.logout();
+  async (_, { rejectWithValue }) => {
+    try {
+      await authService.logout();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const verifyEmail = createAsyncThunk(
   'auth/verifyEmail',
-  async (request: VerifyEmailRequest) => {
-    return await authService.verifyEmail(request);
+  async (request: VerifyEmailRequest, { rejectWithValue }) => {
+    try {
+      return await authService.verifyEmail(request);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const generateTwoFactorSecret = createAsyncThunk(
   'auth/generateTwoFactorSecret',
-  async () => {
-    return await authService.generateTwoFactorSecret();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await authService.generateTwoFactorSecret();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const verifyTwoFactorCode = createAsyncThunk(
   'auth/verifyTwoFactorCode',
-  async (request: VerifyTwoFactorCodeRequest) => {
-    return await authService.verifyTwoFactorCode(request);
+  async (request: VerifyTwoFactorCodeRequest, { rejectWithValue }) => {
+    try {
+      return await authService.verifyTwoFactorCode(request);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const getTwoFactorStatus = createAsyncThunk(
   'auth/getTwoFactorStatus',
-  async () => {
-    return await authService.getTwoFactorStatus();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await authService.getTwoFactorStatus();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const disableTwoFactor = createAsyncThunk(
   'auth/disableTwoFactor',
-  async (request: DisableTwoFactorRequest) => {
-    return await authService.disableTwoFactor(request);
+  async (request: DisableTwoFactorRequest, { rejectWithValue }) => {
+    try {
+      return await authService.disableTwoFactor(request);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const requestPasswordReset = createAsyncThunk(
   'auth/requestPasswordReset',
-  async (email: string) => {
-    return await authService.forgotPassword(email);;
+  async (email: string, { rejectWithValue }) => {
+    try {
+      return await authService.forgotPassword(email);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const resetPassword = createAsyncThunk(
   'auth/resetPassword',
-  async ({ token, password }: { token: string; password: string }) => {
-    return  await authService.resetPassword(token, password);;
+  async ({ token, password }: { token: string; password: string }, { rejectWithValue }) => {
+    try {
+      return await authService.resetPassword(token, password);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
@@ -152,6 +212,9 @@ const authSlice = createSlice({
   reducers: {
     clearError: (state) => {
       state.error = null;
+    },
+    setError: (state, action) => {
+      state.error = action.payload;
     },
     setLoading: (state, action) => {
       state.isLoading = action.payload;
@@ -249,7 +312,9 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
-        state.error = createStandardError(action.error)
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Register
@@ -325,7 +390,9 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Token Refresh
@@ -334,11 +401,14 @@ const authSlice = createSlice({
         state.refreshToken = action.payload?.refreshToken || null;
         state.isAuthenticated = true;
       })
-      .addCase(refreshToken.rejected, (state) => {
+      .addCase(refreshToken.rejected, (state, action) => {
         state.isAuthenticated = false;
         state.user = null;
         state.token = null;
         state.refreshToken = null;
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Get Profile
@@ -365,7 +435,9 @@ const authSlice = createSlice({
       })
       .addCase(getProfile.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Update Profile
@@ -395,7 +467,9 @@ const authSlice = createSlice({
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Upload Profile Picture
@@ -410,7 +484,9 @@ const authSlice = createSlice({
       })
       .addCase(uploadProfilePicture.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Change Password
@@ -424,7 +500,9 @@ const authSlice = createSlice({
       })
       .addCase(changePassword.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Silent Login
@@ -438,12 +516,15 @@ const authSlice = createSlice({
         state.user = action.payload;
         state.error = null;
       })
-      .addCase(silentLogin.rejected, (state) => {
+      .addCase(silentLogin.rejected, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = false;
         state.user = null;
         state.token = null;
         state.refreshToken = null;
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Logout
@@ -460,6 +541,20 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = null;
       })
+      .addCase(logout.rejected, (state, action) => {
+        // Even if logout fails, clear the state
+        errorService.setUserContext('', '', '');
+        errorService.clearBreadcrumbs();
+        
+        state.user = null;
+        state.token = null;
+        state.refreshToken = null;
+        state.isAuthenticated = false;
+        state.isLoading = false;
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
+      })
 
       // Email Verification
       .addCase(verifyEmail.pending, (state) => {
@@ -475,7 +570,9 @@ const authSlice = createSlice({
       })
       .addCase(verifyEmail.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Password Reset Request
@@ -489,7 +586,9 @@ const authSlice = createSlice({
       })
       .addCase(requestPasswordReset.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
 
       // Reset Password
@@ -503,7 +602,9 @@ const authSlice = createSlice({
       })
       .addCase(resetPassword.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
       
       // Generate 2FA Secret
@@ -517,7 +618,9 @@ const authSlice = createSlice({
       })
       .addCase(generateTwoFactorSecret.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
       
       // Verify 2FA Code
@@ -534,7 +637,9 @@ const authSlice = createSlice({
       })
       .addCase(verifyTwoFactorCode.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
       
       // Get 2FA Status
@@ -551,7 +656,9 @@ const authSlice = createSlice({
       })
       .addCase(getTwoFactorStatus.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       })
       
       // Disable 2FA
@@ -568,10 +675,12 @@ const authSlice = createSlice({
       })
       .addCase(disableTwoFactor.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        // Use payload from rejectWithValue if available, otherwise fallback to error
+        const errorData = action.payload || action.error;
+        state.error = serializeError(errorData);
       });
   },
 });
 
-export const { clearError, setLoading, forceLogout, clearTwoFactorState } = authSlice.actions;
+export const { clearError, setError, setLoading, forceLogout, clearTwoFactorState } = authSlice.actions;
 export default authSlice.reducer;

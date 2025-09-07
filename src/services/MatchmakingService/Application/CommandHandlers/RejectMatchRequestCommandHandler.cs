@@ -6,6 +6,7 @@ using MatchmakingService.Infrastructure.HttpClients;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
 using Events.Integration.Matchmaking;
+using Core.Common.Exceptions;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
@@ -28,19 +29,18 @@ public class RejectMatchRequestCommandHandler(
         RejectMatchRequestCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var matchRequest = await _dbContext.MatchRequests
                 .FirstOrDefaultAsync(mr => mr.Id == request.RequestId, cancellationToken);
 
             if (matchRequest == null)
             {
-                return Error("Match request not found");
+                return Error("Match request not found", ErrorCodes.ResourceNotFound);
             }
 
             if (matchRequest.Status != "Pending")
             {
-                return Error("Match request is no longer pending");
+                return Error("Match request is no longer pending", ErrorCodes.InvalidOperation);
             }
 
             // Reject the request
@@ -71,11 +71,6 @@ public class RejectMatchRequestCommandHandler(
             Logger.LogInformation("Published MatchRequestRejectedIntegrationEvent for Request: {RequestId}", matchRequest.Id);
 
             return Success(true, "Match request rejected successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error rejecting match request {RequestId}", request.RequestId);
-            return Error("An error occurred while rejecting the match request");
         }
     }
 }

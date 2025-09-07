@@ -17,6 +17,8 @@
 - **Konsistente Package-Versionen** (v9.0.0)
 - **✨ NEU: Comprehensive Caching Strategy** mit 50-95% Performance-Verbesserung
 - **✨ NEU: Cache Isolation** für Multi-User-Sicherheit
+- **✨ NEU: Vollständiges Error Handling** mit ErrorCodes, HelpUrls und Domain Exceptions
+- **✨ NEU: GlobalExceptionHandlingMiddleware** mit konsistenter ApiResponse-Struktur
 
 ### ⚠️ Was noch PROBLEME macht:
 - **Wenig Tests** (~30% Coverage)
@@ -72,13 +74,23 @@ AppContext.SetSwitch("System.Runtime.ServerGarbageCollection", true);
 **Aufwand**: 2 Tage
 **Status**: ✅ FERTIG (05.09.2025)
 
-### 5. Error Handling & Logging
-**Status**: Basis vorhanden aber inkonsistent
+### ✅ 5. Error Handling & Logging [ERLEDIGT]
+**Status**: Vollständig implementiert und optimiert
 **Actions**:
-- [ ] Globale Exception Handler
-- [ ] Strukturiertes Logging mit Correlation IDs
-- [ ] User-friendly Error Messages
+- [x] Globale Exception Handler mit ApiResponse-Format
+- [x] Domain Exception Hierarchy implementiert
+- [x] Strukturiertes Logging mit Correlation IDs
+- [x] User-friendly Error Messages mit ErrorCodes
+- [x] HelpUrls für alle Fehlertypen implementiert
+- [x] Alle Handler (55+) mit ErrorCodes aktualisiert
+**Implementiert**:
+- Zentrale ErrorCodes-Enumeration
+- HelpUrls-Klasse mit automatischer Zuordnung
+- GlobalExceptionHandlingMiddleware mit ApiResponse-Format
+- BaseHandler mit automatischer HelpUrl-Auflösung
+- Konsistentes Error-Handling in allen Services
 **Aufwand**: 2 Tage
+**Status**: ✅ FERTIG (05.09.2025)
 
 ### 6. Frontend Performance
 **Status**: Läuft aber hat re-render Issues
@@ -118,6 +130,7 @@ AppContext.SetSwitch("System.Runtime.ServerGarbageCollection", true);
 - [ ] SkillService fertig migrieren
 - [ ] MatchmakingService refactoring
 - [ ] AppointmentService refactoring
+- [ ] NotificationService refactoring
 **Aufwand**: 1 Woche
 
 ---
@@ -172,6 +185,19 @@ AppContext.SetSwitch("System.Runtime.ServerGarbageCollection", true);
 - [ ] Auto-scaling
 **Aufwand**: 2 Wochen
 
+### 15. HelpUrls in Handlers implementieren
+**Status**: Infrastruktur vorhanden, noch nicht in Handlers verwendet
+**Bereits implementiert**:
+- HelpUrls.cs Klasse mit allen Dokumentations-URLs
+- Automatische HelpUrl-Zuordnung in BaseHandler-Klassen
+- GlobalExceptionHandlingMiddleware nutzt HelpUrls
+**Noch zu tun**:
+- [ ] Explizite HelpUrl-Parameter in allen Command/Query Handlers hinzufügen
+- [ ] Custom HelpUrls für spezifische Business-Fehler
+- [ ] Dokumentations-Seiten für alle HelpUrls erstellen
+- [ ] HelpUrl-Lokalisierung für mehrsprachige Unterstützung
+**Aufwand**: 1 Woche
+
 ---
 
 ## 🗑️ ZU LÖSCHENDE MD DATEIEN
@@ -204,7 +230,7 @@ Diese Dateien sind veraltet und verwirren nur:
 
 ### Sprint 2-3 (Nächste 2 Wochen):
 ✅ Caching Optimierung (ERLEDIGT 05.09.2025)
-⏳ Error Handling
+✅ Error Handling (ERLEDIGT 05.09.2025)
 ⏳ Frontend Performance
 
 ### Monat 1:

@@ -23,6 +23,7 @@ import {
   ProficiencyLevel,
 } from '../../types/models/Skill';
 import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
+import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 // interface SkillRequest {
 //   name: string;
@@ -41,6 +42,7 @@ interface SkillFormProps {
   loading: boolean;
   skill?: Skill;
   title?: string;
+  error?: { message: string } | null;
 }
 
 const SkillForm: React.FC<SkillFormProps> = ({
@@ -52,6 +54,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
   loading,
   skill,
   title,
+  error,
 }) => {
   // const theme = useTheme();
 
@@ -81,9 +84,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
   };
 
   useEffect(() => {
-    console.log('[SkillForm] Categories received:', categories);
-    console.log('[SkillForm] ProficiencyLevels received:', proficiencyLevels);
-
     if (open) {
       if (skill) {
         setFormValues({
@@ -197,15 +197,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
   const hasProficiencyLevels =
     Array.isArray(proficiencyLevels) && proficiencyLevels?.length > 0;
 
-  console.log('[SkillForm] Render state:', {
-    hasCategories,
-    hasProficiencyLevels,
-    categoriesLength: categories?.length || 0,
-    proficiencyLevelsLength: proficiencyLevels?.length || 0,
-    formValues,
-    categories,
-    proficiencyLevels,
-  });
 
   return (
     <FormDialog
@@ -238,6 +229,12 @@ const SkillForm: React.FC<SkillFormProps> = ({
     >
       <form id="skill-form" onSubmit={handleSubmit}>
         <Box sx={{ mb: 3 }}>
+          <EnhancedErrorAlert 
+            error={error}
+            onDismiss={() => {}}
+            compact={process.env.NODE_ENV === 'production'}
+          />
+          
           <TextField
             fullWidth
             label="Name"
@@ -290,7 +287,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
               {hasCategories ? (
                 categories.map((category) => {
                   const categoryId = getCategoryId(category);
-                  console.log('[SkillForm] Category:', { category, categoryId });
                   return (
                     <MenuItem key={categoryId} value={categoryId}>
                       {category.name}

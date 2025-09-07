@@ -6,7 +6,7 @@ using Events.Domain.Skill;
 using EventSourcing;
 using Contracts.Skill.Responses;
 using CQRS.Models;
-
+using Core.Common.Exceptions;
 namespace SkillService.Application.CommandHandlers;
 
 public class RateSkillCommandHandler : BaseCommandHandler<RateSkillCommand, RateSkillResponse>
@@ -27,7 +27,6 @@ public class RateSkillCommandHandler : BaseCommandHandler<RateSkillCommand, Rate
         RateSkillCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             // Validate skill exists
             var skill = await _dbContext.Skills
@@ -36,13 +35,13 @@ public class RateSkillCommandHandler : BaseCommandHandler<RateSkillCommand, Rate
 
             if (skill == null)
             {
-                return Error("Skill not found");
+                throw new ResourceNotFoundException("Skill", "unknown");
             }
 
             // Prevent self-rating
             if (skill.UserId == request.UserId)
             {
-                return Error("Cannot rate your own skill");
+                return Error("Cannot rate your own skill", ErrorCodes.BusinessRuleViolation);
             }
 
             // Check if user already rated this skill
@@ -53,7 +52,7 @@ public class RateSkillCommandHandler : BaseCommandHandler<RateSkillCommand, Rate
 
             if (existingReview != null)
             {
-                return Error("You have already rated this skill");
+                return Error("You have already rated this skill", ErrorCodes.BusinessRuleViolation);
             }
 
             // Create new review
@@ -105,11 +104,6 @@ public class RateSkillCommandHandler : BaseCommandHandler<RateSkillCommand, Rate
                 newReviewCount);
 
             return Success(response, "Skill rated successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error rating skill {SkillId} by user {UserId}", request.SkillId, request.UserId);
-            return Error("An error occurred while rating the skill. Please try again.");
         }
     }
 }

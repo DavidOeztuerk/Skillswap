@@ -1,9 +1,9 @@
 using CQRS.Handlers;
 using CQRS.Models;
-using Infrastructure.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Queries;
 using NotificationService.Domain.ResponseModels;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Application.QueryHandlers;
 
@@ -75,7 +75,7 @@ public class GetNotificationHistoryQueryHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error retrieving notification history for user {UserId}", request.UserId);
-            return Error("An error occurred while retrieving notification history");
+            return Error("An error occurred while retrieving notification history", ErrorCodes.InternalError);
         }
     }
 }

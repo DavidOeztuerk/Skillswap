@@ -1,10 +1,10 @@
-using UserService.Application.Queries;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using UserService.Domain.Repositories;
 using UserService.Api.Application.Queries;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
+using Core.Common.Exceptions;
+using Core.Common;
 
 namespace UserService.Application.QueryHandlers;
 
@@ -25,7 +25,7 @@ public class GetPublicUserProfileQueryHandler(
 
         if (user == null)
         {
-            return Error("User not found");
+            throw new ResourceNotFoundException("User", request.UserId);
         }
 
         // Check if requesting user has blocked this user or vice versa
@@ -36,7 +36,7 @@ public class GetPublicUserProfileQueryHandler(
 
             if (isBlocked)
             {
-                return Error("User profile is not accessible");
+                throw new InsufficientPermissionsException("User profile is not accessible");
             }
         }
 

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using CQRS.Models;
 using CQRS.Handlers;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.Queries.Handlers;
 
@@ -22,7 +23,7 @@ public class GetEmailVerificationStatusQueryHandler(
 
             if (user == null)
             {
-                return Error("User not found");
+                return Error("User not found", ErrorCodes.ResourceNotFound);
             }
 
             var response = new EmailVerificationStatusResponse
@@ -39,7 +40,7 @@ public class GetEmailVerificationStatusQueryHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error getting email verification status for user {UserId}", request.UserId);
-            return Error("An error occurred while getting verification status");
+            return Error("An error occurred while getting verification status", ErrorCodes.InternalError);
         }
     }
 }

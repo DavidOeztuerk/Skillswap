@@ -4,6 +4,7 @@ import { VideoCallState } from '../../types/states/VideoCallState';
 import { VideoCallConfig } from '../../types/models/VideoCallConfig';
 import { ChatMessage } from '../../types/models/ChatMessage';
 import { SliceError } from '../../store/types';
+import { serializeError } from '../../utils/reduxHelpers';
 
 const initialState: VideoCallState = {
   roomId: null,
@@ -42,68 +43,104 @@ const initialState: VideoCallState = {
 // Async thunks
 export const getCallConfig = createAsyncThunk(
   'videoCall/getCallConfig',
-  async (appointmentId: string) => {
-    return await videoCallService.getCallConfig(appointmentId);
+  async (appointmentId: string, { rejectWithValue }) => {
+    try {
+      return await videoCallService.getCallConfig(appointmentId);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const endVideoCall = createAsyncThunk(
   'videoCall/endVideoCall',
-  async (roomId: string) => {
-    await videoCallService.endCall(roomId);
-    return roomId;
+  async (roomId: string, { rejectWithValue }) => {
+    try {
+      await videoCallService.endCall(roomId);
+      return roomId;
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const saveCallInfo = createAsyncThunk(
   'videoCall/saveCallInfo',
-  async ({ roomId, duration }: { roomId: string; duration: number }) => {
-    await videoCallService.saveCallInfo(roomId, duration);
-    return { roomId, duration };
+  async ({ roomId, duration }: { roomId: string; duration: number }, { rejectWithValue }) => {
+    try {
+      await videoCallService.saveCallInfo(roomId, duration);
+      return { roomId, duration };
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const joinVideoCall = createAsyncThunk(
   'videoCall/joinCall',
-  async (roomId: string) => {
-    return await videoCallService.joinCall(roomId);
+  async (roomId: string, { rejectWithValue }) => {
+    try {
+      return await videoCallService.joinCall(roomId);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const leaveVideoCall = createAsyncThunk(
   'videoCall/leaveCall',
-  async (roomId: string) => {
-    await videoCallService.leaveCall(roomId);
-    return roomId;
+  async (roomId: string, { rejectWithValue }) => {
+    try {
+      await videoCallService.leaveCall(roomId);
+      return roomId;
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const startRecording = createAsyncThunk(
   'videoCall/startRecording',
-  async (roomId: string) => {
-    return await videoCallService.startRecording(roomId);
+  async (roomId: string, { rejectWithValue }) => {
+    try {
+      return await videoCallService.startRecording(roomId);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const stopRecording = createAsyncThunk(
   'videoCall/stopRecording',
-  async (roomId: string) => {
-    return await videoCallService.stopRecording(roomId);
+  async (roomId: string, { rejectWithValue }) => {
+    try {
+      return await videoCallService.stopRecording(roomId);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const getCallStatistics = createAsyncThunk(
   'videoCall/getStatistics',
-  async (roomId: string) => {
-    return await videoCallService.getCallStatistics(roomId);
+  async (roomId: string, { rejectWithValue }) => {
+    try {
+      return await videoCallService.getCallStatistics(roomId);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const reportTechnicalIssue = createAsyncThunk(
   'videoCall/reportIssue',
-  async ({ roomId, issue, description }: { roomId: string; issue: string; description: string }) => {
-    await videoCallService.reportTechnicalIssue(roomId, issue, description);
-    return { roomId, issue, description };
+  async ({ roomId, issue, description }: { roomId: string; issue: string; description: string }, { rejectWithValue }) => {
+    try {
+      await videoCallService.reportTechnicalIssue(roomId, issue, description);
+      return { roomId, issue, description };
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
@@ -151,7 +188,7 @@ const videoCallSlice = createSlice({
       state.messages = [];
     },
     setError: (state, action) => {
-        state.error = action.payload as SliceError;
+        state.error = serializeError(action.payload);
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
@@ -208,7 +245,7 @@ const videoCallSlice = createSlice({
       })
       .addCase(getCallConfig.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // End Video Call
@@ -224,7 +261,7 @@ const videoCallSlice = createSlice({
       })
       .addCase(endVideoCall.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Save Call Info
@@ -237,7 +274,7 @@ const videoCallSlice = createSlice({
       })
       .addCase(saveCallInfo.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Join Video Call
@@ -253,7 +290,7 @@ const videoCallSlice = createSlice({
       })
       .addCase(joinVideoCall.rejected, (state, action) => {
         state.isInitializing = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Leave Video Call

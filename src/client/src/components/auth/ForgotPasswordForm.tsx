@@ -9,6 +9,7 @@ import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { LoadingButton } from '../../components/common/LoadingButton';
 import { useAppDispatch } from '../../store/store.hooks';
 import { requestPasswordReset } from '../../features/auth/authSlice';
+import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Bitte geben Sie eine gültige E-Mail-Adresse ein'),
@@ -93,11 +94,11 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onSuccess }) =>
           </Typography>
         </Box>
 
-        {error && (
-          <Alert severity="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+        <EnhancedErrorAlert 
+          error={error ? { message: error } : (errors.root && { message: errors.root.message })}
+          onDismiss={() => setError(null)}
+          compact={process.env.NODE_ENV === 'production'}
+        />
 
         <Controller
           name="email"
@@ -128,6 +129,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onSuccess }) =>
           variant="contained"
           color="primary"
           loading={isLoading(LoadingKeys.RESET_PASSWORD)}
+          disabled={isLoading(LoadingKeys.RESET_PASSWORD) || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
           size="large"
           sx={{ mt: 2 }}
         >

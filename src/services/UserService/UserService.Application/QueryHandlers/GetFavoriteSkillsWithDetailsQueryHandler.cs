@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using UserService.Application.Queries;
 using UserService.Domain.Repositories;
+using Contracts.User.Responses;
 
 namespace UserService.Application.QueryHandlers;
 
@@ -31,88 +32,80 @@ public class GetFavoriteSkillsWithDetailsQueryHandler : BasePagedQueryHandler<Ge
         GetFavoriteSkillsWithDetailsQuery request,
         CancellationToken cancellationToken)
     {
-        try
+        // Step 1: Get favorite skill IDs from UserService database
+        var favoriteSkillIds = await _userSkillsRepository.GetFavoriteSkills(
+            request.UserId,
+            cancellationToken);
+
+        if (!favoriteSkillIds.Any())
         {
-            // Step 1: Get favorite skill IDs from UserService database
-            var favoriteSkillIds = await _userSkillsRepository.GetFavoriteSkills(
-                request.UserId,
-                cancellationToken);
-
-            if (!favoriteSkillIds.Any())
-            {
-                return Success(
-                    new List<FavoriteSkillDetailResponse>(),
-                    request.PageNumber,
-                    request.PageSize,
-                    0);
-            }
-
-            // Step 2: Apply pagination to skill IDs
-            var totalCount = favoriteSkillIds.Count;
-            var paginatedSkillIds = favoriteSkillIds
-                .Skip((request.PageNumber - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .ToList();
-
-            // Step 3: Fetch skill details from SkillService
-            var skillDetails = new List<FavoriteSkillDetailResponse>();
-            var httpClient = _httpClientFactory.CreateClient("SkillService");
-
-            // Batch fetch skills to reduce HTTP calls
-            var tasks = paginatedSkillIds.Select(async skillId =>
-            {
-                try
-                {
-                    var response = await httpClient.GetAsync($"/skills/{skillId}", cancellationToken);
-                    
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-                        var apiResponse = JsonSerializer.Deserialize<ApiResponse<SkillDetailDto>>(json, new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true
-                        });
-
-                        if (apiResponse?.Data != null)
-                        {
-                            return MapToFavoriteSkillDetail(apiResponse.Data, skillId);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Failed to fetch skill {SkillId} from SkillService. Status: {StatusCode}",
-                            skillId, response.StatusCode);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error fetching skill {SkillId} from SkillService", skillId);
-                }
-
-                // Return a placeholder for failed fetches
-                return new FavoriteSkillDetailResponse
-                {
-                    SkillId = skillId,
-                    Name = "Skill nicht verfügbar",
-                    Description = "Details konnten nicht geladen werden",
-                    Category = "Unbekannt",
-                    AddedToFavoritesAt = DateTime.UtcNow
-                };
-            });
-
-            skillDetails = (await Task.WhenAll(tasks)).ToList();
-
             return Success(
-                skillDetails,
+                new List<FavoriteSkillDetailResponse>(),
                 request.PageNumber,
                 request.PageSize,
-                totalCount);
+                0);
         }
-        catch (Exception ex)
+
+        // Step 2: Apply pagination to skill IDs
+        var totalCount = favoriteSkillIds.Count;
+        var paginatedSkillIds = favoriteSkillIds
+            .Skip((request.PageNumber - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .ToList();
+
+        // Step 3: Fetch skill details from SkillService
+        var skillDetails = new List<FavoriteSkillDetailResponse>();
+        var httpClient = _httpClientFactory.CreateClient("SkillService");
+
+        // Batch fetch skills to reduce HTTP calls
+        var tasks = paginatedSkillIds.Select(async skillId =>
         {
-            _logger.LogError(ex, "Error handling GetFavoriteSkillsWithDetailsQuery for user {UserId}", request.UserId);
-            return Error("Fehler beim Laden der Favoriten");
-        }
+            try
+            {
+                var response = await httpClient.GetAsync($"/skills/{skillId}", cancellationToken);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync(cancellationToken);
+                    var apiResponse = JsonSerializer.Deserialize<ApiResponse<SkillDetailDto>>(json, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    if (apiResponse?.Data != null)
+                    {
+                        return MapToFavoriteSkillDetail(apiResponse.Data, skillId);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to fetch skill {SkillId} from SkillService. Status: {StatusCode}",
+                        skillId, response.StatusCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching skill {SkillId} from SkillService", skillId);
+            }
+
+            // Return a placeholder for failed fetches
+            return new FavoriteSkillDetailResponse
+            {
+                SkillId = skillId,
+                Name = "Skill nicht verfügbar",
+                Description = "Details konnten nicht geladen werden",
+                Category = "Unbekannt",
+                AddedToFavoritesAt = DateTime.UtcNow
+            };
+        });
+
+        skillDetails = (await Task.WhenAll(tasks)).ToList();
+
+        return Success(
+            skillDetails,
+            request.PageNumber,
+            request.PageSize,
+            totalCount);
     }
 
     private FavoriteSkillDetailResponse MapToFavoriteSkillDetail(SkillDetailDto skill, string skillId)

@@ -7,6 +7,8 @@ using EventSourcing;
 using Events.Domain.User;
 using Contracts.User.Responses.Auth;
 using Contracts.User.Responses;
+using Core.Common.Exceptions;
+using Core.Common;
 
 namespace UserService.Infrastructure.Repositories;
 
@@ -29,7 +31,7 @@ public class AuthRepository(
         CancellationToken cancellationToken = default)
     {
         if (await _dbContext.Users.AnyAsync(u => u.Email == email, cancellationToken))
-            throw new InvalidOperationException("Email address is already registered");
+            throw new ResourceAlreadyExistsException("User", "email", email);
 
         var user = new User
         {
@@ -142,10 +144,10 @@ public class AuthRepository(
             .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
-            throw new UnauthorizedAccessException("Invalid credentials");
+            throw new InvalidCredentialsException(email);
 
         if (!user.EmailVerified && user.CreatedAt.AddDays(3) < DateTime.UtcNow)
-            throw new UnauthorizedAccessException("Email verification required. Please check your email or request a new verification link.");
+            throw new EmailVerificationRequiredException(user.Email, user.CreatedAt);
 
         if (user.TwoFactorEnabled && !string.IsNullOrEmpty(user.TwoFactorSecret))
         {

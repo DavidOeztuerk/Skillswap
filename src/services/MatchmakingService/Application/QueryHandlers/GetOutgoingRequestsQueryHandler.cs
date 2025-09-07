@@ -1,6 +1,5 @@
 // using CQRS.Handlers;
 // using Infrastructure.Models;
-// using MatchmakingService.Application.Queries;
 // using Microsoft.EntityFrameworkCore;
 // using Contracts.Matchmaking.Responses;
 // using System.Net.Http.Json;

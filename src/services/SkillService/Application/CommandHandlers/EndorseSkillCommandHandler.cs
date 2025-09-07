@@ -6,7 +6,7 @@ using EventSourcing;
 using Events.Domain.Skill;
 using Contracts.Skill.Responses;
 using CQRS.Models;
-
+using Core.Common.Exceptions;
 namespace SkillService.Application.CommandHandlers;
 
 public class EndorseSkillCommandHandler : BaseCommandHandler<EndorseSkillCommand, EndorseSkillResponse>
@@ -27,7 +27,6 @@ public class EndorseSkillCommandHandler : BaseCommandHandler<EndorseSkillCommand
         EndorseSkillCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             // Validate skill exists and belongs to the endorsed user
             var skill = await _dbContext.Skills
@@ -37,7 +36,7 @@ public class EndorseSkillCommandHandler : BaseCommandHandler<EndorseSkillCommand
 
             if (skill == null)
             {
-                return Error("Skill not found");
+                throw new ResourceNotFoundException("Skill", "unknown");
             }
 
             // Check if user already endorsed this skill
@@ -48,7 +47,7 @@ public class EndorseSkillCommandHandler : BaseCommandHandler<EndorseSkillCommand
 
             if (existingEndorsement != null)
             {
-                return Error("You have already endorsed this skill");
+                return Error("You have already endorsed this skill", ErrorCodes.BusinessRuleViolation);
             }
 
             // Create new endorsement
@@ -85,11 +84,6 @@ public class EndorseSkillCommandHandler : BaseCommandHandler<EndorseSkillCommand
                 skill.EndorsementCount);
 
             return Success(response, "Skill endorsed successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error endorsing skill {SkillId} by user {UserId}", request.SkillId, request.UserId);
-            return Error("An error occurred while endorsing the skill. Please try again.");
         }
     }
 }

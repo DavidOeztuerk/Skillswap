@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using CQRS.Interfaces;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace CQRS.Handlers;
 
@@ -28,14 +29,14 @@ public abstract class BasePagedQueryHandler<TQuery, TResponse>(
         return PagedResponse<TResponse>.Create(data, pageNumber, pageSize, totalRecords, message);
     }
 
-    protected PagedResponse<TResponse> Error(string error)
+    protected PagedResponse<TResponse> Error(string error, string? errorCode = null, string? helpUrl = null)
     {
         Logger.LogError("Paged Query {QueryType} failed: {Error}", typeof(TQuery).Name, error);
-        return new PagedResponse<TResponse>
+        // Auto-populate HelpUrl if not provided but ErrorCode is
+        if (helpUrl == null && errorCode != null)
         {
-            Success = false,
-            Errors = [error],
-            Data = []
-        };
+            helpUrl = HelpUrls.GetHelpUrl(errorCode);
+        }
+        return PagedResponse<TResponse>.Error(error, errorCode, helpUrl);
     }
 }

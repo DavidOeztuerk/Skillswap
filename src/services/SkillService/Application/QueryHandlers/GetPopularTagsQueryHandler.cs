@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
 using SkillService.Application.Queries;
 using CQRS.Models;
-
 namespace SkillService.Application.QueryHandlers;
 
 public class GetPopularTagsQueryHandler(
@@ -19,7 +18,6 @@ public class GetPopularTagsQueryHandler(
         GetPopularTagsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var query = _dbContext.Skills
                 .Where(s => !s.IsDeleted && s.IsActive && !string.IsNullOrEmpty(s.TagsJson));
@@ -38,7 +36,6 @@ public class GetPopularTagsQueryHandler(
 
             foreach (var skill in skillsWithTags)
             {
-                try
                 {
                     var tags = System.Text.Json.JsonSerializer.Deserialize<List<string>>(skill.TagsJson!);
                     if (tags != null)
@@ -57,10 +54,6 @@ public class GetPopularTagsQueryHandler(
                         }
                     }
                 }
-                catch
-                {
-                    // Skip invalid JSON
-                }
             }
 
             var popularTags = tagUsage
@@ -76,11 +69,6 @@ public class GetPopularTagsQueryHandler(
                 .ToList();
 
             return Success(popularTags);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting popular tags");
-            return Error("An error occurred while retrieving popular tags");
         }
     }
 }

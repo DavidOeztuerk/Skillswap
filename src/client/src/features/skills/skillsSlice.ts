@@ -10,6 +10,7 @@ import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRe
 import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import { SliceError } from '../../store/types';
 import { withDefault } from '../../utils/safeAccess';
+import { serializeError } from '../../utils/reduxHelpers';
 
 const initialState: SkillState = {
   allSkills: [],
@@ -99,22 +100,37 @@ export const mapUserSkillsResponseToSkill = (response: any): Skill => {
 
 export const fetchFavoriteSkills = createAsyncThunk(
   'skills/fetchFavoriteSkills',
-  async () => {
-    return await skillService.getFavoriteSkills();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await skillService.getFavoriteSkills();
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 export const addFavoriteSkill = createAsyncThunk(
   'skills/addFavoriteSkill',
-  async ({skillId }: { skillId: string }) => {
-    return await skillService.addFavoriteSkill(skillId);
+  async ({skillId }: { skillId: string }, { rejectWithValue }) => {
+    try {
+      return await skillService.addFavoriteSkill(skillId);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 export const removeFavoriteSkill = createAsyncThunk(
   'skills/removeFavoriteSkill',
-  async ({ skillId }: { skillId: string }) => {
-    return await skillService.removeFavoriteSkill(skillId);
+  async ({ skillId }: { skillId: string }, { rejectWithValue }) => {
+    try {
+      return await skillService.removeFavoriteSkill(skillId);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
@@ -124,16 +140,26 @@ export const removeFavoriteSkill = createAsyncThunk(
 // Get all skills with pagination
 export const fetchAllSkills = createAsyncThunk(
   'skills/fetchAllSkills',
-  async (params: SkillSearchParams = {}) => {
-    return await skillService.getAllSkills(params);
+  async (params: SkillSearchParams = {}, { rejectWithValue }) => {
+    try {
+      return await skillService.getAllSkills(params);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 // Get skill by ID
 export const fetchSkillById = createAsyncThunk(
   'skills/fetchSkillById',
-  async (skillId: string) => {
-    return await skillService.getSkillById(skillId);
+  async (skillId: string, { rejectWithValue }) => {
+    try {
+      return await skillService.getSkillById(skillId);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
@@ -154,72 +180,117 @@ export const fetchUserSkills = createAsyncThunk(
     categoryId?: string;
     proficiencyLevelId?: string;
     includeInactive?: boolean;
-  }) => {
-    return await skillService.getUserSkills(page, pageSize, isOffered, categoryId, proficiencyLevelId, includeInactive);
+  }, { rejectWithValue }) => {
+    try {
+      return await skillService.getUserSkills(page, pageSize, isOffered, categoryId, proficiencyLevelId, includeInactive);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 // Create new skill
 export const createSkill = createAsyncThunk(
   'skills/createSkill',
-  async (skillData: CreateSkillRequest) => {
-    return await skillService.createSkill(skillData);
+  async (skillData: CreateSkillRequest, { rejectWithValue }) => {
+    try {
+      return await skillService.createSkill(skillData);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 // Update existing skill
 export const updateSkill = createAsyncThunk(
   'skills/updateSkill',
-  async ({skillId, updateData}: { skillId: string; updateData: UpdateSkillRequest }) => {
-    return await skillService.updateSkill(skillId, updateData);
+  async ({skillId, updateData}: { skillId: string; updateData: UpdateSkillRequest }, { rejectWithValue }) => {
+    try {
+      return await skillService.updateSkill(skillId, updateData);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 // Delete skill
 export const deleteSkill = createAsyncThunk(
   'skills/deleteSkill',
-  async ({ skillId, reason }: { skillId: string; reason?: string }) => {
-    return await skillService.deleteSkill(skillId, reason);
+  async ({ skillId, reason }: { skillId: string; reason?: string }, { rejectWithValue }) => {
+    try {
+      return await skillService.deleteSkill(skillId, reason);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 // Rate skill
 export const rateSkill = createAsyncThunk(
   'skills/rateSkill',
-  async ({ skillId, rating, review }: { skillId: string; rating: number; review?: string }) => {
-    return await skillService.rateSkill(skillId, rating, review);
+  async ({ skillId, rating, review }: { skillId: string; rating: number; review?: string }, { rejectWithValue }) => {
+    try {
+      return await skillService.rateSkill(skillId, rating, review);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 // Endorse skill
 export const endorseSkill = createAsyncThunk(
   'skills/endorseSkill',
-  async ({ skillId, message }: { skillId: string; message?: string }) => {
+  async ({ skillId, message }: { skillId: string; message?: string }, { rejectWithValue }) => {
+    try {
       return await skillService.endorseSkill(skillId, message);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 // Fetch skill statistics
 export const fetchSkillStatistics = createAsyncThunk(
   'skills/fetchSkillStatistics',
-  async () => {
-    return await skillService.getSkillStatistics();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await skillService.getSkillStatistics();
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 // Fetch popular tags
 export const fetchPopularTags = createAsyncThunk(
   'skills/fetchPopularTags',
-  async ({ limit = 20 }: { limit?: number }) => {
-    return await skillService.getPopularTags(limit);
+  async ({ limit = 20 }: { limit?: number }, { rejectWithValue }) => {
+    try {
+      return await skillService.getPopularTags(limit);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
 // Fetch skill recommendations
 export const fetchSkillRecommendations = createAsyncThunk(
   'skills/fetchSkillRecommendations',
-  async ({ limit = 10 }: { limit?: number }) => {
-    return await skillService.getSkillRecommendations(limit);
+  async ({ limit = 10 }: { limit?: number }, { rejectWithValue }) => {
+    try {
+      return await skillService.getSkillRecommendations(limit);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error;
+      return rejectWithValue(errorData);
+    }
   }
 );
 
@@ -236,7 +307,7 @@ const skillsSlice = createSlice({
     },
 
     setError: (state, action) => {
-      state.error = action.payload as SliceError;
+      state.error = serializeError(action.payload);
     },
 
     // Selected skill management
@@ -362,7 +433,7 @@ const skillsSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchFavoriteSkills.rejected, (state, action) => {
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
         state.favoriteSkillIds = [];
       })
       .addCase(addFavoriteSkill.fulfilled, (state, action) => {
@@ -372,14 +443,14 @@ const skillsSlice = createSlice({
         state.error = null;
       })
       .addCase(addFavoriteSkill.rejected, (state, action) => {
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
       .addCase(removeFavoriteSkill.fulfilled, (state, action) => {
         state.favoriteSkillIds = state.favoriteSkillIds.filter(id => id !== action.meta.arg.skillId);
         state.error = null;
       })
       .addCase(removeFavoriteSkill.rejected, (state, action) => {
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
       
       // Fetch all skills cases
@@ -408,7 +479,7 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchAllSkills.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
         state.allSkills = [];
       })
 
@@ -483,7 +554,7 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchSkillById.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
         state.selectedSkill = null;
       })
 
@@ -522,7 +593,7 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchUserSkills.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
         state.userSkills = [];
       })
 
@@ -588,7 +659,7 @@ const skillsSlice = createSlice({
       })
       .addCase(createSkill.rejected, (state, action) => {
         state.isCreating = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Update skill cases
@@ -651,7 +722,7 @@ const skillsSlice = createSlice({
       })
       .addCase(updateSkill.rejected, (state, action) => {
         state.isUpdating = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Delete skill cases
@@ -682,7 +753,7 @@ const skillsSlice = createSlice({
       })
       .addCase(deleteSkill.rejected, (state, action) => {
         state.isDeleting = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Rate/Endorse skill cases
@@ -696,7 +767,7 @@ const skillsSlice = createSlice({
       })
       .addCase(rateSkill.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       .addCase(endorseSkill.pending, (state) => {
@@ -709,7 +780,7 @@ const skillsSlice = createSlice({
       })
       .addCase(endorseSkill.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Statistics and analytics cases
@@ -727,7 +798,7 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchSkillStatistics.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
         state.statistics = null;
       })
 
@@ -747,7 +818,7 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchPopularTags.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
         state.popularTags = [];
       })
 
@@ -767,7 +838,7 @@ const skillsSlice = createSlice({
       })
       .addCase(fetchSkillRecommendations.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
         state.recommendations = [];
       });
   },

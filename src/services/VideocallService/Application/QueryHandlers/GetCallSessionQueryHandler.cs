@@ -1,6 +1,5 @@
 //using CQRS.Handlers;
 //using Infrastructure.Models;
-//using Microsoft.EntityFrameworkCore;
 //using VideocallService.Application.Queries;
 
 //namespace VideocallService.Application.QueryHandlers;

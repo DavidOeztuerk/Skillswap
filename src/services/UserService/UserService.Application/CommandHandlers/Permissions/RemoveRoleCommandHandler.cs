@@ -4,6 +4,7 @@ using EventSourcing;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers.Permissions;
 
@@ -26,14 +27,14 @@ public class RemoveRoleCommandHandler(
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             if (string.IsNullOrEmpty(request.RoleName))
-                return Error("RoleName is required");
+                return Error("RoleName is required", ErrorCodes.RequiredFieldMissing);
 
             // Parse UserId to Guid
             if (!Guid.TryParse(request.UserId, out var userId))
-                return Error("Invalid UserId format");
+                return Error("Invalid UserId format", ErrorCodes.InvalidFormat);
 
             // Parse RemovedBy to Guid if provided
             Guid? removedBy = null;
@@ -61,7 +62,7 @@ public class RemoveRoleCommandHandler(
         {
             Logger.LogError(ex, "Error removing role {Role} from user {UserId}",
                 request.RoleName, request.UserId);
-            return Error("An error occurred while removing role");
+            return Error("An error occurred while removing role", ErrorCodes.InternalError);
         }
     }
 }

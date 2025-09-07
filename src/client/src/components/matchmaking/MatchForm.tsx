@@ -32,6 +32,7 @@ import { GetUserSkillRespone } from '../../api/services/skillsService';
 import { SkillService } from '../../api/services/skillsService';
 import QuickSkillCreate from './QuickSkillCreate';
 import { Add as AddIcon } from '@mui/icons-material';
+import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 // Schema angepasst für CreateMatchRequest
 const matchFormSchema = z.object({
@@ -72,12 +73,13 @@ type MatchFormValues = z.infer<typeof matchFormSchema>;
 interface MatchFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateMatchRequest) => Promise<void>;
+  onSubmit: (data: CreateMatchRequest) => Promise<boolean>;
   skill: Skill;
   targetUserId: string; // ✅ VEREINFACHT: Direkt targetUserId anstatt User-Objekt
   targetUserName?: string; // ✅ Optional: Name für Anzeige
   isLoading?: boolean;
   userSkills?: GetUserSkillRespone[]; // Skills des aktuellen Users für Tausch
+  error?: { message: string } | null;
 }
 
 const ITEM_HEIGHT = 48;
@@ -103,6 +105,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
   targetUserName,
   isLoading = false,
   userSkills: providedUserSkills,
+  error,
 }) => {
   const [userSkills, setUserSkills] = useState<GetUserSkillRespone[]>(providedUserSkills || []);
   const [loadingSkills, setLoadingSkills] = useState(false);
@@ -193,36 +196,43 @@ const MatchForm: React.FC<MatchFormProps> = ({
   }, [defaultValues, open, reset]);
 
   const handleFormSubmit: SubmitHandler<MatchFormValues> = async (data) => {
+    // Transformiere die Daten in das CreateMatchRequest Format
+    if (!targetUserId) {
+      console.error('❌ MatchForm: targetUserId ist erforderlich für Match-Anfragen');
+      throw new Error('Target User ID ist erforderlich');
+    }
+
+    const matchRequest: CreateMatchRequest = {
+      skillId: data.skillId,
+      targetUserId: targetUserId,
+      message: data.message || data.description || (data.isOffering ? 'Ich möchte diesen Skill anbieten' : 'Ich möchte diesen Skill lernen'),
+      isSkillExchange: data.isSkillExchange || false,
+      exchangeSkillId: data.exchangeSkillId,
+      isMonetary: false, // Vorerst kein Geld-Austausch
+      sessionDurationMinutes: 60, // Standard: 60 Minuten
+      totalSessions: 1, // Standard: 1 Session
+      preferredDays: data.preferredDays,
+      preferredTimes: data.preferredTimes,
+      // Frontend-only fields for display
+      description: data.description,
+      skillName: skill.name,
+      exchangeSkillName: data.exchangeSkillId 
+        ? userSkills.find(s => s.skillId === data.exchangeSkillId)?.name
+        : undefined,
+    };
+
     try {
-      // Transformiere die Daten in das CreateMatchRequest Format
-      if (!targetUserId) {
-        console.error('❌ MatchForm: targetUserId ist erforderlich für Match-Anfragen');
-        throw new Error('Target User ID ist erforderlich');
+      const success = await onSubmit(matchRequest);
+      // Only close modal if submission was successful
+      if (success) {
+        onClose();
+      } else {
+        console.error('Match request failed - modal stays open for error display');
+        // Don't close modal on failure - let the error be displayed via EnhancedErrorAlert
       }
-
-      const matchRequest: CreateMatchRequest = {
-        skillId: data.skillId,
-        targetUserId: targetUserId,
-        message: data.message || data.description || (data.isOffering ? 'Ich möchte diesen Skill anbieten' : 'Ich möchte diesen Skill lernen'),
-        isSkillExchange: data.isSkillExchange || false,
-        exchangeSkillId: data.exchangeSkillId,
-        isMonetary: false, // Vorerst kein Geld-Austausch
-        sessionDurationMinutes: 60, // Standard: 60 Minuten
-        totalSessions: 1, // Standard: 1 Session
-        preferredDays: data.preferredDays,
-        preferredTimes: data.preferredTimes,
-        // Frontend-only fields for display
-        description: data.description,
-        skillName: skill.name,
-        exchangeSkillName: data.exchangeSkillId 
-          ? userSkills.find(s => s.skillId === data.exchangeSkillId)?.name
-          : undefined,
-      };
-
-      await onSubmit(matchRequest);
-      onClose();
     } catch (error) {
       console.error('Failed to create match request:', error);
+      // Don't close modal on error - let the error be displayed via EnhancedErrorAlert
     }
   };
 
@@ -244,6 +254,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             color="primary"
             variant="contained"
             loading={isLoading}
+            disabled={isLoading || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
           >
             Match-Anfrage senden
           </LoadingButton>
@@ -251,6 +262,12 @@ const MatchForm: React.FC<MatchFormProps> = ({
       }
     >
       <form id="match-request-form" onSubmit={handleSubmit(handleFormSubmit)}>
+        <EnhancedErrorAlert 
+          error={error || (errors.root && { message: errors.root.message })}
+          onDismiss={() => {}}
+          compact={process.env.NODE_ENV === 'production'}
+        />
+        
         <Grid container spacing={3}>
           <Grid size={{ xs: 12 }}>
             <Box bgcolor="action.hover" p={2} borderRadius={1} mb={2}>

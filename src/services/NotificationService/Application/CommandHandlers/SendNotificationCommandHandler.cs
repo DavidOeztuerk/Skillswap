@@ -4,6 +4,7 @@ using CQRS.Models;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
 using System.Text.Json;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Application.CommandHandlers;
 
@@ -18,8 +19,6 @@ public class SendNotificationCommandHandler(
         SendNotificationCommand request,
         CancellationToken cancellationToken)
     {
-        try
-        {
             var notificationId = Guid.NewGuid().ToString();
 
             var metadata = new NotificationMetadata
@@ -72,12 +71,6 @@ public class SendNotificationCommandHandler(
                 notification.CreatedAt);
 
             return Success(response);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error creating notification for user {UserId}", request.UserId);
-            return Error("Error creating notification: " + ex.Message);
-        }
     }
 
     private static string GetSubjectFromTemplate(string template, Dictionary<string, string> variables)

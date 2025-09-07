@@ -4,6 +4,7 @@ using MassTransit;
 using Microsoft.Extensions.Logging;
 using UserService.Domain.Events;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.Commands.Handlers;
 
@@ -22,12 +23,12 @@ public class UpdateUserRoleCommandHandler(
         {
             Logger.LogInformation("Updating user role for user {UserId} to {Role}", request.UserId, request.Role);
 
-            if (string.IsNullOrWhiteSpace(request.UserId)) return Error("User Id is required");
-            if (string.IsNullOrWhiteSpace(request.Role)) return Error("Role is required");
+            if (string.IsNullOrWhiteSpace(request.UserId)) return Error("User Id is required", ErrorCodes.RequiredFieldMissing);
+            if (string.IsNullOrWhiteSpace(request.Role)) return Error("Role is required", ErrorCodes.RequiredFieldMissing);
 
             // Load user incl. roles->role entity (repo implementation should ThenInclude Role)
             var user = await _users.GetUserWithRoles(request.UserId, ct);
-            if (user is null) return Error("User not found");
+            if (user is null) return Error("User not found", ErrorCodes.ResourceNotFound);
 
             // No-op if already active
             var alreadyHasRole = user.UserRoles.Any(ur => ur.RevokedAt == null && ur.Role.Name == request.Role);
@@ -37,9 +38,9 @@ public class UpdateUserRoleCommandHandler(
                 {
                     await _users.AssignUserRole(user.Id, request.Role, assignedBy: "system", ct);
                 }
-                catch (InvalidOperationException ex) when (ex.Message.StartsWith("Role not found", StringComparison.OrdinalIgnoreCase))
+                catch (System.InvalidOperationException ex) when (ex.Message.StartsWith("Role not found", StringComparison.OrdinalIgnoreCase))
                 {
-                    return Error($"Invalid role: {request.Role}");
+                    return Error($"Invalid role: {request.Role}", ErrorCodes.InvalidInput);
                 }
             }
 
@@ -79,7 +80,7 @@ public class UpdateUserRoleCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error updating user role for user {UserId}", request.UserId);
-            return Error("Failed to update user role");
+            return Error("Failed to update user role", ErrorCodes.InternalError);
         }
     }
 }

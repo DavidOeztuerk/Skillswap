@@ -3,7 +3,6 @@ using CQRS.Handlers;
 using SkillService.Application.Queries;
 using CQRS.Models;
 using Contracts.Skill.Responses;
-using System.Runtime.Intrinsics.X86;
 
 namespace SkillService.Application.QueryHandlers;
 
@@ -21,7 +20,6 @@ public class GetUserSkillsQueryHandler(
         GetUserSkillsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var query = _dbContext.Skills
                 .Include(s => s.SkillCategory)
@@ -82,11 +80,6 @@ public class GetUserSkillsQueryHandler(
                 .ToListAsync(cancellationToken);
 
             return Success(skills, request.PageNumber, request.PageSize, totalRecords);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting user skills for {UserId}", request.UserId);
-            return Error("An error occurred while retrieving user skills");
         }
     }
 }

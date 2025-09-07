@@ -3,6 +3,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using CQRS.Behaviors;
 using System.Reflection;
+using Core.Common.Logging;
+using Microsoft.AspNetCore.Http;
 
 namespace CQRS.Extensions;
 
@@ -15,6 +17,12 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         params Assembly[] assemblies)
     {
+        // Add HttpContextAccessor for correlation ID tracking
+        services.AddHttpContextAccessor();
+        
+        // Add Log Sanitizer
+        services.AddSingleton<ILogSanitizer, LogSanitizer>();
+
         // Add MediatR with all behaviors including cache invalidation
         services.AddMediatR(cfg =>
         {

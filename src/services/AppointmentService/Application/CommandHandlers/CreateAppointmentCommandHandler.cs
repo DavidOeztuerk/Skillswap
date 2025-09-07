@@ -6,6 +6,7 @@ using CQRS.Models;
 using Events.Domain.Appointment;
 using EventSourcing;
 using Microsoft.EntityFrameworkCore;
+using Core.Common.Exceptions;
 
 namespace AppointmentService.Application.CommandHandlers;
 
@@ -22,22 +23,23 @@ public class CreateAppointmentCommandHandler(
         CreateAppointmentCommand request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            // Check for scheduling conflicts
-            var hasConflict = await _dbContext.Appointments
-                .AnyAsync(a =>
-                    (a.OrganizerUserId == request.UserId || a.ParticipantUserId == request.UserId ||
-                     a.OrganizerUserId == request.ParticipantUserId || a.ParticipantUserId == request.ParticipantUserId) &&
-                    a.Status != AppointmentStatus.Cancelled &&
-                    a.ScheduledDate <= request.ScheduledDate.AddMinutes(request.DurationMinutes) &&
-                    a.ScheduledDate.AddMinutes(a.DurationMinutes) >= request.ScheduledDate &&
-                    !a.IsDeleted, cancellationToken);
+        // Check for scheduling conflicts
+        var hasConflict = await _dbContext.Appointments
+            .AnyAsync(a =>
+                (a.OrganizerUserId == request.UserId || a.ParticipantUserId == request.UserId ||
+                 a.OrganizerUserId == request.ParticipantUserId || a.ParticipantUserId == request.ParticipantUserId) &&
+                a.Status != AppointmentStatus.Cancelled &&
+                a.ScheduledDate <= request.ScheduledDate.AddMinutes(request.DurationMinutes) &&
+                a.ScheduledDate.AddMinutes(a.DurationMinutes) >= request.ScheduledDate &&
+                !a.IsDeleted, cancellationToken);
 
-            if (hasConflict)
-            {
-                return Error("Scheduling conflict detected. Please choose a different time.");
-            }
+        if (hasConflict)
+        {
+            throw new Core.Common.Exceptions.InvalidOperationException(
+                "CreateAppointment", 
+                "SchedulingConflict", 
+                "Scheduling conflict detected. Please choose a different time.");
+        }
 
             var appointment = new Appointment
             {
@@ -74,11 +76,5 @@ public class CreateAppointmentCommandHandler(
                 appointment.CreatedAt);
 
             return Success(response, "Appointment created successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error creating appointment");
-            return Error("An error occurred while creating the appointment");
-        }
     }
 }

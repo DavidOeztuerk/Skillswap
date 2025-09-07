@@ -18,7 +18,6 @@ public class GetSkillRecommendationsQueryHandler(
         GetSkillRecommendationsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             // Get user's existing skills to find similar ones
             var userSkills = await _dbContext.Skills
@@ -31,16 +30,11 @@ public class GetSkillRecommendationsQueryHandler(
 
             foreach (var skill in userSkills)
             {
-                try
                 {
                     if (skill.Tags != null && skill.Tags.Count > 0)
                     {
                         userTags.AddRange(skill.Tags);
                     }
-                }
-                catch
-                {
-                    // Skip invalid JSON
                 }
             }
 
@@ -91,7 +85,6 @@ public class GetSkillRecommendationsQueryHandler(
                 }
 
                 // Tag match bonus
-                try
                 {
                     if (!string.IsNullOrEmpty(skill.TagsJson))
                     {
@@ -106,10 +99,6 @@ public class GetSkillRecommendationsQueryHandler(
                             }
                         }
                     }
-                }
-                catch
-                {
-                    // Skip invalid JSON
                 }
 
                 // Rating bonus
@@ -154,11 +143,6 @@ public class GetSkillRecommendationsQueryHandler(
                 .ToList();
 
             return Success(topRecommendations);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting skill recommendations for user {UserId}", request.UserId);
-            return Error("An error occurred while getting recommendations");
         }
     }
 }

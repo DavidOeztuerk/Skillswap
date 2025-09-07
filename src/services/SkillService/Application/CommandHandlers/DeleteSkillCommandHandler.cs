@@ -5,6 +5,7 @@ using EventSourcing;
 using Events.Domain.Skill;
 using Contracts.Skill.Responses;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -21,24 +22,25 @@ public class DeleteSkillCommandHandler(
         DeleteSkillCommand request,
         CancellationToken cancellationToken)
     {
-        try
+        var skill = await _dbContext.Skills
+            .Include(s => s.Matches.Where(m => m.RequestedSkillId == s.Id || m.OfferedSkillId == s.Id))
+            .FirstOrDefaultAsync(s => s.Id == request.SkillId &&
+                                     s.UserId == request.UserId &&
+                                     !s.IsDeleted, cancellationToken);
+
+        if (skill == null)
         {
-            var skill = await _dbContext.Skills
-                .Include(s => s.Matches.Where(m => m.RequestedSkillId == s.Id || m.OfferedSkillId == s.Id))
-                .FirstOrDefaultAsync(s => s.Id == request.SkillId &&
-                                         s.UserId == request.UserId &&
-                                         !s.IsDeleted, cancellationToken);
+            throw new ResourceNotFoundException("Skill", request.SkillId);
+        }
 
-            if (skill == null)
-            {
-                return Error("Skill not found or you don't have permission to delete it");
-            }
-
-            // Check for active matches
-            if (skill.Matches.Any())
-            {
-                return Error("Cannot delete skill with active matches. Please complete or cancel existing matches first.");
-            }
+        // Check for active matches
+        if (skill.Matches.Any())
+        {
+            throw new Core.Common.Exceptions.InvalidOperationException(
+                "DeleteSkill", 
+                "HasActiveMatches", 
+                "Cannot delete skill with active matches. Please complete or cancel existing matches first.");
+        }
 
             // Soft delete
             skill.IsDeleted = true;
@@ -68,11 +70,5 @@ public class DeleteSkillCommandHandler(
                 DateTime.UtcNow);
 
             return Success(response, "Skill deleted successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error deleting skill {SkillId} for user {UserId}", request.SkillId, request.UserId);
-            return Error("An error occurred while deleting the skill. Please try again.");
-        }
     }
 }

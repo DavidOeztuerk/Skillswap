@@ -3,6 +3,7 @@ using CQRS.Handlers;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Queries.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.QueryHandlers.Permissions;
 
@@ -47,7 +48,7 @@ public class GetAllRolesQueryHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error getting all roles");
-            return Error("An error occurred while retrieving roles");
+            return Error("An error occurred while retrieving roles", ErrorCodes.InternalError);
         }
     }
 }
