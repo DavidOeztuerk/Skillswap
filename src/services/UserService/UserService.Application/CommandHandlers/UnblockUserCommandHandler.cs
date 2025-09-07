@@ -1,13 +1,11 @@
-using CQRS.Interfaces;
 using Contracts.User.Responses;
 using UserService.Application.Commands;
 using MassTransit;
 using CQRS.Handlers;
-using Infrastructure.Models;
 using UserService.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
-
+using Core.Common.Exceptions;
 namespace UserService.Application.CommandHandlers;
 
 public class UnblockUserCommandHandler(
@@ -21,7 +19,7 @@ public class UnblockUserCommandHandler(
 
     public override async Task<ApiResponse<UnblockUserResponse>> Handle(UnblockUserCommand request, CancellationToken cancellationToken)
     {
-        if (request.UserId is null) return Error("UserId is required");
+        if (request.UserId is null) throw new BusinessRuleViolationException("ERR_1002", "UserIdRequired", "UserId is required");
 
         Logger.LogInformation("Unblocking user {BlockedUserId} by user {UserId}", request.BlockedUserId, request.UserId);
 
@@ -30,7 +28,7 @@ public class UnblockUserCommandHandler(
 
         if (blockRelationship == null)
         {
-            return Error("User is not blocked");
+            throw new BusinessRuleViolationException("ERR_1003", "UserNotBlocked", "User is not blocked");
         }
 
         // Remove the block

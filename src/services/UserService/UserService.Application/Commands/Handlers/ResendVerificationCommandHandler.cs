@@ -6,6 +6,7 @@ using CQRS.Models;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.Commands.Handlers;
 
@@ -31,7 +32,7 @@ public class ResendVerificationCommandHandler(
             // Validate email format
             if (string.IsNullOrWhiteSpace(request.Email) || !IsValidEmail(request.Email))
             {
-                return Error("Invalid email format");
+                return Error("Invalid email format", ErrorCodes.InvalidEmail);
             }
 
             // Find user by email
@@ -66,7 +67,7 @@ public class ResendVerificationCommandHandler(
                 {
                     var waitTime = (int)(minInterval - timeSinceLastSent).TotalSeconds;
                     Logger.LogWarning("Rate limit hit for email verification resend for {Email}", request.Email);
-                    return Error($"Please wait {waitTime} seconds before requesting another verification email.");
+                    return Error($"Please wait {waitTime} seconds before requesting another verification email.", ErrorCodes.RateLimitExceeded);
                 }
             }
 
@@ -103,7 +104,7 @@ public class ResendVerificationCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error resending verification email for {Email}", request.Email);
-            return Error("Failed to resend verification email. Please try again later.");
+            return Error("Failed to resend verification email. Please try again later.", ErrorCodes.EmailServiceError);
         }
     }
 

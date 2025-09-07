@@ -3,6 +3,7 @@ using CQRS.Handlers;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Queries.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.QueryHandlers.Permissions;
 
@@ -23,11 +24,11 @@ public class GetPermissionHistoryQueryHandler(
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             // Parse UserId to Guid
             if (!Guid.TryParse(request.UserId, out var userId))
-                return Error("Invalid UserId format");
+                return Error("Invalid UserId format", ErrorCodes.InvalidFormat);
 
             var history = await _permissionRepository.GetUserPermissionHistoryAsync(userId.ToString());
             
@@ -50,7 +51,7 @@ public class GetPermissionHistoryQueryHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error getting permission history for user {UserId}", request.UserId);
-            return Error("An error occurred while retrieving permission history");
+            return Error("An error occurred while retrieving permission history", ErrorCodes.InternalError);
         }
     }
 }

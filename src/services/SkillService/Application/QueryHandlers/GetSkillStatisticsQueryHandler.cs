@@ -1,19 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using CQRS.Handlers;
-using Infrastructure.Models;
-// using Infrastructure.Services;
 using SkillService.Application.Queries;
 using CQRS.Models;
-
 namespace SkillService.Application.QueryHandlers;
-
-// ============================================================================
-// GET SKILL STATISTICS QUERY HANDLER
-// ============================================================================
 
 public class GetSkillStatisticsQueryHandler(
     SkillDbContext dbContext,
-    // IUserLookupService userLookup,
     ILogger<GetSkillStatisticsQueryHandler> logger)
     : BaseQueryHandler<
     GetSkillStatisticsQuery,
@@ -21,13 +13,11 @@ public class GetSkillStatisticsQueryHandler(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
-    // private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<ApiResponse<SkillStatisticsResponse>> Handle(
         GetSkillStatisticsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var query = _dbContext.Skills.Where(s => !s.IsDeleted);
 
@@ -91,7 +81,6 @@ public class GetSkillStatisticsQueryHandler(
             var topRatedSkills = new List<TopSkillResponse>();
             foreach (var s in rawTopRated)
             {
-                // var user = await _userLookup.GetUserAsync(s.UserId, cancellationToken);
                 topRatedSkills.Add(new TopSkillResponse(
                     s.Id,
                     s.Name,
@@ -121,7 +110,6 @@ public class GetSkillStatisticsQueryHandler(
             var popularTags = new Dictionary<string, int>();
             foreach (var tagJson in allTags)
             {
-                try
                 {
                     var tags = System.Text.Json.JsonSerializer.Deserialize<List<string>>(tagJson);
                     if (tags != null)
@@ -134,10 +122,6 @@ public class GetSkillStatisticsQueryHandler(
                                 popularTags[tag] = 1;
                         }
                     }
-                }
-                catch
-                {
-                    // Skip invalid JSON
                 }
             }
 
@@ -159,11 +143,6 @@ public class GetSkillStatisticsQueryHandler(
                 topTags);
 
             return Success(response);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting skill statistics");
-            return Error("An error occurred while retrieving skill statistics");
         }
     }
 }

@@ -3,6 +3,7 @@ using CQRS.Models;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Queries.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.QueryHandlers.Permissions;
 
@@ -23,14 +24,14 @@ public class CheckPermissionQueryHandler(
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             if (string.IsNullOrEmpty(request.PermissionName))
-                return Error("PermissionName is required");
+                return Error("PermissionName is required", ErrorCodes.RequiredFieldMissing);
 
             // Parse UserId to Guid
             if (!Guid.TryParse(request.UserId, out var userId))
-                return Error("Invalid UserId format");
+                return Error("Invalid UserId format", ErrorCodes.InvalidFormat);
 
             var hasPermission = await _permissionRepository.UserHasPermissionAsync(
                 userId.ToString(), request.PermissionName, request.ResourceId);
@@ -41,7 +42,7 @@ public class CheckPermissionQueryHandler(
         {
             Logger.LogError(ex, "Error checking permission {Permission} for user {UserId}",
                 request.PermissionName, request.UserId);
-            return Error("An error occurred while checking permission");
+            return Error("An error occurred while checking permission", ErrorCodes.InternalError);
         }
     }
 }

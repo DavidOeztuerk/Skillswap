@@ -3,6 +3,7 @@ using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Application.CommandHandlers;
 
@@ -64,7 +65,7 @@ public class MarkAllNotificationsAsReadCommandHandler(
             Logger.LogError(ex,
                 "Error marking all notifications as read for user {UserId}",
                 request.UserId);
-            return Error("Failed to mark all notifications as read");
+            return Error("Failed to mark all notifications as read", ErrorCodes.InternalError);
         }
     }
 }

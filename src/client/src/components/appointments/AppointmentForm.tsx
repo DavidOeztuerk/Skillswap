@@ -20,6 +20,7 @@ import { de } from 'date-fns/locale';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import LoadingButton from '../ui/LoadingButton';
 import { Match } from '../../types/models/Match';
+import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 // Zod-Schema
 const appointmentFormSchema = z
@@ -68,6 +69,7 @@ interface AppointmentFormProps {
   onSubmit: (data: AppointmentRequest) => Promise<void>;
   match: Match;
   isLoading?: boolean;
+  error?: { message: string } | null;
 }
 
 const AppointmentForm: React.FC<AppointmentFormProps> = ({
@@ -76,6 +78,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
   onSubmit,
   match,
   isLoading = false,
+  error,
 }) => {
   // Bestimme Lehrer vs. Schüler
   const teacher = match.isLearningMode
@@ -166,6 +169,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
               color="primary"
               variant="contained"
               loading={isLoading}
+              disabled={isLoading || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
             >
               Termin erstellen
             </LoadingButton>
@@ -173,6 +177,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
         }
       >
         <form onSubmit={handleSubmit(handleFormSubmit)}>
+          <EnhancedErrorAlert 
+            error={error || (errors.root && { message: errors.root.message })}
+            onDismiss={() => {}}
+            compact={process.env.NODE_ENV === 'production'}
+          />
+          
           {/*
             Grid als Container:
             columns={12} => Wir haben ein 12-Spalten-Layout

@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { AdminState } from '../../types/states/AdminState';
 import { SliceError } from '../../store/types';
 import { adminService } from '../../api/services/adminService';
+import { serializeError } from '../../utils/reduxHelpers';
 import {
   AdminUser,
   AdminSkill,
@@ -9,11 +10,6 @@ import {
   AdminSettings,
 } from '../../types/models/Admin';
 
-const createStandardError = (error: any): SliceError => ({
-  message: error?.message || error?.data?.message || 'Ein unbekannter Admin-Fehler ist aufgetreten',
-  code: error?.status || error?.code || 'ADMIN_ERROR',
-  details: error?.data || error
-});
 
 const initialState: AdminState = {
   dashboard: null,
@@ -71,130 +67,198 @@ const initialState: AdminState = {
 // Dashboard
 export const fetchAdminDashboard = createAsyncThunk(
   'admin/fetchDashboard',
-  async () => {
-    return await adminService.getDashboard();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await adminService.getDashboard();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // User Management
 export const fetchAdminUsers = createAsyncThunk(
   'admin/fetchUsers',
-  async (params: { page?: number; limit?: number; filters?: any }) => {
-    return await adminService.getUsers(params);
+  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
+    try {
+      return await adminService.getUsers(params);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const updateUserRole = createAsyncThunk(
   'admin/updateUserRole',
-  async ({ userId, role }: { userId: string; role: string }) => {
-    return await adminService.updateUserRole(userId, role);
+  async ({ userId, role }: { userId: string; role: string }, { rejectWithValue }) => {
+    try {
+      return await adminService.updateUserRole(userId, role);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const suspendUser = createAsyncThunk(
   'admin/suspendUser',
-  async ({ userId, reason }: { userId: string; reason: string }) => {
-    return await adminService.suspendUser(userId, reason);
+  async ({ userId, reason }: { userId: string; reason: string }, { rejectWithValue }) => {
+    try {
+      return await adminService.suspendUser(userId, reason);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const unsuspendUser = createAsyncThunk(
   'admin/unsuspendUser',
-  async (userId: string) => {
-    return await adminService.unsuspendUser(userId);
+  async (userId: string, { rejectWithValue }) => {
+    try {
+      return await adminService.unsuspendUser(userId);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const deleteUser = createAsyncThunk(
   'admin/deleteUser',
-  async (userId: string) => {
-    await adminService.deleteUser(userId);
-    return userId;
+  async (userId: string, { rejectWithValue }) => {
+    try {
+      await adminService.deleteUser(userId);
+      return userId;
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Skills Management
 export const fetchAdminSkills = createAsyncThunk(
   'admin/fetchSkills',
-  async (params: { page?: number; limit?: number; filters?: any }) => {
-    return await adminService.getSkills(params);
+  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
+    try {
+      return await adminService.getSkills(params);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const moderateSkill = createAsyncThunk(
   'admin/moderateSkill',
-  async ({ skillId, action, reason }: { skillId: string; action: 'approve' | 'reject' | 'quarantine'; reason?: string }) => {
-    return await adminService.moderateSkill(skillId, action, reason);
+  async ({ skillId, action, reason }: { skillId: string; action: 'approve' | 'reject' | 'quarantine'; reason?: string }, { rejectWithValue }) => {
+    try {
+      return await adminService.moderateSkill(skillId, action, reason);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Appointments Management
 export const fetchAdminAppointments = createAsyncThunk(
   'admin/fetchAppointments',
-  async (params: { page?: number; limit?: number; filters?: any }) => {
-    return await adminService.getAppointments(params);
+  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
+    try {
+      return await adminService.getAppointments(params);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Matches Management
 export const fetchAdminMatches = createAsyncThunk(
   'admin/fetchMatches',
-  async (params: { page?: number; limit?: number; filters?: any }) => {
-    return await adminService.getMatches(params);
+  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
+    try {
+      return await adminService.getMatches(params);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Analytics
 export const fetchAdminAnalytics = createAsyncThunk(
   'admin/fetchAnalytics',
-  async (timeRange: '7d' | '30d' | '90d' | '1y') => {
-    return await adminService.getAnalytics(timeRange);
+  async (timeRange: '7d' | '30d' | '90d' | '1y', { rejectWithValue }) => {
+    try {
+      return await adminService.getAnalytics(timeRange);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // System Health
 export const fetchSystemHealth = createAsyncThunk(
   'admin/fetchSystemHealth',
-  async () => {
-    return await adminService.getSystemHealth();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await adminService.getSystemHealth();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Audit Logs
 export const fetchAuditLogs = createAsyncThunk(
   'admin/fetchAuditLogs',
-  async (params: { page?: number; limit?: number; filters?: any }) => {
-    return await adminService.getAuditLogs(params);
+  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
+    try {
+      return await adminService.getAuditLogs(params);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Moderation Reports
 export const fetchModerationReports = createAsyncThunk(
   'admin/fetchReports',
-  async (params: { page?: number; limit?: number; filters?: any }) => {
-    return await adminService.getModerationReports(params);
+  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
+    try {
+      return await adminService.getModerationReports(params);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const handleModerationReport = createAsyncThunk(
   'admin/handleReport',
-  async ({ reportId, action, reason }: { reportId: string; action: 'approve' | 'reject' | 'escalate'; reason?: string }) => {
-    return await adminService.handleModerationReport(reportId, action, reason);
+  async ({ reportId, action, reason }: { reportId: string; action: 'approve' | 'reject' | 'escalate'; reason?: string }, { rejectWithValue }) => {
+    try {
+      return await adminService.handleModerationReport(reportId, action, reason);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Settings
 export const fetchAdminSettings = createAsyncThunk(
   'admin/fetchSettings',
-  async () => {
-    return await adminService.getSettings();
+  async (_, { rejectWithValue }) => {
+    try {
+      return await adminService.getSettings();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const updateAdminSettings = createAsyncThunk(
   'admin/updateSettings',
-  async (settings: Partial<AdminSettings>) => {
-    return await adminService.updateSettings(settings);
+  async (settings: Partial<AdminSettings>, { rejectWithValue }) => {
+    try {
+      return await adminService.updateSettings(settings);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
@@ -365,7 +429,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAdminDashboard.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = createStandardError(action.error);
+        state.error = serializeError(action.payload);
       })
       
       // Users
@@ -381,7 +445,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAdminUsers.rejected, (state, action) => {
         state.isLoadingUsers = false;
-        state.userError = createStandardError(action.error);
+        state.userError = serializeError(action.payload);
       })
       
       .addCase(updateUserRole.fulfilled, (state, action) => {
@@ -422,7 +486,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAdminSkills.rejected, (state, action) => {
         state.isLoadingSkills = false;
-        state.skillError = createStandardError(action.error);
+        state.skillError = serializeError(action.payload);
       })
       
       .addCase(moderateSkill.fulfilled, (state, action) => {
@@ -445,7 +509,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAdminAppointments.rejected, (state, action) => {
         state.isLoadingAppointments = false;
-        state.appointmentError = createStandardError(action.error);
+        state.appointmentError = serializeError(action.payload);
       })
       
       // Matches
@@ -461,7 +525,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAdminMatches.rejected, (state, action) => {
         state.isLoadingMatches = false;
-        state.matchError = createStandardError(action.error);
+        state.matchError = serializeError(action.payload);
       })
       
       // Analytics
@@ -476,7 +540,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAdminAnalytics.rejected, (state, action) => {
         state.isLoadingAnalytics = false;
-        state.analyticsError = createStandardError(action.error);
+        state.analyticsError = serializeError(action.payload);
       })
       
       // System Health
@@ -491,7 +555,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchSystemHealth.rejected, (state, action) => {
         state.isLoadingSystemHealth = false;
-        state.systemHealthError = createStandardError(action.error);
+        state.systemHealthError = serializeError(action.payload);
       })
       
       // Audit Logs
@@ -507,7 +571,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAuditLogs.rejected, (state, action) => {
         state.isLoadingAuditLogs = false;
-        state.auditLogError = createStandardError(action.error);
+        state.auditLogError = serializeError(action.payload);
       })
       
       // Moderation Reports
@@ -523,7 +587,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchModerationReports.rejected, (state, action) => {
         state.isLoadingReports = false;
-        state.reportError = createStandardError(action.error);
+        state.reportError = serializeError(action.payload);
       })
       
       .addCase(handleModerationReport.fulfilled, (state, action) => {
@@ -545,7 +609,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAdminSettings.rejected, (state, action) => {
         state.isLoadingSettings = false;
-        state.settingsError = createStandardError(action.error);
+        state.settingsError = serializeError(action.payload);
       })
       
       .addCase(updateAdminSettings.fulfilled, (state, action) => {

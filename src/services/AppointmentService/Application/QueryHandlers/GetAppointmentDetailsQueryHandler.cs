@@ -2,6 +2,7 @@ using AppointmentService.Application.Queries;
 using AppointmentService.Application.Services;
 using CQRS.Handlers;
 using CQRS.Models;
+using Core.Common.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace AppointmentService.Application.QueryHandlers;
@@ -19,7 +20,6 @@ public class GetAppointmentDetailsQueryHandler(
         GetAppointmentDetailsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             Logger.LogInformation("Retrieving appointment details for ID: {AppointmentId}", request.AppointmentId);
 
@@ -29,7 +29,7 @@ public class GetAppointmentDetailsQueryHandler(
 
             if (appointment == null)
             {
-                return Error("Appointment not found");
+                throw new ResourceNotFoundException("Appointment", "unknown");
             }
 
             // Enrich appointment data with user and skill information
@@ -59,11 +59,6 @@ public class GetAppointmentDetailsQueryHandler(
                 appointment.CancellationReason);
 
             return Success(response);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error retrieving appointment details for ID: {AppointmentId}", request.AppointmentId);
-            return Error("An error occurred while retrieving appointment details");
         }
     }
 }

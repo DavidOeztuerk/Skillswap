@@ -4,6 +4,7 @@ using CQRS.Models;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
 using System.Text.Json;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Application.CommandHandlers;
 
@@ -91,7 +92,7 @@ public class SendBulkNotificationCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error creating bulk notification campaign");
-            return Error("Error creating bulk notification campaign: " + ex.Message);
+            return Error("Error creating bulk notification campaign: " + ex.Message, ErrorCodes.InternalError);
         }
     }
 

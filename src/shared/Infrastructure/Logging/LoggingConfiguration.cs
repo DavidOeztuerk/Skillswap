@@ -4,6 +4,8 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Filters;
 using Serilog.Sinks.Elasticsearch;
+using Serilog.Exceptions;
+using Core.Common.Exceptions;
 
 namespace Infrastructure.Logging;
 
@@ -23,18 +25,30 @@ public static class LoggingConfiguration
             .Enrich.WithMachineName()
             .Enrich.WithProcessId()
             .Enrich.WithThreadId()
+            .Enrich.WithExceptionDetails() // Enhanced exception details
             .Filter.ByExcluding(Matching.FromSource("Microsoft.AspNetCore.StaticFiles"))
             .Filter.ByExcluding(Matching.WithProperty<string>("RequestPath", path => 
                 path.StartsWith("/health") || path.StartsWith("/metrics")));
 
+        // Custom exception destructuring for better control
+        loggerConfig.Destructure.ByTransforming<DomainException>(ex => new
+        {
+            ex.ErrorCode,
+            ex.Message,
+            ex.Details,
+            ex.AdditionalData,
+            Type = ex.GetType().Name
+            // Omit stack trace for domain exceptions in all environments
+        });
+
         // Console output with different formatting for different environments
         if (environment.IsDevelopment())
         {
+            // Development: Readable format with controlled exception output
             loggerConfig.WriteTo.Console(
-                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj} " +
-                               "{NewLine}{Exception}" +
-                               "{NewLine}    CorrelationId: {CorrelationId}" +
-                               "{NewLine}    ServiceName: {ServiceName}");
+                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}" +
+                               "{NewLine}{Exception}",
+                theme: Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code);
         }
         else
         {

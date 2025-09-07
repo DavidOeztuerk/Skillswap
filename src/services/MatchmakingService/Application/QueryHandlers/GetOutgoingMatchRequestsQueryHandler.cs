@@ -19,7 +19,6 @@ public class GetOutgoingMatchRequestsQueryHandler(
         GetOutgoingMatchRequestsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             if (string.IsNullOrEmpty(request.UserId))
             {
@@ -90,16 +89,10 @@ public class GetOutgoingMatchRequestsQueryHandler(
 
             return Success(displayResponses, request.PageNumber, request.PageSize, totalCount);
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting outgoing match requests for user {UserId}", request.UserId);
-            return Error("An error occurred while fetching outgoing match requests");
-        }
     }
 
     private async Task<SkillData?> GetSkillData(string skillId, CancellationToken cancellationToken)
     {
-        try
         {
             var response = await _httpClient.GetAsync($"/api/skills/{skillId}", cancellationToken);
             if (!response.IsSuccessStatusCode)
@@ -119,18 +112,12 @@ public class GetOutgoingMatchRequestsQueryHandler(
 
             return new SkillData(skill.Name, skill.Category?.Name ?? "General");
         }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Exception while getting skill data for {SkillId}", skillId);
-            return null;
-        }
     }
 
     private async Task<UserData?> GetUserData(string? userId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(userId)) return null;
 
-        try
         {
             var response = await _httpClient.GetAsync($"/api/users/{userId}/profile", cancellationToken);
             if (!response.IsSuccessStatusCode)
@@ -154,11 +141,6 @@ public class GetOutgoingMatchRequestsQueryHandler(
                 Rating: 0m, // TODO: Get actual rating when available
                 Avatar: user.ProfilePictureUrl
             );
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Exception while getting user data for {UserId}", userId);
-            return null;
         }
     }
 

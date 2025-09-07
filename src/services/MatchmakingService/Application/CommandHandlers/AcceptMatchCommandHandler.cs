@@ -6,6 +6,7 @@ using EventSourcing;
 using Contracts.Matchmaking.Responses;
 using Events.Domain.Matchmaking;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
@@ -22,24 +23,23 @@ public class AcceptMatchCommandHandler(
         AcceptMatchCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var match = await _dbContext.Matches
                 .FirstOrDefaultAsync(m => m.Id == request.MatchId && !m.IsDeleted, cancellationToken);
 
             if (match == null)
             {
-                return Error("Match not found");
+                return Error("Match not found", ErrorCodes.ResourceNotFound);
             }
 
             if (match.OfferingUserId != request.UserId && match.RequestingUserId != request.UserId)
             {
-                return Error("You are not authorized to accept this match");
+                return Error("You are not authorized to accept this match", ErrorCodes.InsufficientPermissions);
             }
 
             if (match.Status != MatchStatus.Pending)
             {
-                return Error($"Cannot accept match in {match.Status} status");
+                return Error($"Cannot accept match in {match.Status} status", ErrorCodes.InvalidOperation);
             }
 
             match.Accept();
@@ -56,11 +56,6 @@ public class AcceptMatchCommandHandler(
                 match.Id,
                 match.Status,
                 match.AcceptedAt!.Value));
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error accepting match {MatchId}", request.MatchId);
-            return Error("An error occurred while accepting the match");
         }
     }
 }

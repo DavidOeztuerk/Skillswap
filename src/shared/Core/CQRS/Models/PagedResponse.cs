@@ -35,6 +35,24 @@ public class PagedResponse<T> : ApiResponse<List<T>>
             HasPreviousPage = pageNumber > 1
         };
     }
+
+    public static PagedResponse<T> Error(string error, string? errorCode = null, string? helpUrl = null)
+    {
+        return new PagedResponse<T>
+        {
+            Success = false,
+            Errors = [error],
+            ErrorCode = errorCode,
+            HelpUrl = helpUrl,
+            Data = new List<T>(),
+            PageNumber = 1,
+            PageSize = 10,
+            TotalPages = 0,
+            TotalRecords = 0,
+            HasNextPage = false,
+            HasPreviousPage = false
+        };
+    }
 }
 
 

@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using CQRS.Handlers;
 using CQRS.Models;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -23,19 +24,19 @@ public class RequestPhoneVerificationCommandHandler(
         try
         {
             if (request.UserId is null)
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             var user = await _userRepository.GetUserById(request.UserId, cancellationToken);
 
             if (user == null)
             {
-                return Error("User not found");
+                return Error("User not found", ErrorCodes.ResourceNotFound);
             }
 
             // Check if phone is already verified
             if (user.PhoneVerified)
             {
-                return Error("Phone number is already verified");
+                return Error("Phone number is already verified", ErrorCodes.InvalidOperation);
             }
 
             // Check rate limiting (max 3 attempts per hour)
@@ -43,7 +44,7 @@ public class RequestPhoneVerificationCommandHandler(
                 user.PhoneVerificationAttempts >= 3)
             {
                 var minutesRemaining = (user.PhoneVerificationExpiresAt.Value - DateTime.UtcNow).TotalMinutes;
-                return Error($"Too many verification attempts. Please try again in {Math.Ceiling(minutesRemaining)} minutes.");
+                return Error($"Too many verification attempts. Please try again in {Math.Ceiling(minutesRemaining)} minutes.", ErrorCodes.RateLimitExceeded);
             }
 
             // Generate 6-digit verification code
@@ -77,7 +78,7 @@ public class RequestPhoneVerificationCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error requesting phone verification for user {UserId}", request.UserId);
-            return Error("Failed to send verification code");
+            return Error("Failed to send verification code", ErrorCodes.SmsServiceError);
         }
     }
 

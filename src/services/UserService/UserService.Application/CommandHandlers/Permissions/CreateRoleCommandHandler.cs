@@ -4,6 +4,7 @@ using EventSourcing;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers.Permissions;
 
@@ -26,17 +27,17 @@ public class CreateRoleCommandHandler(
         try
         {
             if (string.IsNullOrEmpty(request.Name))
-                return Error("Role name is required");
+                return Error("Role name is required", ErrorCodes.RequiredFieldMissing);
 
             if (string.IsNullOrEmpty(request.Description))
-                return Error("Role description is required");
+                return Error("Role description is required", ErrorCodes.RequiredFieldMissing);
 
             // Parse ParentRoleId to Guid if provided
             Guid? parentRoleId = null;
             if (!string.IsNullOrEmpty(request.ParentRoleId))
             {
                 if (!Guid.TryParse(request.ParentRoleId, out var parentRoleGuid))
-                    return Error("Invalid ParentRoleId format");
+                    return Error("Invalid ParentRoleId format", ErrorCodes.InvalidFormat);
                 parentRoleId = parentRoleGuid;
             }
 
@@ -80,12 +81,12 @@ public class CreateRoleCommandHandler(
         catch (ArgumentException ex)
         {
             Logger.LogWarning(ex, "Invalid argument when creating role");
-            return Error(ex.Message);
+            return Error(ex.Message, ErrorCodes.InvalidInput);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error creating role {RoleName}", request.Name);
-            return Error("An error occurred while creating role");
+            return Error("An error occurred while creating role", ErrorCodes.InternalError);
         }
     }
 }

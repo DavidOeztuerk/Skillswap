@@ -33,6 +33,7 @@ import { errorService } from '../../services/errorService';
 import { sanitizeInput } from '../../utils/cryptoHelpers';
 import TwoFactorInput from './TwoFactorInput';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
+import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 // Enhanced validation schema with 2FA
 const loginSchema = z.object({
@@ -103,7 +104,6 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
     formState: { errors },
     setError,
     clearErrors,
-    watch,
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -114,8 +114,6 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
     mode: 'onBlur',
   });
 
-  // Get redirect path from location state
-  // const finalRedirectPath = location?.state?.from?.pathname || redirectPath;
 
   // Handle rate limiting
   useEffect(() => {
@@ -165,15 +163,6 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
     return () => clearInterval(timer);
   }, [isLocked, lockTimeRemaining]);
 
-  // Clear errors when user starts typing
-  const watchedEmail = watch('email');
-  const watchedPassword = watch('password');
-
-  useEffect(() => {
-    if (error && (watchedEmail || watchedPassword)) {
-      dispatch(clearError());
-    }
-  }, [watchedEmail, watchedPassword, error, dispatch]);
 
   // Handle form submission
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
@@ -276,10 +265,8 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
         )} Minuten gesperrt.`,
       });
     } else {
-      const remainingAttempts = MAX_ATTEMPTS - newAttemptCount;
-      setError('root', {
-        message: `Anmeldung fehlgeschlagen. Noch ${remainingAttempts} Versuche übrig.`,
-      });
+      // Don't override the API error message with rate limiting message
+      // The API error is already stored in Redux state, let it be displayed
     }
   };
 
@@ -291,7 +278,8 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
   };
 
   // Check if form has any errors
-  const hasErrors = Object.keys(errors || {}).length > 0;
+  // Check if form has validation errors (exclude root errors which are API errors)
+  const hasErrors = Object.keys(errors || {}).filter(key => key !== 'root').length > 0;
 
   // Show 2FA input if required
   if (twoFactorRequired) {
@@ -338,16 +326,13 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Stack spacing={3}>
-        {/* Error Display */}
-        {(error || errors.root) && (
-          <Alert
-            severity="error"
-            onClose={() => dispatch(clearError())}
-            sx={{ animation: 'fadeIn 0.3s ease-in' }}
-          >
-            {error?.message || errors.root?.message}
-          </Alert>
-        )}
+        {/* Enhanced Error Display */}
+        
+        <EnhancedErrorAlert 
+          error={error || (errors.root && { message: errors.root.message })}
+          onDismiss={() => dispatch(clearError())}
+          compact={process.env.NODE_ENV === 'production'}
+        />
 
         {/* Rate Limiting Warning */}
         {attemptCount > 0 && !isLocked && (

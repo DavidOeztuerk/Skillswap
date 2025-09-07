@@ -4,6 +4,7 @@ using CQRS.Models;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -31,7 +32,7 @@ public class RefreshTokenCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error refreshing tokens");
-            return Error("An error occurred while refreshing tokens. Please login again.");
+            return Error("An error occurred while refreshing tokens. Please login again.", ErrorCodes.InvalidToken);
         }
     }
 }

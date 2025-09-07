@@ -2,6 +2,7 @@ using AppointmentService.Application.Commands;
 using AppointmentService.Application.Services;
 using AppointmentService.Domain.Entities;
 using Contracts.Appointment.Responses;
+using Core.Common.Exceptions;
 using CQRS.Handlers;
 using CQRS.Models;
 using Events.Domain.Appointment;
@@ -29,24 +30,23 @@ public class RescheduleAppointmentCommandHandler(
         RescheduleAppointmentCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var appointment = await _dbContext.Appointments
                 .FirstOrDefaultAsync(a => a.Id == request.AppointmentId && !a.IsDeleted, cancellationToken);
 
             if (appointment == null)
             {
-                return Error("Appointment not found");
+                throw new ResourceNotFoundException("Appointment", "unknown");
             }
 
             if (appointment.OrganizerUserId != request.UserId && appointment.ParticipantUserId != request.UserId)
             {
-                return Error("You are not authorized to reschedule this appointment");
+                return Error("You are not authorized to reschedule this appointment", ErrorCodes.InsufficientPermissions);
             }
 
             if (appointment.Status == AppointmentStatus.Cancelled || appointment.Status == AppointmentStatus.Completed)
             {
-                return Error($"Cannot reschedule a {appointment.Status.ToLower()} appointment");
+                return Error($"Cannot reschedule a {appointment.Status.ToLower()} appointment", ErrorCodes.InvalidOperation);
             }
 
             // Check for scheduling conflicts
@@ -61,7 +61,7 @@ public class RescheduleAppointmentCommandHandler(
 
             if (conflictingAppointments.Any())
             {
-                return Error("The new time conflicts with another appointment");
+                return Error("The new time conflicts with another appointment", ErrorCodes.BusinessRuleViolation);
             }
 
             var oldScheduledDate = appointment.ScheduledDate;
@@ -134,11 +134,6 @@ public class RescheduleAppointmentCommandHandler(
                 new DateTimeOffset(appointment.UpdatedAt!.Value, TimeSpan.Zero));
 
             return Success(response, "Appointment rescheduled successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error rescheduling appointment {AppointmentId}", request.AppointmentId);
-            return Error("An error occurred while rescheduling the appointment");
         }
     }
 }

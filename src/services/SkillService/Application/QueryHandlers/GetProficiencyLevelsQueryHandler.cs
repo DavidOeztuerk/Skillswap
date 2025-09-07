@@ -20,7 +20,6 @@ public class GetProficiencyLevelsQueryHandler(
         GetProficiencyLevelsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var query = _dbContext.ProficiencyLevels.AsQueryable();
 
@@ -41,11 +40,6 @@ public class GetProficiencyLevelsQueryHandler(
                 .ToListAsync(cancellationToken);
 
             return Success(levels);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting proficiency levels");
-            return Error("An error occurred while retrieving proficiency levels");
         }
     }
 }

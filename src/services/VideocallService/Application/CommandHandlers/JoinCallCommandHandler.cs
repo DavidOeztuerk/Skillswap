@@ -6,7 +6,7 @@ using EventSourcing;
 using Events.Domain.VideoCall;
 using Contracts.VideoCall.Responses;
 using CQRS.Models;
-
+using Core.Common.Exceptions;
 namespace VideocallService.Application.CommandHandlers;
 
 public class JoinCallCommandHandler(
@@ -22,7 +22,6 @@ public class JoinCallCommandHandler(
         JoinCallCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var session = await _dbContext.VideoCallSessions
                 .Include(s => s.Participants)
@@ -30,17 +29,17 @@ public class JoinCallCommandHandler(
 
             if (session == null)
             {
-                return Error("Call session not found");
+                return Error("Call session not found", ErrorCodes.ResourceNotFound);
             }
 
             if (session.InitiatorUserId != request.UserId && session.ParticipantUserId != request.UserId)
             {
-                return Error("You are not authorized to join this call");
+                return Error("You are not authorized to join this call", ErrorCodes.InsufficientPermissions);
             }
 
             if (session.ParticipantCount >= session.MaxParticipants)
             {
-                return Error("Call is at maximum capacity");
+                return Error("Call is at maximum capacity", ErrorCodes.BusinessRuleViolation);
             }
 
             // Check if user is already in the call
@@ -49,7 +48,7 @@ public class JoinCallCommandHandler(
 
             if (existingParticipant != null)
             {
-                return Error("You are already in this call");
+                return Error("You are already in this call", ErrorCodes.BusinessRuleViolation);
             }
 
             // Add participant
@@ -92,11 +91,6 @@ public class JoinCallCommandHandler(
                 session.RoomId,
                 true,
                 otherParticipants));
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error joining call {SessionId}", request.SessionId);
-            return Error("An error occurred while joining the call");
         }
     }
 }

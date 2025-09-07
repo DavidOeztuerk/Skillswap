@@ -89,7 +89,8 @@ const SkillDetailPage: React.FC = () => {
     sendMatchRequest, 
     outgoingRequests,
     loadOutgoingRequests,
-    isLoading: isMatchmakingLoading 
+    isLoading: isMatchmakingLoading,
+    error: matchmakingError
   } = useMatchmaking();
   // const { user } = useUserById(selectedSkill?.userId);
 
@@ -278,20 +279,20 @@ const SkillDetailPage: React.FC = () => {
 
   const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
 
-  const handleMatchSubmit = async (data: CreateMatchRequest) => {
+  const handleMatchSubmit = async (data: CreateMatchRequest): Promise<boolean> => {
     if (!selectedSkill) {
       errorService.addBreadcrumb('Match submit failed - no skill selected', 'error');
       setStatusMessage({
         text: 'Fehler: Kein Skill ausgewählt',
         type: 'error',
       });
-      return;
+      return false;
     }
 
     // Prevent double submission
     if (isSubmittingMatch) {
       console.warn('⚠️ Match request already being submitted');
-      return;
+      return false;
     }
 
     // Check if user already has a pending request for this skill
@@ -306,7 +307,7 @@ const SkillDetailPage: React.FC = () => {
         type: 'warning',
       });
       console.warn('⚠️ User already has a pending request for this skill');
-      return;
+      return false;
     }
 
     setIsSubmittingMatch(true);
@@ -354,20 +355,18 @@ const SkillDetailPage: React.FC = () => {
         setTimeout(() => {
           navigate('/matchmaking?tab=outgoing');
         }, 1500);
+        
+        return true;
       } else {
         errorService.addBreadcrumb('Match request creation failed', 'error', { skillId: selectedSkill.id });
-        setStatusMessage({
-          text: 'Fehler beim Erstellen der Match-Anfrage',
-          type: 'error',
-        });
+        // Error will be handled by MatchForm component via matchmakingError
+        return false;
       }
     } catch (error) {
       errorService.addBreadcrumb('Error submitting match request', 'error', { skillId: selectedSkill.id, error: error instanceof Error ? error.message : 'Unknown error' });
       console.error('❌ Match submission error:', error);
-      setStatusMessage({
-        text: 'Fehler beim Erstellen der Match-Anfrage',
-        type: 'error',
-      });
+      // Error will be handled by MatchForm component via matchmakingError
+      return false;
     } finally {
       setIsSubmittingMatch(false);
     }
@@ -960,6 +959,7 @@ const SkillDetailPage: React.FC = () => {
           targetUserId={selectedSkill.userId} // ✅ VEREINFACHT: Direkt userId aus Skill
           targetUserName={user?.userName || user?.firstName || 'Skill-Besitzer'} // ✅ Optional: Name für Anzeige
           isLoading={isMatchmakingLoading}
+          error={matchmakingError}
         />
       )}
 

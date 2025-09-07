@@ -4,7 +4,6 @@
 // using MassTransit;
 // using CQRS.Handlers;
 // using Infrastructure.Models;
-
 // namespace SkillService.Application.CommandHandlers;
 
 // public class BulkUpdateSkillsCommandHandler(

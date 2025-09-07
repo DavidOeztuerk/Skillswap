@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MimeKit;
 using NotificationService.Domain.Entities;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Infrastructure.Services;
 
@@ -16,7 +17,7 @@ public class EmailService(
 {
     private readonly ILogger<EmailService> _logger = logger;
     private readonly EmailConfiguration _config = configuration.Value
-                 ?? throw new InvalidOperationException("Email configuration not found");
+                 ?? throw new ConfigurationException("Email configuration not found");
     private readonly ITemplateEngine _templateEngine = templateEngine;
     private readonly NotificationDbContext _dbContext = dbContext;
 

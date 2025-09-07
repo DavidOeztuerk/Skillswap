@@ -4,6 +4,7 @@ using CQRS.Models;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -18,7 +19,7 @@ public class GenerateTwoFactorSecretCommandHandler(
         GenerateTwoFactorSecretCommand request,
         CancellationToken cancellationToken)
     {
-        if (request.UserId is null) return Error("UserId is required");
+        if (request.UserId is null) return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
         try
         {
@@ -30,7 +31,7 @@ public class GenerateTwoFactorSecretCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error generating 2FA secret for user {UserId}", request.UserId);
-            return Error("Failed to generate 2FA secret");
+            return Error("Failed to generate 2FA secret", ErrorCodes.InternalError);
         }
     }
 }

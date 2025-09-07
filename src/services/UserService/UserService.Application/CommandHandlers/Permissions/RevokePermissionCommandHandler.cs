@@ -4,6 +4,7 @@ using EventSourcing;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers.Permissions;
 
@@ -26,14 +27,14 @@ public class RevokePermissionCommandHandler(
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             if (string.IsNullOrEmpty(request.PermissionName))
-                return Error("PermissionName is required");
+                return Error("PermissionName is required", ErrorCodes.RequiredFieldMissing);
 
             // Parse UserId to Guid
             if (!Guid.TryParse(request.UserId, out var userId))
-                return Error("Invalid UserId format");
+                return Error("Invalid UserId format", ErrorCodes.InvalidFormat);
 
             // Parse RevokedBy to Guid if provided
             Guid? revokedBy = null;
@@ -61,7 +62,7 @@ public class RevokePermissionCommandHandler(
         {
             Logger.LogError(ex, "Error revoking permission {Permission} from user {UserId}",
                 request.PermissionName, request.UserId);
-            return Error("An error occurred while revoking permission");
+            return Error("An error occurred while revoking permission", ErrorCodes.InternalError);
         }
     }
 }

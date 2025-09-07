@@ -5,6 +5,7 @@ using EventSourcing;
 using Events.Domain.Skill;
 using Contracts.Skill.Responses;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -26,17 +27,15 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
         UpdateSkillCommand request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var skill = await _dbContext.Skills
-                .FirstOrDefaultAsync(s => s.Id == request.SkillId &&
-                                         s.UserId == request.UserId &&
-                                         !s.IsDeleted, cancellationToken);
+        var skill = await _dbContext.Skills
+            .FirstOrDefaultAsync(s => s.Id == request.SkillId &&
+                                     s.UserId == request.UserId &&
+                                     !s.IsDeleted, cancellationToken);
 
-            if (skill == null)
-            {
-                return Error("Skill not found or you don't have permission to update it");
-            }
+        if (skill == null)
+        {
+            throw new ResourceNotFoundException("Skill", request.SkillId);
+        }
 
             var changedFields = new Dictionary<string, string>();
 
@@ -67,7 +66,7 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
 
                 if (newCategory == null)
                 {
-                    return Error("New skill category not found or inactive");
+                    throw new ResourceNotFoundException("SkillCategory", request.CategoryId);
                 }
 
                 // Update category counts
@@ -87,7 +86,7 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
 
                 if (newLevel == null)
                 {
-                    return Error("New proficiency level not found or inactive");
+                    throw new ResourceNotFoundException("ProficiencyLevel", request.ProficiencyLevelId);
                 }
 
                 changedFields["ProficiencyLevel"] = "Updated";
@@ -131,7 +130,10 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
 
             if (!changedFields.Any())
             {
-                return Error("No changes were provided");
+                throw new Core.Common.Exceptions.InvalidOperationException(
+                    "UpdateSkill", 
+                    "No changes provided", 
+                    "At least one field must be updated");
             }
 
             // Update search keywords if name or description changed
@@ -167,12 +169,6 @@ public class UpdateSkillCommandHandler : BaseCommandHandler<UpdateSkillCommand, 
                 skill.UpdatedAt.Value);
 
             return Success(response, "Skill updated successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error updating skill {SkillId} for user {UserId}", request.SkillId, request.UserId);
-            return Error("An error occurred while updating the skill. Please try again.");
-        }
     }
 
     private static string GenerateSearchKeywords(string name, string description, List<string> tags)

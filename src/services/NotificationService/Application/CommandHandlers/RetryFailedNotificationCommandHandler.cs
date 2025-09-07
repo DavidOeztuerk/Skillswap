@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
 using System.Text.Json;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Application.CommandHandlers;
 
@@ -24,17 +25,17 @@ public class RetryFailedNotificationCommandHandler(
 
             if (notification == null)
             {
-                throw new InvalidOperationException("Notification not found");
+                throw new System.InvalidOperationException("Notification not found");
             }
 
             if (notification.Status != NotificationStatus.Failed)
             {
-                throw new InvalidOperationException("Can only retry failed notifications");
+                throw new System.InvalidOperationException("Can only retry failed notifications");
             }
 
             if (notification.RetryCount >= 5)
             {
-                throw new InvalidOperationException("Maximum retry attempts reached");
+                throw new System.InvalidOperationException("Maximum retry attempts reached");
             }
 
             // Update notification for retry
@@ -91,7 +92,7 @@ public class RetryFailedNotificationCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error retrying notification {NotificationId}", request.NotificationId);
-            return Error("Error retrying notification: " + ex.Message);
+            return Error("Error retrying notification: " + ex.Message, ErrorCodes.InternalError);
         }
     }
 

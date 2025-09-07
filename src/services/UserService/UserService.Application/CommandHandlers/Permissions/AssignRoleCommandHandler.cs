@@ -4,6 +4,7 @@ using EventSourcing;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers.Permissions;
 
@@ -26,14 +27,14 @@ public class AssignRoleCommandHandler(
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             if (string.IsNullOrEmpty(request.RoleName))
-                return Error("RoleName is required");
+                return Error("RoleName is required", ErrorCodes.RequiredFieldMissing);
 
             // Parse UserId to Guid
             if (!Guid.TryParse(request.UserId, out var userId))
-                return Error("Invalid UserId format");
+                return Error("Invalid UserId format", ErrorCodes.InvalidFormat);
 
             // Parse AssignedBy to Guid if provided
             Guid? assignedBy = null;
@@ -60,13 +61,13 @@ public class AssignRoleCommandHandler(
         catch (ArgumentException ex)
         {
             Logger.LogWarning(ex, "Invalid argument when assigning role");
-            return Error(ex.Message);
+            return Error(ex.Message, ErrorCodes.InvalidInput);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error assigning role {Role} to user {UserId}",
                 request.RoleName, request.UserId);
-            return Error("An error occurred while assigning role");
+            return Error("An error occurred while assigning role", ErrorCodes.InternalError);
         }
     }
 }
