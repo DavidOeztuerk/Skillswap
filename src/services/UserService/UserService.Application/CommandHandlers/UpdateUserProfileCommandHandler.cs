@@ -7,6 +7,7 @@ using Events.Domain.User;
 using Contracts.User.Responses;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -21,7 +22,7 @@ public class UpdateUserProfileCommandHandler(
 
     public override async Task<ApiResponse<UpdateUserProfileResponse>> Handle(UpdateUserProfileCommand request, CancellationToken cancellationToken)
     {
-        if (request.UserId is null) return Error("UserId is required");
+        if (request.UserId is null) return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
         try
         {
@@ -64,7 +65,7 @@ public class UpdateUserProfileCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error updating user profile for {UserId}", request.UserId);
-            return Error("An error occurred while updating user profile. Please try again.");
+            return Error("An error occurred while updating user profile. Please try again.", ErrorCodes.InternalError);
         }
     }
 }

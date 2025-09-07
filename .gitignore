@@ -630,7 +630,11 @@ secrets/
 
 # Database Credentials
 *password*
-*credentials*
+# Specific credential files (but not Exception classes)
+*-credentials.*
+*_credentials.*
+credentials.*
+*.credentials
 *connection-string*
 
 # Backup Files That Might Contain Secrets

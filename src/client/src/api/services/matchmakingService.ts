@@ -45,6 +45,10 @@ const matchmakingService = {
       return response;
     } catch (error) {
       console.error('❌ [MatchmakingService] Failed to create match request:', error);
+      // Log the actual error response data for debugging
+      if (error?.response?.data) {
+        console.error('❌ [MatchmakingService] Error response data:', error.response.data);
+      }
       throw error;
     }
   },

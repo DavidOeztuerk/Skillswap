@@ -4,6 +4,7 @@ using CQRS.Models;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -20,12 +21,12 @@ public class DisableTwoFactorCommandHandler(
     {
         if (string.IsNullOrEmpty(request.UserId))
         {
-            return Error("UserId is required");
+            return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
         }
 
         if (string.IsNullOrEmpty(request.Password))
         {
-            return Error("Password is required for security verification");
+            return Error("Password is required for security verification", ErrorCodes.RequiredFieldMissing);
         }
 
         try
@@ -47,17 +48,17 @@ public class DisableTwoFactorCommandHandler(
         catch (UnauthorizedAccessException ex)
         {
             Logger.LogWarning(ex, "Invalid password provided for disabling 2FA for user {UserId}", request.UserId);
-            return Error("Invalid password. Please verify your password and try again.");
+            return Error("Invalid password. Please verify your password and try again.", ErrorCodes.InvalidCredentials);
         }
-        catch (InvalidOperationException ex)
+        catch (System.InvalidOperationException ex)
         {
             Logger.LogWarning(ex, "Failed to disable 2FA for user {UserId}: {Message}", request.UserId, ex.Message);
-            return Error(ex.Message);
+            return Error(ex.Message, ErrorCodes.InvalidOperation);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error disabling 2FA for user {UserId}", request.UserId);
-            return Error("An error occurred while disabling two-factor authentication");
+            return Error("An error occurred while disabling two-factor authentication", ErrorCodes.InternalError);
         }
     }
 }

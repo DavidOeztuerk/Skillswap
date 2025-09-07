@@ -12,6 +12,8 @@ public class ApiResponse<T>
     public List<string>? Errors { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public string? TraceId { get; set; } = Guid.NewGuid().ToString();
+    public string? ErrorCode { get; set; }
+    public string? HelpUrl { get; set; }
 
     public static ApiResponse<T> SuccessResult(T? data, string? message = null)
     {
@@ -23,23 +25,27 @@ public class ApiResponse<T>
         };
     }
 
-    public static ApiResponse<T> ErrorResult(string error, string? traceId = null)
+    public static ApiResponse<T> ErrorResult(string error, string? traceId = null, string? errorCode = null, string? helpUrl = null)
     {
         return new ApiResponse<T>
         {
             Success = false,
             Errors = [error],
-            TraceId = traceId
+            TraceId = traceId,
+            ErrorCode = errorCode,
+            HelpUrl = helpUrl
         };
     }
 
-    public static ApiResponse<T> ErrorResult(List<string> errors, string? traceId = null)
+    public static ApiResponse<T> ErrorResult(List<string> errors, string? traceId = null, string? errorCode = null, string? helpUrl = null)
     {
         return new ApiResponse<T>
         {
             Success = false,
             Errors = errors,
-            TraceId = traceId
+            TraceId = traceId,
+            ErrorCode = errorCode,
+            HelpUrl = helpUrl
         };
     }
 }

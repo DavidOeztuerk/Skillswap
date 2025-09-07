@@ -5,6 +5,7 @@ using CQRS.Handlers;
 using UserService.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -19,7 +20,7 @@ public class DeleteAvatarCommandHandler(
 
     public override async Task<ApiResponse<DeleteAvatarResponse>> Handle(DeleteAvatarCommand request, CancellationToken cancellationToken)
     {
-        if (request.UserId is null) return Error("UserId is required");
+        if (request.UserId is null) throw new BusinessRuleViolationException("ERR_1002", "UserIdRequired", "UserId is required");
 
         Logger.LogInformation("Deleting avatar for user {UserId}", request.UserId);
 

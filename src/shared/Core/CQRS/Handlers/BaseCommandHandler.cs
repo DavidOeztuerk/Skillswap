@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using CQRS.Interfaces;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace CQRS.Handlers;
 
@@ -23,16 +24,26 @@ public abstract class BaseCommandHandler<TCommand, TResponse>(
         return ApiResponse<TResponse>.SuccessResult(data, message);
     }
 
-    protected ApiResponse<TResponse> Error(string error)
+    protected ApiResponse<TResponse> Error(string error, string? errorCode = null, string? helpUrl = null)
     {
         Logger.LogError("Command {CommandType} failed: {Error}", typeof(TCommand).Name, error);
-        return ApiResponse<TResponse>.ErrorResult(error);
+        // Auto-populate HelpUrl if not provided but ErrorCode is
+        if (helpUrl == null && errorCode != null)
+        {
+            helpUrl = HelpUrls.GetHelpUrl(errorCode);
+        }
+        return ApiResponse<TResponse>.ErrorResult(error, null, errorCode, helpUrl);
     }
 
-    protected ApiResponse<TResponse> Error(List<string> errors)
+    protected ApiResponse<TResponse> Error(List<string> errors, string? errorCode = null, string? helpUrl = null)
     {
         Logger.LogError("Command {CommandType} failed with multiple errors: {Errors}",
             typeof(TCommand).Name, string.Join(", ", errors));
-        return ApiResponse<TResponse>.ErrorResult(errors);
+        // Auto-populate HelpUrl if not provided but ErrorCode is
+        if (helpUrl == null && errorCode != null)
+        {
+            helpUrl = HelpUrls.GetHelpUrl(errorCode);
+        }
+        return ApiResponse<TResponse>.ErrorResult(errors, null, errorCode, helpUrl);
     }
 }

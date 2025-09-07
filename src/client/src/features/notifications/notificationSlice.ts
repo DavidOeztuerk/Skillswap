@@ -5,6 +5,7 @@ import { NotificationState } from '../../types/states/NotificationState';
 import type { Notification, NotificationSettings } from '../../types/models/Notification';
 import { SliceError } from '../../store/types';
 import { withDefault } from '../../utils/safeAccess';
+import { serializeError } from '../../utils/reduxHelpers';
 
 const initialState: NotificationState = {
   notifications: [],
@@ -54,87 +55,123 @@ const initialState: NotificationState = {
 // Async thunks
 export const fetchNotifications = createAsyncThunk(
   'notifications/fetchNotifications',
-  async (request?: NotificationHistoryRequest) => {
-    return await notificationService.getNotifications(request);
+  async (request?: NotificationHistoryRequest, { rejectWithValue }) => {
+    try {
+      return await notificationService.getNotifications(request);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const subscribeToRealTimeNotifications = createAsyncThunk(
   'notifications/subscribeRealTime',
-  async (userId: string) => {
-    return await notificationService.subscribeToRealTime(userId);
+  async (userId: string, { rejectWithValue }) => {
+    try {
+      return await notificationService.subscribeToRealTime(userId);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const unsubscribeFromRealTimeNotifications = createAsyncThunk(
   'notifications/unsubscribeRealTime',
-  async () => {
-    await notificationService.unsubscribeFromRealTime();
+  async (_, { rejectWithValue }) => {
+    try {
+      await notificationService.unsubscribeFromRealTime();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const clearAllNotifications = createAsyncThunk(
   'notifications/clearAll',
-  async () => {
-    const response = await notificationService.clearAllNotifications();
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to clear all notifications');
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await notificationService.clearAllNotifications();
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to clear all notifications');
+      }
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
     }
   }
 );
 
 export const markNotificationAsRead = createAsyncThunk(
   'notifications/markAsRead',
-  async (notificationId: string) => {
-    const response = await notificationService.markAsRead(notificationId);
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to mark notification as read');
+  async (notificationId: string, { rejectWithValue }) => {
+    try {
+      const response = await notificationService.markAsRead(notificationId);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to mark notification as read');
+      }
+      return notificationId;
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
     }
-    return notificationId;
   }
 );
 
 export const markAllNotificationsAsRead = createAsyncThunk(
   'notifications/markAllAsRead',
-  async () => {
-    const response = await notificationService.markAllAsRead();
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to mark all notifications as read');
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await notificationService.markAllAsRead();
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to mark all notifications as read');
+      }
+      return true;
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
     }
-    return true;
   }
 );
 
 export const fetchNotificationSettings = createAsyncThunk(
   'notifications/fetchSettings',
-  async () => {
-    const response = await notificationService.getSettings();
-    if (!response.success || !response.data) {
-      throw new Error(response.message || 'Failed to fetch notification settings');
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await notificationService.getSettings();
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Failed to fetch notification settings');
+      }
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
     }
-    return response.data;
   }
 );
 
 export const updateNotificationSettings = createAsyncThunk(
   'notifications/updateSettings',
-  async (settings: NotificationSettings) => {
-    const response = await notificationService.updateSettings(settings);
-    if (!response.success || !response.data) {
-      throw new Error(response.message || 'Failed to update notification settings');
+  async (settings: NotificationSettings, { rejectWithValue }) => {
+    try {
+      const response = await notificationService.updateSettings(settings);
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Failed to update notification settings');
+      }
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
     }
-    return response.data;
   }
 );
 
 export const deleteNotification = createAsyncThunk(
   'notifications/deleteNotification',
-  async (notificationId: string) => {
-    const response = await notificationService.deleteNotification(notificationId);
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to delete notification');
+  async (notificationId: string, { rejectWithValue }) => {
+    try {
+      const response = await notificationService.deleteNotification(notificationId);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to delete notification');
+      }
+      return notificationId;
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
     }
-    return notificationId;
   }
 );
 
@@ -254,7 +291,7 @@ const notificationSlice = createSlice({
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Mark as Read
@@ -267,7 +304,7 @@ const notificationSlice = createSlice({
         }
       })
       .addCase(markNotificationAsRead.rejected, (state, action) => {
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Mark All as Read
@@ -282,7 +319,7 @@ const notificationSlice = createSlice({
         state.unreadCount = 0;
       })
       .addCase(markAllNotificationsAsRead.rejected, (state, action) => {
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Fetch Settings
@@ -296,7 +333,7 @@ const notificationSlice = createSlice({
       })
       .addCase(fetchNotificationSettings.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Update Settings
@@ -310,7 +347,7 @@ const notificationSlice = createSlice({
       })
       .addCase(updateNotificationSettings.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Delete Notification
@@ -325,7 +362,7 @@ const notificationSlice = createSlice({
         }
       })
       .addCase(deleteNotification.rejected, (state, action) => {
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
       
       // Subscribe to Real-time
@@ -334,7 +371,7 @@ const notificationSlice = createSlice({
       })
       .addCase(subscribeToRealTimeNotifications.rejected, (state, action) => {
         state.isConnected = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
       
       // Unsubscribe from Real-time

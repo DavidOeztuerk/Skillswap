@@ -8,6 +8,7 @@ using CQRS.Models;
 using Events.Integration.Matchmaking;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Core.Common.Exceptions;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
@@ -30,38 +31,46 @@ public class CreateMatchRequestCommandHandler(
         CreateMatchRequestCommand request,
         CancellationToken cancellationToken)
     {
-        try
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(request.UserId) ||
+            string.IsNullOrWhiteSpace(request.SkillId) ||
+            string.IsNullOrWhiteSpace(request.TargetUserId) ||
+            string.IsNullOrWhiteSpace(request.Message))
         {
-            // Validate required fields
-            if (string.IsNullOrWhiteSpace(request.UserId) ||
-                string.IsNullOrWhiteSpace(request.SkillId) ||
-                string.IsNullOrWhiteSpace(request.TargetUserId) ||
-                string.IsNullOrWhiteSpace(request.Message))
-            {
-                return Error("Missing required fields");
-            }
+            throw new BusinessRuleViolationException(
+                ErrorCodes.RequiredFieldMissing,
+                "CreateMatchRequest",
+                "Missing required fields for match request");
+        }
 
-            // Prevent users from requesting their own skills
-            if (request.TargetUserId == request.UserId)
-            {
-                return Error("You cannot create a match request for your own skill");
-            }
+        // Prevent users from requesting their own skills
+        if (request.TargetUserId == request.UserId)
+        {
+            throw new BusinessRuleViolationException(
+                ErrorCodes.BusinessRuleViolation,
+                "CreateMatchRequest", 
+                "You cannot create a match request for your own skill");
+        }
 
-            // Check for existing pending request for the same skill
-            var existingRequest = await _dbContext.MatchRequests
-                .FirstOrDefaultAsync(mr => 
-                    mr.RequesterId == request.UserId &&
-                    mr.SkillId == request.SkillId &&
-                    mr.TargetUserId == request.TargetUserId &&
-                    (mr.Status == "pending" || mr.Status == "accepted"),
-                    cancellationToken);
+        // Check for existing pending request for the same skill
+        var existingRequest = await _dbContext.MatchRequests
+            .FirstOrDefaultAsync(mr => 
+                mr.RequesterId == request.UserId &&
+                mr.SkillId == request.SkillId &&
+                mr.TargetUserId == request.TargetUserId &&
+                (mr.Status == "pending" || mr.Status == "accepted"),
+                cancellationToken);
 
-            if (existingRequest != null)
-            {
-                Logger.LogWarning("User {UserId} already has a {Status} request for skill {SkillId}", 
-                    request.UserId, existingRequest.Status, request.SkillId);
-                return Error($"You already have a {existingRequest.Status} request for this skill");
-            }
+        if (existingRequest != null)
+        {
+            Logger.LogWarning("User {UserId} already has a {Status} request for skill {SkillId}", 
+                request.UserId, existingRequest.Status, request.SkillId);
+            throw new ResourceAlreadyExistsException(
+                "MatchRequest",
+                "SkillId",
+                request.SkillId,
+                $"You already have a {existingRequest.Status} request for this skill");
+        }
 
             // Generate ThreadId for grouping requests between users for this skill
             var threadId = $"{request.UserId}:{request.TargetUserId}:{request.SkillId}";
@@ -142,11 +151,5 @@ public class CreateMatchRequestCommandHandler(
             );
 
             return Success(response);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error creating match request for UserId {UserId}", request.UserId);
-            return Error("An error occurred while creating the match request");
-        }
     }
 }

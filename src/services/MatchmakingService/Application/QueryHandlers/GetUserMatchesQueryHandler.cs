@@ -1,6 +1,5 @@
 using CQRS.Handlers;
 using CQRS.Models;
-// using Infrastructure.Services;
 using MatchmakingService.Application.Queries;
 using MatchmakingService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -9,22 +8,18 @@ namespace MatchmakingService.Application.QueryHandlers;
 
 public class GetUserMatchesQueryHandler(
     MatchmakingDbContext dbContext,
-    // IUserLookupService userLookup,
     ILogger<GetUserMatchesQueryHandler> logger)
     : BasePagedQueryHandler<GetUserMatchesQuery, UserMatchResponse>(logger)
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
-    // private readonly IUserLookupService _userLookup = userLookup;
 
     public override async Task<PagedResponse<UserMatchResponse>> Handle(
         GetUserMatchesQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
-            // Filter matches for the specific user (either as offering or requesting user)
             var query = _dbContext.Matches
-                .AsNoTracking() // Performance: Read-only query
+                .AsNoTracking()
                 .Where(m => !m.IsDeleted && (m.OfferingUserId == request.UserId || m.RequestingUserId == request.UserId));
 
             if (!string.IsNullOrEmpty(request.Status))
@@ -49,7 +44,6 @@ public class GetUserMatchesQueryHandler(
             var matches = new List<UserMatchResponse>();
             foreach (var m in matchEntities)
             {
-                // var otherUser = await _userLookup.GetUserAsync(m.OfferingUserId, cancellationToken);
                 matches.Add(new UserMatchResponse(
                     m.Id,
                     m.OfferedSkillName + " ↔ " + m.RequestedSkillName,
@@ -61,11 +55,6 @@ public class GetUserMatchesQueryHandler(
             }
 
             return Success(matches, request.PageNumber, request.PageSize, totalRecords);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting user matches");
-            return Error("An error occurred while retrieving user matches");
         }
     }
 }

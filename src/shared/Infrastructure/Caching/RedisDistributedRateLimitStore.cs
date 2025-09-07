@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
-using Infrastructure.Models;
-using System.Text.Json;
 
 namespace Infrastructure.Caching;
 

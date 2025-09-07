@@ -16,6 +16,7 @@ import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchReque
 import { withDefault } from '../utils/safeAccess';
 import { withOptimisticUpdate, generateUpdateId, canPerformOptimisticUpdate } from '../utils/optimisticUpdates';
 import { ApiResponse } from '../types/common/ApiResponse';
+import { serializeError, getErrorMessage } from '../utils/reduxHelpers';
 
 export const useMatchmaking = () => {
   const dispatch = useAppDispatch();
@@ -34,25 +35,45 @@ export const useMatchmaking = () => {
       
       if (success) {
         console.log('✅ [useMatchmaking] Matches loaded successfully');
-      } else {
-        console.error('❌ [useMatchmaking] Failed to load matches:', r);
+      } else if (process.env.NODE_ENV === 'development') {
+        // Keep minimal logging for development debugging
+        console.error('❌ [useMatchmaking] Failed to load matches - error handled by slice');
       }
       
       return success;
     } catch (error) {
-      console.error('❌ [useMatchmaking] Error loading matches:', error);
+      // Error is already handled by the Redux slice, just return failure
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [useMatchmaking] Unexpected error:', getErrorMessage(error));
+      }
       return false;
     }
   }, [dispatch]);
 
-  const loadIncomingRequests = useCallback(async (params = {}) => {
-    const r = await dispatch(fetchIncomingMatchRequests(params));
-    return fetchIncomingMatchRequests.fulfilled.match(r);
+  const loadIncomingRequests = useCallback(async (params = {}): Promise<boolean> => {
+    try {
+      const r = await dispatch(fetchIncomingMatchRequests(params));
+      return fetchIncomingMatchRequests.fulfilled.match(r);
+    } catch (error) {
+      // Error is already handled by the Redux slice
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [useMatchmaking] Unexpected error loading incoming requests:', getErrorMessage(error));
+      }
+      return false;
+    }
   }, [dispatch]);
 
-  const loadOutgoingRequests = useCallback(async (params = {}) => {
-    const r = await dispatch(fetchOutgoingMatchRequests(params));
-    return fetchOutgoingMatchRequests.fulfilled.match(r);
+  const loadOutgoingRequests = useCallback(async (params = {}): Promise<boolean> => {
+    try {
+      const r = await dispatch(fetchOutgoingMatchRequests(params));
+      return fetchOutgoingMatchRequests.fulfilled.match(r);
+    } catch (error) {
+      // Error is already handled by the Redux slice
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [useMatchmaking] Unexpected error loading outgoing requests:', getErrorMessage(error));
+      }
+      return false;
+    }
   }, [dispatch]);
 
   useEffect(() => {
@@ -78,8 +99,9 @@ export const useMatchmaking = () => {
           dispatch(fetchOutgoingMatchRequests({})),
         ]);
       } catch (error) {
-        if (isMounted) {
-          console.error('❌ [useMatchmaking] Error loading initial data:', error);
+        // Error is already handled by the Redux slice
+        if (isMounted && process.env.NODE_ENV === 'development') {
+          console.error('❌ [useMatchmaking] Unexpected error during initial load:', getErrorMessage(error));
         }
       }
     };
@@ -104,20 +126,31 @@ export const useMatchmaking = () => {
       
       if (success) {
         console.log('✅ [useMatchmaking] Match request sent successfully');
-      } else {
-        console.error('❌ [useMatchmaking] Match request failed:', r);
+      } else if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [useMatchmaking] Match request failed - error handled by slice');
       }
       
       return success;
     } catch (error) {
-      console.error('❌ [useMatchmaking] Error sending match request:', error);
+      // Error is already handled by the Redux slice
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [useMatchmaking] Unexpected error sending match request:', getErrorMessage(error));
+      }
       return false;
     }
   };
 
   const search = async (req: CreateMatchRequest): Promise<boolean> => {
-    const r = await dispatch(fetchMatches(req as any));
-    return fetchMatches.fulfilled.match(r);
+    try {
+      const r = await dispatch(fetchMatches(req as any));
+      return fetchMatches.fulfilled.match(r);
+    } catch (error) {
+      // Error is already handled by the Redux slice
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [useMatchmaking] Unexpected error searching matches:', getErrorMessage(error));
+      }
+      return false;
+    }
   };
 
   const approveMatchRequest = async (
@@ -163,7 +196,7 @@ export const useMatchmaking = () => {
     return res !== null;
   };
 
-  const approveMatch = async (matchId: string, reason?: string ) => {
+  const approveMatch = async (matchId: string, reason?: string): Promise<ApiResponse<AcceptMatchRequestResponse> | null> => {
     console.log('✅ [useMatchmaking] Approving match:', matchId, reason);
     
     try {
@@ -172,20 +205,31 @@ export const useMatchmaking = () => {
       
       if (result) {
         console.log('✅ [useMatchmaking] Match approved successfully:', result);
-      } else {
-        console.error('❌ [useMatchmaking] Failed to approve match:', r);
+      } else if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [useMatchmaking] Failed to approve match - error handled by slice');
       }
       
       return result;
     } catch (error) {
-      console.error('❌ [useMatchmaking] Error approving match:', error);
+      // Error is already handled by the Redux slice
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [useMatchmaking] Unexpected error approving match:', getErrorMessage(error));
+      }
       return null;
     }
   };
 
-  const declineMatch = async (matchId: string, reason?: string) => {
-    const r = await dispatch(rejectMatchRequest({ requestId: matchId, request: { responseMessage: reason }}));
-    return rejectMatchRequest.fulfilled.match(r) ? r.payload : null;
+  const declineMatch = async (matchId: string, reason?: string): Promise<any> => {
+    try {
+      const r = await dispatch(rejectMatchRequest({ requestId: matchId, request: { responseMessage: reason }}));
+      return rejectMatchRequest.fulfilled.match(r) ? r.payload : null;
+    } catch (error) {
+      // Error is already handled by the Redux slice
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [useMatchmaking] Unexpected error declining match:', getErrorMessage(error));
+      }
+      return null;
+    }
   };
 
   const getMatchesByStatus = (status: MatchStatus): MatchDisplay[] =>

@@ -12,12 +12,10 @@ import {
 import { SliceError } from '../../store/types';
 import matchmakingService, { GetMatchRequestsParams } from '../../api/services/matchmakingService';
 
-// Helper: Fehler normalisieren
-const parseErr = (e: any): SliceError => ({
-  message: e?.message ?? 'Unbekannter Fehler',
-  code: e?.code ?? 'UNKNOWN',
-  details: e?.response?.data,
-});
+import { serializeError } from '../../utils/reduxHelpers';
+
+// Helper: Fehler normalisieren (deprecated - use serializeError instead)
+const parseErr = (e: any): SliceError => serializeError(e);
 
 // Thunks
 export const createMatchRequest = createAsyncThunk(

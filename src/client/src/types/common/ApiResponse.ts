@@ -5,4 +5,5 @@ export interface ApiResponse<T> {
   errors?: string[];
   timestamp?: string;
   traceId?: string;
+  errorCode?: string;
 }

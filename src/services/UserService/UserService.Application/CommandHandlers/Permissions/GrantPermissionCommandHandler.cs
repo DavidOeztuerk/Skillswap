@@ -4,6 +4,7 @@ using EventSourcing;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers.Permissions;
 
@@ -26,14 +27,14 @@ public class GrantPermissionCommandHandler(
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             if (string.IsNullOrEmpty(request.PermissionName))
-                return Error("PermissionName is required");
+                return Error("PermissionName is required", ErrorCodes.RequiredFieldMissing);
 
             // Parse UserId to Guid
             if (!Guid.TryParse(request.UserId, out var userId))
-                return Error("Invalid UserId format");
+                return Error("Invalid UserId format", ErrorCodes.InvalidFormat);
 
             // Parse GrantedBy to Guid if provided
             Guid? grantedBy = null;
@@ -62,13 +63,13 @@ public class GrantPermissionCommandHandler(
         catch (ArgumentException ex)
         {
             Logger.LogWarning(ex, "Invalid argument when granting permission");
-            return Error(ex.Message);
+            return Error(ex.Message, ErrorCodes.InvalidInput);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error granting permission {Permission} to user {UserId}",
                 request.PermissionName, request.UserId);
-            return Error("An error occurred while granting permission");
+            return Error("An error occurred while granting permission", ErrorCodes.InternalError);
         }
     }
 }

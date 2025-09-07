@@ -5,6 +5,7 @@ using MassTransit;
 using CQRS.Handlers;
 using SkillService.Domain.Entities;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -27,7 +28,7 @@ public class CreateSkillCategoryCommandHandler(
 
         if (existingCategory != null)
         {
-            return Error("Skill category already exists");
+            return Error("Skill category already exists", ErrorCodes.ResourceAlreadyExists);
         }
 
         // Check parent category exists if specified

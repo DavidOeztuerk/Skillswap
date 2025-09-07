@@ -15,6 +15,7 @@ import {
   generateTwoFactorSecret as generateTwoFactorSecretAction,
   verifyTwoFactorCode as verifyTwoFactorCodeAction,
   clearError,
+  setError,
   setLoading,
   forceLogout,
 } from '../features/auth/authSlice';
@@ -29,6 +30,7 @@ import { VerifyTwoFactorCodeRequest } from '../types/contracts/requests/VerifyTw
 import { VerifyTwoFactorCodeResponse } from '../types/contracts/responses/VerifyTwoFactorCodeResponse';
 import { UserProfileResponse } from '../types/contracts/responses/UserProfileResponse';
 import { withDefault, isDefined } from '../utils/safeAccess';
+import { serializeError } from '../utils/reduxHelpers';
 
 interface LocationState {
   from?: { pathname: string };
@@ -123,7 +125,8 @@ export const useAuth = () => {
         }
         return false;
       } catch (error) {
-        console.error('Login failed:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError(serializedError));
         return false;
       } finally {
         dispatch(setLoading(false));
@@ -158,7 +161,8 @@ export const useAuth = () => {
         }
         return false;
       } catch (error) {
-        console.error('Registration failed:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError(serializedError));
         return false;
       } finally {
         dispatch(setLoading(false));
@@ -176,7 +180,8 @@ export const useAuth = () => {
       await dispatch(logoutAction()).unwrap();
       navigate('/auth/login', { replace: true });
     } catch (error) {
-      console.error('Logout failed:', error);
+      const serializedError = serializeError(error);
+      dispatch(setError(serializedError));
       // Even if logout fails, redirect to login
       navigate('/auth/login', { replace: true });
     }
@@ -191,7 +196,8 @@ export const useAuth = () => {
       const result = await dispatch(getProfile()).unwrap();
       return result.data || null;
     } catch (error) {
-      console.error('Load profile error:', error);
+      const serializedError = serializeError(error);
+      dispatch(setError(serializedError));
       return null;
     }
   }, [dispatch]);
@@ -207,7 +213,8 @@ export const useAuth = () => {
         await dispatch(updateProfileAction(profileData)).unwrap();
         return true;
       } catch (error) {
-        console.error('Update profile error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError(serializedError));
         return false;
       }
     },
@@ -225,7 +232,8 @@ export const useAuth = () => {
         await dispatch(uploadProfilePictureAction(file)).unwrap();
         return true;
       } catch (error) {
-        console.error('Upload profile picture error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError(serializedError));
         return false;
       }
     },
@@ -243,7 +251,8 @@ export const useAuth = () => {
         await dispatch(changePasswordAction(passwordData)).unwrap();
         return true;
       } catch (error) {
-        console.error('Change password error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError(serializedError));
         return false;
       }
     },
@@ -259,7 +268,8 @@ export const useAuth = () => {
       await dispatch(silentLoginAction()).unwrap();
       return true;
     } catch (error) {
-      console.info('Silent login failed:', error);
+      // Silent login failures are expected, don't set error in Redux
+      // Just return false to indicate failure
       return false;
     }
   }, [dispatch]);
@@ -275,7 +285,8 @@ export const useAuth = () => {
         await dispatch(verifyEmailAction(request)).unwrap();
         return true;
       } catch (error) {
-        console.error('Verify email error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError(serializedError));
         return false;
       }
     },
@@ -293,7 +304,8 @@ export const useAuth = () => {
         await dispatch(requestPasswordResetAction(email)).unwrap();
         return true;
       } catch (error) {
-        console.error('Request password reset error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError(serializedError));
         return false;
       }
     },
@@ -312,7 +324,8 @@ export const useAuth = () => {
         await dispatch(resetPasswordAction({ token, password })).unwrap();
         return true;
       } catch (error) {
-        console.error('Reset password error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError(serializedError));
         return false;
       }
     },
@@ -353,7 +366,8 @@ export const useAuth = () => {
       const result = await dispatch(generateTwoFactorSecretAction()).unwrap();
       return result.data || null;
     } catch (error) {
-      console.error('2FA secret generation error:', error);
+      const serializedError = serializeError(error);
+      dispatch(setError(serializedError));
       return null;
     }
   }, [dispatch]);
@@ -366,7 +380,8 @@ export const useAuth = () => {
       const result = await dispatch(verifyTwoFactorCodeAction(request)).unwrap();
       return result || null;
     } catch (error) {
-      console.error('2FA verification error:', error);
+      const serializedError = serializeError(error);
+      dispatch(setError(serializedError));
       return null;
     }
   }, [dispatch]);

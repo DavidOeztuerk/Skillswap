@@ -46,6 +46,7 @@ import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
 import LoadingButton from '../ui/LoadingButton';
 import { MatchRequest } from '../../types/contracts/requests/MatchRequest';
 import { Skill } from '../../types/models/Skill';
+import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 // Enhanced validation schema
 const enhancedMatchFormSchema = z.object({
@@ -85,6 +86,7 @@ interface EnhancedMatchFormProps {
   onSubmit: (data: MatchRequest) => Promise<void>;
   skill: Skill;
   isLoading?: boolean;
+  error?: { message: string } | null;
 }
 
 const ITEM_HEIGHT = 48;
@@ -136,6 +138,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
   onSubmit,
   skill,
   isLoading = false,
+  error,
 }) => {
   const [activeStep, setActiveStep] = useState(0);
 
@@ -654,6 +657,12 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
 
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <DialogContent dividers>
+          <EnhancedErrorAlert 
+            error={error || (errors.root && { message: errors.root.message })}
+            onDismiss={() => {}}
+            compact={process.env.NODE_ENV === 'production'}
+          />
+          
           <Stepper activeStep={activeStep} orientation="vertical">
             {steps.map((label, index) => (
               <Step key={label}>
@@ -674,6 +683,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
                           type="submit"
                           variant="contained"
                           loading={isLoading}
+                          disabled={isLoading || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
                           startIcon={<SkillIcon />}
                         >
                           Anfrage senden

@@ -5,6 +5,7 @@ import skillService from '../../api/services/skillsService';
 import { SliceError } from '../../store/types';
 import { CategoriesState } from '../../types/states/SkillState';
 import { SkillCategoryResponse } from '../../types/contracts/responses/CreateSkillResponse';
+import { serializeError } from '../../utils/reduxHelpers';
 
 const initialState: CategoriesState = {
   categories: [],
@@ -23,32 +24,48 @@ const initialState: CategoriesState = {
 // Fetch categories
 export const fetchCategories = createAsyncThunk(
     'categories/fetchCategories',
-    async () => {
-        return await skillService.getCategories()
+    async (_, { rejectWithValue }) => {
+        try {
+            return await skillService.getCategories();
+        } catch (error: any) {
+            return rejectWithValue(error?.response?.data || error);
+        }
     }
 );
 
 // Create category (Admin)
 export const createCategory = createAsyncThunk(
   'categories/createCategory',
-  async ({ name, description }: { name: string; description?: string }) => {
-    return await skillService.createCategory(name, description)
+  async ({ name, description }: { name: string; description?: string }, { rejectWithValue }) => {
+    try {
+      return await skillService.createCategory(name, description);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Update category (Admin)
 export const updateCategory = createAsyncThunk(
   'categories/updateCategory',
-  async ({ id, name, description} : { id: string; name: string; description?: string }) => {
-    return await skillService.updateCategory(id, name, description)
+  async ({ id, name, description} : { id: string; name: string; description?: string }, { rejectWithValue }) => {
+    try {
+      return await skillService.updateCategory(id, name, description);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Delete category (Admin)
 export const deleteCategory = createAsyncThunk(
   'categories/deleteCategory',
-  async (id: string) => {
-    return skillService.deleteCategory(id);;
+  async (id: string, { rejectWithValue }) => {
+    try {
+      return skillService.deleteCategory(id);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
@@ -122,7 +139,7 @@ const categoriesSlice = createSlice({
     },
 
     setError: (state, action) => {
-      state.error = action.payload as SliceError;
+      state.error = serializeError(action.payload);
     },
 
     resetState: (state) => {
@@ -189,7 +206,7 @@ const categoriesSlice = createSlice({
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as SliceError;
+        state.error = serializeError(action.payload);
         state.categories = [];
       })
 
@@ -211,7 +228,7 @@ const categoriesSlice = createSlice({
       })
       .addCase(createCategory.rejected, (state, action) => {
         state.isCreating = false;
-        state.error = action.payload as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Update category cases
@@ -241,7 +258,7 @@ const categoriesSlice = createSlice({
       })
       .addCase(updateCategory.rejected, (state, action) => {
         state.isUpdating = false;
-        state.error = action.payload as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Delete category cases
@@ -256,7 +273,7 @@ const categoriesSlice = createSlice({
       })
       .addCase(deleteCategory.rejected, (state, action) => {
         state.isDeleting = false;
-        state.error = action.payload as SliceError;
+        state.error = serializeError(action.payload);
       });
   },
 });

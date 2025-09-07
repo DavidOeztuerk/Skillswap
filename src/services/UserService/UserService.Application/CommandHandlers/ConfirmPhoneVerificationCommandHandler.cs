@@ -5,6 +5,7 @@ using CQRS.Handlers;
 using CQRS.Models;
 using Events.Domain.User;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -22,13 +23,13 @@ public class ConfirmPhoneVerificationCommandHandler(
         try
         {
             if (request.UserId is null)
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             var user = await _userRepository.GetUserById(request.UserId, cancellationToken);
 
             if (user == null)
             {
-                return Error("User not found");
+                return Error("User not found", ErrorCodes.ResourceNotFound);
             }
 
             // Check if phone is already verified
@@ -42,7 +43,7 @@ public class ConfirmPhoneVerificationCommandHandler(
                 user.PhoneVerificationExpiresAt == null ||
                 user.PhoneVerificationExpiresAt < DateTime.UtcNow)
             {
-                return Error("Verification code has expired. Please request a new one.");
+                return Error("Verification code has expired. Please request a new one.", ErrorCodes.TokenExpired);
             }
 
             // Check if code matches
@@ -57,11 +58,11 @@ public class ConfirmPhoneVerificationCommandHandler(
                     user.PhoneVerificationExpiresAt = null;
                     await _userRepository.UpdateUser(user, cancellationToken);
 
-                    return Error("Too many failed attempts. Please request a new verification code.");
+                    return Error("Too many failed attempts. Please request a new verification code.", ErrorCodes.RateLimitExceeded);
                 }
 
                 await _userRepository.UpdateUser(user, cancellationToken);
-                return Error($"Invalid verification code. {5 - user.PhoneVerificationAttempts} attempts remaining.");
+                return Error($"Invalid verification code. {5 - user.PhoneVerificationAttempts} attempts remaining.", ErrorCodes.InvalidToken);
             }
 
             // Mark phone as verified
@@ -88,7 +89,7 @@ public class ConfirmPhoneVerificationCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error confirming phone verification for user {UserId}", request.UserId);
-            return Error("Failed to verify phone number");
+            return Error("Failed to verify phone number", ErrorCodes.InternalError);
         }
     }
 }

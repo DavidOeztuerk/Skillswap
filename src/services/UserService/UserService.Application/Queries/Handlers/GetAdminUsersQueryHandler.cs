@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.Queries.Handlers;
 
@@ -81,7 +82,7 @@ public class GetAdminUsersQueryHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error getting admin users list");
-            return Error("Failed to retrieve users");
+            return Error("Failed to retrieve users", ErrorCodes.InternalError);
         }
     }
 }

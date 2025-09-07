@@ -4,6 +4,7 @@ using Events.Notification;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.Commands.Handlers;
 
@@ -25,18 +26,18 @@ public class SuspendUserCommandHandler(
             Logger.LogInformation("Suspending user {UserId} for reason: {Reason}", request.UserId, request.Reason);
 
             if (request.UserId is null)
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             var user = await _context.GetUserById(request.UserId, cancellationToken);
 
             if (user == null)
             {
-                return Error("User not found");
+                return Error("User not found", ErrorCodes.ResourceNotFound);
             }
 
             if (user.IsSuspended)
             {
-                return Error("User is already suspended");
+                return Error("User is already suspended", ErrorCodes.InvalidOperation);
             }
 
             // Suspend user
@@ -74,7 +75,7 @@ public class SuspendUserCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error suspending user {UserId}", request.UserId);
-            return Error("Failed to suspend user");
+            return Error("Failed to suspend user", ErrorCodes.InternalError);
         }
     }
 }

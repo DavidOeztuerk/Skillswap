@@ -3,6 +3,7 @@ using Events.Domain.Appointment;
 using EventSourcing;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
+using Core.Common.Exceptions;
 
 namespace AppointmentService.Infrastructure.Services;
 
@@ -34,7 +35,7 @@ public class MeetingLinkService : IMeetingLinkService
 
         if (appointment == null)
         {
-            throw new InvalidOperationException($"Appointment {appointmentId} not found");
+            throw new ResourceNotFoundException("Appointment", appointmentId);
         }
 
         // Generate secure token
@@ -145,7 +146,7 @@ public class MeetingLinkService : IMeetingLinkService
 
         if (appointment == null)
         {
-            throw new InvalidOperationException($"Appointment {appointmentId} not found");
+            throw new ResourceNotFoundException("Appointment", appointmentId);
         }
 
         // Generate new token and link

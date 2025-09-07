@@ -6,6 +6,7 @@ using CQRS.Models;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.Commands.Handlers;
 
@@ -26,14 +27,14 @@ public class VerifyPhoneCommandHandler(
         try
         {
             if (request.UserId is null)
-                return Error("");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             // Get user
             var user = await _userRepository.GetUserById(request.UserId, cancellationToken);
 
             if (user == null)
             {
-                return Error("User not found");
+                return Error("User not found", ErrorCodes.ResourceNotFound);
             }
 
             // Check if phone is already verified
@@ -49,7 +50,7 @@ public class VerifyPhoneCommandHandler(
             // Check if verification code exists
             if (string.IsNullOrEmpty(user.PhoneVerificationCode))
             {
-                return Error("No verification code found. Please request a new code.");
+                return Error("No verification code found. Please request a new code.", ErrorCodes.InvalidToken);
             }
 
             // Check if verification code has expired
@@ -61,7 +62,7 @@ public class VerifyPhoneCommandHandler(
                 user.PhoneVerificationExpiresAt = null;
                 await _userRepository.UpdateUser(user, cancellationToken);
                 
-                return Error("Verification code has expired. Please request a new code.");
+                return Error("Verification code has expired. Please request a new code.", ErrorCodes.TokenExpired);
             }
 
             // Verify the code
@@ -79,13 +80,13 @@ public class VerifyPhoneCommandHandler(
                     user.PhoneVerificationFailedAttempts = 0;
                     await _userRepository.UpdateUser(user, cancellationToken);
                     
-                    return Error("Maximum verification attempts exceeded. Please request a new code.");
+                    return Error("Maximum verification attempts exceeded. Please request a new code.", ErrorCodes.RateLimitExceeded);
                 }
                 
                 await _userRepository.UpdateUser(user, cancellationToken);
                 
                 var remainingAttempts = _maxVerificationAttempts - user.PhoneVerificationFailedAttempts;
-                return Error($"Invalid verification code. {remainingAttempts} attempts remaining.");
+                return Error($"Invalid verification code. {remainingAttempts} attempts remaining.", ErrorCodes.InvalidToken);
             }
 
             // Mark phone as verified
@@ -121,7 +122,7 @@ public class VerifyPhoneCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error verifying phone for user {UserId}", request.UserId);
-            return Error("Failed to verify phone number");
+            return Error("Failed to verify phone number", ErrorCodes.InternalError);
         }
     }
 

@@ -27,7 +27,6 @@ public class MatchAcceptedIntegrationEventHandler : IConsumer<MatchAcceptedInteg
         var message = context.Message;
         _logger.LogInformation("Creating appointment for accepted match: {MatchId}", message.MatchId);
 
-        try
         {
             // Calculate initial appointment date (e.g., next available day from preferred days)
             var scheduledDate = CalculateFirstAppointmentDate(
@@ -90,11 +89,6 @@ public class MatchAcceptedIntegrationEventHandler : IConsumer<MatchAcceptedInteg
             {
                 await CreateFollowUpAppointments(appointment, message, context.CancellationToken);
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating appointment for match {MatchId}", message.MatchId);
-            throw;
         }
     }
 

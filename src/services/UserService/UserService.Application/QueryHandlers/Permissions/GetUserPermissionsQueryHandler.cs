@@ -3,6 +3,7 @@ using CQRS.Handlers;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Queries.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.QueryHandlers.Permissions;
 
@@ -23,11 +24,11 @@ public class GetUserPermissionsQueryHandler(
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             // Parse UserId to Guid
             if (!Guid.TryParse(request.UserId, out var userId))
-                return Error("Invalid UserId format");
+                return Error("Invalid UserId format", ErrorCodes.InvalidFormat);
 
             var permissions = await _permissionRepository.GetUserPermissionsAsync(userId.ToString());
             var roles = await _permissionRepository.GetUserRoleNamesAsync(userId.ToString());
@@ -66,7 +67,7 @@ public class GetUserPermissionsQueryHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error getting permissions for user {UserId}", request.UserId);
-            return Error("An error occurred while retrieving permissions");
+            return Error("An error occurred while retrieving permissions", ErrorCodes.InternalError);
         }
     }
 }

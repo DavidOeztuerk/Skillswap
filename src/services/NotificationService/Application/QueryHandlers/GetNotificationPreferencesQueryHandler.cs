@@ -3,6 +3,7 @@ using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Queries;
 using NotificationService.Domain.ResponseModels;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Application.QueryHandlers;
 
@@ -20,7 +21,7 @@ public class GetNotificationPreferencesQueryHandler(
         try
         {
             var preferences = await _context.NotificationPreferences
-                .AsNoTracking() // Performance: Read-only query
+                .AsNoTracking() 
                 .FirstOrDefaultAsync(p => p.UserId == request.UserId && !p.IsDeleted, cancellationToken);
 
             if (preferences == null)
@@ -32,7 +33,7 @@ public class GetNotificationPreferencesQueryHandler(
                     EmailEnabled = true,
                     EmailMarketing = true,
                     EmailSecurity = true,
-                    EmailUpdates = true,
+                    EmailUpdates = true,   
                     SmsEnabled = false,
                     SmsSecurity = false,
                     SmsReminders = false,
@@ -72,7 +73,7 @@ public class GetNotificationPreferencesQueryHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error retrieving notification preferences for user {UserId}", request.UserId);
-            return Error("An error occurred while retrieving notification preferences: " + ex.Message);
+            return Error("An error occurred while retrieving notification preferences: " + ex.Message, ErrorCodes.InternalError);
         }
     }
 }

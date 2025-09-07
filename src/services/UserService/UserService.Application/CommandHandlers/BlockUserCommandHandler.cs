@@ -7,6 +7,7 @@ using UserService.Domain.Repositories;
 using Events.Domain.User;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -23,7 +24,7 @@ public class BlockUserCommandHandler(
 
     public override async Task<ApiResponse<BlockUserResponse>> Handle(BlockUserCommand request, CancellationToken cancellationToken)
     {
-        if (request.UserId is null) return Error("UserId is required");
+        if (request.UserId is null) throw new BusinessRuleViolationException("ERR_1002", "UserIdRequired", "UserId is required");
 
         Logger.LogInformation("Blocking user {BlockedUserId} by user {UserId}", request.BlockedUserId, request.UserId);
 
@@ -32,14 +33,14 @@ public class BlockUserCommandHandler(
 
         if (user == null)
         {
-            return Error("User not found");
+            throw new ResourceNotFoundException("User", request.UserId);
         }
 
         var blockedUser = await _userRepository.GetUserById(request.BlockedUserId, cancellationToken);
 
         if (blockedUser == null)
         {
-            return Error("User to block not found");
+            throw new ResourceNotFoundException("User", request.BlockedUserId);
         }
 
         // Check if already blocked
@@ -47,7 +48,7 @@ public class BlockUserCommandHandler(
 
         if (existingBlock != null)
         {
-            return Error("User is already blocked");
+            throw new ResourceAlreadyExistsException("BlockedUser", "blockedUserId", request.BlockedUserId, "User is already blocked");
         }
 
         // Create block relationship

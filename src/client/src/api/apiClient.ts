@@ -65,7 +65,10 @@ api.interceptors.response.use(
   async (err: AxiosError) => {
     const original = (err.config ?? {}) as InternalAxiosRequestConfig & RequestExtras;
 
-    if (err.response?.status === 401 && !original._retry && !original.skipAuth) {
+    // Don't try to refresh token for login/register endpoints
+    const isAuthEndpoint = original.url?.includes('/login') || original.url?.includes('/register');
+    
+    if (err.response?.status === 401 && !original._retry && !original.skipAuth && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve) => {
           subscribeTokenRefresh((token) => {

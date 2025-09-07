@@ -9,6 +9,7 @@ using Contracts.User.Responses.Auth;
 using UserService.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -31,7 +32,7 @@ public class VerifyEmailCommandHandler(
 
             if (!result)
             {
-                return Error("Invalid or expired verification token");
+                return Error("Invalid or expired verification token", ErrorCodes.TokenExpired);
             }
 
             Logger.LogInformation("Email verified for user {Email}", request.Email);
@@ -42,7 +43,7 @@ public class VerifyEmailCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error verifying email for {Email}", request.Email);
-            return Error("An error occurred while verifying email. Please try again.");
+            return Error("An error occurred while verifying email. Please try again.", ErrorCodes.InternalError);
         }
     }
 }

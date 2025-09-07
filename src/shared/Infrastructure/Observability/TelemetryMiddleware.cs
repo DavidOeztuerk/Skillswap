@@ -78,8 +78,9 @@ public class TelemetryMiddleware
         catch (Exception ex)
         {
             exception = ex;
-            statusCode = 500;
-
+            // Don't set statusCode here - it will be set by GlobalExceptionHandler
+            // The actual status code will be available in context.Response.StatusCode after re-throw
+            
             // Record the exception
             _telemetryService.RecordException(ex);
             _telemetryService.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -90,6 +91,12 @@ public class TelemetryMiddleware
         {
             stopwatch.Stop();
             var duration = stopwatch.Elapsed.TotalMilliseconds;
+            
+            // Get the actual status code from the response (set by GlobalExceptionHandler)
+            if (statusCode == 0)
+            {
+                statusCode = context.Response.StatusCode > 0 ? context.Response.StatusCode : 500;
+            }
 
             // Record metrics
             // _metrics.RecordRequestDuration(duration, requestPath, method);
@@ -144,24 +151,14 @@ public class TelemetryMiddleware
             ["StatusCode"] = statusCode
         });
 
-        if (exception != null)
-        {
-            _logger.Log(level, exception,
-                "HTTP {Method} {Path} responded {StatusCode} in {Duration:F2}ms",
-                context.Request.Method,
-                context.Request.Path,
-                statusCode,
-                duration);
-        }
-        else
-        {
-            _logger.Log(level,
-                "HTTP {Method} {Path} responded {StatusCode} in {Duration:F2}ms",
-                context.Request.Method,
-                context.Request.Path,
-                statusCode,
-                duration);
-        }
+        // Don't log exceptions here - GlobalExceptionHandler will handle it
+        // Only log the request completion without the exception details
+        _logger.Log(level,
+            "HTTP {Method} {Path} responded {StatusCode} in {Duration:F2}ms",
+            context.Request.Method,
+            context.Request.Path,
+            statusCode,
+            duration);
     }
 }
 
@@ -189,7 +186,7 @@ public static class TelemetryMiddlewareExtensions
     /// <summary>
     /// Add performance middleware to the pipeline
     /// </summary>
-    public static IApplicationBuilder UsePerformancee(this IApplicationBuilder app)
+    public static IApplicationBuilder UsePerformance(this IApplicationBuilder app)
     {
         return app.UseMiddleware<PerformanceMiddleware>();
     }
