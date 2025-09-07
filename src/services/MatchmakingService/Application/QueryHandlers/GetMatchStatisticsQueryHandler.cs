@@ -17,7 +17,6 @@ public class GetMatchStatisticsQueryHandler(
         GetMatchStatisticsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var query = _dbContext.Matches.Where(m => !m.IsDeleted);
 
@@ -72,11 +71,6 @@ public class GetMatchStatisticsQueryHandler(
                 topMatchedSkills);
 
             return Success(response);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting match statistics");
-            return Error("An error occurred while retrieving match statistics");
         }
     }
 }

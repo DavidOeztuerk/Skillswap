@@ -3,6 +3,7 @@ using AppointmentService.Domain.Entities;
 using Contracts.Appointment.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
+using Core.Common.Exceptions;
 using Events.Domain.Appointment;
 using EventSourcing;
 using Microsoft.EntityFrameworkCore;
@@ -22,24 +23,23 @@ public class CancelAppointmentCommandHandler(
         CancelAppointmentCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var appointment = await _dbContext.Appointments
                 .FirstOrDefaultAsync(a => a.Id == request.AppointmentId && !a.IsDeleted, cancellationToken);
 
             if (appointment == null)
             {
-                return Error("Appointment not found");
+                throw new ResourceNotFoundException("Appointment", "unknown");
             }
 
             if (appointment.OrganizerUserId != request.UserId && appointment.ParticipantUserId != request.UserId)
             {
-                return Error("You are not authorized to cancel this appointment");
+                return Error("You are not authorized to cancel this appointment", ErrorCodes.InsufficientPermissions);
             }
 
             if (appointment.Status == AppointmentStatus.Cancelled)
             {
-                return Error("Appointment is already cancelled");
+                return Error("Appointment is already cancelled", ErrorCodes.InvalidOperation);
             }
 
             var now = DateTime.UtcNow;
@@ -61,11 +61,6 @@ public class CancelAppointmentCommandHandler(
                 appointment.CancelledAt ?? now);
 
             return Success(response, "Appointment cancelled successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error cancelling appointment {AppointmentId}", request.AppointmentId);
-            return Error("An error occurred while cancelling the appointment");
         }
     }
 }

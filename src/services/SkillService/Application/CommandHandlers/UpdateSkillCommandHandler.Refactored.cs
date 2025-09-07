@@ -6,7 +6,6 @@
 // using Contracts.Skill.Responses;
 // using SkillService.Domain.Entities;
 // using CQRS.Models;
-
 // namespace SkillService.Application.CommandHandlers;
 
 // /// <summary>

@@ -4,6 +4,7 @@ using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
 using Contracts.Matchmaking.Responses;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
@@ -20,7 +21,6 @@ public class CreateMatchRequestDisplayCommandHandler(
         CreateMatchRequestCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             // Validate required fields
             if (string.IsNullOrWhiteSpace(request.UserId) ||
@@ -28,13 +28,13 @@ public class CreateMatchRequestDisplayCommandHandler(
                 string.IsNullOrWhiteSpace(request.TargetUserId) ||
                 string.IsNullOrWhiteSpace(request.Message))
             {
-                return Error("Missing required fields");
+                return Error("Missing required fields", ErrorCodes.RequiredFieldMissing);
             }
 
             // Prevent users from requesting their own skills
             if (request.TargetUserId == request.UserId)
             {
-                return Error("You cannot create a match request for your own skill");
+                return Error("You cannot create a match request for your own skill", ErrorCodes.BusinessRuleViolation);
             }
 
             // Generate ThreadId for grouping requests between users for this skill
@@ -81,11 +81,6 @@ public class CreateMatchRequestDisplayCommandHandler(
             );
 
             return Success(response);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error creating match request for UserId {UserId}", request.UserId);
-            return Error("An error occurred while creating the match request");
         }
     }
 }

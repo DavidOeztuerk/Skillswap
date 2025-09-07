@@ -24,6 +24,8 @@ export interface ApiErrorProps {
     type: 'NETWORK' | 'SERVER' | 'AUTH' | 'VALIDATION' | 'PERMISSION' | 'UNKNOWN';
     message: string;
     code?: string | number;
+    errorCode?: string;
+    traceId?: string;
   };
   onRetry?: () => void;
   onDismiss?: () => void;
@@ -224,10 +226,24 @@ const ApiErrorHandler: React.FC<ApiErrorProps> = ({
           )}
         </Box>
         
-        {error.code && (
-          <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
-            Fehlercode: {error.code}
-          </Typography>
+        {(error.errorCode || error.code || error.traceId) && (
+          <Box sx={{ mt: 1 }}>
+            {error.errorCode && (
+              <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+                Error Code: {error.errorCode}
+              </Typography>
+            )}
+            {error.code && !error.errorCode && (
+              <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+                Fehlercode: {error.code}
+              </Typography>
+            )}
+            {error.traceId && (
+              <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+                Trace ID: {error.traceId}
+              </Typography>
+            )}
+          </Box>
         )}
       </CardContent>
 

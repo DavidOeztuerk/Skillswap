@@ -7,6 +7,7 @@ using Contracts.User.Responses;
 using UserService.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -33,7 +34,7 @@ public class ResetPasswordCommandHandler(
 
             if (!result)
             {
-                return Error("Invalid or expired reset token. Please request a new password reset.");
+                return Error("Invalid or expired reset token. Please request a new password reset.", ErrorCodes.TokenExpired);
             }
 
             Logger.LogInformation("Password reset completed for user {Email}", request.Email);
@@ -44,7 +45,7 @@ public class ResetPasswordCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error resetting password for email {Email}", request.Email);
-            return Error("An error occurred while resetting password. Please try again.");
+            return Error("An error occurred while resetting password. Please try again.", ErrorCodes.InternalError);
         }
     }
 }

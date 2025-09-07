@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Infrastructure.Services;
 
@@ -18,7 +19,7 @@ public class SmsService : ISmsService
         _logger = logger;
         _templateEngine = templateEngine;
         _config = configuration.Value
-                 ?? throw new InvalidOperationException("SMS configuration not found");
+                 ?? throw new ConfigurationException("SMS configuration not found");
 
         if (!string.IsNullOrEmpty(_config.TwilioAccountSid) && !string.IsNullOrEmpty(_config.TwilioAuthToken))
         {

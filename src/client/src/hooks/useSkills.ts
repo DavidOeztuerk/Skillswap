@@ -1,6 +1,7 @@
 // src/hooks/useSkills.ts
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { serializeError } from '../utils/reduxHelpers';
 import {
   fetchAllSkills as fetchAllSkillsAction,
   fetchSkillById as fetchSkillByIdAction,
@@ -101,11 +102,13 @@ export const useSkills = () => {
         if (fetchFavoriteSkillsAction.fulfilled.match(resultAction)) {
           return true;
         } else {
-          console.error('❌ Fetch favorite skills failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Fetch favorite skills error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -237,11 +240,13 @@ export const useSkills = () => {
           console.log('✅ All skills fetched successfully');
           return true;
         } else {
-          console.error('❌ Fetch all skills failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Fetch all skills error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -267,11 +272,13 @@ export const useSkills = () => {
           console.log('✅ Skill fetched by ID successfully');
           return true;
         } else {
-          console.error('❌ Fetch skill by ID failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Fetch skill by ID error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -313,11 +320,13 @@ export const useSkills = () => {
           console.log('✅ Search by query successful');
           return true;
         } else {
-          console.error('❌ Search by query failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Search by query error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -366,11 +375,13 @@ export const useSkills = () => {
           console.log('✅ User skills fetched successfully');
           return true;
         } else {
-          console.error('❌ Fetch user skills failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Fetch user skills error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -412,11 +423,13 @@ export const useSkills = () => {
           console.log('✅ User skills search successful');
           return true;
         } else {
-          console.error('❌ User skills search failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ User skills search error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -446,11 +459,13 @@ export const useSkills = () => {
           }
           return true;
         } else {
-          console.error('❌ Create skill failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Create skill error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -478,11 +493,13 @@ export const useSkills = () => {
           console.log('✅ Skill updated successfully');
           return true;
         } else {
-          console.error('❌ Update skill failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Update skill error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -507,11 +524,13 @@ export const useSkills = () => {
           console.log('✅ Skill deleted successfully');
           return true;
         } else {
-          console.error('❌ Delete skill failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Delete skill error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -545,11 +564,13 @@ export const useSkills = () => {
         if (rateSkillAction.fulfilled.match(resultAction)) {
           return true;
         } else {
-          console.error('❌ Rate skill failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Rate skill error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -572,11 +593,13 @@ export const useSkills = () => {
         if (endorseSkillAction.fulfilled.match(resultAction)) {
           return true;
         } else {
-          console.error('❌ Endorse skill failed:', resultAction.payload);
+          const serializedError = serializeError(resultAction.payload);
+          dispatch(setError([serializedError.message]));
           return false;
         }
       } catch (error) {
-        console.error('❌ Endorse skill error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -591,7 +614,8 @@ export const useSkills = () => {
       const resultAction = await dispatch(fetchCategoriesAction());
       return fetchCategoriesAction.fulfilled.match(resultAction);
     } catch (error) {
-      console.error('❌ Fetch categories error:', error);
+      const serializedError = serializeError(error);
+      dispatch(setError([serializedError.message]));
       return false;
     }
   }, [dispatch]);
@@ -604,7 +628,8 @@ export const useSkills = () => {
         );
         return createCategoryAction.fulfilled.match(resultAction);
       } catch (error) {
-        console.error('❌ Create category error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -623,7 +648,8 @@ export const useSkills = () => {
         );
         return updateCategoryAction.fulfilled.match(resultAction);
       } catch (error) {
-        console.error('❌ Update category error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -636,7 +662,8 @@ export const useSkills = () => {
         const resultAction = await dispatch(deleteCategoryAction(id));
         return deleteCategoryAction.fulfilled.match(resultAction);
       } catch (error) {
-        console.error('❌ Delete category error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -651,7 +678,8 @@ export const useSkills = () => {
       const resultAction = await dispatch(fetchProficiencyLevelsAction());
       return fetchProficiencyLevelsAction.fulfilled.match(resultAction);
     } catch (error) {
-      console.error('❌ Fetch proficiency levels error:', error);
+      const serializedError = serializeError(error);
+      dispatch(setError([serializedError.message]));
       return false;
     }
   }, [dispatch]);
@@ -668,7 +696,8 @@ export const useSkills = () => {
         );
         return createProficiencyLevelAction.fulfilled.match(resultAction);
       } catch (error) {
-        console.error('❌ Create proficiency level error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -688,7 +717,8 @@ export const useSkills = () => {
         );
         return updateProficiencyLevelAction.fulfilled.match(resultAction);
       } catch (error) {
-        console.error('❌ Update proficiency level error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -701,7 +731,8 @@ export const useSkills = () => {
         const resultAction = await dispatch(deleteProficiencyLevelAction(id));
         return deleteProficiencyLevelAction.fulfilled.match(resultAction);
       } catch (error) {
-        console.error('❌ Delete proficiency level error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -716,7 +747,8 @@ export const useSkills = () => {
       const resultAction = await dispatch(fetchSkillStatisticsAction());
       return fetchSkillStatisticsAction.fulfilled.match(resultAction);
     } catch (error) {
-      console.error('❌ Fetch skill statistics error:', error);
+      const serializedError = serializeError(error);
+      dispatch(setError([serializedError.message]));
       return false;
     }
   }, [dispatch]);
@@ -727,7 +759,8 @@ export const useSkills = () => {
         const resultAction = await dispatch(fetchPopularTagsAction({ limit }));
         return fetchPopularTagsAction.fulfilled.match(resultAction);
       } catch (error) {
-        console.error('❌ Fetch popular tags error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },
@@ -742,7 +775,8 @@ export const useSkills = () => {
         );
         return fetchSkillRecommendationsAction.fulfilled.match(resultAction);
       } catch (error) {
-        console.error('❌ Fetch skill recommendations error:', error);
+        const serializedError = serializeError(error);
+        dispatch(setError([serializedError.message]));
         return false;
       }
     },

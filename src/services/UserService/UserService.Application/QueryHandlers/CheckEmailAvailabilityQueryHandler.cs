@@ -20,44 +20,36 @@ public class CheckEmailAvailabilityQueryHandler(
         CheckEmailAvailabilityQuery request,
         CancellationToken cancellationToken)
     {
-        try
+        var exists = await _userRepository.IsEmailTaken(request.Email, cancellationToken);
+
+        string? suggestion = null;
+        if (exists)
         {
-            var exists = await _userRepository.IsEmailTaken(request.Email, cancellationToken);
+            // Generate a suggestion by adding numbers
+            var baseEmail = request.Email.Split('@')[0];
+            var domain = request.Email.Split('@')[1];
 
-            string? suggestion = null;
-            if (exists)
+            for (int i = 1; i <= 10; i++)
             {
-                // Generate a suggestion by adding numbers
-                var baseEmail = request.Email.Split('@')[0];
-                var domain = request.Email.Split('@')[1];
+                var suggestedEmail = $"{baseEmail}{i}@{domain}";
+                var suggestionExists = await _userRepository.IsEmailTaken(suggestedEmail, cancellationToken);
 
-                for (int i = 1; i <= 10; i++)
+                if (!suggestionExists)
                 {
-                    var suggestedEmail = $"{baseEmail}{i}@{domain}";
-                    var suggestionExists = await _userRepository.IsEmailTaken(suggestedEmail, cancellationToken);
-
-                    if (!suggestionExists)
-                    {
-                        suggestion = suggestedEmail;
-                        break;
-                    }
+                    suggestion = suggestedEmail;
+                    break;
                 }
             }
-
-            var response = new EmailAvailabilityResponse(
-                request.Email,
-                !exists,
-                suggestion);
-
-            Logger.LogInformation("Checked email availability for {Email}: {IsAvailable}",
-                request.Email, !exists);
-
-            return Success(response);
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error checking email availability for {Email}", request.Email);
-            return Error("An error occurred while checking email availability");
-        }
+
+        var response = new EmailAvailabilityResponse(
+            request.Email,
+            !exists,
+            suggestion);
+
+        Logger.LogInformation("Checked email availability for {Email}: {IsAvailable}",
+            request.Email, !exists);
+
+        return Success(response);
     }
 }

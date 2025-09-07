@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.Commands.Handlers;
 
@@ -35,18 +36,18 @@ public class SendPhoneVerificationCommandHandler(
             var cleanedPhone = CleanPhoneNumber(request.PhoneNumber);
             if (!IsValidPhoneNumber(cleanedPhone))
             {
-                return Error("Invalid phone number format");
+                return Error("Invalid phone number format", ErrorCodes.InvalidPhoneNumber);
             }
 
             if (request.UserId is null)
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             // Get user
                 var user = await _context.GetUserById(request.UserId, cancellationToken);
 
             if (user == null)
             {
-                return Error("User not found");
+                return Error("User not found", ErrorCodes.ResourceNotFound);
             }
 
             // Check if phone is already verified
@@ -125,7 +126,7 @@ public class SendPhoneVerificationCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error sending phone verification for user {UserId}", request.UserId);
-            return Error("Failed to send verification code");
+            return Error("Failed to send verification code", ErrorCodes.SmsServiceError);
         }
     }
 

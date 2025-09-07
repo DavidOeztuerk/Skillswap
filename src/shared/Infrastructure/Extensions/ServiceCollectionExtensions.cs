@@ -25,6 +25,7 @@ using Infrastructure.Models;
 using Microsoft.AspNetCore.Http;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Core.Common.Exceptions;
 
 namespace Infrastructure.Extensions;
 
@@ -42,6 +43,9 @@ public static class ServiceCollectionExtensions
         // Core Security Services
         services.AddScoped<IJwtService, JwtService>();
         services.AddSingleton<ITotpService, TotpService>();
+        
+        // Error Handling Services
+        services.AddSingleton<IErrorMessageService, ErrorMessageService>();
         
         // Add Token Revocation Service - use Redis if available, otherwise in-memory
         var redisConnectionString = configuration.GetConnectionString("Redis") 
@@ -182,11 +186,15 @@ public static class ServiceCollectionExtensions
 
         // Request logging (after correlation ID)
         app.UseMiddleware<RequestLoggingMiddleware>();
+        
+        // Telemetry and performance monitoring (before exception handling to capture correct status codes)
+        app.UseTelemetry();
+        app.UsePerformanceMonitoring();
 
         // Global exception handling (should catch all exceptions)
         app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
-        // Input Sanitization (should be early to clean input)
+        // Input Sanitization (after exception handling)
         app.UseMiddleware<InputSanitizationMiddleware>();
 
         // Add Serilog request logging
@@ -218,9 +226,6 @@ public static class ServiceCollectionExtensions
 
         // Rate Limiting Middleware
         app.UseMiddleware<DistributedRateLimitingMiddleware>();
-
-        // Telemetry and performance monitoring
-        app.UseTelemetry().UseCorrelationId().UsePerformancee();
         app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
         // Configure health check endpoints
@@ -315,15 +320,15 @@ public static class ServiceCollectionExtensions
         
         var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
             ?? jwtSettings["Secret"]
-            ?? throw new InvalidOperationException("JWT Secret not configured");
+            ?? throw new ConfigurationException("JWT_SECRET", "JwtSettings", "JWT Secret not configured. Please set JWT_SECRET environment variable or configure JwtSettings:Secret");
             
         var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
             ?? jwtSettings["Issuer"]
-            ?? throw new InvalidOperationException("JWT Issuer not configured");
+            ?? throw new ConfigurationException("JWT_ISSUER", "JwtSettings", "JWT Issuer not configured. Please set JWT_ISSUER environment variable or configure JwtSettings:Issuer");
             
         var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
             ?? jwtSettings["Audience"]
-            ?? throw new InvalidOperationException("JWT Audience not configured");
+            ?? throw new ConfigurationException("JWT_AUDIENCE", "JwtSettings", "JWT Audience not configured. Please set JWT_AUDIENCE environment variable or configure JwtSettings:Audience");
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(opts =>

@@ -5,6 +5,7 @@ using Contracts.User.Responses;
 using UserService.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -36,7 +37,7 @@ public class RequestPasswordResetCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error requesting password reset for email {Email}", request.Email);
-            return Error("An error occurred while processing your request. Please try again.");
+            return Error("An error occurred while processing your request. Please try again.", ErrorCodes.InternalError);
         }
     }
 }

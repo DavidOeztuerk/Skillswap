@@ -5,6 +5,7 @@ using Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.CommandHandlers;
 
@@ -19,7 +20,7 @@ public class VerifyTwoFactorCodeCommandHandler(
         VerifyTwoFactorCodeCommand request,
         CancellationToken cancellationToken)
     {
-        if (request.UserId is null) return Error("UserId is required");
+        if (request.UserId is null) return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
         try
         {
@@ -34,12 +35,12 @@ public class VerifyTwoFactorCodeCommandHandler(
                 return Success(new VerifyTwoFactorCodeResponse(true), "Two-factor authentication enabled successfully");
             }
 
-            return Error("Invalid two-factor authentication code. Please try again.");
+            return Error("Invalid two-factor authentication code. Please try again.", ErrorCodes.InvalidTwoFactorCode);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error verifying 2FA code for user {UserId}", request.UserId);
-            return Error("Failed to verify two-factor code");
+            return Error("Failed to verify two-factor code", ErrorCodes.InternalError);
         }
     }
 }

@@ -30,7 +30,6 @@ public class AppointmentAcceptedEventHandler(
 
     protected override async Task HandleDomainEvent(AppointmentAcceptedDomainEvent notification, CancellationToken cancellationToken)
     {
-        try
         {
             // Only generate meeting link when both parties have accepted
             if (!notification.BothPartiesAccepted)
@@ -125,16 +124,10 @@ public class AppointmentAcceptedEventHandler(
             Logger.LogInformation("Meeting link generated for appointment {AppointmentId}: {MeetingLink}",
                 appointment.Id, meetingLink);
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error handling appointment accepted event for {AppointmentId}",
-                notification.AppointmentId);
-        }
     }
 
     private async Task<string> GenerateMeetingLink(Appointment appointment, CancellationToken cancellationToken)
     {
-        try
         {
             // Call VideocallService to create a session
             var httpClient = _httpClientFactory.CreateClient("VideocallService");
@@ -156,11 +149,6 @@ public class AppointmentAcceptedEventHandler(
             }
 
             Logger.LogWarning("VideocallService returned {StatusCode} when creating session", response.StatusCode);
-            return GenerateFallbackMeetingLink(appointment);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error calling VideocallService, using fallback meeting link");
             return GenerateFallbackMeetingLink(appointment);
         }
     }

@@ -18,23 +18,18 @@ public class LoginUserCommandHandler(
         LoginUserCommand request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var result = await _authRepository.LoginUser(
-                request.Email,
-                request.Password,
-                request.TwoFactorCode,
-                request.DeviceId,
-                request.DeviceInfo,
-                cancellationToken);
+        // Let exceptions bubble up to GlobalExceptionHandler
+        // Only catch specific exceptions that we want to handle differently
+        
+        var result = await _authRepository.LoginUser(
+            request.Email,
+            request.Password,
+            request.TwoFactorCode,
+            request.DeviceId,
+            request.DeviceInfo,
+            cancellationToken);
 
-            Logger.LogInformation("User {Email} logged in successfully", request.Email);
-            return Success(result, "Login successful");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error during login for email {Email}", request.Email);
-            return Error("An error occurred during login. Please try again.");
-        }
+        Logger.LogInformation("User {Email} logged in successfully", request.Email);
+        return Success(result, "Login successful");
     }
 }

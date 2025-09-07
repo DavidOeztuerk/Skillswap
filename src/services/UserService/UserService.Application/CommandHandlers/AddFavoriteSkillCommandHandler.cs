@@ -1,3 +1,4 @@
+using Core.Common.Exceptions;
 using CQRS.Handlers;
 using CQRS.Models;
 using Microsoft.Extensions.Logging;
@@ -15,7 +16,7 @@ public class AddFavoriteSkillCommandHandler(
 
     public override async Task<ApiResponse<bool>> Handle(AddFavoriteSkillCommand request, CancellationToken cancellationToken)
     {
-        if (request.UserId is null) return Error("UserId is required");
+        if (request.UserId is null) throw new BusinessRuleViolationException("ERR_1002", "UserIdRequired", "UserId is required");
 
         var addedFavoriteSkill = await userSkillsRepository.AddFavoriteSkill(request.UserId, request.SkillId, cancellationToken);
 

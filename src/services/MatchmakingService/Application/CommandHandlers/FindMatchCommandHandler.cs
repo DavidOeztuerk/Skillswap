@@ -21,7 +21,6 @@ public class FindMatchCommandHandler(
         FindMatchCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             // Find compatible matches
             var compatibleMatches = await FindCompatibleMatchesAsync(request, cancellationToken);
@@ -102,11 +101,6 @@ public class FindMatchCommandHandler(
                     null,
                     "No matches found. Your request has been saved for future matching."));
             }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error finding match for skill {SkillId}", request.SkillId);
-            return Error("An error occurred while finding matches");
         }
     }
 

@@ -1,6 +1,7 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
 using Contracts.Appointment.Responses;
+using Core.Common.Exceptions;
 using CQRS.Handlers;
 using CQRS.Models;
 using Events.Domain.Appointment;
@@ -22,24 +23,23 @@ public class AcceptAppointmentCommandHandler(
         AcceptAppointmentCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var appointment = await _dbContext.Appointments
                 .FirstOrDefaultAsync(a => a.Id == request.AppointmentId && !a.IsDeleted, cancellationToken);
 
             if (appointment == null)
             {
-                return Error("Appointment not found");
+                throw new ResourceNotFoundException("Appointment", "unknown");
             }
 
             if (appointment.ParticipantUserId != request.UserId)
             {
-                return Error("You are not authorized to accept this appointment");
+                return Error("You are not authorized to accept this appointment", ErrorCodes.InsufficientPermissions);
             }
 
             if (appointment.Status != AppointmentStatus.Pending)
             {
-                return Error($"Cannot accept appointment in {appointment.Status} status");
+                return Error($"Cannot accept appointment in {appointment.Status} status", ErrorCodes.InvalidOperation);
             }
 
             appointment.Accept();
@@ -69,11 +69,6 @@ public class AcceptAppointmentCommandHandler(
                 appointment.AcceptedAt!.Value);
 
             return Success(response, "Appointment accepted successfully");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error accepting appointment {AppointmentId}", request.AppointmentId);
-            return Error("An error occurred while accepting the appointment");
         }
     }
 }

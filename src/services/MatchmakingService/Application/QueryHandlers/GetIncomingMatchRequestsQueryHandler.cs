@@ -2,7 +2,6 @@ using Contracts.Matchmaking.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
 using MatchmakingService.Application.Queries;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace MatchmakingService.Application.QueryHandlers;
@@ -22,7 +21,6 @@ public class GetIncomingMatchRequestsQueryHandler(
         GetIncomingMatchRequestsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             if (string.IsNullOrEmpty(request.UserId))
             {
@@ -93,16 +91,10 @@ public class GetIncomingMatchRequestsQueryHandler(
 
             return Success(displayResponses, request.PageNumber, request.PageSize, totalCount);
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting incoming match requests for user {UserId}", request.UserId);
-            return Error("An error occurred while fetching incoming match requests");
-        }
     }
 
     private async Task<SkillData?> GetSkillData(string skillId, CancellationToken cancellationToken)
     {
-        try
         {
             // Auth Token weitergeben
             var token = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"]
@@ -132,16 +124,10 @@ public class GetIncomingMatchRequestsQueryHandler(
 
             return new SkillData(skill.Name, skill.Category?.Name ?? "General");
         }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Exception while getting skill data for {SkillId}", skillId);
-            return null;
-        }
     }
 
     private async Task<UserData?> GetUserData(string userId, CancellationToken cancellationToken)
     {
-        try
         {
             // Auth Token weitergeben
             var token = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"]
@@ -175,11 +161,6 @@ public class GetIncomingMatchRequestsQueryHandler(
                 Rating: 0m, // TODO: Get actual rating when available
                 Avatar: user.ProfilePictureUrl
             );
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Exception while getting user data for {UserId}", userId);
-            return null;
         }
     }
 

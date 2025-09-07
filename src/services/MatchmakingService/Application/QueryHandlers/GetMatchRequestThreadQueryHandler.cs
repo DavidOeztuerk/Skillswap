@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using MatchmakingService.Application.Queries;
 using Contracts.Matchmaking.Responses;
 using CQRS.Models;
-
 namespace MatchmakingService.Application.QueryHandlers;
 
 public class GetMatchRequestThreadQueryHandler(
@@ -17,7 +16,6 @@ public class GetMatchRequestThreadQueryHandler(
         GetMatchRequestThreadQuery query,
         CancellationToken cancellationToken)
     {
-        try
         {
             Logger.LogInformation("Getting match request thread: {ThreadId}", query.ThreadId);
 
@@ -72,11 +70,6 @@ public class GetMatchRequestThreadQueryHandler(
             };
 
             return Success(response);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting match request thread: {ThreadId}", query.ThreadId);
-            return Error("Error retrieving match request thread");
         }
     }
 }

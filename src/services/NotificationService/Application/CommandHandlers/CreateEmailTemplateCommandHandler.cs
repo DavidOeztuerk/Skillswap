@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Commands;
 using NotificationService.Domain.Entities;
 using System.Text.Json;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Application.CommandHandlers;
 
@@ -29,7 +30,7 @@ public class CreateEmailTemplateCommandHandler(
 
             if (existingTemplate != null)
             {
-                return Error($"Template '{request.Name}' already exists for language '{request.Language}'");
+                return Error($"Template '{request.Name}' already exists for language '{request.Language}'", ErrorCodes.ResourceAlreadyExists);
             }
 
             var templateId = Guid.NewGuid().ToString();
@@ -69,7 +70,7 @@ public class CreateEmailTemplateCommandHandler(
         {
             Logger.LogError(ex, "Error creating email template {TemplateName} for language {Language}",
                 request.Name, request.Language);
-            return Error("An error occurred while creating the email template.");
+            return Error("An error occurred while creating the email template.", ErrorCodes.InternalError);
         }
     }
 }

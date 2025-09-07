@@ -6,6 +6,7 @@ using VideocallService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.VideoCall;
 using CQRS.Models;
+using Core.Common.Exceptions;
 
 namespace VideocallService.Application.CommandHandlers;
 
@@ -22,20 +23,21 @@ public class CreateCallSessionCommandHandler(
         CreateCallSessionCommand request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            // Check if users have an active call already
-            var existingActiveCall = await _dbContext.VideoCallSessions
-                .FirstOrDefaultAsync(s =>
-                    (s.InitiatorUserId == request.UserId || s.ParticipantUserId == request.UserId ||
-                     s.InitiatorUserId == request.ParticipantUserId || s.ParticipantUserId == request.ParticipantUserId) &&
-                    s.Status == CallStatus.Active &&
-                    !s.IsDeleted, cancellationToken);
+        // Check if users have an active call already
+        var existingActiveCall = await _dbContext.VideoCallSessions
+            .FirstOrDefaultAsync(s =>
+                (s.InitiatorUserId == request.UserId || s.ParticipantUserId == request.UserId ||
+                 s.InitiatorUserId == request.ParticipantUserId || s.ParticipantUserId == request.ParticipantUserId) &&
+                s.Status == CallStatus.Active &&
+                !s.IsDeleted, cancellationToken);
 
-            if (existingActiveCall != null)
-            {
-                return Error("One of the participants is already in an active call");
-            }
+        if (existingActiveCall != null)
+        {
+            throw new Core.Common.Exceptions.InvalidOperationException(
+                "CreateCallSession", 
+                "UserAlreadyInCall", 
+                "One of the participants is already in an active call");
+        }
 
             var roomId = Guid.NewGuid().ToString("N")[..12]; // Shorter room ID
 
@@ -67,11 +69,5 @@ public class CreateCallSessionCommandHandler(
                 session.RoomId,
                 session.Status,
                 session.CreatedAt));
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error creating call session");
-            return Error("An error occurred while creating the call session");
-        }
     }
 }

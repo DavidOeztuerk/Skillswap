@@ -17,7 +17,6 @@ public class GetAcceptedMatchRequestsQueryHandler(
         GetAcceptedMatchRequestsQuery request,
          CancellationToken cancellationToken)
     {
-        try
         {
             if (string.IsNullOrEmpty(request.UserId))
             {
@@ -76,11 +75,6 @@ public class GetAcceptedMatchRequestsQueryHandler(
             }).ToList();
 
             return Success(responses, request.PageNumber, request.PageSize, totalCount);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting accepted match requests for user: {UserId}", request.UserId);
-            return Error("An error occurred while fetching accepted match requests");
         }
     }
 }

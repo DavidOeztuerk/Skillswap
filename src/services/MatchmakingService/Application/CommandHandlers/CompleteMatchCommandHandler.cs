@@ -6,6 +6,7 @@ using EventSourcing;
 using Events.Domain.Matchmaking;
 using CQRS.Models;
 using Contracts.Matchmaking.Responses;
+using Core.Common.Exceptions;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
@@ -24,24 +25,23 @@ public class CompleteMatchCommandHandler(
         CompleteMatchCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var match = await _dbContext.Matches
                 .FirstOrDefaultAsync(m => m.Id == request.MatchId && !m.IsDeleted, cancellationToken);
 
             if (match == null)
             {
-                return Error("Match not found");
+                return Error("Match not found", ErrorCodes.ResourceNotFound);
             }
 
             if (match.OfferingUserId != request.UserId && match.RequestingUserId != request.UserId)
             {
-                return Error("You are not authorized to complete this match");
+                return Error("You are not authorized to complete this match", ErrorCodes.InsufficientPermissions);
             }
 
             if (match.Status != MatchStatus.Accepted)
             {
-                return Error($"Cannot complete match in {match.Status} status");
+                return Error($"Cannot complete match in {match.Status} status", ErrorCodes.InvalidOperation);
             }
 
             // Set rating based on who is completing
@@ -69,11 +69,6 @@ public class CompleteMatchCommandHandler(
                 match.Id,
                 match.Status == MatchStatus.Completed,
                 match.CompletedAt!.Value));
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error completing match {MatchId}", request.MatchId);
-            return Error("An error occurred while completing the match");
         }
     }
 }

@@ -4,6 +4,7 @@ using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Application.Commands;
 using System.Text.Json;
+using Core.Common.Exceptions;
 
 namespace NotificationService.Application.CommandHandlers;
 
@@ -25,7 +26,7 @@ public class UpdateEmailTemplateCommandHandler(
 
             if (template == null)
             {
-                throw new InvalidOperationException("Template not found");
+                throw new System.InvalidOperationException("Template not found");
             }
 
             // Update fields if provided
@@ -62,7 +63,7 @@ public class UpdateEmailTemplateCommandHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error updating email template {TemplateId}", request.TemplateId);
-            return Error("Error updating email template: " + ex.Message);
+            return Error("Error updating email template: " + ex.Message, ErrorCodes.InternalError);
         }
     }
 }

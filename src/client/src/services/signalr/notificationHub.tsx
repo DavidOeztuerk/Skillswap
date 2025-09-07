@@ -51,7 +51,10 @@ class NotificationHubService {
     }
 
     const token = localStorage.getItem('accessToken');
-    if (!token) throw new Error('No authentication token found');
+    if (!token) {
+      console.warn('NotificationHub: No authentication token found, skipping connection');
+      return; // Return gracefully instead of throwing error
+    }
 
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
     const hubUrl = `${baseUrl}/notification-service/hubs/notifications`;

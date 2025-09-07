@@ -18,7 +18,6 @@ public class SearchSkillsQueryHandler(
         SearchSkillsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var query = _dbContext.Skills
                 .AsNoTracking()
@@ -126,11 +125,6 @@ public class SearchSkillsQueryHandler(
                 .ToListAsync(cancellationToken);
 
             return Success(skills, request.PageNumber, request.PageSize, totalRecords);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error searching skills with query: {Query}", request.SearchTerm);
-            return Error("An error occurred while searching skills");
         }
     }
 }

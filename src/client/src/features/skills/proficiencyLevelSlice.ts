@@ -4,6 +4,7 @@ import skillService, { ProficiencyLevelResponse } from '../../api/services/skill
 import { ProficiencyLevelsState } from '../../types/states/SkillState';
 import { SliceError } from '../../store/types';
 import { withDefault } from '../../utils/safeAccess';
+import { serializeError } from '../../utils/reduxHelpers';
 
 const initialState: ProficiencyLevelsState = {
   proficiencyLevels: [],
@@ -22,32 +23,48 @@ const initialState: ProficiencyLevelsState = {
 // Fetch proficiency levels
 export const fetchProficiencyLevels = createAsyncThunk(
   'proficiencyLevels/fetchProficiencyLevels',
-  async () => {
-    return await skillService.getProficiencyLevels();;
+  async (_, { rejectWithValue }) => {
+    try {
+      return await skillService.getProficiencyLevels();
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Create proficiency level (Admin)
 export const createProficiencyLevel = createAsyncThunk(
   'proficiencyLevels/createProficiencyLevel',
-  async ({level, rank, description}: { level: string; rank: number; description?: string }) => {
-    return await skillService.createProficiencyLevel(level,rank, description)
+  async ({level, rank, description}: { level: string; rank: number; description?: string }, { rejectWithValue }) => {
+    try {
+      return await skillService.createProficiencyLevel(level,rank, description);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Update proficiency level (Admin)
 export const updateProficiencyLevel = createAsyncThunk(
   'proficiencyLevels/updateProficiencyLevel',
-  async ({id, level, rank, description}: { id: string; level: string; rank: number; description?: string }) => {
-    return await skillService.updateProficiencyLevel(id, level, rank, description)
+  async ({id, level, rank, description}: { id: string; level: string; rank: number; description?: string }, { rejectWithValue }) => {
+    try {
+      return await skillService.updateProficiencyLevel(id, level, rank, description);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 // Delete proficiency level (Admin)
 export const deleteProficiencyLevel = createAsyncThunk(
   'proficiencyLevels/deleteProficiencyLevel',
-  async (id: string) => {
-    return skillService.deleteProficiencyLevel(id)
+  async (id: string, { rejectWithValue }) => {
+    try {
+      return skillService.deleteProficiencyLevel(id);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
@@ -124,7 +141,7 @@ const proficiencyLevelsSlice = createSlice({
     },
 
     setError: (state, action) => {
-      state.error = action.payload;
+      state.error = serializeError(action.payload);
     },
 
     resetState: (state) => {
@@ -189,7 +206,7 @@ const proficiencyLevelsSlice = createSlice({
       })
       .addCase(fetchProficiencyLevels.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
         state.proficiencyLevels = [];
       })
 
@@ -209,7 +226,7 @@ const proficiencyLevelsSlice = createSlice({
       })
       .addCase(createProficiencyLevel.rejected, (state, action) => {
         state.isCreating = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Update proficiency level cases
@@ -241,7 +258,7 @@ const proficiencyLevelsSlice = createSlice({
       })
       .addCase(updateProficiencyLevel.rejected, (state, action) => {
         state.isUpdating = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       })
 
       // Delete proficiency level cases
@@ -256,7 +273,7 @@ const proficiencyLevelsSlice = createSlice({
       })
       .addCase(deleteProficiencyLevel.rejected, (state, action) => {
         state.isDeleting = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
       });
   },
 });

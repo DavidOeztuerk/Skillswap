@@ -6,6 +6,7 @@ using Events.Domain.Matchmaking;
 using CQRS.Models;
 using MassTransit;
 using Events.Integration.Matchmaking;
+using Core.Common.Exceptions;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
@@ -24,26 +25,25 @@ public class DissolveMatchCommandHandler(
         DissolveMatchCommand request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var match = await _dbContext.Matches
                 .FirstOrDefaultAsync(m => m.Id == request.MatchId && !m.IsDeleted, cancellationToken);
 
             if (match == null)
             {
-                return Error("Match not found");
+                return Error("Match not found", ErrorCodes.ResourceNotFound);
             }
 
             // Check authorization - both users can dissolve the match
             if (match.OfferingUserId != request.UserId && match.RequestingUserId != request.UserId)
             {
-                return Error("You are not authorized to dissolve this match");
+                return Error("You are not authorized to dissolve this match", ErrorCodes.InsufficientPermissions);
             }
 
             // Only active matches can be dissolved
             if (!match.IsActive)
             {
-                return Error($"Cannot dissolve match in {match.Status} status");
+                return Error($"Cannot dissolve match in {match.Status} status", ErrorCodes.InvalidOperation);
             }
 
             // Dissolve the match
@@ -72,11 +72,6 @@ public class DissolveMatchCommandHandler(
                 match.Id,
                 match.Status,
                 match.DissolvedAt!.Value));
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error dissolving match {MatchId}", request.MatchId);
-            return Error("An error occurred while dissolving the match");
         }
     }
 }

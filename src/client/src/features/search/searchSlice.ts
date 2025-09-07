@@ -6,6 +6,7 @@ import { SliceError } from '../../store/types';
 import { mapSkillResponseToSkill, mapUserSkillsResponseToSkill } from '../skills/skillsSlice';
 import { Skill } from '../../types/models/Skill';
 import { withDefault } from '../../utils/safeAccess';
+import { serializeError } from '../../utils/reduxHelpers';
 
 const initialPagination = {
   page: 1,
@@ -32,15 +33,23 @@ const initialState: SearchState = {
 // Async thunks
 export const fetchUserSearchResults = createAsyncThunk(
   'search/fetchUserSearchResults',
-  async ({ pageNumber = 1, pageSize = 12 }: { pageNumber?: number; pageSize?: number } = {}) => {
-    return await skillService.getUserSkills(pageNumber, pageSize);
+  async ({ pageNumber = 1, pageSize = 12 }: { pageNumber?: number; pageSize?: number } = {}, { rejectWithValue }) => {
+    try {
+      return await skillService.getUserSkills(pageNumber, pageSize);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
 export const fetchAllSkills = createAsyncThunk(
   'search/fetchAllSkills',
-  async ({ pageNumber = 1, pageSize = 12 }: { pageNumber?: number; pageSize?: number } = {}) => {
-    return await skillService.getAllSkills({ pageNumber, pageSize });
+  async ({ pageNumber = 1, pageSize = 12 }: { pageNumber?: number; pageSize?: number } = {}, { rejectWithValue }) => {
+    try {
+      return await skillService.getAllSkills({ pageNumber, pageSize });
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || error);
+    }
   }
 );
 
@@ -99,7 +108,7 @@ const searchSlice = createSlice({
       state.isLoading = action.payload;
     },
     setError: (state, action) => {
-      state.error = action.payload as SliceError;
+      state.error = serializeError(action.payload);
     },
     resetSearchState: () => initialState,
   },
@@ -130,7 +139,7 @@ const searchSlice = createSlice({
       })
       .addCase(fetchUserSearchResults.rejected, (state, action) => {
         state.userLoading = false;
-        state.error = action.error as SliceError
+        state.error = serializeError(action.payload);
         state.userResults = [];
       })
 
@@ -151,7 +160,7 @@ const searchSlice = createSlice({
       })
       .addCase(fetchAllSkills.rejected, (state, action) => {
         state.allSkillsLoading = false;
-        state.error = action.error as SliceError;
+        state.error = serializeError(action.payload);
         state.allSkills = [];
       });
   },

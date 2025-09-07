@@ -3,6 +3,7 @@ using CQRS.Models;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Queries.Permissions;
 using UserService.Domain.Repositories;
+using Core.Common.Exceptions;
 
 namespace UserService.Application.QueryHandlers.Permissions;
 
@@ -23,14 +24,14 @@ public class CheckMultiplePermissionsQueryHandler(
         try
         {
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("UserId is required");
+                return Error("UserId is required", ErrorCodes.RequiredFieldMissing);
 
             if (request.PermissionNames == null || !request.PermissionNames.Any())
-                return Error("PermissionNames cannot be empty");
+                return Error("PermissionNames cannot be empty", ErrorCodes.RequiredFieldMissing);
 
             // Parse UserId to Guid
             if (string.IsNullOrEmpty(request.UserId))
-                return Error("Invalid UserId format");
+                return Error("Invalid UserId format", ErrorCodes.InvalidFormat);
 
             bool result;
             if (request.RequireAll)
@@ -49,7 +50,7 @@ public class CheckMultiplePermissionsQueryHandler(
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error checking multiple permissions for user {UserId}", request.UserId);
-            return Error("An error occurred while checking permissions");
+            return Error("An error occurred while checking permissions", ErrorCodes.InternalError);
         }
     }
 }

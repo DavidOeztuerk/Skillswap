@@ -10,6 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { LoadingButton } from '../../components/common/LoadingButton';
 import { InputAdornment, TextField } from '@mui/material';
+import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 // Validierungsschema mit Zod
 const registerSchema = z
@@ -101,11 +102,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Stack spacing={3}>
-        {error && (
-          <Alert severity="error" onClose={dismissError}>
-            {error?.message}
-          </Alert>
-        )}
+        <EnhancedErrorAlert 
+          error={error || (errors.root && { message: errors.root.message })}
+          onDismiss={() => dismissError?.()}
+          compact={process.env.NODE_ENV === 'production'}
+        />
 
         {/* Vorname + Nachname */}
         <Grid container columns={12} spacing={1}>
@@ -268,6 +269,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           variant="contained"
           color="primary"
           loading={isLoading(LoadingKeys.REGISTER)}
+          disabled={isLoading(LoadingKeys.REGISTER) || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
           size="large"
           sx={{ mt: 2 }}
         >

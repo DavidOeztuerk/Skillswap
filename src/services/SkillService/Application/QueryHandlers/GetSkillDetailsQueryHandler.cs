@@ -20,7 +20,6 @@ public class GetSkillDetailsQueryHandler(
         GetSkillDetailsQuery request,
         CancellationToken cancellationToken)
     {
-        try
         {
             var skill = await _dbContext.Skills
                 .Include(s => s.SkillCategory)
@@ -75,11 +74,6 @@ public class GetSkillDetailsQueryHandler(
                 skill.UpdatedAt ?? skill.CreatedAt);
 
             return Success(response);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting skill details for {SkillId}", request.SkillId);
-            return Error("An error occurred while retrieving skill details");
         }
     }
 }
