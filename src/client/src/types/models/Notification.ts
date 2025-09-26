@@ -6,7 +6,7 @@ export interface Notification {
   message: string;
   isRead: boolean;
   autoHide?: boolean;
-  duration?: number; // in milliseconds
+  duration?: number;
   createdAt: string;
   readAt?: string;
   actionUrl?: string;

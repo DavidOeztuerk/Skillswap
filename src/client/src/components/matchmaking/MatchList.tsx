@@ -27,12 +27,11 @@ import MatchCard from './MatchCard';
 import SkeletonLoader from '../ui/SkeletonLoader';
 import EmptyState from '../ui/EmptyState';
 import { Match } from '../../types/models/Match';
-import { SliceError } from '../../store/types';
 
 interface MatchListProps {
   matches: Match[] | any[];
   isLoading?: boolean;
-  error?: SliceError | null;
+  errorMessage?: string | null;
   isRequesterView?: boolean;
   onAccept?: (matchId: string) => void;
   onReject?: (matchId: string) => void;
@@ -45,7 +44,7 @@ interface MatchListProps {
 const MatchList: React.FC<MatchListProps> = ({
   matches,
   isLoading = false,
-  error = null,
+  errorMessage = null,
   isRequesterView = true,
   onAccept,
   onReject,
@@ -148,15 +147,14 @@ const MatchList: React.FC<MatchListProps> = ({
     setCurrentPage(1);
   };
 
-  // Zustand: Laden / Fehler / Keine Daten
   if (isLoading) {
     return <SkeletonLoader variant="card" count={3} />;
   }
-  if (error) {
+  if (errorMessage) {
     return (
       <EmptyState
         title="Fehler beim Laden der Matches"
-        description={error.message || 'Ein unbekannter Fehler ist aufgetreten'}
+        description={errorMessage || 'Ein unbekannter Fehler ist aufgetreten'}
         actionLabel="Erneut versuchen"
         actionHandler={() => window.location.reload()}
       />

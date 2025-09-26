@@ -10,7 +10,7 @@ import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { useFormError } from '../../hooks/useFormError';
 
 interface EnhancedErrorAlertProps {
-  error: any;
+  error: unknown;
   onRetry?: () => void;
   onDismiss?: () => void;
   isRetrying?: boolean;
@@ -33,7 +33,7 @@ const EnhancedErrorAlert: React.FC<EnhancedErrorAlertProps> = ({
   // Fallback: if processed error is empty but we have a raw error, show it
   if (!hasError && !error) return null;
   
-  const displayMessage = errorMessage || error?.message || 'Ein Fehler ist aufgetreten';
+  const displayMessage = errorMessage || 'Ein Fehler ist aufgetreten';
   const displaySeverity = isAuthError ? "warning" : "error";
 
   return (
@@ -62,14 +62,14 @@ const EnhancedErrorAlert: React.FC<EnhancedErrorAlertProps> = ({
         <Typography variant="body2">
           {displayMessage}
         </Typography>
-        {!compact && (errorCode || error?.details?.errorCode) && (
+        {!compact && (errorCode) && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            Error Code: {errorCode || error?.details?.errorCode}
+            Error Code: {errorCode}
           </Typography>
         )}
-        {!compact && (traceId || error?.details?.traceId) && (
+        {!compact && (traceId) && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            Trace ID: {traceId || error?.details?.traceId}
+            Trace ID: {traceId}
           </Typography>
         )}
       </Box>

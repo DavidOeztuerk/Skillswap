@@ -49,7 +49,7 @@ const SkillEditPage: React.FC = () => {
     fetchProficiencyLevels,
     isLoading: skillsLoading,
     isUpdating,
-    error,
+    errorMessage,
     dismissError,
   } = useSkills();
 
@@ -248,7 +248,7 @@ const SkillEditPage: React.FC = () => {
   }
 
   // Error state
-  if (error && !selectedSkill) {
+  if (errorMessage && !selectedSkill) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
@@ -357,9 +357,9 @@ const SkillEditPage: React.FC = () => {
         )}
 
         {/* Error display */}
-        {error && (
+        {errorMessage && (
           <Alert severity="error" onClose={dismissError} sx={{ mb: 2 }}>
-            {error.message}
+            {errorMessage}
           </Alert>
         )}
       </Paper>

@@ -1,224 +1,35 @@
-// src/features/matchmaking/matchmakingSlice.ts
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import {
-  MatchRequestDisplay,
-  MatchDisplay,
-  MatchThreadDisplay,
-  CreateMatchRequestRequest,
-  AcceptMatchRequestRequest,
-  RejectMatchRequestRequest,
-  CreateCounterOfferRequest,
-} from '../../types/display/MatchmakingDisplay';
-import { SliceError } from '../../store/types';
-import matchmakingService, { GetMatchRequestsParams } from '../../api/services/matchmakingService';
-
-import { serializeError } from '../../utils/reduxHelpers';
-
-// Helper: Fehler normalisieren (deprecated - use serializeError instead)
-const parseErr = (e: any): SliceError => serializeError(e);
-
-// Thunks
-export const createMatchRequest = createAsyncThunk(
-  'matchmaking/createMatchRequest',
-  async (req: CreateMatchRequestRequest, { rejectWithValue }) => {
-    try {
-      const response = await matchmakingService.createMatchRequest(req);
-      return { response, originalRequest: req };
-    } catch (e) {
-      return rejectWithValue(parseErr(e));
-    }
-  }
-);
-
-export const fetchMatches = createAsyncThunk(
-  'matchmaking/searchMatches',
-  async (req: CreateMatchRequestRequest, { rejectWithValue }) => {
-    try {
-      return await matchmakingService.searchMatches(req);
-    } catch (e) {
-      return rejectWithValue(parseErr(e));
-    }
-  }
-);
-
-export const fetchIncomingMatchRequests = createAsyncThunk(
-  'matchmaking/fetchIncomingMatchRequests',
-  async (params: GetMatchRequestsParams = {}, { rejectWithValue }) => {
-    try {
-      return await matchmakingService.getIncomingMatchRequests(params);
-    } catch (e: any) {
-      if (e?.response?.status === 404) {
-        console.log('📭 [Matchmaking] No incoming requests endpoint, returning empty');
-        return {
-          data: [],
-          pageNumber: 1,
-          pageSize: 20,
-          totalRecords: 0,
-          totalPages: 0,
-          hasNextPage: false,
-          hasPreviousPage: false
-        };
-      }
-      return rejectWithValue(parseErr(e));
-    }
-  }
-);
-
-export const fetchOutgoingMatchRequests = createAsyncThunk(
-  'matchmaking/fetchOutgoingMatchRequests',
-  async (params: GetMatchRequestsParams = {}, { rejectWithValue }) => {
-    try {
-      return await matchmakingService.getOutgoingMatchRequests(params);
-    } catch (e: any) {
-      if (e?.response?.status === 404) {
-        console.log('📭 [Matchmaking] No outgoing requests endpoint, returning empty');
-        return {
-          data: [],
-          pageNumber: 1,
-          pageSize: 20,
-          totalRecords: 0,
-          totalPages: 0,
-          hasNextPage: false,
-          hasPreviousPage: false
-        };
-      }
-      return rejectWithValue(parseErr(e));
-    }
-  }
-);
-
-export const fetchUserMatches = createAsyncThunk(
-  'matchmaking/fetchMatches',
-  async (params: GetMatchRequestsParams = {}, { rejectWithValue }) => {
-    try {
-      return await matchmakingService.getUserMatches(params);
-    } catch (e: any) {
-      // Handle 404 as empty data instead of error
-      if (e?.response?.status === 404) {
-        console.log('📭 [Matchmaking] No matches endpoint yet, returning empty data');
-        return {
-          data: [],
-          pageNumber: 1,
-          pageSize: 20,
-          totalRecords: 0,
-          totalPages: 0,
-          hasNextPage: false,
-          hasPreviousPage: false
-        };
-      }
-      return rejectWithValue(parseErr(e));
-    }
-  }
-);
-
-export const acceptMatchRequest = createAsyncThunk(
-  'matchmaking/acceptMatchRequest',
-  async ({ requestId, request }: { requestId: string; request: AcceptMatchRequestRequest }, { rejectWithValue }) => {
-    try {
-      return await matchmakingService.acceptMatchRequest(requestId, request);
-    } catch (e) {
-      return rejectWithValue(parseErr(e));
-    }
-  }
-);
-
-export const rejectMatchRequest = createAsyncThunk(
-  'matchmaking/rejectMatchRequest',
-  async ({ requestId, request }: { requestId: string; request: RejectMatchRequestRequest }, { rejectWithValue }) => {
-    try {
-      return await matchmakingService.rejectMatchRequest(requestId, request);
-    } catch (e) {
-      return rejectWithValue(parseErr(e));
-    }
-  }
-);
-
-export const createCounterOffer = createAsyncThunk(
-  'matchmaking/createCounterOffer',
-  async (req: CreateCounterOfferRequest, { rejectWithValue }) => {
-    try {
-      return await matchmakingService.createCounterOffer(req);
-    } catch (e) {
-      return rejectWithValue(parseErr(e));
-    }
-  }
-);
-
-export const fetchMatchRequestThread = createAsyncThunk(
-  'matchmaking/fetchMatchRequestThread',
-  async (threadId: string, { rejectWithValue }) => {
-    try {
-      return await matchmakingService.getMatchRequestThread(threadId);
-    } catch (e: any) {
-      return rejectWithValue(parseErr(e));
-    }
-  }
-);
-
-interface MatchmakingState {
-  incomingRequests: MatchRequestDisplay[];
-  outgoingRequests: MatchRequestDisplay[];
-  matches: MatchDisplay[];
-  currentThread: MatchThreadDisplay | null;
-  pagination: { 
-    pageNumber: number;
-    pageSize: number;
-    totalPages: number;
-    totalRecords: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-  isLoading: boolean;
-  isLoadingRequests: boolean;
-  isLoadingThread: boolean;
-  matchRequestSent: boolean;
-  error: SliceError | null;
-}
-
-const initialState: MatchmakingState = {
-  incomingRequests: [],
-  outgoingRequests: [],
-  matches: [],
-  currentThread: null,
-  pagination: { pageNumber: 1, pageSize: 20, totalRecords: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false },
-  isLoading: false,
-  isLoadingRequests: false,
-  isLoadingThread: false,
-  matchRequestSent: false,
-  error: null,
-};
+import { createSlice } from '@reduxjs/toolkit';
+import { withDefault, isDefined } from '../../utils/safeAccess';
+import { initialMatchesState } from '../../store/adapters/matchmakingAdapter+State';
+import { createMatchRequest, fetchMatches, fetchUserMatches, fetchIncomingMatchRequests, fetchOutgoingMatchRequests, acceptMatchRequest, rejectMatchRequest, fetchMatchRequestThread } from './matchmakingThunks';
 
 const matchmakingSlice = createSlice({
   name: 'matchmaking',
-  initialState,
+  initialState: initialMatchesState,
   reducers: {
-    clearError: (s) => { s.error = null; },
+    clearError: (s) => { s.errorMessage = undefined; },
     resetMatchRequestSent: (s) => { s.matchRequestSent = false; },
     clearMatchRequests: (s) => { s.incomingRequests = []; s.outgoingRequests = []; },
     clearMatches: (s) => { s.matches = []; },
     clearCurrentThread: (s) => { s.currentThread = null; },
-    setPagination: (s, a: PayloadAction<Partial<MatchmakingState['pagination']>>) => {
+    setPagination: (s, a) => {
       s.pagination = { ...s.pagination, ...a.payload };
     },
     // Optimistic
-    acceptMatchRequestOptimistic: (s, a: PayloadAction<string>) => {
+    acceptMatchRequestOptimistic: (s, a) => {
       const id = a.payload;
       const req = s.incomingRequests.find(r => r.id === id);
       if (!req) return;
-      
-      // Nur Status ändern, keine neuen Matches erstellen mit falschen Daten
       req.status = 'accepted';
       req.isRead = true;
-      
-      // Request aus der Liste entfernen
       s.incomingRequests = s.incomingRequests.filter(r => r.id !== id);
     },
-    rejectMatchRequestOptimistic: (s, a: PayloadAction<string>) => {
+    rejectMatchRequestOptimistic: (s, a) => {
       const id = a.payload;
       const req = s.incomingRequests.find(r => r.id === id);
       if (req) req.status = 'rejected';
     },
-    markRequestAsRead: (s, a: PayloadAction<string>) => {
+    markRequestAsRead: (s, a) => {
       const id = a.payload;
       const inReq = s.incomingRequests.find(r => r.id === id);
       if (inReq) inReq.isRead = true;
@@ -229,93 +40,159 @@ const matchmakingSlice = createSlice({
   extraReducers: (b) => {
     b
       // create request
-      .addCase(createMatchRequest.pending, (s) => { 
-        s.isLoading = true; 
-        s.error = null; 
-        s.matchRequestSent = false; 
+      .addCase(createMatchRequest.pending, (s) => {
+        s.isLoading = true;
+        s.errorMessage = undefined;
+        s.matchRequestSent = false;
       })
-      .addCase(createMatchRequest.fulfilled, (s, _a) => {
-        s.isLoading = false; 
+      .addCase(createMatchRequest.fulfilled, (s) => {
+        s.isLoading = false;
         s.matchRequestSent = true;
-        // Wir speichern nur minimale Daten, da wir einen Refresh auslösen werden
-        // const { response } = a.payload;
-        // Optional: Trigger einen Refresh der outgoing requests
-        // Das sollte im Component passieren nach erfolgreichem Request
       })
-      .addCase(createMatchRequest.rejected, (s, a) => { 
-        s.isLoading = false; 
-        s.error = a.payload as SliceError; 
-      })
-
-      // search matches
-      .addCase(fetchUserMatches.pending, (s) => { s.isLoading = true; s.error = null; })
-      .addCase(fetchUserMatches.fulfilled, (s, a) => { s.isLoading = false; s.matches = a.payload.data ?? []; })
-      .addCase(fetchUserMatches.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as SliceError; })
-
-      // incoming
-      .addCase(fetchIncomingMatchRequests.pending, (s) => { s.isLoadingRequests = true; s.error = null; })
-      .addCase(fetchIncomingMatchRequests.fulfilled, (s, a) => {
-        s.isLoadingRequests = false;
-        s.incomingRequests = a.payload.data ?? [];
-        s.pagination = {
-          pageNumber: a.payload.pageNumber, pageSize: a.payload.pageSize,
-          totalRecords: a.payload.totalRecords, totalPages: a.payload.totalPages,
-          hasNextPage: a.payload.hasNextPage, hasPreviousPage: a.payload.hasPreviousPage
-        };
-      })
-      .addCase(fetchIncomingMatchRequests.rejected, (s, a) => { s.isLoadingRequests = false; s.error = a.payload as SliceError; })
-
-      // outgoing
-      .addCase(fetchOutgoingMatchRequests.pending, (s) => { s.isLoadingRequests = true; s.error = null; })
-      .addCase(fetchOutgoingMatchRequests.fulfilled, (s, a) => {
-        s.isLoadingRequests = false;
-        s.outgoingRequests = a.payload.data ?? [];
-        s.pagination = {
-          pageNumber: a.payload.pageNumber, pageSize: a.payload.pageSize,
-          totalRecords: a.payload.totalRecords, totalPages: a.payload.totalPages,
-          hasNextPage: a.payload.hasNextPage, hasPreviousPage: a.payload.hasPreviousPage
-        };
-      })
-      .addCase(fetchOutgoingMatchRequests.rejected, (s, a) => { s.isLoadingRequests = false; s.error = a.payload as SliceError; })
-
-      // matches
-      .addCase(fetchMatches.pending, (s) => { s.isLoading = true; s.error = null; })
+      // search matches by criteria
       .addCase(fetchMatches.fulfilled, (s, a) => {
         s.isLoading = false;
-        s.matches = a.payload.data ?? [];
+        if (isDefined(a.payload.data)) {
+          s.matches = a.payload.data;
+        } else {
+          s.matches = [];
+        }
         s.pagination = {
-          pageNumber: a.payload.pageNumber, pageSize: a.payload.pageSize,
-          totalRecords: a.payload.totalRecords, totalPages: a.payload.totalPages,
-          hasNextPage: a.payload.hasNextPage, hasPreviousPage: a.payload.hasPreviousPage
+          pageNumber: withDefault(a.payload.pagination.pageNumber, 1),
+          pageSize: withDefault(a.payload.pagination.pageSize, 20),
+          totalRecords: withDefault(a.payload.pagination.totalRecords, 0),
+          totalPages: withDefault(a.payload.pagination.totalPages, 0),
+          hasNextPage: withDefault(a.payload.pagination.hasNextPage, false),
+          hasPreviousPage: withDefault(a.payload.pagination.hasPreviousPage, false),
         };
       })
-      .addCase(fetchMatches.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as SliceError; })
-
+      // user matches
+      .addCase(fetchUserMatches.pending, (s) => { s.isLoading = true; })
+      .addCase(fetchUserMatches.fulfilled, (s, a) => {
+        s.isLoading = false;
+        if (isDefined(a.payload.data)) {
+          s.matches = a.payload.data;
+        } else {
+          s.matches = [];
+        }
+        s.pagination = {
+          pageNumber: withDefault(a.payload.pagination.pageNumber, 1),
+          pageSize: withDefault(a.payload.pagination.pageSize, 20),
+          totalRecords: withDefault(a.payload.pagination.totalRecords, 0),
+          totalPages: withDefault(a.payload.pagination.totalPages, 0),
+          hasNextPage: withDefault(a.payload.pagination.hasNextPage, false),
+          hasPreviousPage: withDefault(a.payload.pagination.hasPreviousPage, false),
+        };
+      })
+      // incoming
+      .addCase(fetchIncomingMatchRequests.pending, (s) => { s.isLoadingRequests = true; })
+      .addCase(fetchIncomingMatchRequests.fulfilled, (s, a) => {
+        s.isLoadingRequests = false;
+        if (isDefined(a.payload.data)) {
+          s.incomingRequests = a.payload.data;
+        } else {
+          s.incomingRequests = [];
+        }
+        s.pagination = {
+          pageNumber: withDefault(a.payload.pagination.pageNumber, 1),
+          pageSize: withDefault(a.payload.pagination.pageSize, 20),
+          totalRecords: withDefault(a.payload.pagination.totalRecords, 0),
+          totalPages: withDefault(a.payload.pagination.totalPages, 0),
+          hasNextPage: withDefault(a.payload.pagination.hasNextPage, false),
+          hasPreviousPage: withDefault(a.payload.pagination.hasPreviousPage, false),
+        };
+      })
+      // outgoing
+      .addCase(fetchOutgoingMatchRequests.pending, (s) => { s.isLoadingRequests = true; })
+      .addCase(fetchOutgoingMatchRequests.fulfilled, (s, a) => {
+        s.isLoadingRequests = false;
+        if (isDefined(a.payload.data)) {
+          s.outgoingRequests = a.payload.data;
+        } else {
+          s.outgoingRequests = [];
+        }
+        s.pagination = {
+          pageNumber: withDefault(a.payload.pagination.pageNumber, 1),
+          pageSize: withDefault(a.payload.pagination.pageSize, 20),
+          totalRecords: withDefault(a.payload.pagination.totalRecords, 0),
+          totalPages: withDefault(a.payload.pagination.totalPages, 0),
+          hasNextPage: withDefault(a.payload.pagination.hasNextPage, false),
+          hasPreviousPage: withDefault(a.payload.pagination.hasPreviousPage, false),
+        };
+      })
       // accept
-      .addCase(acceptMatchRequest.pending, (s) => { s.isLoading = true; s.error = null; })
       .addCase(acceptMatchRequest.fulfilled, (s, a) => {
         s.isLoading = false;
-        const id = a.payload.data.requestId;
-        s.incomingRequests = s.incomingRequests.filter(r => r.id !== id);
-        // OPTIONAL: a.payload.data.match? dann in matches pushen
-        const m = (a.payload.data as any).match as MatchDisplay | undefined;
-        if (m) s.matches.unshift(m);
+        if (isDefined(a.payload.data)) {
+          const id = a.payload.data.requestId;
+          s.incomingRequests = s.incomingRequests.filter(r => (r as any).id !== id);
+          const match = (a.payload.data as any)?.match;
+          if (isDefined(match)) {
+            s.matches.unshift(match);
+          }
+        }
       })
-      .addCase(acceptMatchRequest.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as SliceError; })
-
       // reject
-      .addCase(rejectMatchRequest.pending, (s) => { s.isLoading = true; s.error = null; })
       .addCase(rejectMatchRequest.fulfilled, (s, a) => {
         s.isLoading = false;
-        const id = a.payload.data.requestId;
-        s.incomingRequests = s.incomingRequests.filter(r => r.id !== id);
+        if (isDefined(a.payload.data)) {
+          const id = a.payload.data.requestId;
+          s.incomingRequests = s.incomingRequests.filter(r => (r as any).id !== id);
+        }
       })
-      .addCase(rejectMatchRequest.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as SliceError; })
-
       // thread
-      .addCase(fetchMatchRequestThread.pending, (s) => { s.isLoadingThread = true; s.error = null; })
-      .addCase(fetchMatchRequestThread.fulfilled, (s, a) => { s.isLoadingThread = false; s.currentThread = a.payload.data ?? null; })
-      .addCase(fetchMatchRequestThread.rejected, (s, a) => { s.isLoadingThread = false; s.error = a.payload as SliceError; });
+      .addCase(fetchMatchRequestThread.pending, (s) => { s.isLoadingThread = true; })
+      .addCase(fetchMatchRequestThread.fulfilled, (s, a) => {
+        s.isLoadingThread = false;
+        if (isDefined(a.payload.data) && a.payload.data.skill) {
+          // Map MatchThreadDisplay to MatchRequestThread
+          s.currentThread = {
+            threadId: a.payload.data.threadId,
+            skill: {
+              id: a.payload.data.skillId || '', // Add the required id field
+              name: a.payload.data.skill.name,
+              category: a.payload.data.skill.category,
+            },
+            participants: {
+              requester: {
+                // TODO: - requester Data fetch here!!
+                id: a.payload.data.partnerId || '',
+                name: a.payload.data.partnerName || '',
+                rating: a.payload.data.partnerRating || 0,
+                avatar: a.payload.data.partnerAvatar,
+
+              },
+              targetUser: {
+                id: a.payload.data.partnerId || '',
+                name: a.payload.data.partnerName || '',
+                rating: a.payload.data.partnerRating || 0,
+                avatar: a.payload.data.partnerAvatar,
+              },
+            },
+            requests: a.payload.data.requests?.map(req => ({
+              id: req.id,
+              requesterId: req.requesterId || '',
+              message: req.message,
+              type: req.type as 'initial' | 'counter' | 'acceptance' | 'rejection',
+              status: req.status as 'pending' | 'accepted' | 'rejected' | 'countered',
+              isSkillExchange: req.isSkillExchange ?? false,
+              exchangeSkillName: req.exchangeSkillName,
+              isMonetary: req.isMonetary ?? false,
+              offeredAmount: req.offeredAmount,
+              preferredDays: req.preferredDays || [],
+              preferredTimes: req.preferredTimes || [],
+              sessionDuration: req.sessionDuration || 0,
+              totalSessions: req.totalSessions || 1,
+              createdAt: req.createdAt || '',
+              isRead: req.isRead ?? false,
+            })) || [],
+            lastActivity: a.payload.data.lastActivity || '',
+            status: (a.payload.data.status as 'active' | 'accepted' | 'rejected' | 'expired') || 'active',
+          };
+        } else {
+          s.currentThread = null;
+        }
+      })
   },
 });
 

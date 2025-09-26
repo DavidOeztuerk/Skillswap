@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, memo } from 'react';
 import EmailVerificationModal from '../components/auth/EmailVerificationModal';
 import { useEmailVerification } from '../hooks/useEmailVerification';
 
@@ -16,7 +16,7 @@ const EmailVerificationContext = createContext<EmailVerificationContextType | un
  * Provider for Email Verification functionality
  * Manages the email verification modal state globally
  */
-export const EmailVerificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const EmailVerificationProvider: React.FC<{ children: ReactNode }> = memo(({ children }) => {
   const {
     showVerificationModal,
     needsVerification,
@@ -28,16 +28,17 @@ export const EmailVerificationProvider: React.FC<{ children: ReactNode }> = ({ c
     snoozeVerification,
   } = useEmailVerification();
 
+  // REMOVED PROBLEMATIC useMemo - was causing infinite re-renders!
+  const value = {
+    showVerificationModal,
+    needsVerification: needsVerification || false,
+    openVerificationModal,
+    closeVerificationModal,
+    snoozeVerification,
+  };
+  
   return (
-    <EmailVerificationContext.Provider
-      value={{
-        showVerificationModal,
-        needsVerification: needsVerification || false,
-        openVerificationModal,
-        closeVerificationModal,
-        snoozeVerification,
-      }}
-    >
+    <EmailVerificationContext.Provider value={value}>
       {children}
       <EmailVerificationModal
         open={showVerificationModal}
@@ -48,7 +49,9 @@ export const EmailVerificationProvider: React.FC<{ children: ReactNode }> = ({ c
       />
     </EmailVerificationContext.Provider>
   );
-};
+});
+
+EmailVerificationProvider.displayName = 'EmailVerificationProvider';
 
 /**
  * Hook to use Email Verification context

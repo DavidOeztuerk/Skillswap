@@ -52,7 +52,6 @@ class PageErrorBoundary extends Component<Props, State> {
     };
 
     console.error('Page Error logged:', errorData);
-    // TODO: Send to error tracking service
   };
 
   private handleRetry = () => {

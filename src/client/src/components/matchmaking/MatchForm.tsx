@@ -28,11 +28,12 @@ import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
 import LoadingButton from '../ui/LoadingButton';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
 import { Skill } from '../../types/models/Skill';
-import { GetUserSkillRespone } from '../../api/services/skillsService';
 import { SkillService } from '../../api/services/skillsService';
 import QuickSkillCreate from './QuickSkillCreate';
 import { Add as AddIcon } from '@mui/icons-material';
 import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
+import { GetUserSkillResponse } from '../../types/contracts/responses/SkillResponses';
+import { isSuccessResponse } from '../../types/api/UnifiedResponse';
 
 // Schema angepasst für CreateMatchRequest
 const matchFormSchema = z.object({
@@ -75,11 +76,11 @@ interface MatchFormProps {
   onClose: () => void;
   onSubmit: (data: CreateMatchRequest) => Promise<boolean>;
   skill: Skill;
-  targetUserId: string; // ✅ VEREINFACHT: Direkt targetUserId anstatt User-Objekt
-  targetUserName?: string; // ✅ Optional: Name für Anzeige
+  targetUserId: string; 
+  targetUserName?: string; 
   isLoading?: boolean;
-  userSkills?: GetUserSkillRespone[]; // Skills des aktuellen Users für Tausch
-  error?: { message: string } | null;
+  userSkills?: GetUserSkillResponse[]; 
+  error?: string | undefined;
 }
 
 const ITEM_HEIGHT = 48;
@@ -107,7 +108,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
   userSkills: providedUserSkills,
   error,
 }) => {
-  const [userSkills, setUserSkills] = useState<GetUserSkillRespone[]>(providedUserSkills || []);
+  const [userSkills, setUserSkills] = useState<GetUserSkillResponse[]>(providedUserSkills || []);
   const [loadingSkills, setLoadingSkills] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -129,9 +130,10 @@ const MatchForm: React.FC<MatchFormProps> = ({
   const loadUserSkills = async () => {
     try {
       setLoadingSkills(true);
-      const response = await SkillService.getUserSkills(1, 50, true); // Nur angebotene Skills
-      if (response.data) {
-        setUserSkills(response.data);
+      const response = await SkillService.getUserSkills(1, 50, true); 
+    if (isSuccessResponse(response))
+        if (response.data) {
+          setUserSkills(response.data);
       }
     } catch (error) {
       console.error('Error loading user skills:', error);
@@ -147,8 +149,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
         SkillService.getCategories(),
         SkillService.getProficiencyLevels(),
       ]);
-      if (catResponse.data) setCategories(catResponse.data);
-      if (levelResponse.data) setProficiencyLevels(levelResponse.data);
+      if (isSuccessResponse(catResponse) && catResponse.data) setCategories(catResponse.data);
+      if (isSuccessResponse(levelResponse) && levelResponse.data) setProficiencyLevels(levelResponse.data);
     } catch (error) {
       console.error('Error loading categories/levels:', error);
     }
@@ -254,7 +256,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             color="primary"
             variant="contained"
             loading={isLoading}
-            disabled={isLoading || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
+            disabled={isLoading || Object.keys(errors).filter(key => key !== 'root').length > 0}
           >
             Match-Anfrage senden
           </LoadingButton>

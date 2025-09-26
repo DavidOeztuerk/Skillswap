@@ -284,7 +284,7 @@ export interface AuditLog {
     name: string;
   };
   description: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   ipAddress: string;
   userAgent: string;
   timestamp: string;

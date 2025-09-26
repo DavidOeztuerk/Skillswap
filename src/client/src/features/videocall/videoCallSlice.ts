@@ -1,159 +1,20 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import videoCallService from '../../api/services/videoCallService';
-import { VideoCallState } from '../../types/states/VideoCallState';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { VideoCallConfig } from '../../types/models/VideoCallConfig';
 import { ChatMessage } from '../../types/models/ChatMessage';
-import { SliceError } from '../../store/types';
-import { serializeError } from '../../utils/reduxHelpers';
-
-const initialState: VideoCallState = {
-  roomId: null,
-  isConnected: false,
-  isInitializing: false,
-  peerId: null,
-  localStream: null,
-  remoteStream: null,
-  participants: [],
-  callDuration: 0,
-  callStartTime: null,
-  connectionQuality: 'good',
-  isMicEnabled: true,
-  isVideoEnabled: true,
-  isScreenSharing: false,
-  isChatOpen: false,
-  isRecording: false,
-  messages: [],
-  callStatistics: {
-    audioLevel: 0,
-    networkQuality: 'good',
-    packetsLost: 0,
-    bandwidth: 0,
-  },
-  settings: {
-    videoQuality: 'hd',
-    audioQuality: 'high',
-    backgroundBlur: false,
-    virtualBackground: null,
-    speakerDetection: true,
-  },
-  isLoading: false,
-  error: null,
-};
-
-// Async thunks
-export const getCallConfig = createAsyncThunk(
-  'videoCall/getCallConfig',
-  async (appointmentId: string, { rejectWithValue }) => {
-    try {
-      return await videoCallService.getCallConfig(appointmentId);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const endVideoCall = createAsyncThunk(
-  'videoCall/endVideoCall',
-  async (roomId: string, { rejectWithValue }) => {
-    try {
-      await videoCallService.endCall(roomId);
-      return roomId;
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const saveCallInfo = createAsyncThunk(
-  'videoCall/saveCallInfo',
-  async ({ roomId, duration }: { roomId: string; duration: number }, { rejectWithValue }) => {
-    try {
-      await videoCallService.saveCallInfo(roomId, duration);
-      return { roomId, duration };
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const joinVideoCall = createAsyncThunk(
-  'videoCall/joinCall',
-  async (roomId: string, { rejectWithValue }) => {
-    try {
-      return await videoCallService.joinCall(roomId);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const leaveVideoCall = createAsyncThunk(
-  'videoCall/leaveCall',
-  async (roomId: string, { rejectWithValue }) => {
-    try {
-      await videoCallService.leaveCall(roomId);
-      return roomId;
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const startRecording = createAsyncThunk(
-  'videoCall/startRecording',
-  async (roomId: string, { rejectWithValue }) => {
-    try {
-      return await videoCallService.startRecording(roomId);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const stopRecording = createAsyncThunk(
-  'videoCall/stopRecording',
-  async (roomId: string, { rejectWithValue }) => {
-    try {
-      return await videoCallService.stopRecording(roomId);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const getCallStatistics = createAsyncThunk(
-  'videoCall/getStatistics',
-  async (roomId: string, { rejectWithValue }) => {
-    try {
-      return await videoCallService.getCallStatistics(roomId);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const reportTechnicalIssue = createAsyncThunk(
-  'videoCall/reportIssue',
-  async ({ roomId, issue, description }: { roomId: string; issue: string; description: string }, { rejectWithValue }) => {
-    try {
-      await videoCallService.reportTechnicalIssue(roomId, issue, description);
-      return { roomId, issue, description };
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
+import { withDefault, isDefined } from '../../utils/safeAccess';
+import { getCallConfig, endVideoCall, saveCallInfo, joinVideoCall, leaveVideoCall, startRecording, stopRecording, getCallStatistics } from './videocallThunks';
+import { initialVideoCalllState, CallParticipant } from '../../store/adapters/videoCallAdapter+State';
 
 // Slice
 const videoCallSlice = createSlice({
   name: 'videoCall',
-  initialState,
+  initialState: initialVideoCalllState,
   reducers: {
     initializeCall: (state, action: PayloadAction<VideoCallConfig>) => {
       state.roomId = action.payload?.roomId;
       state.peerId = action.payload?.peerId;
       state.isConnected = false;
-      state.error = null;
+      state.errorMessage = undefined;
     },
     setConnected: (state, action: PayloadAction<boolean>) => {
       state.isConnected = action.payload;
@@ -187,8 +48,11 @@ const videoCallSlice = createSlice({
     clearMessages: (state) => {
       state.messages = [];
     },
-    setError: (state, action) => {
-        state.error = serializeError(action.payload);
+    setError: (state, action: PayloadAction<string | undefined>) => {
+        state.errorMessage = action.payload;
+    },
+    clearError: (state) => {
+      state.errorMessage = undefined;
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
@@ -202,50 +66,62 @@ const videoCallSlice = createSlice({
     setCallStartTime: (state, action: PayloadAction<Date | null>) => {
       state.callStartTime = action.payload;
     },
-    addParticipant: (state, action: PayloadAction<any>) => {
+    addParticipant: (state, action) => {
       if (action.payload) {
-        state.participants.push(action.payload);
+        const callParticipant: CallParticipant = {
+          id: action.payload.id,
+          name: action.payload.name || 'Unknown',
+          avatar: undefined,
+          isMuted: !action.payload.audioEnabled,
+          isVideoEnabled: action.payload.videoEnabled || false,
+          isScreenSharing: false,
+          joinedAt: new Date(),
+          connectionQuality: 'good'
+        };
+        state.participants.push(callParticipant);
       }
     },
-    removeParticipant: (state, action: PayloadAction<string>) => {
+    removeParticipant: (state, action) => {
       state.participants = state.participants?.filter(p => p?.id !== action.payload);
     },
-    updateParticipant: (state, action: PayloadAction<any>) => {
+    updateParticipant: (state, action) => {
       const index = state.participants?.findIndex(p => p?.id === action.payload?.id);
       if (index !== -1 && state.participants[index]) {
         state.participants[index] = { ...state.participants[index], ...action.payload };
       }
     },
-    setConnectionQuality: (state, action: PayloadAction<'poor' | 'fair' | 'good' | 'excellent'>) => {
+    setConnectionQuality: (state, action) => {
       state.connectionQuality = action.payload;
     },
-    updateCallStatistics: (state, action: PayloadAction<Partial<VideoCallState['callStatistics']>>) => {
+    updateCallStatistics: (state, action) => {
       state.callStatistics = { ...state.callStatistics, ...action.payload };
     },
-    updateSettings: (state, action: PayloadAction<Partial<VideoCallState['settings']>>) => {
+    updateSettings: (state, action) => {
       state.settings = { ...state.settings, ...action.payload };
     },
-    setRecording: (state, action: PayloadAction<boolean>) => {
+    setRecording: (state, action) => {
       state.isRecording = action.payload;
     },
-    resetCall: () => initialState,
+    resetCall: () => initialVideoCalllState,
   },
   extraReducers: (builder) => {
     builder
       // Get Call Config
       .addCase(getCallConfig.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(getCallConfig.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.roomId = action.payload.roomId;
-        state.peerId = action.payload.peerId;
-        state.error = null;
+        if (isDefined(action.payload.data)) {
+          state.roomId = withDefault(action.payload.data?.roomId, "");
+          state.peerId = withDefault(action.payload.data?.peerId, "");
+        }
+        state.errorMessage = undefined;
       })
       .addCase(getCallConfig.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // End Video Call
@@ -257,11 +133,11 @@ const videoCallSlice = createSlice({
         state.isConnected = false;
         state.localStream = null;
         state.remoteStream = null;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(endVideoCall.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Save Call Info
@@ -270,27 +146,27 @@ const videoCallSlice = createSlice({
       })
       .addCase(saveCallInfo.fulfilled, (state) => {
         state.isLoading = false;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(saveCallInfo.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Join Video Call
       .addCase(joinVideoCall.pending, (state) => {
         state.isInitializing = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(joinVideoCall.fulfilled, (state, _action) => {
         state.isInitializing = false;
         state.isConnected = true;
         state.callStartTime = new Date();
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(joinVideoCall.rejected, (state, action) => {
         state.isInitializing = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Leave Video Call
@@ -315,7 +191,9 @@ const videoCallSlice = createSlice({
 
       // Get Call Statistics
       .addCase(getCallStatistics.fulfilled, (state, action) => {
-        state.callStatistics = action.payload;
+        if (isDefined(action.payload.data)) {
+          state.callStatistics = action.payload.data;
+        }
       });
   },
 });
@@ -333,6 +211,7 @@ export const {
   addMessage,
   clearMessages,
   setError,
+  clearError,
   setLoading,
   setInitializing,
   setCallDuration,

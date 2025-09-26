@@ -1,4 +1,3 @@
-// src/components/search/MobileSearchBar.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -47,7 +46,6 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
     'machine learning',
   ];
 
-  // Effekt für die Suche
   React.useEffect(() => {
     if (debouncedQuery?.length > 2) {
       searchSkillsByQuery(debouncedQuery);

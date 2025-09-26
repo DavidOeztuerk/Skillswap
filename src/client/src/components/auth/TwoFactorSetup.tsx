@@ -16,8 +16,7 @@ import {
   Paper
 } from '@mui/material';
 import QRCode from 'qrcode';
-import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-import { generateTwoFactorSecret, verifyTwoFactorCode } from '../../features/auth/authSlice';
+import { useAuth } from '../../hooks/useAuth';
 import { withDefault } from '../../utils/safeAccess';
 
 interface TwoFactorSetupProps {
@@ -28,13 +27,18 @@ interface TwoFactorSetupProps {
 }
 
 const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSuccess }) => {
-  const dispatch = useAppDispatch();
-  const { isLoading, error, user } = useAppSelector((state) => state.auth);
+  const { 
+    isLoading, 
+    errorMessage, 
+    user, 
+    generateTwoFactorSecret, 
+    verifyTwoFactorCode 
+  } = useAuth();
   
   const [activeStep, setActiveStep] = useState(0);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [verificationCode, setVerificationCode] = useState('');
-  const [ _, setSecretKey] = useState('');
+  const [, setSecretKey] = useState('');
   const [manualEntryKey, setManualEntryKey] = useState('');
   const [verificationError, setVerificationError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -67,7 +71,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
       // Only generate if we haven't already
       if (!qrCodeUrl && !isGenerating && activeStep === 0) {
         console.log('🚀 Dialog opened, generating 2FA secret...');
-        generateSecret();
+        void generateSecret();
       }
     }
   }, [open]); // Only depend on open prop
@@ -81,22 +85,39 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
     setIsGenerating(true);
     try {
       console.log('🔑 Generating/fetching 2FA secret...');
-      const result = await dispatch(generateTwoFactorSecret()).unwrap();
+      const result = await generateTwoFactorSecret();
       console.log('🔑 2FA secret result:', result);
       
-      if (result?.data?.qrCodeUri && result?.data?.secret) {
-        setSecretKey(result.data?.secret);
-        setManualEntryKey(withDefault(result?.data?.manualEntryKey, result?.data?.secret));
+      if (result.meta.requestStatus === 'fulfilled') {
+        const payload = result.payload;
         
-        // Generate QR code
-        const qrDataUrl = await QRCode.toDataURL(result?.data?.qrCodeUri);
-        console.log('📱 QR code generated successfully');
-        setQrCodeUrl(qrDataUrl);
-        setActiveStep(1);
-        console.log('✅ Moving to step 1 - QR code display');
+        // Type-safe response handling
+        if (payload && 
+            typeof payload === 'object' && 
+            'qrCodeUri' in payload && 
+            'secret' in payload &&
+            typeof payload.qrCodeUri === 'string' &&
+            typeof payload.secret === 'string') {
+          
+          setSecretKey(payload.secret);
+          const manualKey = 'manualEntryKey' in payload && typeof payload.manualEntryKey === 'string' 
+            ? payload.manualEntryKey 
+            : payload.secret;
+          setManualEntryKey(manualKey);
+          
+          // Generate QR code
+          const qrDataUrl = await QRCode.toDataURL(payload.qrCodeUri);
+          console.log('📱 QR code generated successfully');
+          setQrCodeUrl(qrDataUrl);
+          setActiveStep(1);
+          console.log('✅ Moving to step 1 - QR code display');
+        } else {
+          console.warn('⚠️ Invalid secret response format:', payload);
+          setVerificationError('Invalid response from server. Please try again.');
+        }
       } else {
-        console.warn('⚠️ Invalid secret response:', result);
-        setVerificationError('Invalid response from server. Please try again.');
+        console.warn('⚠️ Request failed:', result);
+        setVerificationError('Failed to generate secret. Please try again.');
       }
     } catch (err) {
       console.error('❌ Failed to generate 2FA secret:', err);
@@ -114,18 +135,44 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
     }
 
     try {
-      await dispatch(verifyTwoFactorCode({ 
-        userId: withDefault(user?.id, ''), // Use current user's ID
-        code: verificationCode
-      })).unwrap();
+      if (!user?.id) {
+        setVerificationError('User not authenticated. Please log in again.');
+        return;
+      }
       
-      setActiveStep(3);
-      setTimeout(() => {
-        onSuccess();
-        handleClose();
-      }, 1500);
-    } catch (err) {
-      setVerificationError('Invalid verification code. Please try again.');
+      const result = await verifyTwoFactorCode({ 
+        userId: user.id,
+        code: verificationCode
+      });
+      
+      if (result?.meta?.requestStatus === 'fulfilled') {
+        const payload = result.payload;
+        
+        // Check if verification was successful
+        if (payload && 
+            typeof payload === 'object' && 
+            ('success' in payload ? payload.success : true)) {
+          setActiveStep(3);
+          setTimeout(() => {
+            onSuccess();
+            handleClose();
+          }, 1500);
+        } else {
+          setVerificationError('Verification failed. Please check your code and try again.');
+        }
+      } else {
+        // Handle error case - result.meta.requestStatus is 'rejected'
+        const errorMsg = result?.meta?.requestStatus === 'rejected' && 'payload' in result 
+          ? (typeof result.payload === 'object' && result.payload && 'message' in result.payload 
+            ? String(result.payload.message) 
+            : 'Verification failed')
+          : 'Verification failed';
+        setVerificationError(errorMsg);
+      }
+    } catch (err: any) {
+      console.error('❌ 2FA verification error:', err);
+      const errorMessage = err?.message || 'Invalid verification code. Please try again.';
+      setVerificationError(errorMessage);
     }
   };
 
@@ -209,7 +256,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
                 value={manualEntryKey}
                 variant="outlined"
                 size="small"
-                InputProps={{ readOnly: true }}
+                slotProps={{ input: { readOnly: true }}}
                 sx={{ mb: 2 }}
                 onClick={(e) => (e.target as HTMLInputElement).select()}
               />
@@ -235,9 +282,13 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
                 onChange={handleCodeChange}
                 placeholder="000000"
                 variant="outlined"
-                inputProps={{
-                  maxLength: 6,
-                  style: { textAlign: 'center', fontSize: '24px', letterSpacing: '8px' }
+                slotProps={{
+                  input: {
+                    inputProps: {
+                      maxLength: 6,
+                      style: { textAlign: 'center', fontSize: '24px', letterSpacing: '8px' }
+                    }
+                  }
                 }}
                 sx={{ my: 2 }}
                 autoFocus
@@ -269,9 +320,9 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
             </Box>
           )}
 
-          {error && activeStep !== 3 && (
+          {errorMessage && activeStep !== 3 && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              {withDefault(error.message, 'An error occurred')}
+              {withDefault(errorMessage, 'An error occurred')}
             </Alert>
           )}
         </Box>

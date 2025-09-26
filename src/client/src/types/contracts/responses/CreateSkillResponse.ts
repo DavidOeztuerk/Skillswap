@@ -20,7 +20,7 @@ export interface SkillCategoryResponse {
 
 export interface ProficiencyLevelResponse{
   levelId: string,
-  level: string,  // Fixed: should be lowercase 'level' not 'Level'
+  level: string,
   rank: number,
   color?: string,
   skillCount?: number

@@ -7,12 +7,11 @@ import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import RefreshIcon from '@mui/icons-material/Refresh';
-
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { LoadingButton } from '../../components/common/LoadingButton';
 import authService from '../../api/services/authService';
-import { useAppDispatch } from '../../store/store.hooks';
-import { verifyEmail } from '../../features/auth/authSlice';
+import { useAuth } from '../../hooks/useAuth';
+import axios from 'axios';
 
 const verifyEmailSchema = z.object({
   code: z.string().min(6, 'Der Verifizierungscode muss mindestens 6 Zeichen lang sein'),
@@ -37,7 +36,7 @@ const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({
   const [isVerified, setIsVerified] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
-  const dispatch = useAppDispatch();
+  const { verifyEmail } = useAuth();
 
   // Get email and token from URL params if available
   const urlEmail = searchParams.get('email') || email;
@@ -75,17 +74,21 @@ const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({
     await withLoading(LoadingKeys.VERIFY_EMAIL, async () => {
       try {
         setError(null);
-        dispatch(verifyEmail({ email: urlEmail ?? "", verificationToken: code }))
+        await verifyEmail({ email: urlEmail ?? "", verificationToken: code })
         setIsVerified(true);
         if (onSuccess) {
           onSuccess();
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error('Email verification failed:', err);
-        setError(
-          err?.response?.data?.message || 
-          'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code oder fordern Sie einen neuen an.'
-        );
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ||
+            'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code oder fordern Sie einen neuen an.'
+          );
+        } else {
+          setError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+        }
       }
     });
   };
@@ -103,16 +106,20 @@ const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({
         setResendMessage(null);
         await authService.verifyEmail({ email: urlEmail || "", verificationToken: code});
         setResendMessage('Eine neue Verifizierungs-E-Mail wurde gesendet.');
-        setCooldown(60); // 60 second cooldown
+        setCooldown(60);
         if (onResendSuccess) {
           onResendSuccess();
         }
-      } catch (err: any) {
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ||
+            'Fehler beim Senden der Verifizierungs-E-Mail.'
+          );
+        } else {
+          setError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+        }
         console.error('Resend verification failed:', err);
-        setError(
-          err?.response?.data?.message || 
-          'Fehler beim Senden der Verifizierungs-E-Mail.'
-        );
       }
     });
   };

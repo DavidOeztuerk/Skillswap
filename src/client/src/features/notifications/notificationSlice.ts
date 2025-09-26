@@ -1,184 +1,22 @@
-// src/features/notifications/notificationSlice.ts
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import notificationService, { NotificationHistoryRequest } from '../../api/services/notificationService';
-import { NotificationState } from '../../types/states/NotificationState';
-import type { Notification, NotificationSettings } from '../../types/models/Notification';
-import { SliceError } from '../../store/types';
-import { withDefault } from '../../utils/safeAccess';
-import { serializeError } from '../../utils/reduxHelpers';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import type { Notification } from '../../types/models/Notification';
+import { withDefault, isDefined } from '../../utils/safeAccess';
+import { initialNotificationsState } from '../../store/adapters/notificationsAdapter+State';
+import { 
+  fetchNotifications, 
+  markNotificationAsRead, 
+  markAllNotificationsAsRead, 
+  fetchNotificationSettings, 
+  updateNotificationSettings, 
+  deleteNotification, 
+  subscribeToRealTimeNotifications, 
+  unsubscribeFromRealTimeNotifications, 
+  clearAllNotifications 
+} from './notificationThunks';
 
-const initialState: NotificationState = {
-  notifications: [],
-  unreadCount: 0,
-  totalCount: 0,
-  lastNotification: null,
-  isLoading: false,
-  isConnected: false,
-  connectionId: null,
-  settings: {
-    emailNotifications: true,
-    pushNotifications: true,
-    matchRequests: true,
-    appointmentReminders: true,
-    skillEndorsements: true,
-    systemUpdates: true,
-    desktopNotifications: true,
-  },
-  preferences: {
-    emailNotifications: true,
-    pushNotifications: true,
-    soundEnabled: true,
-    desktopNotifications: true,
-    categories: {
-      appointments: true,
-      matches: true,
-      messages: true,
-      system: true,
-      marketing: false,
-    },
-  },
-  filters: {
-    read: 'all',
-    type: 'all',
-    priority: 'all',
-    dateRange: null,
-  },
-  pagination: {
-    page: 1,
-    limit: 20,
-    total: 0,
-    totalPages: 0,
-  },
-  error: null,
-};
-
-// Async thunks
-export const fetchNotifications = createAsyncThunk(
-  'notifications/fetchNotifications',
-  async (request?: NotificationHistoryRequest, { rejectWithValue }) => {
-    try {
-      return await notificationService.getNotifications(request);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const subscribeToRealTimeNotifications = createAsyncThunk(
-  'notifications/subscribeRealTime',
-  async (userId: string, { rejectWithValue }) => {
-    try {
-      return await notificationService.subscribeToRealTime(userId);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const unsubscribeFromRealTimeNotifications = createAsyncThunk(
-  'notifications/unsubscribeRealTime',
-  async (_, { rejectWithValue }) => {
-    try {
-      await notificationService.unsubscribeFromRealTime();
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const clearAllNotifications = createAsyncThunk(
-  'notifications/clearAll',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await notificationService.clearAllNotifications();
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to clear all notifications');
-      }
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const markNotificationAsRead = createAsyncThunk(
-  'notifications/markAsRead',
-  async (notificationId: string, { rejectWithValue }) => {
-    try {
-      const response = await notificationService.markAsRead(notificationId);
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to mark notification as read');
-      }
-      return notificationId;
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const markAllNotificationsAsRead = createAsyncThunk(
-  'notifications/markAllAsRead',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await notificationService.markAllAsRead();
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to mark all notifications as read');
-      }
-      return true;
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const fetchNotificationSettings = createAsyncThunk(
-  'notifications/fetchSettings',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await notificationService.getSettings();
-      if (!response.success || !response.data) {
-        throw new Error(response.message || 'Failed to fetch notification settings');
-      }
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const updateNotificationSettings = createAsyncThunk(
-  'notifications/updateSettings',
-  async (settings: NotificationSettings, { rejectWithValue }) => {
-    try {
-      const response = await notificationService.updateSettings(settings);
-      if (!response.success || !response.data) {
-        throw new Error(response.message || 'Failed to update notification settings');
-      }
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const deleteNotification = createAsyncThunk(
-  'notifications/deleteNotification',
-  async (notificationId: string, { rejectWithValue }) => {
-    try {
-      const response = await notificationService.deleteNotification(notificationId);
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to delete notification');
-      }
-      return notificationId;
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Slice
 const notificationSlice = createSlice({
   name: 'notifications',
-  initialState,
+  initialState: initialNotificationsState,
   reducers: {
     addNotification: (state, action: PayloadAction<Notification>) => {
       state.notifications.unshift(action.payload);
@@ -206,20 +44,20 @@ const notificationSlice = createSlice({
       state.connectionId = action.payload;
     },
     
-    setNotificationPreferences: (state, action: PayloadAction<Partial<NotificationState['preferences']>>) => {
+    setNotificationPreferences: (state, action) => {
       state.preferences = { ...state.preferences, ...action.payload };
     },
     
-    setNotificationFilters: (state, action: PayloadAction<Partial<NotificationState['filters']>>) => {
+    setNotificationFilters: (state, action) => {
       state.filters = { ...state.filters, ...action.payload };
     },
     
-    setPagination: (state, action: PayloadAction<Partial<NotificationState['pagination']>>) => {
+    setPagination: (state, action) => {
       state.pagination = { ...state.pagination, ...action.payload };
     },
     
     clearError: (state) => {
-      state.error = null;
+      state.errorMessage = undefined;
     },
     
     setLoading: (state, action: PayloadAction<boolean>) => {
@@ -267,12 +105,12 @@ const notificationSlice = createSlice({
       // Fetch Notifications
       .addCase(fetchNotifications.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.isLoading = false;
         // PagedResponse has data at root level - data is an array
-        if (action.payload && action.payload.data) {
+        if (isDefined(action.payload.data)) {
           state.notifications = action.payload.data;
           state.unreadCount = state.notifications.filter((n) => !n.isRead).length;
         } else {
@@ -280,23 +118,21 @@ const notificationSlice = createSlice({
           state.unreadCount = 0;
         }
         // Update pagination
-        if (action.payload) {
-          state.pagination = {
-            page: withDefault(action.payload.pageNumber, 1),
-            limit: withDefault(action.payload.pageSize, 20),
-            total: withDefault(action.payload.totalRecords, 0),
-            totalPages: withDefault(action.payload.totalPages, 0),
-          };
-        }
+        state.pagination = {
+          page: withDefault(action.payload.pagination.pageNumber, 1),
+          limit: withDefault(action.payload.pagination.pageSize, 20),
+          total: withDefault(action.payload.pagination.totalRecords, 0),
+          totalPages: withDefault(action.payload.pagination.totalPages, 0),
+        };
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Mark as Read
       .addCase(markNotificationAsRead.fulfilled, (state, action) => {
-        const notification = state.notifications.find(n => n.id === action.payload);
+        const notification = state.notifications.find(n => n.id === action.meta.arg);
         if (notification && !notification.isRead) {
           notification.isRead = true;
           notification.readAt = new Date().toISOString();
@@ -304,7 +140,7 @@ const notificationSlice = createSlice({
         }
       })
       .addCase(markNotificationAsRead.rejected, (state, action) => {
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Mark All as Read
@@ -319,40 +155,44 @@ const notificationSlice = createSlice({
         state.unreadCount = 0;
       })
       .addCase(markAllNotificationsAsRead.rejected, (state, action) => {
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Fetch Settings
       .addCase(fetchNotificationSettings.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchNotificationSettings.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.settings = action.payload;
+        if (isDefined(action.payload.data)) {
+          state.settings = action.payload.data;
+        }
       })
       .addCase(fetchNotificationSettings.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Update Settings
       .addCase(updateNotificationSettings.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(updateNotificationSettings.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.settings = action.payload;
+        if (isDefined(action.payload.data)) {
+          state.settings = action.payload.data;
+        }
       })
       .addCase(updateNotificationSettings.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Delete Notification
       .addCase(deleteNotification.fulfilled, (state, action) => {
-        const index = state.notifications.findIndex(n => n.id === action.payload);
+        const index = state.notifications.findIndex(n => n.id === action.meta.arg);
         if (index !== -1) {
           const notification = state.notifications[index];
           if (!notification.isRead) {
@@ -362,7 +202,7 @@ const notificationSlice = createSlice({
         }
       })
       .addCase(deleteNotification.rejected, (state, action) => {
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
       
       // Subscribe to Real-time
@@ -371,7 +211,7 @@ const notificationSlice = createSlice({
       })
       .addCase(subscribeToRealTimeNotifications.rejected, (state, action) => {
         state.isConnected = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
       
       // Unsubscribe from Real-time

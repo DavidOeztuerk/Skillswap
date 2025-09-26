@@ -86,7 +86,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
       try {
         await fetchProficiencyLevels();
         setError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setError('Failed to load proficiency levels');
       } finally {
         setLoading(false);
@@ -101,7 +101,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
     try {
       await fetchProficiencyLevels();
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to refresh proficiency levels');
     } finally {
       setLoading(false);
@@ -166,32 +166,40 @@ const ProficiencyLevelsManagement: React.FC = () => {
 
     setSaving(true);
     try {
-      let success = false;
+      let result: any;
       
       if (selectedLevel) {
         // Update existing level using the hook
-        success = await updateProficiencyLevel(
+        result = await updateProficiencyLevel(
           selectedLevel.id,
-          formData.level,
-          formData.rank
+          {
+            level: formData.level,
+            rank: formData.rank
+          }
         );
       } else {
         // Create new level using the hook
-        success = await createProficiencyLevel(
-          formData.level,
-          formData.rank
-        );
+        result = await createProficiencyLevel({
+          level: formData.level,
+          rank: formData.rank
+        });
       }
       
-      if (success) {
+      if (result.meta.requestStatus === 'fulfilled') {
         await fetchProficiencyLevels(); // Refresh levels
         handleCloseDialog();
         setError(null);
       } else {
         setError('Failed to save proficiency level');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save proficiency level');
+    } catch (err: unknown) {
+      const isAxiosError = (error: unknown): error is { response: { data: { message?: string } } } => {
+        return typeof error === 'object' && error !== null && 'response' in error;
+      };
+      
+      const errorMessage = isAxiosError(err) ? err.response?.data?.message || 'Failed to save proficiency level' :
+                          err instanceof Error ? err.message : 'Failed to save proficiency level';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -211,8 +219,14 @@ const ProficiencyLevelsManagement: React.FC = () => {
       } else {
         setError('Failed to delete proficiency level');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete proficiency level');
+    } catch (err: unknown) {
+      const isAxiosError = (error: unknown): error is { response: { data: { message?: string } } } => {
+        return typeof error === 'object' && error !== null && 'response' in error;
+      };
+      
+      const errorMessage = isAxiosError(err) ? err.response?.data?.message || 'Failed to delete proficiency level' :
+                          err instanceof Error ? err.message : 'Failed to delete proficiency level';
+      setError(errorMessage);
     }
   };
 
@@ -277,7 +291,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
 
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -294,7 +308,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        {/* <Grid item xs={12} sm={6} md={3}>
+        {/* <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -311,7 +325,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid> */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -328,7 +342,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">

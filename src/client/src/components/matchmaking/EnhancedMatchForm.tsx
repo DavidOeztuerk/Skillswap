@@ -683,7 +683,7 @@ const EnhancedMatchForm: React.FC<EnhancedMatchFormProps> = ({
                           type="submit"
                           variant="contained"
                           loading={isLoading}
-                          disabled={isLoading || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
+                          disabled={isLoading || Object.keys(errors).filter(key => key !== 'root').length > 0}
                           startIcon={<SkillIcon />}
                         >
                           Anfrage senden

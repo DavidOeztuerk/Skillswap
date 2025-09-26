@@ -1,4 +1,3 @@
-// src/services/errorService.ts
 import { store } from '../store/store';
 import { addNotification } from '../features/notifications/notificationSlice';
 import { NotificationType } from '../types/models/Notification';
