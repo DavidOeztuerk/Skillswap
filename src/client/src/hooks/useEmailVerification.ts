@@ -2,10 +2,11 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAppSelector } from '../store/store.hooks';
 import { useSearchParams } from 'react-router-dom';
 import authService from '../api/services/authService';
+import { selectAuthUser } from '../store/selectors/authSelectors';
 
 const SNOOZE_KEY = 'emailVerifySnoozeUntil';
 const LAST_PROMPT_KEY = 'emailVerifyLastPrompt';
-const MIN_PROMPT_INTERVAL = 60 * 60 * 1000; // 1 hour minimum between prompts
+const MIN_PROMPT_INTERVAL = 60 * 60 * 1000;
 
 /**
  * Hook for managing email verification state and modal
@@ -15,7 +16,7 @@ export const useEmailVerification = () => {
   const [verificationStatus, setVerificationStatus] = useState<any>(null);
   const [hasShownThisSession, setHasShownThisSession] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAppSelector((state) => state.auth);
+  const user = useAppSelector(selectAuthUser);
   
   // Check if user needs email verification
   const needsVerification = user && !user.emailVerified;

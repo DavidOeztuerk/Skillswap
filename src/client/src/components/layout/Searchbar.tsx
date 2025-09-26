@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   InputBase,
@@ -22,10 +22,8 @@ import {
   EmojiObjects as SkillIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useSkills } from '../../hooks/useSkills';
 import { Skill } from '../../types/models/Skill';
 import { User } from '../../types/models/User';
-import { useDebounce } from '../../hooks/useDebounce';
 
 type SearchResult = {
   skills: {
@@ -46,13 +44,9 @@ const SearchBar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-
-  // Skills aus dem Hook holen
-  const { skills, searchSkillsByQuery, isLoading } = useSkills();
 
   // Beispiel-Zustand für die Suchergebnisse
-  const [searchResults, setSearchResults] = useState<SearchResult>({
+  const [searchResults] = useState<SearchResult>({
     skills: {
       items: [],
       isLoading: false,
@@ -70,31 +64,31 @@ const SearchBar: React.FC = () => {
     ],
   });
 
-  // Effekt für die Suche
-  useEffect(() => {
-    if (debouncedSearchQuery.length > 2) {
-      // Skills suchen
-      searchSkillsByQuery(debouncedSearchQuery);
+  // TEMPORARY DISABLE - CAUSING INFINITE LOOP - EXACT ERROR FROM STACK TRACE!
+  // useEffect(() => {
+  //   if (debouncedSearchQuery.length > 2) {
+  //     // Skills suchen
+  //     searchSkillsByQuery(debouncedSearchQuery);
+  //
+  //     // Hier könntest du weitere Suchoperationen durchführen, z.B. nach Benutzern suchen
+  //     // Diese könnten aus einem useUsers Hook kommen
+  //
+  //     setIsOpen(true);
+  //   } else if (debouncedSearchQuery?.length === 0) {
+  //     setIsOpen(false);
+  //   }
+  // }, [debouncedSearchQuery, searchSkillsByQuery]);
 
-      // Hier könntest du weitere Suchoperationen durchführen, z.B. nach Benutzern suchen
-      // Diese könnten aus einem useUsers Hook kommen
-
-      setIsOpen(true);
-    } else if (debouncedSearchQuery?.length === 0) {
-      setIsOpen(false);
-    }
-  }, [debouncedSearchQuery, searchSkillsByQuery]);
-
-  // Wenn sich die Skills ändern, Suchergebnisse aktualisieren
-  useEffect(() => {
-    setSearchResults((prev) => ({
-      ...prev,
-      skills: {
-        items: skills || [],
-        isLoading: isLoading,
-      },
-    }));
-  }, [skills, isLoading]);
+  // TEMPORARY DISABLE - CAUSING INFINITE setState LOOPS!
+  // useEffect(() => {
+  //   setSearchResults((prev: SearchResult) => ({
+  //     ...prev,
+  //     skills: {
+  //       items: skills || [],
+  //       isLoading: isLoading,
+  //     },
+  //   }));
+  // }, [skills, isLoading]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);

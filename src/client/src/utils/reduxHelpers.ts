@@ -1,52 +1,56 @@
-// Redux helper utilities
-import { SliceError } from '../store/types';
+// import axios from 'axios';
+// import { ApiError } from '../api/apiClient';
 
-/**
- * Converts Error objects and other non-serializable errors to serializable format
- * This prevents Redux Toolkit non-serializable value warnings
- */
-export const serializeError = (error: any): SliceError => {
-  if (!error) return null;
-  
-  // If it's already a proper serializable object, use it
-  if (error && typeof error === 'object' && error.message && !error.stack) {
-    return error;
-  }
-  
-  // Convert Error object or other non-serializable to serializable format
-  return {
-    message: error?.response?.data?.message || error?.response?.data?.detail || error?.message || error?.toString() || 'Unknown error',
-    code: error?.response?.status || error?.response?.data?.status || error?.code || 'UNKNOWN',
-    details: error?.response?.data || error?.details || null
-  };
-};
+// // export interface SliceError {
+// //   message: string;
+// //   code?: string;
+// //   details?: string;
+// //   statusCode?: number;
+// // }
 
-/**
- * Helper to safely extract error message from various error formats
- */
-export const getErrorMessage = (error: any): string => {
-  if (!error) return 'Unknown error';
+// /**
+//  * Serializes errors for consistent handling across Redux slices
+//  * @param error - The error to serialize
+//  * @returns Serialized error object
+//  */
+// export const serializeError = (error: unknown): ApiError => {
+//   if (axios.isAxiosError(error)) {
+//     return {
+//       message: error.response?.data?.message || error.message,
+//       errorCode: error.response?.status?.toString() || 'AXIOS_ERROR',
+//       details: typeof error.response?.data === 'string' ? error.response.data : JSON.stringify(error.response?.data || {}),
+//       statusCode: error.response?.status || 0,
+//     };
+//   }
   
-  // Direct message
-  if (typeof error === 'string') return error;
-  
-  // Error object or API response
-  return error?.message || 
-         error?.response?.data?.message || 
-         error?.data?.message ||
-         error?.toString() || 
-         'Unknown error';
-};
+//   if (error instanceof Error) {
+//     return {
+//       message: error.message,
+//       code: 'ERROR',
+//       details: error.stack
+//     };
+//   }
 
-/**
- * Helper to extract error code from various error formats
- */
-export const getErrorCode = (error: any): string => {
-  if (!error) return 'UNKNOWN';
-  
-  return error?.code || 
-         error?.errorCode ||
-         error?.response?.status?.toString() ||
-         error?.status?.toString() ||
-         'UNKNOWN';
-};
+//   if (typeof error === 'string') {
+//     return {
+//       message: error,
+//       code: 'STRING_ERROR'
+//     };
+//   }
+
+//   return {
+//     message: 'An unexpected error occurred',
+//     code: 'UNKNOWN_ERROR',
+//     details: JSON.stringify(error)
+//   };
+// };
+
+// /**
+//  * Gets a human-readable error message from a SliceError
+//  * @param error - The SliceError to extract message from
+//  * @returns Human-readable error message
+//  */
+// export const getErrorMessage = (error: SliceError | null): string => {
+//   if (!error) return '';
+//   return error.message || 'An unexpected error occurred';
+// };

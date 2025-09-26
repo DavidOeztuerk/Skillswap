@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -32,156 +32,77 @@ import { SkeletonLoader } from '../components/ui/SkeletonLoader';
 import ApiErrorHandler from '../components/error/ApiErrorHandler';
 import { useApiErrorRecovery } from '../hooks/useApiErrorRecovery';
 import { useLoading, LoadingKeys } from '../contexts/LoadingContext';
-import { useAuth } from '../hooks/useAuth';
-import { useSkills } from '../hooks/useSkills';
-import { useAppointments } from '../hooks/useAppointments';
-import { useMatchmaking } from '../hooks/useMatchmaking';
-import { useNotifications } from '../hooks/useNotifications';
+import { useDashboard } from '../hooks/useDashboard';
 import { formatDateTimeRange } from '../utils/dateUtils';
 import { withDefault } from '../utils/safeAccess';
 
 /**
  * Dashboard-Seite der Anwendung
  */
-const DashboardPage: React.FC = () => {
+const DashboardPage: React.FC = memo(() => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { withLoading, isLoading } = useLoading();
-  const { userSkills, fetchUserSkills, isLoading: skillsLoading } = useSkills();
-  const {
-    appointments,
-    loadAppointments,
-    isLoading: appointmentsLoading,
-  } = useAppointments();
-  const {
-    matches,
-    incomingRequests,
-    // outgoingRequests,
-    loadMatches,
-    loadIncomingRequests,
-    loadOutgoingRequests,
-    isLoading: matchingLoading,
-  } = useMatchmaking();
-  const {
-    notifications,
-    unreadCount,
-    isLoading: notificationsLoading,
-  } = useNotifications();
+  const { 
+    user,
+    cards,
+    teachingSkills,
+    learningSkills,
+    upcomingAppointments,
+    loadDashboardData,
+    isLoading,
+    hasErrors,
+    errors,
+  } = useDashboard();
+  const { withLoading, isLoading: contextLoading } = useLoading();
 
   const {
     executeWithRecovery,
-    error,
+    error: recoveryError,
     isRetrying,
     retryCount,
     retry,
     getErrorType,
   } = useApiErrorRecovery();
 
-  // Daten laden mit Error Recovery
-  // const loadDashboardData = async () => {
-  //   await executeWithRecovery(async () => {
-  //     await Promise.all([
-  //       fetchUserSkills(),
-  //       loadAppointments(),
-  //       loadMatches(),
-  //       loadIncomingRequests(),
-  //       loadOutgoingRequests(),
-  //     ]);
-  //   }, {
-  //     maxRetries: 2,
-  //     retryDelay: 1000,
-  //     exponentialBackoff: true,
-  //   });
-  // };
-
-  // Load data with loading context
-  useEffect(() => {
-    const loadData = async () => {
-      await withLoading(LoadingKeys.FETCH_DATA, async () => {
-        await executeWithRecovery(async () => {
-          await Promise.all([
-            fetchUserSkills(),
-            loadAppointments(),
-            loadMatches(),
-            loadIncomingRequests(),
-            loadOutgoingRequests(),
-          ]);
-        }, {
-          maxRetries: 2,
-          retryDelay: 1000,
-          exponentialBackoff: true,
-        });
+  // ✅ FIXED STABLE DATA LOADING - no more infinite loops!
+  const loadData = useCallback(async () => {
+    await withLoading(LoadingKeys.FETCH_DATA, async () => {
+      await executeWithRecovery(async () => {
+        // 🎯 Fixed: Uses centralized dashboard hook with proper data loading
+        await loadDashboardData();
+      }, {
+        maxRetries: 1,
+        retryDelay: 2000,
+        exponentialBackoff: false,
       });
-    };
-    
+    });
+  }, [withLoading, executeWithRecovery, loadDashboardData]);
+
+  useEffect(() => {
     void loadData();
-  }, [withLoading]); // Added withLoading to dependencies
+  }, [loadData]); 
 
-  // Statistiken berechnen
-  const totalSkills = userSkills?.length;
-  const teachingSkillsCount = userSkills?.filter(skill => skill?.isOffered).length;
-  const pendingAppointments = appointments?.filter(appt => appt?.status === 'Pending').length;
-  const totalMatches = matches?.length;
-  const pendingMatchRequests = incomingRequests?.filter(req => req?.status === 'pending').length;
+  // ⚡ PERFORMANCE: Memoize dashboard cards to prevent re-creation on every render
+  const dashboardCards = useMemo(() => cards.map(card => ({
+    ...card,
+    icon: card.title === 'Skills' ? <SkillsIcon fontSize="large" /> :
+          card.title === 'Matches' ? <MatchmakingIcon fontSize="large" /> :
+          card.title === 'Termine' ? <AppointmentsIcon fontSize="large" /> :
+          <PersonIcon fontSize="large" />,
+    action: () => navigate(card.path),
+  })), [cards, navigate]);
 
-  // Dashboard-Karten mit echten Daten
-  const dashboardCards = [
-    {
-      title: 'Skills',
-      icon: <SkillsIcon fontSize="large" />,
-      description: `${totalSkills} Skills • ${teachingSkillsCount} zum Lehren`,
-      action: () => navigate('/skills'),
-      color: '#4caf50',
-      count: totalSkills,
-    },
-    {
-      title: 'Matches',
-      icon: <MatchmakingIcon fontSize="large" />,
-      description: `${totalMatches} active matches${pendingMatchRequests > 0 ? ` • ${pendingMatchRequests} new requests` : ''}`,
-      action: () => navigate('/matchmaking'),
-      color: '#ff9800',
-      count: totalMatches,
-      badge: pendingMatchRequests,
-    },
-    {
-      title: 'Termine',
-      icon: <AppointmentsIcon fontSize="large" />,
-      description: `${appointments.length} Termine${pendingAppointments > 0 ? ` • ${pendingAppointments} ausstehend` : ''}`,
-      action: () => navigate('/appointments'),
-      color: '#e91e63',
-      count: appointments.length,
-      badge: pendingAppointments,
-    },
-    {
-      title: 'Benachrichtigungen',
-      icon: <PersonIcon fontSize="large" />,
-      description: `${notifications.length} messages${withDefault(unreadCount, 0) > 0 ? ` • ${unreadCount} unread` : ''}`,
-      action: () => navigate('/profile'),
-      color: '#3f51b5',
-      count: notifications.length,
-      badge: withDefault(unreadCount, 0),
-    },
-  ];
+  // ✅ Data already computed via selectors - teachingSkills, learningSkills, upcomingAppointments
 
-  // Aktuelle Lehrskills
-  const teachingSkills = userSkills?.filter((skill) => skill?.isOffered);
-  // Aktuelle Lernwünsche
-  // const learningSkills = safeUserSkills.filter((skill) => skill?.isLearnable);
-
-  // Anstehende Termine (max. 3)
-  const upcomingAppointments = appointments
-    .filter(
-      (appt) =>
-        appt?.startTime && new Date(appt.startTime) > new Date() && appt?.status === 'Confirmed'
-    )
-    .sort(
-      (a, b) =>
-        new Date(a?.startTime || 0).getTime() - new Date(b?.startTime || 0).getTime()
-    )
-    .slice(0, 3);
-
-  const isDashboardLoading = isLoading(LoadingKeys.FETCH_DATA) || 
-    skillsLoading || appointmentsLoading || matchingLoading || notificationsLoading;
+  // ⚡ PERFORMANCE: Memoize loading and error states
+  const isDashboardLoading = useMemo(() => 
+    contextLoading(LoadingKeys.FETCH_DATA) || isLoading, 
+    [contextLoading, isLoading]
+  );
+  
+  const displayError = useMemo(() => 
+    hasErrors ? errors[0] : recoveryError, 
+    [hasErrors, errors, recoveryError]
+  );
 
   return (
     <PageContainer>
@@ -190,11 +111,11 @@ const DashboardPage: React.FC = () => {
         subtitle="Here you'll find an overview of your activities"
       />
 
-      {error && (
+      {displayError && (
         <ApiErrorHandler
           error={{
             type: getErrorType().toUpperCase() as any,
-            message: error.message,
+            message: typeof displayError === 'string' ? displayError : displayError?.message || 'Unknown error',
           }}
           onRetry={retry}
           isRetrying={isRetrying}
@@ -204,7 +125,7 @@ const DashboardPage: React.FC = () => {
         />
       )}
 
-      {!error && isDashboardLoading ? (
+      {!displayError && isDashboardLoading ? (
         <Grid container columns={12} spacing={3}>
           {/* Dashboard Cards Skeleton */}
           <Grid size={{ xs: 12 }}>
@@ -228,7 +149,7 @@ const DashboardPage: React.FC = () => {
             <SkeletonLoader variant="list" count={5} />
           </Grid>
         </Grid>
-      ) : !error && (
+      ) : !displayError && (
         <Grid container columns={12} spacing={3}>
           {/* Übersichtskarten */}
           <Grid size={{ xs: 12 }}>
@@ -453,9 +374,9 @@ const DashboardPage: React.FC = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {userSkills && userSkills.length > 0 ? (
+              {learningSkills && learningSkills.length > 0 ? (
                 <List disablePadding>
-                  {userSkills.slice(0, 5).map((userSkill) => (
+                  {learningSkills.slice(0, 5).map((userSkill) => (
                     <React.Fragment key={userSkill.id}>
                       <ListItem sx={{ px: 0 }}>
                         <ListItemIcon>
@@ -492,6 +413,9 @@ const DashboardPage: React.FC = () => {
       )}
     </PageContainer>
   );
-};
+});
+
+// Add display name for debugging
+DashboardPage.displayName = 'DashboardPage';
 
 export default DashboardPage;

@@ -26,12 +26,10 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { de } from 'date-fns/locale';
 import { startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
-
 import AppointmentCard from './AppointmentCard';
 import SkeletonLoader from '../ui/SkeletonLoader';
 import EmptyState from '../ui/EmptyState';
 import { Appointment } from '../../types/models/Appointment';
-import { SliceError } from '../../store/types';
 
 /**
  * Props für die Terminliste
@@ -39,7 +37,7 @@ import { SliceError } from '../../store/types';
 interface AppointmentListProps {
   appointments: Appointment[];
   isLoading?: boolean;
-  error?: SliceError | null;
+  error?: string | null;
   userRole?: 'teacher' | 'student';
   onConfirm?: (appointmentId: string) => void;
   onCancel?: (appointmentId: string) => void;
@@ -186,7 +184,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
     return (
       <EmptyState
         title="Fehler beim Laden der Termine"
-        description={error.message}
+        description={error}
         actionLabel="Erneut versuchen"
         actionHandler={() => window.location.reload()}
       />

@@ -1,4 +1,3 @@
-// SkillForm.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -12,7 +11,6 @@ import {
   Typography,
   Switch,
   FormControlLabel,
-  // useTheme,
   CircularProgress,
 } from '@mui/material';
 import FormDialog from '../ui/FormDialog';
@@ -24,14 +22,6 @@ import {
 } from '../../types/models/Skill';
 import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
 import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
-
-// interface SkillRequest {
-//   name: string;
-//   description: string;
-//   isOffering: boolean;
-//   skillCategoryId: string;
-//   proficiencyLevelId: string;
-// }
 
 interface SkillFormProps {
   open: boolean;
@@ -56,8 +46,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
   title,
   error,
 }) => {
-  // const theme = useTheme();
-
   const [formValues, setFormValues] = useState<CreateSkillRequest>({
     name: '',
     description: '',
@@ -68,17 +56,14 @@ const SkillForm: React.FC<SkillFormProps> = ({
 
   const [errors, setErrors] = useState<Partial<CreateSkillRequest>>({});
 
-  // Helper function to get the correct ID field from categories
   const getCategoryId = (category: SkillCategory): string => {
     return category.id || '';
   };
 
-  // Helper function to get the correct ID field from proficiency levels
   const getProficiencyLevelId = (level: ProficiencyLevel): string => {
     return level.id || '';
   };
 
-  // Helper function to get rank from proficiency level
   const getProficiencyLevelRank = (level: ProficiencyLevel): number => {
     return level.rank || 0;
   };
@@ -118,13 +103,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
 
   const handleSelectChange = (e: SelectChangeEvent<string>) => {
     const { name, value } = e.target;
-    console.log('[SkillForm] Select change:', { name, value });
-
-    setFormValues((prev) => {
-      const newValues = { ...prev, [name]: value };
-      console.log('[SkillForm] New form values:', newValues);
-      return newValues;
-    });
+    setFormValues((prev) => ({ ...prev, [name]: value }));
 
     if (errors[name as keyof CreateSkillRequest]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
@@ -143,7 +122,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
       newErrors.name = 'Name ist erforderlich';
     }
 
-    // Backend requires description to be between 10-2000 characters
     if (!formValues.description.trim()) {
       newErrors.description = 'Beschreibung ist erforderlich';
     } else if (formValues.description?.trim()?.length < 10) {
@@ -161,17 +139,12 @@ const SkillForm: React.FC<SkillFormProps> = ({
       newErrors.proficiencyLevelId = 'Fertigkeitsstufe ist erforderlich';
     }
 
-    console.log('[SkillForm] Validation errors:', newErrors);
-    console.log('[SkillForm] Current form values:', formValues);
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[SkillForm] handleSubmit -> formValues:', formValues);
-
     if (validateForm()) {
       onSubmit(
         {
@@ -192,7 +165,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
     }
   };
 
-  // Debug: Check if we have valid data
   const hasCategories = Array.isArray(categories) && categories?.length > 0;
   const hasProficiencyLevels =
     Array.isArray(proficiencyLevels) && proficiencyLevels?.length > 0;

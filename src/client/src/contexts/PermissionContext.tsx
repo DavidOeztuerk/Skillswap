@@ -1,18 +1,16 @@
-// src/client/src/contexts/PermissionContext.tsx
 import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
-  useMemo,
   useRef,
-  useState
+  useState,
+  useEffect
 } from "react";
 import { useAuth } from "../hooks/useAuth";
-import apiClient from "../api/apiClient";
 import { withDefault } from "../utils/safeAccess";
-import { decodeToken } from "../utils/authHelpers";
-import type { ApiResponse } from "../types/common/ApiResponse";
+import { decodeToken, getToken } from "../utils/authHelpers";
+import { apiClient } from "../api/apiClient";
+import { ApiResponse, isSuccessResponse } from "../types/api/UnifiedResponse";
 
 // ---- Types ----
 interface Permission {
@@ -85,7 +83,7 @@ export const usePermissions = () => {
 interface PermissionProviderProps { children: React.ReactNode; }
 
 export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children }) => {
-  const { user, isAuthenticated, token } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [permissions, setPermissions] = useState<string[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
@@ -95,12 +93,13 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   const lastFetchTime = useRef<number | null>(null);
-  const didInitialFetch = useRef(false);
 
   const RATE_LIMIT_MS = 5 * 60 * 1000; // 5min
 
-  const fetchPermissions = useCallback(async (force = false): Promise<boolean> => {
-    if (!isAuthenticated || !token) {
+  const fetchPermissionsRef = useRef<(force?: boolean) => Promise<boolean>>(() => Promise.resolve(false));
+  
+  fetchPermissionsRef.current = async (force = false): Promise<boolean> => {
+    if (!isAuthenticated || !getToken()) {
       return false; // gate on token, nicht auf user
     }
 
@@ -112,59 +111,96 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
     setError(null);
 
     try {
-      const resp = await apiClient.get<ApiResponse<UserPermissions>>("/api/users/permissions/my");
-      if (resp?.success && resp?.data) {
-        const d = resp.data;
-        setPermissions(withDefault(d.permissionNames, []));
-        setRoles(withDefault(d.roles, []));
-        setPermissionDetails(withDefault(d.permissions, []));
-        setPermissionsByCategory(withDefault(d.permissionsByCategory, {}));
+      console.log('🚀 PermissionContext: Fetching permissions from API...');
+      const resp = await apiClient.get<UserPermissions>("/api/users/permissions/my");
+      
+      if (isSuccessResponse(resp)) {
+        const permissionNames = withDefault(resp.data.permissionNames, []);
+        const roles = withDefault(resp.data.roles, []);
+        
+        console.log('✅ PermissionContext: API fetch successful', { 
+          permissionCount: permissionNames.length, 
+          roleCount: roles.length,
+          permissions: permissionNames,
+          roles: roles 
+        });
+        
+        setPermissions(permissionNames);
+        setRoles(roles);
+        setPermissionDetails(withDefault(resp.data.permissions, []));
+        setPermissionsByCategory(withDefault(resp.data.permissionsByCategory, {}));
+        setError(null);
         lastFetchTime.current = Date.now();
         return true;
       }
+      
+      console.error('❌ PermissionContext: API returned failure', resp);
       setError(resp?.message ?? "Failed to load permissions");
       return false;
     } catch (e) {
-      // Fallback aus Token (robustes Base64URL-Decoding)
+      console.warn('⚠️ PermissionContext: API call failed, using token fallback', e);
+      
+      const token = getToken();
       const payload = token ? decodeToken(token) : null;
-      const tokenRoles = (payload?.roles ?? payload?.authorities) ?? [];
-      const tokenPerms = (payload?.permissions) ?? [];
-
-      setRoles(Array.isArray(tokenRoles) ? tokenRoles : []);
-      setPermissions(Array.isArray(tokenPerms) ? tokenPerms : []);
-
-      setError("Permissions fetched from token fallback");
+      
+      if (payload) {
+        const tokenRoles = (payload?.roles ?? payload?.authorities) ?? [];
+        const tokenPerms = (payload?.permissions) ?? [];
+        
+        console.log('🔄 PermissionContext: Token fallback data', { 
+          tokenRoles, 
+          tokenPerms,
+          hasRoles: Array.isArray(tokenRoles) && tokenRoles.length > 0,
+          hasPerms: Array.isArray(tokenPerms) && tokenPerms.length > 0
+        });
+        
+        setRoles(Array.isArray(tokenRoles) ? tokenRoles : []);
+        setPermissions(Array.isArray(tokenPerms) ? tokenPerms : []);
+        setError(`API unavailable, using token fallback (${tokenRoles.length} roles)`);
+      } else {
+        console.error('❌ PermissionContext: No valid token for fallback');
+        setRoles([]);
+        setPermissions([]);
+        setError('Failed to load permissions - no valid token');
+      }
+      
       return false;
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token]);
+  };
 
-  // Initial + on changes
+  const fetchPermissions = useCallback((force = false) => {
+    return fetchPermissionsRef.current?.(force) ?? Promise.resolve(false);
+  }, []); 
+
+  // ---- Auto-fetch permissions on authentication ----
   useEffect(() => {
-    if (!isAuthenticated || !token) {
+    console.log('🔐 PermissionContext: Authentication state changed', { 
+      isAuthenticated, 
+      hasUser: !!user,
+      loading 
+    });
+
+    if (isAuthenticated && user && !loading) {
+      console.log('🚀 PermissionContext: Auto-fetching permissions for authenticated user');
+      fetchPermissions(false).then((success) => {
+        if (success) {
+          console.log('✅ PermissionContext: Permissions loaded successfully');
+        } else {
+          console.warn('⚠️ PermissionContext: Failed to load permissions, using token fallback');
+        }
+      });
+    } else if (!isAuthenticated) {
+      console.log('🧹 PermissionContext: User not authenticated, clearing permissions');
       setPermissions([]);
       setRoles([]);
       setPermissionDetails([]);
       setPermissionsByCategory({});
-      didInitialFetch.current = false;
-      return;
+      setError(null);
+      lastFetchTime.current = null;
     }
-
-    if (didInitialFetch.current) return;
-
-    (async () => {
-      const ok = await fetchPermissions(true);
-      didInitialFetch.current = ok; // nur bei Erfolg latchen
-      if (!ok) {
-        // erneut versuchen, sobald userId kommt (optional)
-        if (user?.id) {
-          await fetchPermissions(true);
-          didInitialFetch.current = true;
-        }
-      }
-    })();
-  }, [isAuthenticated, token, user?.id, fetchPermissions]);
+  }, [isAuthenticated, user, loading, fetchPermissions]);
 
   // ---- Checks ----
   const hasPermission = useCallback((perm: string, resourceId?: string): boolean => {
@@ -230,11 +266,12 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
     if (userId === user?.id) await fetchPermissions(true);
   }, [hasAnyRole, user?.id, fetchPermissions]);
 
-  // ---- Derived ----
-  const isAdmin = useMemo(() => hasAnyRole("Admin", "SuperAdmin"), [hasAnyRole]);
-  const isSuperAdmin = useMemo(() => hasRole("SuperAdmin"), [hasRole]);
-  const isModerator = useMemo(() => hasRole("Moderator") || isAdmin, [hasRole, isAdmin]);
+  // ---- Derived - REMOVED useMemo to prevent loops ----
+  const isAdmin = hasAnyRole("Admin", "SuperAdmin");
+  const isSuperAdmin = hasRole("SuperAdmin");
+  const isModerator = hasRole("Moderator") || isAdmin;
 
+  // REMOVED PROBLEMATIC useMemo - was causing infinite re-renders!
   const value: PermissionContextType = {
     permissions,
     roles,

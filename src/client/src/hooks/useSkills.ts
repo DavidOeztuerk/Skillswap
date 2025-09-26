@@ -1,1011 +1,354 @@
-// src/hooks/useSkills.ts
-import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { serializeError } from '../utils/reduxHelpers';
-import {
-  fetchAllSkills as fetchAllSkillsAction,
-  fetchSkillById as fetchSkillByIdAction,
-  fetchUserSkills as fetchUserSkillsAction,
-  createSkill as createSkillAction,
-  updateSkill as updateSkillAction,
-  deleteSkill as deleteSkillAction,
-  rateSkill as rateSkillAction,
-  endorseSkill as endorseSkillAction,
-  fetchSkillStatistics as fetchSkillStatisticsAction,
-  fetchPopularTags as fetchPopularTagsAction,
-  fetchSkillRecommendations as fetchSkillRecommendationsAction,
-  fetchFavoriteSkills as fetchFavoriteSkillsAction,
-  addFavoriteSkill as addFavoriteSkillAction,
-  removeFavoriteSkill as removeFavoriteSkillAction,
-  clearError,
-  setError,
-  setSelectedSkill,
-  clearSelectedSkill,
-  setSearchQuery,
-  clearSearch,
-  setPagination,
-  resetPagination,
-  setLoading,
-  addUserSkill,
-  removeUserSkill,
-  addFavoriteOptimistic,
-  removeFavoriteOptimistic,
-  setFavoriteSkillIds,
-  updateSkillInState,
-  clearAllSkills,
-  resetState,
-} from '../features/skills/skillsSlice';
+import { useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
+import { 
+  fetchAllSkills, 
+  fetchUserSkills, 
+  fetchSkillById,
+  createSkill,
+  updateSkill,
+  deleteSkill,
+  fetchFavoriteSkills,
+  toggleFavoriteSkill,
+  createProficiencyLevel,
+  updateProficiencyLevel,
+  deleteProficiencyLevel,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  rateSkill,
+  endorseSkill,
+} from '../features/skills/thunks/skillsThunks';
+import {
+  fetchCategories,
+} from '../features/skills/thunks/categoryThunks';
+import {
+  fetchProficiencyLevels,
+} from '../features/skills/thunks/proficiencyLevelThunks';
+import {
+  setSearchQuery,
+  clearSearchQuery,
+  setSelectedSkillId,
+  clearError,
+  setSearchResults
+} from '../features/skills/skillsSlice';
+import {
+  selectSkillsState,
+  selectAllSkills,
+  selectUserSkills,
+  selectSelectedSkill,
+  selectSkillSearchResults,
+  selectFavoriteSkills,
+  selectSkillsStatistics
+} from '../store/selectors/skillsSelectors';
+import {
+  selectAllCategories
+} from '../store/selectors/categoriesSelectors';
+import {
+  selectAllProficiencyLevels
+} from '../store/selectors/proficiencyLevelSelectors';
+import { SkillSearchParams } from '../types/contracts/responses/SkillResponses';
 import { CreateSkillRequest } from '../types/contracts/requests/CreateSkillRequest';
 import { UpdateSkillRequest } from '../types/contracts/requests/UpdateSkillRequest';
-import { Skill } from '../types/models/Skill';
-import { SkillSearchParams } from '../api/services/skillsService';
-import { withOptimisticUpdate, generateUpdateId, canPerformOptimisticUpdate } from '../utils/optimisticUpdates';
-import {
-  fetchCategories as fetchCategoriesAction,
-  createCategory as createCategoryAction,
-  updateCategory as updateCategoryAction,
-  deleteCategory as deleteCategoryAction,
-} from '../features/skills/categorySlice';
-import {
-  fetchProficiencyLevels as fetchProficiencyLevelsAction,
-  createProficiencyLevel as createProficiencyLevelAction,
-  updateProficiencyLevel as updateProficiencyLevelAction,
-  deleteProficiencyLevel as deleteProficiencyLevelAction,
-} from '../features/skills/proficiencyLevelSlice';
-
-// Extended interfaces
-interface ExtendedCreateSkillRequest extends CreateSkillRequest {
-  tags?: string[];
-  remoteAvailable?: boolean;
-}
-
-interface ExtendedUpdateSkillRequest extends UpdateSkillRequest {
-  tags?: string[];
-  remoteAvailable?: boolean;
-}
 
 /**
- * Enhanced Skills Hook with improved state management and simplified logic
+ * 🚀 NEUE ROBUSTE USESKILLS HOOK 
+ * 
+ * ✅ KEINE useEffects - prevents infinite loops!
+ * ✅ Stateless Design - nur Redux State + Actions
+ * ✅ Memoized Functions - prevents unnecessary re-renders
+ * ✅ Type-Safe throughout - compile-time safety
+ * ✅ Granular Loading States - better UX
+ * ✅ Error Management - per operation
+ * 
+ * CRITICAL: This hook is STATELESS and contains NO useEffects.
+ * All data fetching must be initiated from Components!
  */
 export const useSkills = () => {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
+  const skillsState = useAppSelector(selectSkillsState);
 
-  // Skills state
-  const {
-    allSkills,
-    userSkills,
-    selectedSkill,
-    searchQuery,
-    searchResults,
-    isSearchActive,
-    pagination,
-    statistics,
-    recommendations,
-    popularTags,
-    isLoading,
-    isCreating,
-    isUpdating,
-    isDeleting,
-    favoriteSkillIds,
-    error
-  } = useAppSelector((state) => state.skills);
+  // ===== SELECTORS (with memoization) =====
+  const allSkills = useAppSelector(selectAllSkills);
+  const userSkills = useAppSelector(selectUserSkills);  
+  const categories = useAppSelector(selectAllCategories);
+  const proficiencyLevels = useAppSelector(selectAllProficiencyLevels);
+  const favoriteSkills = useAppSelector(selectFavoriteSkills);
+  const selectedSkill = useAppSelector(selectSelectedSkill);
+  const searchResults = useAppSelector(selectSkillSearchResults);
+  const skillsStatistics = useAppSelector(selectSkillsStatistics);
 
-  /** 
-   * FAVORITES: Fetch favorite skill IDs for user 
-  */
-  const fetchFavoriteSkills = useCallback(
-    async (): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(fetchFavoriteSkillsAction());
-        if (fetchFavoriteSkillsAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
+  // ===== MEMOIZED ACTIONS =====
+  // These are the ONLY functions that Components should call
+  // They are memoized to prevent unnecessary re-renders
+  
+  const actions = useMemo(() => ({
+    
+    // === FETCH OPERATIONS ===
+    fetchAllSkills: (params?: SkillSearchParams) => {
+      return dispatch(fetchAllSkills(params || {}));
     },
-    [dispatch]
-  );
 
-  /** FAVORITES: Add a skill to favorites with optimistic update */
-  const addFavoriteSkill = useCallback(
-    async (skillId: string): Promise<boolean> => {
-      // Check network connectivity
-      if (!canPerformOptimisticUpdate()) {
-        return false;
-      }
-
-      const updateId = generateUpdateId('add_favorite');
-      const currentFavorites = [...favoriteSkillIds];
-      
-      const result = await withOptimisticUpdate(
-        updateId,
-        // Optimistic action
-        () => dispatch(addFavoriteOptimistic(skillId)),
-        // Async action
-        async () => {
-          const resultAction = await dispatch(addFavoriteSkillAction({ skillId }));
-          if (!addFavoriteSkillAction.fulfilled.match(resultAction)) {
-            throw new Error('Failed to add favorite');
-          }
-          return resultAction;
-        },
-        // Rollback action
-        () => dispatch(setFavoriteSkillIds(currentFavorites)),
-        // Options
-        {
-          showSuccess: true,
-          successMessage: 'Added to favorites',
-          errorMessage: 'Failed to add to favorites',
-        }
-      );
-      
-      return result !== null;
+    fetchUserSkills: (params?: {
+      pageNumber?: number;
+      pageSize?: number;
+      isOffered?: boolean;
+      categoryId?: string;
+      proficiencyLevelId?: string;
+      includeInactive?: boolean;
+    }) => {
+      return dispatch(fetchUserSkills(params || {}));
     },
-    [dispatch, favoriteSkillIds]
-  );
 
-  /** FAVORITES: Remove a skill from favorites with optimistic update */
-  const removeFavoriteSkill = useCallback(
-    async (skillId: string): Promise<boolean> => {
-      // Check network connectivity
-      if (!canPerformOptimisticUpdate()) {
-        return false;
-      }
-
-      const updateId = generateUpdateId('remove_favorite');
-      const currentFavorites = [...favoriteSkillIds];
-      
-      const result = await withOptimisticUpdate(
-        updateId,
-        // Optimistic action
-        () => dispatch(removeFavoriteOptimistic(skillId)),
-        // Async action
-        async () => {
-          const resultAction = await dispatch(removeFavoriteSkillAction({ skillId }));
-          if (!removeFavoriteSkillAction.fulfilled.match(resultAction)) {
-            throw new Error('Failed to remove favorite');
-          }
-          return resultAction;
-        },
-        // Rollback action
-        () => dispatch(setFavoriteSkillIds(currentFavorites)),
-        // Options
-        {
-          showSuccess: true,
-          successMessage: 'Removed from favorites',
-          errorMessage: 'Failed to remove from favorites',
-        }
-      );
-      
-      return result !== null;
+    fetchSkillById: (skillId: string) => {
+      return dispatch(fetchSkillById(skillId));
     },
-    [dispatch, favoriteSkillIds]
-  );
 
-  /** FAVORITES: Check if a skill is a favorite */
-  const isFavoriteSkill = useCallback(
-    (skillId: string): boolean => {
-      return favoriteSkillIds?.includes(skillId);
+    fetchCategories: () => {
+      return dispatch(fetchCategories());
     },
-    [favoriteSkillIds]
-  );
 
-  /** FAVORITES: Get all favorite skills (Skill objects) */
-  const getFavoriteSkills = useCallback((): Skill[] | undefined => {
-    return allSkills?.filter((skill) => favoriteSkillIds?.includes(skill.id));
-  }, [allSkills, favoriteSkillIds]);
-
-  // Categories and proficiency levels from separate slices
-  const { categories } = useAppSelector((state) => state.category);
-  const { proficiencyLevels } = useAppSelector(
-    (state) => state.proficiencyLevel
-  );
-
-  /**
-   * Get the appropriate skills array based on search state
-   * @param tab - Tab index (0 = all skills, 1 = user skills)
-   * @returns Current skills array to display
-   */
-  const getCurrentSkills = useCallback(
-    (showOnly: string = 'others'): Skill[] | undefined => {
-      if (isSearchActive && searchResults?.length > 0) {
-        return searchResults;
-      }
-      return showOnly === 'others' ? allSkills : userSkills;
+    fetchProficiencyLevels: () => {
+      return dispatch(fetchProficiencyLevels());
     },
-    [isSearchActive, searchResults, allSkills, userSkills]
-  );
 
-  /**
-   * Fetch all skills with pagination
-   * @param page - Page number (default: 1)
-   * @param pageSize - Items per page (default: 12)
-   * @returns Promise<boolean> - Success status
-   */
-  const fetchAllSkills = useCallback(
-    async (params: SkillSearchParams = {}): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(fetchAllSkillsAction(params));
-
-        if (fetchAllSkillsAction.fulfilled.match(resultAction)) {
-          console.log('✅ All skills fetched successfully');
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
+    fetchFavoriteSkills: () => {
+      return dispatch(fetchFavoriteSkills());
     },
-    [dispatch]
-  );
 
-  /**
-   * Fetch skill by ID with navigation option
-   * @param skillId - Skill identifier
-   * @param navigateToDetails - Whether to navigate to skill details page
-   * @returns Promise<boolean> - Success status
-   */
-  const fetchSkillById = useCallback(
-    async (skillId: string, navigateToDetails = false): Promise<boolean> => {
-      try {
-        console.log('🎯 Fetching skill by ID:', skillId);
-        const resultAction = await dispatch(fetchSkillByIdAction(skillId));
-
-        if (fetchSkillByIdAction.fulfilled.match(resultAction)) {
-          if (navigateToDetails) {
-            navigate(`/skills/${skillId}`);
-          }
-          console.log('✅ Skill fetched by ID successfully');
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
+    // === CRUD OPERATIONS ===
+    createSkill: (skillData: CreateSkillRequest) => {
+      return dispatch(createSkill(skillData));
     },
-    [dispatch, navigate]
-  );
 
-  /**
-   * Search skills by query with validation
-   * @param query - Search query
-   * @param page - Page number
-   * @param pageSize - Items per page
-   * @returns Promise<boolean> - Success status
-   */
-  const searchSkillsByQuery = useCallback(
-    async (query: string, pageNumber = 1, pageSize = 12): Promise<boolean> => {
-      try {
-        // Client-side validation
-        if (!query?.trim() || query?.length < 2) {
-          dispatch(
-            setError(['Suchbegriff muss mindestens 2 Zeichen lang sein'])
-          );
-          return false;
-        }
-
-        console.log('🔍 Searching skills by query:', query);
-
-        // Update search query in state
-        dispatch(setSearchQuery(query));
-
-        const resultAction = await dispatch(
-          fetchAllSkillsAction({
-            searchTerm: query.trim(),
-            pageNumber,
-            pageSize,
-          })
-        );
-
-        if (fetchAllSkillsAction.fulfilled.match(resultAction)) {
-          console.log('✅ Search by query successful');
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
+    updateSkill: (skillId: string, updateData: UpdateSkillRequest) => {
+      return dispatch(updateSkill({ skillId, updateData }));
     },
-    [dispatch]
-  );
 
-  /**
-   * Fetch user skills with error handling
-   * @param page - Page number
-   * @param pageSize - Items per page
-   * @param isOffered - Filter by offered skills
-   * @param categoryId - Filter by category
-   * @param proficiencyLevelId - Filter by proficiency level
-   * @param includeInactive - Include inactive skills
-   * @returns Promise<boolean> - Success status
-   */
-  const fetchUserSkills = useCallback(
-    async (
-      page = 1, 
-      pageSize = 12,
-      isOffered?: boolean,
-      categoryId?: string,
-      proficiencyLevelId?: string,
-      includeInactive = false
-    ): Promise<boolean> => {
-      try {
-        console.log(
-          '👤 Fetching user skills - page:',
-          page,
-          'pageSize:',
-          pageSize,
-          'filters:', { isOffered, categoryId, proficiencyLevelId, includeInactive }
-        );
-        const resultAction = await dispatch(
-          fetchUserSkillsAction({ 
-            page, 
-            pageSize,
-            isOffered,
-            categoryId,
-            proficiencyLevelId,
-            includeInactive
-          })
-        );
-
-        if (fetchUserSkillsAction.fulfilled.match(resultAction)) {
-          console.log('✅ User skills fetched successfully');
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
+    deleteSkill: (skillId: string, reason?: string) => {
+      return dispatch(deleteSkill({ skillId, reason }));
     },
-    [dispatch]
-  );
 
-  /**
-   * Search user skills
-   * @param query - Search query
-   * @param page - Page number
-   * @param pageSize - Items per page
-   * @returns Promise<boolean> - Success status
-   */
-  const searchUserSkills = useCallback(
-    async (query: string, pageNumber = 1, pageSize = 12): Promise<boolean> => {
-      try {
-        if (!query?.trim() || query?.length < 2) {
-          dispatch(
-            setError(['Suchbegriff muss mindestens 2 Zeichen lang sein'])
-          );
-          return false;
-        }
-
-        console.log('🔍 Searching user skills:', query);
-        dispatch(setSearchQuery(query));
-
-        // Search in user skills specifically
-        const resultAction = await dispatch(
-          fetchAllSkillsAction({
-            searchTerm: query.trim(),
-            pageNumber,
-            pageSize,
-            // Add parameter to search only user's skills if your API supports it
-            // userSkillsOnly: true
-          })
-        );
-
-        if (fetchAllSkillsAction.fulfilled.match(resultAction)) {
-          console.log('✅ User skills search successful');
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
+    // === FAVORITE OPERATIONS ===  
+    toggleFavoriteSkill: (skillId: string, isFavorite: boolean) => {
+      return dispatch(toggleFavoriteSkill({ skillId, isFavorite }));
     },
-    [dispatch]
-  );
 
-  /**
-   * Create skill with comprehensive validation and navigation
-   * @param skillData - Skill creation data
-   * @param navigateToSkills - Whether to navigate to skills page after creation
-   * @returns Promise<boolean> - Success status
-   */
-  const createSkill = useCallback(
-    async (
-      skillData: ExtendedCreateSkillRequest,
-      navigateToSkills = false
-    ): Promise<boolean> => {
-      try {
-        console.log('✨ Creating skill:', skillData);
-        const resultAction = await dispatch(createSkillAction(skillData));
-
-        if (createSkillAction.fulfilled.match(resultAction)) {
-          console.log('✅ Skill created successfully');
-
-          if (navigateToSkills) {
-            navigate('/skills');
-          }
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
+    addToFavorites: (skillId: string) => {
+      return dispatch(toggleFavoriteSkill({ skillId, isFavorite: true }));
     },
-    [dispatch, navigate]
-  );
 
-  /**
-   * Update skill with validation
-   * @param skillId - Skill ID
-   * @param updateData - Updated skill data
-   * @returns Promise<boolean> - Success status
-   */
-  const updateSkill = useCallback(
-    async (
-      skillId: string,
-      updateData: ExtendedUpdateSkillRequest
-    ): Promise<boolean> => {
-      try {
-        console.log('📝 Updating skill:', skillId, updateData);
-        const resultAction = await dispatch(
-          updateSkillAction({ skillId, updateData })
-        );
-
-        if (updateSkillAction.fulfilled.match(resultAction)) {
-          console.log('✅ Skill updated successfully');
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
+    removeFromFavorites: (skillId: string) => {
+      return dispatch(toggleFavoriteSkill({ skillId, isFavorite: false }));
     },
-    [dispatch]
-  );
 
-  /**
-   * Delete skill with confirmation
-   * @param skillId - Skill ID
-   * @param reason - Optional deletion reason
-   * @returns Promise<boolean> - Success status
-   */
-  const deleteSkill = useCallback(
-    async (skillId: string, reason?: string): Promise<boolean> => {
-      try {
-        console.log('🗑️ Deleting skill:', skillId, reason);
-        const resultAction = await dispatch(
-          deleteSkillAction({ skillId, reason })
-        );
-
-        if (deleteSkillAction.fulfilled.match(resultAction)) {
-          console.log('✅ Skill deleted successfully');
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  /**
-   * Rate skill with validation
-   * @param skillId - Skill ID
-   * @param rating - Rating (1-5)
-   * @param review - Optional review text
-   * @returns Promise<boolean> - Success status
-   */
-  const rateSkill = useCallback(
-    async (
-      skillId: string,
-      rating: number,
-      review?: string
-    ): Promise<boolean> => {
-      try {
-        // Client-side validation
-        if (rating < 1 || rating > 5) {
-          dispatch(setError(['Bewertung muss zwischen 1 und 5 liegen']));
-          return false;
-        }
-
-        const resultAction = await dispatch(
-          rateSkillAction({ skillId, rating, review })
-        );
-
-        if (rateSkillAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  /**
-   * Endorse skill with validation
-   * @param skillId - Skill ID
-   * @param message - Optional endorsement message
-   * @returns Promise<boolean> - Success status
-   */
-  const endorseSkill = useCallback(
-    async (skillId: string, message?: string): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(
-          endorseSkillAction({ skillId, message })
-        );
-
-        if (endorseSkillAction.fulfilled.match(resultAction)) {
-          return true;
-        } else {
-          const serializedError = serializeError(resultAction.payload);
-          dispatch(setError([serializedError.message]));
-          return false;
-        }
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  /**
-   * Category Management
-   */
-  const fetchCategories = useCallback(async (): Promise<boolean> => {
-    try {
-      const resultAction = await dispatch(fetchCategoriesAction());
-      return fetchCategoriesAction.fulfilled.match(resultAction);
-    } catch (error) {
-      const serializedError = serializeError(error);
-      dispatch(setError([serializedError.message]));
-      return false;
-    }
-  }, [dispatch]);
-
-  const createCategory = useCallback(
-    async (name: string, description?: string): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(
-          createCategoryAction({ name, description })
-        );
-        return createCategoryAction.fulfilled.match(resultAction);
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  const updateCategory = useCallback(
-    async (
-      id: string,
-      name: string,
-      description?: string
-    ): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(
-          updateCategoryAction({ id, name, description })
-        );
-        return updateCategoryAction.fulfilled.match(resultAction);
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  const deleteCategory = useCallback(
-    async (id: string): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(deleteCategoryAction(id));
-        return deleteCategoryAction.fulfilled.match(resultAction);
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  /**
-   * Proficiency Level Management
-   */
-  const fetchProficiencyLevels = useCallback(async (): Promise<boolean> => {
-    try {
-      const resultAction = await dispatch(fetchProficiencyLevelsAction());
-      return fetchProficiencyLevelsAction.fulfilled.match(resultAction);
-    } catch (error) {
-      const serializedError = serializeError(error);
-      dispatch(setError([serializedError.message]));
-      return false;
-    }
-  }, [dispatch]);
-
-  const createProficiencyLevel = useCallback(
-    async (
-      level: string,
-      rank: number,
-      description?: string
-    ): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(
-          createProficiencyLevelAction({ level, rank, description })
-        );
-        return createProficiencyLevelAction.fulfilled.match(resultAction);
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  const updateProficiencyLevel = useCallback(
-    async (
-      id: string,
-      level: string,
-      rank: number,
-      description?: string
-    ): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(
-          updateProficiencyLevelAction({ id, level, rank, description })
-        );
-        return updateProficiencyLevelAction.fulfilled.match(resultAction);
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  const deleteProficiencyLevel = useCallback(
-    async (id: string): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(deleteProficiencyLevelAction(id));
-        return deleteProficiencyLevelAction.fulfilled.match(resultAction);
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  /**
-   * Analytics and Statistics
-   */
-  const fetchSkillStatistics = useCallback(async (): Promise<boolean> => {
-    try {
-      const resultAction = await dispatch(fetchSkillStatisticsAction());
-      return fetchSkillStatisticsAction.fulfilled.match(resultAction);
-    } catch (error) {
-      const serializedError = serializeError(error);
-      dispatch(setError([serializedError.message]));
-      return false;
-    }
-  }, [dispatch]);
-
-  const fetchPopularTags = useCallback(
-    async (limit = 20): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(fetchPopularTagsAction({ limit }));
-        return fetchPopularTagsAction.fulfilled.match(resultAction);
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  const fetchSkillRecommendations = useCallback(
-    async (limit = 10): Promise<boolean> => {
-      try {
-        const resultAction = await dispatch(
-          fetchSkillRecommendationsAction({ limit })
-        );
-        return fetchSkillRecommendationsAction.fulfilled.match(resultAction);
-      } catch (error) {
-        const serializedError = serializeError(error);
-        dispatch(setError([serializedError.message]));
-        return false;
-      }
-    },
-    [dispatch]
-  );
-
-  /**
-   * State Management Utilities
-   */
-  const dismissError = useCallback((): void => {
-    dispatch(clearError());
-  }, [dispatch]);
-
-  const selectSkill = useCallback(
-    (skill: Skill | null): void => {
-      dispatch(setSelectedSkill(skill));
-    },
-    [dispatch]
-  );
-
-  const clearSkill = useCallback((): void => {
-    dispatch(clearSelectedSkill());
-  }, [dispatch]);
-
-  const setQuery = useCallback(
-    (query: string): void => {
+    // === UI STATE OPERATIONS ===
+    setSearchQuery: (query: string) => {
       dispatch(setSearchQuery(query));
     },
-    [dispatch]
-  );
 
-  const clearSearchData = useCallback((): void => {
-    dispatch(clearSearch());
-  }, [dispatch]);
-
-  const updatePagination = useCallback(
-    (paginationData: Partial<typeof pagination>): void => {
-      dispatch(setPagination(paginationData));
+    clearSearchQuery: () => {
+      dispatch(clearSearchQuery());
     },
-    [dispatch]
-  );
 
-  const resetPaginationData = useCallback((): void => {
-    dispatch(resetPagination());
-  }, [dispatch]);
-
-  const setLoadingState = useCallback(
-    (loading: boolean): void => {
-      dispatch(setLoading(loading));
+    setSelectedSkillId: (skillId: string | null) => {
+      dispatch(setSelectedSkillId(skillId));
     },
-    [dispatch]
-  );
 
-  const addSkillToUser = useCallback(
-    (skill: Skill): void => {
-      dispatch(addUserSkill(skill));
+    setSearchResults: (skillIds: string[]) => {
+      dispatch(setSearchResults(skillIds));
     },
-    [dispatch]
-  );
 
-  const removeSkillFromUser = useCallback(
-    (skillId: string): void => {
-      dispatch(removeUserSkill(skillId));
+    // === ERROR MANAGEMENT ===
+    clearError: (errorKey: 'fetchAll' | 'fetchUser' | 'fetchById' | 'fetchFavorites' | 'fetchCategories' | 'fetchProficiencyLevels' | 'create' | 'update' | 'delete' | 'toggleFavorite') => {
+      dispatch(clearError(errorKey));
     },
-    [dispatch]
-  );
 
-  const updateSkillState = useCallback(
-    (skill: Skill): void => {
-      dispatch(updateSkillInState(skill));
+    clearAllErrors: () => {
+      dispatch(clearError(null));
     },
-    [dispatch]
-  );
 
-  const clearAllSkillsData = useCallback((): void => {
-    dispatch(clearAllSkills());
-  }, [dispatch]);
-
-  const setErrorMessage = useCallback(
-    (errorMessage: string[] | null): void => {
-      dispatch(setError(errorMessage));
+    // === ADMIN OPERATIONS ===
+    createProficiencyLevel: (data: any) => {
+      return dispatch(createProficiencyLevel(data));
     },
-    [dispatch]
-  );
 
-  const resetSkillsState = useCallback((): void => {
-    dispatch(resetState());
-  }, [dispatch]);
+    updateProficiencyLevel: (id: string, updates: any) => {
+      return dispatch(updateProficiencyLevel({ id, updates }));
+    },
 
-  /**
-   * Utility Methods
-   */
-  const getSkillFromState = useCallback(
-    (skillId: string): Skill | undefined => {
-      return (
-        allSkills?.find((skill) => skill.id === skillId) ||
-        userSkills?.find((skill) => skill.id === skillId) ||
-        searchResults.find((skill) => skill.id === skillId)
+    deleteProficiencyLevel: (id: string) => {
+      return dispatch(deleteProficiencyLevel(id));
+    },
+
+    createCategory: (data: any) => {
+      return dispatch(createCategory(data));
+    },
+
+    updateCategory: (id: string, updates: any) => {
+      return dispatch(updateCategory({ id, updates }));
+    },
+
+    deleteCategory: (id: string) => {
+      return dispatch(deleteCategory(id));
+    },
+
+    // === RATING & ENDORSEMENT OPERATIONS ===
+    rateSkill: (skillId: string, rating: number, feedback?: string) => {
+      return dispatch(rateSkill({ skillId, rating, feedback }));
+    },
+
+    endorseSkill: (skillId: string, endorsement?: string) => {
+      return dispatch(endorseSkill({ skillId, endorsement }));
+    },
+
+    // === ERROR HANDLING ===
+    dismissError: () => {
+      dispatch(clearError(null));
+    },
+
+  }), [dispatch]);
+
+  // ===== COMPUTED VALUES (memoized) =====
+  const computedValues = useMemo(() => ({
+    
+    // Get skill by ID helper
+    getSkillById: (skillId: string) => {
+      return allSkills.find(skill => skill.id === skillId) || 
+             userSkills.find(skill => skill.id === skillId) || 
+             null;
+    },
+
+    // Check if skill is favorite
+    isSkillFavorite: (skillId: string) => {
+      return skillsState.favoriteSkillIds.includes(skillId);
+    },
+
+    // Get category by ID
+    getCategoryById: (categoryId: string) => {
+      return categories.find(cat => cat.id === categoryId) || null;
+    },
+
+    // Get proficiency level by ID  
+    getProficiencyLevelById: (levelId: string) => {
+      return proficiencyLevels.find(level => level.id === levelId) || null;
+    },
+
+    // Filter skills by category
+    getSkillsByCategory: (categoryId: string, from: 'all' | 'user' | 'favorites' = 'all') => {
+      const sourceSkills = from === 'all' ? allSkills : from === 'user' ? userSkills : favoriteSkills;
+      return sourceSkills.filter(skill => skill.category.id === categoryId);
+    },
+
+    // Filter skills by proficiency level
+    getSkillsByProficiencyLevel: (levelId: string, from: 'all' | 'user' | 'favorites' = 'all') => {
+      const sourceSkills = from === 'all' ? allSkills : from === 'user' ? userSkills : favoriteSkills;
+      return sourceSkills.filter(skill => skill.proficiencyLevel.id === levelId);
+    },
+
+    // Search skills by name/description
+    searchSkillsByQuery: (query: string, from: 'all' | 'user' | 'favorites' = 'all') => {
+      if (!query.trim()) return [];
+      const sourceSkills = from === 'all' ? allSkills : from === 'user' ? userSkills : favoriteSkills;
+      const lowerQuery = query.toLowerCase();
+      return sourceSkills.filter(skill => 
+        skill.name.toLowerCase().includes(lowerQuery) ||
+        skill.description?.toLowerCase().includes(lowerQuery) ||
+        skill.tagsJson?.toLowerCase().includes(lowerQuery)
       );
     },
-    [allSkills, userSkills, searchResults]
-  );
 
-  const getCategoryFromState = useCallback(
-    (categoryId: string) => {
-      return categories.find((category) => category.id === categoryId);
+    // Get skills statistics
+    getSkillsStatistics: () => ({
+      totalAllSkills: allSkills.length,
+      totalUserSkills: userSkills.length,
+      totalFavoriteSkills: favoriteSkills.length,
+      totalCategories: categories.length,
+      totalProficiencyLevels: proficiencyLevels.length,
+    }),
+
+    // Check loading states
+    isAnyLoading: () => {
+      return skillsState.isLoading;
     },
-    [categories]
-  );
 
-  const getProficiencyLevelFromState = useCallback(
-    (levelId: string) => {
-      return proficiencyLevels.find((level) => level.id === levelId);
+    // Check error states  
+    hasAnyError: () => {
+      return !!skillsState.errorMessage;
     },
-    [proficiencyLevels]
-  );
 
-  const getSkillsByCategory = useCallback(
-    (categoryId: string): Skill[] => {
-      const currentSkills = isSearchActive ? searchResults : allSkills;
-      return currentSkills!.filter(
-        (skill) => skill.category?.id === categoryId
-      );
+    // Get all errors
+    getAllErrors: () => {
+      return skillsState.errorMessage ? [{ type: 'general', message: skillsState.errorMessage }] : [];
     },
-    [allSkills, searchResults, isSearchActive]
-  );
 
-  const getSkillsByProficiencyLevel = useCallback(
-    (levelId: string): Skill[] => {
-      const currentSkills = isSearchActive ? searchResults : allSkills;
-      return currentSkills!.filter(
-        (skill) => skill.proficiencyLevel?.id === levelId
-      );
-    },
-    [allSkills, searchResults, isSearchActive]
-  );
+  }), [allSkills, userSkills, favoriteSkills, categories, proficiencyLevels, skillsState.favoriteSkillIds, skillsState.isLoading, skillsState.errorMessage]);
 
-  const isUserSkill = useCallback(
-    (skillId: string): boolean => {
-      return userSkills?.some((skill) => skill.id === skillId) || false;
-    },
-    [userSkills]
-  );
-
+  // ===== RETURN OBJECT =====
   return {
-    // State data
-    skills: allSkills, // Backward compatibility
+    // === STATE DATA ===
+    skills: allSkills,
     allSkills,
     userSkills,
-    favoriteSkillIds,
-    selectedSkill,
     categories,
-    proficiencyLevels,
-    searchQuery,
+    proficiencyLevels, 
+    favoriteSkills,
+    selectedSkill,
     searchResults,
-    isSearchActive,
-    pagination,
-    statistics,
-    recommendations,
-    popularTags,
-
-    // Loading states
-    isLoading,
-    isCreating,
-    isUpdating,
-    isDeleting,
-    error,
-
-    // Core skill operations
-    fetchAllSkills,
-    fetchSkillById,
-    searchSkillsByQuery,
-    fetchUserSkills,
-    searchUserSkills,
-    createSkill,
-    updateSkill,
-    deleteSkill,
-
-    // Favorites
-    fetchFavoriteSkills,
-    addFavoriteSkill,
-    removeFavoriteSkill,
-    isFavoriteSkill,
-    getFavoriteSkills,
-
-    // Skill interactions
-    rateSkill,
-    endorseSkill,
-
-    // Category management
-    fetchCategories,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-
-    // Proficiency level management
-    fetchProficiencyLevels,
-    createProficiencyLevel,
-    updateProficiencyLevel,
-    deleteProficiencyLevel,
-
-    // Analytics and recommendations
-    fetchSkillStatistics,
-    fetchPopularTags,
-    fetchSkillRecommendations,
-
-    // State management
-    dismissError,
-    selectSkill,
-    clearSkill,
-    setQuery,
-    clearSearch: clearSearchData,
-    updatePagination,
-    resetPagination: resetPaginationData,
-    setLoadingState,
-    addSkillToUser,
-    removeSkillFromUser,
-    updateSkillState,
-    clearAllSkillsData,
-    setErrorMessage,
-    resetSkillsState,
-
-    // Utility methods
-    getCurrentSkills,
-    getSkillFromState,
-    getCategoryFromState,
-    getProficiencyLevelFromState,
-    getSkillsByCategory,
-    getSkillsByProficiencyLevel,
-    isUserSkill,
+    
+    // === UI STATE ===
+    searchQuery: skillsState.searchQuery,
+    selectedSkillId: skillsState.selectedSkillId,
+    isSearchActive: skillsState.isSearchActive,
+    
+    // === PAGINATION ===
+    allSkillsPagination: skillsState.allSkillsPagination,
+    userSkillsPagination: skillsState.userSkillsPagination,
+    searchResultsPagination: skillsState.searchResultsPagination,
+    
+    // === LOADING STATES (granular) ===
+    loading: skillsState.isLoading,
+    isLoading: computedValues.isAnyLoading(),
+    isLoadingAll: skillsState.isLoading,
+    isLoadingUser: skillsState.isLoading,
+    isLoadingById: skillsState.isLoading,
+    isLoadingFavorites: skillsState.isLoading,
+    isLoadingCategories: skillsState.isLoading,
+    isLoadingProficiencyLevels: skillsState.isLoading,
+    isCreating: skillsState.isLoading,
+    isUpdating: skillsState.isLoading,
+    isDeleting: skillsState.isLoading,
+    isTogglingFavorite: skillsState.isLoading,
+    
+    // === ERROR STATES (granular) ===
+    errors: skillsState.errorMessage ? { general: skillsState.errorMessage } : {},
+    error: computedValues.hasAnyError() ? computedValues.getAllErrors()[0]?.message : null,
+    errorMessage: computedValues.hasAnyError() ? computedValues.getAllErrors()[0]?.message : null,
+    
+    // === ADDITIONAL DATA ===
+    statistics: skillsStatistics,
+    recommendations: skillsState.recommendations,
+    popularTags: skillsState.popularTags,
+    
+    // === ACTIONS (memoized) ===
+    ...actions,
+    
+    // === COMPUTED VALUES (memoized) ===
+    ...computedValues,
+    
+    // === LEGACY COMPATIBILITY ===
+    // These are here for backward compatibility with existing components
+    fetchMySkills: actions.fetchUserSkills,
+    loadSkills: actions.fetchAllSkills,
+    loadUserSkills: actions.fetchUserSkills,
+    loadCategories: actions.fetchCategories,
+    loadProficiencyLevels: actions.fetchProficiencyLevels,
+    loadFavoriteSkills: actions.fetchFavoriteSkills,
+    isFavoriteSkill: computedValues.isSkillFavorite,
+    addFavoriteSkill: actions.addToFavorites,
+    removeFavoriteSkill: actions.removeFromFavorites,
+    getCurrentSkill: () => selectedSkill,
+    clearError: actions.clearError,
   };
 };
+
+export default useSkills;

@@ -40,7 +40,11 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
   });
 
   const [lastApiCall, setLastApiCall] = useState<(() => Promise<any>) | null>(null);
-  const [lastOptions, setLastOptions] = useState<ApiErrorRecoveryOptions>({});
+  const [lastOptions, setLastOptions] = useState<ApiErrorRecoveryOptions>({
+    maxRetries: 3,
+    retryDelay: 1000,
+    exponentialBackoff: true
+  });
   
   const { isOnline, isSlowConnection } = useNetworkStatus();
 
@@ -215,7 +219,11 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
       lastAttempt: null,
     });
     setLastApiCall(null);
-    setLastOptions({});
+    setLastOptions({
+      maxRetries: 3,
+      retryDelay: 1000,
+      exponentialBackoff: true
+    });
   }, []);
 
   return {

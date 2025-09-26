@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -25,8 +25,7 @@ import {
   Refresh as RefreshIcon,
   Dashboard as DashboardIcon,
 } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-import { fetchAdminDashboard, fetchSystemHealth } from '../../features/admin/adminSlice';
+import { useAdmin } from '../../hooks/useAdmin';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -35,43 +34,45 @@ import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 const AdminDashboardPage: React.FC = () => {
-  const dispatch = useAppDispatch();
   const {
     dashboard,
     systemHealth,
     isLoading,
     isLoadingSystemHealth,
-    error,
+    errorMessage,
     systemHealthError,
-  } = useAppSelector((state) => state.admin);
+    fetchAdminDashboard,
+    fetchSystemHealth,
+  } = useAdmin();
 
-  useEffect(() => {
-    dispatch(fetchAdminDashboard());
-    dispatch(fetchSystemHealth());
-    
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(() => {
-      dispatch(fetchSystemHealth());
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, [dispatch]);
+  // TEMPORARY DISABLE - DEBUGGING INFINITE LOOP
+  // useEffect(() => {
+  //   dispatch(fetchAdminDashboard());
+  //   dispatch(fetchSystemHealth());
+  //   
+  //   // Auto-refresh every 30 seconds
+  //   const interval = setInterval(() => {
+  //     dispatch(fetchSystemHealth());
+  //   }, 30000);
+  //   
+  //   return () => clearInterval(interval);
+  // }, [dispatch]);
 
   const handleRefresh = () => {
-    dispatch(fetchAdminDashboard());
-    dispatch(fetchSystemHealth());
+    fetchAdminDashboard();
+    fetchSystemHealth();
   };
 
   if (isLoading && !dashboard) {
     return <LoadingSpinner fullPage message="Lade Admin Dashboard..." />;
   }
 
-  if (error && !dashboard) {
+  if (errorMessage && !dashboard) {
     return (
       <PageContainer>
         <AlertMessage
           severity="error"
-          message={[error.message]}
+          message={[errorMessage]}
         />
       </PageContainer>
     );
@@ -255,7 +256,7 @@ const AdminDashboardPage: React.FC = () => {
                 
                 {systemHealthError && (
                   <Alert severity="error" sx={{ mb: 2 }}>
-                    {systemHealthError.message}
+                    {systemHealthError}
                   </Alert>
                 )}
 

@@ -1,5 +1,4 @@
-// src/utils/safe.ts
-import { ApiResponse } from "../types/common/ApiResponse";
+import { ApiResponse, isSuccessResponse } from "../types/api/UnifiedResponse";
 
 export const isDefined = <T>(v: T | null | undefined): v is NonNullable<T> =>
   v !== null && v !== undefined;
@@ -20,7 +19,7 @@ export const isApiResponse = <T = unknown>(x: unknown): x is ApiResponse<T> =>
  * und liefert immer T zurück. Hilft beim Übergang/Refactor.
  */
 export function unwrap<T>(value: ApiResponse<T> | T): T {
-  if (isApiResponse<T>(value)) return (value as ApiResponse<T>).data as T;
+  if (isApiResponse<T>(value)) return isSuccessResponse(value) ? value.data as T : (undefined as T);
   return value as T;
 }
 

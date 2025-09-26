@@ -58,7 +58,7 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
     }
 
     const groups: Record<string, Date[]> = {};
-    
+
     availableSlots.forEach(slot => {
       const hour = format(slot, 'HH:00', { locale: de });
       if (!groups[hour]) {

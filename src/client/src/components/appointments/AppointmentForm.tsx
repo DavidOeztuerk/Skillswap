@@ -169,7 +169,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
               color="primary"
               variant="contained"
               loading={isLoading}
-              disabled={isLoading || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
+              disabled={isLoading || Object.keys(errors).filter(key => key !== 'root').length > 0}
             >
               Termin erstellen
             </LoadingButton>

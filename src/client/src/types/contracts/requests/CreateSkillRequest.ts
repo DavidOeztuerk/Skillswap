@@ -1,7 +1,7 @@
 export interface CreateSkillRequest {
   name: string;
   description: string;
-  isOffered: boolean; // true = offering, false = seeking to learn
+  isOffered: boolean;
   categoryId: string;
   proficiencyLevelId: string;
   tags?: string[];

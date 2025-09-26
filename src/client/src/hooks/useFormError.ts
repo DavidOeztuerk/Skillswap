@@ -14,7 +14,7 @@ export interface FormErrorState {
 /**
  * Enhanced hook for handling form errors with API integration
  */
-export const useFormError = (error: any) => {
+export const useFormError = (error: unknown) => {
   // Process the error into standardized format
   const processedError = useMemo((): ProcessedError | null => {
     if (!error) return null;
@@ -48,7 +48,7 @@ export const useFormError = (error: any) => {
     return {
       hasError: true,
       errorMessage,
-      errorCode: processedError.errorCode || processedError.code, // Prefer semantic error code from backend
+      errorCode: processedError.errorCode || String(processedError.code), // Prefer semantic error code from backend
       traceId: processedError.traceId,
       isRetryable: processedError.type === 'NETWORK' || processedError.type === 'SERVER',
       isAuthError: processedError.type === 'AUTH' && processedError.code === 401,

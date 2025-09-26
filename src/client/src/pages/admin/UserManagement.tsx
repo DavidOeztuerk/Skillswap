@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo, useMemo, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -48,10 +48,10 @@ import { AdminErrorBoundary } from '../../components/error';
 import errorService from '../../services/errorService';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
-import apiClient from '../../api/apiClient';
 import { User } from '../../types/models/User';
+import { apiClient } from '../../api/apiClient';
 
-const UserManagement: React.FC = () => {
+const UserManagement: React.FC = memo(() => {
   const navigate = useNavigate();
   const { hasPermission, isSuperAdmin, isAdmin } = usePermissions();
   const { withLoading, isLoading } = useLoading();
@@ -60,7 +60,7 @@ const UserManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
+  const [_, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -83,7 +83,8 @@ const UserManagement: React.FC = () => {
   
   const [availableRoles] = useState(getAvailableRoles());
 
-  const fetchUsers = async () => {
+  // ⚡ PERFORMANCE: Memoize fetchUsers to prevent unnecessary re-creations
+  const fetchUsers = useCallback(async () => {
     await withLoading(LoadingKeys.FETCH_USERS, async () => {
       try {
         setLoading(true);
@@ -100,23 +101,40 @@ const UserManagement: React.FC = () => {
         });
         
         const responseData = unwrap<any>(response);
-        setUsers(responseData?.items || responseData?.users || responseData);
-        setTotalCount(withDefault(responseData?.totalCount, 0));
+        
+        // ✅ DEFENSIVE PROGRAMMING: Ensure users is always an array
+        const usersData = responseData?.items || responseData?.users || responseData;
+        const usersArray = Array.isArray(usersData) ? usersData : [];
+        
+        console.log('📊 UserManagement: API response', { 
+          responseData, 
+          usersData, 
+          isArray: Array.isArray(usersData),
+          finalUsersArray: usersArray 
+        });
+        
+        setUsers(usersArray);
+        setTotalCount(withDefault(responseData?.totalCount, usersArray.length));
         setError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Handle 404 - endpoint not implemented yet
-        if (err?.response?.status === 404) {
+        const isAxiosError = (error: unknown): error is { response: { status: number } } => {
+          return typeof error === 'object' && error !== null && 'response' in error;
+        };
+        
+        if (isAxiosError(err) && err.response?.status === 404) {
           setUsers([]);
           setTotalCount(0);
           setError('User Management API endpoint nicht verfügbar. Diese Funktion wird nachgereicht.');
         } else {
-          setError(err.message);
+          const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+          setError(errorMessage);
         }
       } finally {
         setLoading(false);
       }
     });
-  };
+  }, [withLoading, page, rowsPerPage, searchTerm]); // ⚡ PERFORMANCE: Dependencies for useCallback
 
   useEffect(() => {
     if (!hasPermission('users:view_all')) {
@@ -124,9 +142,10 @@ const UserManagement: React.FC = () => {
       return;
     }
     fetchUsers();
-  }, [page, rowsPerPage, searchTerm]);
+  }, [hasPermission, navigate, fetchUsers]); // ⚡ PERFORMANCE: Updated dependencies
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, user: User) => {
+  // ⚡ PERFORMANCE: Memoize event handlers
+  const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>, user: User) => {
     // Prüfe ob der aktuelle Admin diesen User bearbeiten darf
     const canEditUser = isSuperAdmin || (isAdmin && !user.roles?.includes('SuperAdmin'));
     
@@ -137,7 +156,7 @@ const UserManagement: React.FC = () => {
     
     setAnchorEl(event.currentTarget);
     setSelectedUser(user);
-  };
+  }, [isSuperAdmin, isAdmin, setError]);
 
   const handleMenuClose = () => {
     setAnchorEl(null);
@@ -149,8 +168,14 @@ const UserManagement: React.FC = () => {
       await apiClient.post(`/api/admin/users/${selectedUser.id}/block`);
       await fetchUsers();
       handleMenuClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to block user');
+    } catch (err: unknown) {
+      const isAxiosError = (error: unknown): error is { response: { data: { message?: string } } } => {
+        return typeof error === 'object' && error !== null && 'response' in error;
+      };
+      
+      const errorMessage = isAxiosError(err) ? err.response?.data?.message || 'Failed to block user' :
+                          err instanceof Error ? err.message : 'Failed to block user';
+      setError(errorMessage);
     }
   };
 
@@ -160,8 +185,14 @@ const UserManagement: React.FC = () => {
       await apiClient.post(`/api/admin/users/${selectedUser.id}/unblock`);
       await fetchUsers();
       handleMenuClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to unblock user');
+    } catch (err: unknown) {
+      const isAxiosError = (error: unknown): error is { response: { data: { message?: string } } } => {
+        return typeof error === 'object' && error !== null && 'response' in error;
+      };
+      
+      const errorMessage = isAxiosError(err) ? err.response?.data?.message || 'Failed to unblock user' :
+                          err instanceof Error ? err.message : 'Failed to unblock user';
+      setError(errorMessage);
     }
   };
 
@@ -172,8 +203,14 @@ const UserManagement: React.FC = () => {
       await fetchUsers();
       setDeleteDialogOpen(false);
       handleMenuClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete user');
+    } catch (err: unknown) {
+      const isAxiosError = (error: unknown): error is { response: { data: { message?: string } } } => {
+        return typeof error === 'object' && error !== null && 'response' in error;
+      };
+      
+      const errorMessage = isAxiosError(err) ? err.response?.data?.message || 'Failed to delete user' :
+                          err instanceof Error ? err.message : 'Failed to delete user';
+      setError(errorMessage);
     }
   };
 
@@ -188,8 +225,14 @@ const UserManagement: React.FC = () => {
       setRoleDialogOpen(false);
       setSelectedRole('');
       handleMenuClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to assign role');
+    } catch (err: unknown) {
+      const isAxiosError = (error: unknown): error is { response: { data: { message?: string } } } => {
+        return typeof error === 'object' && error !== null && 'response' in error;
+      };
+      
+      const errorMessage = isAxiosError(err) ? err.response?.data?.message || 'Failed to assign role' :
+                          err instanceof Error ? err.message : 'Failed to assign role';
+      setError(errorMessage);
     }
   };
 
@@ -202,23 +245,43 @@ const UserManagement: React.FC = () => {
     setPage(0);
   };
 
-  const getStatusColor = (status: string) => {
+  // ⚡ PERFORMANCE: Memoize color getter functions
+  const getStatusColor = useMemo(() => (status: string) => {
     switch (status) {
       case 'Active': return 'success';
       case 'Blocked': return 'error';
       case 'PendingVerification': return 'warning';
       default: return 'default';
     }
-  };
+  }, []);
 
-  const getRoleColor = (role: string) => {
+  const getRoleColor = useMemo(() => (role: string) => {
     switch (role) {
       case 'SuperAdmin': return 'error';
       case 'Admin': return 'secondary';
       case 'Moderator': return 'primary';
       default: return 'default';
     }
-  };
+  }, []);
+
+  // ⚡ PERFORMANCE: Memoize filtered and paginated users
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm.trim()) return users;
+    
+    const lowercaseSearch = searchTerm.toLowerCase();
+    return users.filter(user => 
+      user.userName?.toLowerCase().includes(lowercaseSearch) ||
+      user.email?.toLowerCase().includes(lowercaseSearch) ||
+      user.firstName?.toLowerCase().includes(lowercaseSearch) ||
+      user.lastName?.toLowerCase().includes(lowercaseSearch) ||
+      user.roles?.some(role => role.toLowerCase().includes(lowercaseSearch))
+    );
+  }, [users, searchTerm]);
+
+  const paginatedUsers = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    return filteredUsers.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredUsers, page, rowsPerPage]);
 
   if (loading && users.length === 0) {
     return (
@@ -300,7 +363,7 @@ const UserManagement: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => (
+              {paginatedUsers?.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>{user.userName}</TableCell>
                 <TableCell>{user.email}</TableCell>
@@ -359,7 +422,7 @@ const UserManagement: React.FC = () => {
           <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50]}
           component="div"
-          count={totalCount}
+          count={filteredUsers.length}
           rowsPerPage={rowsPerPage}
           page={page}
             onPageChange={handleChangePage}
@@ -467,7 +530,7 @@ const UserManagement: React.FC = () => {
       </Dialog>
     </Container>
   );
-};
+});
 
 // Export wrapped component
 const UserManagementWithErrorBoundary: React.FC = () => (

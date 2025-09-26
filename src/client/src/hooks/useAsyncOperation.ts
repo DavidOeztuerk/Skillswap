@@ -6,9 +6,9 @@ interface UseAsyncOperationOptions {
   // Key for loading state tracking
   loadingKey?: string;
   // Success callback
-  onSuccess?: (data: any) => void;
+  onSuccess?: (data: unknown) => void;
   // Error callback
-  onError?: (error: any) => void;
+  onError?: (error: unknown) => void;
   // Whether to show error notification
   showErrorNotification?: boolean;
   // Custom error message

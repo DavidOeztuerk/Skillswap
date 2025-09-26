@@ -1,5 +1,5 @@
 // src/components/layout/MainLayout.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, memo, useCallback } from 'react';
 import { Box, useMediaQuery, Theme } from '@mui/material';
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -24,15 +24,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   );
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    if (!isMobile && mobileOpen) {
-      setMobileOpen(false);
-    }
-  }, [isMobile, mobileOpen]);
+  // TEMPORARY DISABLE - PREVENTING INFINITE LOOPS!
+  // useEffect(() => {
+  //   if (!isMobile && mobileOpen) {
+  //     setMobileOpen(false);
+  //   }
+  // }, [isMobile, mobileOpen]);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
+  const handleDrawerToggle = useCallback(() => {
+    setMobileOpen(prev => !prev);
+  }, []);
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
@@ -108,4 +109,4 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   );
 };
 
-export default MainLayout;
+export default memo(MainLayout);

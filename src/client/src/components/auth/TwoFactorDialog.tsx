@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, memo, useMemo } from 'react';
 import TwoFactorSetup from './TwoFactorSetup';
 
 interface TwoFactorDialogContextType {
@@ -23,7 +23,7 @@ interface TwoFactorDialogProviderProps {
   children: ReactNode;
 }
 
-export const TwoFactorDialogProvider: React.FC<TwoFactorDialogProviderProps> = ({ children }) => {
+export const TwoFactorDialogProvider: React.FC<TwoFactorDialogProviderProps> = memo(({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [hasSecret, setHasSecret] = useState(false);
 
@@ -44,8 +44,12 @@ export const TwoFactorDialogProvider: React.FC<TwoFactorDialogProviderProps> = (
     window.location.reload();
   }, [hideDialog]);
 
+  const value = useMemo(() => ({
+    showDialog, hideDialog, isOpen, hasSecret, setHasSecret
+  }), [showDialog, hideDialog, isOpen, hasSecret, setHasSecret]);
+  
   return (
-    <TwoFactorDialogContext.Provider value={{ showDialog, hideDialog, isOpen, hasSecret, setHasSecret }}>
+    <TwoFactorDialogContext.Provider value={value}>
       {children}
       {/* Dialog is always rendered at root level, outside of any component that might unmount */}
       <TwoFactorSetup
@@ -56,4 +60,6 @@ export const TwoFactorDialogProvider: React.FC<TwoFactorDialogProviderProps> = (
       />
     </TwoFactorDialogContext.Provider>
   );
-};
+});
+
+TwoFactorDialogProvider.displayName = 'TwoFactorDialogProvider';

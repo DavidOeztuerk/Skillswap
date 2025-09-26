@@ -78,7 +78,7 @@ const SkillCategoriesManagement: React.FC = () => {
       try {
         await fetchCategories();
         setError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setError('Failed to load categories');
       } finally {
         setLoading(false);
@@ -93,7 +93,7 @@ const SkillCategoriesManagement: React.FC = () => {
     try {
       await fetchCategories();
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to refresh categories');
     } finally {
       setLoading(false);
@@ -151,30 +151,30 @@ const SkillCategoriesManagement: React.FC = () => {
 
     setSaving(true);
     try {
-      let success = false;
+      let result: any;
       
       if (selectedCategory) {
         // Update existing category using the hook
-        success = await updateCategory(
+        result = await updateCategory(
           selectedCategory.id,
           formData.name,
         );
       } else {
         // Create new category using the hook
-        success = await createCategory(
+        result = await createCategory(
           formData.name,
         );
       }
       
-      if (success) {
+      if (result.meta.requestStatus === 'fulfilled') {
         await fetchCategories(); // Refresh categories
         handleCloseDialog();
         setError(null);
       } else {
         setError('Failed to save category');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save category');
+    } catch (err: unknown) {
+      setError('Failed to save category');
     } finally {
       setSaving(false);
     }
@@ -184,9 +184,9 @@ const SkillCategoriesManagement: React.FC = () => {
     if (!selectedCategory) return;
 
     try {
-      const success = await deleteCategory(selectedCategory.id);
+      const result = await deleteCategory(selectedCategory.id);
       
-      if (success) {
+      if (result.meta.requestStatus === 'fulfilled') {
         await fetchCategories(); // Refresh categories
         setDeleteDialogOpen(false);
         setSelectedCategory(null);
@@ -194,8 +194,8 @@ const SkillCategoriesManagement: React.FC = () => {
       } else {
         setError('Failed to delete category');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete category');
+    } catch (err: unknown) {
+      setError('Failed to delete category');
     }
   };
 
@@ -240,7 +240,7 @@ const SkillCategoriesManagement: React.FC = () => {
 
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -257,7 +257,7 @@ const SkillCategoriesManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        {/* <Grid item xs={12} sm={6} md={3}>
+        {/* <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -274,7 +274,7 @@ const SkillCategoriesManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid> */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -291,7 +291,7 @@ const SkillCategoriesManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">

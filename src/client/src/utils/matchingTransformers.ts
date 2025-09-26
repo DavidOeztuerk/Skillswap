@@ -1,3 +1,102 @@
+import { Match, MatchStatus } from '../types/models/Match';
+import { MatchDisplay } from '../types/contracts/MatchmakingDisplay';
+
+/**
+ * Transform Match to MatchDisplay
+ * Handles the missing properties by providing defaults or mapping existing ones
+ */
+export const transformMatchToDisplay = (match: Match): MatchDisplay => {
+  return {
+    id: match.id,
+    skillId: match.skillId,
+    skillName: match.skill?.name || 'Unknown Skill',
+    skillCategory: match.skill?.category?.name || 'General',
+    status: mapStatusToDisplay(match.status),
+    
+    // Partner info (use requester or responder details)
+    partnerId: match.requesterId,
+    partnerName: match.requesterDetails?.firstName || match.requesterDetails?.email || 'Unknown',
+    partnerRating: 4.5, // Default rating
+    partnerAvatar: match.requesterDetails?.profilePictureUrl,
+    
+    // Additional user info for compatibility
+    otherUserName: match.responderDetails?.firstName || match.responderDetails?.email || 'Unknown',
+    otherUserRating: 4.5,
+    otherUserId: match.responderId,
+    
+    // Legacy compatibility properties
+    requesterId: match.requesterId,
+    requesterDetails: match.requesterDetails ? {
+      name: match.requesterDetails.firstName || match.requesterDetails.email || 'Unknown',
+      rating: 4.5,
+      avatar: match.requesterDetails.profilePictureUrl
+    } : undefined,
+    responderId: match.responderId,
+    responderDetails: match.responderDetails ? {
+      name: match.responderDetails.firstName || match.responderDetails.email || 'Unknown', 
+      rating: 4.5,
+      avatar: match.responderDetails.profilePictureUrl
+    } : undefined,
+    skill: match.skill ? {
+      name: match.skill.name,
+      category: match.skill.category?.name || 'General'
+    } : undefined,
+    
+    // Exchange info (defaults to false since not in Match)
+    isSkillExchange: false,
+    exchangeSkillId: undefined,
+    exchangeSkillName: undefined,
+    
+    // Monetary info (defaults to false since not in Match)
+    isMonetary: false,
+    offeredAmount: undefined,
+    currency: undefined,
+    
+    // Session info (placeholder)
+    sessionInfo: {
+      completedSessions: 0,
+      totalSessions: 1,
+      nextSessionDate: undefined
+    },
+    
+    // Match details
+    isOffering: true, // Default assumption
+    compatibilityScore: match.compatibilityScore,
+    location: undefined,
+    rating: 4.5,
+    
+    // Timestamps
+    createdAt: match.createdAt,
+    acceptedAt: match.acceptedAt,
+    completedAt: undefined,
+
+    // From original Match interface
+    isLearningMode: match.isLearningMode,
+    preferredDays: match.preferredDays,
+    preferredTimes: match.preferredTimes,
+  };
+};
+
+/**
+ * Map Match status to MatchDisplay status
+ */
+const mapStatusToDisplay = (status: MatchStatus): MatchDisplay['status'] => {
+  switch (status) {
+    case MatchStatus.Pending:
+      return 'pending';
+    case MatchStatus.Accepted:
+      return 'accepted';
+    case MatchStatus.Rejected:
+      return 'rejected';
+    case MatchStatus.Completed:
+      return 'completed';
+    case MatchStatus.Expired:
+      return 'cancelled';
+    default:
+      return 'pending';
+  }
+};
+
 // import { Match, MatchStatus } from '../types/models/Match';
 // import { User } from '../types/models/User';
 // import { Skill } from '../types/models/Skill';
@@ -129,7 +228,7 @@
 //     skill: {
 //       name: matchRequest.skillName,
 //       category: matchRequest.skillCategory,
-//       isOffered: true // TODO: Derive from context
+//       isOffered: true
 //     },
 //     exchangeSkill: matchRequest.exchangeSkillId ? {
 //       name: matchRequest.exchangeSkillName || 'Exchange Skill'

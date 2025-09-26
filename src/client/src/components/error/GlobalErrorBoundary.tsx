@@ -21,17 +21,28 @@ interface State {
  * Global Error Boundary that catches all unhandled errors in the application
  */
 class GlobalErrorBoundary extends Component<Props, State> {
+  private _isMounted = false;
+
   constructor(props: Props) {
     super(props);
+    
+    // Load error count directly in state initialization instead of setState
+    const errorCount = parseInt(sessionStorage.getItem('errorCount') || '0');
+    
     this.state = {
       hasError: false,
       errorId: '',
-      errorCount: 0,
+      errorCount: errorCount,
       isRecovering: false,
     };
-    
-    // Load error history from sessionStorage
-    this.loadErrorHistory();
+  }
+
+  componentDidMount() {
+    this._isMounted = true;
+  }
+
+  componentWillUnmount() {
+    this._isMounted = false;
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
@@ -74,12 +85,6 @@ class GlobalErrorBoundary extends Component<Props, State> {
     window.location.href = '/';
   };
 
-  private loadErrorHistory = () => {
-    const errorCount = parseInt(sessionStorage.getItem('errorCount') || '0');
-    if (errorCount > 0) {
-      this.setState({ errorCount });
-    }
-  };
 
   private storeErrorDetails = (error: Error, errorInfo: ErrorInfo) => {
     const errorHistory = {
@@ -108,9 +113,11 @@ class GlobalErrorBoundary extends Component<Props, State> {
       isRecovering: true,
     });
 
-    // Clear recovery state after a short delay
+    // Clear recovery state after a short delay - only if component is still mounted
     setTimeout(() => {
-      this.setState({ isRecovering: false });
+      if (this._isMounted) {
+        this.setState({ isRecovering: false });
+      }
     }, 500);
   };
 
