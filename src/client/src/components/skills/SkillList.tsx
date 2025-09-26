@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { Box, Typography, CircularProgress, Alert, Grid } from '@mui/material';
 import { Skill } from '../../types/models/Skill';
 import EnhancedSkillCard from './SkillCard';
@@ -13,12 +13,12 @@ interface SkillListProps {
   onDeleteSkill: (skillId: string) => void;
   onMatchSkill?: (skill: Skill) => void;
   // FAVORITES
-  favoriteSkillIds?: string[];
+  // favoriteSkillIds?: string[];
   isFavorite?: (skillId: string) => boolean;
   onToggleFavorite?: (skill: Skill) => void;
 }
 
-const SkillList: React.FC<SkillListProps> = ({
+const SkillList: React.FC<SkillListProps> = memo(({
   skills,
   loading,
   errors,
@@ -31,20 +31,28 @@ const SkillList: React.FC<SkillListProps> = ({
   isFavorite,
   onToggleFavorite,
 }) => {
-  console.log('📋 SkillList render:', {
-    skillsCount: skills?.length,
-    loading,
-    hasErrors: !!errors?.length,
-    isOwnerView,
-    showMatchButtons,
-    skills: skills?.map((s) =>
-      s ? { skillId: s.id, name: s.name } : 'undefined skill'
-    ),
-  });
+  
+  // PERFORMANCE CRITICAL: Memoize all callback functions to prevent SkillCard re-renders
+  const handleEditSkill = useCallback((skill: Skill) => {
+    onEditSkill(skill);
+  }, [onEditSkill]);
+  
+  const handleDeleteSkill = useCallback((skillId: string) => {
+    onDeleteSkill(skillId);
+  }, [onDeleteSkill]);
+  
+  const handleMatchSkill = useCallback((skill: Skill) => {
+    onMatchSkill?.(skill);
+  }, [onMatchSkill]);
+  
+  const handleToggleFavorite = useCallback((skill: Skill) => {
+    onToggleFavorite?.(skill);
+  }, [onToggleFavorite]);
 
-  // Filter out any undefined or null skills
-  const validSkills = skills?.filter(
-    (skill) => skill && (skill.id || skill.id) && skill.name
+  // PERFORMANCE: Memoize filtered skills to prevent unnecessary re-calculations
+  const validSkills = useMemo(() => 
+    skills?.filter((skill) => skill && skill.id && skill.name),
+    [skills]
   );
 
   if (skills && validSkills && validSkills?.length !== skills.length) {
@@ -125,17 +133,18 @@ const SkillList: React.FC<SkillListProps> = ({
             skill={skill}
             isOwner={isOwnerView}
             showMatchButton={showMatchButtons && !isOwnerView}
-            onEdit={onEditSkill}
-            onDelete={onDeleteSkill}
-            onMatch={onMatchSkill}
-            // FAVORITES
-            isFavorite={isFavorite}
-            onToggleFavorite={onToggleFavorite}
+            onEdit={handleEditSkill}
+            onDelete={handleDeleteSkill}
+            onMatch={handleMatchSkill}
+            // ⚡ PERFORMANCE FIX: Convert isFavorite function call to boolean prop
+            isFavorite={isFavorite?.(skill.id) ?? false}
+            onToggleFavorite={handleToggleFavorite}
           />
         </Grid>
-      ))})
-    </Grid>
-  );
-};
+      ))}
+    </Grid>)
+});
+
+SkillList.displayName = 'SkillList';
 
 export default SkillList;

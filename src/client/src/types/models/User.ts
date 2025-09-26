@@ -16,4 +16,6 @@ export interface User {
   lastLoginAt?: string;
   preferences?: Record<string, string>;
   profilePictureUrl?: string;
+  twoFactorRequired?: boolean;
+  twoFactorEnabled?: boolean;
 }

@@ -30,7 +30,6 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-
 import CalendarView from '../../components/appointments/CalendarView';
 import PageLoader from '../../components/ui/PageLoader';
 import EmptyState from '../../components/ui/EmptyState';
@@ -42,7 +41,7 @@ import errorService from '../../services/errorService';
 const AppointmentCalendarPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { appointments, isLoading, error } = useAppointments();
+    const { appointments, isLoading, errorMessage } = useAppointments();
     
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -95,7 +94,7 @@ const AppointmentCalendarPage: React.FC = () => {
         return <PageLoader message="Kalender wird geladen..." />;
     }
 
-    if (error) {
+    if (errorMessage) {
         return (
             <Container maxWidth="lg" sx={{ mt: 4 }}>
                 <EmptyState

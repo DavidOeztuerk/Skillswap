@@ -19,6 +19,7 @@ import LoadingButton from '../ui/LoadingButton';
 import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
 import { toast } from 'react-toastify';
 import skillService from '../../api/services/skillsService';
+import { isSuccessResponse } from '../../types/api/UnifiedResponse';
 
 interface QuickSkillCreateProps {
   open: boolean;
@@ -73,14 +74,15 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
       setLoading(true);
       const response = await skillService.createSkill(formData as CreateSkillRequest);
       
-      if (response.success && response.data) {
-        toast.success('Skill erfolgreich erstellt');
-        onSkillCreated(response.data.skillId, response.data.name);
-        handleClose();
-      } else {
-        toast.error(response.message || 'Fehler beim Erstellen des Skills');
-      }
-    } catch (error: any) {
+      if (isSuccessResponse(response))
+        if (response.success && response.data) {
+          toast.success('Skill erfolgreich erstellt');
+          onSkillCreated(response.data.skillId, response.data.name);
+          handleClose();
+        } else {
+          toast.error(response.message || 'Fehler beim Erstellen des Skills');
+        }
+    } catch (error: unknown) {
       console.error('Error creating skill:', error);
       toast.error('Fehler beim Erstellen des Skills');
     } finally {
@@ -103,7 +105,7 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
     }
   };
 
-  const handleChange = (field: keyof CreateSkillRequest, value: any) => {
+  const handleChange = (field: keyof CreateSkillRequest, value: string | boolean | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error for this field
     if (errors[field]) {

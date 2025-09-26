@@ -6,7 +6,7 @@ interface SearchState {
   isOpen: boolean;
   query: string;
   isSearching: boolean;
-  results: any[];
+  results: unknown[];
   recentSearches: string[];
 }
 

@@ -31,6 +31,7 @@ import { format, isAfter, isBefore, addMinutes, differenceInMinutes } from 'date
 import { de } from 'date-fns/locale';
 import { useLoading } from '../../contexts/LoadingContext';
 import JoinCallButton from './JoinCallButton';
+import axios from 'axios';
 
 interface MeetingLinkSectionProps {
   meetingUrl?: string | null;
@@ -72,23 +73,20 @@ const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [timeUntilActivation, setTimeUntilActivation] = useState<number>(0);
 
-  // Update current time and activation countdown
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
       
-      // Calculate time until activation if link was recently generated
       if (generatedAt && activationDelayMinutes > 0) {
         const activationTime = addMinutes(generatedAt, activationDelayMinutes);
         const now = new Date();
         const secondsUntilActivation = Math.max(0, Math.floor((activationTime.getTime() - now.getTime()) / 1000));
         setTimeUntilActivation(secondsUntilActivation);
       }
-    }, 1000); // Update every second for countdown
+    }, 1000);
 
     return () => clearInterval(timer);
   }, [generatedAt, activationDelayMinutes]);
-
   // Reset copied state after 3 seconds
   useEffect(() => {
     if (copied) {
@@ -156,7 +154,6 @@ const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
 
   const meetingStatus = getMeetingStatus();
 
-  // Copy link to clipboard
   const handleCopyLink = async () => {
     if (!effectiveMeetingUrl) return;
     
@@ -168,7 +165,6 @@ const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
     }
   };
 
-  // Generate meeting link
   const handleGenerateLink = async () => {
     if (!onGenerateLink) return;
     
@@ -179,8 +175,15 @@ const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
         setGeneratedUrl(url);
         setGeneratedAt(new Date());
         setTimeUntilActivation(activationDelayMinutes * 60);
-      } catch (err: any) {
-        setError(err?.message || 'Fehler beim Generieren des Meeting-Links');
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message || 
+            'Fehler beim Generieren des Meeting-Links'
+          );
+        } else {
+          setError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+        }
       }
     });
   };
@@ -194,8 +197,15 @@ const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
         setError(null);
         const url = await onRefreshLink();
         setGeneratedUrl(url);
-      } catch (err: any) {
-        setError(err?.message || 'Fehler beim Aktualisieren des Meeting-Links');
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ||
+            'Fehler beim Aktualisieren des Meeting-Links'
+          );
+        } else {
+          setError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+        }
       }
     });
   };

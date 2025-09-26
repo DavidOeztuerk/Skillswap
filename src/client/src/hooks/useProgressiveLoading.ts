@@ -2,14 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { withDefault } from '../utils/safeAccess';
 
 interface UseProgressiveLoadingOptions<T> {
-  loadFn: (page: number, pageSize: number, ...args: any[]) => Promise<{
+  loadFn: (page: number, pageSize: number, ...args: unknown[]) => Promise<{
     data: T[];
     totalCount: number;
     hasMore: boolean;
   }>;
   pageSize?: number;
   initialLoad?: boolean;
-  deps?: any[];
+  deps?: unknown[];
 }
 
 interface UseProgressiveLoadingReturn<T> {

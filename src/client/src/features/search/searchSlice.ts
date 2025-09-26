@@ -1,67 +1,19 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import skillService from '../../api/services/skillsService';
-import { RootState } from '../../store/store';
-import { SearchState } from '../../types/states/SearchState';
-import { SliceError } from '../../store/types';
-import { mapSkillResponseToSkill, mapUserSkillsResponseToSkill } from '../skills/skillsSlice';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Skill } from '../../types/models/Skill';
-import { withDefault } from '../../utils/safeAccess';
-import { serializeError } from '../../utils/reduxHelpers';
-
-const initialPagination = {
-  page: 1,
-  pageSize: 12,
-  totalItems: 0,
-  totalPages: 0,
-};
-
-const initialState: SearchState = {
-  results: [],
-  userResults: [],
-  allSkills: [],
-  isLoading: false,
-  userLoading: false,
-  allSkillsLoading: false,
-  error: null,
-  currentQuery: '',
-  pagination: { ...initialPagination },
-  userPagination: { ...initialPagination },
-  allSkillsPagination: { ...initialPagination },
-  lastSearchParams: null,
-};
-
-// Async thunks
-export const fetchUserSearchResults = createAsyncThunk(
-  'search/fetchUserSearchResults',
-  async ({ pageNumber = 1, pageSize = 12 }: { pageNumber?: number; pageSize?: number } = {}, { rejectWithValue }) => {
-    try {
-      return await skillService.getUserSkills(pageNumber, pageSize);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const fetchAllSkills = createAsyncThunk(
-  'search/fetchAllSkills',
-  async ({ pageNumber = 1, pageSize = 12 }: { pageNumber?: number; pageSize?: number } = {}, { rejectWithValue }) => {
-    try {
-      return await skillService.getAllSkills({ pageNumber, pageSize });
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
+import { withDefault, isDefined } from '../../utils/safeAccess';
+import { initialPagination, initialSearchState } from '../../store/adapters/searchAdapter+State';
+import { fetchUserSearchResults, fetchAllSkills } from './searchThunks';
+import { mapSkillResponseToSkill, mapUserSkillsResponseToSkill } from '../../store/adapters/skillsAdapter+State';
 
 // Slice
 const searchSlice = createSlice({
   name: 'search',
-  initialState,
+  initialState: initialSearchState,
   reducers: {
     clearSearchResults: (state) => {
       state.results = [];
       state.isLoading = false;
-      state.error = null;
+      state.errorMessage = undefined;
       state.currentQuery = '';
       state.pagination = { ...initialPagination };
       state.lastSearchParams = null;
@@ -76,7 +28,7 @@ const searchSlice = createSlice({
       state.allSkillsLoading = false;
       state.allSkillsPagination = { ...initialPagination };
     },
-    clearAllSearchData: () => initialState,
+    clearAllSearchData: () => initialSearchState,
     setCurrentQuery: (state, action: PayloadAction<string>) => {
       state.currentQuery = action.payload;
     },
@@ -104,63 +56,69 @@ const searchSlice = createSlice({
         state.allSkillsPagination.pageSize = action.payload.pageSize;
       }
     },
-    setLoading: (state, action: PayloadAction<boolean>) => {
+    setLoading: (state, action) => {
       state.isLoading = action.payload;
     },
     setError: (state, action) => {
-      state.error = serializeError(action.payload);
+      state.errorMessage = action.payload.message;
     },
-    resetSearchState: () => initialState,
+    resetSearchState: () => initialSearchState,
   },
   extraReducers: (builder) => {
     builder
       // User Search Results
       .addCase(fetchUserSearchResults.pending, (state) => {
         state.userLoading = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchUserSearchResults.fulfilled, (state, action) => {
         state.userLoading = false;
-        const response = action.payload;
-
-        state.userResults = response.data?.map((skill) => {
-          if (skill && 'skillId' in skill) {
-            return mapUserSkillsResponseToSkill(skill);
-          }
-          return skill as Skill;
-        });
+        if (isDefined(action.payload.data)) {
+          state.userResults = action.payload.data.map((skill) => {
+            if (skill && 'skillId' in skill) {
+              return mapUserSkillsResponseToSkill(skill);
+            }
+            return skill as Skill;
+          });
+        } else {
+          state.userResults = [];
+        }
 
         state.userPagination = {
-          page: withDefault(action.payload?.pageNumber, 1),
-          pageSize: withDefault(action.payload?.pageSize, 12),
-          totalItems: withDefault(action.payload?.totalRecords, 0),
-          totalPages: withDefault(action.payload?.totalPages, 0),
+          page: withDefault(action.payload.pagination.pageNumber, 1),
+          pageSize: withDefault(action.payload.pagination.pageSize, 12),
+          totalItems: withDefault(action.payload.pagination.totalRecords, 0),
+          totalPages: withDefault(action.payload.pagination.totalPages, 0),
         };
       })
       .addCase(fetchUserSearchResults.rejected, (state, action) => {
         state.userLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
         state.userResults = [];
       })
 
       // All Skills Search
       .addCase(fetchAllSkills.pending, (state) => {
         state.allSkillsLoading = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchAllSkills.fulfilled, (state, action) => {
         state.allSkillsLoading = false;
-        state.allSkills = action.payload.data?.map(mapSkillResponseToSkill);
+        if (isDefined(action.payload.data)) {
+          state.allSkills = action.payload.data.map(mapSkillResponseToSkill);
+        } else {
+          state.allSkills = [];
+        }
         state.allSkillsPagination = {
-          page: withDefault(action.payload?.pageNumber, 1),
-          pageSize: withDefault(action.payload?.pageSize, 12),
-          totalItems: withDefault(action.payload?.totalRecords, 0),
-          totalPages: withDefault(action.payload?.totalPages, 0),
+          page: withDefault(action.payload.pagination.pageNumber, 1),
+          pageSize: withDefault(action.payload.pagination.pageSize, 12),
+          totalItems: withDefault(action.payload.pagination.totalRecords, 0),
+          totalPages: withDefault(action.payload.pagination.totalPages, 0),
         };
       })
       .addCase(fetchAllSkills.rejected, (state, action) => {
         state.allSkillsLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
         state.allSkills = [];
       });
   },
@@ -180,20 +138,5 @@ export const {
   setError,
   resetSearchState,
 } = searchSlice.actions;
-
-// Selectors
-export const selectSearchResults = (state: RootState) => state.search.results;
-export const selectUserSearchResults = (state: RootState) => state.search.userResults;
-export const selectAllSkillsResults = (state: RootState) => state.search.allSkills;
-export const selectSearchLoading = (state: RootState) => state.search.isLoading;
-export const selectUserSearchLoading = (state: RootState) => state.search.userLoading;
-export const selectAllSkillsLoading = (state: RootState) => state.search.allSkillsLoading;
-export const selectSearchError = (state: RootState) => state.search.error;
-export const selectCurrentQuery = (state: RootState) => state.search.currentQuery;
-export const selectSearchPagination = (state: RootState) => state.search.pagination;
-export const selectUserSearchPagination = (state: RootState) => state.search.userPagination;
-export const selectAllSkillsPagination = (state: RootState) => state.search.allSkillsPagination;
-export const selectIsAnySearchLoading = (state: RootState) => 
-  state.search.isLoading || state.search.userLoading || state.search.allSkillsLoading;
 
 export default searchSlice.reducer;

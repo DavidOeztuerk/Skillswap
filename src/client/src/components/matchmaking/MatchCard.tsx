@@ -1,5 +1,5 @@
-// src/components/matchmaking/MatchCard.tsx
-import React from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
+import { usePerformance } from '../../hooks/usePerformance';
 import {
   Card,
   CardContent,
@@ -22,7 +22,6 @@ import {
 } from '@mui/icons-material';
 import { formatDate } from '../../utils/dateUtils';
 import { Match, MatchStatus } from '../../types/models/Match';
-// import ProfileAvatar from '../ui/ProfilAvatar';
 
 interface MatchCardProps {
   match: Match;
@@ -32,29 +31,28 @@ interface MatchCardProps {
   onSchedule?: (match: Match) => void;
 }
 
-/**
- * Karte zur Anzeige eines Matches mit entsprechenden Aktionen
- */
-const MatchCard: React.FC<MatchCardProps> = ({
+const MatchCard: React.FC<MatchCardProps> = memo(({
   match,
   isRequester = false,
   onAccept,
   onReject,
   onSchedule,
 }) => {
+  usePerformance('MatchCard', {
+    matchId: match.id,
+    status: match.status,
+    isRequester
+  });
   const theme = useTheme();
-//   const currentUserId = isRequester ? match.requesterId : match.responderId;
   const otherUser = isRequester
     ? match.responderDetails
     : match.requesterDetails;
 
-  // Bestimme, ob der aktuelle Benutzer der Lehrer oder der Schüler ist
   const isTeacher =
     (!match.isLearningMode && isRequester) ||
     (match.isLearningMode && !isRequester);
 
-  // Status-bezogene Anzeigeoptionen
-  const getStatusColor = (status: MatchStatus): string => {
+  const getStatusColor = useCallback((status: MatchStatus): string => {
     switch (status) {
       case 'Pending':
         return theme.palette.warning.main;
@@ -67,9 +65,9 @@ const MatchCard: React.FC<MatchCardProps> = ({
       default:
         return theme.palette.grey[500];
     }
-  };
+  }, [theme]);
 
-  const getStatusLabel = (status: MatchStatus): string => {
+  const getStatusLabel = useCallback((status: MatchStatus): string => {
     switch (status) {
       case 'Pending':
         return 'Ausstehend';
@@ -82,11 +80,10 @@ const MatchCard: React.FC<MatchCardProps> = ({
       default:
         return status;
     }
-  };
+  }, []);
 
-  // Bestimme, welche Aktionen angezeigt werden sollen
-  const canRespond = !isRequester && match.status === 'Pending';
-  const canSchedule = match.status === 'Accepted';
+  const canRespond = useMemo(() => !isRequester && match.status === 'Pending', [isRequester, match.status]);
+  const canSchedule = useMemo(() => match.status === 'Accepted', [match.status]);
 
   return (
     <Card
@@ -122,11 +119,6 @@ const MatchCard: React.FC<MatchCardProps> = ({
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          {/* <ProfileAvatar
-            src={otherUser.profilePicture || undefined}
-            alt={`${otherUser.firstName} ${otherUser.lastName}`}
-            size={40}
-          /> */}
           <Box sx={{ ml: 1.5 }}>
             <Typography variant="subtitle1" fontWeight="medium">
               {otherUser.firstName} {otherUser.lastName}
@@ -262,6 +254,8 @@ const MatchCard: React.FC<MatchCardProps> = ({
       </CardActions>
     </Card>
   );
-};
+});
+
+MatchCard.displayName = 'MatchCard';
 
 export default MatchCard;

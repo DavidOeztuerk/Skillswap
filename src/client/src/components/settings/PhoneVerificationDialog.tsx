@@ -31,6 +31,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import LoadingButton from '../ui/LoadingButton';
 import { useLoading } from '../../contexts/LoadingContext';
 import authService from '../../api/services/authService';
+import axios from 'axios';
+import { isSuccessResponse } from '../../types/api/UnifiedResponse';
 
 // Country codes for phone number input
 const countryCodes = [
@@ -148,40 +150,42 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
           return;
         }
         
-        // Check for cooldown
+        if (isSuccessResponse(response)) {
+            // Check for cooldown
         if (response.data?.cooldownUntil) {
           const cooldownDate = new Date(response.data.cooldownUntil);
           const now = new Date();
           const cooldownSeconds = Math.max(0, Math.ceil((cooldownDate.getTime() - now.getTime()) / 1000));
           setResendCooldown(cooldownSeconds);
         } else {
-          setResendCooldown(60); // Default 60 second cooldown
+          setResendCooldown(60);
         }
         
-        // Only proceed if the code was actually sent
         if (response.data?.success) {
           setActiveStep(1);
         } else {
           setError(response.data?.message || 'Code konnte nicht gesendet werden.');
         }
-      } catch (err: any) {
-        console.error('Failed to send verification code:', err);
-        setError(
-          err?.response?.data?.message || 
-          err?.message || 
-          'Fehler beim Senden des Verifizierungscodes.'
-        );
+        }
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ||
+            err.message ||
+            'Fehler beim Senden des Verifizierungscodes.'
+          );
+        } else {
+          setError('Fehler beim Senden des Verifizierungscodes.');
+        }
       }
     });
   };
 
-  // Handle code verification
   const handleCodeSubmit = async (data: CodeFormValues) => {
     await withLoading('verifyPhoneCode', async () => {
       try {
         setError(null);
         
-        // Verify the code
         const response = await authService.verifyPhoneCode(data.code);
         
         if (!response.success) {
@@ -189,10 +193,10 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
           return;
         }
         
-        if (response.data?.phoneVerified) {
+       if (isSuccessResponse(response)) {
+         if (response.data?.phoneVerified) {
           setActiveStep(2);
           
-          // Call success callback after a short delay
           setTimeout(() => {
             if (onVerificationComplete) {
               onVerificationComplete(response.data?.phoneNumber || fullPhoneNumber);
@@ -202,13 +206,17 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
         } else {
           setError(response.data?.message || 'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.');
         }
-      } catch (err: any) {
-        console.error('Phone verification failed:', err);
-        setError(
-          err?.response?.data?.message || 
-          err?.message || 
-          'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.'
-        );
+       }
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ||
+            err.message ||
+            'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.'
+          );
+        } else {
+          setError('Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.');
+        }
       }
     });
   };
@@ -222,7 +230,8 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
         setError(null);
         const response = await authService.sendPhoneVerificationCode(fullPhoneNumber);
         
-        if (!response.success) {
+       if (isSuccessResponse(response)) {
+         if (!response.success) {
           setError(response.message || 'Fehler beim erneuten Senden des Codes.');
           return;
         }
@@ -241,13 +250,17 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
         } else {
           setError(response.data?.message || 'Code konnte nicht erneut gesendet werden.');
         }
-      } catch (err: any) {
-        console.error('Failed to resend code:', err);
-        setError(
-          err?.response?.data?.message || 
-          err?.message || 
-          'Fehler beim erneuten Senden des Codes.'
-        );
+       }
+      } catch (err) {
+          if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ||
+            err.message ||
+            'Fehler beim erneuten Senden des Codes.'
+          );
+        } else {
+          setError('Fehler beim erneuten Senden des Codes.');
+        }
       }
     });
   };

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { withDefault } from '../utils/safeAccess';
 
 interface AnnouncementOptions {
@@ -14,7 +14,8 @@ interface AnnouncementOptions {
 export const useAnnouncements = () => {
   const politeRegionRef = useRef<HTMLDivElement | null>(null);
   const assertiveRegionRef = useRef<HTMLDivElement | null>(null);
-
+  const timersRef = useRef<number[]>([]);
+  
   // Initialize live regions if they don't exist
   const ensureLiveRegions = useCallback(() => {
     if (!politeRegionRef.current) {
@@ -74,19 +75,30 @@ export const useAnnouncements = () => {
 
       // Announce after delay to ensure screen readers pick it up
       const safeDelay = Math.max(0, withDefault(options.delay, 100));
-      setTimeout(() => {
-        region.textContent = safeMessage;
-
-        // Auto-clear after 5 seconds
-        setTimeout(() => {
-          if (region.textContent === safeMessage) {
-            region.textContent = '';
-          }
-        }, 5000);
-      }, safeDelay);
+      (() => {
+        const __id = setTimeout(() => {
+           region.textContent = safeMessage;
+ 
+           // Auto-clear after 5 seconds
+          const __id2 = setTimeout(() => {
+             if (region.textContent === safeMessage) {
+               region.textContent = '';
+             }
+          }, 5000);
+          timersRef.current.push(__id2 as any);
+        }, safeDelay);
+        timersRef.current.push(__id as any);
+      })();
     },
     [ensureLiveRegions]
   );
+
+  useEffect(() => {
+    return () => {
+      for (const id of timersRef.current) clearTimeout(id);
+      timersRef.current = [];
+    };
+  }, []);
 
   const announcePolite = useCallback(
     (message: string, delay = 100) => {

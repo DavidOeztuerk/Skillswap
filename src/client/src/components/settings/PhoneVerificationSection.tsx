@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import {
   Box,
   Card,
@@ -21,8 +21,8 @@ import {
 } from '@mui/icons-material';
 import PhoneVerificationDialog from './PhoneVerificationDialog';
 import { useAppDispatch } from '../../store/store.hooks';
+import { getProfile } from '../../features/auth/authThunks';
 import authService from '../../api/services/authService';
-import { getProfile } from '../../features/auth/authSlice';
 import { useLoading } from '../../contexts/LoadingContext';
 
 interface PhoneVerificationSectionProps {
@@ -35,7 +35,7 @@ interface PhoneVerificationSectionProps {
  * Phone Verification Section Component
  * Manages phone number addition, verification, and removal
  */
-const PhoneVerificationSection: React.FC<PhoneVerificationSectionProps> = ({
+const PhoneVerificationSection: React.FC<PhoneVerificationSectionProps> = memo(({
   currentPhone,
   isVerified = false,
   onVerificationComplete,
@@ -86,9 +86,10 @@ const PhoneVerificationSection: React.FC<PhoneVerificationSectionProps> = ({
         await dispatch(getProfile());
         setSuccessMessage('Telefonnummer erfolgreich entfernt.');
         setTimeout(() => setSuccessMessage(null), 5000);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to remove phone number:', err);
-        setError(err?.message || 'Fehler beim Entfernen der Telefonnummer.');
+        const errorMessage = err instanceof Error ? err.message : 'Fehler beim Entfernen der Telefonnummer.';
+        setError(errorMessage);
       }
     });
   };
@@ -283,6 +284,9 @@ const PhoneVerificationSection: React.FC<PhoneVerificationSectionProps> = ({
       />
     </>
   );
-};
+});
+
+// Add display name for debugging
+PhoneVerificationSection.displayName = 'PhoneVerificationSection';
 
 export default PhoneVerificationSection;

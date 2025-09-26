@@ -1,4 +1,4 @@
-export interface Skill {
+export interface Skill  {
   id: string;
   userId: string;
   name: string;
@@ -11,7 +11,7 @@ export interface Skill {
   reviewCount?: number;
   estimatedDurationMinutes?: number;
   endorsementCount: number;
-  createdAt: string;
+  createdAt: string | undefined;
   lastActiveAt?: string;
   matchRequests?: number;
   activeMatches?: number;

@@ -12,13 +12,49 @@ export interface ProcessedError {
 /**
  * Process API error response into standardized format
  */
-export const processApiError = (error: any): ProcessedError => {
+export const processApiError = (error: unknown): ProcessedError => {
+  // Type guards for better error handling
+  const isErrorWithResponse = (err: unknown): err is { response: { data?: unknown; status?: number } } => {
+    return typeof err === 'object' && err !== null && 'response' in err;
+  };
+
+  const isErrorWithData = (err: unknown): err is { data?: unknown } => {
+    return typeof err === 'object' && err !== null && 'data' in err;
+  };
+
+  const isErrorWithStatus = (err: unknown): err is { status?: number } => {
+    return typeof err === 'object' && err !== null && 'status' in err;
+  };
+
+  const isErrorWithCode = (err: unknown): err is { code?: number | string } => {
+    return typeof err === 'object' && err !== null && 'code' in err;
+  };
+
+  const isErrorWithMessage = (err: unknown): err is { message?: string } => {
+    return typeof err === 'object' && err !== null && 'message' in err;
+  };
+
+  const isErrorWithErrorCode = (err: unknown): err is { errorCode?: string } => {
+    return typeof err === 'object' && err !== null && 'errorCode' in err;
+  };
+
+  const isErrorWithDetails = (err: unknown): err is { details?: { status?: number; success?: boolean; errorCode?: string; traceId?: string; errors?: string[] } } => {
+    return typeof err === 'object' && err !== null && 'details' in err;
+  };
+
   // Extract error data from various possible structures  
-  const errorData = error?.response?.data || error?.data || error;
-  let status = error?.response?.status || error?.status || error?.code || error?.details?.status;
+  const errorData = isErrorWithResponse(error) ? error.response.data : 
+                   isErrorWithData(error) ? error.data : 
+                   error;
+
+  let status = isErrorWithResponse(error) ? error.response.status :
+               isErrorWithStatus(error) ? error.status :
+               isErrorWithCode(error) && typeof error.code === 'number' ? error.code :
+               isErrorWithDetails(error) ? error.details?.status :
+               undefined;
   
   // For serialized error objects that don't have status but have errorCode, try to map to HTTP status
-  if (!status && error?.errorCode) {
+  if (!status && isErrorWithErrorCode(error) && error.errorCode) {
     // Map common error codes to HTTP status codes
     const errorCodeToStatus: Record<string, number> = {
       'ERR_2006': 401, // InvalidCredentials
@@ -32,7 +68,7 @@ export const processApiError = (error: any): ProcessedError => {
   }
   
   // Extract status from error message if not found (for processed axios errors)
-  if (!status && error?.message) {
+  if (!status && isErrorWithMessage(error) && error.message) {
     const statusMatch = error.message.match(/status code (\d+)/);
     if (statusMatch) {
       status = parseInt(statusMatch[1]);
@@ -40,7 +76,7 @@ export const processApiError = (error: any): ProcessedError => {
   }
   
   // If still no status but we have details with success=false, assume it's a 4xx error
-  if (!status && error?.details?.success === false) {
+  if (!status && isErrorWithDetails(error) && error.details?.success === false) {
     status = 400; // Default to 400 for API errors
   }
   
@@ -52,27 +88,48 @@ export const processApiError = (error: any): ProcessedError => {
     type = 'AUTH';
   } else if (status === 400 || status === 409 || status === 422) {
     type = 'VALIDATION';
-  } else if (status >= 500) {
+  } else if (status && status >= 500) {
     type = 'SERVER';
-  } else if (status === 0 || !status || error?.code === 'NETWORK_ERROR') {
+  } else if (status === 0 || !status || (isErrorWithCode(error) && error.code === 'NETWORK_ERROR')) {
     type = 'NETWORK';
   }
   
   // Extract message with fallbacks - prefer user-friendly messages
-  let message = errorData?.message || errorData?.errors?.[0];
+  const isErrorDataWithMessage = (data: unknown): data is { message?: string } => {
+    return typeof data === 'object' && data !== null && 'message' in data;
+  };
+  
+  const isErrorDataWithErrors = (data: unknown): data is { errors?: string[] } => {
+    return typeof data === 'object' && data !== null && 'errors' in data;
+  };
+
+  let message = (isErrorDataWithMessage(errorData) ? errorData.message : undefined) ||
+                (isErrorDataWithErrors(errorData) && errorData.errors ? errorData.errors[0] : undefined);
   
   // If no backend message or generic axios error, use user-friendly message
   if (!message || message.includes('Request failed with status code') || message.includes('Network Error')) {
     message = getDefaultErrorMessage(type, status);
   }
   
+  const isErrorDataWithErrorCode = (data: unknown): data is { errorCode?: string } => {
+    return typeof data === 'object' && data !== null && 'errorCode' in data;
+  };
+  
+  const isErrorDataWithTraceId = (data: unknown): data is { traceId?: string } => {
+    return typeof data === 'object' && data !== null && 'traceId' in data;
+  };
+
   return {
     type,
     message,
     code: status,
-    errorCode: errorData?.errorCode || error?.details?.errorCode || error?.code,
-    traceId: errorData?.traceId || error?.details?.traceId,
-    errors: errorData?.errors || error?.details?.errors
+    errorCode: (isErrorDataWithErrorCode(errorData) ? errorData.errorCode : undefined) ||
+               (isErrorWithDetails(error) ? error.details?.errorCode : undefined) ||
+               (isErrorWithCode(error) && typeof error.code === 'string' ? error.code : undefined),
+    traceId: (isErrorDataWithTraceId(errorData) ? errorData.traceId : undefined) ||
+             (isErrorWithDetails(error) ? error.details?.traceId : undefined),
+    errors: (isErrorDataWithErrors(errorData) ? errorData.errors : undefined) ||
+            (isErrorWithDetails(error) ? error.details?.errors : undefined)
   };
 };
 

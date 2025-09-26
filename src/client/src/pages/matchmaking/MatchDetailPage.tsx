@@ -54,7 +54,8 @@ import { de } from 'date-fns/locale';
 import PageHeader from '../../components/layout/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { MatchDisplay } from '../../types/display/MatchmakingDisplay';
+import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
+import { transformMatchToDisplay } from '../../utils/matchingTransformers';
 import { toast } from 'react-toastify';
 import RescheduleDialog from '../../components/appointments/RescheduleDialog';
 import matchmakingService from '../../api/services/matchmakingService';
@@ -87,8 +88,9 @@ const MatchDetailPage: React.FC = () => {
     if (matchId && matches.length > 0) {
       const foundMatch = matches.find(m => m.id === matchId);
       if (foundMatch) {
-        setMatch(foundMatch);
-        loadMatchHistory(foundMatch);
+        const displayMatch = transformMatchToDisplay(foundMatch);
+        setMatch(displayMatch);
+        loadMatchHistory(displayMatch);
       }
     }
   }, [matchId, matches]);

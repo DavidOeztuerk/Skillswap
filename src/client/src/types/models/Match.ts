@@ -25,4 +25,5 @@ export enum MatchStatus {
   Accepted = 'Accepted',
   Rejected = 'Rejected',
   Expired = 'Expired',
+  Completed = 'Completed'
 }

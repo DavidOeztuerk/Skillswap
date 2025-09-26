@@ -42,7 +42,7 @@ export interface RBACOptions {
  */
 export function withRBAC<P extends object>(
   Component: ComponentType<P>,
-  options: RBACOptions = {}
+  options: RBACOptions
 ): ComponentType<P> {
   const WrappedComponent = (props: P) => {
     const permissions = usePermissions();

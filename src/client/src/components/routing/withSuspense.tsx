@@ -227,7 +227,7 @@ export function createLazyRoute<T extends ComponentType<any>>(
   
   // If roles contain '*', it means any authenticated user
   const modifiedOptions = options.roles?.includes('*') 
-    ? { ...options, roles: [] } // Clear roles but keep authentication requirement
+    ? { ...options, roles: [], requireAuth: true } // Clear roles but explicitly require auth
     : options;
   
   return {

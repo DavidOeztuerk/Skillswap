@@ -66,7 +66,7 @@ const SkillDetailPage: React.FC = () => {
     rateSkill,
     endorseSkill,
     isLoading: skillsLoading,
-    error,
+    errorMessage,
     dismissError,
     isFavoriteSkill,
     addFavoriteSkill,
@@ -90,7 +90,7 @@ const SkillDetailPage: React.FC = () => {
     outgoingRequests,
     loadOutgoingRequests,
     isLoading: isMatchmakingLoading,
-    error: matchmakingError
+    errorMessage: matchmakingError
   } = useMatchmaking();
   // const { user } = useUserById(selectedSkill?.userId);
 
@@ -466,7 +466,7 @@ const SkillDetailPage: React.FC = () => {
   }
 
   // Error state
-  if (error && !selectedSkill) {
+  if (errorMessage && !selectedSkill) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
@@ -496,7 +496,7 @@ const SkillDetailPage: React.FC = () => {
   const averageRating = 4.5;
   const reviewCount = 0; // Would come from API
   const skillOwner = {
-    name: isOwner ? 'Du' : 'Skill-Besitzer', // ✅ KORRIGIERT: Zeige "Du" für eigene Skills
+    name: isOwner ? 'Du' : 'Skill-Besitzer', 
     memberSince: '2023',
     rating: 4.8,
     avatar: '',
@@ -524,9 +524,9 @@ const SkillDetailPage: React.FC = () => {
       )}
 
       {/* Error messages */}
-      {error && (
+      {errorMessage && (
         <AlertMessage
-          message={error.message ? [error.message] : ['Ein unerwarteter Fehler ist aufgetreten']}
+          message={errorMessage ? [errorMessage] : ['Ein unerwarteter Fehler ist aufgetreten']}
           severity="error"
           onClose={dismissError}
         />
@@ -637,7 +637,6 @@ const SkillDetailPage: React.FC = () => {
                     <ShareIcon />
                   </IconButton>
                 </Tooltip>
-                {/* ✅ KORRIGIERT: Edit/Delete nur für Owner */}
                 {isOwner && (
                   <>
                     <Tooltip title="Bearbeiten">
@@ -665,7 +664,6 @@ const SkillDetailPage: React.FC = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            {/* ✅ KORRIGIERTE Action buttons - basierend auf Ownership */}
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               {!isOwner && (
                 <>
@@ -738,7 +736,6 @@ const SkillDetailPage: React.FC = () => {
 
         {/* Sidebar */}
         <Grid size={{ xs: 12, md: 4 }}>
-          {/* ✅ KORRIGIERT: Owner info nur für fremde Skills */}
           {!isOwner && (
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h6" gutterBottom>
@@ -812,7 +809,6 @@ const SkillDetailPage: React.FC = () => {
             </Box>
           </Paper>
 
-          {/* ✅ KORRIGIERT: Action info nur für fremde Skills */}
           {!isOwner && (
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
@@ -838,7 +834,6 @@ const SkillDetailPage: React.FC = () => {
             </Paper>
           )}
 
-          {/* ✅ HINZUGEFÜGT: Owner-spezifische Sidebar für eigene Skills */}
           {isOwner && (
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
@@ -873,7 +868,6 @@ const SkillDetailPage: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* ✅ KORRIGIERT: Rating Dialog nur für fremde Skills */}
       {!isOwner && (
         <Dialog
           open={ratingDialogOpen}
@@ -949,21 +943,19 @@ const SkillDetailPage: React.FC = () => {
         </Dialog>
       )}
 
-      {/* ✅ KORRIGIERT: Match Form nur für fremde Skills */}
       {selectedSkill && !isOwner && (
         <MatchForm
           open={matchFormOpen}
           onClose={() => setMatchFormOpen(false)}
           onSubmit={handleMatchSubmit}
           skill={selectedSkill}
-          targetUserId={selectedSkill.userId} // ✅ VEREINFACHT: Direkt userId aus Skill
-          targetUserName={user?.userName || user?.firstName || 'Skill-Besitzer'} // ✅ Optional: Name für Anzeige
+          targetUserId={selectedSkill.userId} 
+          targetUserName={user?.userName || user?.firstName || 'Skill-Besitzer'}
           isLoading={isMatchmakingLoading}
           error={matchmakingError}
         />
       )}
 
-      {/* ✅ KORRIGIERT: Delete Confirmation nur für Owner */}
       {isOwner && (
         <ConfirmDialog
           open={deleteDialogOpen}

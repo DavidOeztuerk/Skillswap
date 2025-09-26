@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Link, IconButton, Alert, Stack, Grid } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, Link, IconButton, Stack, Grid } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-
 import { useAuth } from '../../hooks/useAuth';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { LoadingButton } from '../../components/common/LoadingButton';
@@ -55,17 +54,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   onSuccess,
   redirectPath = '/dashboard',
 }) => {
-  const { register: registerUser, error, dismissError } = useAuth();
+  const { register: registerUser, errorMessage, dismissError } = useAuth();
   const { isLoading, withLoading } = useLoading();
   
-  // Clear errors when component mounts
-  useEffect(() => {
-    dismissError?.();
-    return () => {
-      // Clear errors when component unmounts  
-      dismissError?.();
-    };
-  }, [dismissError]);
+  // // Clear errors when component mounts
+  // useEffect(() => {
+  //   dismissError?.();
+  //   return () => {
+  //     // Clear errors when component unmounts  
+  //     dismissError?.();
+  //   };
+  // }, [dismissError]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -103,7 +102,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Stack spacing={3}>
         <EnhancedErrorAlert 
-          error={error || (errors.root && { message: errors.root.message })}
+          error={errorMessage || (errors.root && { message: errors.root.message })}
           onDismiss={() => dismissError?.()}
           compact={process.env.NODE_ENV === 'production'}
         />
@@ -269,7 +268,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           variant="contained"
           color="primary"
           loading={isLoading(LoadingKeys.REGISTER)}
-          disabled={isLoading(LoadingKeys.REGISTER) || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
+          disabled={isLoading(LoadingKeys.REGISTER) || Object.keys(errors).filter(key => key !== 'root').length > 0}
           size="large"
           sx={{ mt: 2 }}
         >

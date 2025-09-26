@@ -36,13 +36,14 @@ import LoadingButton from '../ui/LoadingButton';
 import { useLoading } from '../../contexts/LoadingContext';
 import TimeSlotPicker from './TimeSlotPicker';
 import { Appointment } from '../../types/models/Appointment';
+import axios from 'axios';
 
 interface RescheduleDialogProps {
   open: boolean;
   onClose: () => void;
   appointment: Appointment;
   onReschedule: (newDateTime: Date, newDuration?: number, reason?: string) => Promise<void>;
-  availableSlots?: Date[]; // Available time slots from backend
+  availableSlots?: Date[]; 
 }
 
 /**
@@ -193,12 +194,17 @@ const RescheduleDialog: React.FC<RescheduleDialogProps> = ({
         setTimeout(() => {
           onClose();
         }, 2000);
-      } catch (err: any) {
-        console.error('Failed to reschedule appointment:', err);
-        setError(
-          err?.message || 
-          'Fehler beim Verschieben des Termins. Bitte versuchen Sie es erneut.'
-        );
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          console.error('❌ Axios error rescheduling appointment:', err.response || err.message);
+          setError(
+            err.response?.data?.message || 
+            'Fehler beim Verschieben des Termins. Bitte versuchen Sie es erneut.'
+          );
+        } else {
+          console.error('❌ Unexpected error rescheduling appointment:', err);
+          setError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+        }
       }
     });
   };

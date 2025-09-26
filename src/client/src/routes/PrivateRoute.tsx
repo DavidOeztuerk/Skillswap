@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../contexts/PermissionContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { withDefault } from '../utils/safeAccess';
+import { getToken } from '../utils/authHelpers';
 
 /**
  * Konfiguration für die PrivateRoute
@@ -45,27 +46,44 @@ const useAuthorizationStatus = (
   const { hasAnyRole, hasAnyPermission, roles: contextRoles, permissions: contextPermissions } = usePermissions();
   
   return useMemo(() => {
-    // Schritt 1: Prüfe ob noch geladen wird
+    console.log('🔐 PrivateRoute: Authorization check', {
+      isLoading,
+      isAuthenticated,
+      hasUser: !!user,
+      hasStoredToken: !!getToken(),
+      requiredRoles: config.roles,
+      requiredPermissions: config.permissions
+    });
+
+    // Schritt 1: Prüfe ob noch geladen wird (AuthProvider initialization)
     if (isLoading) {
       return { status: AuthStatus.LOADING, reason: 'Überprüfe Berechtigung...' };
     }
     
     // Schritt 2: Prüfe Authentifizierung
     if (!isAuthenticated) {
-      // Fallback: Prüfe Token im Storage
-      const hasStoredToken = Boolean(
-        localStorage.getItem('token') || sessionStorage.getItem('token')
-      );
+      // Fallback: Prüfe Token im Storage über authHelpers
+      const hasStoredToken = Boolean(getToken());
       
       if (hasStoredToken) {
+        console.log('⚠️ PrivateRoute: Token found but not authenticated - AuthProvider might be initializing');
         return { status: AuthStatus.LOADING, reason: 'Lade Benutzerdaten...' };
       }
       
-      return { status: AuthStatus.UNAUTHENTICATED };
+      console.log('🚫 PrivateRoute: No authentication found, redirecting to login');
+      return { status: AuthStatus.UNAUTHENTICATED, reason: 'Nicht angemeldet' };
     }
     
-    // Schritt 3: Warte auf User-Daten  
+    // Schritt 3: Bei Authentifizierung ohne User-Daten (Edge case nach AuthProvider fix)
     if (!user) {
+      const hasStoredToken = Boolean(getToken());
+      
+      if (!hasStoredToken) {
+        console.log('⚠️ PrivateRoute: No user data and no token - redirecting to login');
+        return { status: AuthStatus.UNAUTHENTICATED, reason: 'Session abgelaufen' };
+      }
+      
+      console.log('⚠️ PrivateRoute: Authenticated but no user data - waiting briefly for user profile load');
       return { status: AuthStatus.LOADING, reason: 'Lade Benutzerprofil...' };
     }
     

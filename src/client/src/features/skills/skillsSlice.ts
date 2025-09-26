@@ -1,868 +1,182 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { Skill } from '../../types/models/Skill';
-import skillService, {
-  GetUserSkillRespone,
-  SkillSearchParams,
-  SkillSearchResultResponse,
-} from '../../api/services/skillsService';
-import { SkillState } from '../../types/states/SkillState';
-import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
-import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
-import { SliceError } from '../../store/types';
-import { withDefault } from '../../utils/safeAccess';
-import { serializeError } from '../../utils/reduxHelpers';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { initialSkillsState, normalizeEntities, removeEntity, updateEntity } from '../../store/adapters/skillsAdapter+State';
+import { fetchUserSkills, fetchSkillById, createSkill, updateSkill, deleteSkill, fetchFavoriteSkills, toggleFavoriteSkill, fetchAllSkills } from './thunks/skillsThunks';
 
-const initialState: SkillState = {
-  allSkills: [],
-  userSkills: [],
-  favoriteSkillIds: [],
-  selectedSkill: null,
-  searchQuery: '',
-  searchResults: [],
-  isSearchActive: false,
-  pagination: {
-    pageNumber: 1,
-    pageSize: 12,
-    totalPages: 0,
-    totalRecords: 0,
-    hasNextPage: false,
-    hasPreviousPage: false,
-  },
-  statistics: null,
-  recommendations: [],
-  popularTags: [],
-  isLoading: false,
-  isCreating: false,
-  isUpdating: false,
-  isDeleting: false,
-  error: null,
-};
-
-/**
- * Maps backend SkillSearchResultResponse to frontend Skill model
- */
-export const mapSkillResponseToSkill = (response: SkillSearchResultResponse): Skill => {
-  return {
-    id: response.skillId,
-    userId: response.userId,
-    name: response.name,
-    description: response.description,
-    isOffered: response.isOffered, // Fixed: Now correctly maps from backend
-    category: {
-      id: response.category?.categoryId || '',
-      name: response.category?.name,
-      iconName: response.category?.iconName,
-      color: response.category?.color,
-    },
-    proficiencyLevel: {
-      id: response.proficiencyLevel?.levelId || '',
-      level: response.proficiencyLevel?.level,
-      rank: withDefault(response.proficiencyLevel?.rank, 0),
-      color: response.proficiencyLevel?.color,
-    },
-    tagsJson: response.tagsJson,
-    averageRating: withDefault(response.averageRating, 0),
-    reviewCount: withDefault(response.reviewCount, 0),
-    endorsementCount: withDefault(response.endorsementCount, 0),
-    estimatedDurationMinutes: withDefault(response.estimatedDurationMinutes, 0),
-    createdAt: response.createdAt?.toString(),
-    lastActiveAt: response.lastActiveAt ? response.lastActiveAt.toString() : undefined,
-  };
-};
-
-export const mapUserSkillsResponseToSkill = (response: any): Skill => {
-  return {
-    id: response.skillId,
-    userId: response.userId,
-    name: response.name,
-    description: response.description,
-    isOffered: response.isOffered,
-    category: {
-      id: response.category?.categoryId || '',
-      name: response.category?.name,
-      iconName: response.category?.iconName,
-      color: response.category?.color,
-    },
-    proficiencyLevel: {
-      id: response.proficiencyLevel?.levelId || '',
-      level: response.proficiencyLevel?.level,
-      rank: withDefault(response.proficiencyLevel?.rank, 0),
-      color: response.proficiencyLevel?.color,
-    },
-    tagsJson: response.tags?.toString(),
-    averageRating: withDefault(response.averageRating, 0),
-    reviewCount: withDefault(response.reviewCount, 0),
-    endorsementCount: withDefault(response.endorsementCount, 0),
-    createdAt: response.createdAt?.toString(),
-    lastActiveAt: response.updatedAt ? response.updatedAt.toString() : undefined,
-  };
-};
-
-export const fetchFavoriteSkills = createAsyncThunk(
-  'skills/fetchFavoriteSkills',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await skillService.getFavoriteSkills();
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-export const addFavoriteSkill = createAsyncThunk(
-  'skills/addFavoriteSkill',
-  async ({skillId }: { skillId: string }, { rejectWithValue }) => {
-    try {
-      return await skillService.addFavoriteSkill(skillId);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-export const removeFavoriteSkill = createAsyncThunk(
-  'skills/removeFavoriteSkill',
-  async ({ skillId }: { skillId: string }, { rejectWithValue }) => {
-    try {
-      return await skillService.removeFavoriteSkill(skillId);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-/**
- * Async Thunks
- */
-// Get all skills with pagination
-export const fetchAllSkills = createAsyncThunk(
-  'skills/fetchAllSkills',
-  async (params: SkillSearchParams = {}, { rejectWithValue }) => {
-    try {
-      return await skillService.getAllSkills(params);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Get skill by ID
-export const fetchSkillById = createAsyncThunk(
-  'skills/fetchSkillById',
-  async (skillId: string, { rejectWithValue }) => {
-    try {
-      return await skillService.getSkillById(skillId);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Get user skills
-export const fetchUserSkills = createAsyncThunk(
-  'skills/fetchUserSkills',
-  async ({ 
-    page = 1, 
-    pageSize = 12,
-    isOffered,
-    categoryId,
-    proficiencyLevelId,
-    includeInactive = false
-  }: { 
-    page?: number; 
-    pageSize?: number;
-    isOffered?: boolean;
-    categoryId?: string;
-    proficiencyLevelId?: string;
-    includeInactive?: boolean;
-  }, { rejectWithValue }) => {
-    try {
-      return await skillService.getUserSkills(page, pageSize, isOffered, categoryId, proficiencyLevelId, includeInactive);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Create new skill
-export const createSkill = createAsyncThunk(
-  'skills/createSkill',
-  async (skillData: CreateSkillRequest, { rejectWithValue }) => {
-    try {
-      return await skillService.createSkill(skillData);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Update existing skill
-export const updateSkill = createAsyncThunk(
-  'skills/updateSkill',
-  async ({skillId, updateData}: { skillId: string; updateData: UpdateSkillRequest }, { rejectWithValue }) => {
-    try {
-      return await skillService.updateSkill(skillId, updateData);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Delete skill
-export const deleteSkill = createAsyncThunk(
-  'skills/deleteSkill',
-  async ({ skillId, reason }: { skillId: string; reason?: string }, { rejectWithValue }) => {
-    try {
-      return await skillService.deleteSkill(skillId, reason);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Rate skill
-export const rateSkill = createAsyncThunk(
-  'skills/rateSkill',
-  async ({ skillId, rating, review }: { skillId: string; rating: number; review?: string }, { rejectWithValue }) => {
-    try {
-      return await skillService.rateSkill(skillId, rating, review);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Endorse skill
-export const endorseSkill = createAsyncThunk(
-  'skills/endorseSkill',
-  async ({ skillId, message }: { skillId: string; message?: string }, { rejectWithValue }) => {
-    try {
-      return await skillService.endorseSkill(skillId, message);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Fetch skill statistics
-export const fetchSkillStatistics = createAsyncThunk(
-  'skills/fetchSkillStatistics',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await skillService.getSkillStatistics();
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Fetch popular tags
-export const fetchPopularTags = createAsyncThunk(
-  'skills/fetchPopularTags',
-  async ({ limit = 20 }: { limit?: number }, { rejectWithValue }) => {
-    try {
-      return await skillService.getPopularTags(limit);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-// Fetch skill recommendations
-export const fetchSkillRecommendations = createAsyncThunk(
-  'skills/fetchSkillRecommendations',
-  async ({ limit = 10 }: { limit?: number }, { rejectWithValue }) => {
-    try {
-      return await skillService.getSkillRecommendations(limit);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error;
-      return rejectWithValue(errorData);
-    }
-  }
-);
-
-/**
- * Skills Slice
- */
+// ===== REDUX SLICE =====
 const skillsSlice = createSlice({
   name: 'skills',
-  initialState,
+  initialState: initialSkillsState,
   reducers: {
-    // Error handling
-    clearError: (state) => {
-      state.error = null;
-    },
-
-    setError: (state, action) => {
-      state.error = serializeError(action.payload);
-    },
-
-    // Selected skill management
-    setSelectedSkill: (state, action: PayloadAction<Skill | null>) => {
-      state.selectedSkill = action.payload;
-    },
-
-    clearSelectedSkill: (state) => {
-      state.selectedSkill = null;
-    },
-
-    // Search management
-    setSearchQuery: (state, action: PayloadAction<string>) => {
+    // UI State Actions
+    setSearchQuery: (state, action) => {
       state.searchQuery = action.payload;
-      state.isSearchActive = action.payload.length > 0;
     },
-
-    clearSearch: (state) => {
+    
+    clearSearchQuery: (state) => {
       state.searchQuery = '';
       state.searchResults = [];
       state.isSearchActive = false;
     },
-
-    // Pagination management
-    setPagination: (
-      state,
-      action: PayloadAction<Partial<typeof initialState.pagination>>
-    ) => {
-      state.pagination = { ...state.pagination, ...action.payload };
+    
+    setSelectedSkillId: (state, action) => {
+      state.selectedSkillId = action.payload;
     },
-
-    resetPagination: (state) => {
-      state.pagination = initialState.pagination;
+    
+    // Error Management
+    clearError: (state, _) => {
+      delete state.errorMessage;
     },
-
-    // Manual state updates
-    setLoading: (state, action: PayloadAction<boolean>) => {
-      state.isLoading = action.payload;
+    
+    // Search Results
+    setSearchResults: (state, action: PayloadAction<string[]>) => {
+      state.searchResults = action.payload;
+      state.isSearchActive = true;
     },
-
-    addUserSkill: (state, action: PayloadAction<Skill>) => {
-      const existingIndex = state.userSkills?.findIndex(
-        (skill) => skill.id === action.payload.id
-      );
-      if (existingIndex) {
-        state.userSkills?.unshift(action.payload);
-      } else if (state.userSkills && existingIndex) {
-        state.userSkills[existingIndex] = action.payload;
-      }
-    },
-
-    removeUserSkill: (state, action: PayloadAction<string>) => {
-      state.userSkills = state.userSkills?.filter(
-        (skill) => skill.id !== action.payload
-      );
-      if (state.selectedSkill?.id === action.payload) {
-        state.selectedSkill = null;
-      }
-    },
-
-    // Optimistic favorite updates
-    addFavoriteOptimistic: (state, action: PayloadAction<string>) => {
-      if (!state.favoriteSkillIds.includes(action.payload)) {
-        state.favoriteSkillIds.push(action.payload);
-      }
-    },
-
-    removeFavoriteOptimistic: (state, action: PayloadAction<string>) => {
-      state.favoriteSkillIds = state.favoriteSkillIds.filter(
-        id => id !== action.payload
-      );
-    },
-
-    // Rollback actions
-    setFavoriteSkillIds: (state, action: PayloadAction<string[]>) => {
-      state.favoriteSkillIds = action.payload;
-    },
-
-    updateSkillInState: (state, action: PayloadAction<Skill>) => {
-      const updatedSkill = action.payload;
-
-      // Update in all relevant arrays
-      const updateInArray = (array?: Skill[]) => {
-        const index = array?.findIndex(
-          (skill) => skill.id === updatedSkill.id
-        );
-        if (index !== undefined && index !== -1 && array) {
-          array[index] = updatedSkill;
-        }
-      };
-
-      updateInArray(state.allSkills);
-      updateInArray(state.userSkills);
-      updateInArray(state.searchResults);
-
-      if (state.selectedSkill?.id === updatedSkill.id) {
-        state.selectedSkill = updatedSkill;
-      }
-    },
-
-    // Clear all data
-    clearAllSkills: (state) => {
-      state.allSkills = [];
-      state.userSkills = [];
-      state.searchResults = [];
-      state.selectedSkill = null;
-      state.recommendations = [];
-    },
-
-    // Reset entire state
-    resetState: () => initialState,
   },
   extraReducers: (builder) => {
-    // FAVORITES
-    builder
-      .addCase(fetchFavoriteSkills.fulfilled, (state, action) => {
-        // Handle ApiResponse wrapper
-        if (action.payload.success && action.payload.data) {
-          state.favoriteSkillIds = action.payload.data || [];
-        } else {
-          state.favoriteSkillIds = [];
+    // === FETCH ALL SKILLS ===
+    builder.addCase(fetchAllSkills.pending, (state) => {
+      state.isLoading = true;
+      delete state.errorMessage;
+    });
+    builder.addCase(fetchAllSkills.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.allSkills = normalizeEntities(action.payload.skills);
+      state.allSkillsPagination = action.payload.pagination;
+    });
+    builder.addCase(fetchAllSkills.rejected, (state, action) => {
+      state.isLoading = false;
+      state.errorMessage = action.payload?.errors?.[0] || 'Failed to fetch all skills';
+    });
+    
+    // === FETCH USER SKILLS ===
+    builder.addCase(fetchUserSkills.pending, (state) => {
+      state.isLoading = true;
+      delete state.errorMessage;
+    });
+    builder.addCase(fetchUserSkills.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.userSkills = normalizeEntities(action.payload.skills);
+      state.userSkillsPagination = action.payload.pagination;
+    });
+    builder.addCase(fetchUserSkills.rejected, (state, action) => {
+      state.isLoading = false;
+      state.errorMessage = action.payload?.errors?.[0] || 'Failed to fetch user skills';
+    });
+    
+    // === FETCH SKILL BY ID ===
+    builder.addCase(fetchSkillById.pending, (state) => {
+      state.isLoading = true;
+      delete state.errorMessage;
+    });
+    builder.addCase(fetchSkillById.fulfilled, (state, action) => {
+      state.isLoading = false;
+      // Add to both allSkills and potentially userSkills
+      state.allSkills = updateEntity(state.allSkills, action.payload);
+      // Set as selected
+      state.selectedSkillId = action.payload.id;
+    });
+    builder.addCase(fetchSkillById.rejected, (state, action) => {
+      state.isLoading = false;
+      state.errorMessage = action.payload?.errors?.[0] || 'Failed to fetch skill details';
+    });
+    
+    // === CREATE SKILL ===
+    builder.addCase(createSkill.pending, (state) => {
+      state.isLoading = true;
+      delete state.errorMessage;
+    });
+    builder.addCase(createSkill.fulfilled, (state, action) => {
+      state.isLoading = false;
+      // Add to both allSkills and userSkills
+      state.allSkills = updateEntity(state.allSkills, action.payload);
+      state.userSkills = updateEntity(state.userSkills, action.payload);
+    });
+    builder.addCase(createSkill.rejected, (state, action) => {
+      state.isLoading = false;
+      state.errorMessage = action.payload?.errors?.[0] || 'Failed to create skill';
+    });
+    
+    // === UPDATE SKILL ===
+    builder.addCase(updateSkill.pending, (state) => {
+      state.isLoading = true;
+      delete state.errorMessage;
+    });
+    builder.addCase(updateSkill.fulfilled, (state, action) => {
+      state.isLoading = false;
+      // Update in both allSkills and userSkills
+      state.allSkills = updateEntity(state.allSkills, action.payload);
+      state.userSkills = updateEntity(state.userSkills, action.payload);
+    });
+    builder.addCase(updateSkill.rejected, (state, action) => {
+      state.isLoading = false;
+      state.errorMessage = action.payload?.errors?.[0] || 'Failed to update skill';
+    });
+    
+    // === DELETE SKILL ===
+    builder.addCase(deleteSkill.pending, (state) => {
+      state.isLoading = true;
+      delete state.errorMessage;
+    });
+    builder.addCase(deleteSkill.fulfilled, (state, action) => {
+      state.isLoading = false;
+      // Remove from both allSkills and userSkills
+      state.allSkills = removeEntity(state.allSkills, action.payload);
+      state.userSkills = removeEntity(state.userSkills, action.payload);
+      // Clear selected if it was the deleted skill
+      if (state.selectedSkillId === action.payload) {
+        state.selectedSkillId = null;
+      }
+    });
+    builder.addCase(deleteSkill.rejected, (state, action) => {
+      state.isLoading = false;
+      state.errorMessage = action.payload?.errors?.[0] || 'Failed to delete skill';
+    });
+    
+    // === FETCH FAVORITE SKILLS ===
+    builder.addCase(fetchFavoriteSkills.pending, (state) => {
+      state.isLoading = true;
+      delete state.errorMessage;
+    });
+    builder.addCase(fetchFavoriteSkills.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.favoriteSkillIds = action.payload;
+    });
+    builder.addCase(fetchFavoriteSkills.rejected, (state, action) => {
+      state.isLoading = false;
+      state.errorMessage = action.payload?.errors?.[0] || 'Failed to fetch favorite skills';
+    });
+    
+    // === TOGGLE FAVORITE SKILL ===
+    builder.addCase(toggleFavoriteSkill.pending, (state) => {
+      state.isLoading = true;
+      delete state.errorMessage;
+    });
+    builder.addCase(toggleFavoriteSkill.fulfilled, (state, action) => {
+      state.isLoading = false;
+      const { skillId, isFavorite } = action.payload;
+      if (isFavorite) {
+        if (!state.favoriteSkillIds.includes(skillId)) {
+          state.favoriteSkillIds.push(skillId);
         }
-        state.error = null;
-      })
-      .addCase(fetchFavoriteSkills.rejected, (state, action) => {
-        state.error = serializeError(action.payload);
-        state.favoriteSkillIds = [];
-      })
-      .addCase(addFavoriteSkill.fulfilled, (state, action) => {
-        if (!state.favoriteSkillIds?.includes(action.meta.arg.skillId)) {
-          state.favoriteSkillIds.push(action.meta.arg.skillId);
-        }
-        state.error = null;
-      })
-      .addCase(addFavoriteSkill.rejected, (state, action) => {
-        state.error = serializeError(action.payload);
-      })
-      .addCase(removeFavoriteSkill.fulfilled, (state, action) => {
-        state.favoriteSkillIds = state.favoriteSkillIds.filter(id => id !== action.meta.arg.skillId);
-        state.error = null;
-      })
-      .addCase(removeFavoriteSkill.rejected, (state, action) => {
-        state.error = serializeError(action.payload);
-      })
-      
-      // Fetch all skills cases
-      .addCase(fetchAllSkills.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchAllSkills.fulfilled, (state, action) => {
-        state.isLoading = false;
-        // PagedResponse has data array at the root level
-        if (action.payload.data && Array.isArray(action.payload.data)) {
-          state.allSkills = action.payload.data.map(mapSkillResponseToSkill);
-        }
-        // Update pagination from PagedResponse
-        if (action.payload.pageNumber !== undefined) {
-          state.pagination = {
-            pageNumber: action.payload.pageNumber,
-            pageSize: action.payload.pageSize,
-            totalPages: action.payload.totalPages,
-            totalRecords: action.payload.totalRecords,
-            hasNextPage: action.payload.hasNextPage,
-            hasPreviousPage: action.payload.hasPreviousPage,
-          };
-        }
-        state.error = null;
-      })
-      .addCase(fetchAllSkills.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = serializeError(action.payload);
-        state.allSkills = [];
-      })
-
-      // Fetch skill by ID cases
-      .addCase(fetchSkillById.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchSkillById.fulfilled, (state, action) => {
-        state.isLoading = false;
-        
-        // Handle ApiResponse wrapper
-        if (!action.payload.success || !action.payload.data) {
-          state.error = { 
-            message: action.payload.message || 'Failed to fetch skill', 
-            code: 'SKILL_FETCH_FAILED', 
-            details: undefined
-          };
-          return;
-        }
-        
-        const toIsoOrNull = (v: unknown): string => {
-          if (!v) return "";
-          const d = new Date(v as any);
-          return isNaN(d.getTime()) ? "" : d.toISOString();
-        };
-
-        const skill: Skill = {
-          id: action.payload.data.skillId,
-          userId: action.payload.data.userId,
-          name: action.payload.data.name,
-          description: action.payload.data.description,
-          isOffered: action.payload.data.isOffered,
-          reviewCount: action.payload.data.reviews?.length,
-          endorsementCount: action.payload.data.endorsements?.length ?? 0,
-          createdAt: toIsoOrNull(action.payload.data.createdAt),
-          // du verwendest updatedAt → lastActiveAt: passt, aber guarden
-          lastActiveAt: toIsoOrNull(action.payload.data.updatedAt),
-          tagsJson: JSON.stringify(action.payload.data.tags || []),
-          category: {
-            id: action.payload.data.category.categoryId,
-            name: action.payload.data.category.name,
-            iconName: action.payload.data.category.iconName,
-            color: action.payload.data.category.color,
-          },
-          proficiencyLevel: {
-            id: action.payload.data.proficiencyLevel.levelId,
-            level: action.payload.data.proficiencyLevel.level,
-            rank: action.payload.data.proficiencyLevel.rank,
-            color: action.payload.data.proficiencyLevel.color,
-          }
-        }
-
-        state.selectedSkill = skill;
-
-        if (skill) {
-          const updateInArray = (array?: Skill[]) => {
-            const index = array?.findIndex(
-              (s) => s.id === skill.id
-            );
-            if (index && array) {
-              array[index] = skill;
-            }
-          };
-
-          updateInArray(state.allSkills);
-          updateInArray(state.userSkills);
-          updateInArray(state.searchResults);
-        }
-
-        state.error = null;
-      })
-      .addCase(fetchSkillById.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = serializeError(action.payload);
-        state.selectedSkill = null;
-      })
-
-      // Fetch user skills cases
-      .addCase(fetchUserSkills.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchUserSkills.fulfilled, (state, action) => {
-        state.isLoading = false;
-        const response = action.payload;
-
-        // Map the skills from PagedResponse data array
-        if (response.data && Array.isArray(response.data)) {
-          state.userSkills = response.data.map((skill: GetUserSkillRespone) => {
-            if ('skillId' in skill) {
-              return mapUserSkillsResponseToSkill(skill);
-            }
-            return skill as Skill;
-          });
-        }
-        
-        // Update pagination from PagedResponse
-        if (response.pageNumber !== undefined) {
-          state.pagination = {
-            pageNumber: response.pageNumber,
-            pageSize: response.pageSize,
-            totalPages: response.totalPages,
-            totalRecords: response.totalRecords,
-            hasNextPage: response.hasNextPage,
-            hasPreviousPage: response.hasPreviousPage,
-          };
-        }
-        
-        state.error = null;
-      })
-      .addCase(fetchUserSkills.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = serializeError(action.payload);
-        state.userSkills = [];
-      })
-
-      // Create skill cases
-      .addCase(createSkill.pending, (state) => {
-        state.isCreating = true;
-        state.error = null;
-      })
-      .addCase(createSkill.fulfilled, (state, action) => {
-        state.isCreating = false;
-        
-        // Handle ApiResponse wrapper
-        if (!action.payload.success || !action.payload.data) {
-          state.error = { 
-            message: action.payload.message || 'Failed to create skill', 
-            code: 'SKILL_CREATE_FAILED', 
-            details: undefined
-          };
-          return;
-        }
-        
-        const response = action.payload.data;
-        console.log('✅ Create skill response:', response);
-
-        // Handle the response - it might be a CreateSkillResponse or full skill data
-        let newSkill: Skill;
-        
-        if (response && 'skillId' in response) {
-          // If it's a minimal response, create a minimal Skill object
-          // You might need to fetch the full skill details after creation
-          newSkill = {
-            id: response.skillId,
-            userId: "",
-            name: response.name || '',
-            description: response.description || '',
-            isOffered: response.isOffered || false,
-            endorsementCount: 0,
-            category: { 
-              id: response.categoryId || '', 
-              name: '', 
-            },
-            proficiencyLevel: { 
-              id: response.proficiencyLevelId || '', 
-              level: '', 
-              rank: 0, 
-            },
-            tagsJson: response.tags?.toString() || "[]",
-            createdAt: response.createdAt || new Date().toISOString(),
-          };
-        } else if (response && 'skillId' in response && 'category' in response) {
-          // If it's a full SkillSearchResultResponse
-          newSkill = mapSkillResponseToSkill(response as SkillSearchResultResponse);
-        } else {
-          // If it's already a Skill object
-          newSkill = response as Skill;
-        }
-
-        state.userSkills?.unshift(newSkill);
-        state.allSkills?.unshift(newSkill);
-        console.log('✅ New skill added to state:', newSkill);
-
-        state.error = null;
-      })
-      .addCase(createSkill.rejected, (state, action) => {
-        state.isCreating = false;
-        state.error = serializeError(action.payload);
-      })
-
-      // Update skill cases
-      .addCase(updateSkill.pending, (state) => {
-        state.isUpdating = true;
-        state.error = null;
-      })
-      .addCase(updateSkill.fulfilled, (state, action) => {
-        state.isUpdating = false;
-        
-        // Handle ApiResponse wrapper
-        if (!action.payload.success || !action.payload.data) {
-          state.error = { 
-            message: action.payload.message || 'Failed to update skill', 
-            code: 'SKILL_UPDATE_FAILED', 
-            details: undefined
-          };
-          return;
-        }
-        
-        const data = action.payload.data;
-
-        if (data) {
-          // UpdateSkillResponse might be partial, so we need to merge with existing data
-          const updateInArray = (array?: Skill[]) => {
-            const index = array?.findIndex((skill) => skill.id === data.id);
-            if (index !== undefined && index !== -1 && array) {
-              array[index] = {
-                ...array[index],
-                id: data.id || array[index].id,
-                name: data.name ?? array[index].name,
-                description: data.description ?? array[index].description,
-                isOffered: data.isOffered ?? array[index].isOffered,
-                // Update category if categoryId is provided
-                category: data.categoryId ? {
-                  ...array[index].category,
-                  id: data.categoryId,
-                } : array[index].category,
-                // Update proficiency level if proficiencyLevelId is provided
-                proficiencyLevel: data.proficiencyLevelId ? {
-                  ...array[index].proficiencyLevel,
-                  id: data.proficiencyLevelId,
-                } : array[index].proficiencyLevel,
-              };
-            }
-          };
-
-          updateInArray(state.allSkills);
-          updateInArray(state.userSkills);
-          updateInArray(state.searchResults);
-
-          if (state.selectedSkill?.id === data.id) {
-            state.selectedSkill = state.allSkills?.find((s) => s.id === data.id) || 
-                                  state.userSkills?.find((s) => s.id === data.id) || 
-                                  null;
-          }
-        }
-
-        state.error = null;
-      })
-      .addCase(updateSkill.rejected, (state, action) => {
-        state.isUpdating = false;
-        state.error = serializeError(action.payload);
-      })
-
-      // Delete skill cases
-      .addCase(deleteSkill.pending, (state) => {
-        state.isDeleting = true;
-        state.error = null;
-      })
-      .addCase(deleteSkill.fulfilled, (state, action) => {
-        state.isDeleting = false;
-        const deletedSkillId = action.meta.arg.skillId;
-
-        // Remove from all arrays
-        state.allSkills = state.allSkills?.filter(
-          (skill) => skill.id !== deletedSkillId
-        );
-        state.userSkills = state.userSkills?.filter(
-          (skill) => skill.id !== deletedSkillId
-        );
-        state.searchResults = state.searchResults.filter(
-          (skill) => skill.id !== deletedSkillId
-        );
-
-        if (state.selectedSkill?.id === deletedSkillId) {
-          state.selectedSkill = null;
-        }
-
-        state.error = null;
-      })
-      .addCase(deleteSkill.rejected, (state, action) => {
-        state.isDeleting = false;
-        state.error = serializeError(action.payload);
-      })
-
-      // Rate/Endorse skill cases
-      .addCase(rateSkill.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(rateSkill.fulfilled, (state) => {
-        state.isLoading = false;
-        state.error = null;
-      })
-      .addCase(rateSkill.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = serializeError(action.payload);
-      })
-
-      .addCase(endorseSkill.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(endorseSkill.fulfilled, (state) => {
-        state.isLoading = false;
-        state.error = null;
-      })
-      .addCase(endorseSkill.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = serializeError(action.payload);
-      })
-
-      // Statistics and analytics cases
-      .addCase(fetchSkillStatistics.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchSkillStatistics.fulfilled, (state, action) => {
-        state.isLoading = false;
-        // Handle ApiResponse wrapper
-        if (action.payload.success && action.payload.data) {
-          state.statistics = action.payload.data;
-        }
-        state.error = null;
-      })
-      .addCase(fetchSkillStatistics.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = serializeError(action.payload);
-        state.statistics = null;
-      })
-
-      .addCase(fetchPopularTags.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchPopularTags.fulfilled, (state, action) => {
-        state.isLoading = false;
-        // Handle ApiResponse wrapper
-        if (action.payload.success && action.payload.data) {
-          state.popularTags = action.payload.data;
-        } else {
-          state.popularTags = [];
-        }
-        state.error = null;
-      })
-      .addCase(fetchPopularTags.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = serializeError(action.payload);
-        state.popularTags = [];
-      })
-
-      .addCase(fetchSkillRecommendations.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchSkillRecommendations.fulfilled, (state, action) => {
-        state.isLoading = false;
-        // Handle ApiResponse wrapper
-        if (action.payload.success && action.payload.data) {
-          state.recommendations = action.payload.data;
-        } else {
-          state.recommendations = [];
-        }
-        state.error = null;
-      })
-      .addCase(fetchSkillRecommendations.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = serializeError(action.payload);
-        state.recommendations = [];
-      });
+      } else {
+        state.favoriteSkillIds = state.favoriteSkillIds.filter(id => id !== skillId);
+      }
+    });
+    builder.addCase(toggleFavoriteSkill.rejected, (state, action) => {
+      state.isLoading = false;
+      state.errorMessage = action.payload?.errors?.[0] || 'Failed to toggle favorite skill';
+    });
   },
 });
 
-// Export actions
+// ===== EXPORTS =====
 export const {
-  clearError,
-  setError,
-  setSelectedSkill,
-  clearSelectedSkill,
   setSearchQuery,
-  clearSearch,
-  setPagination,
-  resetPagination,
-  setLoading,
-  addUserSkill,
-  removeUserSkill,
-  addFavoriteOptimistic,
-  removeFavoriteOptimistic,
-  setFavoriteSkillIds,
-  updateSkillInState,
-  clearAllSkills,
-  resetState,
+  clearSearchQuery,
+  setSelectedSkillId,
+  clearError,
+  setSearchResults,
 } = skillsSlice.actions;
 
 export default skillsSlice.reducer;

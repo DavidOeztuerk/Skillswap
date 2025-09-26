@@ -17,7 +17,7 @@ import errorService from '../../services/errorService';
 
 const SearchResultsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { results, isLoading, error } = useSelector(
+  const { results, isLoading, errorMessage } = useSelector(
     (state: RootState) => state.search
   );
 
@@ -25,9 +25,9 @@ const SearchResultsPage: React.FC = () => {
     errorService.addBreadcrumb('Viewing search results', 'navigation', { 
       resultsCount: results?.length, 
       isLoading, 
-      hasError: !!error 
+      hasError: !!errorMessage 
     });
-  }, [results, isLoading, error]);
+  }, [results, isLoading, errorMessage]);
 
   const handleViewSkill = (skillId: string, skillName: string) => {
     errorService.addBreadcrumb('Navigating to skill from search results', 'navigation', { skillId, skillName });
@@ -43,8 +43,8 @@ const SearchResultsPage: React.FC = () => {
       {isLoading && (
         <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} />
       )}
-      {error && <Typography color="error">Fehler: {error.message}</Typography>}
-      {results?.length === 0 && !isLoading && !error && (
+      {errorMessage && <Typography color="error">Fehler: {errorMessage}</Typography>}
+      {results?.length === 0 && !isLoading && !errorMessage && (
         <Typography variant="h6" color="textSecondary">
           Keine Ergebnisse gefunden.
         </Typography>

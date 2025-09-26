@@ -74,7 +74,7 @@ const MatchmakingOverviewPage: React.FC = () => {
   const {
     matches,
     isLoading,
-    error,
+    errorMessage,
     loadMatches,
     loadIncomingRequests,
     loadOutgoingRequests,
@@ -197,10 +197,10 @@ const MatchmakingOverviewPage: React.FC = () => {
 
       if (action === 'accept') {
         const approved = await approveMatch(matchId);
-        success = approved?.success ?? null
+        success = approved.meta.requestStatus === 'fulfilled';
       } else if (action === 'reject') {
         const rejected = await declineMatch(matchId);
-        success = rejected?.success ?? null
+        success = rejected.meta.requestStatus === 'fulfilled';
       }
 
       if (success) {
@@ -345,7 +345,7 @@ const MatchmakingOverviewPage: React.FC = () => {
         <MatchList
           matches={matches}
           isLoading={isLoading}
-          error={error}
+          errorMessage={errorMessage}
           onAccept={(matchId) => handleConfirmDialogOpen(matchId, 'accept')}
           onReject={(matchId) => handleConfirmDialogOpen(matchId, 'reject')}
           onSchedule={handleOpenAppointmentForm}
