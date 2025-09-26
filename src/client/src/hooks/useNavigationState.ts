@@ -61,7 +61,7 @@ export const useNavigationState = () => {
   }, [location.pathname, announceNavigation, announceLoading]);
 
   // Enhanced navigate function with loading state and duplicate navigation prevention
-  const navigateWithLoading = useCallback((to: string, options?: any) => {
+  const navigateWithLoading = useCallback((to: string, options?: { replace?: boolean; state?: unknown }) => {
     // Prevent navigation to current page
     if (to === location.pathname) {
       return;

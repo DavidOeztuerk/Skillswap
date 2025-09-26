@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Card,
@@ -43,14 +43,14 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
-import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
+import { useAppSelector } from '../../store/store.hooks';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchIncomingMatchRequests, fetchOutgoingMatchRequests, acceptMatchRequest, rejectMatchRequest } from '../../features/matchmaking/matchmakingSlice';
-import { AcceptMatchRequestRequest, RejectMatchRequestRequest } from '../../types/display/MatchmakingDisplay';
+import { useMatchmaking } from '../../hooks/useMatchmaking';
+import { AcceptMatchRequestRequest, RejectMatchRequestRequest } from '../../types/contracts/MatchmakingDisplay';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -277,7 +277,7 @@ interface MatchRequestsOverviewPageProps {
 
 const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ embedded = false }) => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
+  const { acceptMatchRequest, rejectMatchRequest, loadIncomingRequests, loadOutgoingRequests } = useMatchmaking();
   
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -288,11 +288,11 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
   // const { user } = useAppSelector((state) => state.auth); // Removed unused variable
   const { incomingRequests, outgoingRequests, isLoadingRequests } = useAppSelector((state) => state.matchmaking);
 
-  // Load requests on component mount
-  useEffect(() => {
-    dispatch(fetchIncomingMatchRequests({}));
-    dispatch(fetchOutgoingMatchRequests({}));
-  }, [dispatch]);
+  // TEMPORARY DISABLE - DEBUGGING INFINITE LOOP
+  // useEffect(() => {
+  //   dispatch(fetchIncomingMatchRequests({}));
+  //   dispatch(fetchOutgoingMatchRequests({}));
+  // }, [dispatch]);
 
   // Safely handle potentially null/undefined arrays with proper null checks
   const safeIncomingRequests = incomingRequests || [];
@@ -326,13 +326,13 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
 
   const handleAcceptRequest = (requestId: string, request: AcceptMatchRequestRequest) => {
     if (requestId) {
-      dispatch(acceptMatchRequest({ requestId, request }));
+      acceptMatchRequest(requestId, request);
     }
   };
 
   const handleRejectRequest = (requestId: string, request: RejectMatchRequestRequest) => {
     if (requestId) {
-      dispatch(rejectMatchRequest({ requestId, request }));
+      rejectMatchRequest(requestId, request);
     }
   };
 
@@ -352,8 +352,8 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
   };
 
   const handleRefresh = () => {
-    dispatch(fetchIncomingMatchRequests({}));
-    dispatch(fetchOutgoingMatchRequests({}));
+    loadIncomingRequests();
+    loadOutgoingRequests();
   };
 
   if (isLoadingRequests) {

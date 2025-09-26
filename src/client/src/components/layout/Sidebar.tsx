@@ -68,12 +68,28 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { isAuthenticated } = useAuth();
-  const { hasPermission, isAdmin: isAdminFromContext, loading: permissionsLoading } = usePermissions();
+  const { 
+    hasPermission, 
+    isAdmin: isAdminFromContext, 
+    loading: permissionsLoading,
+    permissions,
+    roles 
+  } = usePermissions();
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
   
   // Memoize isAdmin check - Re-evaluate when context changes or loading completes
   const isAdmin = useMemo(() => {
-    if (permissionsLoading) return false; // Don't show admin menu while loading
+    if (permissionsLoading) {
+      console.log('🔄 Sidebar: Permissions still loading, hiding admin menu');
+      return false; // Don't show admin menu while loading
+    }
+    
+    console.log('🔐 Sidebar: Admin check', { 
+      isAdminFromContext, 
+      permissionsLoading,
+      result: isAdminFromContext 
+    });
+    
     return isAdminFromContext;
   }, [isAdminFromContext, permissionsLoading]);
 
@@ -299,17 +315,39 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
   // Memoize menu items combination and filtering
   const filteredMenuItems = useMemo(() => {
+    console.log('🔄 Sidebar: Re-calculating menu items', { 
+      permissionsCount: permissions.length,
+      rolesCount: roles.length,
+      permissionsLoading,
+      isAdmin
+    });
+    
     const allMenuItems = [...menuItems];
     
-    // Füge Admin-Menü nur hinzu, wenn User Admin-Dashboard-Permission hat und Permissions geladen sind
-    const hasAdminAccess = !permissionsLoading && hasPermission('admin:access_dashboard');
+    // Check both permission and admin role for admin access
+    const hasAdminPermission = hasPermission('admin:access_dashboard');
+    const hasAdminAccess = !permissionsLoading && (hasAdminPermission || isAdmin);
+    
+    console.log('🔍 Sidebar: Admin access check', { 
+      permissionsLoading,
+      hasAdminPermission,
+      isAdmin,
+      hasAdminAccess,
+      willShowAdminMenu: hasAdminAccess
+    });
     
     if (hasAdminAccess) {
+      console.log('✅ Sidebar: Adding admin menu items');
       allMenuItems.push(...adminMenuItems);
+    } else {
+      console.log('❌ Sidebar: Admin menu hidden - no access');
     }
     
-    return filterMenuItems(allMenuItems);
-  }, [hasPermission, filterMenuItems, permissionsLoading]);
+    const filtered = filterMenuItems(allMenuItems);
+    console.log('📋 Sidebar: Final menu items', filtered.map(item => item.text));
+    
+    return filtered;
+  }, [hasPermission, filterMenuItems, permissionsLoading, isAdmin, permissions, roles]);
 
   // Prüfe, ob ein Pfad oder eines seiner Kinder aktiv ist
   const isPathActive = (item: MenuItem): boolean => {
@@ -325,12 +363,12 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     setOpenSubmenu((prev) => (prev === text ? null : text));
   }, []);
 
-  // Auto-expand Admin menu if we're on an admin page
-  React.useEffect(() => {
-    if (location.pathname.startsWith('/admin') && isAdmin && !permissionsLoading) {
-      setOpenSubmenu('Admin');
-    }
-  }, [location.pathname, isAdmin, permissionsLoading]);
+  // TEMPORARY DISABLE - PREVENTING INFINITE LOOPS!
+  // React.useEffect(() => {
+  //   if (location.pathname.startsWith('/admin') && isAdmin && !permissionsLoading) {
+  //     setOpenSubmenu('Admin');
+  //   }
+  // }, [location.pathname, isAdmin, permissionsLoading]);
 
   // Drawer-Inhalt
   const drawer = (

@@ -32,7 +32,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   subtitle,
   breadcrumbs,
   actions,
-  sx = {},
+  sx,
   showBreadcrumbs = true,
   useAutoBreadcrumbs = true,
   icon

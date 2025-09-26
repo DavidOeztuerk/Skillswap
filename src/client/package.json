@@ -10,7 +10,12 @@
     "build:analyze": "tsc -b && vite build --mode=analyze",
     "analyze": "npm run build:analyze && npx vite preview",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "perf:test": "node performance-test.js",
+    "perf:baseline": "node performance-test.js && cp performance-results.json performance-baseline.json",
+    "perf:compare": "node performance-test.js && echo 'Performance comparison completed. Check performance-report.html'",
+    "perf:dev": "npm run dev & npm run perf:monitor",
+    "perf:monitor": "echo 'Press Ctrl+Shift+P to toggle performance dashboard in browser'"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

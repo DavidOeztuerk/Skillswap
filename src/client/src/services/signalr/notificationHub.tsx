@@ -1,4 +1,3 @@
-// src/services/signalr/notificationHub.tsx
 import {
   HubConnection,
   HubConnectionBuilder,
@@ -95,7 +94,7 @@ class NotificationHubService {
     if (!this.connection) return;
 
     // Neue Notification
-    this.connection.on('NewNotification', (payload: any) => {
+    this.connection.on('NewNotification', (payload: Record<string, unknown>) => {
       const n = mapToClientNotification(payload);
       store.dispatch(addNotification(n));
       this.showToast(n);
@@ -118,7 +117,7 @@ class NotificationHubService {
     });
 
     // Kürzlich (Liste)
-    this.connection.on('RecentNotifications', (list: any[]) => {
+    this.connection.on('RecentNotifications', (list: Record<string, unknown>[]) => {
       const mapped = (list ?? []).map(mapToClientNotification);
       // Wir überschreiben hier bewusst die Liste – dein Slice hat setNotifications
       store.dispatch(setNotifications(mapped));

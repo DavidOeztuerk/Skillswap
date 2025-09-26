@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -27,8 +27,8 @@ import { unwrap, withDefault } from '../../utils/safeAccess';
 import { AdminErrorBoundary } from '../../components/error';
 import errorService from '../../services/errorService';
 import { AdminDashboardData } from '../../types/models/Admin';
-import apiClient from '../../api/apiClient';
 import { usePermissions } from '../../contexts/PermissionContext'
+import { apiClient } from '../../api/apiClient';
 
 interface DashboardStats {
   totalUsers: number;
@@ -93,7 +93,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onClick 
   </Card>
 );
 
-const AdminDashboard: React.FC = () => {
+const AdminDashboard: React.FC = memo(() => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
@@ -102,7 +102,8 @@ const AdminDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchDashboardStats = async () => {
+  // ⚡ PERFORMANCE: Memoize fetchDashboardStats to prevent unnecessary re-creations
+  const fetchDashboardStats = useCallback(async () => {
     try {
       setRefreshing(true);
       errorService.addBreadcrumb('Fetching admin dashboard stats', 'admin');
@@ -122,9 +123,13 @@ const AdminDashboard: React.FC = () => {
       });
       setError(null);
       errorService.addBreadcrumb('Dashboard stats loaded successfully', 'admin');
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Set default empty stats on error
-      if (err?.response?.status === 404) {
+      const isAxiosError = (error: unknown): error is { response: { status: number } } => {
+        return typeof error === 'object' && error !== null && 'response' in error;
+      };
+      
+      if (isAxiosError(err) && err.response?.status === 404) {
         const emptyStats: DashboardStats = {
           totalUsers: 0,
           activeUsers: 0,
@@ -138,13 +143,14 @@ const AdminDashboard: React.FC = () => {
         setStats(emptyStats);
         setError('Dashboard API endpoint nicht verfügbar. Die Statistiken werden nachgereicht.');
       } else {
-        setError(err.message);
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+        setError(errorMessage);
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []); // ⚡ PERFORMANCE: No dependencies needed - all state setters are stable
 
   useEffect(() => {
     if (!hasPermission('admin:access_dashboard')) {
@@ -152,11 +158,12 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     fetchDashboardStats();
-  }, [hasPermission, navigate]);
+  }, [hasPermission, navigate, fetchDashboardStats]); // ⚡ PERFORMANCE: Updated dependencies
 
-  const handleRefresh = () => {
+  // ⚡ PERFORMANCE: Memoize handleRefresh
+  const handleRefresh = useCallback(() => {
     fetchDashboardStats();
-  };
+  }, [fetchDashboardStats]);
 
   if (loading && !stats) {
     return (
@@ -198,7 +205,7 @@ const AdminDashboard: React.FC = () => {
 
       <Grid container spacing={3}>
         {/* User Stats */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Total Users"
             value={stats?.totalUsers || 0}
@@ -208,7 +215,7 @@ const AdminDashboard: React.FC = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Active Users"
             value={stats?.activeUsers || 0}
@@ -217,7 +224,7 @@ const AdminDashboard: React.FC = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Total Skills"
             value={stats?.totalSkills || 0}
@@ -227,7 +234,7 @@ const AdminDashboard: React.FC = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Total Appointments"
             value={stats?.totalAppointments || 0}
@@ -238,7 +245,7 @@ const AdminDashboard: React.FC = () => {
         </Grid>
 
         {/* Additional Stats */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="New Users Today"
             value={stats?.newUsersToday || 0}
@@ -247,7 +254,7 @@ const AdminDashboard: React.FC = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Total Matches"
             value={stats?.totalMatches || 0}
@@ -256,7 +263,7 @@ const AdminDashboard: React.FC = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="Pending Reports"
             value={stats?.pendingReports || 0}
@@ -266,7 +273,7 @@ const AdminDashboard: React.FC = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatCard
             title="System Health"
             value={stats?.systemHealth || 'Unknown'}
@@ -276,7 +283,7 @@ const AdminDashboard: React.FC = () => {
         </Grid>
 
         {/* Quick Actions */}
-        <Grid item xs={12}>
+        <Grid xs={12}>
           <Paper sx={{ p: 3, mt: 2 }}>
             <Typography variant="h6" gutterBottom>
               Quick Actions
@@ -393,7 +400,10 @@ const AdminDashboard: React.FC = () => {
       `}</style>
     </Container>
   );
-};
+});
+
+// Add display name for debugging
+AdminDashboard.displayName = 'AdminDashboard';
 
 // Export wrapped component
 const AdminDashboardWithErrorBoundary: React.FC = () => (

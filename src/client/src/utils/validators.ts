@@ -1,5 +1,3 @@
-// src/utils/validators.ts
-
 /**
  * Prüft, ob eine E-Mail-Adresse gültig ist
  * @param email - Zu prüfende E-Mail-Adresse

@@ -25,7 +25,7 @@ const AppointmentsPage: React.FC = () => {
   const {
     appointments,
     isLoading: appointmentsLoading,
-    error,
+    errorMessage,
     acceptAppointment,
     declineAppointment,
     completeAppointment,
@@ -51,14 +51,12 @@ const AppointmentsPage: React.FC = () => {
     type: 'success' | 'error' | 'info';
   } | null>(null);
 
-  // Termine laden
+  // Seite initialisieren (einmal beim Mount)
   useEffect(() => {
-    errorService.addBreadcrumb('Loading appointments page', 'navigation', { 
-      appointmentsCount: appointments?.length 
-    });
+    errorService.addBreadcrumb('Loading appointments page', 'navigation');
     // Beim Start immer den letzten Status löschen
     setStatusMessage(null);
-  }, [appointments]);
+  }, []); // Leere deps - läuft nur beim Mount
 
   // Dialog-Handler
   const handleConfirmDialogOpen = (
@@ -114,19 +112,23 @@ const AppointmentsPage: React.FC = () => {
         errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action });
         
         let success = false;
+        let result: any;
         let messageText = '';
 
         switch (action) {
           case 'confirm':
-            success = await acceptAppointment(appointmentId);
+            result = await acceptAppointment(appointmentId);
+            success = result.meta.requestStatus === 'fulfilled';
             messageText = 'Termin wurde erfolgreich bestätigt';
             break;
           case 'cancel':
-            success = await declineAppointment(appointmentId);
+            result = await declineAppointment(appointmentId);
+            success = result.meta.requestStatus === 'fulfilled';
             messageText = 'Termin wurde abgesagt';
             break;
           case 'complete':
-            success = await completeAppointment(appointmentId);
+            result = await completeAppointment(appointmentId);
+            success = result.meta.requestStatus === 'fulfilled';
             messageText = 'Termin wurde als abgeschlossen markiert';
             break;
         }
@@ -192,7 +194,7 @@ const AppointmentsPage: React.FC = () => {
           <AppointmentList
             appointments={appointments}
             isLoading={appointmentsLoading}
-            error={error}
+            error={errorMessage}
             onConfirm={(appointmentId) =>
               handleConfirmDialogOpen(appointmentId, 'confirm')
             }

@@ -650,3 +650,10 @@ backups/
 *jwt*secret*
 *jwt*key*
 .claude/agents/elite-infrastructure-architect.md
+AGENTS.md
+src/client/performance-report.html
+.gitignore
+src/client/performance-test.js
+.gitignore
+src/client/performance-results.json
+src/client/MIGRATION_ROADMAP.md

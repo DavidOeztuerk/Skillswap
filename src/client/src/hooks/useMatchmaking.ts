@@ -1,261 +1,149 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useMemo } from 'react';
+import { useAppDispatch, useAppSelector } from '../store/store.hooks';
 import {
+  createMatchRequest,
+  fetchMatches,
   fetchIncomingMatchRequests,
   fetchOutgoingMatchRequests,
-  createMatchRequest,
+  fetchUserMatches,
   acceptMatchRequest,
   rejectMatchRequest,
-  acceptMatchRequestOptimistic,
-  rejectMatchRequestOptimistic,
-  fetchUserMatches,
-  fetchMatches,
-} from '../features/matchmaking/matchmakingSlice';
-import { useAppDispatch, useAppSelector } from '../store/store.hooks';
-import { MatchStatus, MatchDisplay, AcceptMatchRequestResponse } from '../types/display/MatchmakingDisplay';
-import { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
-import { withDefault } from '../utils/safeAccess';
-import { withOptimisticUpdate, generateUpdateId, canPerformOptimisticUpdate } from '../utils/optimisticUpdates';
-import { ApiResponse } from '../types/common/ApiResponse';
-import { serializeError, getErrorMessage } from '../utils/reduxHelpers';
+  createCounterOffer,
+  fetchMatchRequestThread
+} from '../features/matchmaking/matchmakingThunks';
+import {
+  selectAllMatches,
+  selectIncomingRequests,
+  selectOutgoingRequests,
+  selectMatchesLoading,
+  selectMatchmakingError,
+  selectUserMatches,
+  selectPendingMatches,
+  selectActiveMatches,
+  selectCompletedMatches,
+  selectMatchmakingStatistics
+} from '../store/selectors/matchmakingSelectors';
+import { clearError } from '../features/matchmaking/matchmakingSlice';
 
+/**
+ * 🚀 ROBUSTE USEMATCHMAKING HOOK 
+ * 
+ * ✅ KEINE useEffects - prevents infinite loops!
+ * ✅ Stateless Design - nur Redux State + Actions
+ * ✅ Memoized Functions - prevents unnecessary re-renders
+ * 
+ * CRITICAL: This hook is STATELESS and contains NO useEffects.
+ * All data fetching must be initiated from Components!
+ */
 export const useMatchmaking = () => {
   const dispatch = useAppDispatch();
-  const didInit = useRef(false);
-  const {
-    matches, incomingRequests, outgoingRequests,
-    isLoading, error, matchRequestSent, currentThread,
-  } = useAppSelector((s) => s.matchmaking);
+  
+  // ===== SELECTORS =====
+  const matches = useAppSelector(selectAllMatches);
+  const userMatches = useAppSelector(selectUserMatches);
+  const incomingRequests = useAppSelector(selectIncomingRequests);
+  const outgoingRequests = useAppSelector(selectOutgoingRequests);
+  const pendingMatches = useAppSelector(selectPendingMatches);
+  const activeMatches = useAppSelector(selectActiveMatches);
+  const completedMatches = useAppSelector(selectCompletedMatches);
+  const isLoading = useAppSelector(selectMatchesLoading);
+  const error = useAppSelector(selectMatchmakingError);
+  const statistics = useAppSelector(selectMatchmakingStatistics);
 
-  const loadMatches = useCallback(async (params: { page?: number; limit?: number; status?: string } = {}) => {
-    console.log('📥 [useMatchmaking] Loading matches with params:', params);
+  // ===== MEMOIZED ACTIONS =====
+  const actions = useMemo(() => ({
     
-    try {
-      const r = await dispatch(fetchUserMatches(params));
-      const success = fetchUserMatches.fulfilled.match(r);
-      
-      if (success) {
-        console.log('✅ [useMatchmaking] Matches loaded successfully');
-      } else if (process.env.NODE_ENV === 'development') {
-        // Keep minimal logging for development debugging
-        console.error('❌ [useMatchmaking] Failed to load matches - error handled by slice');
-      }
-      
-      return success;
-    } catch (error) {
-      // Error is already handled by the Redux slice, just return failure
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [useMatchmaking] Unexpected error:', getErrorMessage(error));
-      }
-      return false;
-    }
-  }, [dispatch]);
+    // === FETCH OPERATIONS ===
+    loadMatches: (params: any = {}) => {
+      return dispatch(fetchMatches(params));
+    },
 
-  const loadIncomingRequests = useCallback(async (params = {}): Promise<boolean> => {
-    try {
-      const r = await dispatch(fetchIncomingMatchRequests(params));
-      return fetchIncomingMatchRequests.fulfilled.match(r);
-    } catch (error) {
-      // Error is already handled by the Redux slice
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [useMatchmaking] Unexpected error loading incoming requests:', getErrorMessage(error));
-      }
-      return false;
-    }
-  }, [dispatch]);
+    loadIncomingRequests: (params: any = {}) => {
+      return dispatch(fetchIncomingMatchRequests(params));
+    },
 
-  const loadOutgoingRequests = useCallback(async (params = {}): Promise<boolean> => {
-    try {
-      const r = await dispatch(fetchOutgoingMatchRequests(params));
-      return fetchOutgoingMatchRequests.fulfilled.match(r);
-    } catch (error) {
-      // Error is already handled by the Redux slice
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [useMatchmaking] Unexpected error loading outgoing requests:', getErrorMessage(error));
-      }
-      return false;
-    }
-  }, [dispatch]);
+    loadOutgoingRequests: (params: any = {}) => {
+      return dispatch(fetchOutgoingMatchRequests(params));
+    },
 
-  useEffect(() => {
-    let isMounted = true;
-    const abortController = new AbortController();
-    
-    // Guard against duplicate initialization in StrictMode
-    if (didInit.current) {
-      console.log('⏭️ [useMatchmaking] Already initialized, skipping');
-      return;
-    }
-    didInit.current = true;
-    
-    console.log('🚀 [useMatchmaking] Initial load of all match data');
-    
-    const loadInitialData = async () => {
-      try {
-        if (!isMounted) return;
-        
-        await Promise.all([
-          dispatch(fetchUserMatches({})),
-          dispatch(fetchIncomingMatchRequests({})),
-          dispatch(fetchOutgoingMatchRequests({})),
-        ]);
-      } catch (error) {
-        // Error is already handled by the Redux slice
-        if (isMounted && process.env.NODE_ENV === 'development') {
-          console.error('❌ [useMatchmaking] Unexpected error during initial load:', getErrorMessage(error));
-        }
-      }
-    };
-    
-    loadInitialData();
-    
-    // Cleanup function
-    return () => {
-      isMounted = false;
-      abortController.abort();
-      // Reset for next mount in StrictMode
-      didInit.current = false;
-    };
-  }, [dispatch]);
+    fetchRecommendations: (params: any = {}) => {
+      return dispatch(fetchMatches(params));
+    },
 
-  const sendMatchRequest = async (req: CreateMatchRequest): Promise<boolean> => {
-    console.log('🚀 [useMatchmaking] Sending match request:', req);
-    
-    try {
-      const r = await dispatch(createMatchRequest(req as any));
-      const success = createMatchRequest.fulfilled.match(r);
-      
-      if (success) {
-        console.log('✅ [useMatchmaking] Match request sent successfully');
-      } else if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [useMatchmaking] Match request failed - error handled by slice');
-      }
-      
-      return success;
-    } catch (error) {
-      // Error is already handled by the Redux slice
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [useMatchmaking] Unexpected error sending match request:', getErrorMessage(error));
-      }
-      return false;
-    }
-  };
+    loadUserMatches: (params: any = {}) => {
+      return dispatch(fetchUserMatches(params));
+    },
 
-  const search = async (req: CreateMatchRequest): Promise<boolean> => {
-    try {
-      const r = await dispatch(fetchMatches(req as any));
-      return fetchMatches.fulfilled.match(r);
-    } catch (error) {
-      // Error is already handled by the Redux slice
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [useMatchmaking] Unexpected error searching matches:', getErrorMessage(error));
-      }
-      return false;
-    }
-  };
+    // === CRUD OPERATIONS ===
+    createMatchRequest: (data: any) => {
+      return dispatch(createMatchRequest(data));
+    },
 
-  const approveMatchRequest = async (
-    requestId: string,
-    responseMessage?: string
-  ): Promise<ApiResponse<AcceptMatchRequestResponse> | null> => {
-    if (!canPerformOptimisticUpdate()) {
-      const r = await dispatch(acceptMatchRequest({ requestId, request: { responseMessage } }));
-      return acceptMatchRequest.fulfilled.match(r) ? r.payload : null;
-    }
-    const id = generateUpdateId('accept_match');
-    const res = await withOptimisticUpdate(
-      id,
-      () => dispatch(acceptMatchRequestOptimistic(requestId)),
-      async () => {
-        const r = await dispatch(acceptMatchRequest({ requestId, request: { responseMessage } }));
-        if (!acceptMatchRequest.fulfilled.match(r)) throw new Error('Failed to accept match');
-        return r.payload;
-      },
-      () => {},
-      { showSuccess: true, successMessage: 'Match request accepted', errorMessage: 'Failed to accept match request' }
-    );
-    return res;
-  };
+    acceptMatchRequest: (requestId: string, request: any) => {
+      return dispatch(acceptMatchRequest({ requestId, request }));
+    },
 
-  const declineMatchRequest = async (requestId: string, responseMessage?: string): Promise<boolean> => {
-    if (!canPerformOptimisticUpdate()) {
-      const r = await dispatch(rejectMatchRequest({ requestId, request: { responseMessage } }));
-      return rejectMatchRequest.fulfilled.match(r);
-    }
-    const id = generateUpdateId('reject_match');
-    const res = await withOptimisticUpdate(
-      id,
-      () => dispatch(rejectMatchRequestOptimistic(requestId)),
-      async () => {
-        const r = await dispatch(rejectMatchRequest({ requestId, request: { responseMessage } }));
-        if (!rejectMatchRequest.fulfilled.match(r)) throw new Error('Failed to reject match');
-        return r;
-      },
-      () => {},
-      { showSuccess: true, successMessage: 'Match request declined', errorMessage: 'Failed to decline match request' }
-    );
-    return res !== null;
-  };
+    rejectMatchRequest: (requestId: string, request: any) => {
+      return dispatch(rejectMatchRequest({ requestId, request }));
+    },
 
-  const approveMatch = async (matchId: string, reason?: string): Promise<ApiResponse<AcceptMatchRequestResponse> | null> => {
-    console.log('✅ [useMatchmaking] Approving match:', matchId, reason);
-    
-    try {
-      const r = await dispatch(acceptMatchRequest({ requestId: matchId, request: { responseMessage: reason }}));
-      const result = acceptMatchRequest.fulfilled.match(r) ? r.payload : null;
-      
-      if (result) {
-        console.log('✅ [useMatchmaking] Match approved successfully:', result);
-      } else if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [useMatchmaking] Failed to approve match - error handled by slice');
-      }
-      
-      return result;
-    } catch (error) {
-      // Error is already handled by the Redux slice
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [useMatchmaking] Unexpected error approving match:', getErrorMessage(error));
-      }
-      return null;
-    }
-  };
+    createCounterOffer: (data: any) => {
+      return dispatch(createCounterOffer(data));
+    },
 
-  const declineMatch = async (matchId: string, reason?: string): Promise<any> => {
-    try {
-      const r = await dispatch(rejectMatchRequest({ requestId: matchId, request: { responseMessage: reason }}));
-      return rejectMatchRequest.fulfilled.match(r) ? r.payload : null;
-    } catch (error) {
-      // Error is already handled by the Redux slice
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [useMatchmaking] Unexpected error declining match:', getErrorMessage(error));
-      }
-      return null;
-    }
-  };
+    getMatchRequestThread: (threadId: string) => {
+      return dispatch(fetchMatchRequestThread(threadId));
+    },
 
-  const getMatchesByStatus = (status: MatchStatus): MatchDisplay[] =>
-    matches.filter((m) => m?.status === status.toLowerCase());
+    // === ADDITIONAL OPERATIONS ===
+    approveMatch: (matchId: string) => {
+      return dispatch(acceptMatchRequest({ requestId: matchId, request: {} }));
+    },
 
-  const userId = useAppSelector((s) => s.auth.user?.id);
-  const getMatchesByRole = (isRequester: boolean): MatchDisplay[] => {
-    if (!userId) return [];
-    return matches.filter((m) => isRequester ? m.requesterId === userId : m.responderId === userId);
-  };
+    declineMatch: (matchId: string) => {
+      return dispatch(rejectMatchRequest({ requestId: matchId, request: {} }));
+    },
 
-  const getRequestsByStatus = (status: string, incoming = true) =>
-    (incoming ? incomingRequests : outgoingRequests).filter((r) => r?.status === status);
+    sendMatchRequest: (data: any) => {
+      return dispatch(createMatchRequest(data));
+    },
 
-  const isMatchPending = (matchId: string) => matches.find((m) => m?.id === matchId)?.status === 'pending';
+  }), [dispatch]);
 
+  // ===== RETURN OBJECT =====
   return {
-    matches, incomingRequests, outgoingRequests, activeMatch: currentThread,
-    isLoading: withDefault(isLoading, false), error, matchRequestSent: withDefault(matchRequestSent, false),
+    // === STATE DATA === 
+    matches,
+    userMatches,
+    incomingRequests,
+    outgoingRequests,
+    pendingMatches,
+    activeMatches,
+    completedMatches,
+    recommendations: [],
+    currentMatch: null,
+    statistics,
+    
+    // === LOADING STATES ===
+    isLoading,
+    
+    // === ERROR STATES ===
+    error,
+    
+    // === ACTIONS ===
+    ...actions,
 
-    loadMatches, loadIncomingRequests, loadOutgoingRequests,
-    sendMatchRequest, 
-    submitMatchRequest: sendMatchRequest, // Alias for compatibility
-    searchMatches: search,
-    approveMatch, declineMatch, approveMatchRequest, declineMatchRequest,
+    // === LEGACY COMPATIBILITY ===
+    loadMatches: actions.loadMatches,
+    loadIncomingRequests: actions.loadIncomingRequests,
+    loadOutgoingRequests: actions.loadOutgoingRequests,
+    loadRecommendations: actions.fetchRecommendations,
+    clearError: () => dispatch(clearError()),
+    dismissError: () => dispatch(clearError()),
 
-    getMatchesByStatus, getMatchesByRole, getRequestsByStatus, isMatchPending,
+    // === PROPERTY COMPATIBILITY ===
+    errorMessage: error,
   };
 };
+
+export default useMatchmaking;

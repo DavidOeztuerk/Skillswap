@@ -96,7 +96,7 @@ const AppointmentDetailPage: React.FC = () => {
     declineAppointment,
     completeAppointment,
     isLoading,
-    error,
+    errorMessage,
   } = useAppointments();
 
   // Local state
@@ -234,25 +234,29 @@ const AppointmentDetailPage: React.FC = () => {
       errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action: confirmDialog.action });
       
       let success = false;
+      let result: any;
       const { action } = confirmDialog;
 
       switch (action) {
         case 'confirm':
-          success = await acceptAppointment(appointmentId);
+          result = await acceptAppointment(appointmentId);
+          success = result.meta.requestStatus === 'fulfilled';
           setStatusMessage({
             text: 'Termin wurde erfolgreich bestätigt',
             type: 'success',
           });
           break;
         case 'cancel':
-          success = await declineAppointment(appointmentId);
+          result = await declineAppointment(appointmentId);
+          success = result.meta.requestStatus === 'fulfilled';
           setStatusMessage({
             text: 'Termin wurde abgesagt',
             type: 'success',
           });
           break;
         case 'complete':
-          success = await completeAppointment(appointmentId);
+          result = await completeAppointment(appointmentId);
+          success = result.meta.requestStatus === 'fulfilled';
           setStatusMessage({
             text: 'Termin wurde als abgeschlossen markiert',
             type: 'success',
@@ -404,7 +408,7 @@ const AppointmentDetailPage: React.FC = () => {
   }
 
   // Error or not found
-  if (error || !appointment) {
+  if (errorMessage || !appointment) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState

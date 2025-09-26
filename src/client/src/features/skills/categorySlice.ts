@@ -1,83 +1,16 @@
-// src/features/categories/categoriesSlice.ts
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { SkillCategory } from '../../types/models/Skill';
-import skillService from '../../api/services/skillsService';
-import { SliceError } from '../../store/types';
-import { CategoriesState } from '../../types/states/SkillState';
 import { SkillCategoryResponse } from '../../types/contracts/responses/CreateSkillResponse';
-import { serializeError } from '../../utils/reduxHelpers';
+import { withDefault, isDefined } from '../../utils/safeAccess';
+import { initialCategoriesState } from '../../store/adapters/categoriesAdapter+State';
+import { fetchCategories, createCategory, updateCategory, deleteCategory } from './thunks/categoryThunks';
 
-const initialState: CategoriesState = {
-  categories: [],
-  selectedCategory: null,
-  isLoading: false,
-  isCreating: false,
-  isUpdating: false,
-  isDeleting: false,
-  error: null,
-};
-
-/**
- * Async thunks for categories operations
- */
-
-// Fetch categories
-export const fetchCategories = createAsyncThunk(
-    'categories/fetchCategories',
-    async (_, { rejectWithValue }) => {
-        try {
-            return await skillService.getCategories();
-        } catch (error: any) {
-            return rejectWithValue(error?.response?.data || error);
-        }
-    }
-);
-
-// Create category (Admin)
-export const createCategory = createAsyncThunk(
-  'categories/createCategory',
-  async ({ name, description }: { name: string; description?: string }, { rejectWithValue }) => {
-    try {
-      return await skillService.createCategory(name, description);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Update category (Admin)
-export const updateCategory = createAsyncThunk(
-  'categories/updateCategory',
-  async ({ id, name, description} : { id: string; name: string; description?: string }, { rejectWithValue }) => {
-    try {
-      return await skillService.updateCategory(id, name, description);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Delete category (Admin)
-export const deleteCategory = createAsyncThunk(
-  'categories/deleteCategory',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      return skillService.deleteCategory(id);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-/**
- * Categories Slice
- */
 const categoriesSlice = createSlice({
   name: 'categories',
-  initialState,
+  initialState: initialCategoriesState,
   reducers: {
     clearError: (state) => {
-      state.error = null;
+      state.errorMessage = undefined;
     },
 
     setSelectedCategory: (
@@ -139,13 +72,9 @@ const categoriesSlice = createSlice({
     },
 
     setError: (state, action) => {
-      state.error = serializeError(action.payload);
+      state.errorMessage = action.payload.message;
     },
 
-    resetState: (state) => {
-      Object.assign(state, initialState);
-    },
-    
     // Optimistic updates
     createCategoryOptimistic: (state, action: PayloadAction<SkillCategory>) => {
       state.categories.push(action.payload);
@@ -184,96 +113,101 @@ const categoriesSlice = createSlice({
       // Fetch categories cases
       .addCase(fetchCategories.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.isLoading = false;
-        // Null-safe access to API response
-        // state.categories = action?.payload || [];
+        
         const mapSkillResponseToSkill = (response: SkillCategoryResponse): SkillCategory => {
           return {
             id: response.categoryId,
             ...response
           }
         }
-        state.categories = action.payload?.data?.map(x => mapSkillResponseToSkill(x));
-        // Sort categories by sortOrder or name
-        state.categories.sort((a, b) => {
-          return a?.name?.localeCompare(b?.name);
-        });
+        
+        if (isDefined(action.payload.data)) {
+          state.categories = action.payload.data.map(x => mapSkillResponseToSkill(x));
+          // Sort categories by name
+          state.categories.sort((a, b) => {
+            return withDefault(a?.name, '').localeCompare(withDefault(b?.name, ''));
+          });
+        } else {
+          state.categories = [];
+        }
 
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
         state.categories = [];
       })
 
       // Create category cases
       .addCase(createCategory.pending, (state) => {
         state.isCreating = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(createCategory.fulfilled, (state, action) => {
         state.isCreating = false;
-        if (action.payload) {
+        if (isDefined(action.payload.data)) {
           state.categories.push(action.payload.data);
           // Re-sort after adding
           state.categories.sort((a, b) => {
-            return a?.name.localeCompare(b?.name);
+            return withDefault(a?.name, '').localeCompare(withDefault(b?.name, ''));
           });
         }
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(createCategory.rejected, (state, action) => {
         state.isCreating = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Update category cases
       .addCase(updateCategory.pending, (state) => {
         state.isUpdating = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(updateCategory.fulfilled, (state, action) => {
         state.isUpdating = false;
-        if (action.payload) {
+        if (isDefined(action.payload.data)) {
+          const categoryData = action.payload.data;
           const index = state.categories?.findIndex(
-            (cat) => cat?.id === action.payload?.id
+            (cat) => cat?.id === categoryData?.id
           );
           if (index !== -1) {
-            state.categories[index] = action.payload;
+            state.categories[index] = categoryData;
             // Re-sort after updating
             state.categories.sort((a, b) => {
-              return a?.name.localeCompare(b?.name);
+              return withDefault(a?.name, '').localeCompare(withDefault(b?.name, ''));
             });
           }
 
-          if (state.selectedCategory?.id === action.payload.id) {
-            state.selectedCategory = action.payload;
+          if (state.selectedCategory?.id === categoryData.id) {
+            state.selectedCategory = categoryData;
           }
         }
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(updateCategory.rejected, (state, action) => {
         state.isUpdating = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Delete category cases
       .addCase(deleteCategory.pending, (state) => {
         state.isDeleting = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(deleteCategory.fulfilled, (state) => {
         state.isDeleting = false;
         state.selectedCategory = null;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(deleteCategory.rejected, (state, action) => {
         state.isDeleting = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       });
   },
 });
@@ -289,7 +223,6 @@ export const {
   updateCategoryInState,
   clearAllCategories,
   setError,
-  resetState,
   createCategoryOptimistic,
   updateCategoryOptimistic,
   deleteCategoryOptimistic,

@@ -19,7 +19,7 @@ import PageHeader from '../../components/layout/PageHeader';
 import PageContainer from '../../components/layout/PageContainer';
 import TwoFactorManagement from '../../components/auth/TwoFactorManagement';
 import PhoneVerificationSection from '../../components/settings/PhoneVerificationSection';
-import { useAppSelector } from '../../store/store.hooks';
+import { useAuth } from '../../hooks/useAuth';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -52,7 +52,8 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
 
 const SecuritySettings: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
-  const { user, twoFactorEnabled } = useAppSelector((state) => state.auth);
+  const { user } = useAuth();
+  const twoFactorEnabled = user?.twoFactorEnabled || false;
 
   const handleTabChange = useCallback((_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);

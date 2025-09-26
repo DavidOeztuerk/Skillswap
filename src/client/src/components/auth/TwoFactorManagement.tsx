@@ -24,13 +24,13 @@ import {
 } from '@mui/icons-material';
 import authService from '../../api/services/authService';
 import { useTwoFactorDialog } from './TwoFactorDialog';
+import axios from 'axios';
+import { isSuccessResponse } from '../../types/api/UnifiedResponse';
 
 
 const TwoFactorManagement: React.FC = React.memo(() => {
-  // Use the global dialog context
   const { showDialog, setHasSecret } = useTwoFactorDialog();
   
-  // Component mount tracking
   useEffect(() => {
     console.log('🏁 TwoFactorManagement MOUNTED');
     return () => {
@@ -38,10 +38,8 @@ const TwoFactorManagement: React.FC = React.memo(() => {
     };
   }, []);
   
-  // Don't subscribe to globalLoading changes to avoid re-renders
-  const globalLoading = false; // Temporarily disable to prevent re-renders
+  const globalLoading = false;
   
-  // Local state for 2FA status
   const [status, setStatus] = useState<{
     loading: boolean;
     enabled: boolean;
@@ -58,7 +56,6 @@ const TwoFactorManagement: React.FC = React.memo(() => {
   const [disableError, setDisableError] = useState('');
   const [localLoading, setLocalLoading] = useState(false);
   
-  // Load 2FA status on mount
   useEffect(() => {
     let mounted = true;
     
@@ -69,7 +66,7 @@ const TwoFactorManagement: React.FC = React.memo(() => {
         console.log('📊 Full 2FA status response:', result);
         if (mounted) {
           // Handle ApiResponse wrapper
-          if (result.success && result.data) {
+          if (isSuccessResponse(result) && result.data) {
             setStatus({
               loading: false,
               enabled: result.data.isEnabled || false,
@@ -136,7 +133,7 @@ const TwoFactorManagement: React.FC = React.memo(() => {
       
       // Reload status after successful disable
       const result = await authService.getTwoFactorStatus();
-      if (result.success && result.data) {
+      if (isSuccessResponse(result) && result.data) {
         setStatus({
           loading: false,
           enabled: result.data.isEnabled || false,
@@ -146,8 +143,17 @@ const TwoFactorManagement: React.FC = React.memo(() => {
       }
       setShowDisableDialog(false);
       setPassword('');
-    } catch (err: any) {
-      setDisableError(err.message || 'Failed to disable 2FA. Please check your password.');
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        console.error('❌ Axios error disabling 2FA:', err.response || err.message);
+        setDisableError(
+          err.response?.data?.message || 
+          'Failed to disable 2FA. Please check your password.'
+        );
+      } else {
+        console.error('❌ Unexpected error disabling 2FA:', err);
+        setDisableError('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setLocalLoading(false);
     }

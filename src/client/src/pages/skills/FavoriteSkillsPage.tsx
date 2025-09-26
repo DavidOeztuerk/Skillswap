@@ -35,6 +35,7 @@ import skillService from '../../api/services/skillsService';
 import { toast } from 'react-toastify';
 import PageHeader from '../../components/layout/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
+import { isSuccessResponse } from '../../types/api/UnifiedResponse';
 
 interface FavoriteSkillDetail {
   skillId: string;
@@ -75,12 +76,14 @@ const FavoriteSkillsPage: React.FC = () => {
       setLoading(true);
       const response = await skillService.getFavoriteSkillsWithDetails(page, pageSize);
       
-      if (response.data) {
-        setFavoriteSkills(response.data);
-        setTotalPages(response.totalPages || 1);
-        setTotalCount(response.totalRecords || 0);
+      if (isSuccessResponse(response)) {
+        if (response.data) {
+          setFavoriteSkills(response.data);
+          setTotalPages(response.pagination.totalPages || 1);
+          setTotalCount(response.pagination.totalRecords || 0);
+        }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading favorite skills:', error);
       toast.error('Fehler beim Laden der Favoriten');
     } finally {
@@ -98,7 +101,7 @@ const FavoriteSkillsPage: React.FC = () => {
         setTotalCount(prev => prev - 1);
         toast.success('Skill aus Favoriten entfernt');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error removing favorite:', error);
       toast.error('Fehler beim Entfernen aus Favoriten');
     } finally {

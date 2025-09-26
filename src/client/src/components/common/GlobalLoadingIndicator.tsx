@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { Box, LinearProgress, Fade } from '@mui/material';
 import { useLoading } from '../../contexts/LoadingContext';
 
@@ -7,13 +7,13 @@ interface GlobalLoadingIndicatorProps {
   showKeys?: boolean;
 }
 
-export const GlobalLoadingIndicator: React.FC<GlobalLoadingIndicatorProps> = ({ 
+export const GlobalLoadingIndicator: React.FC<GlobalLoadingIndicatorProps> = memo(({ 
   position = 'top',
   showKeys = false 
 }) => {
   const { isAnyLoading, getLoadingStates } = useLoading();
   const isLoading = isAnyLoading();
-  const loadingStates = getLoadingStates();
+  const loadingStates = useMemo(() => getLoadingStates(), [getLoadingStates]);
 
   if (!isLoading) return null;
 
@@ -60,6 +60,6 @@ export const GlobalLoadingIndicator: React.FC<GlobalLoadingIndicatorProps> = ({
       </Box>
     </Fade>
   );
-};
+});
 
 export default GlobalLoadingIndicator;

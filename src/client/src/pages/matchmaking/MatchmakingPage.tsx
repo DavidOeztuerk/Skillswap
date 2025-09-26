@@ -36,15 +36,7 @@ import {
   Reply as ReplyIcon,
   AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-import {
-  fetchIncomingMatchRequests,
-  fetchOutgoingMatchRequests,
-  acceptMatchRequest,
-  rejectMatchRequest,
-  createMatchRequest,
-  fetchUserMatches
-} from '../../features/matchmaking/matchmakingSlice';
+import { useMatchmaking } from '../../hooks/useMatchmaking';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
@@ -116,16 +108,20 @@ const MatchmakingPage: React.FC = () => {
   const [counterOfferDialog, setCounterOfferDialog] = useState(false);
   const [counterOfferMessage, setCounterOfferMessage] = useState('');
 
-  const dispatch = useAppDispatch();
   const { withLoading, isLoading } = useLoading();
   const {
     matches,
     incomingRequests,
     outgoingRequests,
     isLoading: matchmakingLoading,
-    isLoadingRequests,
-    error,
-  } = useAppSelector((state) => state.matchmaking);
+    error: errorMessage,
+    loadUserMatches,
+    loadIncomingRequests,
+    loadOutgoingRequests,
+    acceptMatchRequest,
+    rejectMatchRequest,
+    createMatchRequest,
+  } = useMatchmaking();
 
   // Safe arrays with fallbacks
   const matchesArray = Array.isArray(matches) ? matches : [];
@@ -137,12 +133,12 @@ const MatchmakingPage: React.FC = () => {
     withLoading(LoadingKeys.FETCH_MATCHES, async () => {
       errorService.addBreadcrumb('Loading matchmaking page data', 'navigation');
       await Promise.all([
-        dispatch(fetchUserMatches({})),
-        dispatch(fetchIncomingMatchRequests({})),
-        dispatch(fetchOutgoingMatchRequests({}))
+        loadUserMatches({}),
+        loadIncomingRequests({}),
+        loadOutgoingRequests({})
       ]);
     });
-  }, [dispatch, withLoading]);
+  }, [loadUserMatches, loadIncomingRequests, loadOutgoingRequests, withLoading]);
 
   // Group requests into threads by user + skill
   const groupRequestsIntoThreads = (incoming: any[], outgoing: any[]): RequestThread[] => {
@@ -282,15 +278,15 @@ const MatchmakingPage: React.FC = () => {
   const handleAcceptRequest = async (requestId: string, message?: string) => {
     try {
       errorService.addBreadcrumb('Accepting match request', 'action', { requestId });
-      await dispatch(acceptMatchRequest({ requestId, request: { responseMessage: message }}));
+      await acceptMatchRequest(requestId, { responseMessage: message });
       errorService.addBreadcrumb('Match request accepted successfully', 'action', { requestId });
       setResponseDialogOpen(false);
       setResponseMessage('');
       setSelectedRequest(null);
       // Refresh data
-      dispatch(fetchUserMatches({}));
-      dispatch(fetchIncomingMatchRequests({}));
-      dispatch(fetchOutgoingMatchRequests({}));
+      loadUserMatches({});
+      loadIncomingRequests({});
+      loadOutgoingRequests({});
     } catch (error) {
       errorService.addBreadcrumb('Error accepting match request', 'error', { 
         requestId, 
@@ -303,15 +299,15 @@ const MatchmakingPage: React.FC = () => {
   const handleRejectRequest = async (requestId: string, message?: string) => {
     try {
       errorService.addBreadcrumb('Rejecting match request', 'action', { requestId });
-      await dispatch(rejectMatchRequest({ requestId, request: { responseMessage: message }}));
+      await rejectMatchRequest(requestId, { responseMessage: message });
       errorService.addBreadcrumb('Match request rejected successfully', 'action', { requestId });
       setResponseDialogOpen(false);
       setResponseMessage('');
       setSelectedRequest(null);
       // Refresh data
-      dispatch(fetchUserMatches({}));
-      dispatch(fetchIncomingMatchRequests({}));
-      dispatch(fetchOutgoingMatchRequests({}));
+      loadUserMatches({});
+      loadIncomingRequests({});
+      loadOutgoingRequests({});
     } catch (error) {
       errorService.addBreadcrumb('Error rejecting match request', 'error', { 
         requestId, 
@@ -329,11 +325,11 @@ const MatchmakingPage: React.FC = () => {
           skillId: selectedRequest.skillId 
         });
         // Create a new request as counter-offer
-        await dispatch(createMatchRequest({
+        await createMatchRequest({
           skillId: selectedRequest.skillId,
           message: `Gegenangebot: ${counterOfferMessage.trim()}`,
           targetUserId: selectedRequest.otherUserId, // Counter-offer zurück an den ursprünglichen Requester
-        }));
+        });
         errorService.addBreadcrumb('Counter offer created successfully', 'action', { 
           originalRequestId: selectedRequest.id 
         });
@@ -341,9 +337,9 @@ const MatchmakingPage: React.FC = () => {
         setCounterOfferMessage('');
         setSelectedRequest(null);
         // Refresh data
-        dispatch(fetchUserMatches({}));
-        dispatch(fetchIncomingMatchRequests({}));
-        dispatch(fetchOutgoingMatchRequests({}));
+        loadUserMatches({});
+        loadIncomingRequests({});
+        loadOutgoingRequests({});
       } catch (error) {
         errorService.addBreadcrumb('Error creating counter offer', 'error', { 
           originalRequestId: selectedRequest.id,
@@ -378,9 +374,9 @@ const MatchmakingPage: React.FC = () => {
     await withLoading('refreshMatches', async () => {
       errorService.addBreadcrumb('Refreshing matchmaking data', 'action');
       await Promise.all([
-        dispatch(fetchUserMatches({})),
-        dispatch(fetchIncomingMatchRequests({})),
-        dispatch(fetchOutgoingMatchRequests({}))
+        loadUserMatches({}),
+        loadIncomingRequests({}),
+        loadOutgoingRequests({})
       ]);
     });
   };
@@ -453,9 +449,9 @@ const MatchmakingPage: React.FC = () => {
         }
       />
 
-      {error && (
+      {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Fehler beim Laden der Matches: {typeof error === 'string' ? error : error.message || 'Ein unbekannter Fehler ist aufgetreten'}
+          Fehler beim Laden der Matches: {errorMessage}
         </Alert>
       )}
 
@@ -626,7 +622,7 @@ const MatchmakingPage: React.FC = () => {
                           color="success"
                           startIcon={<CheckIcon />}
                           onClick={() => handleAcceptRequest(thread.latestRequest.id)}
-                          loading={isLoadingRequests}
+                          loading={matchmakingLoading}
                         >
                           Akzeptieren
                         </LoadingButton>
@@ -636,7 +632,7 @@ const MatchmakingPage: React.FC = () => {
                           color="error"
                           startIcon={<CloseIcon />}
                           onClick={() => handleRejectRequest(thread.latestRequest.id)}
-                          loading={isLoadingRequests}
+                          loading={matchmakingLoading}
                         >
                           Ablehnen
                         </LoadingButton>
@@ -653,7 +649,7 @@ const MatchmakingPage: React.FC = () => {
                             });
                             setCounterOfferDialog(true);
                           }}
-                          loading={isLoadingRequests}
+                          loading={matchmakingLoading}
                         >
                           Gegenangebot
                         </LoadingButton>
@@ -855,10 +851,10 @@ const MatchmakingPage: React.FC = () => {
                         </Avatar>
                         <Box flex={1}>
                           <Typography variant="h6">
-                            {match.skill?.name || match.skillName}
+                            {match.skill?.name || 'Unbekannter Skill'}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {match.isOffering ? 'Du bietest an' : 'Du lernst'}
+                            {match.isLearningMode ? 'Du lernst' : 'Du bietest an'}
                           </Typography>
                           <Box display="flex" alignItems="center" gap={1} mt={0.5}>
                             <AccessTimeIcon fontSize="small" color="action" />

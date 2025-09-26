@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { Params, useLocation, useParams } from 'react-router-dom';
 import { withDefault } from '../utils/safeAccess';
 
 export interface BreadcrumbItem {
@@ -13,7 +13,7 @@ interface BreadcrumbConfig {
     label: string;
     parent?: string;
     isDynamic?: boolean;
-    labelResolver?: (params: any) => string;
+    labelResolver?: (params: Readonly<Params<string>>) => string;
   };
 }
 

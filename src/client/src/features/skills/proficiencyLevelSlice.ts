@@ -1,87 +1,24 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { ProficiencyLevel } from '../../types/models/Skill';
-import skillService, { ProficiencyLevelResponse } from '../../api/services/skillsService';
-import { ProficiencyLevelsState } from '../../types/states/SkillState';
-import { SliceError } from '../../store/types';
-import { withDefault } from '../../utils/safeAccess';
-import { serializeError } from '../../utils/reduxHelpers';
-
-const initialState: ProficiencyLevelsState = {
-  proficiencyLevels: [],
-  selectedProficiencyLevel: null,
-  isLoading: false,
-  isCreating: false,
-  isUpdating: false,
-  isDeleting: false,
-  error: null,
-};
-
-/**
- * Async thunks for proficiency levels operations
- */
-
-// Fetch proficiency levels
-export const fetchProficiencyLevels = createAsyncThunk(
-  'proficiencyLevels/fetchProficiencyLevels',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await skillService.getProficiencyLevels();
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Create proficiency level (Admin)
-export const createProficiencyLevel = createAsyncThunk(
-  'proficiencyLevels/createProficiencyLevel',
-  async ({level, rank, description}: { level: string; rank: number; description?: string }, { rejectWithValue }) => {
-    try {
-      return await skillService.createProficiencyLevel(level,rank, description);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Update proficiency level (Admin)
-export const updateProficiencyLevel = createAsyncThunk(
-  'proficiencyLevels/updateProficiencyLevel',
-  async ({id, level, rank, description}: { id: string; level: string; rank: number; description?: string }, { rejectWithValue }) => {
-    try {
-      return await skillService.updateProficiencyLevel(id, level, rank, description);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Delete proficiency level (Admin)
-export const deleteProficiencyLevel = createAsyncThunk(
-  'proficiencyLevels/deleteProficiencyLevel',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      return skillService.deleteProficiencyLevel(id);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
+import { withDefault, isDefined } from '../../utils/safeAccess';
+import { ProficiencyLevelResponse } from '../../types/contracts/responses/CreateSkillResponse';
+import { initialProficiencyLevelState } from '../../store/adapters/proficiencyLevelAdapter+State';
+import { createProficiencyLevel, updateProficiencyLevel, deleteProficiencyLevel, fetchProficiencyLevels } from './thunks/proficiencyLevelThunks';
 
 /**
  * Proficiency Levels Slice
  */
 const proficiencyLevelsSlice = createSlice({
   name: 'proficiencyLevels',
-  initialState,
+  initialState: initialProficiencyLevelState,
   reducers: {
     clearError: (state) => {
-      state.error = null;
+      state.errorMessage = undefined;
     },
 
     setSelectedProficiencyLevel: (
       state,
-      action: PayloadAction<ProficiencyLevel | null>
+      action,
     ) => {
       state.selectedProficiencyLevel = action.payload;
     },
@@ -141,13 +78,9 @@ const proficiencyLevelsSlice = createSlice({
     },
 
     setError: (state, action) => {
-      state.error = serializeError(action.payload);
+      state.errorMessage = action.payload.message;
     },
 
-    resetState: (state) => {
-      Object.assign(state, initialState);
-    },
-    
     // Optimistic updates
     createProficiencyLevelOptimistic: (state, action: PayloadAction<ProficiencyLevel>) => {
       state.proficiencyLevels.push(action.payload);
@@ -186,7 +119,7 @@ const proficiencyLevelsSlice = createSlice({
       // Fetch proficiency levels cases
       .addCase(fetchProficiencyLevels.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchProficiencyLevels.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -197,51 +130,55 @@ const proficiencyLevelsSlice = createSlice({
                     ...response
                   }
                 }
-                state.proficiencyLevels = action.payload.data?.map(x => mapSkillResponseToSkill(x));
+        if (isDefined(action.payload.data)) {
+          state.proficiencyLevels = action.payload.data.map(x => mapSkillResponseToSkill(x));
+        } else {
+          state.proficiencyLevels = [];
+        }
 
         // Sort proficiency levels by rank
         state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
 
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchProficiencyLevels.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
         state.proficiencyLevels = [];
       })
 
       // Create proficiency level cases
       .addCase(createProficiencyLevel.pending, (state) => {
         state.isCreating = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(createProficiencyLevel.fulfilled, (state, action) => {
         state.isCreating = false;
-        if (action.payload) {
-          state.proficiencyLevels.push(action.payload);
+        if (isDefined(action.payload.data)) {
+          state.proficiencyLevels.push(action.payload.data);
           // Re-sort after adding
           state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
         }
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(createProficiencyLevel.rejected, (state, action) => {
         state.isCreating = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Update proficiency level cases
       .addCase(updateProficiencyLevel.pending, (state) => {
         state.isUpdating = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(updateProficiencyLevel.fulfilled, (state, action) => {
         state.isUpdating = false;
-        if (action.payload) {
+        if (isDefined(action.payload.data)) {
           const index = state.proficiencyLevels?.findIndex(
-            (level) => level?.id === action.payload?.id
+            (level) => level?.id === action.payload.data?.id
           );
           if (index !== -1) {
-            state.proficiencyLevels[index] = action.payload;
+            state.proficiencyLevels[index] = action.payload.data;
             // Re-sort after updating
             state.proficiencyLevels.sort(
               (a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0)
@@ -249,31 +186,31 @@ const proficiencyLevelsSlice = createSlice({
           }
 
           if (
-            state.selectedProficiencyLevel?.id === action.payload.id
+            state.selectedProficiencyLevel?.id === action.payload.data.id
           ) {
-            state.selectedProficiencyLevel = action.payload;
+            state.selectedProficiencyLevel = action.payload.data;
           }
         }
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(updateProficiencyLevel.rejected, (state, action) => {
         state.isUpdating = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
 
       // Delete proficiency level cases
       .addCase(deleteProficiencyLevel.pending, (state) => {
         state.isDeleting = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(deleteProficiencyLevel.fulfilled, (state) => {
         state.isDeleting = false;
         state.selectedProficiencyLevel = null;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(deleteProficiencyLevel.rejected, (state, action) => {
         state.isDeleting = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       });
   },
 });
@@ -289,7 +226,6 @@ export const {
   updateProficiencyLevelInState,
   clearAllProficiencyLevels,
   setError,
-  resetState,
   createProficiencyLevelOptimistic,
   updateProficiencyLevelOptimistic,
   deleteProficiencyLevelOptimistic,

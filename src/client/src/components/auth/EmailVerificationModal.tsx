@@ -24,13 +24,12 @@ import {
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-import { verifyEmail, clearError } from '../../features/auth/authSlice';
+import { useAuth } from '../../hooks/useAuth';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import LoadingButton from '../ui/LoadingButton';
 import authService from '../../api/services/authService';
+import axios from 'axios';
 
-// Validation schema
 const emailVerificationSchema = z.object({
   code: z
     .string()
@@ -46,7 +45,7 @@ interface EmailVerificationModalProps {
   onClose: () => void;
   email?: string;
   onVerificationSuccess?: () => void;
-  autoVerifyToken?: string; // For URL-based verification
+  autoVerifyToken?: string;
 }
 
 /**
@@ -60,19 +59,16 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   onVerificationSuccess,
   autoVerifyToken,
 }) => {
-  const dispatch = useAppDispatch();
   const { isLoading, withLoading } = useLoading();
-  const { user, error } = useAppSelector((state) => state.auth);
+  const { user, errorMessage, verifyEmail, clearError } = useAuth();
   
   const [isVerified, setIsVerified] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   
-  // Input refs for auto-focus
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
-  // Use provided email or get from user state
   const userEmail = email || user?.email || '';
   
   const {
@@ -91,7 +87,6 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   
   const codeValue = watch('code');
   
-  // Auto-verify if token is provided
   useEffect(() => {
     if (open && autoVerifyToken && userEmail) {
       setValue('code', autoVerifyToken);
@@ -99,7 +94,6 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     }
   }, [open, autoVerifyToken, userEmail]);
   
-  // Cooldown timer for resend button
   useEffect(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
@@ -107,45 +101,43 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     }
   }, [resendCooldown]);
   
-  // Clear errors when modal closes
   useEffect(() => {
     if (!open) {
       reset();
       setLocalError(null);
       setResendMessage(null);
       setIsVerified(false);
-      dispatch(clearError());
+      clearError();
     }
-  }, [open, reset, dispatch]);
+  }, [open, reset, clearError]);
   
-  // Handle verification
   const handleVerification = async (code: string) => {
     await withLoading(LoadingKeys.VERIFY_EMAIL, async () => {
       try {
         setLocalError(null);
         
-        await dispatch(
-          verifyEmail({ 
-            email: userEmail, 
-            verificationToken: code 
-          })
-        ).unwrap();
+        await verifyEmail({ 
+          email: userEmail, 
+          verificationToken: code 
+        });
         
         setIsVerified(true);
         
-        // Call success callback after a short delay
         setTimeout(() => {
           if (onVerificationSuccess) {
             onVerificationSuccess();
           }
           onClose();
         }, 2000);
-      } catch (err: any) {
-        console.error('Email verification failed:', err);
-        setLocalError(
-          err?.message || 
-          'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.'
-        );
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          setLocalError(
+            err.response?.data?.message || 
+            'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.'
+          );
+        } else {
+          setLocalError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+        }
       }
     });
   };
@@ -164,18 +156,20 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         setLocalError(null);
         setResendMessage(null);
         
-        // Call resend API
         await authService.resendEmailVerification(userEmail);
         
         setResendMessage('Eine neue Verifizierungs-E-Mail wurde gesendet.');
-        setResendCooldown(60); // 60 second cooldown
-        reset(); // Clear the code input
-      } catch (err: any) {
-        console.error('Resend verification failed:', err);
-        setLocalError(
-          err?.message || 
-          'Fehler beim Senden der Verifizierungs-E-Mail.'
-        );
+        setResendCooldown(60);
+        reset(); 
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          setLocalError(
+            err.response?.data?.message || 
+            'Fehler beim Senden der Verifizierungs-E-Mail.'
+          );
+        } else {
+          setLocalError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+        }
       }
     });
   };
@@ -299,16 +293,16 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             </Box>
             
             {/* Error Display */}
-            {(localError || error) && (
+            {(localError || errorMessage) && (
               <Alert 
                 severity="error" 
                 icon={<ErrorIcon />}
                 onClose={() => {
                   setLocalError(null);
-                  dispatch(clearError());
+                  clearError();
                 }}
               >
-                {localError || error?.message}
+                {localError || errorMessage}
               </Alert>
             )}
             

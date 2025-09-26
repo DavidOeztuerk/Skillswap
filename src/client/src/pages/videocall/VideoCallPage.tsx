@@ -89,7 +89,7 @@ const VideoCallPage: React.FC = () => {
           Fehler beim Herstellen des Videoanrufs
         </Typography>
         <Typography variant="body1" gutterBottom>
-          {error.message}
+          {error}
         </Typography>
         <Button
           variant="contained"

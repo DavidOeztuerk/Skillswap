@@ -326,7 +326,7 @@ const routes: RouteObject[] = [
       // Protected Routes
       {
         path: 'dashboard',
-        element: <protectedRoutes.dashboard.component />,
+        element: <protectedRoutes.dashboard.component />
       },
       
       // Skills Routes
@@ -335,23 +335,23 @@ const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: <SkillsPageAll />,
+            element: <SkillsPageAll />
           },
           {
             path: 'my-skills',
-            element: <SkillsPageMine />,
+            element: <SkillsPageMine />
           },
           {
             path: 'favorites',
-            element: <SkillsPageFavorite />,
+            element: <SkillsPageFavorite />
           },
           {
             path: ':skillId',
-            element: <protectedRoutes.skills.detail.component />,
+            element:  <protectedRoutes.skills.detail.component />
           },
           {
             path: ':skillId/edit',
-            element: <protectedRoutes.skills.edit.component />,
+            element: <protectedRoutes.skills.edit.component />
           },
         ],
       },
@@ -543,9 +543,9 @@ export const routeConfig = {
   error: errorPages,
 } as const;
 
-// Initiales Preloading
-if (typeof window !== 'undefined') {
-  setTimeout(() => {
-    preloadStrategies.critical();
-  }, 1000);
-}
+// DISABLED - Initiales Preloading causing potential infinite loops
+// if (typeof window !== 'undefined') {
+//   setTimeout(() => {
+//     preloadStrategies.critical();
+//   }, 1000);
+// }

@@ -1,7 +1,7 @@
-// src/api/services/videoCallService.ts
 import { VIDEOCALL_ENDPOINTS } from '../../config/endpoints';
-import apiClient from '../apiClient';
+import { apiClient } from '../apiClient';
 import { VideoCallConfig } from '../../types/models/VideoCallConfig';
+import { ApiResponse, PagedResponse } from '../../types/api/UnifiedResponse';
 
 /**
  * Service for video call operations
@@ -10,7 +10,7 @@ const videoCallService = {
   /**
    * Get video call configuration
    */
-  async getCallConfig(appointmentId: string): Promise<VideoCallConfig> {
+  async getCallConfig(appointmentId: string): Promise<ApiResponse<VideoCallConfig>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
     return apiClient.get<VideoCallConfig>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${appointmentId}/config`);
   },
@@ -18,7 +18,7 @@ const videoCallService = {
   /**
    * Create new video call room
    */
-  async createCallRoom(appointmentId: string): Promise<VideoCallConfig> {
+  async createCallRoom(appointmentId: string): Promise<ApiResponse<VideoCallConfig>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
     return apiClient.post<VideoCallConfig>(VIDEOCALL_ENDPOINTS.CREATE, { appointmentId });
   },
@@ -26,7 +26,7 @@ const videoCallService = {
   /**
    * Join video call room
    */
-  async joinCallRoom(roomId: string): Promise<VideoCallConfig> {
+  async joinCallRoom(roomId: string): Promise<ApiResponse<VideoCallConfig>> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
     return apiClient.post<VideoCallConfig>(`${VIDEOCALL_ENDPOINTS.JOIN}/${roomId}/join`);
   },
@@ -36,7 +36,7 @@ const videoCallService = {
    */
   async leaveCallRoom(roomId: string): Promise<void> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
-    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.LEAVE}/${roomId}/leave`);
+    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.LEAVE}/${roomId}/leave`);
   },
 
   /**
@@ -44,7 +44,7 @@ const videoCallService = {
    */
   async startCall(roomId: string): Promise<void> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
-    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.START}/${roomId}/start`);
+    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.START}/${roomId}/start`);
   },
 
   /**
@@ -52,7 +52,7 @@ const videoCallService = {
    */
   async endCall(sessionId: string): Promise<void> {
     if (!sessionId?.trim()) throw new Error('Session-ID ist erforderlich');
-    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.END_CALL}/${sessionId}/end`);
+    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.END_CALL}/${sessionId}/end`);
   },
 
   /**
@@ -62,7 +62,7 @@ const videoCallService = {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
     if (durationInSeconds < 0) throw new Error('Dauer muss positiv sein');
     
-    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/info`, {
+    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/info`, {
       durationInSeconds,
     });
   },
@@ -74,7 +74,7 @@ const videoCallService = {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
     if (!issue?.trim()) throw new Error('Problembeschreibung ist erforderlich');
     
-    return apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/report`, {
+    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/report`, {
       issue: issue.trim(),
     });
   },
@@ -82,7 +82,7 @@ const videoCallService = {
   /**
    * Join call with updated endpoint
    */
-  async joinCall(roomId: string): Promise<VideoCallConfig> {
+  async joinCall(roomId: string): Promise<ApiResponse<VideoCallConfig>> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
     return apiClient.post<VideoCallConfig>(`${VIDEOCALL_ENDPOINTS.JOIN}/${roomId}`);
   },
@@ -98,25 +98,36 @@ const videoCallService = {
   /**
    * Start recording
    */
-  async startRecording(roomId: string): Promise<any> {
+  async startRecording(roomId: string): Promise<ApiResponse<{ recordingId: string; status: string }>> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
-    return apiClient.post<any>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/recording/start`);
+    return apiClient.post<{ recordingId: string; status: string }>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/recording/start`);
   },
 
   /**
    * Stop recording
    */
-  async stopRecording(roomId: string): Promise<any> {
+  async stopRecording(roomId: string): Promise<ApiResponse<{ recordingId: string; status: string; url?: string }>> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
-    return apiClient.post<any>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/recording/stop`);
+    return apiClient.post<{ recordingId: string; status: string; url?: string }>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/recording/stop`);
   },
 
   /**
    * Get call statistics
    */
-  async getCallStatistics(roomId: string): Promise<any> {
+  async getCallStatistics(roomId: string): Promise<ApiResponse<
+  {
+    audioLevel: number;
+    networkQuality: 'poor' | 'fair' | 'good' | 'excellent';
+    packetsLost: number;
+    bandwidth: number;
+  }>> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
-    return apiClient.get<any>(`${VIDEOCALL_ENDPOINTS.STATISTICS}?roomId=${roomId}`);
+    return apiClient.get<{
+      audioLevel: number;
+      networkQuality: 'poor' | 'fair' | 'good' | 'excellent';
+      packetsLost: number;
+      bandwidth: number;
+    }>(`${VIDEOCALL_ENDPOINTS.STATISTICS}`, { roomId });
   },
 
   /**
@@ -136,33 +147,31 @@ const videoCallService = {
   /**
    * Get call history
    */
-  async getCallHistory(params?: { page?: number; limit?: number }): Promise<any> {
-    const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    
-    const url = `${VIDEOCALL_ENDPOINTS.MY_CALLS}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return apiClient.get<any>(url);
+  async getCallHistory(params?: { page?: number; limit?: number }): Promise<ApiResponse<{ calls: unknown[]; total: number }>> {
+    const queryParams: Record<string, unknown> = {};
+    if (params?.page) queryParams.page = params.page;
+    if (params?.limit) queryParams.limit = params.limit;
+    return apiClient.get<{ calls: unknown[]; total: number }>(VIDEOCALL_ENDPOINTS.MY_CALLS, queryParams);
   },
 
   /**
    * Test connection quality
    */
-  async testConnection(): Promise<any> {
-    return apiClient.get<any>(`${VIDEOCALL_ENDPOINTS.DETAILS}/test-connection`);
+  async testConnection(): Promise<ApiResponse<{ status: string; latency?: number }>> {
+    return apiClient.get<{ status: string; latency?: number }>(`${VIDEOCALL_ENDPOINTS.DETAILS}/test-connection`);
   },
 
   /**
    * Get supported features
    */
-  async getSupportedFeatures(): Promise<any> {
-    return apiClient.get<any>(`${VIDEOCALL_ENDPOINTS.DETAILS}/features`);
+  async getSupportedFeatures(): Promise<ApiResponse<{ features: string[]; capabilities: Record<string, boolean> }>> {
+    return apiClient.get<{ features: string[]; capabilities: Record<string, boolean> }>(`${VIDEOCALL_ENDPOINTS.DETAILS}/features`);
   },
 
   /**
    * Update call settings
    */
-  async updateCallSettings(roomId: string, settings: any): Promise<void> {
+  async updateCallSettings(roomId: string, settings: Record<string, unknown>): Promise<void> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
     await apiClient.put<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/settings`, settings);
   },
@@ -183,9 +192,9 @@ const videoCallService = {
   /**
    * Get call participants
    */
-  async getCallParticipants(roomId: string): Promise<any[]> {
+  async getCallParticipants(roomId: string): Promise<PagedResponse<{ id: string; name: string; isConnected: boolean }>> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
-    return apiClient.get<any[]>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/participants`);
+    return await apiClient.getPaged<{ id: string; name: string; isConnected: boolean }[]>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/participants`) as PagedResponse<{ id: string; name: string; isConnected: boolean }>;
   },
 };
 

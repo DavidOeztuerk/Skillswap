@@ -1,302 +1,47 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { AdminState } from '../../types/states/AdminState';
-import { SliceError } from '../../store/types';
-import { adminService } from '../../api/services/adminService';
-import { serializeError } from '../../utils/reduxHelpers';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import {
   AdminUser,
   AdminSkill,
   ModerationReport,
-  AdminSettings,
 } from '../../types/models/Admin';
-
-
-const initialState: AdminState = {
-  dashboard: null,
-  users: [],
-  skills: [],
-  appointments: [],
-  matches: [],
-  analytics: null,
-  systemHealth: null,
-  auditLogs: [],
-  moderationReports: [],
-  settings: null,
-  
-  isLoading: false,
-  isLoadingUsers: false,
-  isLoadingSkills: false,
-  isLoadingAppointments: false,
-  isLoadingMatches: false,
-  isLoadingAnalytics: false,
-  isLoadingSystemHealth: false,
-  isLoadingAuditLogs: false,
-  isLoadingReports: false,
-  isLoadingSettings: false,
-  
-  error: null,
-  userError: null,
-  skillError: null,
-  appointmentError: null,
-  matchError: null,
-  analyticsError: null,
-  systemHealthError: null,
-  auditLogError: null,
-  reportError: null,
-  settingsError: null,
-  
-  pagination: {
-    users: { page: 1, limit: 20, total: 0 },
-    skills: { page: 1, limit: 20, total: 0 },
-    appointments: { page: 1, limit: 20, total: 0 },
-    matches: { page: 1, limit: 20, total: 0 },
-    auditLogs: { page: 1, limit: 50, total: 0 },
-    reports: { page: 1, limit: 20, total: 0 },
-  },
-  
-  filters: {
-    users: { status: 'all', role: 'all', search: '' },
-    skills: { status: 'all', category: 'all', search: '' },
-    appointments: { status: 'all', dateRange: null },
-    matches: { status: 'all', dateRange: null },
-    auditLogs: { action: 'all', user: '', dateRange: null },
-    reports: { type: 'all', status: 'all' },
-  },
-};
-
-// Dashboard
-export const fetchAdminDashboard = createAsyncThunk(
-  'admin/fetchDashboard',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await adminService.getDashboard();
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// User Management
-export const fetchAdminUsers = createAsyncThunk(
-  'admin/fetchUsers',
-  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
-    try {
-      return await adminService.getUsers(params);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const updateUserRole = createAsyncThunk(
-  'admin/updateUserRole',
-  async ({ userId, role }: { userId: string; role: string }, { rejectWithValue }) => {
-    try {
-      return await adminService.updateUserRole(userId, role);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const suspendUser = createAsyncThunk(
-  'admin/suspendUser',
-  async ({ userId, reason }: { userId: string; reason: string }, { rejectWithValue }) => {
-    try {
-      return await adminService.suspendUser(userId, reason);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const unsuspendUser = createAsyncThunk(
-  'admin/unsuspendUser',
-  async (userId: string, { rejectWithValue }) => {
-    try {
-      return await adminService.unsuspendUser(userId);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const deleteUser = createAsyncThunk(
-  'admin/deleteUser',
-  async (userId: string, { rejectWithValue }) => {
-    try {
-      await adminService.deleteUser(userId);
-      return userId;
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Skills Management
-export const fetchAdminSkills = createAsyncThunk(
-  'admin/fetchSkills',
-  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
-    try {
-      return await adminService.getSkills(params);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const moderateSkill = createAsyncThunk(
-  'admin/moderateSkill',
-  async ({ skillId, action, reason }: { skillId: string; action: 'approve' | 'reject' | 'quarantine'; reason?: string }, { rejectWithValue }) => {
-    try {
-      return await adminService.moderateSkill(skillId, action, reason);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Appointments Management
-export const fetchAdminAppointments = createAsyncThunk(
-  'admin/fetchAppointments',
-  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
-    try {
-      return await adminService.getAppointments(params);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Matches Management
-export const fetchAdminMatches = createAsyncThunk(
-  'admin/fetchMatches',
-  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
-    try {
-      return await adminService.getMatches(params);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Analytics
-export const fetchAdminAnalytics = createAsyncThunk(
-  'admin/fetchAnalytics',
-  async (timeRange: '7d' | '30d' | '90d' | '1y', { rejectWithValue }) => {
-    try {
-      return await adminService.getAnalytics(timeRange);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// System Health
-export const fetchSystemHealth = createAsyncThunk(
-  'admin/fetchSystemHealth',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await adminService.getSystemHealth();
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Audit Logs
-export const fetchAuditLogs = createAsyncThunk(
-  'admin/fetchAuditLogs',
-  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
-    try {
-      return await adminService.getAuditLogs(params);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Moderation Reports
-export const fetchModerationReports = createAsyncThunk(
-  'admin/fetchReports',
-  async (params: { page?: number; limit?: number; filters?: any }, { rejectWithValue }) => {
-    try {
-      return await adminService.getModerationReports(params);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const handleModerationReport = createAsyncThunk(
-  'admin/handleReport',
-  async ({ reportId, action, reason }: { reportId: string; action: 'approve' | 'reject' | 'escalate'; reason?: string }, { rejectWithValue }) => {
-    try {
-      return await adminService.handleModerationReport(reportId, action, reason);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-// Settings
-export const fetchAdminSettings = createAsyncThunk(
-  'admin/fetchSettings',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await adminService.getSettings();
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
-
-export const updateAdminSettings = createAsyncThunk(
-  'admin/updateSettings',
-  async (settings: Partial<AdminSettings>, { rejectWithValue }) => {
-    try {
-      return await adminService.updateSettings(settings);
-    } catch (error: any) {
-      return rejectWithValue(error?.response?.data || error);
-    }
-  }
-);
+import { withDefault, isDefined } from '../../utils/safeAccess';
+import { initialAdminState } from '../../store/adapters/adminAdapter+State';
+import { fetchAdminDashboard, fetchAdminUsers, updateUserRole, suspendUser, unsuspendUser, deleteUser, fetchAdminSkills, moderateSkill, fetchAdminAppointments, fetchAdminMatches, fetchAdminAnalytics, fetchSystemHealth, fetchAuditLogs, fetchModerationReports, handleModerationReport, fetchAdminSettings, updateAdminSettings } from './adminThunks';
 
 const adminSlice = createSlice({
   name: 'admin',
-  initialState,
+  initialState: initialAdminState,
   reducers: {
     clearError: (state) => {
-      state.error = null;
+      state.errorMessage = undefined;
     },
     clearUserError: (state) => {
-      state.userError = null;
+      state.userError = undefined;
     },
     clearSkillError: (state) => {
-      state.skillError = null;
+      state.skillError = undefined;
     },
     clearAppointmentError: (state) => {
-      state.appointmentError = null;
+      state.appointmentError = undefined;
     },
     clearMatchError: (state) => {
-      state.matchError = null;
+      state.matchError = undefined;
     },
     clearAnalyticsError: (state) => {
-      state.analyticsError = null;
+      state.analyticsError = undefined;
     },
     clearSystemHealthError: (state) => {
-      state.systemHealthError = null;
+      state.systemHealthError = undefined;
     },
     clearAuditLogError: (state) => {
-      state.auditLogError = null;
+      state.auditLogError = undefined;
     },
     clearReportError: (state) => {
-      state.reportError = null;
+      state.reportError = undefined;
     },
     clearSettingsError: (state) => {
-      state.settingsError = null;
+      state.settingsError = undefined;
     },
-    
     setUserFilters: (state, action: PayloadAction<any>) => {
       state.filters.users = { ...state.filters.users, ...action.payload };
     },
@@ -420,200 +165,212 @@ const adminSlice = createSlice({
       // Dashboard
       .addCase(fetchAdminDashboard.pending, (state) => {
         state.isLoading = true;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchAdminDashboard.fulfilled, (state, action) => {
         state.isLoading = false;
         state.dashboard = action.payload.data;
-        state.error = null;
+        state.errorMessage = undefined;
       })
       .addCase(fetchAdminDashboard.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = serializeError(action.payload);
+        state.errorMessage = action.payload?.message;
       })
       
       // Users
       .addCase(fetchAdminUsers.pending, (state) => {
         state.isLoadingUsers = true;
-        state.userError = null;
+        state.userError = undefined;
       })
       .addCase(fetchAdminUsers.fulfilled, (state, action) => {
         state.isLoadingUsers = false;
-        state.users = action.payload.data;
-        state.pagination.users.total = action.payload.totalRecords || action.payload.data?.length || 0;
-        state.userError = null;
+        if (isDefined(action.payload.data)) {
+          state.users = action.payload.data;
+          state.pagination.users.total = withDefault(action.payload.pagination.totalRecords, action.payload.data?.length || 0);
+        }
+        state.userError = undefined;
       })
       .addCase(fetchAdminUsers.rejected, (state, action) => {
         state.isLoadingUsers = false;
-        state.userError = serializeError(action.payload);
+        state.userError = action.payload?.message;
       })
       
       .addCase(updateUserRole.fulfilled, (state, action) => {
-        const index = state.users.findIndex(user => user.id === action.payload.id);
-        if (index !== -1) {
-          state.users[index] = action.payload;
+        if (isDefined(action.payload.data)) {
+          const index = state.users.findIndex(user => user.id === action.payload.data.id);
+          if (index !== -1) {
+            state.users[index] = action.payload.data;
+          }
         }
       })
       
       .addCase(suspendUser.fulfilled, (state, action) => {
-        const index = state.users.findIndex(user => user.id === action.payload.id);
-        if (index !== -1) {
-          state.users[index] = action.payload;
+        if (isDefined(action.payload.data)) {
+          const index = state.users.findIndex(user => user.id === action.payload.data.id);
+          if (index !== -1) {
+            state.users[index] = action.payload.data;
+          }
         }
       })
       
       .addCase(unsuspendUser.fulfilled, (state, action) => {
-        const index = state.users.findIndex(user => user.id === action.payload.id);
-        if (index !== -1) {
-          state.users[index] = action.payload;
+        if (isDefined(action.payload.data)) {
+          const index = state.users.findIndex(user => user.id === action.payload.data.id);
+          if (index !== -1) {
+            state.users[index] = action.payload.data;
+          }
         }
       })
       
       .addCase(deleteUser.fulfilled, (state, action) => {
-        state.users = state.users.filter(user => user.id !== action.payload);
+        state.users = state.users.filter(user => user.id !== action.meta.arg);
       })
       
       // Skills
       .addCase(fetchAdminSkills.pending, (state) => {
         state.isLoadingSkills = true;
-        state.skillError = null;
+        state.skillError = undefined;
       })
       .addCase(fetchAdminSkills.fulfilled, (state, action) => {
         state.isLoadingSkills = false;
-        state.skills = action.payload.data;
-        state.pagination.skills.total = action.payload.totalRecords || action.payload.data?.length || 0;
-        state.skillError = null;
+        if (isDefined(action.payload.data)) {
+          state.skills = action.payload.data;
+          state.pagination.skills.total = withDefault(action.payload.pagination.totalRecords, action.payload.data?.length || 0);
+        }
+        state.skillError = undefined;
       })
       .addCase(fetchAdminSkills.rejected, (state, action) => {
         state.isLoadingSkills = false;
-        state.skillError = serializeError(action.payload);
+        state.skillError = action.payload?.message;
       })
       
       .addCase(moderateSkill.fulfilled, (state, action) => {
-        const index = state.skills.findIndex(skill => skill.id === action.payload.id);
-        if (index !== -1) {
-          state.skills[index] = action.payload;
+        if (isDefined(action.payload.data)) {
+          const index = state.skills.findIndex(skill => skill.id === action.payload.data.id);
+          if (index !== -1) {
+            state.skills[index] = action.payload.data;
+          }
         }
       })
       
       // Appointments
       .addCase(fetchAdminAppointments.pending, (state) => {
         state.isLoadingAppointments = true;
-        state.appointmentError = null;
+        state.appointmentError = undefined;
       })
       .addCase(fetchAdminAppointments.fulfilled, (state, action) => {
         state.isLoadingAppointments = false;
         state.appointments = action.payload.data;
-        state.pagination.appointments.total = action.payload.totalRecords || action.payload.data?.length || 0;
-        state.appointmentError = null;
+        state.pagination.appointments.total = action.payload.pagination.totalRecords || action.payload.data?.length || 0;
+        state.appointmentError = undefined;
       })
       .addCase(fetchAdminAppointments.rejected, (state, action) => {
         state.isLoadingAppointments = false;
-        state.appointmentError = serializeError(action.payload);
+        state.appointmentError = action.payload?.message;
       })
       
       // Matches
       .addCase(fetchAdminMatches.pending, (state) => {
         state.isLoadingMatches = true;
-        state.matchError = null;
+        state.matchError = undefined;
       })
       .addCase(fetchAdminMatches.fulfilled, (state, action) => {
         state.isLoadingMatches = false;
         state.matches = action.payload.data;
-        state.pagination.matches.total = action.payload.totalRecords || action.payload.data.length || 0;
-        state.matchError = null;
+        state.pagination.matches.total = action.payload.pagination.totalRecords || action.payload.data.length || 0;
+        state.matchError = undefined;
       })
       .addCase(fetchAdminMatches.rejected, (state, action) => {
         state.isLoadingMatches = false;
-        state.matchError = serializeError(action.payload);
+        state.matchError = action.payload?.message;
       })
       
       // Analytics
       .addCase(fetchAdminAnalytics.pending, (state) => {
         state.isLoadingAnalytics = true;
-        state.analyticsError = null;
+        state.analyticsError = undefined;
       })
       .addCase(fetchAdminAnalytics.fulfilled, (state, action) => {
         state.isLoadingAnalytics = false;
-        state.analytics = action.payload;
-        state.analyticsError = null;
+        state.analytics = action.payload.data;
+        state.analyticsError = undefined;
       })
       .addCase(fetchAdminAnalytics.rejected, (state, action) => {
         state.isLoadingAnalytics = false;
-        state.analyticsError = serializeError(action.payload);
+        state.analyticsError = action.payload?.message;
       })
       
       // System Health
       .addCase(fetchSystemHealth.pending, (state) => {
         state.isLoadingSystemHealth = true;
-        state.systemHealthError = null;
+        state.systemHealthError = undefined;
       })
       .addCase(fetchSystemHealth.fulfilled, (state, action) => {
         state.isLoadingSystemHealth = false;
-        state.systemHealth = action.payload;
-        state.systemHealthError = null;
+        state.systemHealth = action.payload.data;
+        state.systemHealthError = undefined;
       })
       .addCase(fetchSystemHealth.rejected, (state, action) => {
         state.isLoadingSystemHealth = false;
-        state.systemHealthError = serializeError(action.payload);
+        state.systemHealthError = action.payload?.message;
       })
       
       // Audit Logs
       .addCase(fetchAuditLogs.pending, (state) => {
         state.isLoadingAuditLogs = true;
-        state.auditLogError = null;
+        state.auditLogError = undefined;
       })
       .addCase(fetchAuditLogs.fulfilled, (state, action) => {
         state.isLoadingAuditLogs = false;
         state.auditLogs = action.payload.data;
-        state.pagination.auditLogs.total = action.payload.totalRecords || action.payload.data?.length || 0;
-        state.auditLogError = null;
+        state.pagination.auditLogs.total = action.payload.pagination.totalRecords || action.payload.data?.length || 0;
+        state.auditLogError = undefined;
       })
       .addCase(fetchAuditLogs.rejected, (state, action) => {
         state.isLoadingAuditLogs = false;
-        state.auditLogError = serializeError(action.payload);
+        state.auditLogError = action.payload?.message;
       })
       
       // Moderation Reports
       .addCase(fetchModerationReports.pending, (state) => {
         state.isLoadingReports = true;
-        state.reportError = null;
+        state.reportError = undefined;
       })
       .addCase(fetchModerationReports.fulfilled, (state, action) => {
         state.isLoadingReports = false;
         state.moderationReports = action.payload.data;
-        state.pagination.reports.total = action.payload.totalRecords || action.payload.data?.length || 0;
-        state.reportError = null;
+        state.pagination.reports.total = action.payload.pagination.totalRecords || action.payload.data?.length || 0;
+        state.reportError = undefined;
       })
       .addCase(fetchModerationReports.rejected, (state, action) => {
         state.isLoadingReports = false;
-        state.reportError = serializeError(action.payload);
+        state.reportError = action.payload?.message;
       })
       
       .addCase(handleModerationReport.fulfilled, (state, action) => {
-        const index = state.moderationReports.findIndex(report => report.id === action.payload.id);
+        const index = state.moderationReports.findIndex(report => report.id === action.payload.data.id);
         if (index !== -1) {
-          state.moderationReports[index] = action.payload;
+          state.moderationReports[index] = action.payload.data;
         }
       })
       
       // Settings
       .addCase(fetchAdminSettings.pending, (state) => {
         state.isLoadingSettings = true;
-        state.settingsError = null;
+        state.settingsError = undefined;
       })
       .addCase(fetchAdminSettings.fulfilled, (state, action) => {
         state.isLoadingSettings = false;
-        state.settings = action.payload;
-        state.settingsError = null;
+        state.settings = action.payload.data;
+        state.settingsError = undefined;
       })
       .addCase(fetchAdminSettings.rejected, (state, action) => {
         state.isLoadingSettings = false;
-        state.settingsError = serializeError(action.payload);
+        state.settingsError = action.payload?.message;
       })
       
       .addCase(updateAdminSettings.fulfilled, (state, action) => {
-        state.settings = action.payload;
+        state.settings = action.payload.data;
       });
   },
 });

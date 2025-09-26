@@ -3,8 +3,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { Button, Alert } from '@mui/material';
 import { Login as LoginIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAppDispatch } from '../../store/store.hooks';
-import { forceLogout } from '../../features/auth/authSlice';
+import { useAuth } from '../../hooks/useAuth';
 
 interface AuthErrorBoundaryProps {
   children: React.ReactNode;
@@ -16,7 +15,7 @@ interface AuthErrorBoundaryProps {
  */
 const AuthErrorFallback: React.FC<{ error: Error; onRetry: () => void }> = ({ error, onRetry }) => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
+  const { forceLogout } = useAuth();
 
   const isAuthError = error.message?.toLowerCase().includes('auth') || 
                       error.message?.toLowerCase().includes('token') ||
@@ -24,7 +23,7 @@ const AuthErrorFallback: React.FC<{ error: Error; onRetry: () => void }> = ({ er
 
   const handleRelogin = () => {
     // Clear auth state and redirect to login
-    dispatch(forceLogout());
+    forceLogout();
     navigate('/login');
   };
 

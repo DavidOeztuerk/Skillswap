@@ -88,6 +88,7 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     loadingCountRef.current = {};
   }, []);
 
+  // REMOVED PROBLEMATIC useMemo - was causing infinite re-renders!
   const value: LoadingContextType = {
     isLoading,
     startLoading,

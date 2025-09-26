@@ -4,17 +4,16 @@ import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRe
 import { AppointmentResponse } from '../../types/contracts/responses/AppointmentResponse';
 import { RescheduleAppointmentRequest } from '../../types/contracts/requests/RescheduleAppointmentRequest';
 import { RescheduleAppointmentResponse } from '../../types/contracts/responses/RescheduleAppointmentResponse';
-import apiClient from '../apiClient';
-import { ApiResponse } from '../../types/common/ApiResponse';
-import { PagedResponse } from '../../types/common/PagedResponse';
+import { apiClient } from '../apiClient';
+import { ApiResponse, PagedResponse } from '../../types/api/UnifiedResponse';
 
 export interface GetUserAppointmentsRequest {
-  Status?: string;
-  FromDate?: Date;
-  ToDate?: Date;
-  IncludePast?: boolean;
-  PageNumber?: number;
-  PageSize?: number;
+  status?: string;
+  fromDate?: Date;
+  toDate?: Date;
+  includePast?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
 }
 
 export interface UserAppointmentResponse {
@@ -46,16 +45,18 @@ const appointmentService = {
    * Get all user appointments
    */
   async getAppointments(request: GetUserAppointmentsRequest): Promise<PagedResponse<UserAppointmentResponse>> {
-    const q = new URLSearchParams();
-    if (request.Status != null) q.append('status', request.Status);
-    if (request.FromDate != null) q.append('fromDate', request.FromDate.toISOString());
-    if (request.ToDate != null) q.append('toDate', request.ToDate.toISOString());
-    if (request.IncludePast != undefined) q.append('includePast', String(request.IncludePast)); // false wird gesendet
-    if (request.PageNumber != null) q.append('pageNumber', String(request.PageNumber));
-    if (request.PageSize != null) q.append('pageSize', String(request.PageSize));
+    const params: Record<string, unknown> = {};
+    if (request.status != null) params.status = request.status;
+    if (request.fromDate != null) params.fromDate = request.fromDate.toISOString();
+    if (request.toDate != null) params.toDate = request.toDate.toISOString();
+    if (request.includePast != undefined) params.includePast = request.includePast;
+    if (request.pageNumber != null) params.pageNumber = request.pageNumber;
+    if (request.pageSize != null) params.pageSize = request.pageSize;
     
-    const url = `${APPOINTMENT_ENDPOINTS.GET_MY}${q.toString() ? `?${q}` : ''}`;
-    return apiClient.get<PagedResponse<UserAppointmentResponse>>(url);
+    return await apiClient.getPaged<UserAppointmentResponse>(
+      APPOINTMENT_ENDPOINTS.GET_MY,
+      params
+    ) as PagedResponse<UserAppointmentResponse>;
   },
 
   /**
@@ -63,7 +64,7 @@ const appointmentService = {
    */
   async getAppointment(appointmentId: string): Promise<ApiResponse<Appointment>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return await apiClient.get<ApiResponse<Appointment>>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}`, {});
+    return await apiClient.get<Appointment>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}`);
   },
 
   /**
@@ -73,7 +74,7 @@ const appointmentService = {
     if (!appointmentData.matchId) throw new Error('Match-ID ist erforderlich');
     if (!appointmentData.startTime) throw new Error('Startzeitpunkt ist erforderlich');
     if (!appointmentData.endTime) throw new Error('Endzeitpunkt ist erforderlich');
-    return await apiClient.post<ApiResponse<Appointment>>(APPOINTMENT_ENDPOINTS.CREATE, appointmentData);
+    return await apiClient.post<Appointment>(APPOINTMENT_ENDPOINTS.CREATE, appointmentData);
   },
 
   /**
@@ -81,7 +82,7 @@ const appointmentService = {
    */
   async acceptAppointment(appointmentId: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return await apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.ACCEPT}/${appointmentId}/accept`);
+    return await apiClient.post<AppointmentResponse>(`${APPOINTMENT_ENDPOINTS.ACCEPT}/${appointmentId}/accept`);
   },
 
   /**
@@ -89,7 +90,7 @@ const appointmentService = {
    */
   async cancelAppointment(appointmentId: string, reason?: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return await apiClient.post<ApiResponse<AppointmentResponse>>(`${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`, { reason });
+    return await apiClient.post<AppointmentResponse>(`${APPOINTMENT_ENDPOINTS.CANCEL}/${appointmentId}/cancel`, { reason });
   },
 
   /**
@@ -121,9 +122,9 @@ const appointmentService = {
   async getUpcomingAppointments(limit?: number): Promise<PagedResponse<UserAppointmentResponse>> {
     const now = new Date();
     const request: GetUserAppointmentsRequest = {
-      FromDate: now,
-      IncludePast: false,
-      PageSize: limit || 20
+      fromDate: now,
+      includePast: false,
+      pageSize: limit || 12
     };
     return this.getAppointments(request);
   },
@@ -134,10 +135,10 @@ const appointmentService = {
   async getPastAppointments(params?: { page?: number; limit?: number }): Promise<PagedResponse<UserAppointmentResponse>> {
     const now = new Date();
     const request: GetUserAppointmentsRequest = {
-      ToDate: now,
-      IncludePast: true,
-      PageNumber: params?.page || 1,
-      PageSize: params?.limit || 20
+      toDate: now,
+      includePast: true,
+      pageNumber: params?.page || 1,
+      pageSize: params?.limit || 12
     };
     return this.getAppointments(request);
   },
@@ -179,7 +180,7 @@ const appointmentService = {
       reason
     };
     
-    return apiClient.post<ApiResponse<RescheduleAppointmentResponse>>(
+    return apiClient.post<RescheduleAppointmentResponse>(
       `${APPOINTMENT_ENDPOINTS.RESCHEDULE.replace('{appointmentId}', appointmentId)}`,
       request
     );
@@ -191,9 +192,8 @@ const appointmentService = {
   async generateMeetingLink(appointmentId: string): Promise<ApiResponse<string>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
     
-    return apiClient.post<ApiResponse<string>>(
-      APPOINTMENT_ENDPOINTS.GENERATE_MEETING_LINK.replace('{appointmentId}', appointmentId),
-      {}
+    return apiClient.post<string>(
+      APPOINTMENT_ENDPOINTS.GENERATE_MEETING_LINK.replace('{appointmentId}', appointmentId)
     );
   },
 
@@ -245,7 +245,7 @@ const appointmentService = {
   /**
    * Update user availability preferences - Note: This endpoint may not exist in backend
    */
-  async updateAvailabilityPreferences(_: any): Promise<any> {
+  async updateAvailabilityPreferences(_: Record<string, unknown>): Promise<ApiResponse<unknown>> {
     // This endpoint doesn't exist in backend - would need to be implemented
     throw new Error('Update availability preferences endpoint not implemented in backend');
   },

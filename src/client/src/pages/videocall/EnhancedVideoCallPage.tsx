@@ -50,11 +50,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
 import {
-  getCallConfig,
-  joinVideoCall,
-  leaveVideoCall,
-  startRecording,
-  stopRecording,
+  setRecording,
   toggleMic,
   toggleVideo,
   toggleScreenShare,
@@ -65,6 +61,7 @@ import {
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import AlertMessage from '../../components/ui/AlertMessage';
 import { formatDuration } from '../../utils/formatters';
+import { getCallConfig, joinVideoCall, leaveVideoCall } from '../../features/videocall/videocallThunks';
 
 const EnhancedVideoCallPage: React.FC = () => {
   const { appointmentId } = useParams<{ appointmentId: string }>();
@@ -103,7 +100,7 @@ const EnhancedVideoCallPage: React.FC = () => {
     messages,
     callStatistics,
     isLoading,
-    error,
+    errorMessage,
   } = useAppSelector((state) => state.videoCall);
 
   useEffect(() => {
@@ -179,9 +176,9 @@ const EnhancedVideoCallPage: React.FC = () => {
   const handleToggleRecording = useCallback(() => {
     if (roomId) {
       if (isRecording) {
-        dispatch(stopRecording(roomId));
+        dispatch(setRecording(false));
       } else {
-        dispatch(startRecording(roomId));
+        dispatch(setRecording(true));
       }
     }
   }, [roomId, isRecording, dispatch]);
@@ -247,12 +244,12 @@ const EnhancedVideoCallPage: React.FC = () => {
     return <LoadingSpinner fullPage message="Verbindung wird hergestellt..." />;
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
         <AlertMessage
           severity="error"
-          message={[error.message]}
+          message={[errorMessage]}
         />
       </Box>
     );

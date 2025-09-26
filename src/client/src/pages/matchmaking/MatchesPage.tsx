@@ -42,7 +42,8 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { MatchDisplay } from '../../types/display/MatchmakingDisplay';
+import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
+import { MatchStatus } from '../../types/models/Match';
 import PageHeader from '../../components/layout/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
 import { toast } from 'react-toastify';
@@ -77,9 +78,9 @@ const MatchesPage: React.FC = () => {
   }, []);
 
   // Filter matches by status
-  const activeMatches = matches.filter(m => m.status === 'active' || m.status === 'accepted');
-  const completedMatches = matches.filter(m => m.status === 'completed');
-  const cancelledMatches = matches.filter(m => m.status === 'cancelled' || m.status === 'dissolved');
+  const activeMatches = matches.filter(m => m.status === MatchStatus.Accepted);
+  const completedMatches = matches.filter(m => m.status === MatchStatus.Completed);
+  const cancelledMatches = matches.filter(m => m.status === MatchStatus.Rejected || m.status === MatchStatus.Expired);
 
   const getCurrentMatches = () => {
     switch (tabValue) {
@@ -181,7 +182,7 @@ const MatchesPage: React.FC = () => {
     return 'Skill-Sharing';
   };
 
-  const renderMatchCard = (match: MatchDisplay) => (
+  const renderMatchCard = (match: any) => (
     <Grid sx={{ xs:12, sm:6, md:4 }} key={match.id}>
       <Card sx={{ 
         height: '100%', 

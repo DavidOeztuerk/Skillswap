@@ -8,7 +8,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { LoadingButton } from '../../components/common/LoadingButton';
 import { useAppDispatch } from '../../store/store.hooks';
-import { requestPasswordReset } from '../../features/auth/authSlice';
+import { requestPasswordReset } from '../../features/auth/authThunks';
 import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 const forgotPasswordSchema = z.object({
@@ -129,7 +129,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onSuccess }) =>
           variant="contained"
           color="primary"
           loading={isLoading(LoadingKeys.RESET_PASSWORD)}
-          disabled={isLoading(LoadingKeys.RESET_PASSWORD) || Object.keys(errors || {}).filter(key => key !== 'root').length > 0}
+          disabled={isLoading(LoadingKeys.RESET_PASSWORD) || Object.keys(errors).filter(key => key !== 'root').length > 0}
           size="large"
           sx={{ mt: 2 }}
         >
