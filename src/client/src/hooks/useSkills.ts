@@ -1,17 +1,14 @@
 import { useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
-import { 
-  fetchAllSkills, 
-  fetchUserSkills, 
+import {
+  fetchAllSkills,
+  fetchUserSkills,
   fetchSkillById,
   createSkill,
   updateSkill,
   deleteSkill,
   fetchFavoriteSkills,
   toggleFavoriteSkill,
-  createProficiencyLevel,
-  updateProficiencyLevel,
-  deleteProficiencyLevel,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -23,6 +20,9 @@ import {
 } from '../features/skills/thunks/categoryThunks';
 import {
   fetchProficiencyLevels,
+  createProficiencyLevel,
+  updateProficiencyLevel,
+  deleteProficiencyLevel,
 } from '../features/skills/thunks/proficiencyLevelThunks';
 import {
   setSearchQuery,
@@ -31,6 +31,33 @@ import {
   clearError,
   setSearchResults
 } from '../features/skills/skillsSlice';
+
+// Type definitions for hook parameters
+interface CreateProficiencyLevelRequest {
+  level: string;
+  rank: number;
+  description?: string;
+}
+
+interface UpdateProficiencyLevelRequest {
+  level: string;
+  rank: number;
+  description?: string;
+}
+
+interface CreateCategoryRequest {
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+}
+
+interface UpdateCategoryRequest {
+  name?: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+}
 import {
   selectSkillsState,
   selectAllSkills,
@@ -168,23 +195,23 @@ export const useSkills = () => {
     },
 
     // === ADMIN OPERATIONS ===
-    createProficiencyLevel: (data: any) => {
+    createProficiencyLevel: (data: CreateProficiencyLevelRequest) => {
       return dispatch(createProficiencyLevel(data));
     },
 
-    updateProficiencyLevel: (id: string, updates: any) => {
-      return dispatch(updateProficiencyLevel({ id, updates }));
+    updateProficiencyLevel: (id: string, updates: UpdateProficiencyLevelRequest) => {
+      return dispatch(updateProficiencyLevel({ id, ...updates }));
     },
 
     deleteProficiencyLevel: (id: string) => {
       return dispatch(deleteProficiencyLevel(id));
     },
 
-    createCategory: (data: any) => {
+    createCategory: (data: CreateCategoryRequest) => {
       return dispatch(createCategory(data));
     },
 
-    updateCategory: (id: string, updates: any) => {
+    updateCategory: (id: string, updates: UpdateCategoryRequest) => {
       return dispatch(updateCategory({ id, updates }));
     },
 
@@ -336,7 +363,6 @@ export const useSkills = () => {
     ...computedValues,
     
     // === LEGACY COMPATIBILITY ===
-    // These are here for backward compatibility with existing components
     fetchMySkills: actions.fetchUserSkills,
     loadSkills: actions.fetchAllSkills,
     loadUserSkills: actions.fetchUserSkills,

@@ -46,6 +46,30 @@ public static class AppointmentControllerExtensions
             .WithDescription("Generates a meeting link for the appointment with 5-minute activation delay.")
             .RequireAuthorization();
 
+        appointments.MapPost("/{appointmentId}/complete", HandleCompleteAppointment)
+            .WithName("CompleteAppointment")
+            .WithSummary("Complete an appointment")
+            .WithDescription("Marks an appointment as completed with optional rating and feedback.")
+            .RequireAuthorization();
+
+        appointments.MapPost("/{appointmentId}/rate", HandleRateAppointment)
+            .WithName("RateAppointment")
+            .WithSummary("Rate a completed appointment")
+            .WithDescription("Submits a rating and optional feedback for a completed appointment.")
+            .RequireAuthorization();
+
+        appointments.MapPost("/{appointmentId}/reminder", HandleSendReminder)
+            .WithName("SendAppointmentReminder")
+            .WithSummary("Send appointment reminder")
+            .WithDescription("Sends a reminder notification for the appointment to both participants.")
+            .RequireAuthorization();
+
+        appointments.MapGet("/statistics", HandleGetAppointmentStatistics)
+            .WithName("GetAppointmentStatistics")
+            .WithSummary("Get appointment statistics")
+            .WithDescription("Retrieves aggregated statistics for the current user's appointments.")
+            .RequireAuthorization();
+
         appointments.MapGet("/{appointmentId}", HandleGetAppointmentDetails)
             .WithName("GetAppointmentDetails")
             .WithSummary("Get appointment details")
@@ -162,6 +186,51 @@ public static class AppointmentControllerExtensions
 
             var command = new GenerateMeetingLinkCommand(appointmentId);
             return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> HandleCompleteAppointment(IMediator mediator, ClaimsPrincipal user, string appointmentId, [FromBody] CompleteAppointmentRequest request)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new CompleteAppointmentCommand(appointmentId, request.SessionDurationMinutes, request.Feedback, request.Rating)
+            {
+                UserId = userId
+            };
+            return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> HandleRateAppointment(IMediator mediator, ClaimsPrincipal user, string appointmentId, [FromBody] RateAppointmentRequest request)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new RateAppointmentCommand(appointmentId, request.Rating, request.Feedback)
+            {
+                UserId = userId
+            };
+            return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> HandleSendReminder(IMediator mediator, ClaimsPrincipal user, string appointmentId, [FromBody] SendReminderRequest request)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new SendReminderCommand(appointmentId, request.MinutesBefore)
+            {
+                UserId = userId
+            };
+            return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> HandleGetAppointmentStatistics(IMediator mediator, ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new GetAppointmentStatisticsQuery(userId);
+            return await mediator.SendQuery(query);
         }
 
         return appointments;

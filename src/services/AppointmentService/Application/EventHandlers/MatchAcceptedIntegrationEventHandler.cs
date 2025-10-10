@@ -46,25 +46,27 @@ public class MatchAcceptedIntegrationEventHandler : IConsumer<MatchAcceptedInteg
                 SkillId = message.SkillId,
                 MatchId = message.MatchId,
                 MeetingType = message.IsSkillExchange ? "Exchange" : "Learning",
-                Status = AppointmentStatus.Pending,
-                
+
                 // Exchange details
                 IsSkillExchange = message.IsSkillExchange,
                 ExchangeSkillId = message.ExchangeSkillId,
-                
+
                 // Payment details
                 IsMonetary = message.IsMonetary,
                 Amount = message.AgreedAmount,
                 Currency = message.Currency,
-                
+
                 // Session tracking
                 SessionNumber = 1,
                 TotalSessions = message.TotalSessions,
-                
+
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 CreatedBy = "System"
             };
+
+            // Auto-accept appointment since both parties already accepted the match
+            appointment.Accept();
 
             _dbContext.Appointments.Add(appointment);
             await _dbContext.SaveChangesAsync();
@@ -77,11 +79,22 @@ public class MatchAcceptedIntegrationEventHandler : IConsumer<MatchAcceptedInteg
                 appointment.Title,
                 appointment.ScheduledDate,
                 appointment.SkillId,
-                appointment.MatchId), 
+                appointment.MatchId),
+                context.CancellationToken);
+
+            // Publish domain event for appointment acceptance (both parties accepted via match)
+            await _eventPublisher.Publish(new AppointmentAcceptedDomainEvent(
+                appointment.Id,
+                message.RequesterId, // Requester accepted the match
+                message.TargetUserId, // Target user also accepted
+                appointment.ScheduledDate,
+                appointment.DurationMinutes,
+                appointment.SkillId,
+                BothPartiesAccepted: true), // Both parties accepted via match acceptance
                 context.CancellationToken);
 
             _logger.LogInformation(
-                "Successfully created appointment {AppointmentId} for match {MatchId}",
+                "Successfully created and auto-accepted appointment {AppointmentId} for match {MatchId}",
                 appointment.Id, message.MatchId);
 
             // Create follow-up appointments if multiple sessions are planned
@@ -171,21 +184,23 @@ public class MatchAcceptedIntegrationEventHandler : IConsumer<MatchAcceptedInteg
                 SkillId = firstAppointment.SkillId,
                 MatchId = firstAppointment.MatchId,
                 MeetingType = firstAppointment.MeetingType,
-                Status = AppointmentStatus.Pending,
-                
+
                 IsSkillExchange = firstAppointment.IsSkillExchange,
                 ExchangeSkillId = firstAppointment.ExchangeSkillId,
                 IsMonetary = firstAppointment.IsMonetary,
                 Amount = firstAppointment.Amount,
                 Currency = firstAppointment.Currency,
-                
+
                 SessionNumber = sessionNumber,
                 TotalSessions = message.TotalSessions,
-                
+
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 CreatedBy = "System"
             };
+
+            // Auto-accept follow-up appointments as well
+            followUpAppointment.Accept();
 
             appointments.Add(followUpAppointment);
         }
@@ -194,9 +209,23 @@ public class MatchAcceptedIntegrationEventHandler : IConsumer<MatchAcceptedInteg
         {
             _dbContext.Appointments.AddRange(appointments);
             await _dbContext.SaveChangesAsync(cancellationToken);
-            
+
+            // Publish acceptance events for all follow-up appointments
+            foreach (var followUpAppointment in appointments)
+            {
+                await _eventPublisher.Publish(new AppointmentAcceptedDomainEvent(
+                    followUpAppointment.Id,
+                    message.RequesterId,
+                    message.TargetUserId,
+                    followUpAppointment.ScheduledDate,
+                    followUpAppointment.DurationMinutes,
+                    followUpAppointment.SkillId,
+                    BothPartiesAccepted: true),
+                    cancellationToken);
+            }
+
             _logger.LogInformation(
-                "Created {Count} follow-up appointments for match {MatchId}",
+                "Created and auto-accepted {Count} follow-up appointments for match {MatchId}",
                 appointments.Count, message.MatchId);
         }
     }

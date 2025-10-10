@@ -19,6 +19,8 @@ namespace Contracts.User.Responses;
 /// <param name="CreatedAt">When the account was created</param>
 /// <param name="LastLoginAt">Last login timestamp</param>
 /// <param name="Preferences">User preferences dictionary</param>
+/// <param name="ProfilePictureUrl">URL to the user's profile picture</param>
+/// <param name="AverageRating">User's average rating score</param>
 public record UserProfileResponse(
     string UserId,
     string Email,
@@ -34,7 +36,8 @@ public record UserProfileResponse(
     DateTime CreatedAt,
     DateTime? LastLoginAt,
     Dictionary<string, string>? Preferences,
-    string? ProfilePictureUrl)
+    string? ProfilePictureUrl,
+    double? AverageRating)
     : IVersionedContract
 {
     /// <summary>

@@ -4,7 +4,7 @@ using UserService.Api.Application.Queries;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
 using Core.Common.Exceptions;
-using Core.Common;
+using Contracts.User.Responses;
 
 namespace UserService.Application.QueryHandlers;
 
@@ -30,7 +30,7 @@ public class GetPublicUserProfileQueryHandler(
 
         // Check if requesting user has blocked this user or vice versa
         var isBlocked = false;
-        if (!string.IsNullOrEmpty(request.RequestingUserId))
+        if (!string.IsNullOrEmpty(request.RequestingUserId) && request.RequestingUserId != "system")
         {
             isBlocked = await _userBlockingRepository.IsUserBlocked(request.RequestingUserId, request.UserId, cancellationToken);
 

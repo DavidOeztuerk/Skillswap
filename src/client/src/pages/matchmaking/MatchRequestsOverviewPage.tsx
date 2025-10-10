@@ -132,17 +132,17 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
           {/* Header */}
           <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
             <Box display="flex" alignItems="center" gap={2}>
-              <Avatar src={request.user?.avatar} sx={{ width: 48, height: 48 }}>
-                {request.user?.name?.[0] || 'U'}
+              <Avatar src={request.otherUserAvatar} sx={{ width: 48, height: 48 }}>
+                {request.otherUserName?.[0] || 'U'}
               </Avatar>
               <Box>
                 <Typography variant="subtitle1" fontWeight="medium">
-                  {request.user?.name || 'Unbekannter Nutzer'}
+                  {request.otherUserName}
                 </Typography>
                 <Box display="flex" alignItems="center" gap={0.5}>
                   <StarIcon fontSize="small" sx={{ color: 'warning.main' }} />
                   <Typography variant="body2" color="text.secondary">
-                    {request.user?.rating || 'N/A'}
+                    {request.otherUserRating || 'N/A'}
                   </Typography>
                 </Box>
               </Box>
@@ -168,17 +168,17 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
           <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: 'background.default' }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
               <Box display="flex" alignItems="center" gap={1}>
-                {request.skill?.isOffered ? (
-                  <OfferIcon fontSize="small" color="primary" />
-                ) : (
+                {request.type === 'outgoing' ? (
                   <LearnIcon fontSize="small" color="secondary" />
+                ) : (
+                  <OfferIcon fontSize="small" color="primary" />
                 )}
                 <Typography variant="body2" fontWeight="medium">
-                  {request.skill?.name || 'Unbekannter Skill'}
+                  {request.skillName}
                 </Typography>
               </Box>
               <Chip
-                label={request.skill?.category || 'Unbekannt'}
+                label={request.skillCategory}
                 size="small"
                 variant="outlined"
               />
@@ -191,7 +191,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
               {getOfferTypeIcon()}
               <Typography variant="body2">
                 {request.isSkillExchange
-                  ? `Tausch gegen: ${request.exchangeSkill?.name || 'Unbekannt'}`
+                  ? `Tausch gegen: ${request.exchangeSkillName || 'Unbekannter Skill'}`
                   : request.isMonetary
                   ? `Angebot: ${request.offeredAmount || 0}€/Session`
                   : 'Standard-Anfrage'}
@@ -203,7 +203,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
           <Box display="flex" alignItems="center" gap={2} mb={2}>
             <ScheduleIcon fontSize="small" color="action" />
             <Typography variant="body2" color="text.secondary">
-              {request.totalSessions || 0} Sessions á {request.sessionDuration || 0} Min.
+              {request.totalSessions || 0} Sessions á {request.sessionDurationMinutes || 0} Min.
             </Typography>
           </Box>
 
@@ -285,14 +285,12 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<null | HTMLElement>(null);
   const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null);
 
-  // const { user } = useAppSelector((state) => state.auth); // Removed unused variable
   const { incomingRequests, outgoingRequests, isLoadingRequests } = useAppSelector((state) => state.matchmaking);
 
-  // TEMPORARY DISABLE - DEBUGGING INFINITE LOOP
-  // useEffect(() => {
-  //   dispatch(fetchIncomingMatchRequests({}));
-  //   dispatch(fetchOutgoingMatchRequests({}));
-  // }, [dispatch]);
+  React.useEffect(() => {
+    loadIncomingRequests();
+    loadOutgoingRequests();
+  }, []); // Empty deps - only load on mount
 
   // Safely handle potentially null/undefined arrays with proper null checks
   const safeIncomingRequests = incomingRequests || [];

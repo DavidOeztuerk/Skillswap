@@ -16,30 +16,17 @@ export const createMatchRequest = createAppAsyncThunk(
 });
 
 export const fetchMatches = createAppAsyncThunk(
-    'matchmaking/searchMatches', 
-    // async (req: CreateMatchRequestRequest, { rejectWithValue }) => {
-    async (_, {}) => {
-        // ⚠️ TEMPORARY FIX: /api/matches/search endpoint not implemented on backend
-        // Return empty paged response with correct structure to prevent 404 errors and TypeErrors
-        console.warn('🚧 fetchMatches: search endpoint not implemented, returning empty results');
-        const emptyResponse = {
-            success: true,
-            data: [],
-            message: 'Search not implemented',
-            pagination: {
-                pageNumber: 1,
-                pageSize: 10,
-                totalRecords: 0,
-                totalPages: 0,
-                hasPreviousPage: false,
-                hasNextPage: false
-            }
-        };
-        return emptyResponse;
-        
-        // TODO: Uncomment when backend implements /api/matches/search
-        // const res = await matchmakingService.searchMatches(req);
-        // return isPagedResponse(res) ? res : rejectWithValue(res);
+    'matchmaking/searchMatches',
+    async (params: GetMatchRequestsParams, { rejectWithValue }) => {
+        try {
+            // Use getUserMatches which exists and works
+            const res = await matchmakingService.getUserMatches(params);
+
+            return isPagedResponse(res) ? res : rejectWithValue(res);
+        } catch (error) {
+            console.error('❌ fetchMatches error:', error);
+            return rejectWithValue(error as any);
+        }
 });
 
 export const fetchIncomingMatchRequests = createAppAsyncThunk(

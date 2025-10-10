@@ -7,8 +7,14 @@ public class MatchRequestThreadResponse
 {
     public string ThreadId { get; set; } = string.Empty;
     public string SkillId { get; set; } = string.Empty;
+    public string SkillName { get; set; } = string.Empty;
+    public string SkillCategory { get; set; } = string.Empty;
     public string RequesterId { get; set; } = string.Empty;
+    public string RequesterName { get; set; } = string.Empty;
+    public decimal RequesterRating { get; set; }
     public string TargetUserId { get; set; } = string.Empty;
+    public string TargetUserName { get; set; } = string.Empty;
+    public decimal TargetUserRating { get; set; }
     public List<MatchRequestInThread> Requests { get; set; } = [];
     public DateTime LastActivity { get; set; }
     public string LastStatus { get; set; } = string.Empty;

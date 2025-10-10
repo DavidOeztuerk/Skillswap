@@ -22,7 +22,7 @@ const skillService = {
   async getAllSkills(params?: SkillSearchParams): Promise<PagedResponse<SkillSearchResultResponse>> {
     return await apiClient.getPaged<SkillSearchResultResponse>(
       SKILL_ENDPOINTS.GET_SKILLS,
-      { params }
+      params
     ) as PagedResponse<SkillSearchResultResponse>;
   },
 

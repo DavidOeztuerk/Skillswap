@@ -41,6 +41,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { AppointmentStatus } from '../../types/models/Appointment';
 import AppointmentErrorBoundary from '../../components/error/AppointmentErrorBoundary';
 import errorService from '../../services/errorService';
+import { FEATURES } from '../../config/featureFlags';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -403,7 +404,7 @@ const EnhancedAppointmentsPage: React.FC = () => {
                             size="small"
                           />
                           
-                          {appointment.status === AppointmentStatus.Completed && (
+                          {FEATURES.appointments.enableRating && appointment.status === AppointmentStatus.Completed && (
                             <Button
                               size="small"
                               variant="outlined"

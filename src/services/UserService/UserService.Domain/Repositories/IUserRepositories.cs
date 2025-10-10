@@ -14,6 +14,8 @@ public interface IAuthRepository
     Task ResendVerificationEmail(string email, CancellationToken cancellationToken = default);
     Task RequestPasswordReset(string email, CancellationToken cancellationToken = default);
     Task<bool> ResetPassword(string email, string token, string newPassword, CancellationToken cancellationToken = default);
+    Task RevokeAllRefreshTokensAsync(string userId, CancellationToken cancellationToken = default);
+    Task<ServiceTokenResponse> GenerateServiceToken(string serviceName, string servicePassword, CancellationToken cancellationToken = default);
 }
 
 // Two-Factor Authentication Repository - handles 2FA operations

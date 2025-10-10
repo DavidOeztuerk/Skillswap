@@ -14,10 +14,10 @@ export const selectIsCategoryCreating = (state: RootState) => state.category.isC
 export const selectIsCategoryUpdating = (state: RootState) => state.category.isUpdating;
 export const selectIsCategoryDeleting = (state: RootState) => state.category.isDeleting;
 
-// Entity selectors using the normalized structure  
+// Entity selectors - use categories array directly
 export const selectAllCategories = createSelector(
   [selectCategoriesState],
-  (categoriesState) => Object.values(categoriesState.entities).filter(Boolean)
+  (categoriesState) => categoriesState.categories || []
 );
 
 export const selectCategoryById = createSelector(

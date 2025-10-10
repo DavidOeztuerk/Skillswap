@@ -117,16 +117,20 @@ const categoriesSlice = createSlice({
       })
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.isLoading = false;
-        
+
         const mapSkillResponseToSkill = (response: SkillCategoryResponse): SkillCategory => {
           return {
             id: response.categoryId,
-            ...response
+            name: response.name,
+            iconName: response.iconName,
+            color: response.color,
+            skillCount: response.skillCount
           }
         }
-        
+
         if (isDefined(action.payload.data)) {
-          state.categories = action.payload.data.map(x => mapSkillResponseToSkill(x));
+          const categories = action.payload.data.map(x => mapSkillResponseToSkill(x));
+          state.categories = categories;
           // Sort categories by name
           state.categories.sort((a, b) => {
             return withDefault(a?.name, '').localeCompare(withDefault(b?.name, ''));

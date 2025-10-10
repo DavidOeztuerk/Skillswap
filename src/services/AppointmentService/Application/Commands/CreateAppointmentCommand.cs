@@ -38,17 +38,20 @@ public class CreateAppointmentCommandValidator : AbstractValidator<CreateAppoint
             .When(x => !string.IsNullOrEmpty(x.Description));
 
         RuleFor(x => x.ScheduledDate)
-            .GreaterThan(DateTime.UtcNow).WithMessage("Scheduled date must be in the future");
+            .GreaterThan(DateTime.UtcNow).WithMessage("Scheduled date must be in the future")
+            .Must(date => date < DateTime.UtcNow.AddYears(1)).WithMessage("Cannot schedule more than 1 year in advance");
 
         RuleFor(x => x.DurationMinutes)
-            .GreaterThan(0).WithMessage("Duration must be greater than 0")
+            .GreaterThanOrEqualTo(15).WithMessage("Duration must be at least 15 minutes")
             .LessThanOrEqualTo(480).WithMessage("Duration cannot exceed 8 hours");
 
         RuleFor(x => x.ParticipantUserId)
-            .NotEmpty().WithMessage("Participant user ID is required");
+            .NotEmpty().WithMessage("Participant user ID is required")
+            .Must((command, participantId) => participantId != command.UserId)
+            .WithMessage("Cannot create appointment with yourself");
 
         RuleFor(x => x.MeetingType)
-            .Must(BeValidMeetingType).WithMessage("Invalid meeting type");
+            .Must(BeValidMeetingType).WithMessage("Invalid meeting type. Allowed: VideoCall, InPerson, Phone, Online");
     }
 
     private static bool BeValidMeetingType(string? meetingType)

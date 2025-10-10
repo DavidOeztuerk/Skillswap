@@ -87,7 +87,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           p: { xs: 2, sm: 3 },
           mt: { xs: '56px', sm: '64px' },
           pb: { xs: '72px', sm: 3 },
-          minHeight: 'calc(100vh - 64px)',
+          height: { xs: 'calc(100vh - 56px - 72px)', sm: 'calc(100vh - 64px)' },
+          overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
           transition: (theme) =>

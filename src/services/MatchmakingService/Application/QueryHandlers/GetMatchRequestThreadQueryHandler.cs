@@ -3,14 +3,20 @@ using Microsoft.EntityFrameworkCore;
 using MatchmakingService.Application.Queries;
 using Contracts.Matchmaking.Responses;
 using CQRS.Models;
+using MatchmakingService.Infrastructure.HttpClients;
+
 namespace MatchmakingService.Application.QueryHandlers;
 
 public class GetMatchRequestThreadQueryHandler(
     MatchmakingDbContext context,
+    ISkillServiceClient skillServiceClient,
+    IUserServiceClient userServiceClient,
     ILogger<GetMatchRequestThreadQueryHandler> logger)
     : BaseQueryHandler<GetMatchRequestThreadQuery, MatchRequestThreadResponse>(logger)
 {
     private readonly MatchmakingDbContext _context = context;
+    private readonly ISkillServiceClient _skillServiceClient = skillServiceClient;
+    private readonly IUserServiceClient _userServiceClient = userServiceClient;
 
     public override async Task<ApiResponse<MatchRequestThreadResponse>> Handle(
         GetMatchRequestThreadQuery query,
@@ -40,15 +46,33 @@ public class GetMatchRequestThreadQueryHandler(
                 return NotFound($"Thread {query.ThreadId} not found or not accessible");
             }
 
-            // Get the first request to determine skill info
+            // Get the first request to determine the original participants (requester and target)
+            var firstRequest = requests.First();
             var lastRequest = requests.Last();
+
+            // Fetch skill and user details
+            var skillName = await _skillServiceClient.GetSkillNameAsync(firstRequest.SkillId, cancellationToken);
+            var skillCategory = await _skillServiceClient.GetSkillCategoryAsync(firstRequest.SkillId, cancellationToken);
+
+            // Use FIRST request to get original requester and target (they don't change in thread)
+            var requesterName = await _userServiceClient.GetUserNameAsync(firstRequest.RequesterId, cancellationToken);
+            var requesterRating = await _userServiceClient.GetUserRatingAsync(firstRequest.RequesterId, cancellationToken);
+
+            var targetUserName = await _userServiceClient.GetUserNameAsync(firstRequest.TargetUserId, cancellationToken);
+            var targetUserRating = await _userServiceClient.GetUserRatingAsync(firstRequest.TargetUserId, cancellationToken);
 
             var response = new MatchRequestThreadResponse
             {
                 ThreadId = query.ThreadId,
-                SkillId = lastRequest.SkillId,
-                RequesterId = lastRequest.RequesterId,
-                TargetUserId = lastRequest.TargetUserId,
+                SkillId = firstRequest.SkillId,
+                SkillName = skillName ?? "Unknown Skill",
+                SkillCategory = skillCategory ?? "General",
+                RequesterId = firstRequest.RequesterId,
+                RequesterName = requesterName ?? "Unknown User",
+                RequesterRating = (decimal)requesterRating,
+                TargetUserId = firstRequest.TargetUserId,
+                TargetUserName = targetUserName ?? "Unknown User",
+                TargetUserRating = (decimal)targetUserRating,
                 Requests = requests.Select(r => new MatchRequestInThread
                 {
                     Id = r.Id,

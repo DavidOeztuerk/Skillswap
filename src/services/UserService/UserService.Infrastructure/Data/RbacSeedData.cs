@@ -25,8 +25,12 @@ public static class RbacSeedData
         await SeedRolePermissionsAsync(context);
         await context.SaveChangesAsync();
 
-        // ✅ 4. Zuletzt SuperAdmin (braucht alles andere)
+        // ✅ 4. SuperAdmin (braucht alles andere)
         await SeedSuperAdminAsync(context);
+        await context.SaveChangesAsync();
+
+        // ✅ 5. Service Accounts (braucht Service Role)
+        await SeedServiceAccountsAsync(context);
         await context.SaveChangesAsync();
     }
 
@@ -133,13 +137,13 @@ public static class RbacSeedData
 
     private static async Task SeedRolesAsync(UserDbContext context)
     {
-        // Use same priorities as in migration
         var roles = new List<(string Name, string Description, int Priority)>
         {
             (Roles.SuperAdmin, "System administrator with full access", 1000),
-            (Roles.Admin,      "Platform administrator",                900),  // Fixed: was 100
-            (Roles.Moderator,  "Content moderator",                     500),  // Fixed: was 50
-            (Roles.User,       "Regular platform user",                 100)   // Fixed: was 10
+            (Roles.Admin,      "Platform administrator",                900),
+            (Roles.Service,    "Service-to-service communication",      800),
+            (Roles.Moderator,  "Content moderator",                     500),
+            (Roles.User,       "Regular platform user",                 100)
         };
 
         foreach (var (name, description, priority) in roles)
@@ -322,6 +326,67 @@ public static class RbacSeedData
         }
 
         await context.SaveChangesAsync();
+    }
+
+    private static async Task SeedServiceAccountsAsync(UserDbContext context)
+    {
+        var serviceRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == Roles.Service);
+        if (serviceRole is null)
+        {
+            Console.WriteLine("WARNING: Service role not found during service account seeding");
+            return;
+        }
+
+        var serviceAccounts = new List<(string UserName, string Email, string FirstName, string LastName)>
+        {
+            ("service-userservice", "service-userservice@skillswap.internal", "User", "Service"),
+            ("service-matchmaking", "service-matchmaking@skillswap.internal", "Matchmaking", "Service"),
+            ("service-appointment", "service-appointment@skillswap.internal", "Appointment", "Service"),
+            ("service-skill", "service-skill@skillswap.internal", "Skill", "Service"),
+            ("service-notification", "service-notification@skillswap.internal", "Notification", "Service"),
+            ("service-videocall", "service-videocall@skillswap.internal", "Videocall", "Service")
+        };
+
+        foreach (var (userName, email, firstName, lastName) in serviceAccounts)
+        {
+            var existingUser = await context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (existingUser is null)
+            {
+                var servicePassword = Environment.GetEnvironmentVariable($"SERVICE_{userName.ToUpper().Replace("-", "_")}_PASSWORD")
+                    ?? Guid.NewGuid().ToString();
+
+                var serviceUser = new User
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Email = email,
+                    UserName = userName,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(servicePassword),
+                    EmailVerified = true,
+                    AccountStatus = UserService.Domain.Enums.AccountStatus.Active,
+                    CreatedAt = DateTime.UtcNow,
+                    PhoneNumber = "+10000000000",
+                    FavoriteSkillIds = new List<string>()
+                };
+
+                context.Users.Add(serviceUser);
+                await context.SaveChangesAsync();
+
+                var userRole = new UserRole
+                {
+                    UserId = serviceUser.Id,
+                    RoleId = serviceRole.Id,
+                    AssignedAt = DateTime.UtcNow,
+                    AssignedBy = serviceUser.Id
+                };
+
+                context.UserRoles.Add(userRole);
+                await context.SaveChangesAsync();
+
+                Console.WriteLine($"Service account created: {userName} (Password: {servicePassword})");
+            }
+        }
     }
 
     /// <summary>

@@ -32,15 +32,15 @@ export const selectAdminSettings = createSelector(
   (adminState) => adminState.settings
 );
 
-// Entity selectors using the normalized structure
+// Entity selectors - use users array directly
 export const selectAllAdminUsers = createSelector(
   [selectAdminState],
-  (adminState) => Object.values(adminState.entities).filter(Boolean)
+  (adminState) => adminState.users || []
 );
 
 export const selectAdminUserById = createSelector(
-  [selectAdminState, (_: RootState, userId: string) => userId],
-  (adminState, userId) => adminState.entities[userId] || null
+  [selectAllAdminUsers, (_: RootState, userId: string) => userId],
+  (users, userId) => users.find(user => user.id === userId) || null
 );
 
 // Direct array selectors

@@ -58,8 +58,9 @@ public class CreateSkillCommandValidator : AbstractValidator<CreateSkillCommand>
             .LessThanOrEqualTo(480).WithMessage("Duration cannot exceed 8 hours")
             .When(x => x.AvailableHours.HasValue);
 
-        //RuleFor(x => x.Requirements)
-        //    .MaximumLength(1000).WithMessage("Requirements must not exceed 1000 characters")
-        //    .When(x => !string.IsNullOrEmpty(x.Requirements));
+        RuleFor(x => x.PreferredSessionDuration)
+            .GreaterThan(0).WithMessage("Session duration must be greater than 0")
+            .LessThanOrEqualTo(480).WithMessage("Session duration cannot exceed 8 hours")
+            .When(x => x.PreferredSessionDuration.HasValue);
     }
 }

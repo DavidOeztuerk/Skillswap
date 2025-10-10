@@ -18,6 +18,7 @@ using Infrastructure.Security.Encryption;
 using Infrastructure.Security.InputSanitization;
 using Infrastructure.HealthChecks;
 using Infrastructure.Caching;
+using Infrastructure.Communication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -43,12 +44,14 @@ public static class ServiceCollectionExtensions
         // Core Security Services
         services.AddScoped<IJwtService, JwtService>();
         services.AddSingleton<ITotpService, TotpService>();
-        
+
         // Error Handling Services
         services.AddSingleton<IErrorMessageService, ErrorMessageService>();
-        
-        // Add Token Revocation Service - use Redis if available, otherwise in-memory
-        var redisConnectionString = configuration.GetConnectionString("Redis") 
+
+        // Token Revocation Service - Redis-backed or In-Memory fallback
+        // Note: This replaces the old AddTokenRevocation() method from SecurityExtensions
+        // which created duplicate ConnectionMultiplexer instances
+        var redisConnectionString = configuration.GetConnectionString("Redis")
             ?? configuration["Redis:ConnectionString"];
             
         if (!string.IsNullOrEmpty(redisConnectionString))
@@ -83,7 +86,7 @@ public static class ServiceCollectionExtensions
         // Add Resilience patterns (Circuit Breaker, Retry)
         services.AddResilience();
 
-        // Add Security Services
+        // Security Services (from SecurityExtensions.cs)
         services.AddSecretManagement(configuration);
         services.AddSecurityAuditLogging();
         
@@ -103,6 +106,7 @@ public static class ServiceCollectionExtensions
         if (!serviceName.Equals("Gateway", StringComparison.OrdinalIgnoreCase))
         {
             services.AddComprehensiveHealthChecks(configuration);
+            services.AddServiceCommunication(configuration);
         }
 
         // Add Caching with Redis or fallback to Memory
@@ -310,6 +314,13 @@ public static class ServiceCollectionExtensions
 
     /// <summary>
     /// Adds JWT Authentication with complete configuration
+    ///
+    /// This is the MASTER JWT authentication setup used by all services.
+    /// Features:
+    /// - Zero ClockSkew for strict token expiration
+    /// - Environment variable support (JWT_SECRET, JWT_ISSUER, JWT_AUDIENCE)
+    /// - Token revocation check via JwtBearerEvents.OnTokenValidated
+    /// - Custom 401 JSON responses
     /// </summary>
     public static IServiceCollection AddJwtAuthentication(
         this IServiceCollection services,
@@ -347,6 +358,8 @@ public static class ServiceCollectionExtensions
                     ValidAudience = audience,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
                     ClockSkew = TimeSpan.Zero,
+                    RequireSignedTokens = true,
+                    RequireExpirationTime = true,
                     NameClaimType = JwtRegisteredClaimNames.Sub,
                     RoleClaimType = System.Security.Claims.ClaimTypes.Role
                 };

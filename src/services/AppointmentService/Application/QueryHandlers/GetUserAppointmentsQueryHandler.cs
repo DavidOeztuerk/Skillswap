@@ -1,5 +1,6 @@
 using AppointmentService.Application.Queries;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Infrastructure.HttpClients;
 using CQRS.Handlers;
 using CQRS.Models;
 using Microsoft.EntityFrameworkCore;
@@ -8,10 +9,12 @@ namespace AppointmentService.Application.QueryHandlers;
 
 public class GetUserAppointmentsQueryHandler(
     AppointmentDbContext dbContext,
+    IUserServiceClient userServiceClient,
     ILogger<GetUserAppointmentsQueryHandler> logger)
     : BasePagedQueryHandler<GetUserAppointmentsQuery, UserAppointmentResponse>(logger)
 {
     private readonly AppointmentDbContext _dbContext = dbContext;
+    private readonly IUserServiceClient _userServiceClient = userServiceClient;
 
     public override async Task<PagedResponse<UserAppointmentResponse>> Handle(
         GetUserAppointmentsQuery request,
@@ -22,7 +25,7 @@ public class GetUserAppointmentsQueryHandler(
 
             // Filter by user - appointments where user is either organizer or participant
             var query = _dbContext.Appointments
-                .AsNoTracking() // Performance: Read-only query
+                .AsNoTracking() 
                 .Where(a => a.OrganizerUserId == request.UserId || a.ParticipantUserId == request.UserId)
                 .AsQueryable();
 
@@ -53,22 +56,31 @@ public class GetUserAppointmentsQueryHandler(
             // Get total count
             var totalCount = await query.CountAsync(cancellationToken);
 
-            // Apply pagination
-            var appointments = await query
+            // Apply pagination and get appointments
+            var appointmentEntities = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(a => new UserAppointmentResponse(
+                .ToListAsync(cancellationToken);
+
+            // Fetch user names for other parties
+            var appointments = new List<UserAppointmentResponse>();
+            foreach (var a in appointmentEntities)
+            {
+                var otherPartyUserId = a.OrganizerUserId == request.UserId ? a.ParticipantUserId : a.OrganizerUserId;
+                var otherPartyName = await _userServiceClient.GetUserNameAsync(otherPartyUserId, cancellationToken);
+
+                appointments.Add(new UserAppointmentResponse(
                     a.Id,
                     a.Title,
                     a.ScheduledDate,
                     a.DurationMinutes,
                     a.Status,
-                    a.OrganizerUserId == request.UserId ? a.ParticipantUserId : a.OrganizerUserId,
-                    "Other Party Name", // TODO: This would come from user service
+                    otherPartyUserId,
+                    otherPartyName,
                     a.MeetingType ?? "VideoCall",
                     a.OrganizerUserId == request.UserId
-                ))
-                .ToListAsync(cancellationToken);
+                ));
+            }
 
             return Success(appointments, request.PageNumber, request.PageSize, totalCount);
         }

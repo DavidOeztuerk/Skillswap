@@ -7,11 +7,16 @@ export const appointmentsAdapter = createEntityAdapter<Appointment, EntityId>({
   sortComparer: (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
 });
 
+/**
+ * ✅ REFACTORED: Removed duplicate state arrays
+ *
+ * EntityAdapter provides: entities + ids (normalized state)
+ * No need for appointments[], upcomingAppointments[], pastAppointments[]
+ *
+ * Selectors will filter from entities based on criteria (upcoming/past/status)
+ */
 export interface AppointmentsEntityState extends EntityState<Appointment, EntityId>, RequestState {
-  appointments: Appointment[];
   activeAppointment: Appointment | undefined;
-  upcomingAppointments: Appointment[];
-  pastAppointments: Appointment[];
   availableSlots: AvailableSlot[];
   filters: AppointmentFilters;
   pagination: AppointmentPagination;
@@ -19,10 +24,7 @@ export interface AppointmentsEntityState extends EntityState<Appointment, Entity
 }
 
 export const initialAppointmentsState: AppointmentsEntityState = appointmentsAdapter.getInitialState({
-  appointments: [],
   activeAppointment: undefined,
-  upcomingAppointments: [],
-  pastAppointments: [],
   availableSlots: [],
   filters: {
     status: 'all',

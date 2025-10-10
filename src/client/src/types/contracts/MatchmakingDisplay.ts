@@ -1,9 +1,4 @@
-// Display-focused interfaces for matchmaking - no transformations needed
-// These match exactly what the UI needs
-
-// Legacy compatibility imports
-export type { Match } from '../models/Match';
-export { MatchStatus } from '../models/Match';
+// Display-focused interfaces for matchmaking - matches backend responses exactly
 
 export interface MatchRequestDisplay {
   id: string;
@@ -54,59 +49,40 @@ export interface MatchDisplay {
   skillName: string;
   skillCategory: string;
   status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled' | 'active' | 'dissolved';
-  
+
   // Partner info
   partnerId: string;
   partnerName: string;
   partnerRating: number;
   partnerAvatar?: string;
-  
-  // Additional user info
-  otherUserName?: string;
-  otherUserRating?: number;
-  otherUserId?: string;
-  
-  // Legacy compatibility properties
+
+  // Match participants
   requesterId: string;
-  requesterDetails?: {
-    name: string;
-    rating: number;
-    avatar?: string;
-  };
   responderId: string;
-  responderDetails?: {
-    name: string;
-    rating: number;
-    avatar?: string;
-  };
-  skill?: {
-    name: string;
-    category: string;
-  };
-  
+
   // Exchange info
   isSkillExchange?: boolean;
   exchangeSkillId?: string;
   exchangeSkillName?: string;
-  
+
   // Monetary info
   isMonetary?: boolean;
   offeredAmount?: number;
   currency?: string;
-  
+
   // Session info
   sessionInfo?: {
     completedSessions: number;
     totalSessions: number;
     nextSessionDate?: string;
   };
-  
+
   // Match details
   isOffering: boolean; // Am I offering this skill?
   compatibilityScore?: number;
   location?: string;
-  rating?: number;
-  
+  additionalNotes?: string;
+
   // Timestamps
   createdAt: string;
   acceptedAt?: string;
@@ -123,30 +99,23 @@ export interface MatchThreadDisplay {
   skillName: string;
   skillCategory: string;
   status: 'active' | 'accepted' | 'rejected' | 'expired';
-  
-  // Participants
-  partnerId: string;
-  partnerName: string;
-  partnerRating: number;
-  partnerAvatar?: string;
-  
-  // Legacy compatibility
-  skill?: {
-    name: string;
-    category: string;
-  };
-  participants?: Array<{
-    id: string;
-    name: string;
-    rating: number;
-    avatar?: string;
-  }>;
-  
+
+  // Requester info
+  requesterId: string;
+  requesterName: string;
+  requesterRating: number;
+
+  // Target user info
+  targetUserId: string;
+  targetUserName: string;
+  targetUserRating: number;
+
   // Requests in thread
   requests: MatchRequestInThreadDisplay[];
-  
+
   // Meta
   lastActivity: string;
+  lastStatus: string;
 }
 
 export interface MatchRequestInThreadDisplay {
@@ -156,24 +125,22 @@ export interface MatchRequestInThreadDisplay {
   message: string;
   type: 'initial' | 'counter' | 'acceptance' | 'rejection';
   status: 'pending' | 'accepted' | 'rejected' | 'countered';
-  
-  // Legacy compatibility
-  requesterId?: string;
-  sessionDuration?: number;
-  
+  requesterId: string;
+  sessionDuration: number;
+
   // Offer details
   isSkillExchange: boolean;
   exchangeSkillName?: string;
   isMonetary: boolean;
   offeredAmount?: number;
   currency?: string;
-  
+
   // Session details
   sessionDurationMinutes: number;
   totalSessions: number;
   preferredDays: string[];
   preferredTimes: string[];
-  
+
   // Meta
   createdAt: string;
   isRead: boolean;

@@ -129,6 +129,17 @@ export const useAppointments = () => {
 
   }), [dispatch]);
 
+  // ===== DEBUG LOGGING =====
+  console.log('🎯 useAppointments: Hook data', {
+    appointmentsCount: appointments?.length || 0,
+    upcomingAppointmentsCount: upcomingAppointments?.length || 0,
+    pastAppointmentsCount: pastAppointments?.length || 0,
+    userAppointmentsCount: userAppointments?.length || 0,
+    isLoading,
+    error,
+    appointments: appointments?.slice(0, 2) // Show first 2 for debugging
+  });
+
   // ===== RETURN OBJECT =====
   return {
     // === STATE DATA ===

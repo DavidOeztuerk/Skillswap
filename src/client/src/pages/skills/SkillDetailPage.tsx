@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -45,18 +45,21 @@ import MatchForm from '../../components/matchmaking/MatchForm';
 import { useSkills } from '../../hooks/useSkills';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
+import { useEmailVerificationContext } from '../../contexts/EmailVerificationContext';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
-import { useAuth } from '../../hooks/useAuth';
 import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
 import errorService from '../../services/errorService';
-// import { useUserById } from '../../hooks/useUserById';
+import { useAuth } from '../../hooks/useAuth';
+import SEO from '../../components/seo/SEO';
+import { trackMatchRequestClick } from '../../utils/analytics';
 
 const SkillDetailPage: React.FC = () => {
   const { skillId } = useParams<{ skillId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isAuthenticated } = useAuth();
 
-  const { user } = useAuth();
   const { withLoading, isLoading } = useLoading();
   const {
     selectedSkill,
@@ -85,14 +88,15 @@ const SkillDetailPage: React.FC = () => {
     text: string;
     type: 'success' | 'error' | 'info' | 'warning';
   } | null>(null);
-  const { 
-    sendMatchRequest, 
+  const {
+    sendMatchRequest,
     outgoingRequests,
     loadOutgoingRequests,
     isLoading: isMatchmakingLoading,
     errorMessage: matchmakingError
   } = useMatchmaking();
-  // const { user } = useUserById(selectedSkill?.userId);
+
+  const { needsVerification, openVerificationModal } = useEmailVerificationContext();
 
   // Load skill data
   useEffect(() => {
@@ -105,7 +109,6 @@ const SkillDetailPage: React.FC = () => {
     }
   }, [skillId, fetchSkillById, withLoading]);
 
-  // ✅ KORRIGIERTE OWNERSHIP-LOGIK: Prüft ob Skill in userSkills ist
   const isOwner =
     selectedSkill &&
     userSkills?.some((userSkill) => userSkill.id === selectedSkill.id);
@@ -310,6 +313,17 @@ const SkillDetailPage: React.FC = () => {
       return false;
     }
 
+    // Check if user email is verified
+    if (needsVerification) {
+      errorService.addBreadcrumb('Match request blocked - email not verified', 'validation', { skillId: selectedSkill.id });
+      setStatusMessage({
+        text: 'Bitte verifizieren Sie zuerst Ihre E-Mail-Adresse, um Match-Anfragen senden zu können.',
+        type: 'warning',
+      });
+      openVerificationModal();
+      return false;
+    }
+
     setIsSubmittingMatch(true);
 
     try {
@@ -353,7 +367,7 @@ const SkillDetailPage: React.FC = () => {
         
         // Navigate to match requests page after short delay to show success message
         setTimeout(() => {
-          navigate('/matchmaking?tab=outgoing');
+          navigate('/matchmaking?tab=1');
         }, 1500);
         
         return true;
@@ -492,13 +506,24 @@ const SkillDetailPage: React.FC = () => {
     );
   }
 
-  // Mock data for demonstration - in real app, this would come from API
-  const averageRating = 4.5;
-  const reviewCount = 0; // Would come from API
+  const averageRating = selectedSkill?.averageRating ?? 0;
+  const reviewCount = selectedSkill?.reviewCount ?? 0;
+
+  const getOwnerName = () => {
+    if (isOwner) return 'Du';
+    if (selectedSkill?.ownerUserName) return selectedSkill.ownerUserName;
+    if (selectedSkill?.ownerFirstName && selectedSkill?.ownerLastName) {
+      return `${selectedSkill.ownerFirstName} ${selectedSkill.ownerLastName}`;
+    }
+    return 'Skill-Besitzer';
+  };
+
   const skillOwner = {
-    name: isOwner ? 'Du' : 'Skill-Besitzer', 
-    memberSince: '2023',
-    rating: 4.8,
+    name: getOwnerName(),
+    memberSince: selectedSkill?.ownerMemberSince
+      ? new Date(selectedSkill.ownerMemberSince).getFullYear().toString()
+      : '2024',
+    rating: selectedSkill?.ownerRating ?? 0,
     avatar: '',
   };
 
@@ -512,6 +537,14 @@ const SkillDetailPage: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
+      {selectedSkill && (
+        <SEO
+          title={`${selectedSkill.name} - ${selectedSkill.category?.name || 'Skill'}`}
+          description={selectedSkill.description || `Lerne ${selectedSkill.name}. ${selectedSkill.proficiencyLevel?.level || ''} Niveau.`}
+          keywords={[selectedSkill.name, selectedSkill.category?.name || '', selectedSkill.proficiencyLevel?.level || '', 'Skill lernen']}
+          type="article"
+        />
+      )}
       {/* Status messages */}
       {statusMessage && (
         <Alert
@@ -664,8 +697,38 @@ const SkillDetailPage: React.FC = () => {
 
             <Divider sx={{ my: 3 }} />
 
+            {!isAuthenticated && (
+              <Alert severity="info" sx={{ mb: 3 }}>
+                <Typography variant="body1" gutterBottom fontWeight="bold">
+                  Möchtest du diesen Skill lernen oder lehren?
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Registriere dich jetzt kostenlos und sende eine Anfrage{selectedSkill.ownerUserName ? ` an ${selectedSkill.ownerUserName}` : ''}!
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => {
+                      trackMatchRequestClick(selectedSkill.id, false);
+                      navigate('/auth/register', { state: { from: location.pathname } });
+                    }}
+                  >
+                    Jetzt registrieren
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => navigate('/auth/login', { state: { from: location.pathname } })}
+                  >
+                    Anmelden
+                  </Button>
+                </Box>
+              </Alert>
+            )}
+
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              {!isOwner && (
+              {!isOwner && isAuthenticated && (
                 <>
                   <LoadingButton
                     variant="contained"
@@ -949,8 +1012,8 @@ const SkillDetailPage: React.FC = () => {
           onClose={() => setMatchFormOpen(false)}
           onSubmit={handleMatchSubmit}
           skill={selectedSkill}
-          targetUserId={selectedSkill.userId} 
-          targetUserName={user?.userName || user?.firstName || 'Skill-Besitzer'}
+          targetUserId={selectedSkill.userId}
+          targetUserName={getOwnerName()}
           isLoading={isMatchmakingLoading}
           error={matchmakingError}
         />

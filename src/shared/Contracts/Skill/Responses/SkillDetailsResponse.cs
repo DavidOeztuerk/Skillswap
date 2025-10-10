@@ -6,13 +6,17 @@ namespace Contracts.Skill.Responses;
 /// API response containing detailed skill information
 /// </summary>
 /// <param name="SkillId">Unique identifier for the skill</param>
-/// <param name="UserId"></param>
+/// <param name="UserId">Owner user ID</param>
+/// <param name="OwnerUserName">Owner's username</param>
+/// <param name="OwnerFirstName">Owner's first name</param>
+/// <param name="OwnerLastName">Owner's last name</param>
+/// <param name="OwnerRating">Owner's average rating</param>
+/// <param name="OwnerMemberSince">When the owner joined</param>
 /// <param name="Name">Name of the skill</param>
 /// <param name="Description">Detailed description</param>
 /// <param name="Category">Skill category information</param>
 /// <param name="ProficiencyLevel">Proficiency level information</param>
 /// <param name="Tags">Associated tags</param>
-/// <param name="Owner">Skill owner information</param>
 /// <param name="IsOffered">Whether skill is offered</param>
 /// <param name="Rating">Average rating</param>
 /// <param name="Reviews">Number of reviews</param>
@@ -25,6 +29,11 @@ namespace Contracts.Skill.Responses;
 public record SkillDetailsResponse(
     string SkillId,
     string UserId,
+    string? OwnerUserName,
+    string? OwnerFirstName,
+    string? OwnerLastName,
+    double? OwnerRating,
+    DateTime? OwnerMemberSince,
     string Name,
     string Description,
     SkillCategoryResponse Category,

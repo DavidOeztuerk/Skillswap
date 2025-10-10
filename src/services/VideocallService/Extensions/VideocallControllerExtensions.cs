@@ -14,6 +14,22 @@ public static class VideocallControllerExtensions
 {
     public static RouteGroupBuilder MapVideocallController(this IEndpointRouteBuilder builder)
     {
+        var sessions = builder.MapGroup("/sessions")
+            .RequireAuthorization(policy => policy.RequireRole("Service"))
+            .WithTags("VideoCalls - Internal");
+
+        sessions.MapPost("/create", async (IMediator mediator, [FromBody] CreateCallSessionRequest request) =>
+        {
+            var command = new CreateCallSessionCommand("system", request.AppointmentId, null, false, request.MaxParticipants)
+            {
+                UserId = "system"
+            };
+            return await mediator.SendCommand(command);
+        })
+        .WithName("CreateSessionInternal")
+        .WithSummary("Create video session (Service-to-Service)")
+        .WithDescription("Creates a new video call session for service-to-service communication with M2M authentication");
+
         // Grouped endpoints for calls
         RouteGroupBuilder calls = builder.MapGroup("/calls").WithTags("VideoCalls");
 

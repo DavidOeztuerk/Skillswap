@@ -46,6 +46,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import MatchingErrorBoundary from '../../components/error/MatchingErrorBoundary';
 import errorService from '../../services/errorService';
+import { useSearchParams } from 'react-router-dom';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -100,13 +101,25 @@ interface RequestThread {
 }
 
 const MatchmakingPage: React.FC = () => {
-  const [currentTab, setCurrentTab] = useState(0);
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const initialTab = tabParam ? parseInt(tabParam, 10) : 0;
+
+  const [currentTab, setCurrentTab] = useState(initialTab);
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [responseDialogOpen, setResponseDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [responseMessage, setResponseMessage] = useState('');
   const [counterOfferDialog, setCounterOfferDialog] = useState(false);
   const [counterOfferMessage, setCounterOfferMessage] = useState('');
+
+  // Update tab when URL parameter changes
+  useEffect(() => {
+    const newTab = tabParam ? parseInt(tabParam, 10) : 0;
+    if (newTab !== currentTab && (newTab === 0 || newTab === 1)) {
+      setCurrentTab(newTab);
+    }
+  }, [tabParam]);
 
   const { withLoading, isLoading } = useLoading();
   const {
@@ -851,7 +864,7 @@ const MatchmakingPage: React.FC = () => {
                         </Avatar>
                         <Box flex={1}>
                           <Typography variant="h6">
-                            {match.skill?.name || 'Unbekannter Skill'}
+                            {match.skillName || 'Unbekannter Skill'}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
                             {match.isLearningMode ? 'Du lernst' : 'Du bietest an'}

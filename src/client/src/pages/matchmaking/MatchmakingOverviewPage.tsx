@@ -22,7 +22,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { useAppointments } from '../../hooks/useAppointments';
-import { Match } from '../../types/models/Match';
+import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import MatchRequestsOverviewPage from './MatchRequestsOverviewPage';
 
@@ -70,6 +70,11 @@ const MatchmakingOverviewPage: React.FC = () => {
   const tabFromUrl = searchParams.get('tab');
   const initialTab = tabFromUrl === 'outgoing' ? 2 : tabFromUrl === 'incoming' ? 1 : 0;
   const [tabValue, setTabValue] = useState(initialTab);
+
+  // Initialize lastTabValue to prevent duplicate initial load
+  if (lastTabValue.current === null) {
+    lastTabValue.current = initialTab;
+  }
   
   const {
     matches,
@@ -84,7 +89,7 @@ const MatchmakingOverviewPage: React.FC = () => {
 
   const { scheduleAppointment } = useAppointments();
   const [appointmentFormOpen, setAppointmentFormOpen] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<MatchDisplay | null>(null);
 
   // State für Bestätigungsdialog
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -129,15 +134,21 @@ const MatchmakingOverviewPage: React.FC = () => {
   
   // Load data when tab changes
   useEffect(() => {
+    // Skip if this is the initial load (handled by the initial useEffect)
+    if (!didInitialLoad.current) {
+      console.log('⏭️ [MatchmakingOverviewPage] Initial load not complete, skipping tab change reload');
+      return;
+    }
+
     // Skip if same tab
     if (lastTabValue.current === tabValue) {
       console.log('⏭️ [MatchmakingOverviewPage] Same tab, skipping reload');
       return;
     }
     lastTabValue.current = tabValue;
-    
+
     console.log(`📥 [MatchmakingOverviewPage] Tab changed to ${tabValue}, loading data`);
-    
+
     if (tabValue === 0) {
       void loadMatches();
     } else if (tabValue === 1) {
@@ -208,7 +219,13 @@ const MatchmakingOverviewPage: React.FC = () => {
           text: `Match erfolgreich ${action === 'accept' ? 'akzeptiert' : 'abgelehnt'}`,
           type: 'success',
         });
-        void loadMatches(); // Reload matches
+
+        if (action === 'accept') {
+          void loadMatches();
+          setTabValue(0);
+        } else {
+          void loadIncomingRequests();
+        }
       } else {
         throw new Error(`Fehler beim ${action === 'accept' ? 'Akzeptieren' : 'Ablehnen'} des Matches`);
       }
@@ -223,7 +240,7 @@ const MatchmakingOverviewPage: React.FC = () => {
   };
 
   // Handler für das Öffnen des Termin-Formulars
-  const handleOpenAppointmentForm = (match: Match) => {
+  const handleOpenAppointmentForm = (match: MatchDisplay) => {
     setSelectedMatch(match);
     setAppointmentFormOpen(true);
   };

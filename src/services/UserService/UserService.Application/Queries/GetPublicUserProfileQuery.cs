@@ -1,5 +1,6 @@
 using CQRS.Interfaces;
 using FluentValidation;
+using Contracts.User.Responses;
 
 namespace UserService.Api.Application.Queries;
 
@@ -11,22 +12,6 @@ public record GetPublicUserProfileQuery(
     public string CacheKey => $"public-profile:{UserId}:{RequestingUserId}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(15);
 }
-
-public record PublicUserProfileResponse(
-    string UserId,
-    string FirstName,
-    string LastName,
-    string UserName,
-    string? Bio,
-    string? AvatarUrl,
-    DateTime MemberSince,
-    int SkillsOffered,
-    int SkillsLearned,
-    double AverageRating,
-    int TotalReviews,
-    bool IsBlocked,
-    List<string> Languages,
-    string? TimeZone);
 
 public class GetPublicUserProfileQueryValidator : AbstractValidator<GetPublicUserProfileQuery>
 {

@@ -68,6 +68,12 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
 
   // Filterlogik
   const filteredAppointments = useMemo(() => {
+    console.log('🎯 AppointmentList: Processing appointments', {
+      appointments,
+      appointmentsCount: appointments?.length || 0,
+      firstAppointment: appointments?.[0]
+    });
+
     if (!appointments) return [];
     return appointments.filter((appointment) => {
       // Welcher Nutzer ist "der andere"?
@@ -331,8 +337,15 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         {/* Termine-Liste */}
         {displayedAppointments?.length > 0 ? (
           <Grid container columns={12} spacing={3}>
-            {displayedAppointments.map((appointment) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={appointment.id}>
+            {displayedAppointments.map((appointment, index) => {
+              console.log('🎯 AppointmentList: Rendering appointment', {
+                id: appointment.id,
+                index,
+                hasId: !!appointment.id,
+                idType: typeof appointment.id
+              });
+              return (
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={appointment.id || `appointment-${index}`}>
                 <AppointmentCard
                   appointment={appointment}
                   isTeacher={userRole === 'teacher'}
@@ -341,7 +354,8 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
                   onComplete={onComplete}
                 />
               </Grid>
-            ))}
+              );
+            })}
           </Grid>
         ) : (
           <EmptyState

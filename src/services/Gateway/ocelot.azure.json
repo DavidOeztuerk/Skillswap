@@ -53,6 +53,16 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/users/profile/{userId}",
+      "DownstreamScheme": "${SERVICE_SCHEME}",
+      "DownstreamHostAndPorts": [{ "Host": "${USERSERVICE_HOST}", "Port": "${USERSERVICE_PORT}" }],
+      "UpstreamPathTemplate": "/api/users/profile/{userId}",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
       "DownstreamPathTemplate": "/skills",
       "DownstreamScheme": "${SERVICE_SCHEME}",
       "DownstreamHostAndPorts": [{ "Host": "${SKILLSERVICE_HOST}", "Port": "${SKILLSERVICE_PORT}" }],

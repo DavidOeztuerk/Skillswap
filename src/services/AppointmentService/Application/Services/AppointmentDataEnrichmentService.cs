@@ -1,5 +1,7 @@
-using System.Text.Json;
 using AppointmentService.Domain.Entities;
+using Infrastructure.Communication;
+using Contracts.User.Responses;
+using Contracts.Skill.Responses;
 
 namespace AppointmentService.Application.Services;
 
@@ -11,16 +13,16 @@ namespace AppointmentService.Application.Services;
 public class AppointmentDataEnrichmentService : IAppointmentDataEnrichmentService
 {
     private readonly AppointmentDbContext _dbContext;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IServiceCommunicationManager _serviceCommunication;
     private readonly ILogger<AppointmentDataEnrichmentService> _logger;
 
     public AppointmentDataEnrichmentService(
         AppointmentDbContext dbContext,
-        IHttpClientFactory httpClientFactory,
+        IServiceCommunicationManager serviceCommunication,
         ILogger<AppointmentDataEnrichmentService> logger)
     {
         _dbContext = dbContext;
-        _httpClientFactory = httpClientFactory;
+        _serviceCommunication = serviceCommunication;
         _logger = logger;
     }
 
@@ -59,24 +61,20 @@ public class AppointmentDataEnrichmentService : IAppointmentDataEnrichmentServic
     {
         try
         {
-            var userServiceClient = _httpClientFactory.CreateClient("UserService");
-            var response = await userServiceClient.GetAsync($"/users/{userId}", cancellationToken);
-            
-            if (response.IsSuccessStatusCode)
-            {
-                var json = await response.Content.ReadAsStringAsync(cancellationToken);
-                var userData = JsonSerializer.Deserialize<UserDetailsResponse>(json, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+            var response = await _serviceCommunication.GetAsync<UserProfileResponse>(
+                "userservice",
+                $"users/internal/{userId}",
+                cancellationToken);
 
+            if (response != null)
+            {
                 return new UserData
                 {
                     UserId = userId,
-                    Email = userData?.Email ?? $"user_{userId}@skillswap.com",
-                    FirstName = userData?.FirstName ?? "Unknown",
-                    LastName = userData?.LastName ?? "User",
-                    PhoneNumber = userData?.PhoneNumber
+                    Email = response.Email ?? $"user_{userId}@skillswap.com",
+                    FirstName = response.FirstName ?? "Unknown",
+                    LastName = response.LastName ?? "User",
+                    PhoneNumber = response.PhoneNumber
                 };
             }
         }
@@ -99,23 +97,19 @@ public class AppointmentDataEnrichmentService : IAppointmentDataEnrichmentServic
     {
         try
         {
-            var skillServiceClient = _httpClientFactory.CreateClient("SkillService");
-            var response = await skillServiceClient.GetAsync($"/skills/{skillId}", cancellationToken);
-            
-            if (response.IsSuccessStatusCode)
-            {
-                var json = await response.Content.ReadAsStringAsync(cancellationToken);
-                var skillData = JsonSerializer.Deserialize<SkillDetailsResponse>(json, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+            var response = await _serviceCommunication.GetAsync<GetSkillDetailsResponse>(
+                "skillservice",
+                $"skills/{skillId}",
+                cancellationToken);
 
+            if (response != null)
+            {
                 return new SkillData
                 {
                     SkillId = skillId,
-                    Name = skillData?.Name ?? "Unknown Skill",
-                    Category = skillData?.Category,
-                    Description = skillData?.Description
+                    Name = response.Name ?? "Unknown Skill",
+                    Category = response.Category?.Name,
+                    Description = response.Description
                 };
             }
         }
@@ -162,20 +156,3 @@ public class SkillData
     public string? Description { get; set; }
 }
 
-internal class UserDetailsResponse
-{
-    public string? Id { get; set; }
-    public string? Email { get; set; }
-    public string? FirstName { get; set; }
-    public string? LastName { get; set; }
-    public string? UserName { get; set; }
-    public string? PhoneNumber { get; set; }
-}
-
-internal class SkillDetailsResponse
-{
-    public string? Id { get; set; }
-    public string? Name { get; set; }
-    public string? Category { get; set; }
-    public string? Description { get; set; }
-}

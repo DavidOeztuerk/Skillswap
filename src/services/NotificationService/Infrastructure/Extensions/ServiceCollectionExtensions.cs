@@ -12,6 +12,7 @@ using Contracts.Notification.Responses;
 using NotificationService.Infrastructure.BackgroundServices;
 using Infrastructure.Security;
 using Infrastructure.Authorization;
+using NotificationService.Infrastructure.HttpClients;
 
 namespace NotificationService.Infrastructure.Extensions;
 
@@ -40,6 +41,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationOrchestrator, NotificationOrchestrator>();
         services.AddScoped<ISmartNotificationRouter, SmartNotificationRouter>();
         services.AddScoped<INotificationHandler<UserDeletedEvent>, UserDeletedIntegrationEventHandler>();
+
+        // Register service clients that use IServiceCommunicationManager
+        services.AddScoped<IUserServiceClient, UserServiceClient>();
 
         services.AddSharedInfrastructure(configuration, environment, serviceName);
 

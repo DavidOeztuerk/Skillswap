@@ -37,7 +37,6 @@ export interface LoginResponse {
   permissions?: UserPermissions;
 }
 
-// Legacy interface - kept for backwards compatibility
 export interface Tokens {
   accessToken: string;
   refreshToken: string;

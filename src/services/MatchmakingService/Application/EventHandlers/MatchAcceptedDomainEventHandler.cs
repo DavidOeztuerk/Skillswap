@@ -12,8 +12,8 @@ public class MatchAcceptedDomainEventHandler(
         Logger.LogInformation("Match accepted: {MatchId} by users {OfferingUserId} and {RequestingUserId}",
             domainEvent.MatchId, domainEvent.OfferingUserId, domainEvent.RequestingUserId);
 
-        // TODO: Send notifications to both users
-        // TODO: Create appointment suggestion
+        // Note: Notifications and appointment creation are handled via MatchAcceptedIntegrationEvent
+        // published in AcceptMatchRequestCommandHandler, consumed by NotificationService and AppointmentService
 
         await Task.CompletedTask;
     }
