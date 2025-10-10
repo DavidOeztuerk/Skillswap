@@ -27,6 +27,8 @@ import MatchCard from './MatchCard';
 import SkeletonLoader from '../ui/SkeletonLoader';
 import EmptyState from '../ui/EmptyState';
 import { Match } from '../../types/models/Match';
+import { useAppSelector } from '../../store/store.hooks';
+import { selectAuthUser } from '../../store/selectors/authSelectors';
 
 interface MatchListProps {
   matches: Match[] | any[];
@@ -57,6 +59,10 @@ const MatchList: React.FC<MatchListProps> = ({
 
   const matchesPerPage = 8;
 
+  // Get current user ID for proper filtering
+  const currentUser = useAppSelector(selectAuthUser);
+  const currentUserId = currentUser?.id;
+
   // Tab-Optionen
   const tabs = [
     'Alle',
@@ -67,48 +73,69 @@ const MatchList: React.FC<MatchListProps> = ({
 
   // Match-Filterung
   const filteredMatches = useMemo(() => {
-    if (!matches) return [];
-    return matches.filter((match) => {
-      // Suche
-      const otherUser = isRequesterView
-        ? match.requesterId === 'current-user'
-          ? match.responderDetails
-          : match.requesterDetails
-        : match.responderId === 'current-user'
-          ? match.requesterDetails
-          : match.responderDetails;
+    console.log('🔍 MatchList: Processing matches', {
+      matchesCount: matches?.length,
+      matches: matches,
+      currentUserId,
+      tabValue,
+      searchTerm,
+      selectedStatus
+    });
 
-      const otherUserName =
-        `${otherUser.firstName} ${otherUser.lastName}`.toLowerCase();
-      const skillName = match.skill.name.toLowerCase();
+    if (!matches) {
+      console.log('❌ MatchList: No matches provided');
+      return [];
+    }
+
+    return matches.filter((match) => {
+      // Suche - Use backend response format
+      const partnerName = match.partnerName || 'Unbekannt';
+      const skillName = match.skillName || 'Unbekannt';
+
       const matchesSearch =
         !searchTerm ||
-        skillName?.includes(searchTerm.toLowerCase()) ||
-        otherUserName?.includes(searchTerm.toLowerCase());
+        skillName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        partnerName.toLowerCase().includes(searchTerm.toLowerCase());
 
-      // Status
-      const matchesStatus = !selectedStatus || match.status === selectedStatus;
+      // Status - Case-insensitive matching
+      const matchesStatus = !selectedStatus || match.status?.toLowerCase() === selectedStatus.toLowerCase();
 
-      // Tab
+      // Tab - Use new backend response format with case-insensitive status
       let matchesTab = true;
+      const status = match.status?.toLowerCase() || '';
+
       if (tabValue === 1) {
         // "Von mir erstellt" / "Anfragen"
         matchesTab = isRequesterView
-          ? match.requesterId === 'current-user'
-          : match.responderId === 'current-user' && match.status === 'Pending';
+          ? match.requesterId === currentUserId
+          : match.responderId === currentUserId && status === 'pending';
       } else if (tabValue === 2) {
         // "An mich gerichtet" / "Meine Anfragen"
         matchesTab = isRequesterView
-          ? match.responderId === 'current-user'
-          : match.requesterId === 'current-user';
+          ? match.responderId === currentUserId
+          : match.requesterId === currentUserId;
       } else if (tabValue === 3) {
         // "Akzeptiert"
-        matchesTab = match.status === 'Accepted';
+        matchesTab = status === 'accepted';
       }
 
-      return matchesSearch && matchesStatus && matchesTab;
+      const passesFilter = matchesSearch && matchesStatus && matchesTab;
+
+      if (!passesFilter) {
+        console.log('🚫 MatchList: Match filtered out', {
+          matchId: match.id,
+          matchesSearch,
+          matchesStatus,
+          matchesTab,
+          status: match.status,
+          requesterId: match.requesterId,
+          currentUserId
+        });
+      }
+
+      return passesFilter;
     });
-  }, [matches, searchTerm, selectedStatus, tabValue, isRequesterView]);
+  }, [matches, searchTerm, selectedStatus, tabValue, isRequesterView, currentUserId]);
 
   // Pagination
   const pageCount = Math.ceil(filteredMatches?.length / matchesPerPage);
@@ -116,6 +143,14 @@ const MatchList: React.FC<MatchListProps> = ({
     (currentPage - 1) * matchesPerPage,
     currentPage * matchesPerPage
   );
+
+  console.log('📊 MatchList: Final results', {
+    totalMatches: matches?.length || 0,
+    filteredMatches: filteredMatches?.length || 0,
+    displayedMatches: displayedMatches?.length || 0,
+    currentPage,
+    pageCount
+  });
 
   // Handler
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,10 +268,14 @@ const MatchList: React.FC<MatchListProps> = ({
               >
                 <MenuItem value="">Alle Status</MenuItem>
                 <Divider />
-                <MenuItem value="Pending">Ausstehend</MenuItem>
-                <MenuItem value="Accepted">Akzeptiert</MenuItem>
-                <MenuItem value="Rejected">Abgelehnt</MenuItem>
-                <MenuItem value="Expired">Abgelaufen</MenuItem>
+                <MenuItem value="pending">Ausstehend</MenuItem>
+                <MenuItem value="accepted">Akzeptiert</MenuItem>
+                <MenuItem value="rejected">Abgelehnt</MenuItem>
+                <MenuItem value="expired">Abgelaufen</MenuItem>
+                <MenuItem value="completed">Abgeschlossen</MenuItem>
+                <MenuItem value="cancelled">Abgebrochen</MenuItem>
+                <MenuItem value="active">Aktiv</MenuItem>
+                <MenuItem value="dissolved">Aufgelöst</MenuItem>
               </Select>
             </FormControl>
 
@@ -278,7 +317,7 @@ const MatchList: React.FC<MatchListProps> = ({
             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={match.id}>
               <MatchCard
                 match={match}
-                isRequester={match.requesterId === 'current-user'}
+                isRequester={match.requesterId === currentUserId}
                 onAccept={onAccept}
                 onReject={onReject}
                 onSchedule={onSchedule}

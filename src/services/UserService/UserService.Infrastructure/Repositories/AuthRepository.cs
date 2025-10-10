@@ -396,4 +396,62 @@ public class AuthRepository(
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    public async Task RevokeAllRefreshTokensAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        var refreshTokens = await _dbContext.RefreshTokens
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
+            .ToListAsync(cancellationToken);
+
+        foreach (var rt in refreshTokens)
+        {
+            rt.IsRevoked = true;
+            rt.RevokedAt = DateTime.UtcNow;
+            rt.RevokedReason = "User logged out";
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<ServiceTokenResponse> GenerateServiceToken(string serviceName, string servicePassword, CancellationToken cancellationToken = default)
+    {
+        var serviceUser = await _dbContext.Users
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.UserName == serviceName, cancellationToken);
+
+        if (serviceUser is null)
+        {
+            throw new UnauthorizedAccessException("Invalid service credentials");
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(servicePassword, serviceUser.PasswordHash))
+        {
+            throw new UnauthorizedAccessException("Invalid service credentials");
+        }
+
+        var serviceRole = serviceUser.UserRoles.FirstOrDefault(ur => ur.Role.Name == Roles.Service);
+        if (serviceRole is null)
+        {
+            throw new UnauthorizedAccessException("Not a service account");
+        }
+
+        var userClaims = new UserClaims
+        {
+            UserId = serviceUser.Id,
+            Email = serviceUser.Email,
+            FirstName = serviceUser.FirstName,
+            LastName = serviceUser.LastName,
+            Roles = new List<string> { Roles.Service },
+            EmailVerified = true,
+            AccountStatus = serviceUser.AccountStatus.ToString()
+        };
+
+        var tokens = await _jwtService.GenerateTokenAsync(userClaims);
+
+        return new ServiceTokenResponse(
+            AccessToken: tokens.AccessToken,
+            ExpiresIn: tokens.ExpiresIn,
+            ServiceName: serviceName);
+    }
 }

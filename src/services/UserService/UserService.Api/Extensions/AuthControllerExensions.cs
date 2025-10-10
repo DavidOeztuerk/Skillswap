@@ -90,6 +90,24 @@ public static class AuthControllerExensions
             .Produces(400)
             .Produces(401);
 
+        auth.MapPost("/logout", HandleLogout)
+            .WithName("Logout")
+            .WithSummary("Logout user")
+            .WithDescription("Revokes all refresh tokens and access token for the user")
+            .WithTags("Authentication")
+            .RequireAuthorization()
+            .Produces<ApiResponse<LogoutResponse>>(200)
+            .Produces(401);
+
+        auth.MapPost("/service-token", HandleGenerateServiceToken)
+            .WithName("GenerateServiceToken")
+            .WithSummary("Generate service token")
+            .WithDescription("Generates access token for service-to-service communication")
+            .WithTags("Service Authentication")
+            .AllowAnonymous()
+            .Produces<ApiResponse<ServiceTokenResponse>>(200)
+            .Produces(401);
+
         auth.MapPost("/verify-phone/request", HandleRequestPhoneVerification)
             .WithName("RequestPhoneVerification")
             .WithSummary("Request phone verification")
@@ -203,6 +221,22 @@ public static class AuthControllerExensions
 
             var query = new GetEmailVerificationStatusQuery(userId);
             return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> HandleLogout(IMediator mediator, ClaimsPrincipal user, HttpRequest http)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var accessToken = http.Headers.Authorization.ToString().Replace("Bearer ", string.Empty);
+            var command = new LogoutUserCommand(accessToken) { UserId = userId };
+            return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> HandleGenerateServiceToken(IMediator mediator, [FromBody] GenerateServiceTokenRequest request)
+        {
+            var command = new GenerateServiceTokenCommand(request.ServiceName, request.ServicePassword);
+            return await mediator.SendCommand(command);
         }
 
         return auth;

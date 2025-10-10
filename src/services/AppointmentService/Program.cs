@@ -2,6 +2,7 @@ using Infrastructure.Extensions;
 using AppointmentService.Extensions;
 using AppointmentService;
 using AppointmentService.Infrastructure.Extensions;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,18 +12,21 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment, s
 
 var app = builder.Build();
 
+// Apply pending migrations on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppointmentDbContext>();
 
     try
     {
-        await db.Database.EnsureCreatedAsync();
-        app.Logger.LogInformation("Database initialized successfully");
+        // Use MigrateAsync instead of EnsureCreatedAsync to properly handle migrations
+        await db.Database.MigrateAsync();
+        app.Logger.LogInformation("Database migrations applied successfully");
     }
     catch (Exception ex)
     {
-        app.Logger.LogWarning(ex, "Database initialization warning (likely already exists), continuing...");
+        app.Logger.LogError(ex, "Failed to apply database migrations");
+        throw; // Fail fast if migrations fail
     }
 }
 app.UseSharedInfrastructure(app.Environment, serviceName);

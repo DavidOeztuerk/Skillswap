@@ -19,11 +19,6 @@ interface PrivateRouteConfig {
 
 interface PrivateRouteProps extends PrivateRouteConfig {
   children: React.ReactNode;
-  // Legacy props für Abwärtskompatibilität (deprecated)
-  requiredRoles?: string[];
-  requiredRole?: string;
-  requiredPermissions?: string[];
-  requiredPermission?: string;
 }
 
 /**
@@ -122,39 +117,18 @@ const useAuthorizationStatus = (
  */
 const PrivateRoute: React.FC<PrivateRouteProps> = ({
   children,
-  // Neue Props
   roles = [],
   permissions = [],
   redirectTo = '/auth/login',
   unauthorizedRedirect = '/forbidden',
   loadingComponent: LoadingComponent = LoadingSpinner,
-  // Legacy Props (für Abwärtskompatibilität)
-  requiredRoles = [],
-  requiredRole,
-  requiredPermissions = [],
-  requiredPermission,
 }) => {
   const location = useLocation();
-  
-  // Konsolidiere alte und neue Props
-  const config = useMemo(() => {
-    const allRoles = [
-      ...roles,
-      ...requiredRoles,
-      ...(requiredRole ? [requiredRole] : []),
-    ].filter(Boolean);
-    
-    const allPermissions = [
-      ...permissions,
-      ...requiredPermissions,
-      ...(requiredPermission ? [requiredPermission] : []),
-    ].filter(Boolean);
-    
-    return {
-      roles: allRoles,
-      permissions: allPermissions,
-    };
-  }, [roles, permissions, requiredRoles, requiredRole, requiredPermissions, requiredPermission]);
+
+  const config = useMemo(() => ({
+    roles,
+    permissions,
+  }), [roles, permissions]);
   
   // Verwende den Authorization Hook
   const authStatus = useAuthorizationStatus(config);

@@ -232,6 +232,13 @@ public static class Matchmaking
             .WithTags("Matching")
             .Produces<PagedResponse<UserMatchResponse>>(StatusCodes.Status200OK);
 
+        matches.MapGet("/search", SearchMatches)
+            .WithName("SearchMatches")
+            .WithSummary("Search for matches")
+            .WithDescription("Search for matches based on criteria")
+            .WithTags("Matching")
+            .Produces<PagedResponse<UserMatchResponse>>(StatusCodes.Status200OK);
+
         matches.MapPost("/{matchId}/complete", CompleteMatch)
             .WithName("CompleteMatch")
             .WithSummary("Complete a match")
@@ -310,8 +317,34 @@ public static class Matchmaking
             int pageSize = 20)
         {
             var userId = user.GetUserId();
+
+            // DEBUG: Log all claims for debugging user ID issue
+            var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger("MatchmakingController");
+            logger.LogWarning("DEBUG GetUserMatches: User claims: {Claims}",
+                string.Join(", ", user.Claims.Select(c => $"{c.Type}={c.Value}")));
+            logger.LogWarning("DEBUG GetUserMatches: Extracted UserId: {UserId}", userId ?? "NULL");
+
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
+            var query = new GetUserMatchesQuery(userId, status, includeCompleted, pageNumber, pageSize);
+
+            return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> SearchMatches(
+            IMediator mediator,
+            ClaimsPrincipal user,
+            string? skillId = null,
+            string? skillName = null,
+            string? status = null,
+            bool includeCompleted = false,
+            int pageNumber = 1,
+            int pageSize = 20)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            // For now, just return user matches - this can be extended later with more search criteria
             var query = new GetUserMatchesQuery(userId, status, includeCompleted, pageNumber, pageSize);
 
             return await mediator.SendQuery(query);
@@ -367,7 +400,7 @@ public static class Matchmaking
         // HANDLER METHODS - ANALYTICS
         // ============================================================================
 
-        static async Task<IResult> GetMatchStatistics(IMediator mediator, ClaimsPrincipal user, [FromBody] GetMatchStatisticsRequest request)
+        static async Task<IResult> GetMatchStatistics(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetMatchStatisticsRequest request)
         {
             var userId = user.GetUserId();
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();

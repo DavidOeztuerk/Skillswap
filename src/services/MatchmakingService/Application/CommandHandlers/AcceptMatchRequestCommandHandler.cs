@@ -40,7 +40,7 @@ public class AcceptMatchRequestCommandHandler(
                 return Error("Match request not found", ErrorCodes.ResourceNotFound);
             }
 
-            if (matchRequest.Status != "Pending")
+            if (matchRequest.Status.ToLower() != "pending")
             {
                 return Error("Match request is no longer pending", ErrorCodes.InvalidOperation);
             }
@@ -49,43 +49,8 @@ public class AcceptMatchRequestCommandHandler(
             matchRequest.Accept(request.ResponseMessage);
 
             // Create a Match entity from the accepted request
-            var match = new Match
-            {
-                Id = Guid.NewGuid().ToString(),
-                OfferedSkillId = matchRequest.SkillId,
-                RequestedSkillId = matchRequest.ExchangeSkillId ?? matchRequest.SkillId,
-                OfferingUserId = matchRequest.TargetUserId,
-                RequestingUserId = matchRequest.RequesterId,
-                OfferedSkillName = "Skill", // TODO: Get from SkillService
-                RequestedSkillName = "Skill", // TODO: Get from SkillService
-                Status = MatchStatus.Accepted,
-                CompatibilityScore = 0.85, // TODO: Calculate real score
-                MatchReason = "Match Request Accepted",
-                
-                // Copy exchange details
-                IsSkillExchange = matchRequest.IsSkillExchange,
-                ExchangeSkillId = matchRequest.ExchangeSkillId,
-                ExchangeSkillName = matchRequest.ExchangeSkillId != null ? "Exchange Skill" : null,
-                
-                // Copy monetary details
-                IsMonetary = matchRequest.IsMonetaryOffer,
-                AgreedAmount = matchRequest.OfferedAmount,
-                Currency = matchRequest.Currency,
-                
-                // Copy session details
-                AgreedDays = matchRequest.PreferredDays ?? new List<string>(),
-                AgreedTimes = matchRequest.PreferredTimes ?? new List<string>(),
-                TotalSessionsPlanned = matchRequest.TotalSessions ?? 1,
-                CompletedSessions = 0,
-                
-                // Thread tracking
-                OriginalRequestId = matchRequest.Id,
-                ThreadId = matchRequest.ThreadId,
-                
-                AcceptedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
+            // All details (skills, exchange, monetary, preferences) come from the MatchRequest via navigation property
+            var match = Match.CreateFromAcceptedRequest(matchRequest);
 
             _dbContext.Matches.Add(match);
             await _dbContext.SaveChangesAsync(cancellationToken);

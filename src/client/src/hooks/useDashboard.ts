@@ -13,7 +13,7 @@ import {
 } from '../store/selectors/dashboardSelectors';
 import { fetchUserMatches, fetchIncomingMatchRequests, fetchOutgoingMatchRequests } from '../features/matchmaking/matchmakingThunks';
 import { fetchUserSkills } from '../features/skills/thunks/skillsThunks';
-import { fetchAppointments } from '../features/appointments/appointmentsThunks';
+import { fetchAppointments, fetchUpcomingAppointments } from '../features/appointments/appointmentsThunks';
 import { fetchNotifications } from '../features/notifications/notificationThunks';
 
 /**
@@ -54,7 +54,8 @@ export const useDashboard = () => {
       const promises = [
         dispatch(fetchUserSkills({ pageNumber: 1, pageSize: 12 })),
         dispatch(fetchAppointments({ pageNumber: 1, pageSize: 12 })),
-        dispatch(fetchUserMatches({ pageNumber: 1, pageSize: 12 })), 
+        dispatch(fetchUpcomingAppointments({ limit: 12 })), // ⭐ FIX: Dashboard braucht upcoming appointments
+        dispatch(fetchUserMatches({ pageNumber: 1, pageSize: 12 })),
         dispatch(fetchIncomingMatchRequests({ pageNumber: 1, pageSize: 12 })),
         dispatch(fetchOutgoingMatchRequests({ pageNumber: 1, pageSize: 12 })),
         dispatch(fetchNotifications({ pageNumber: 1, pageSize: 12 })),
@@ -65,7 +66,11 @@ export const useDashboard = () => {
 
     // === INDIVIDUAL REFRESH ACTIONS ===
     refreshSkills: () => dispatch(fetchUserSkills({ pageNumber: 1, pageSize: 12 })),
-    refreshAppointments: () => dispatch(fetchAppointments({ pageNumber: 1, pageSize: 12 })),
+    refreshAppointments: () => {
+      // Dashboard needs both all appointments and upcoming appointments
+      dispatch(fetchAppointments({ pageNumber: 1, pageSize: 12 }));
+      return dispatch(fetchUpcomingAppointments({ limit: 12 }));
+    },
     refreshMatches: () => dispatch(fetchUserMatches({ pageNumber: 1, pageSize: 12 })),
     refreshNotifications: () => dispatch(fetchNotifications({ pageNumber: 1, pageSize: 12 })),
     
@@ -79,6 +84,17 @@ export const useDashboard = () => {
     },
 
   }), [dispatch]);
+
+  // ===== DEBUG LOGGING =====
+  console.log('🎯 useDashboard: Hook data', {
+    upcomingAppointmentsCount: upcomingAppointments?.length || 0,
+    teachingSkillsCount: teachingSkills?.length || 0,
+    learningSkillsCount: learningSkills?.length || 0,
+    cards: cards?.length || 0,
+    isLoading: loadingStates.isAnyLoading,
+    errors: errorStates.errors,
+    upcomingAppointments: upcomingAppointments?.slice(0, 2) // First 2 for debugging
+  });
 
   // ===== COMPUTED DASHBOARD STATE (memoized) =====
   const computed = useMemo(() => ({

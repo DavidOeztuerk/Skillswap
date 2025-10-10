@@ -2,6 +2,7 @@ using MediatR;
 using AppointmentService.Application.EventHandlers;
 using AppointmentService.Application.Services;
 using AppointmentService.Infrastructure.Services;
+using AppointmentService.Infrastructure.HttpClients;
 using Events.Integration.UserManagement;
 using Events.Domain.Skill;
 using Events.Domain.Matchmaking;
@@ -38,32 +39,40 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IAppointmentDataEnrichmentService, AppointmentDataEnrichmentService>();
 
-        // Add service-specific dependencies
-        // services.AddScoped<ISchedulingService, SchedulingService>();
-        // services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
-        // services.AddScoped<INotificationProxy, NotificationProxy>();
+        // Register service clients that use IServiceCommunicationManager
+        services.AddScoped<IUserServiceClient, UserServiceClient>();
+        services.AddScoped<ISkillServiceClient, SkillServiceClient>();
+        services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
 
-        // Configure HttpClients for other services
-        services.AddHttpClient("VideocallService", client =>
-        {
-            client.BaseAddress = new Uri("http://videocallservice:5006");
-            client.DefaultRequestHeaders.Add("Accept", "application/json");
-            client.Timeout = TimeSpan.FromSeconds(30);
-        });
-
+        // Named HttpClients used by AppointmentDataEnrichmentService
         services.AddHttpClient("UserService", client =>
         {
-            client.BaseAddress = new Uri("http://userservice:5001");
+            var userServiceUrl = Environment.GetEnvironmentVariable("USER_SERVICE_URL")
+                ?? configuration["Services:UserService:Url"]
+                ?? "http://gateway:8080/api/users";
+            client.BaseAddress = new Uri(userServiceUrl);
             client.DefaultRequestHeaders.Add("Accept", "application/json");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
         services.AddHttpClient("SkillService", client =>
         {
-            client.BaseAddress = new Uri("http://skillservice:5002");
+            var skillServiceUrl = Environment.GetEnvironmentVariable("SKILL_SERVICE_URL")
+                ?? configuration["Services:SkillService:Url"]
+                ?? "http://gateway:8080/api/skills";
+            client.BaseAddress = new Uri(skillServiceUrl);
             client.DefaultRequestHeaders.Add("Accept", "application/json");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+
+        // Register orchestration services
+        // services.AddScoped<AppointmentService.Application.Services.Orchestration.IAppointmentDataEnrichmentService,
+        //     AppointmentService.Application.Services.Orchestration.AppointmentDataEnrichmentService>();
+
+        // Add service-specific dependencies
+        // services.AddScoped<ISchedulingService, SchedulingService>();
+        // services.AddScoped<IConflictResolutionService, ConflictResolutionService>();
+        // services.AddScoped<INotificationProxy, NotificationProxy>();
 
         services.AddSharedInfrastructure(configuration, environment, serviceName);
 
@@ -90,4 +99,3 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
-

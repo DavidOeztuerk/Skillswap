@@ -2,20 +2,21 @@ using Contracts.Matchmaking.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
 using MatchmakingService.Application.Queries;
+using MatchmakingService.Infrastructure.HttpClients;
 using Microsoft.EntityFrameworkCore;
 
 namespace MatchmakingService.Application.QueryHandlers;
 
 public class GetIncomingMatchRequestsQueryHandler(
     MatchmakingDbContext dbContext,
-    HttpClient httpClient,
-    IHttpContextAccessor httpContextAccessor,
+    IUserServiceClient userServiceClient,
+    ISkillServiceClient skillServiceClient,
     ILogger<GetIncomingMatchRequestsQueryHandler> logger)
     : BasePagedQueryHandler<GetIncomingMatchRequestsQuery, MatchRequestDisplayResponse>(logger)
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
-    private readonly HttpClient _httpClient = httpClient;
-    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
+    private readonly IUserServiceClient _userServiceClient = userServiceClient;
+    private readonly ISkillServiceClient _skillServiceClient = skillServiceClient;
 
     public override async Task<PagedResponse<MatchRequestDisplayResponse>> Handle(
         GetIncomingMatchRequestsQuery request,
@@ -29,7 +30,7 @@ public class GetIncomingMatchRequestsQueryHandler(
 
             // Query incoming requests where current user is the target (skill owner)
             var query = _dbContext.MatchRequests
-                .Where(mr => mr.TargetUserId == request.UserId && mr.Status == "Pending")
+                .Where(mr => mr.TargetUserId == request.UserId && mr.Status.ToLower() == "pending")
                 .OrderByDescending(mr => mr.CreatedAt);
 
             var totalCount = await query.CountAsync(cancellationToken);
@@ -95,79 +96,46 @@ public class GetIncomingMatchRequestsQueryHandler(
 
     private async Task<SkillData?> GetSkillData(string skillId, CancellationToken cancellationToken)
     {
+        try
         {
-            // Auth Token weitergeben
-            var token = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"]
-                .FirstOrDefault()?.Split(" ").Last();
-            
-            if (!string.IsNullOrEmpty(token))
+            var skillName = await _skillServiceClient.GetSkillNameAsync(skillId, cancellationToken);
+            if (string.IsNullOrEmpty(skillName))
             {
-                _httpClient.DefaultRequestHeaders.Authorization = 
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                Logger.LogWarning("Failed to get skill name for {SkillId}", skillId);
+                return new SkillData("Unknown Skill", "General");
             }
 
-            var response = await _httpClient.GetAsync($"skills/{skillId}", cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                Logger.LogWarning("Failed to get skill data for {SkillId}, status: {StatusCode}", skillId, response.StatusCode);
-                return null;
-            }
-
-            var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<SkillApiResponse>>(cancellationToken: cancellationToken);
-            var skill = apiResponse?.Data;
-
-            if (skill == null)
-            {
-                Logger.LogWarning("Skill data is null for {SkillId}", skillId);
-                return null;
-            }
-
-            return new SkillData(skill.Name, skill.Category?.Name ?? "General");
+            var skillCategory = await _skillServiceClient.GetSkillCategoryAsync(skillId, cancellationToken);
+            return new SkillData(skillName, skillCategory);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting skill data for {SkillId}", skillId);
+            return new SkillData("Unknown Skill", "General");
         }
     }
 
     private async Task<UserData?> GetUserData(string userId, CancellationToken cancellationToken)
     {
+        try
         {
-            // Auth Token weitergeben
-            var token = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"]
-                .FirstOrDefault()?.Split(" ").Last();
-            
-            if (!string.IsNullOrEmpty(token))
+            var userName = await _userServiceClient.GetUserNameAsync(userId, cancellationToken);
+            if (string.IsNullOrEmpty(userName))
             {
-                _httpClient.DefaultRequestHeaders.Authorization = 
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                Logger.LogWarning("Failed to get user name for {UserId}", userId);
+                return new UserData("Unknown User", 0m, null);
             }
 
-            var response = await _httpClient.GetAsync($"users/{userId}", cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                Logger.LogWarning("Failed to get user data for {UserId}, status: {StatusCode}", userId, response.StatusCode);
-                return null;
-            }
-
-            var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<UserProfileResponse>>(cancellationToken: cancellationToken);
-            var user = apiResponse?.Data;
-
-            if (user == null)
-            {
-                Logger.LogWarning("User data is null for {UserId}", userId);
-                return null;
-            }
-
-            var fullName = $"{user.FirstName} {user.LastName}".Trim();
-            return new UserData(
-                Name: string.IsNullOrEmpty(fullName) ? "Unknown User" : fullName,
-                Rating: 0m, // TODO: Get actual rating when available
-                Avatar: user.ProfilePictureUrl
-            );
+            var userRating = await _userServiceClient.GetUserRatingAsync(userId, cancellationToken);
+            return new UserData(userName, (decimal)userRating, null);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting user data for {UserId}", userId);
+            return new UserData("Unknown User", 0m, null);
         }
     }
 
     private record SkillData(string Name, string Category);
     private record UserData(string Name, decimal Rating, string? Avatar);
-
-    private record SkillApiResponse(string Name, SkillCategoryResponse? Category);
-    private record SkillCategoryResponse(string Name);
-    private record UserProfileResponse(string FirstName, string LastName, string? ProfilePictureUrl);
 }

@@ -7,6 +7,7 @@ using CQRS.Extensions;
 using System.Reflection;
 using Infrastructure.Security;
 using Infrastructure.Authorization;
+using SkillService.Infrastructure.HttpClients;
 
 namespace SkillService.Infrastructure.Extensions;
 
@@ -25,6 +26,10 @@ public static class ServiceCollectionExtensions
         string serviceName)
     {
         services.AddScoped<INotificationHandler<UserDeletedEvent>, UserDeletedIntegrationEventHandler>();
+
+        // Register service clients that use IServiceCommunicationManager
+        services.AddScoped<IUserServiceClient, UserServiceClient>();
+        services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
 
         services.AddSharedInfrastructure(configuration, environment, serviceName);
 

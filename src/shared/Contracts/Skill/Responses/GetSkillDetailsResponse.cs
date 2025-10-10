@@ -7,6 +7,11 @@ namespace Contracts.Skill.Responses;
 /// </summary>
 /// <param name="SkillId">Unique identifier for the skill</param>
 /// <param name="UserId">User ID who owns the skill</param>
+/// <param name="OwnerUserName">Owner's username</param>
+/// <param name="OwnerFirstName">Owner's first name</param>
+/// <param name="OwnerLastName">Owner's last name</param>
+/// <param name="OwnerRating">Owner's average rating</param>
+/// <param name="OwnerMemberSince">When the owner joined</param>
 /// <param name="Name">Name of the skill</param>
 /// <param name="Description">Detailed description of the skill</param>
 /// <param name="IsOffered">Whether the user offers this skill (true) or seeks to learn it (false)</param>
@@ -27,6 +32,11 @@ namespace Contracts.Skill.Responses;
 public record GetSkillDetailsResponse(
     string SkillId,
     string UserId,
+    string? OwnerUserName,
+    string? OwnerFirstName,
+    string? OwnerLastName,
+    double? OwnerRating,
+    DateTime? OwnerMemberSince,
     string Name,
     string Description,
     bool IsOffered,

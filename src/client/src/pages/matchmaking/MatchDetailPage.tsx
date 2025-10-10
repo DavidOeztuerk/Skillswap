@@ -55,7 +55,6 @@ import PageHeader from '../../components/layout/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
-import { transformMatchToDisplay } from '../../utils/matchingTransformers';
 import { toast } from 'react-toastify';
 import RescheduleDialog from '../../components/appointments/RescheduleDialog';
 import matchmakingService from '../../api/services/matchmakingService';
@@ -81,16 +80,16 @@ const MatchDetailPage: React.FC = () => {
   const [dissolveReason, setDissolveReason] = useState('');
 
   useEffect(() => {
-    loadMatches({ page: 1, limit: 100 });
+    loadMatches({ pageNumber: 1, pageSize: 100 });
   }, []);
 
   useEffect(() => {
     if (matchId && matches.length > 0) {
       const foundMatch = matches.find(m => m.id === matchId);
       if (foundMatch) {
-        const displayMatch = transformMatchToDisplay(foundMatch);
-        setMatch(displayMatch);
-        loadMatchHistory(displayMatch);
+        // matches is already MatchDisplay[], no transformation needed
+        setMatch(foundMatch);
+        loadMatchHistory(foundMatch);
       }
     }
   }, [matchId, matches]);
@@ -111,7 +110,7 @@ const MatchDetailPage: React.FC = () => {
         timestamp: new Date(new Date(match.createdAt).getTime() + 3600000).toISOString(),
         action: 'accepted',
         description: 'Match wurde akzeptiert',
-        userName: match.otherUserName,
+        userName: match.partnerName,
         icon: <CheckIcon />,
         color: 'primary',
       },
@@ -336,13 +335,13 @@ const MatchDetailPage: React.FC = () => {
                     </Avatar>
                     <Box sx={{ flexGrow: 1 }}>
                       <Typography variant="h6">
-                        {match.otherUserName || 'Unbekannter Nutzer'}
+                        {match.partnerName || 'Unbekannter Nutzer'}
                       </Typography>
-                      {match.otherUserRating && match.otherUserRating > 0 && (
+                      {match.partnerRating && match.partnerRating > 0 && (
                         <Stack direction="row" spacing={1} alignItems="center">
                           <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
                           <Typography variant="body2" color="text.secondary">
-                            {match.otherUserRating.toFixed(1)} Bewertung
+                            {match.partnerRating.toFixed(1)} Bewertung
                           </Typography>
                         </Stack>
                       )}

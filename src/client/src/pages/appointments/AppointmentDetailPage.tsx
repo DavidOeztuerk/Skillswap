@@ -74,6 +74,7 @@ import errorService from '../../services/errorService';
 import RescheduleDialog from '../../components/appointments/RescheduleDialog';
 import appointmentService from '../../api/services/appointmentService';
 import MeetingLinkSection from '../../components/appointments/MeetingLinkSection';
+import { FEATURES } from '../../config/featureFlags';
 
 // Mock message interface
 interface AppointmentMessage {
@@ -214,6 +215,10 @@ const AppointmentDetailPage: React.FC = () => {
         message = 'Möchtest du diesen Termin wirklich absagen?';
         break;
       case 'complete':
+        if (!FEATURES.appointments.enableCompletion) {
+          setStatusMessage({ text: 'Abschließen ist derzeit nicht verfügbar', type: 'info' });
+          return;
+        }
         title = 'Termin abschließen';
         message = 'Möchtest du diesen Termin als abgeschlossen markieren?';
         break;
@@ -255,6 +260,10 @@ const AppointmentDetailPage: React.FC = () => {
           });
           break;
         case 'complete':
+          if (!FEATURES.appointments.enableCompletion) {
+            setStatusMessage({ text: 'Abschließen ist derzeit nicht verfügbar', type: 'info' });
+            break;
+          }
           result = await completeAppointment(appointmentId);
           success = result.meta.requestStatus === 'fulfilled';
           setStatusMessage({

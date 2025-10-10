@@ -38,7 +38,7 @@ public class RejectMatchRequestCommandHandler(
                 return Error("Match request not found", ErrorCodes.ResourceNotFound);
             }
 
-            if (matchRequest.Status != "Pending")
+            if (matchRequest.Status.ToLower() != "pending")
             {
                 return Error("Match request is no longer pending", ErrorCodes.InvalidOperation);
             }

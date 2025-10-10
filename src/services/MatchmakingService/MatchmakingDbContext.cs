@@ -19,45 +19,19 @@ public class MatchmakingDbContext(
         modelBuilder.Entity<Match>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.OfferingUserId);
-            entity.HasIndex(e => e.RequestingUserId);
+            entity.HasIndex(e => e.AcceptedMatchRequestId);
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.CreatedAt);
             entity.HasIndex(e => new { e.Status, e.CreatedAt });
 
-            entity.Property(e => e.ThreadId).HasMaxLength(450);
-            entity.Property(e => e.OriginalRequestId).HasMaxLength(450);
-            entity.Property(e => e.ExchangeSkillId).HasMaxLength(450);
-            entity.Property(e => e.ExchangeSkillName).HasMaxLength(100);
-            entity.Property(e => e.Currency).HasMaxLength(3);
-            entity.Property(e => e.AgreedAmount).HasPrecision(18, 2);
+            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue(MatchStatus.Accepted);
+            entity.Property(e => e.DissolutionReason).HasMaxLength(500);
+            entity.Property(e => e.CompletionNotes).HasMaxLength(1000);
 
-            entity.Property(e => e.OfferedSkillName).HasMaxLength(100);
-            entity.Property(e => e.RequestedSkillName).HasMaxLength(100);
-            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue(MatchStatus.Pending);
-            entity.Property(e => e.MatchReason).HasMaxLength(500);
-
-            entity.Property(e => e.AgreedDays)
-                .HasConversion(
-                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>())
-                .Metadata.SetValueComparer(new ValueComparer<List<string>>(
-                    (a, b) => a != null && b != null && a.SequenceEqual(b),
-                    v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
-                    v => v == null ? new List<string>() : new List<string>(v)));
-
-            entity.Property(e => e.AgreedTimes)
-                .HasConversion(
-                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>())
-                .Metadata.SetValueComparer(new ValueComparer<List<string>>(
-                    (a, b) => a != null && b != null && a.SequenceEqual(b),
-                    v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
-                    v => v == null ? new List<string>() : new List<string>(v)));
-
-            // Indexes
-            entity.HasIndex(e => e.ThreadId);
-            entity.HasIndex(e => e.OriginalRequestId);
+            entity.HasOne(e => e.AcceptedMatchRequest)
+                .WithMany()
+                .HasForeignKey(e => e.AcceptedMatchRequestId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasQueryFilter(e => !e.IsDeleted);
         });

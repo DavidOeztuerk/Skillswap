@@ -1,23 +1,34 @@
 import { createEntityAdapter, EntityState, EntityId } from "@reduxjs/toolkit";
-import { Match } from "../../types/models/Match";
 import { RequestState } from "../../types/common/RequestState";
-import { MatchDisplay, MatchRequestDisplay } from "../../types/contracts/MatchmakingDisplay";
+import { MatchDisplay, MatchRequestDisplay, MatchRequestInThreadDisplay } from "../../types/contracts/MatchmakingDisplay";
 import { User } from "../../types/models/User";
 
-export const matchesAdapter = createEntityAdapter<Match, EntityId>({
+/**
+ * ✅ REFACTORED: Use MatchDisplay in EntityAdapter (not Match domain model)
+ * Backend returns MatchDisplay, so we store that directly in normalized state
+ */
+export const matchesAdapter = createEntityAdapter<MatchDisplay, EntityId>({
   selectId: (match) => match.id,
   sortComparer: (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 });
 
-export interface MatchesEntityState extends EntityState<Match, EntityId>, RequestState {
-  matches: MatchDisplay[];
+/**
+ * ✅ REFACTORED: Removed duplicate state arrays
+ *
+ * EntityAdapter provides: entities + ids (normalized state for matches)
+ * No need for: matches[], matchHistory[], acceptedRequests[]
+ *
+ * Kept separate arrays for requests (incoming/outgoing) because:
+ * - They're different entity types (MatchRequestDisplay vs MatchDisplay)
+ * - They have separate pagination/loading states
+ * - They're managed independently from matches
+ */
+export interface MatchesEntityState extends EntityState<MatchDisplay, EntityId>, RequestState {
   activeMatch: MatchDisplay | null;
   matchResults: User[];
   matchRequestSent: boolean;
   incomingRequests: MatchRequestDisplay[];
   outgoingRequests: MatchRequestDisplay[];
-  acceptedRequests: MatchRequestDisplay[];
-  matchHistory: MatchDisplay[];
   matchPreferences: MatchPreferences | null;
   currentThread: MatchRequestThread | null;
   pagination: MatchPagination;
@@ -28,10 +39,8 @@ export interface MatchesEntityState extends EntityState<Match, EntityId>, Reques
 }
 
 export const initialMatchesState: MatchesEntityState = matchesAdapter.getInitialState({
-    incomingRequests: [],
+  incomingRequests: [],
   outgoingRequests: [],
-  acceptedRequests: [],
-  matches: [],
   activeMatch: null,
   matchResults: [],
   currentThread: null,
@@ -41,7 +50,6 @@ export const initialMatchesState: MatchesEntityState = matchesAdapter.getInitial
     skillCategory: 'all',
     experienceLevel: 'all',
   },
-  matchHistory: [],
   isLoadingMatches: false,
   matchPreferences: null,
   pagination: {
@@ -148,23 +156,7 @@ export interface MatchRequestThread {
       avatar?: string;
     };
   };
-  requests: Array<{
-    id: string;
-    requesterId: string;
-    message: string;
-    type: 'initial' | 'counter' | 'acceptance' | 'rejection';
-    status: 'pending' | 'accepted' | 'rejected' | 'countered';
-    isSkillExchange: boolean;
-    exchangeSkillName?: string;
-    isMonetary: boolean;
-    offeredAmount?: number;
-    preferredDays: string[];
-    preferredTimes: string[];
-    sessionDuration: number;
-    totalSessions: number;
-    createdAt: string;
-    isRead: boolean;
-  }>;
+  requests: MatchRequestInThreadDisplay[];
   lastActivity: string;
   status: 'active' | 'accepted' | 'rejected' | 'expired';
 }

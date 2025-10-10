@@ -6,6 +6,7 @@ using Events.Integration.AppointmentManagement;
 using EventSourcing;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Infrastructure.Communication;
 
 namespace AppointmentService.Application.EventHandlers;
 
@@ -19,14 +20,14 @@ public class AppointmentAcceptedEventHandler(
     IPublishEndpoint publishEndpoint,
     IAppointmentDataEnrichmentService enrichmentService,
     ILogger<AppointmentAcceptedEventHandler> logger,
-    IHttpClientFactory httpClientFactory)
+    IServiceCommunicationManager serviceCommunication)
     : BaseDomainEventHandler<AppointmentAcceptedDomainEvent>(logger)
 {
     private readonly AppointmentDbContext _dbContext = dbContext;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
     private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
     private readonly IAppointmentDataEnrichmentService _enrichmentService = enrichmentService;
-    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+    private readonly IServiceCommunicationManager _serviceCommunication = serviceCommunication;
 
     protected override async Task HandleDomainEvent(AppointmentAcceptedDomainEvent notification, CancellationToken cancellationToken)
     {
@@ -128,10 +129,9 @@ public class AppointmentAcceptedEventHandler(
 
     private async Task<string> GenerateMeetingLink(Appointment appointment, CancellationToken cancellationToken)
     {
+        try
         {
             // Call VideocallService to create a session
-            var httpClient = _httpClientFactory.CreateClient("VideocallService");
-
             var request = new
             {
                 appointmentId = appointment.Id,
@@ -140,15 +140,23 @@ public class AppointmentAcceptedEventHandler(
                 participantIds = new[] { appointment.OrganizerUserId, appointment.ParticipantUserId }
             };
 
-            var response = await httpClient.PostAsJsonAsync("/sessions/create", request, cancellationToken);
+            var response = await _serviceCommunication.SendRequestAsync<object, VideocallSessionResponse>(
+                "videocallservice",
+                "sessions/create",
+                request,
+                cancellationToken);
 
-            if (response.IsSuccessStatusCode)
+            if (response != null)
             {
-                var result = await response.Content.ReadFromJsonAsync<VideocallSessionResponse>(cancellationToken: cancellationToken);
-                return result?.MeetingLink ?? GenerateFallbackMeetingLink(appointment);
+                return response.MeetingLink ?? GenerateFallbackMeetingLink(appointment);
             }
 
-            Logger.LogWarning("VideocallService returned {StatusCode} when creating session", response.StatusCode);
+            Logger.LogWarning("VideocallService returned null response when creating session");
+            return GenerateFallbackMeetingLink(appointment);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to generate meeting link via VideocallService");
             return GenerateFallbackMeetingLink(appointment);
         }
     }

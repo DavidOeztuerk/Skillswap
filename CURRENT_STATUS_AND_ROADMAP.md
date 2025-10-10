@@ -1,319 +1,433 @@
-# 🚀 SKILLSWAP - AKTUELLER STATUS & REALISTISCHE ROADMAP
+# 📊 SKILLSWAP - CURRENT STATUS & ROADMAP
 
-## 📊 PROJEKT STATUS: MVP FERTIG, PERFORMANCE OPTIMIERT
-
-**Stand: 05.09.2025**
-
-### ✅ Was wir HABEN:
-- **6 funktionierende Microservices** (User, Skill, Matchmaking, Appointment, Videocall, Notification)
-- **Komplettes Frontend** mit React/TypeScript/MUI
-- **Authentifizierung & RBAC** vollständig implementiert
-- **PostgreSQL Datenbanken** für alle Services
-- **Event-Driven Architecture** mit RabbitMQ
-- **✨ NEU: Redis Caching** vollständig implementiert mit Cache Invalidation
-- **Admin Panel** funktioniert
-- **Thread Pool Optimierung** in allen Services implementiert
-- **Production-ready Health Checks** mit Kubernetes-Support
-- **Konsistente Package-Versionen** (v9.0.0)
-- **✨ NEU: Comprehensive Caching Strategy** mit 50-95% Performance-Verbesserung
-- **✨ NEU: Cache Isolation** für Multi-User-Sicherheit
-- **✨ NEU: Vollständiges Error Handling** mit ErrorCodes, HelpUrls und Domain Exceptions
-- **✨ NEU: GlobalExceptionHandlingMiddleware** mit konsistenter ApiResponse-Struktur
-
-### ⚠️ Was noch PROBLEME macht:
-- **Wenig Tests** (~30% Coverage)
-- **Database Query Performance** noch nicht vollständig optimiert
+> **Letzte Aktualisierung**: 01.10.2025
+> **Branch**: `feature/service-communication-orchestration`
+> **Phase**: Core Features Refactoring & Bug Fixes
 
 ---
 
-## 🎯 REALISTISCHE PRIORISIERUNG
+## 🎯 AKTUELLER STATUS
 
-## 🔥 WOCHE 1: PERFORMANCE KRITISCH (TEILWEISE ERLEDIGT)
+### ✅ **FERTIGGESTELLT**
+- Microservices Architecture (6 Services)
+- CQRS Pattern mit MediatR
+- Event-Driven Architecture mit MassTransit/RabbitMQ
+- Gateway (Ocelot) für API Routing
+- PostgreSQL für alle Services
+- Redis Caching Layer
+- SignalR für Real-time (VideoCall Hub)
+- WebRTC Infrastructure
+- Thread Pool Optimierungen
+- Health Checks Modernisierung
 
-### ✅ 1. Thread Pool & Performance Fix [ERLEDIGT]
-**Problem**: Alle Services hatten Thread Pool Starvation
-**Lösung**: Implementiert in allen Services:
-```csharp
-ThreadPool.SetMinThreads(200, 200);
-ThreadPool.SetMaxThreads(1000, 1000);
-AppContext.SetSwitch("System.Runtime.ServerGarbageCollection", true);
+### ⚠️ **IN ARBEIT** (Feature Branch)
+- Service Communication Standardisierung
+- Redux Store Refactoring (kritische Bugs)
+- Match → Appointment Automation
+- VideoCall Frontend Integration
+- Push Notifications Frontend
+
+### 🔴 **KRITISCHE BUGS IDENTIFIZIERT**
+1. **Frontend Redux Store**: Doppelte State-Verwaltung (EntityAdapter wird nicht genutzt)
+2. **AppointmentThunks**: Undefined variables in Transformation Logic
+3. **Service Communication**: Inkonsistente HttpClient-Nutzung
+4. **Match Flow**: Appointments werden NICHT automatisch bei Match-Accept erstellt
+5. **Contracts**: Keine Synchronisation zwischen Backend (C#) und Frontend (TS)
+
+---
+
+## 🚀 ROADMAP
+
+### **PHASE 1: FOUNDATION FIX** (Tag 1-2) ⚡ **IN PROGRESS**
+
+#### Priorität: KRITISCH
+**Ziel:** Frontend State Management reparieren, kritische Bugs fixen
+
+**Tasks:**
+- [ ] AppointmentThunks komplett refactoren (Pattern von AuthThunk übernehmen)
+- [ ] Redux Store: EntityAdapter vollständig nutzen (Doppel-State entfernen)
+- [ ] MatchmakingSlice analog refactoren
+- [ ] TypeScript Errors im Frontend fixen
+- [ ] Selectors neu schreiben (aus entities filtern)
+
+**Files:**
+- `src/client/src/features/appointments/appointmentsThunks.ts`
+- `src/client/src/features/appointments/appointmentsSlice.ts`
+- `src/client/src/store/selectors/appointmentsSelectors.ts`
+- `src/client/src/store/adapters/appointmentsAdapter+State.ts`
+- `src/client/src/features/matchmaking/*` (analog)
+
+**Geschätzte Dauer:** 1-2 Tage
+
+---
+
+### **PHASE 2: SERVICE COMMUNICATION** (Tag 2-3) ✅ **ABGESCHLOSSEN**
+
+#### Priorität: HOCH
+**Ziel:** Alle Services nutzen ServiceCommunicationManager konsistent
+
+**Tasks:**
+- [x] Alle HttpClients auf ServiceCommunicationManager umstellen
+- [x] Circuit Breaker & Retry Logic hinzufügen (Polly)
+- [x] Gateway Routing validieren
+- [x] Error Handling standardisieren
+- [x] Service Health Checks testen
+- [x] Validation Architektur vereinfacht (Cross-Service Validation entfernt)
+- [x] FluentValidation überall implementiert
+- [x] Public Skills Browsing für unauthentifizierte Nutzer
+- [x] ServiceTokenProvider DI-Bug behoben
+- [x] PermissionMiddleware public endpoints konfiguriert
+
+**Services:**
+- MatchmakingService (UserServiceClient, SkillServiceClient)
+- AppointmentService (UserServiceClient, SkillServiceClient, NotificationServiceClient)
+- NotificationService (UserServiceClient)
+- VideocallService (AppointmentServiceClient, UserServiceClient)
+- SkillService (UserServiceClient, NotificationServiceClient)
+- UserService (SkillServiceClient, NotificationServiceClient)
+
+**Geschätzte Dauer:** 1 Tag
+
+---
+
+### **PHASE 3: MATCH → APPOINTMENT AUTOMATION** (Tag 3) 📨
+
+#### Priorität: HOCH
+**Ziel:** Automatische Appointment-Erstellung bei Match-Accept
+
+**Tasks:**
+- [ ] MatchAcceptedConsumer in AppointmentService implementieren
+- [ ] Appointment Scheduling Service erstellen
+- [ ] Berechnung von Terminen basierend auf preferredDays/Times
+- [ ] Meeting Link Generierung für alle Appointments
+- [ ] Email mit allen Terminen + Meeting Links
+- [ ] Event: AppointmentCreatedEvent publishen
+
+**Flow:**
 ```
-**Status**: ✅ FERTIG (28.08.2025)
+MatchmakingService: AcceptMatchRequest
+  → publishes MatchAcceptedIntegrationEvent
 
-### ✅ 2. Health Checks Modernisierung [ERLEDIGT]
-**Problem**: Health Checks waren nicht production-ready
-**Lösung**: 
-- Lazy RabbitMQ Connection Pattern für v9.0.0
-- Tag-basierte Filterung (live/ready)
-- MassTransit Health Checks integriert
-- Proper Status Code Mapping für Kubernetes
-**Status**: ✅ FERTIG (28.08.2025)
+AppointmentService: MatchAcceptedConsumer
+  → Berechnet nächste X Termine
+  → Erstellt X Appointments (Status=Pending)
+  → Generiert Meeting Links
+  → publishes AppointmentCreatedEvent
 
-### ✅ 3. Database Query Optimierung [ERLEDIGT]
-**Problem**: N+1 Queries, fehlende Indizes
-**Lösung**: 
-- [x] Query-Analysen mit EF Core Logging durchgeführt
-- [x] Indizes hinzugefügt (Composite Indizes für häufige Queries)
-- [x] Include/ThenInclude optimiert (Filtered Includes implementiert)
-- [x] AsNoTracking für Read-Only Queries
-- [x] AsSplitQuery bei mehreren Includes
-**Aufwand**: 1 Tag
-**Status**: ✅ FERTIG (05.09.2025)
+NotificationService: AppointmentCreatedConsumer
+  → Sendet Email mit Terminen + Links
+```
+
+**Geschätzte Dauer:** 1 Tag
 
 ---
 
-## 💡 WOCHE 2-3: STABILISIERUNG
+### **PHASE 4: VIDEOCALL FRONTEND** (Tag 4) 🎥
 
-### ✅ 4. Caching Strategy verbessern [ERLEDIGT]
-**Status**: Redis-Caching vollständig implementiert und optimiert
-**Actions**:
-- [x] Cache Keys standardisiert (mit UserId für Isolation)
-- [x] TTL Strategie definiert (5-15 Minuten je nach Datentyp)
-- [x] Cache Invalidierung implementiert (CacheInvalidationBehavior)
-- [x] Performance-Verbesserung: 50-95% schnellere Response-Zeiten
-**Aufwand**: 2 Tage
-**Status**: ✅ FERTIG (05.09.2025)
+#### Priorität: MITTEL
+**Ziel:** VideoCall UI komplett funktionsfähig
 
-### ✅ 5. Error Handling & Logging [ERLEDIGT]
-**Status**: Vollständig implementiert und optimiert
-**Actions**:
-- [x] Globale Exception Handler mit ApiResponse-Format
-- [x] Domain Exception Hierarchy implementiert
-- [x] Strukturiertes Logging mit Correlation IDs
-- [x] User-friendly Error Messages mit ErrorCodes
-- [x] HelpUrls für alle Fehlertypen implementiert
-- [x] Alle Handler (55+) mit ErrorCodes aktualisiert
-**Implementiert**:
-- Zentrale ErrorCodes-Enumeration
-- HelpUrls-Klasse mit automatischer Zuordnung
-- GlobalExceptionHandlingMiddleware mit ApiResponse-Format
-- BaseHandler mit automatischer HelpUrl-Auflösung
-- Konsistentes Error-Handling in allen Services
-**Aufwand**: 2 Tage
-**Status**: ✅ FERTIG (05.09.2025)
+**Tasks:**
+- [ ] SignalR Client für VideoCall Hub
+- [ ] WebRTC Integration (MediaStream, PeerConnection)
+- [ ] Video Grid Component
+- [ ] Video Controls (Mute, Camera, Screen Share)
+- [ ] Chat Component (Session-bound, in-memory)
+- [ ] Meeting Room nur 5 min vor Start zugänglich
+- [ ] Session Ende: Auto-Disconnect & Chat-Cleanup
 
-### ✅ 6. Frontend Performance [ERLEDIGT]
-**Status**: Performance optimiert und Re-Render Issues behoben
-**Actions**:
-- [x] React.memo wo nötig implementiert
-- [x] useMemo/useCallback optimiert (balanciert, keine Over-Engineering)
-- [x] Authentication infinite loading loop behoben (authSlice.ts isPending matcher)
-- [x] Admin navigation auto-permission fetch implementiert
-- [x] SkillCard performance regression behoben
-- [x] Performance utilities konsolidiert (usePerformance.ts)
-- [x] Backend connection pool exhaustion behoben (5-60s → normal response times)
-**Aufwand**: 3 Tage
-**Status**: ✅ FERTIG (26.09.2025)
+**Components:**
+- `VideoCallConnection.ts` (SignalR Client)
+- `VideoCallRoom.tsx` (Main Component)
+- `VideoControls.tsx`
+- `ChatPanel.tsx`
+- `useVideoCall.ts` Hook
+
+**Geschätzte Dauer:** 1 Tag
 
 ---
 
-## 🚀 MONAT 1: PRODUCTION READY
+### **PHASE 5: PUSH NOTIFICATIONS FRONTEND** (Tag 5) 🔔
 
-### 7. Testing (KRITISCH für Stabilität)
-**Status**: 30% Coverage
-**Ziel**: 80% Coverage für kritische Pfade
-**Actions**:
-- [ ] Unit Tests für alle Commands/Queries
-- [ ] Integration Tests für API Endpoints
-- [ ] Frontend Component Tests
-- [ ] E2E Tests für User Journeys
-**Aufwand**: 2 Wochen
+#### Priorität: MITTEL
+**Ziel:** Real-time Notifications im Frontend
 
-### 8. Monitoring & Observability
-**Status**: Nur Health Checks
-**Actions**:
-- [ ] Application Insights einrichten
-- [ ] Custom Metrics definieren
-- [ ] Dashboards erstellen
-- [ ] Alerting konfigurieren
-**Aufwand**: 1 Woche
+**Tasks:**
+- [ ] SignalR Connection zu NotificationService
+- [ ] Redux Integration (real-time updates)
+- [ ] Toast Notifications für Events
+- [ ] Notification Center im Header
+- [ ] Badge mit Unread Count
+- [ ] Mark as Read Funktionalität
 
-### 9. Clean Architecture vervollständigen
-**Status**: UserService 100%, andere 40-70%
-**Actions**:
-- [ ] SkillService fertig migrieren
-- [ ] MatchmakingService refactoring
-- [ ] AppointmentService refactoring
-- [ ] NotificationService refactoring
-**Aufwand**: 1 Woche
+**Components:**
+- `NotificationsConnection.ts`
+- `NotificationCenter.tsx`
+- `NotificationToast.tsx`
+
+**Geschätzte Dauer:** 0.5 Tag
 
 ---
 
-## 🎨 MONAT 2: USER EXPERIENCE
+### **PHASE 6: MATCH REQUEST TIMELINE** (Tag 6) 🕐
 
-### 10. Matchmaking Vereinfachung
-**Status**: Funktioniert aber zu komplex
-**Based on**: MATCHMAKING_REDESIGN_PLAN.md
-**Actions**:
-- [ ] 3-Step Process implementieren
-- [ ] UI vereinfachen
-- [ ] Dual-Mode (Tausch/Bezahlung)
-**Aufwand**: 2 Wochen
+#### Priorität: MITTEL
+**Ziel:** Timeline für Match Request Verlauf (Counter-Offers)
 
-### 11. Video Call Verbesserungen
-**Status**: Basis funktioniert
-**Actions**:
-- [ ] Screen Sharing
-- [ ] Chat während Call
-- [ ] Reconnection Logic
-- [ ] Better Error Handling
-**Aufwand**: 1 Woche
+**Tasks:**
+- [ ] Timeline Component (Material-UI Timeline)
+- [ ] Thread-Requests anzeigen
+- [ ] Counter-Offer Dialog
+- [ ] Accept/Reject Actions
+- [ ] Real-time Updates bei neuen Requests
 
-### 12. Mobile Responsive
-**Status**: Desktop-optimiert
-**Actions**:
-- [ ] Mobile-First CSS
-- [ ] Touch Gestures
-- [ ] PWA Features
-**Aufwand**: 1 Woche
+**Components:**
+- `MatchRequestTimeline.tsx`
+- `MatchRequestCard.tsx`
+- `CounterOfferDialog.tsx`
+
+**Geschätzte Dauer:** 0.5 Tag
 
 ---
 
-## 📈 MONAT 3: SKALIERUNG
+### **PHASE 7: APPOINTMENT KALENDER** (Tag 7) 📅
 
-### 13. DevOps & CI/CD
-**Status**: GitHub Actions vorhanden aber minimal
-**Actions**:
-- [ ] Automated Testing Pipeline
-- [ ] Build & Deploy Automation
-- [ ] Environment Management
-- [ ] Rollback Capabilities
-**Aufwand**: 2 Wochen
+#### Priorität: MITTEL
+**Ziel:** Microsoft Teams Style Kalender
 
-### 14. Kubernetes Migration
-**Status**: Docker-Compose only
-**Actions**:
-- [ ] K8s Manifests erstellen
-- [ ] Helm Charts
-- [ ] Service Mesh (optional)
-- [ ] Auto-scaling
-**Aufwand**: 2 Wochen
+**Tasks:**
+- [ ] Kalender Grid (Week/Day View)
+- [ ] Current Time Indicator (roter Strich)
+- [ ] Appointment Cards mit Status-Farben
+- [ ] Detail Modal
+- [ ] Meeting Link Button (enabled 5 min vor Start)
+- [ ] Drag & Drop für Reschedule (optional)
 
-### 15. HelpUrls in Handlers implementieren
-**Status**: Infrastruktur vorhanden, noch nicht in Handlers verwendet
-**Bereits implementiert**:
-- HelpUrls.cs Klasse mit allen Dokumentations-URLs
-- Automatische HelpUrl-Zuordnung in BaseHandler-Klassen
-- GlobalExceptionHandlingMiddleware nutzt HelpUrls
-**Noch zu tun**:
-- [ ] Explizite HelpUrl-Parameter in allen Command/Query Handlers hinzufügen
-- [ ] Custom HelpUrls für spezifische Business-Fehler
-- [ ] Dokumentations-Seiten für alle HelpUrls erstellen
-- [ ] HelpUrl-Lokalisierung für mehrsprachige Unterstützung
-**Aufwand**: 1 Woche
+**Components:**
+- `CalendarView.tsx`
+- `CalendarGrid.tsx`
+- `AppointmentCard.tsx`
+- `CurrentTimeIndicator.tsx`
+- `AppointmentDetailModal.tsx`
+
+**Geschätzte Dauer:** 1 Tag
 
 ---
 
-## 🗑️ ZU LÖSCHENDE MD DATEIEN
+### **PHASE 8: TESTING & BUG FIXES** (Tag 8) ✅
 
-Diese Dateien sind veraltet und verwirren nur:
-- TODO.md (veraltet, Status stimmt nicht mehr)
-- TODO-CRITICAL.md (teilweise gelöst)
-- docs/TODO.md (Duplikat)
-- docs/APIRESPONSE_MIGRATION_COMPLETE.md (erledigt)
-- docs/APIRESPONSE_MIGRATION_FINAL.md (erledigt)
-- docs/BACKEND_FRONTEND_ANALYSIS.md (veraltet)
-- docs/BACKEND_FRONTEND_FIXES_SUMMARY.md (erledigt)
-- PRIORITIZED_ROADMAP.md (basiert auf falschen Annahmen)
+#### Priorität: HOCH
+**Ziel:** End-to-End Testing, Bug Fixes, Stabilisierung
 
-**Behalten sollten wir:**
-- CLAUDE.md (Development Guidelines)
-- GIT_WORKFLOW.md (Git Process)
-- SERVICE_SCRIPTS.md (Startup Scripts)
-- MATCHMAKING_REDESIGN_PLAN.md (Future Vision)
-- Diese neue CURRENT_STATUS_AND_ROADMAP.md
+**Tasks:**
+- [ ] End-to-End Flow Testing (Login → Match → Appointment → VideoCall)
+- [ ] TypeScript Errors komplett fixen
+- [ ] Service Communication Error Handling testen
+- [ ] Notification Flow testen
+- [ ] VideoCall mit 2 Usern testen
+- [ ] Performance Testing (Lazy Loading, React.memo)
+
+**Geschätzte Dauer:** 1 Tag
 
 ---
 
-## 📊 REALISTISCHE ZEITPLANUNG
+## 📅 ZEITPLAN CORE FEATURES
 
-### Sprint 1 (Diese Woche):
-✅ Performance Fixes (ERLEDIGT)
-✅ Health Checks Modernisierung (ERLEDIGT)
-✅ Query Optimierung (ERLEDIGT 05.09.2025)
+| Phase | Dauer | Status |
+|-------|-------|--------|
+| Phase 1: Foundation Fix | 1-2 Tage | 🔵 In Progress |
+| Phase 2: Service Communication | 1 Tag | ✅ Abgeschlossen |
+| Phase 3: Match → Appointment | 1 Tag | ⚪ Pending |
+| Phase 4: VideoCall Frontend | 1 Tag | ⚪ Pending |
+| Phase 5: Notifications | 0.5 Tag | ⚪ Pending |
+| Phase 6: Timeline | 0.5 Tag | ⚪ Pending |
+| Phase 7: Kalender | 1 Tag | ⚪ Pending |
+| Phase 8: Testing | 1 Tag | ⚪ Pending |
 
-### Sprint 2-3 (Nächste 2 Wochen):
-✅ Caching Optimierung (ERLEDIGT 05.09.2025)
-✅ Error Handling (ERLEDIGT 05.09.2025)
-✅ Frontend Performance (ERLEDIGT 26.09.2025)
-
-### Monat 1:
-⏳ Testing auf 80%
-⏳ Monitoring Setup
-⏳ Clean Architecture
-
-### Monat 2:
-⏳ UX Verbesserungen
-⏳ Matchmaking Redesign
-⏳ Mobile Support
-
-### Monat 3:
-⏳ DevOps Pipeline
-⏳ Kubernetes
-⏳ Production Launch
+**GESAMT: ~7 Arbeitstage**
 
 ---
 
-## 💰 BUDGET & RESSOURCEN
+## 🔮 FUTURE FEATURES (Separat dokumentiert)
 
-### Sofort (Performance):
-- **Aufwand**: 40 Stunden
-- **Priorität**: KRITISCH
-- **Impact**: System wird nutzbar
+### **Payment Integration** 💰
+> Dokumentiert in: `PAYMENT_INTEGRATION_PLAN.md`
 
-### MVP Polish (Monat 1):
-- **Aufwand**: 160 Stunden
-- **Priorität**: HOCH
-- **Impact**: Production Ready
+**Stack:** Stripe (Escrow System)
+**Dauer:** 3-4 Tage
+**Status:** 📝 Geplant für nach Core Features
 
-### Full Production (3 Monate):
-- **Aufwand**: 480 Stunden
-- **Team**: 2-3 Entwickler
-- **Kosten**: ~30.000-40.000€
-
----
-
-## 🎯 NÄCHSTE KONKRETE SCHRITTE
-
-### HEUTE:
-1. ✅ ThreadPool Settings in allen Services gefixt
-2. ✅ Health Checks komplett modernisiert
-3. ✅ Package Versionen vereinheitlicht
-
-### MORGEN:
-1. Database Queries analysieren
-2. Fehlende Indizes hinzufügen
-3. Caching Keys dokumentieren
-
-### DIESE WOCHE:
-1. Performance Tests durchführen
-2. Monitoring Dashboard aufsetzen
-3. Critical Path Tests schreiben
+**Features:**
+- PaymentIntent mit `capture_method=manual`
+- Escrow: Funds gehalten bis Appointment Complete
+- Refund bei Cancel
+- Dispute Handling
+- Stripe Elements für Frontend
 
 ---
 
-## ✅ ERFOLGS-KRITERIEN
+### **Multi-Language (i18n)** 🌍
+> Dokumentiert in: `MULTILANGUAGE_IMPLEMENTATION.md`
 
-### Woche 1:
-- [x] Response Zeit < 2 Sekunden (verbessert durch Thread Pool Fix)
-- [x] Alle Services "healthy" (Health Checks modernisiert)
-- [x] Keine Thread Pool Warnings (ThreadPool.SetMinThreads implementiert)
+**Sprachen:** DE, EN, FR, PT
+**Stack:** i18next (Frontend), ASP.NET Localization (Backend)
+**Dauer:** 3-4 Tage
+**Status:** 📝 Geplant für nach Core Features
 
-### Monat 1:
-- [ ] 80% Test Coverage
+**Features:**
+- UI Texte in 4 Sprachen
+- Email Templates lokalisiert
+- Error Messages lokalisiert
+- Date/Time/Currency Formatting
+- Optional: DeepL API für User Messages
+
+---
+
+## 🎯 ERFOLGS-KRITERIEN
+
+### **Sprint 1** (Core Features - 7 Tage)
+- [ ] Frontend Redux Store stabil
+- [ ] Service Communication konsistent
+- [ ] Match → Appointment Flow funktioniert
+- [ ] VideoCall funktioniert mit 2 Usern
+- [ ] Push Notifications funktionieren
+- [ ] Timeline zeigt Requests an
+- [ ] Kalender zeigt Appointments an
+- [ ] Keine TypeScript Errors
+
+### **Sprint 2** (Payment + i18n - 7 Tage)
+- [ ] Stripe Integration funktioniert
+- [ ] Escrow Flow getestet
+- [ ] 4 Sprachen verfügbar
+- [ ] Email Templates in allen Sprachen
+
+### **Sprint 3** (Testing + Production - 5 Tage)
+- [ ] End-to-End Tests geschrieben
+- [ ] Performance optimiert
+- [ ] Production Deployment
 - [ ] Monitoring aktiv
-- [ ] Fehlerrate < 1%
-
-### Monat 3:
-- [ ] Production deployed
-- [ ] 1000+ concurrent users
-- [ ] 99.9% uptime
 
 ---
 
-**STATUS**: Das Projekt ist funktional komplett aber braucht Performance-Optimierung und Production-Hardening. Die Architektur ist solide, die Features sind da - jetzt geht es um Stabilität und Skalierung.
+## 📊 TECHNICAL DEBT
+
+### **HOCH PRIORITÄT**
+- [ ] Event Sourcing: Aktuell nur Messaging, kein echtes Event Sourcing
+- [ ] CQRS: Read/Write DB Separation nicht implementiert
+- [ ] Unit Tests: < 10% Coverage (Ziel: 80%)
+- [ ] Integration Tests: Fehlen komplett
+
+### **MITTEL PRIORITÄT**
+- [ ] Docker Compose: Dev Environment nicht optimal
+- [ ] Database Migrations: Manuell statt automatisch
+- [ ] Logging: Strukturiertes Logging inkonsistent
+- [ ] Monitoring: Prometheus/Grafana fehlt
+
+### **NIEDRIG PRIORITÄT**
+- [ ] Documentation: API Docs (Swagger) nicht aktuell
+- [ ] Code Comments: Teilweise fehlend
+- [ ] Naming Conventions: Nicht überall konsistent
 
 ---
 
-*Letzte Aktualisierung: 05.09.2025*
-*Nächstes Review: Nach Sprint 2*
+## 🚀 DEPLOYMENT STATUS
+
+### **Development** (Local)
+- ✅ Docker Compose Setup
+- ✅ PostgreSQL 14
+- ✅ Redis 7
+- ✅ RabbitMQ 3.12
+- ⚠️ Gateway: Port 8080
+- ⚠️ Frontend: Port 3000
+
+### **Staging** (Azure)
+- ⚠️ ACR (Azure Container Registry) vorhanden
+- ❌ AKS (Kubernetes) nicht konfiguriert
+- ❌ Managed PostgreSQL fehlt
+- ❌ Redis Cache fehlt
+
+### **Production**
+- ❌ Nicht deployed
+- ❌ Infrastructure as Code fehlt
+- ❌ CI/CD Pipeline fehlt
+
+---
+
+## 💡 NEXT IMMEDIATE STEPS
+
+### **HEUTE** (01.10.2025)
+1. ✅ Masterplan erstellt
+2. ✅ Payment Integration dokumentiert
+3. ✅ Multi-Language dokumentiert
+4. 🔵 **START: Phase 1 - AppointmentThunks Fix**
+
+### **MORGEN** (02.10.2025)
+1. Phase 1: Redux Store Refactoring abschließen
+2. Phase 2: Service Communication starten
+3. TypeScript Errors fixen
+
+### **DIESE WOCHE** (01.10 - 05.10)
+1. Phase 1-4 abschließen (Foundation + VideoCall)
+2. Critical Bugs alle gefixt
+3. End-to-End Flow funktioniert
+
+---
+
+## 📈 PROJEKT-METRIKEN
+
+### **Code Base**
+- **Backend**: ~15,000 LOC (C#)
+- **Frontend**: ~12,000 LOC (TypeScript/React)
+- **Services**: 6 Microservices
+- **Contracts**: 120+ Request/Response DTOs
+
+### **Current Issues**
+- **TypeScript Errors**: ~25
+- **Critical Bugs**: 5
+- **Technical Debt Items**: 15
+- **Missing Features**: 8
+
+### **Test Coverage** (Ziel)
+- **Unit Tests**: 10% → **80%**
+- **Integration Tests**: 0% → **60%**
+- **E2E Tests**: 0% → **40%**
+
+---
+
+## 🎓 TEAM & RESOURCES
+
+### **Development**
+- **Stack**: .NET 9, React 18, PostgreSQL 14, Redis 7, RabbitMQ
+- **IDE**: Visual Studio 2022, VS Code
+- **Version Control**: Git + GitHub
+- **Project Management**: GitHub Projects (optional)
+
+### **Documentation**
+- ✅ `CLAUDE.md` - Development Guide
+- ✅ `PAYMENT_INTEGRATION_PLAN.md` - Payment Feature
+- ✅ `MULTILANGUAGE_IMPLEMENTATION.md` - i18n Feature
+- ⚠️ API Documentation - Swagger (needs update)
+
+---
+
+## 📞 SUPPORT & FRAGEN
+
+Bei Fragen oder Problemen:
+1. Check `CLAUDE.md` für Development Guidelines
+2. Check Feature-specific `.md` Files
+3. Check Git History für Context
+4. Ask Claude (if available 😉)
+
+---
+
+**STATUS ZUSAMMENFASSUNG**:
+- **Core Features**: 60% implementiert, 40% braucht Fixes/Completion
+- **Payment & i18n**: 0% (dokumentiert, bereit für Implementierung)
+- **Production Ready**: ~40%
+
+**NÄCHSTES MILESTONE**: Core Features fertigstellen (7 Tage)
+
+---
+
+*Letzte Aktualisierung: 01.10.2025*
+*Nächstes Review: Nach Phase 8 (Testing)*

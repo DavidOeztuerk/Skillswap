@@ -21,9 +21,12 @@ export interface Match {
 }
 
 export enum MatchStatus {
-  Pending = 'Pending',
-  Accepted = 'Accepted',
-  Rejected = 'Rejected',
-  Expired = 'Expired',
-  Completed = 'Completed'
+  Pending = 'pending',
+  Accepted = 'accepted',
+  Rejected = 'rejected',
+  Expired = 'expired',
+  Completed = 'completed',
+  Cancelled = 'cancelled',
+  Active = 'active',
+  Dissolved = 'dissolved'
 }

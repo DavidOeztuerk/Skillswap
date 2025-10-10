@@ -25,7 +25,10 @@ public record CreateMatchRequest(
     int SessionDurationMinutes = 60,
     int TotalSessions = 1,
     string[]? PreferredDays = null,
-    string[]? PreferredTimes = null)
+    string[]? PreferredTimes = null,
+
+    [StringLength(2000, ErrorMessage = "Additional notes must not exceed 2000 characters")]
+    string? AdditionalNotes = null)
     : IVersionedContract
 {
     /// <summary>
