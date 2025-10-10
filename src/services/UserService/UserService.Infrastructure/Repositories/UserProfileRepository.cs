@@ -29,12 +29,9 @@ public class UserProfileRepository(UserDbContext userDbContext) : IUserProfileRe
         if (isBlocked)
             return null;
 
-        // WICHTIG: Keine Projection auf neue User-Entität + Include mischen.
-        // Entweder sauber projizieren ODER volle Entität laden. Wir laden die Entität
-        // inkl. gefilterter aktiver Rollen und deren Role-Navigation.
         return await _dbContext.Users
             .Where(u => u.Id == userId && !u.IsDeleted && u.AccountStatus == AccountStatus.Active)
-            .Include(u => u.UserRoles.Where(ur => ur.IsActive))
+            .Include(u => u.UserRoles.Where(ur => ur.RevokedAt == null && !ur.IsDeleted))
                 .ThenInclude(ur => ur.Role)
             .AsNoTracking()
             .AsSplitQuery()

@@ -17,60 +17,61 @@ public class GetMatchStatisticsQueryHandler(
         GetMatchStatisticsQuery request,
         CancellationToken cancellationToken)
     {
+        var query = _dbContext.Matches
+            .Include(m => m.AcceptedMatchRequest)
+            .Where(m => !m.IsDeleted);
+
+        if (request.FromDate.HasValue)
         {
-            var query = _dbContext.Matches.Where(m => !m.IsDeleted);
-
-            if (request.FromDate.HasValue)
-            {
-                query = query.Where(m => m.CreatedAt >= request.FromDate.Value);
-            }
-
-            if (request.ToDate.HasValue)
-            {
-                query = query.Where(m => m.CreatedAt <= request.ToDate.Value);
-            }
-
-            var totalMatches = await query.CountAsync(cancellationToken);
-            var pendingMatches = await query.CountAsync(m => m.Status == MatchStatus.Pending, cancellationToken);
-            var acceptedMatches = await query.CountAsync(m => m.Status == MatchStatus.Accepted, cancellationToken);
-            var completedMatches = await query.CountAsync(m => m.Status == MatchStatus.Completed, cancellationToken);
-            var rejectedMatches = await query.CountAsync(m => m.Status == MatchStatus.Rejected, cancellationToken);
-
-            var successRate = totalMatches > 0
-                ? Math.Round((double)completedMatches / totalMatches * 100, 2)
-                : 0;
-
-            var averageCompatibilityScore = await query
-                .AverageAsync(m => m.CompatibilityScore, cancellationToken);
-
-            var matchesBySkill = await query
-                .GroupBy(m => m.OfferedSkillName)
-                .Select(g => new { Skill = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.Skill, x => x.Count, cancellationToken);
-
-            var topMatchedSkills = await query
-                .Where(m => m.Status == MatchStatus.Completed)
-                .GroupBy(m => m.OfferedSkillName)
-                .Select(g => new TopSkillMatchResponse(
-                    g.Key,
-                    g.Count(),
-                    Math.Round(g.Average(m => m.CompatibilityScore), 2)))
-                .OrderByDescending(x => x.MatchCount)
-                .Take(10)
-                .ToListAsync(cancellationToken);
-
-            var response = new MatchStatisticsResponse(
-                totalMatches,
-                pendingMatches,
-                acceptedMatches,
-                completedMatches,
-                rejectedMatches,
-                successRate,
-                Math.Round(averageCompatibilityScore, 2),
-                matchesBySkill,
-                topMatchedSkills);
-
-            return Success(response);
+            query = query.Where(m => m.CreatedAt >= request.FromDate.Value);
         }
+
+        if (request.ToDate.HasValue)
+        {
+            query = query.Where(m => m.CreatedAt <= request.ToDate.Value);
+        }
+
+        var totalMatches = await query.CountAsync(cancellationToken);
+        var acceptedMatches = await query.CountAsync(m => m.Status == MatchStatus.Accepted, cancellationToken);
+        var completedMatches = await query.CountAsync(m => m.Status == MatchStatus.Completed, cancellationToken);
+        var dissolvedMatches = await query.CountAsync(m => m.Status == MatchStatus.Dissolved, cancellationToken);
+
+        var successRate = totalMatches > 0
+            ? Math.Round((double)completedMatches / totalMatches * 100, 2)
+            : 0;
+
+        var averageCompatibilityScore = await query
+            .Where(m => m.AcceptedMatchRequest.CompatibilityScore.HasValue)
+            .AverageAsync(m => m.AcceptedMatchRequest.CompatibilityScore!.Value, cancellationToken);
+
+        var matchesBySkill = await query
+            .GroupBy(m => m.AcceptedMatchRequest.SkillId)
+            .Select(g => new { Skill = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Skill, x => x.Count, cancellationToken);
+
+        var topMatchedSkills = await query
+            .Where(m => m.Status == MatchStatus.Completed)
+            .GroupBy(m => m.AcceptedMatchRequest.SkillId)
+            .Select(g => new TopSkillMatchResponse(
+                g.Key,
+                g.Count(),
+                Math.Round(g.Where(m => m.AcceptedMatchRequest.CompatibilityScore.HasValue)
+                    .Average(m => m.AcceptedMatchRequest.CompatibilityScore!.Value), 2)))
+            .OrderByDescending(x => x.MatchCount)
+            .Take(10)
+            .ToListAsync(cancellationToken);
+
+        var response = new MatchStatisticsResponse(
+            totalMatches,
+            0,
+            acceptedMatches,
+            completedMatches,
+            dissolvedMatches,
+            successRate,
+            Math.Round(averageCompatibilityScore, 2),
+            matchesBySkill,
+            topMatchedSkills);
+
+        return Success(response);
     }
 }

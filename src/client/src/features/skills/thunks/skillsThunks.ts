@@ -121,6 +121,11 @@ export const fetchSkillById = createAppAsyncThunk<Skill, string>(
       const skill: Skill = {
         id: skillData.skillId,
         userId: skillData.userId,
+        ownerUserName: skillData.ownerUserName,
+        ownerFirstName: skillData.ownerFirstName,
+        ownerLastName: skillData.ownerLastName,
+        ownerRating: skillData.ownerRating ? Number(skillData.ownerRating) : undefined,
+        ownerMemberSince: skillData.ownerMemberSince?.toString(),
         name: skillData.name,
         description: skillData.description,
         isOffered: skillData.isOffered,

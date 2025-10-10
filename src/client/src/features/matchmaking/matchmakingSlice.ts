@@ -1,198 +1,351 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { withDefault, isDefined } from '../../utils/safeAccess';
-import { initialMatchesState } from '../../store/adapters/matchmakingAdapter+State';
-import { createMatchRequest, fetchMatches, fetchUserMatches, fetchIncomingMatchRequests, fetchOutgoingMatchRequests, acceptMatchRequest, rejectMatchRequest, fetchMatchRequestThread } from './matchmakingThunks';
+import { isDefined } from '../../utils/safeAccess';
+import {
+  initialMatchesState,
+  matchesAdapter,
+} from '../../store/adapters/matchmakingAdapter+State';
+import {
+  createMatchRequest,
+  fetchMatches,
+  fetchUserMatches,
+  fetchIncomingMatchRequests,
+  fetchOutgoingMatchRequests,
+  acceptMatchRequest,
+  rejectMatchRequest,
+  fetchMatchRequestThread,
+} from './matchmakingThunks';
+
+/**
+ * MATCHMAKING SLICE - REFACTORED WITH ENTITY ADAPTER
+ *
+ * ✅ Pattern: Use EntityAdapter for normalized state (matches)
+ * ✅ Removed duplicate arrays: matches[], matchHistory[], acceptedRequests[]
+ * ✅ All match operations use adapter methods: setAll, addOne, updateOne, removeOne
+ * ✅ Kept separate arrays for requests (different entity type)
+ * ✅ Selectors will compute derived data (active/completed matches) from entities
+ */
 
 const matchmakingSlice = createSlice({
   name: 'matchmaking',
   initialState: initialMatchesState,
   reducers: {
-    clearError: (s) => { s.errorMessage = undefined; },
-    resetMatchRequestSent: (s) => { s.matchRequestSent = false; },
-    clearMatchRequests: (s) => { s.incomingRequests = []; s.outgoingRequests = []; },
-    clearMatches: (s) => { s.matches = []; },
-    clearCurrentThread: (s) => { s.currentThread = null; },
-    setPagination: (s, a) => {
-      s.pagination = { ...s.pagination, ...a.payload };
+    // ==================== BASIC STATE MANAGEMENT ====================
+    clearError: (state) => {
+      state.errorMessage = undefined;
     },
-    // Optimistic
-    acceptMatchRequestOptimistic: (s, a) => {
-      const id = a.payload;
-      const req = s.incomingRequests.find(r => r.id === id);
+
+    resetMatchRequestSent: (state) => {
+      state.matchRequestSent = false;
+    },
+
+    clearMatchRequests: (state) => {
+      state.incomingRequests = [];
+      state.outgoingRequests = [];
+    },
+
+    clearMatches: (state) => {
+      matchesAdapter.removeAll(state);
+    },
+
+    clearCurrentThread: (state) => {
+      state.currentThread = null;
+    },
+
+    setPagination: (state, action) => {
+      state.pagination = { ...state.pagination, ...action.payload };
+    },
+
+    // ==================== OPTIMISTIC UPDATES ====================
+
+    /**
+     * Optimistically accept match request (remove from incoming, don't update entities yet)
+     */
+    acceptMatchRequestOptimistic: (state, action) => {
+      const id = action.payload;
+      const req = state.incomingRequests.find((r) => r.id === id);
       if (!req) return;
+
       req.status = 'accepted';
       req.isRead = true;
-      s.incomingRequests = s.incomingRequests.filter(r => r.id !== id);
+      state.incomingRequests = state.incomingRequests.filter((r) => r.id !== id);
     },
-    rejectMatchRequestOptimistic: (s, a) => {
-      const id = a.payload;
-      const req = s.incomingRequests.find(r => r.id === id);
-      if (req) req.status = 'rejected';
+
+    /**
+     * Optimistically reject match request (update status)
+     */
+    rejectMatchRequestOptimistic: (state, action) => {
+      const id = action.payload;
+      const req = state.incomingRequests.find((r) => r.id === id);
+      if (req) {
+        req.status = 'rejected';
+      }
     },
-    markRequestAsRead: (s, a) => {
-      const id = a.payload;
-      const inReq = s.incomingRequests.find(r => r.id === id);
+
+    /**
+     * Mark request as read
+     */
+    markRequestAsRead: (state, action) => {
+      const id = action.payload;
+      const inReq = state.incomingRequests.find((r) => r.id === id);
       if (inReq) inReq.isRead = true;
-      const outReq = s.outgoingRequests.find(r => r.id === id);
+
+      const outReq = state.outgoingRequests.find((r) => r.id === id);
       if (outReq) outReq.isRead = true;
     },
   },
-  extraReducers: (b) => {
-    b
-      // create request
-      .addCase(createMatchRequest.pending, (s) => {
-        s.isLoading = true;
-        s.errorMessage = undefined;
-        s.matchRequestSent = false;
+
+  extraReducers: (builder) => {
+    builder
+      // ==================== CREATE MATCH REQUEST ====================
+      .addCase(createMatchRequest.pending, (state) => {
+        state.isLoading = true;
+        state.errorMessage = undefined;
+        state.matchRequestSent = false;
       })
-      .addCase(createMatchRequest.fulfilled, (s) => {
-        s.isLoading = false;
-        s.matchRequestSent = true;
+      .addCase(createMatchRequest.fulfilled, (state) => {
+        state.isLoading = false;
+        state.matchRequestSent = true;
       })
-      // search matches by criteria
-      .addCase(fetchMatches.fulfilled, (s, a) => {
-        s.isLoading = false;
-        if (isDefined(a.payload.data)) {
-          s.matches = a.payload.data;
+      .addCase(createMatchRequest.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = action.payload?.message;
+      })
+
+      // ==================== FETCH MATCHES (SEARCH BY CRITERIA) ====================
+      .addCase(fetchMatches.pending, (state) => {
+        state.isLoadingMatches = true;
+        state.errorMessage = undefined;
+      })
+      .addCase(fetchMatches.fulfilled, (state, action) => {
+        state.isLoadingMatches = false;
+
+        if (isDefined(action.payload?.data)) {
+          // Replace all entities with fetched matches
+          matchesAdapter.setAll(state, action.payload.data);
         } else {
-          s.matches = [];
+          matchesAdapter.removeAll(state);
         }
-        s.pagination = {
-          pageNumber: withDefault(a.payload.pagination.pageNumber, 1),
-          pageSize: withDefault(a.payload.pagination.pageSize, 20),
-          totalRecords: withDefault(a.payload.pagination.totalRecords, 0),
-          totalPages: withDefault(a.payload.pagination.totalPages, 0),
-          hasNextPage: withDefault(a.payload.pagination.hasNextPage, false),
-          hasPreviousPage: withDefault(a.payload.pagination.hasPreviousPage, false),
+
+        state.pagination = {
+          pageNumber: action.payload?.pagination?.pageNumber ?? 1,
+          pageSize: action.payload?.pagination?.pageSize ?? 20,
+          totalRecords: action.payload?.pagination?.totalRecords ?? 0,
+          totalPages: action.payload?.pagination?.totalPages ?? 0,
+          hasNextPage: action.payload?.pagination?.hasNextPage ?? false,
+          hasPreviousPage: action.payload?.pagination?.hasPreviousPage ?? false,
         };
       })
-      // user matches
-      .addCase(fetchUserMatches.pending, (s) => { s.isLoading = true; })
-      .addCase(fetchUserMatches.fulfilled, (s, a) => {
-        s.isLoading = false;
-        if (isDefined(a.payload.data)) {
-          s.matches = a.payload.data;
-        } else {
-          s.matches = [];
+      .addCase(fetchMatches.rejected, (state, action) => {
+        state.isLoadingMatches = false;
+        state.errorMessage = action.error?.message || 'Failed to fetch matches';
+      })
+
+      // ==================== FETCH USER MATCHES ====================
+      .addCase(fetchUserMatches.pending, (state) => {
+        state.isLoadingMatches = true;
+        state.errorMessage = undefined;
+      })
+      .addCase(fetchUserMatches.fulfilled, (state, action) => {
+        state.isLoadingMatches = false;
+
+        if (isDefined(action.payload.data)) {
+          // Merge user matches into entities (upsertMany)
+          matchesAdapter.upsertMany(state, action.payload.data);
         }
-        s.pagination = {
-          pageNumber: withDefault(a.payload.pagination.pageNumber, 1),
-          pageSize: withDefault(a.payload.pagination.pageSize, 20),
-          totalRecords: withDefault(a.payload.pagination.totalRecords, 0),
-          totalPages: withDefault(a.payload.pagination.totalPages, 0),
-          hasNextPage: withDefault(a.payload.pagination.hasNextPage, false),
-          hasPreviousPage: withDefault(a.payload.pagination.hasPreviousPage, false),
+
+        state.pagination = {
+          pageNumber: action.payload.pagination.pageNumber ?? 1,
+          pageSize: action.payload.pagination.pageSize ?? 20,
+          totalRecords: action.payload.pagination.totalRecords ?? 0,
+          totalPages: action.payload.pagination.totalPages ?? 0,
+          hasNextPage: action.payload.pagination.hasNextPage ?? false,
+          hasPreviousPage: action.payload.pagination.hasPreviousPage ?? false,
         };
       })
-      // incoming
-      .addCase(fetchIncomingMatchRequests.pending, (s) => { s.isLoadingRequests = true; })
-      .addCase(fetchIncomingMatchRequests.fulfilled, (s, a) => {
-        s.isLoadingRequests = false;
-        if (isDefined(a.payload.data)) {
-          s.incomingRequests = a.payload.data;
+      .addCase(fetchUserMatches.rejected, (state, action) => {
+        state.isLoadingMatches = false;
+        state.errorMessage = action.payload?.message;
+      })
+
+      // ==================== FETCH INCOMING REQUESTS ====================
+      .addCase(fetchIncomingMatchRequests.pending, (state) => {
+        state.isLoadingRequests = true;
+        state.errorMessage = undefined;
+      })
+      .addCase(fetchIncomingMatchRequests.fulfilled, (state, action) => {
+        state.isLoadingRequests = false;
+
+        if (isDefined(action.payload.data)) {
+          state.incomingRequests = action.payload.data;
         } else {
-          s.incomingRequests = [];
+          state.incomingRequests = [];
         }
-        s.pagination = {
-          pageNumber: withDefault(a.payload.pagination.pageNumber, 1),
-          pageSize: withDefault(a.payload.pagination.pageSize, 20),
-          totalRecords: withDefault(a.payload.pagination.totalRecords, 0),
-          totalPages: withDefault(a.payload.pagination.totalPages, 0),
-          hasNextPage: withDefault(a.payload.pagination.hasNextPage, false),
-          hasPreviousPage: withDefault(a.payload.pagination.hasPreviousPage, false),
+
+        state.pagination = {
+          pageNumber: action.payload.pagination.pageNumber ?? 1,
+          pageSize: action.payload.pagination.pageSize ?? 20,
+          totalRecords: action.payload.pagination.totalRecords ?? 0,
+          totalPages: action.payload.pagination.totalPages ?? 0,
+          hasNextPage: action.payload.pagination.hasNextPage ?? false,
+          hasPreviousPage: action.payload.pagination.hasPreviousPage ?? false,
         };
       })
-      // outgoing
-      .addCase(fetchOutgoingMatchRequests.pending, (s) => { s.isLoadingRequests = true; })
-      .addCase(fetchOutgoingMatchRequests.fulfilled, (s, a) => {
-        s.isLoadingRequests = false;
-        if (isDefined(a.payload.data)) {
-          s.outgoingRequests = a.payload.data;
+      .addCase(fetchIncomingMatchRequests.rejected, (state, action) => {
+        state.isLoadingRequests = false;
+        state.errorMessage = action.payload?.message;
+      })
+
+      // ==================== FETCH OUTGOING REQUESTS ====================
+      .addCase(fetchOutgoingMatchRequests.pending, (state) => {
+        state.isLoadingRequests = true;
+        state.errorMessage = undefined;
+      })
+      .addCase(fetchOutgoingMatchRequests.fulfilled, (state, action) => {
+        state.isLoadingRequests = false;
+
+        if (isDefined(action.payload.data)) {
+          state.outgoingRequests = action.payload.data;
         } else {
-          s.outgoingRequests = [];
+          state.outgoingRequests = [];
         }
-        s.pagination = {
-          pageNumber: withDefault(a.payload.pagination.pageNumber, 1),
-          pageSize: withDefault(a.payload.pagination.pageSize, 20),
-          totalRecords: withDefault(a.payload.pagination.totalRecords, 0),
-          totalPages: withDefault(a.payload.pagination.totalPages, 0),
-          hasNextPage: withDefault(a.payload.pagination.hasNextPage, false),
-          hasPreviousPage: withDefault(a.payload.pagination.hasPreviousPage, false),
+
+        state.pagination = {
+          pageNumber: action.payload.pagination.pageNumber ?? 1,
+          pageSize: action.payload.pagination.pageSize ?? 20,
+          totalRecords: action.payload.pagination.totalRecords ?? 0,
+          totalPages: action.payload.pagination.totalPages ?? 0,
+          hasNextPage: action.payload.pagination.hasNextPage ?? false,
+          hasPreviousPage: action.payload.pagination.hasPreviousPage ?? false,
         };
       })
-      // accept
-      .addCase(acceptMatchRequest.fulfilled, (s, a) => {
-        s.isLoading = false;
-        if (isDefined(a.payload.data)) {
-          const id = a.payload.data.requestId;
-          s.incomingRequests = s.incomingRequests.filter(r => (r as any).id !== id);
-          const match = (a.payload.data as any)?.match;
+      .addCase(fetchOutgoingMatchRequests.rejected, (state, action) => {
+        state.isLoadingRequests = false;
+        state.errorMessage = action.payload?.message;
+      })
+
+      // ==================== ACCEPT MATCH REQUEST ====================
+      .addCase(acceptMatchRequest.pending, (state) => {
+        state.isLoading = true;
+        state.errorMessage = undefined;
+      })
+      .addCase(acceptMatchRequest.fulfilled, (state, action) => {
+        state.isLoading = false;
+
+        if (isDefined(action.payload.data)) {
+          const requestId = action.payload.data.requestId;
+
+          // Remove from incoming requests
+          state.incomingRequests = state.incomingRequests.filter((r) => r.id !== requestId);
+
+          // Add new match to entities if returned
+          const match = (action.payload.data as any)?.match;
           if (isDefined(match)) {
-            s.matches.unshift(match);
+            matchesAdapter.addOne(state, match);
           }
         }
       })
-      // reject
-      .addCase(rejectMatchRequest.fulfilled, (s, a) => {
-        s.isLoading = false;
-        if (isDefined(a.payload.data)) {
-          const id = a.payload.data.requestId;
-          s.incomingRequests = s.incomingRequests.filter(r => (r as any).id !== id);
+      .addCase(acceptMatchRequest.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = action.payload?.message;
+      })
+
+      // ==================== REJECT MATCH REQUEST ====================
+      .addCase(rejectMatchRequest.pending, (state) => {
+        state.isLoading = true;
+        state.errorMessage = undefined;
+      })
+      .addCase(rejectMatchRequest.fulfilled, (state, action) => {
+        state.isLoading = false;
+
+        if (isDefined(action.payload.data)) {
+          const requestId = action.payload.data.requestId;
+          // Remove from incoming requests
+          state.incomingRequests = state.incomingRequests.filter((r) => r.id !== requestId);
         }
       })
-      // thread
-      .addCase(fetchMatchRequestThread.pending, (s) => { s.isLoadingThread = true; })
-      .addCase(fetchMatchRequestThread.fulfilled, (s, a) => {
-        s.isLoadingThread = false;
-        if (isDefined(a.payload.data) && a.payload.data.skill) {
+      .addCase(rejectMatchRequest.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = action.payload?.message;
+      })
+
+      // ==================== FETCH MATCH REQUEST THREAD ====================
+      .addCase(fetchMatchRequestThread.pending, (state) => {
+        state.isLoadingThread = true;
+        state.errorMessage = undefined;
+      })
+      .addCase(fetchMatchRequestThread.fulfilled, (state, action) => {
+        state.isLoadingThread = false;
+
+        if (isDefined(action.payload.data)) {
           // Map MatchThreadDisplay to MatchRequestThread
-          s.currentThread = {
-            threadId: a.payload.data.threadId,
+          const threadData = action.payload.data;
+          const requesterId = threadData.requesterId || '';
+          const requesterName = threadData.requesterName || 'Unknown User';
+          const targetUserId = threadData.targetUserId || '';
+          const targetUserName = threadData.targetUserName || 'Unknown User';
+
+          state.currentThread = {
+            threadId: threadData.threadId,
             skill: {
-              id: a.payload.data.skillId || '', // Add the required id field
-              name: a.payload.data.skill.name,
-              category: a.payload.data.skill.category,
+              id: threadData.skillId || '',
+              name: threadData.skillName || 'Unknown Skill',
+              category: threadData.skillCategory || 'General',
             },
             participants: {
               requester: {
-                // TODO: - requester Data fetch here!!
-                id: a.payload.data.partnerId || '',
-                name: a.payload.data.partnerName || '',
-                rating: a.payload.data.partnerRating || 0,
-                avatar: a.payload.data.partnerAvatar,
-
+                id: requesterId,
+                name: requesterName,
+                rating: threadData.requesterRating || 0,
+                avatar: undefined,
               },
               targetUser: {
-                id: a.payload.data.partnerId || '',
-                name: a.payload.data.partnerName || '',
-                rating: a.payload.data.partnerRating || 0,
-                avatar: a.payload.data.partnerAvatar,
+                id: targetUserId,
+                name: targetUserName,
+                rating: threadData.targetUserRating || 0,
+                avatar: undefined,
               },
             },
-            requests: a.payload.data.requests?.map(req => ({
-              id: req.id,
-              requesterId: req.requesterId || '',
-              message: req.message,
-              type: req.type as 'initial' | 'counter' | 'acceptance' | 'rejection',
-              status: req.status as 'pending' | 'accepted' | 'rejected' | 'countered',
-              isSkillExchange: req.isSkillExchange ?? false,
-              exchangeSkillName: req.exchangeSkillName,
-              isMonetary: req.isMonetary ?? false,
-              offeredAmount: req.offeredAmount,
-              preferredDays: req.preferredDays || [],
-              preferredTimes: req.preferredTimes || [],
-              sessionDuration: req.sessionDuration || 0,
-              totalSessions: req.totalSessions || 1,
-              createdAt: req.createdAt || '',
-              isRead: req.isRead ?? false,
-            })) || [],
-            lastActivity: a.payload.data.lastActivity || '',
-            status: (a.payload.data.status as 'active' | 'accepted' | 'rejected' | 'expired') || 'active',
+            requests:
+              threadData.requests?.map((req) => {
+                // Derive sender name from requesterId - check if it matches requester or target
+                const isRequester = req.requesterId === requesterId;
+                const senderName = isRequester ? requesterName : targetUserName;
+
+                return {
+                  id: req.id,
+                  senderId: req.requesterId || '',
+                  senderName: senderName,
+                  message: req.message,
+                  type: req.type as 'initial' | 'counter' | 'acceptance' | 'rejection',
+                  status: req.status as 'pending' | 'accepted' | 'rejected' | 'countered',
+                  requesterId: req.requesterId,
+                  sessionDuration: req.sessionDuration,
+                  isSkillExchange: req.isSkillExchange ?? false,
+                  exchangeSkillName: req.exchangeSkillName,
+                  isMonetary: req.isMonetary ?? false,
+                  offeredAmount: req.offeredAmount,
+                  currency: req.currency,
+                  preferredDays: req.preferredDays || [],
+                  preferredTimes: req.preferredTimes || [],
+                  sessionDurationMinutes: req.sessionDuration || req.sessionDurationMinutes || 0,
+                  totalSessions: req.totalSessions || 1,
+                  createdAt: req.createdAt || '',
+                  isRead: req.isRead ?? false,
+                };
+              }) || [],
+            lastActivity: threadData.lastActivity || '',
+            status:
+              (threadData.status as 'active' | 'accepted' | 'rejected' | 'expired') ||
+              'active',
           };
         } else {
-          s.currentThread = null;
+          state.currentThread = null;
         }
       })
+      .addCase(fetchMatchRequestThread.rejected, (state, action) => {
+        state.isLoadingThread = false;
+        state.errorMessage = action.payload?.message;
+      });
   },
 });
 

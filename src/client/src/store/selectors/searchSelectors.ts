@@ -13,15 +13,15 @@ export const selectSearchError = (state: RootState) => state.search.errorMessage
 export const selectUserSearchLoading = (state: RootState) => state.search.userLoading;
 export const selectAllSkillsLoading = (state: RootState) => state.search.allSkillsLoading;
 
-// Entity selectors using the normalized structure
+// Entity selectors - use results array directly
 export const selectAllSearchSkills = createSelector(
   [selectSearchState],
-  (searchState) => Object.values(searchState.entities).filter(Boolean)
+  (searchState) => searchState.results || []
 );
 
 export const selectSearchSkillById = createSelector(
-  [selectSearchState, (_: RootState, skillId: string) => skillId],
-  (searchState, skillId) => searchState.entities[skillId] || null
+  [selectAllSearchSkills, (_: RootState, skillId: string) => skillId],
+  (skills, skillId) => skills.find(skill => skill.id === skillId) || null
 );
 
 // Direct array selectors

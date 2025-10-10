@@ -11,7 +11,8 @@ export interface Appointment {
   studentDetails?: User;
   organizerUserId?: string;
   participantUserId?: string;
-  skillId: string;
+  skillId?: string; // Made optional - not always in list response
+  matchId?: string; // Added - from backend Appointment entity
   skill?: Skill;
   scheduledDate: string;
   startTime: string;  // Always required for display
@@ -30,6 +31,7 @@ export interface Appointment {
   sessionNumber?: number;
   totalSessions?: number;
   createdAt: string;
+  updatedAt?: string; // Added for consistency with backend
 }
 
 export enum AppointmentStatus {

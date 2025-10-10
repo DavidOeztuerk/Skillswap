@@ -1,5 +1,4 @@
 // src/client/src/pages/matchmaking/MatchRequestTimelinePage.tsx
-// @ts-nocheck - Temporary fix for display-focused refactoring
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -67,7 +66,10 @@ import PageHeader from '../../components/layout/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
 import { Timeline, TimelineConnector, TimelineContent, TimelineDot, TimelineItem, TimelineOppositeContent, TimelineSeparator } from '@mui/lab';
-import { fetchMatchRequestThread, acceptMatchRequest, rejectMatchRequest, createCounterOffer } from '../../features/matchmaking/matchmakingSlice';
+import { fetchMatchRequestThread, acceptMatchRequest, rejectMatchRequest, createCounterOffer } from '../../features/matchmaking/matchmakingThunks';
+import type { MatchRequestInThreadDisplay } from '../../types/contracts/MatchmakingDisplay';
+import { selectAuthUser } from '../../store/selectors/authSelectors';
+import { selectUserSkills } from '../../store/selectors/skillsSelectors';
 
 /* interface MatchRequestThread { // Removed unused interface - using imported type instead
   threadId: string;
@@ -134,9 +136,9 @@ const MatchRequestTimelinePage: React.FC = () => {
   const [sessionDuration, setSessionDuration] = useState(60);
   const [totalSessions, setTotalSessions] = useState(1);
 
-  const { user } = useAppSelector((state) => state.auth);
-  const { userSkills } = useAppSelector((state) => state.skills);
-  const { currentThread, isLoadingThread, error } = useAppSelector((state) => state.matchmaking);
+  const user = useAppSelector(selectAuthUser);
+  const userSkills = useAppSelector(selectUserSkills);
+  const { currentThread, isLoadingThread, errorMessage } = useAppSelector((state) => state.matchmaking);
 
   // Load thread data from API
   useEffect(() => {
@@ -144,7 +146,6 @@ const MatchRequestTimelinePage: React.FC = () => {
       dispatch(fetchMatchRequestThread(threadId))
         .unwrap()
         .catch((error) => {
-          // ✅ REDIRECT: Bei THREAD_NOT_FOUND zur Übersicht zurück
           if (error.code === 'THREAD_NOT_FOUND' && error.shouldRedirect) {
             setTimeout(() => {
               navigate('/matchmaking', { replace: true });
@@ -155,11 +156,11 @@ const MatchRequestTimelinePage: React.FC = () => {
   }, [threadId, dispatch, navigate]);
 
   const handleAcceptRequest = (requestId: string) => {
-    dispatch(acceptMatchRequest({ requestId }));
+    dispatch(acceptMatchRequest({ requestId, request: { } }));
   };
 
   const handleRejectRequest = (requestId: string) => {
-    dispatch(rejectMatchRequest({ requestId }));
+    dispatch(rejectMatchRequest({ requestId, request: { } }));
   };
 
   const handleSendCounterOffer = () => {
@@ -199,7 +200,7 @@ const MatchRequestTimelinePage: React.FC = () => {
     return 'primary';
   };
 
-  const getRequestIcon = (request: any) => {
+  const getRequestIcon = (request: MatchRequestInThreadDisplay) => {
     if (request.type === 'initial') return <SendIcon />;
     if (request.type === 'counter') return <ReplyIcon />;
     if (request.status === 'accepted') return <CheckIcon />;
@@ -213,23 +214,13 @@ const MatchRequestTimelinePage: React.FC = () => {
     return <LoadingSpinner fullPage message="Lade Match-Anfrage..." />;
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <PageContainer>
-        <Alert 
-          severity={error.code === 'THREAD_NOT_FOUND' ? 'warning' : 'error'}
-          action={
-            error.code === 'THREAD_NOT_FOUND' ? (
-              <Button color="inherit" size="small" onClick={() => navigate('/matchmaking')}>
-                Zur Übersicht
-              </Button>
-            ) : undefined
-          }
+        <Alert
+          severity="error"
         >
-          {error.code === 'THREAD_NOT_FOUND' 
-            ? 'Thread nicht gefunden. Du wirst automatisch zur Übersicht weitergeleitet...'
-            : `Fehler beim Laden der Timeline: ${error.message}`
-          }
+          {`Fehler beim Laden der Timeline: ${errorMessage}`}
         </Alert>
       </PageContainer>
     );
@@ -238,11 +229,17 @@ const MatchRequestTimelinePage: React.FC = () => {
   const latestRequest = currentThread.requests[currentThread.requests.length - 1];
   const isMyTurn = latestRequest.requesterId !== user?.id && latestRequest.status === 'pending';
 
+  const requester = currentThread.participants.requester;
+  const targetUser = currentThread.participants.targetUser;
+
+  const skillName = currentThread.skill?.name || 'Skill';
+  const targetUserName = currentThread.participants?.targetUser?.name || 'Benutzer';
+
   return (
     <PageContainer>
       <PageHeader
         title="Match-Anfrage Timeline"
-        subtitle={`${currentThread.skill?.name || currentThread.skillName} - ${currentThread.partnerName}`}
+        subtitle={`${skillName} - ${targetUserName}`}
         // backButton
         actions={
           <Box display="flex" gap={1}>
@@ -267,7 +264,7 @@ const MatchRequestTimelinePage: React.FC = () => {
                     <LearnIcon />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6">{currentThread.skill?.name || currentThread.skillName}</Typography>
+                    <Typography variant="h6">{currentThread.skill?.name}</Typography>
                     <Typography variant="body2" color="text.secondary">
                       Skill-Anfrage
                     </Typography>
@@ -320,22 +317,16 @@ const MatchRequestTimelinePage: React.FC = () => {
                       <TimelineContent>
                         <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
                           <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                            <Box flex={1}>
-                              <Box display="flex" alignItems="center" gap={1} mb={1}>
-                                <Avatar
-                                  src={
-                                    request.requesterId === user?.id
-                                      ? undefined
-                                      : (currentThread.participants?.[0] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }).avatar
-                                  }
+                              <Box flex={1}>
+                                <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                  <Avatar
+                                  src={request.requesterId === user?.id ? undefined : targetUser?.avatar}
                                   sx={{ width: 32, height: 32 }}
                                 >
-                                  {request.requesterId === user?.id ? 'Du' : 'MM'}
+                                  {request.requesterId === user?.id ? 'Du' : (targetUser?.name?.[0] || 'U')}
                                 </Avatar>
                                 <Typography variant="subtitle2">
-                                  {request.requesterId === user?.id
-                                    ? 'Du'
-                                    : currentThread.participants?.[0] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }.name}
+                                  {request.requesterId === user?.id ? 'Du' : (targetUser?.name || 'Unbekannt')}
                                 </Typography>
                                 {!request.isRead && request.requesterId !== user?.id && (
                                   <Chip label="Neu" size="small" color="primary" />
@@ -491,19 +482,19 @@ const MatchRequestTimelinePage: React.FC = () => {
               <Stack spacing={2}>
                 {/* Requester */}
                 <Box display="flex" alignItems="center" gap={2}>
-                  <Avatar>{currentThread.participants?.[1] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }.name[0]}</Avatar>
+                  <Avatar>{(requester?.name?.[0] || 'U')}</Avatar>
                   <Box flex={1}>
                     <Typography variant="subtitle2">
-                      {currentThread.participants?.[1] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }.name}
+                      {requester?.name || 'Unbekannt'}
                     </Typography>
                     <Box display="flex" alignItems="center" gap={0.5}>
                       <StarIcon fontSize="small" color="warning" />
                       <Typography variant="caption">
-                        {currentThread.participants?.[1] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }.rating}
+                        {requester?.rating ?? 0}
                       </Typography>
                     </Box>
                   </Box>
-                  {currentThread.participants?.[1] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }.id === user?.id && (
+                  {requester?.id === user?.id && (
                     <Chip label="Du" size="small" color="primary" />
                   )}
                 </Box>
@@ -512,17 +503,17 @@ const MatchRequestTimelinePage: React.FC = () => {
 
                 {/* Target User */}
                 <Box display="flex" alignItems="center" gap={2}>
-                  <Avatar src={currentThread.participants?.[0] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }.avatar}>
-                    {currentThread.participants?.[0] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }.name[0]}
+                  <Avatar src={targetUser?.avatar}>
+                    {targetUser?.name?.[0] || 'U'}
                   </Avatar>
                   <Box flex={1}>
                     <Typography variant="subtitle2">
-                      {currentThread.participants?.[0] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }.name}
+                      {targetUser?.name || 'Unbekannt'}
                     </Typography>
                     <Box display="flex" alignItems="center" gap={0.5}>
                       <StarIcon fontSize="small" color="warning" />
                       <Typography variant="caption">
-                        {currentThread.participants?.[0] || { id: 'unknown', name: 'Unknown', rating: 0, avatar: null }.rating}
+                        {targetUser?.rating ?? 0}
                       </Typography>
                     </Box>
                   </Box>
@@ -626,7 +617,7 @@ const MatchRequestTimelinePage: React.FC = () => {
                  >
                    {userSkills
                      .filter((skill) => skill.isOffered)
-                     .map((skill) => (
+                     .map(( skill) => (
                        <MenuItem key={skill.id} value={skill.id}>
                          <Box display="flex" alignItems="center" gap={1}>
                            <Chip

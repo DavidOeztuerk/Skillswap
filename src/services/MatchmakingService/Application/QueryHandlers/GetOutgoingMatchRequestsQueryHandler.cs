@@ -2,18 +2,21 @@ using Contracts.Matchmaking.Responses;
 using CQRS.Handlers;
 using CQRS.Models;
 using MatchmakingService.Application.Queries;
+using MatchmakingService.Infrastructure.HttpClients;
 using Microsoft.EntityFrameworkCore;
 
 namespace MatchmakingService.Application.QueryHandlers;
 
 public class GetOutgoingMatchRequestsQueryHandler(
     MatchmakingDbContext dbContext,
-    HttpClient httpClient,
+    IUserServiceClient userServiceClient,
+    ISkillServiceClient skillServiceClient,
     ILogger<GetOutgoingMatchRequestsQueryHandler> logger)
     : BasePagedQueryHandler<GetOutgoingMatchRequestsQuery, MatchRequestDisplayResponse>(logger)
 {
     private readonly MatchmakingDbContext _dbContext = dbContext;
-    private readonly HttpClient _httpClient = httpClient;
+    private readonly IUserServiceClient _userServiceClient = userServiceClient;
+    private readonly ISkillServiceClient _skillServiceClient = skillServiceClient;
 
     public override async Task<PagedResponse<MatchRequestDisplayResponse>> Handle(
         GetOutgoingMatchRequestsQuery request,
@@ -27,7 +30,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
 
             // Query outgoing requests where current user is the requester
             var query = _dbContext.MatchRequests
-                .Where(mr => mr.RequesterId == request.UserId && mr.Status == "Pending")
+                .Where(mr => mr.RequesterId == request.UserId && mr.Status.ToLower() == "pending")
                 .OrderByDescending(mr => mr.CreatedAt);
 
             var totalCount = await query.CountAsync(cancellationToken);
@@ -93,24 +96,22 @@ public class GetOutgoingMatchRequestsQueryHandler(
 
     private async Task<SkillData?> GetSkillData(string skillId, CancellationToken cancellationToken)
     {
+        try
         {
-            var response = await _httpClient.GetAsync($"/api/skills/{skillId}", cancellationToken);
-            if (!response.IsSuccessStatusCode)
+            var skillName = await _skillServiceClient.GetSkillNameAsync(skillId, cancellationToken);
+            if (string.IsNullOrEmpty(skillName))
             {
-                Logger.LogWarning("Failed to get skill data for {SkillId}, status: {StatusCode}", skillId, response.StatusCode);
-                return null;
+                Logger.LogWarning("Failed to get skill name for {SkillId}", skillId);
+                return new SkillData("Unknown Skill", "General");
             }
 
-            var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<SkillApiResponse>>(cancellationToken: cancellationToken);
-            var skill = apiResponse?.Data;
-
-            if (skill == null)
-            {
-                Logger.LogWarning("Skill data is null for {SkillId}", skillId);
-                return null;
-            }
-
-            return new SkillData(skill.Name, skill.Category?.Name ?? "General");
+            var skillCategory = await _skillServiceClient.GetSkillCategoryAsync(skillId, cancellationToken);
+            return new SkillData(skillName, skillCategory);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting skill data for {SkillId}", skillId);
+            return new SkillData("Unknown Skill", "General");
         }
     }
 
@@ -118,29 +119,22 @@ public class GetOutgoingMatchRequestsQueryHandler(
     {
         if (string.IsNullOrEmpty(userId)) return null;
 
+        try
         {
-            var response = await _httpClient.GetAsync($"/api/users/{userId}/profile", cancellationToken);
-            if (!response.IsSuccessStatusCode)
+            var userName = await _userServiceClient.GetUserNameAsync(userId, cancellationToken);
+            if (string.IsNullOrEmpty(userName))
             {
-                Logger.LogWarning("Failed to get user data for {UserId}, status: {StatusCode}", userId, response.StatusCode);
-                return null;
+                Logger.LogWarning("Failed to get user name for {UserId}", userId);
+                return new UserData("Unknown User", 0m, null);
             }
 
-            var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<UserProfileResponse>>(cancellationToken: cancellationToken);
-            var user = apiResponse?.Data;
-
-            if (user == null)
-            {
-                Logger.LogWarning("User data is null for {UserId}", userId);
-                return null;
-            }
-
-            var fullName = $"{user.FirstName} {user.LastName}".Trim();
-            return new UserData(
-                Name: string.IsNullOrEmpty(fullName) ? "Unknown User" : fullName,
-                Rating: 0m, // TODO: Get actual rating when available
-                Avatar: user.ProfilePictureUrl
-            );
+            var userRating = await _userServiceClient.GetUserRatingAsync(userId, cancellationToken);
+            return new UserData(userName, (decimal)userRating, null);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting user data for {UserId}", userId);
+            return new UserData("Unknown User", 0m, null);
         }
     }
 

@@ -31,20 +31,10 @@ namespace MatchmakingService.Migrations
                     b.Property<DateTime?>("AcceptedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<decimal?>("AgreedAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("AgreedDays")
+                    b.Property<string>("AcceptedMatchRequestId")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("AgreedTimes")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("CompatibilityScore")
-                        .HasColumnType("double precision");
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
 
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
@@ -62,10 +52,6 @@ namespace MatchmakingService.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
-                    b.Property<string>("Currency")
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
-
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -79,48 +65,11 @@ namespace MatchmakingService.Migrations
                     b.Property<DateTime?>("DissolvedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ExchangeSkillId")
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<string>("ExchangeSkillName")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime?>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsMonetary")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsSkillExchange")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("MatchReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("OfferedSkillId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<string>("OfferedSkillName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("OfferingUserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<string>("OriginalRequestId")
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
+                    b.Property<DateTime?>("NextSessionDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("RatingByOffering")
                         .HasColumnType("integer");
@@ -128,44 +77,12 @@ namespace MatchmakingService.Migrations
                     b.Property<int?>("RatingByRequesting")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("RejectedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("RequestedSkillId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<string>("RequestedSkillName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("RequestingUserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<int?>("SessionDurationMinutes")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
-                        .HasDefaultValue("Pending");
-
-                    b.Property<string>("ThreadId")
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<int>("TotalSessionsPlanned")
-                        .HasColumnType("integer");
+                        .HasDefaultValue("Accepted");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -175,17 +92,11 @@ namespace MatchmakingService.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AcceptedMatchRequestId");
+
                     b.HasIndex("CreatedAt");
 
-                    b.HasIndex("OfferingUserId");
-
-                    b.HasIndex("OriginalRequestId");
-
-                    b.HasIndex("RequestingUserId");
-
                     b.HasIndex("Status");
-
-                    b.HasIndex("ThreadId");
 
                     b.HasIndex("Status", "CreatedAt");
 
@@ -197,6 +108,13 @@ namespace MatchmakingService.Migrations
                     b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text");
+
+                    b.Property<string>("AdditionalNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<double?>("CompatibilityScore")
+                        .HasColumnType("double precision");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -326,6 +244,17 @@ namespace MatchmakingService.Migrations
                     b.HasIndex("ThreadId");
 
                     b.ToTable("MatchRequests");
+                });
+
+            modelBuilder.Entity("MatchmakingService.Domain.Entities.Match", b =>
+                {
+                    b.HasOne("MatchmakingService.Domain.Entities.MatchRequest", "AcceptedMatchRequest")
+                        .WithMany()
+                        .HasForeignKey("AcceptedMatchRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcceptedMatchRequest");
                 });
 
             modelBuilder.Entity("MatchmakingService.Domain.Entities.MatchRequest", b =>

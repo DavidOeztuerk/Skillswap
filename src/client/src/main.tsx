@@ -3,6 +3,7 @@ import { Provider } from 'react-redux';
 import { store } from './store/store.ts';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './routes/Router.tsx';
+import { HelmetProvider } from 'react-helmet-async';
 import GlobalErrorBoundary from './components/error/GlobalErrorBoundary.tsx';
 
 import './styles/global.css';
@@ -30,8 +31,10 @@ const root = createRoot(container);
 
 root.render(
   <GlobalErrorBoundary>
-    <Provider store={store}>
-      <RouterProvider router={router} />
-    </Provider>
+    <HelmetProvider>
+      <Provider store={store}>
+        <RouterProvider router={router} />
+      </Provider>
+    </HelmetProvider>
   </GlobalErrorBoundary>
 );

@@ -21,14 +21,14 @@ import {
   Event as ScheduleIcon,
 } from '@mui/icons-material';
 import { formatDate } from '../../utils/dateUtils';
-import { Match, MatchStatus } from '../../types/models/Match';
+import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
 
 interface MatchCardProps {
-  match: Match;
+  match: MatchDisplay;
   isRequester?: boolean;
   onAccept?: (matchId: string) => void;
   onReject?: (matchId: string) => void;
-  onSchedule?: (match: Match) => void;
+  onSchedule?: (match: MatchDisplay) => void;
 }
 
 const MatchCard: React.FC<MatchCardProps> = memo(({
@@ -44,46 +44,63 @@ const MatchCard: React.FC<MatchCardProps> = memo(({
     isRequester
   });
   const theme = useTheme();
-  const otherUser = isRequester
-    ? match.responderDetails
-    : match.requesterDetails;
+  // Use new backend response format
+  const otherUserName = match.partnerName || 'Unbekannt';
 
   const isTeacher =
     (!match.isLearningMode && isRequester) ||
     (match.isLearningMode && !isRequester);
 
-  const getStatusColor = useCallback((status: MatchStatus): string => {
-    switch (status) {
-      case 'Pending':
+  const getStatusColor = useCallback((status: string): string => {
+    const normalizedStatus = status?.toLowerCase() || '';
+    switch (normalizedStatus) {
+      case 'pending':
         return theme.palette.warning.main;
-      case 'Accepted':
+      case 'accepted':
         return theme.palette.success.main;
-      case 'Rejected':
+      case 'rejected':
         return theme.palette.error.main;
-      case 'Expired':
+      case 'expired':
         return theme.palette.grey[500];
+      case 'completed':
+        return theme.palette.info.main;
+      case 'cancelled':
+        return theme.palette.error.main;
+      case 'active':
+        return theme.palette.success.main;
+      case 'dissolved':
+        return theme.palette.grey[600];
       default:
         return theme.palette.grey[500];
     }
   }, [theme]);
 
-  const getStatusLabel = useCallback((status: MatchStatus): string => {
-    switch (status) {
-      case 'Pending':
+  const getStatusLabel = useCallback((status: string): string => {
+    const normalizedStatus = status?.toLowerCase() || '';
+    switch (normalizedStatus) {
+      case 'pending':
         return 'Ausstehend';
-      case 'Accepted':
+      case 'accepted':
         return 'Akzeptiert';
-      case 'Rejected':
+      case 'rejected':
         return 'Abgelehnt';
-      case 'Expired':
+      case 'expired':
         return 'Abgelaufen';
+      case 'completed':
+        return 'Abgeschlossen';
+      case 'cancelled':
+        return 'Abgebrochen';
+      case 'active':
+        return 'Aktiv';
+      case 'dissolved':
+        return 'Aufgelöst';
       default:
         return status;
     }
   }, []);
 
-  const canRespond = useMemo(() => !isRequester && match.status === 'Pending', [isRequester, match.status]);
-  const canSchedule = useMemo(() => match.status === 'Accepted', [match.status]);
+  const canRespond = useMemo(() => !isRequester && match.status?.toLowerCase() === 'pending', [isRequester, match.status]);
+  const canSchedule = useMemo(() => match.status?.toLowerCase() === 'accepted', [match.status]);
 
   return (
     <Card
@@ -102,7 +119,7 @@ const MatchCard: React.FC<MatchCardProps> = memo(({
       <CardContent sx={{ flexGrow: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Chip
-            label={match.skill.name}
+            label={match.skillName || 'Unbekannt'}
             size="small"
             color="primary"
             sx={{ fontWeight: 'medium' }}
@@ -121,7 +138,7 @@ const MatchCard: React.FC<MatchCardProps> = memo(({
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Box sx={{ ml: 1.5 }}>
             <Typography variant="subtitle1" fontWeight="medium">
-              {otherUser.firstName} {otherUser.lastName}
+              {otherUserName}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {isTeacher ? (
@@ -244,11 +261,14 @@ const MatchCard: React.FC<MatchCardProps> = memo(({
             align="center"
             sx={{ width: '100%' }}
           >
-            {match.status === 'Rejected'
-              ? 'Match wurde abgelehnt'
-              : match.status === 'Expired'
-                ? 'Match ist abgelaufen'
-                : 'Warte auf Antwort...'}
+            {(() => {
+              const s = (match.status || '').toLowerCase();
+              if (s === 'rejected') return 'Match wurde abgelehnt';
+              if (s === 'expired') return 'Match ist abgelaufen';
+              if (s === 'completed') return 'Match ist abgeschlossen';
+              if (s === 'cancelled' || s === 'canceled') return 'Match wurde abgebrochen';
+              return 'Warte auf Antwort...';
+            })()}
           </Typography>
         )}
       </CardActions>

@@ -41,32 +41,18 @@ const authService = {
     );
 
     if (isSuccessResponse(response)) {
-        console.log('🔐 LOGIN DEBUG:', {
-          isSuccess: isSuccessResponse(response),
-          response: response,
-          hasData: !!response.data,
-          hasAccessToken: !!response.data?.accessToken
-        });
       const loginData = response.data;
       const storageType = withDefault(credentials?.rememberMe, false) ? 'permanent' : 'session';
-      
-      console.log('🔐 STORING TOKENS:', {
-        hasAccessToken: isDefined(loginData?.accessToken),
-        hasRefreshToken: isDefined(loginData?.refreshToken),
-        storageType
-      });
-      
+
       if (isDefined(loginData?.accessToken)) {
         setToken(loginData.accessToken, storageType);
         apiClient.setAuthToken(loginData.accessToken);
-        console.log('✅ Access token stored');
       }
       if (isDefined(loginData?.refreshToken)) {
         setRefreshToken(loginData.refreshToken, storageType);
-        console.log('✅ Refresh token stored');
       }
     } else {
-      console.error('❌ Login response not successful:', response);
+      // Login failed - error handling in component
     }
 
     return response;

@@ -138,10 +138,6 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       icon: <MatchmakingIcon />,
       path: '/matchmaking',
       authRequired: true,
-      children: [
-        { text: 'Anfragen', icon: null, path: '/matchmaking', authRequired: true },
-        { text: 'Meine Matches', icon: null, path: '/matchmaking/matches', authRequired: true },
-      ],
     },
     {
       text: 'Termine',
@@ -277,8 +273,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const shouldShowMenuItem = useCallback((item: MenuItem): boolean => {
     // Prüfe Authentifizierung
     if (item.authRequired && !isAuthenticated) return false;
-    
-    // Prüfe Admin-Rolle (legacy support)
+
     if (item.adminRequired && !isAdmin) return false;
     
     // Admin und SuperAdmin sehen alle Admin-Menüeinträge

@@ -24,6 +24,34 @@ import {
   selectMatchmakingStatistics
 } from '../store/selectors/matchmakingSelectors';
 import { clearError } from '../features/matchmaking/matchmakingSlice';
+import type { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
+
+// Type definitions for hook parameters
+interface MatchQueryParams {
+  pageNumber?: number;
+  pageSize?: number;
+  includeCompleted?: boolean;
+  status?: string;
+  skillId?: string;
+}
+
+interface MatchRequestParams {
+  pageNumber?: number;
+  pageSize?: number;
+  status?: string;
+}
+
+interface AcceptMatchRequestPayload {
+  // Add properties as needed from backend contract
+}
+
+interface RejectMatchRequestPayload {
+  responseMessage?: string;
+}
+
+interface CounterOfferPayload extends CreateMatchRequest {
+  originalRequestId: string;
+}
 
 /**
  * 🚀 ROBUSTE USEMATCHMAKING HOOK 
@@ -52,42 +80,42 @@ export const useMatchmaking = () => {
 
   // ===== MEMOIZED ACTIONS =====
   const actions = useMemo(() => ({
-    
+
     // === FETCH OPERATIONS ===
-    loadMatches: (params: any = {}) => {
+    loadMatches: (params: MatchQueryParams = { pageNumber: 1, pageSize: 12, includeCompleted: true }) => {
       return dispatch(fetchMatches(params));
     },
 
-    loadIncomingRequests: (params: any = {}) => {
+    loadIncomingRequests: (params: MatchRequestParams = { pageNumber: 1, pageSize: 12 }) => {
       return dispatch(fetchIncomingMatchRequests(params));
     },
 
-    loadOutgoingRequests: (params: any = {}) => {
+    loadOutgoingRequests: (params: MatchRequestParams = { pageNumber: 1, pageSize: 12 }) => {
       return dispatch(fetchOutgoingMatchRequests(params));
     },
 
-    fetchRecommendations: (params: any = {}) => {
+    fetchRecommendations: (params: MatchQueryParams = {}) => {
       return dispatch(fetchMatches(params));
     },
 
-    loadUserMatches: (params: any = {}) => {
+    loadUserMatches: (params: MatchQueryParams = { pageNumber: 1, pageSize: 12, includeCompleted: true }) => {
       return dispatch(fetchUserMatches(params));
     },
 
     // === CRUD OPERATIONS ===
-    createMatchRequest: (data: any) => {
+    createMatchRequest: (data: CreateMatchRequest) => {
       return dispatch(createMatchRequest(data));
     },
 
-    acceptMatchRequest: (requestId: string, request: any) => {
+    acceptMatchRequest: (requestId: string, request: AcceptMatchRequestPayload = {}) => {
       return dispatch(acceptMatchRequest({ requestId, request }));
     },
 
-    rejectMatchRequest: (requestId: string, request: any) => {
+    rejectMatchRequest: (requestId: string, request: RejectMatchRequestPayload = {}) => {
       return dispatch(rejectMatchRequest({ requestId, request }));
     },
 
-    createCounterOffer: (data: any) => {
+    createCounterOffer: (data: CounterOfferPayload) => {
       return dispatch(createCounterOffer(data));
     },
 
@@ -104,7 +132,7 @@ export const useMatchmaking = () => {
       return dispatch(rejectMatchRequest({ requestId: matchId, request: {} }));
     },
 
-    sendMatchRequest: (data: any) => {
+    sendMatchRequest: (data: CreateMatchRequest) => {
       return dispatch(createMatchRequest(data));
     },
 
@@ -112,7 +140,7 @@ export const useMatchmaking = () => {
 
   // ===== RETURN OBJECT =====
   return {
-    // === STATE DATA === 
+    // === STATE DATA ===
     matches,
     userMatches,
     incomingRequests,

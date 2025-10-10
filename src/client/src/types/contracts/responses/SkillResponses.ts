@@ -2,36 +2,41 @@ import { Skill } from "../../models/Skill";
 import { ProficiencyLevelResponse, SkillCategoryResponse } from "./CreateSkillResponse";
 
 export interface UserSkillResponseData {
-    UserId: string;
-    SkillId: string;
-    Name: string;
-    Description: string;
-    Category: {
-      CategoryId: string;
-      Name: string;
-      IconName?: string;
-      Color?: string;
-      SkillCount?: number;
+    userId: string;
+    skillId: string;
+    name: string;
+    description: string;
+    category: {
+      categoryId: string;
+      name: string;
+      iconName?: string;
+      color?: string;
+      skillCount?: number;
     };
-    ProficiencyLevel: {
-      LevelId: string;
-      Level: string;
-      Rank: number;
-      Color?: string;
-      SkillCount?: number;
+    proficiencyLevel: {
+      levelId: string;
+      level: string;
+      rank: number;
+      color?: string;
+      skillCount?: number;
     };
-    Tags: string[];
-    IsOffered: boolean;
-    AverageRating?: number;
-    ReviewCount: number;
-    EndorsementCount: number;
-    CreatedAt: string;
-    UpdatedAt: string;
+    tags: string[];
+    isOffered: boolean;
+    averageRating?: number;
+    reviewCount: number;
+    endorsementCount: number;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface SkillDetailsResponse {
   skillId: string;
   userId: string;
+  ownerUserName?: string;
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerRating?: number;
+  ownerMemberSince?: string;
   name: string;
   description: string;
   category: SkillCategoryResponse;

@@ -8,25 +8,45 @@
 
 ## 🚨 Critical Rules - ALWAYS FOLLOW
 
+### 🎯 KISS Principle (Keep It Simple, Stupid)
+- **ALWAYS start with the SIMPLEST solution first**
+- **QUESTION complexity**: Ask "Is this really necessary?" before building abstractions
+- **AVOID over-engineering**: Don't build features "for the future" - build what's needed NOW
+- **PREFER explicit over clever**: Simple, readable code > clever abstractions
+- **DELETE unused code**: If it's not used, remove it immediately
+
+### 🔍 Analysis Before Implementation
+- **UNDERSTAND the flow FIRST**:
+  - Frontend: Which hook? Which slice? Which API call?
+  - Backend: Which route? Which handler? Which service?
+- **READ existing code** before writing new code
+- **CHECK for existing solutions** before creating new ones
+- **VERIFY the actual problem** before proposing solutions
+- **TEST your understanding** by explaining the flow back
+
 ### Security & Authentication
 - **NEVER modify authentication without explicit confirmation**
 - **ALWAYS implement RBAC checks for admin and protected areas**
 - **ALWAYS validate in backend, display in frontend**
 - **IMPLEMENT 2FA authentication support in frontend**
+- **HANDLE unauthenticated users**: Check if tokens exist before attempting refresh
+- **PUBLIC endpoints**: Always configure PermissionMiddleware for public routes
 
 ### Code Generation
 - **ALWAYS generate complete files, not snippets**
 - **ALWAYS use async/await where possible**
 - **ALWAYS include error handling and logging**
-- **ALWAYS add FluentValidation for all commands**
+- **ALWAYS add FluentValidation for all commands** (field validation ONLY)
 - **ALWAYS use contracts from shared/Contracts (create if missing)**
 
 ### Architecture Patterns
 - **ALWAYS use CQRS pattern with MediatR**
 - **ALWAYS return ApiResponse or PagedResponse from APIs**
+- **ALWAYS use ServiceCommunicationManager for inter-service calls**
 - **ALWAYS communicate through Gateway (port 8080)**
 - **NEVER expose entities directly to frontend**
 - **ALWAYS use DTOs/Contracts for API communication**
+- **NEVER bypass Gateway for service-to-service communication**
 
 ## 📁 Project Structure & Standards
 
@@ -113,24 +133,38 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 ```
 
 ### 3. CQRS Implementation Pattern
+
+#### ✅ Validation Strategy
+**CRITICAL**: Keep validation simple and focused!
+
+- **FluentValidation**: ONLY for field/input validation (required, length, format, etc.)
+- **Business Logic**: Handle in Command/Query Handlers, NOT in validators
+- **Cross-Service Validation**: Handle in handlers with ServiceCommunicationManager
+- **NO over-engineering**: Don't create complex validation services/abstractions
+
 ```csharp
-// Command with Validation
-public record CreateSkillCommand(string Name, string Category) : IRequest<ApiResponse<SkillResponse>>;
+// Command with Validation (FIELD VALIDATION ONLY)
+public record CreateSkillCommand(string Name, string CategoryId) : IRequest<ApiResponse<SkillResponse>>;
 
 public class CreateSkillCommandValidator : AbstractValidator<CreateSkillCommand>
 {
     public CreateSkillCommandValidator()
     {
+        // ONLY field validation - simple rules
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Skill name is required")
-            .MaximumLength(100).WithMessage("Skill name must not exceed 100 characters");
+            .Length(3, 100).WithMessage("Skill name must be between 3 and 100 characters");
+
+        RuleFor(x => x.CategoryId)
+            .NotEmpty().WithMessage("Category is required");
     }
 }
 
-// Handler with full implementation
+// Handler with Business Logic Validation
 public class CreateSkillCommandHandler : IRequestHandler<CreateSkillCommand, ApiResponse<SkillResponse>>
 {
     private readonly ISkillRepository _repository;
+    private readonly IServiceCommunicationManager _serviceCommunication;
     private readonly IEventBus _eventBus;
     private readonly ILogger<CreateSkillCommandHandler> _logger;
     private readonly ICacheService _cache;
@@ -140,23 +174,32 @@ public class CreateSkillCommandHandler : IRequestHandler<CreateSkillCommand, Api
         try
         {
             _logger.LogInformation("Creating skill: {SkillName}", request.Name);
-            
-            // Business logic
-            var skill = Skill.Create(request.Name, request.Category);
-            
+
+            // Business logic validation: Check if category exists
+            var categoryExists = await _serviceCommunication.GetAsync<bool>(
+                "SkillService",
+                $"/api/categories/{request.CategoryId}/exists"
+            );
+
+            if (!categoryExists)
+                return ApiResponse<SkillResponse>.Failure("Category does not exist");
+
+            // Business logic: Create entity
+            var skill = Skill.Create(request.Name, request.CategoryId);
+
             // Repository pattern
             await _repository.AddAsync(skill, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
-            
+
             // Invalidate cache
             await _cache.RemoveAsync($"skills:*", cancellationToken);
-            
+
             // Publish event
             await _eventBus.PublishAsync(new SkillCreatedEvent(skill.Id, skill.Name), cancellationToken);
-            
+
             // Map to response
             var response = skill.ToResponse();
-            
+
             return ApiResponse<SkillResponse>.Success(response, "Skill created successfully");
         }
         catch (Exception ex)
@@ -168,7 +211,98 @@ public class CreateSkillCommandHandler : IRequestHandler<CreateSkillCommand, Api
 }
 ```
 
-### 4. Event-Driven Communication
+### 4. Service Communication Pattern
+
+#### ✅ Use ServiceCommunicationManager (ALWAYS)
+**CRITICAL**: ALL inter-service HTTP calls MUST use ServiceCommunicationManager!
+
+```csharp
+// ✅ CORRECT: Using ServiceCommunicationManager
+public class UserServiceClient
+{
+    private readonly IServiceCommunicationManager _serviceCommunication;
+    private readonly ILogger<UserServiceClient> _logger;
+
+    public UserServiceClient(IServiceCommunicationManager serviceCommunication, ILogger<UserServiceClient> logger)
+    {
+        _serviceCommunication = serviceCommunication;
+        _logger = logger;
+    }
+
+    public async Task<UserProfileResponse?> GetUserProfileAsync(string userId)
+    {
+        try
+        {
+            // ServiceCommunicationManager automatically:
+            // - Routes through Gateway
+            // - Handles circuit breaker & retry
+            // - Unwraps ApiResponse<T> to T
+            // - Adds M2M authentication
+            var profile = await _serviceCommunication.GetAsync<UserProfileResponse>(
+                "UserService",
+                $"/api/users/{userId}/profile"
+            );
+
+            return profile;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching user profile for {UserId}", userId);
+            return null;
+        }
+    }
+}
+
+// ❌ WRONG: Direct HttpClient usage
+// Never do this! No circuit breaker, no retry, no M2M auth
+public class BadUserServiceClient
+{
+    private readonly HttpClient _httpClient;
+
+    public async Task<UserProfileResponse?> GetUserProfileAsync(string userId)
+    {
+        var response = await _httpClient.GetAsync($"http://localhost:8080/api/users/{userId}/profile");
+        // Missing error handling, retry, circuit breaker, M2M auth...
+    }
+}
+```
+
+#### ✅ Configuration in appsettings.json
+```json
+{
+  "ServiceCommunication": {
+    "GatewayBaseUrl": "http://localhost:8080",
+    "DefaultTimeout": "00:00:30",
+    "EnableResponseCaching": true,
+    "EnableMetrics": true,
+    "EnableRequestDeduplication": true,
+    "M2M": {
+      "Enabled": true,
+      "TokenEndpoint": "http://localhost:8080/api/auth/service-token",
+      "ServiceId": "AppointmentService",
+      "ServiceSecret": "your-service-secret"
+    },
+    "CircuitBreaker": {
+      "ExceptionsAllowedBeforeBreaking": 5,
+      "DurationOfBreak": "00:00:30",
+      "Timeout": "00:00:15",
+      "FailureThreshold": 0.5,
+      "MinimumThroughput": 10
+    },
+    "RetryPolicy": {
+      "MaxRetries": 3,
+      "InitialDelay": "00:00:01",
+      "MaxDelay": "00:00:10",
+      "BackoffStrategy": "ExponentialBackoffWithJitter",
+      "RetryOnTimeout": true,
+      "RetryableStatusCodes": [408, 429, 500, 502, 503, 504],
+      "RetryableExceptions": ["HttpRequestException", "TimeoutException"]
+    }
+  }
+}
+```
+
+### 5. Event-Driven Communication
 ```csharp
 // Event Definition
 public record SkillCreatedEvent(Guid SkillId, string SkillName) : IEvent;
@@ -182,30 +316,80 @@ public class SkillCreatedConsumer : IConsumer<SkillCreatedEvent>
     public async Task Consume(ConsumeContext<SkillCreatedEvent> context)
     {
         _logger.LogInformation("Processing SkillCreatedEvent for skill: {SkillId}", context.Message.SkillId);
-        
+
         // Send notification
         await _notificationService.SendSkillCreatedNotification(context.Message);
     }
 }
 ```
 
-### 5. Frontend Service Pattern
-```typescript
-// API Service
-export class SkillService extends BaseService {
-    async createSkill(request: CreateSkillRequest): Promise<ApiResponse<SkillResponse>> {
-        // Always use contracts matching backend
-        return this.post<ApiResponse<SkillResponse>>('/api/skills', request);
-    }
-    
-    async getSkills(params: SkillQueryParams): Promise<PagedResponse<SkillResponse>> {
-        // Null/undefined checks
-        const queryParams = this.buildQueryParams(params ?? {});
-        return this.get<PagedResponse<SkillResponse>>(`/api/skills${queryParams}`);
-    }
-}
+### 6. Frontend Service Pattern
 
-// Redux Slice
+#### ✅ API Service with apiClient
+```typescript
+// API Service - Use apiClient methods
+export const skillService = {
+  // Always pass params directly, NOT wrapped in { params }
+  async getAllSkills(params?: SkillSearchParams): Promise<PagedResponse<SkillSearchResultResponse>> {
+    return await apiClient.getPaged<SkillSearchResultResponse>(
+      SKILL_ENDPOINTS.GET_SKILLS,
+      params  // ✅ CORRECT: Direct params
+      // ❌ WRONG: { params } - causes params[pageNumber] nesting
+    ) as PagedResponse<SkillSearchResultResponse>;
+  },
+
+  async getSkillById(skillId: string): Promise<ApiResponse<SkillDetailsResponse>> {
+    return await apiClient.get<SkillDetailsResponse>(
+      `${SKILL_ENDPOINTS.GET_SKILLS}/${skillId}`
+    );
+  }
+};
+```
+
+#### ✅ apiClient Authentication Handling
+```typescript
+// ✅ CORRECT: Only refresh tokens if user has tokens
+if (status === 401 && !originalRequest._retry && !originalRequest.skipAuth) {
+  const isAuthEndpoint = originalRequest.url?.includes('/login') ||
+                        originalRequest.url?.includes('/register');
+
+  // Check if tokens exist before attempting refresh
+  const hasTokens = getToken() && getRefreshToken();
+
+  if (!isAuthEndpoint && hasTokens) {
+    return this.handleTokenRefresh(originalRequest);
+  }
+
+  // If no tokens exist, this is an unauthenticated request
+  // Don't redirect - let the component handle it
+  if (!hasTokens) {
+    console.debug('401 on unauthenticated request - not attempting token refresh');
+  }
+}
+```
+
+#### ✅ PermissionMiddleware for Public Endpoints
+```csharp
+// Backend: Configure public endpoints in PermissionMiddleware
+private bool IsPublicEndpoint(PathString path)
+{
+    var publicPaths = new[]
+    {
+        "/health",
+        "/api/auth",
+        "/api/users/login",
+        "/api/users/register",
+        "/api/skills",              // ✅ Public skill browsing
+        "/api/categories",           // ✅ Public categories
+        "/api/proficiency-levels"    // ✅ Public proficiency levels
+    };
+
+    return publicPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
+}
+```
+
+#### ✅ Redux Slice Pattern
+```typescript
 const skillSlice = createSlice({
     name: 'skills',
     initialState,
@@ -521,24 +705,86 @@ npm run build              # Production build
 ## ⚠️ Do's and Don'ts
 
 ### ✅ DO's
-- Always validate in backend, display errors in frontend
+- **ALWAYS start simple** - KISS principle over clever abstractions
+- **ALWAYS analyze before coding** - Understand the flow first
+- **ALWAYS use ServiceCommunicationManager** for inter-service calls
+- **ALWAYS validate in backend**, display errors in frontend
+- **ALWAYS use FluentValidation** for field validation ONLY
+- **ALWAYS handle unauthenticated users** properly in frontend
+- **ALWAYS configure public endpoints** in PermissionMiddleware
+- **ALWAYS check for null/undefined** in TypeScript
 - Use dependency injection everywhere
-- Implement idempotency for critical operations
-- Cache frequently accessed, rarely changed data
 - Use pagination for list endpoints
 - Log important business operations
-- Check for null/undefined in TypeScript
 - Use transactions for multi-step operations
+- Delete unused code immediately
 
 ### ❌ DON'Ts
+- **NEVER over-engineer** - Don't build abstractions "for the future"
+- **NEVER bypass the Gateway** for service communication
+- **NEVER use direct HttpClient** - Always use ServiceCommunicationManager
+- **NEVER create complex validation services** - Use FluentValidation + Handler logic
+- **NEVER attempt token refresh without checking if tokens exist**
+- **NEVER wrap params in objects** when passing to apiClient (use `params` not `{ params }`)
 - Don't expose internal exceptions to users
 - Don't use Entity classes as DTOs
-- Don't bypass the Gateway for service communication
 - Don't store sensitive data in frontend state
 - Don't ignore FluentValidation rules
 - Don't use synchronous I/O operations
 - Don't create tight coupling between services
 - Don't forget cascade delete configuration
+
+### 🚫 Anti-Patterns (LESSONS LEARNED)
+
+#### ❌ Over-Engineering Validation
+```csharp
+// ❌ WRONG: Complex cross-service validation abstraction
+public interface ICrossServiceValidationService
+{
+    Task<ValidationResult> ValidateUserExists(string userId);
+    Task<ValidationResult> ValidateSkillExists(string skillId);
+    // 1000+ lines of mock code...
+}
+
+// ✅ CORRECT: Simple validation in handler
+public async Task<ApiResponse<T>> Handle(Command request)
+{
+    var userExists = await _serviceCommunication.GetAsync<bool>(
+        "UserService",
+        $"/api/users/{request.UserId}/exists"
+    );
+
+    if (!userExists)
+        return ApiResponse<T>.Failure("User not found");
+}
+```
+
+#### ❌ Direct HttpClient Usage
+```csharp
+// ❌ WRONG: No retry, circuit breaker, M2M auth
+private readonly HttpClient _httpClient;
+var response = await _httpClient.GetAsync("http://localhost:8080/api/users/123");
+
+// ✅ CORRECT: Use ServiceCommunicationManager
+private readonly IServiceCommunicationManager _serviceCommunication;
+var user = await _serviceCommunication.GetAsync<UserResponse>("UserService", "/api/users/123");
+```
+
+#### ❌ Frontend Token Refresh Without Check
+```typescript
+// ❌ WRONG: Always tries to refresh, even for unauthenticated users
+if (status === 401) {
+  return this.handleTokenRefresh(originalRequest);  // Creates redirect loop!
+}
+
+// ✅ CORRECT: Check if tokens exist first
+if (status === 401 && !originalRequest._retry) {
+  const hasTokens = getToken() && getRefreshToken();
+  if (hasTokens) {
+    return this.handleTokenRefresh(originalRequest);
+  }
+}
+```
 
 ## 🔍 Debugging Guide
 

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UserService.Domain.Repositories;
 using UserService.Infrastructure.Repositories;
+using UserService.Infrastructure.HttpClients;
 
 namespace UserService.Infrastructure.Extensions;
 
@@ -29,6 +30,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserBlockingRepository, UserBlockingRepository>();
         services.AddScoped<IUserActivityRepository, UserActivityRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
+
+        // Register service clients that use IServiceCommunicationManager
+        services.AddScoped<ISkillServiceClient, SkillServiceClient>();
+        services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
+
+        // Register orchestration services
+        // services.AddScoped<UserService.Application.Services.Orchestration.IUserDataEnrichmentService, UserService.Application.Services.Orchestration.UserDataEnrichmentService>();
 
         services.AddSharedInfrastructure(configuration, environment, serviceName);
 

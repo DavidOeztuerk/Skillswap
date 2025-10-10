@@ -17,15 +17,15 @@ export interface GetUserAppointmentsRequest {
 }
 
 export interface UserAppointmentResponse {
-  AppointmentId: string;
-  Title: string;
-  ScheduledDate: Date;
-  DurationMinutes: number;
-  Status: string;
-  OtherPartyUserId: string;
-  OtherPartyName: string;
-  MeetingType: string;
-  IsOrganizer: boolean;
+  appointmentId: string;
+  title: string;
+  scheduledDate: string; // Changed to string since API sends ISO string
+  durationMinutes: number;
+  status: string;
+  otherPartyUserId: string;
+  otherPartyName: string;
+  meetingType: string;
+  isOrganizer: boolean;
 }
 
 export interface PagedUserAppointmentsResponse {
@@ -94,7 +94,6 @@ const appointmentService = {
   },
 
   /**
-   * Respond to appointment (accept/cancel) - kept for backward compatibility
    */
   async respondToAppointment(
     appointmentId: string,
@@ -112,8 +111,7 @@ const appointmentService = {
    */
   async completeAppointment(appointmentId: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    // This endpoint doesn't exist in backend - would need to be implemented
-    throw new Error('Complete appointment endpoint not implemented in backend');
+    return await apiClient.post<AppointmentResponse>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}/complete`);
   },
 
   /**
@@ -203,8 +201,8 @@ const appointmentService = {
   async rateAppointment(appointmentId: string, rating: number, _?: string): Promise<Appointment> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
     if (rating < 1 || rating > 5) throw new Error('Bewertung muss zwischen 1 und 5 liegen');
-    // This endpoint doesn't exist in backend - would need to be implemented
-    throw new Error('Rate appointment endpoint not implemented in backend');
+    await apiClient.post<{ success: boolean }>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}/rate`, { rating });
+    return { id: appointmentId } as any;
   },
 
   /**
@@ -221,8 +219,7 @@ const appointmentService = {
    * Get appointment statistics - Note: This endpoint may not exist in backend
    */
   async getAppointmentStatistics(_?: string): Promise<any> {
-    // This endpoint doesn't exist in backend - would need to be implemented
-    throw new Error('Appointment statistics endpoint not implemented in backend');
+    return apiClient.get<any>(APPOINTMENT_ENDPOINTS.GET_STATISTICS);
   },
 
   /**
@@ -230,8 +227,7 @@ const appointmentService = {
    */
   async sendAppointmentReminder(appointmentId: string): Promise<void> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    // This endpoint doesn't exist in backend - would need to be implemented
-    throw new Error('Send reminder endpoint not implemented in backend');
+    await apiClient.post<void>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}/reminder`, { minutesBefore: 15 });
   },
 
   /**

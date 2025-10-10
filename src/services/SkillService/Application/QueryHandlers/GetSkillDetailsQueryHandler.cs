@@ -3,11 +3,13 @@ using CQRS.Handlers;
 using SkillService.Application.Queries;
 using CQRS.Models;
 using Contracts.Skill.Responses;
+using SkillService.Infrastructure.HttpClients;
 
 namespace SkillService.Application.QueryHandlers;
 
 public class GetSkillDetailsQueryHandler(
     SkillDbContext dbContext,
+    IUserServiceClient userServiceClient,
     ILogger<GetSkillDetailsQueryHandler> logger)
     : BaseQueryHandler<
     GetSkillDetailsQuery,
@@ -15,6 +17,7 @@ public class GetSkillDetailsQueryHandler(
         logger)
 {
     private readonly SkillDbContext _dbContext = dbContext;
+    private readonly IUserServiceClient _userServiceClient = userServiceClient;
 
     public override async Task<ApiResponse<SkillDetailsResponse>> Handle(
         GetSkillDetailsQuery request,
@@ -33,9 +36,17 @@ public class GetSkillDetailsQueryHandler(
                 return NotFound("Skill not found");
             }
 
+            // Fetch owner details
+            var ownerProfile = await _userServiceClient.GetUserProfileAsync(skill.UserId, cancellationToken);
+
             var response = new SkillDetailsResponse(
                 skill.Id,
                 skill.UserId,
+                ownerProfile?.UserName,
+                ownerProfile?.FirstName,
+                ownerProfile?.LastName,
+                ownerProfile?.AverageRating,
+                ownerProfile?.MemberSince,
                 skill.Name,
                 skill.Description,
                 new SkillCategoryResponse(

@@ -16,7 +16,8 @@ public record CreateMatchRequestCommand(
     int SessionDurationMinutes = 60,
     int TotalSessions = 1,
     string[]? PreferredDays = null,
-    string[]? PreferredTimes = null)
+    string[]? PreferredTimes = null,
+    string? AdditionalNotes = null)
     : ICommand<CreateMatchRequestResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }

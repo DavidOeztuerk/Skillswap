@@ -48,21 +48,9 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpContextAccessor();
 
-        var gatewayUrl = Environment.GetEnvironmentVariable("GATEWAY_URL") ?? "http://gateway:8080";
-
-        services.AddHttpClient<IUserServiceClient, UserServiceClient>(client =>
-        {
-            client.BaseAddress = new Uri($"{gatewayUrl}/api/");
-            client.DefaultRequestHeaders.Add("Accept", "application/json");
-            client.Timeout = TimeSpan.FromSeconds(30);
-        });
-
-        services.AddHttpClient<ISkillServiceClient, SkillServiceClient>(client =>
-        {
-            client.BaseAddress = new Uri($"{gatewayUrl}/api/");
-            client.DefaultRequestHeaders.Add("Accept", "application/json");
-            client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        // Register service clients that use IServiceCommunicationManager
+        services.AddScoped<IUserServiceClient, UserServiceClient>();
+        services.AddScoped<ISkillServiceClient, SkillServiceClient>();
 
         services.AddEventBus();
 

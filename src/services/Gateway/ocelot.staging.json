@@ -53,6 +53,56 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/appointments/{appointmentId}/complete",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 443 }],
+      "UpstreamPathTemplate": "/api/appointments/{appointmentId}/complete",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/appointments/{appointmentId}/rate",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 443 }],
+      "UpstreamPathTemplate": "/api/appointments/{appointmentId}/rate",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/appointments/{appointmentId}/reminder",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 443 }],
+      "UpstreamPathTemplate": "/api/appointments/{appointmentId}/reminder",
+      "UpstreamHttpMethod": ["POST"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/appointments/statistics",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [{ "Host": "appointmentservice.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 443 }],
+      "UpstreamPathTemplate": "/api/appointments/statistics",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/profile/{userId}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [{ "Host": "userservice.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 443 }],
+      "UpstreamPathTemplate": "/api/users/profile/{userId}",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
       "DownstreamPathTemplate": "/skills",
       "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [{ "Host": "skillservice.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 443 }],

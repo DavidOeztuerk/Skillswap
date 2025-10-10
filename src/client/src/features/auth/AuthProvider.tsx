@@ -3,7 +3,7 @@ import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import tokenRefreshService from '../../services/tokenRefreshService';
 import { silentLogin } from './authThunks';
-import { isTokenExpired, removeToken } from '../../utils/authHelpers';
+import { removeToken } from '../../utils/authHelpers';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -31,7 +31,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Check for stored token before trying silent login
     const storedToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-    
+
     if (!storedToken?.trim()) {
       console.log('ℹ️ AuthProvider: No stored token found, skipping silent login');
       if (mountedRef.current) {
@@ -40,18 +40,8 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return;
     }
 
-    // ✅ Check if token is expired before attempting silent login
-    if (isTokenExpired(storedToken)) {
-      console.log('⚠️ AuthProvider: Stored token is expired, clearing and skipping silent login');
-      removeToken(); // Use helper to clean all token storage
-      if (mountedRef.current) {
-        setInitializationComplete(true);
-      }
-      return;
-    }
-
     try {
-      console.log('🔄 AuthProvider: Token valid, attempting silent login...');
+      console.log('🔄 AuthProvider: Token found, attempting silent login (backend will validate expiry)...');
       
       // Try silent login - this will validate token and load user data
       const result = await dispatch(silentLogin());
