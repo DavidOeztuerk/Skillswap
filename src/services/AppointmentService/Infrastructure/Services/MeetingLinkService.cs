@@ -1,4 +1,5 @@
 using AppointmentService.Application.Services;
+using AppointmentService.Infrastructure.HttpClients;
 using Events.Domain.Appointment;
 using EventSourcing;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,7 @@ public class MeetingLinkService : IMeetingLinkService
     private readonly AppointmentDbContext _dbContext;
     private readonly IDomainEventPublisher _eventPublisher;
     private readonly IConfiguration _configuration;
+    private readonly IUserServiceClient _userServiceClient;
     private readonly ILogger<MeetingLinkService> _logger;
     private const int LINK_ACTIVATION_DELAY_MINUTES = 5;
     private const int LINK_VALIDITY_HOURS = 24;
@@ -20,11 +22,13 @@ public class MeetingLinkService : IMeetingLinkService
         AppointmentDbContext dbContext,
         IDomainEventPublisher eventPublisher,
         IConfiguration configuration,
+        IUserServiceClient userServiceClient,
         ILogger<MeetingLinkService> logger)
     {
         _dbContext = dbContext;
         _eventPublisher = eventPublisher;
         _configuration = configuration;
+        _userServiceClient = userServiceClient;
         _logger = logger;
     }
 
@@ -59,16 +63,19 @@ public class MeetingLinkService : IMeetingLinkService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Publish domain event (we need to fetch user details in real implementation)
+        // Fetch user details
+        var organizerProfile = await _userServiceClient.GetUserProfileAsync(appointment.OrganizerUserId, cancellationToken);
+        var participantProfile = await _userServiceClient.GetUserProfileAsync(appointment.ParticipantUserId, cancellationToken);
+
         await _eventPublisher.Publish(new MeetingLinkGeneratedDomainEvent(
             appointmentId,
             meetingLink,
             appointment.OrganizerUserId,
-            "", // TODO: Get email from UserService
-            "", // TODO: Get name from UserService
+            organizerProfile?.Email ?? "",
+            $"{organizerProfile?.FirstName} {organizerProfile?.LastName}".Trim(),
             appointment.ParticipantUserId,
-            "", // TODO: Get email from UserService
-            "", // TODO: Get name from UserService
+            participantProfile?.Email ?? "",
+            $"{participantProfile?.FirstName} {participantProfile?.LastName}".Trim(),
             appointment.ScheduledDate,
             appointment.DurationMinutes,
             appointment.SkillId),

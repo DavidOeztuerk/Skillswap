@@ -26,6 +26,7 @@ export interface GetMatchRequestsParams {
   pageNumber?: number;
   pageSize?: number;
   status?: string;
+  includeCompleted?: boolean;
 }
 
 const qp = (p: GetMatchRequestsParams) => {
@@ -35,6 +36,7 @@ const qp = (p: GetMatchRequestsParams) => {
   q.append('pageNumber', pageNumber);
   q.append('pageSize', pageSize);
   if (p.status) q.append('status', p.status);
+  if (p.includeCompleted !== undefined) q.append('includeCompleted', p.includeCompleted.toString());
   return `?${q.toString()}`;
 };
 
@@ -69,7 +71,7 @@ const matchmakingService = {
 
   async getIncomingMatchRequests(params: GetMatchRequestsParams): Promise<PagedResponse<MatchRequestDisplay>> {
     const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_INCOMING}${qp(params)}`;
-    
+
     try {
       const response = await apiClient.getPaged<MatchRequestDisplay>(url.split('?')[0], parseParams(url)) as PagedResponse<MatchRequestDisplay>;
       return response;

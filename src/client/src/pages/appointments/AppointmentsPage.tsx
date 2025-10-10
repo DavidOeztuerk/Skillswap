@@ -29,6 +29,7 @@ const AppointmentsPage: React.FC = () => {
     acceptAppointment,
     declineAppointment,
     completeAppointment,
+    loadAppointments,
   } = useAppointments();
 
   // Dialog-States
@@ -56,6 +57,10 @@ const AppointmentsPage: React.FC = () => {
     errorService.addBreadcrumb('Loading appointments page', 'navigation');
     // Beim Start immer den letzten Status löschen
     setStatusMessage(null);
+
+    // 🔥 APPOINTMENTS LADEN!
+    console.log('🎯 AppointmentsPage: Loading appointments...');
+    loadAppointments({ pageNumber: 1, pageSize: 12, includePast: true });
   }, []); // Leere deps - läuft nur beim Mount
 
   // Dialog-Handler

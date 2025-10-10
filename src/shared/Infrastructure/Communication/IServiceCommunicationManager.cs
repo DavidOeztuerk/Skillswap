@@ -2,6 +2,13 @@ namespace Infrastructure.Communication;
 
 public interface IServiceCommunicationManager
 {
+    Task<TResponse?> GetAsync<TResponse>(
+        string serviceName,
+        string endpoint,
+        CancellationToken cancellationToken = default,
+        Dictionary<string, string>? headers = null)
+        where TResponse : class;
+
     Task<TResponse?> SendRequestAsync<TRequest, TResponse>(
         string serviceName,
         string endpoint,

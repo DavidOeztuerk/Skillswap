@@ -43,7 +43,6 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
-import { MatchStatus } from '../../types/models/Match';
 import PageHeader from '../../components/layout/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
 import { toast } from 'react-toastify';
@@ -74,13 +73,13 @@ const MatchesPage: React.FC = () => {
   const pageSize = 9;
 
   useEffect(() => {
-    loadMatches({ page: 1, limit: 100 });
+    loadMatches({ pageNumber: 1, pageSize: 100 });
   }, []);
 
-  // Filter matches by status
-  const activeMatches = matches.filter(m => m.status === MatchStatus.Accepted);
-  const completedMatches = matches.filter(m => m.status === MatchStatus.Completed);
-  const cancelledMatches = matches.filter(m => m.status === MatchStatus.Rejected || m.status === MatchStatus.Expired);
+  // Filter matches by status - MatchDisplay uses string literals
+  const activeMatches = matches.filter(m => m.status === 'accepted' || m.status === 'active');
+  const completedMatches = matches.filter(m => m.status === 'completed');
+  const cancelledMatches = matches.filter(m => m.status === 'rejected' || m.status === 'cancelled');
 
   const getCurrentMatches = () => {
     switch (tabValue) {
@@ -131,7 +130,7 @@ const MatchesPage: React.FC = () => {
         setDissolveDialogOpen(false);
         setSelectedMatch(null);
         setDissolveReason('');
-        await loadMatches({ page: 1, limit: 100 });
+        await loadMatches({ pageNumber: 1, pageSize: 100 });
       } else {
         toast.error(response.message || 'Fehler beim Auflösen des Matches');
       }
@@ -147,20 +146,20 @@ const MatchesPage: React.FC = () => {
     try {
       const { default: matchmakingService } = await import('../../api/services/matchmakingService');
       const response = await matchmakingService.completeMatch(
-        selectedMatch.id, 
+        selectedMatch.id,
         rating,
-        60, // Default session duration
+        60,
         feedback || undefined,
         true
       );
-      
+
       if (response.success) {
         toast.success('Match wurde erfolgreich abgeschlossen');
         setCompleteDialogOpen(false);
         setSelectedMatch(null);
         setRating(5);
         setFeedback('');
-        await loadMatches({ page: 1, limit: 100 });
+        await loadMatches({ pageNumber: 1, pageSize: 100 });
       } else {
         toast.error(response.message || 'Fehler beim Abschließen des Matches');
       }
@@ -227,10 +226,10 @@ const MatchesPage: React.FC = () => {
             </Avatar>
             <Box>
               <Typography variant="body2">
-                {match.otherUserName || 'Unbekannter Nutzer'}
+                {match.partnerName || 'Unbekannter Nutzer'}
               </Typography>
-              {match.otherUserRating && match.otherUserRating > 0 && (
-                <Rating value={match.otherUserRating} size="small" readOnly />
+              {match.partnerRating && match.partnerRating > 0 && (
+                <Rating value={match.partnerRating} size="small" readOnly />
               )}
             </Box>
           </Stack>

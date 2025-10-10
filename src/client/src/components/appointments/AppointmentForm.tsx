@@ -19,7 +19,7 @@ import { isAfter, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import LoadingButton from '../ui/LoadingButton';
-import { Match } from '../../types/models/Match';
+import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
 import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 // Zod-Schema
@@ -67,7 +67,7 @@ interface AppointmentFormProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: AppointmentRequest) => Promise<void>;
-  match: Match;
+  match: MatchDisplay;
   isLoading?: boolean;
   error?: { message: string } | null;
 }
@@ -80,13 +80,13 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
   isLoading = false,
   error,
 }) => {
-  // Bestimme Lehrer vs. Schüler
-  const teacher = match.isLearningMode
-    ? match.responderDetails
-    : match.requesterDetails;
-  const student = match.isLearningMode
-    ? match.requesterDetails
-    : match.responderDetails;
+  // Determine teacher vs. student based on match structure
+  const teacherName = match.isLearningMode
+    ? (match.partnerName || 'Unknown Teacher')
+    : 'You';
+  const studentName = match.isLearningMode
+    ? 'You'
+    : (match.partnerName || 'Unknown Student');
 
   // Standardwerte
   const defaultValues = useMemo(
@@ -197,7 +197,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                 <Box display="flex" alignItems="center">
                   <Box ml={1.5}>
                     <Typography variant="body1" fontWeight="medium">
-                      {teacher.firstName} {teacher.lastName}
+                      {teacherName}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Lehrende:r
@@ -208,7 +208,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                 <Box display="flex" alignItems="center">
                   <Box ml={1.5}>
                     <Typography variant="body1" fontWeight="medium">
-                      {student.firstName} {student.lastName}
+                      {studentName}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Lernende:r
@@ -219,7 +219,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
 
               <Box bgcolor="action.hover" p={2} borderRadius={1} mb={3}>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Skill:</strong> {match.skill.name}
+                  <strong>Skill:</strong> {match.skillName || 'Unknown Skill'}
                 </Typography>
               </Box>
 

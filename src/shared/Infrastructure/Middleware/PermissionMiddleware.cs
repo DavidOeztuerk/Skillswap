@@ -30,6 +30,14 @@ public class PermissionMiddleware
             return;
         }
 
+        // Check if endpoint allows anonymous access via metadata
+        var endpoint = context.GetEndpoint();
+        if (endpoint?.Metadata?.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() != null)
+        {
+            await _next(context);
+            return;
+        }
+
         // Check if user is authenticated
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {
@@ -78,6 +86,10 @@ public class PermissionMiddleware
             "/api/users/forgot-password", // Password reset endpoints
             "/api/users/reset-password",
             "/api/users/verify-email", // Email verification endpoint
+            "/api/skills",     // Public skill browsing (Udemy-style)
+            "/api/categories", // Public skill categories
+            "/api/proficiency-levels", // Public proficiency levels
+            "/api/users/profile/", // Public user profiles
             "/register",       // Registration endpoint (legacy)
             "/login",          // Login endpoint (legacy)
             "/forgot-password", // Password reset endpoints (legacy)

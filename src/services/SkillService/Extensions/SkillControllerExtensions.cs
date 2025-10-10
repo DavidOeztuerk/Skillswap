@@ -22,15 +22,17 @@ public static class SkillControllerExtensions
         skills.MapGet("/", SearchSkills)
             .WithName("SearchSkills")
             .WithSummary("Search skills")
-            .WithDescription("Search and filter skills with pagination")
+            .WithDescription("Search and filter skills with pagination (public endpoint like Udemy)")
             .WithTags("Skills")
+            .AllowAnonymous()
             .Produces<PagedResponse<SkillSearchResultResponse>>(StatusCodes.Status200OK);
 
         skills.MapGet("/{id}", GetSkillById)
             .WithName("GetSkillDetails")
             .WithSummary("Get skill details")
-            .WithDescription("Get detailed information about a specific skill")
+            .WithDescription("Get detailed information about a specific skill (public endpoint like Udemy)")
             .WithTags("SkillDetail")
+            .AllowAnonymous()
             .Produces<ApiResponse<SkillDetailsResponse>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status400BadRequest);
@@ -96,10 +98,9 @@ public static class SkillControllerExtensions
             ClaimsPrincipal user,
             [AsParameters] SearchSkillsRequest request)
         {
-            var userId = user.GetUserId();
-            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+            var userId = user.GetUserId() ?? string.Empty;
 
-            var command = new SearchSkillsQuery(
+            var query = new SearchSkillsQuery(
                 userId,
                 request.SearchTerm,
                 request.CategoryId,
@@ -112,7 +113,7 @@ public static class SkillControllerExtensions
                 request.PageNumber,
                 request.PageSize);
 
-            return await mediator.SendQuery(command);
+            return await mediator.SendQuery(query);
         }
 
         static async Task<IResult> GetSkillById(
@@ -120,11 +121,8 @@ public static class SkillControllerExtensions
             ClaimsPrincipal user,
             [FromRoute] string id)
         {
-            var userId = user.GetUserId();
-            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
+            var userId = user.GetUserId() ?? string.Empty;
             var query = new GetSkillDetailsQuery(id);
-
             return await mediator.SendQuery(query);
         }
 
@@ -228,8 +226,9 @@ public static class SkillControllerExtensions
         categories.MapGet("/", GetCategories)
             .WithName("GetSkillCategories")
             .WithSummary("Get skill categories")
-            .WithDescription("Retrieve all skill categories with pagination")
+            .WithDescription("Retrieve all skill categories with pagination (public endpoint)")
             .WithTags("SkillCategories")
+            .AllowAnonymous()
             .Produces<ApiResponse<GetSkillCategoriesResponse>>(StatusCodes.Status200OK);
 
         categories.MapPost("/", CreateNewCategory)
@@ -293,8 +292,9 @@ public static class SkillControllerExtensions
         levels.MapGet("/", GetProficiencyLevels)
             .WithName("GetProficiencyLevels")
             .WithSummary("Get proficiency levels")
-            .WithDescription("Retrieve all proficiency levels with pagination")
+            .WithDescription("Retrieve all proficiency levels with pagination (public endpoint)")
             .WithTags("ProficiencyLevels")
+            .AllowAnonymous()
             .Produces<ApiResponse<GetProficiencyLevelsResponse>>(StatusCodes.Status200OK);
 
         levels.MapPost("/", CreateNewProficiencyLevel)
@@ -344,8 +344,9 @@ public static class SkillControllerExtensions
         analytics.MapGet("/popular-tags", GetPopularTags)
             .WithName("GetPopularTags")
             .WithSummary("Get popular tags")
-            .WithDescription("Retrieve a list of popular tags based on user interactions")
+            .WithDescription("Retrieve a list of popular tags based on user interactions (public endpoint)")
             .WithTags("Analytics")
+            .AllowAnonymous()
             .Produces<GetPopularTagsResponse>(StatusCodes.Status200OK);
 
         RouteGroupBuilder rec = skills.MapGroup("/recommendations")
@@ -370,11 +371,7 @@ public static class SkillControllerExtensions
 
         static async Task<IResult> GetPopularTags(IMediator mediator, ClaimsPrincipal user, [AsParameters] GetPopularTagsRequest request)
         {
-            var userId = user.GetUserId();
-            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
             var query = new GetPopularTagsQuery(request.CategoryId, request.MaxTags, request.MinUsageCount);
-
             return await mediator.SendQuery(query);
         }
 

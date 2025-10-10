@@ -4,6 +4,7 @@ using EventSourcing;
 using Infrastructure.Authorization;
 using Infrastructure.Extensions;
 using Infrastructure.Security;
+using VideocallService.Infrastructure.HttpClients;
 
 namespace VideocallService.Infrastructure.Extensions;
 
@@ -11,6 +12,11 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment, string serviceName)
     {
+        // Register service clients that use IServiceCommunicationManager
+        services.AddScoped<IUserServiceClient, UserServiceClient>();
+        services.AddScoped<IAppointmentServiceClient, AppointmentServiceClient>();
+        services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
+
         services.AddSharedInfrastructure(configuration, environment, serviceName);
 
         services.AddJwtAuthentication(configuration);

@@ -1,6 +1,11 @@
 export interface Skill  {
   id: string;
   userId: string;
+  ownerUserName?: string;
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerRating?: number;
+  ownerMemberSince?: string;
   name: string;
   description: string;
   isOffered: boolean;

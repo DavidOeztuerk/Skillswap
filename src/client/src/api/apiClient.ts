@@ -427,12 +427,21 @@ export class ApiClient {
         // Handle 401 Unauthorized - Token refresh
         if (status === 401 && !originalRequest._retry && !originalRequest.skipAuth) {
           // Check if it's a login/register endpoint
-          const isAuthEndpoint = originalRequest.url?.includes('/login') || 
+          const isAuthEndpoint = originalRequest.url?.includes('/login') ||
                                 originalRequest.url?.includes('/register') ||
                                 originalRequest.url?.includes('/refresh');
-          
-          if (!isAuthEndpoint) {
+
+          // Only try to refresh token if we have tokens (user was authenticated)
+          const hasTokens = getToken() && getRefreshToken();
+
+          if (!isAuthEndpoint && hasTokens) {
             return this.handleTokenRefresh(originalRequest);
+          }
+
+          // If no tokens exist, this is an unauthenticated request to a protected endpoint
+          // Don't redirect to login - let the component handle it
+          if (!hasTokens) {
+            console.debug('401 on unauthenticated request - not attempting token refresh');
           }
         }
         
@@ -509,7 +518,7 @@ export class ApiClient {
       
       // Make refresh request directly without interceptors
       const refreshResponse = await axios.post(
-        `${this.config.baseURL}/api/auth/refresh-token`,
+        `${this.config.baseURL}/api/users/refresh-token`,
         {
           accessToken: getToken(),
           refreshToken
@@ -1016,7 +1025,6 @@ export const apiClient = new ApiClient({
   }
 });
 
-// Legacy export for backward compatibility
 export const api = apiClient.getAxiosInstance();
 
 // Cleanup on window unload

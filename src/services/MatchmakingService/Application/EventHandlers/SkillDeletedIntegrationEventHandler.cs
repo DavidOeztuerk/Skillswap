@@ -37,9 +37,9 @@ public class SkillDeletedIntegrationEventHandler(
 
         // Delete all Matches for this skill
         var matchesToDelete = await _dbContext.Matches
-            .Where(m => m.OfferedSkillId == integrationEvent.SkillId || 
-                       m.RequestedSkillId == integrationEvent.SkillId ||
-                       m.ExchangeSkillId == integrationEvent.SkillId)
+            .Include(m => m.AcceptedMatchRequest)
+            .Where(m => m.AcceptedMatchRequest.SkillId == integrationEvent.SkillId ||
+                       m.AcceptedMatchRequest.ExchangeSkillId == integrationEvent.SkillId)
             .ToListAsync(cancellationToken);
 
         if (matchesToDelete.Any())

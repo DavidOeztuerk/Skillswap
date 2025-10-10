@@ -10,8 +10,6 @@ using Core.Common.Exceptions;
 
 namespace MatchmakingService.Application.CommandHandlers;
 
-// TODO: Sollte villt ein COnsumer sein wenn der letzte videocall beendet wurde soll ein event erzeugt werden inkl. bewertung usw.
-// dann sollen appointments und matches und videocalls als completed gelten um nicht mehr in den listen angezeigt zu werde. höchsten noch irgendwie in einer historie 
 public class CompleteMatchCommandHandler(
     MatchmakingDbContext dbContext,
     IDomainEventPublisher eventPublisher,
@@ -25,50 +23,50 @@ public class CompleteMatchCommandHandler(
         CompleteMatchCommand request,
         CancellationToken cancellationToken)
     {
+        var match = await _dbContext.Matches
+            .Include(m => m.AcceptedMatchRequest)
+            .FirstOrDefaultAsync(m => m.Id == request.MatchId && !m.IsDeleted, cancellationToken);
+
+        if (match == null)
         {
-            var match = await _dbContext.Matches
-                .FirstOrDefaultAsync(m => m.Id == request.MatchId && !m.IsDeleted, cancellationToken);
+            return Error("Match not found", ErrorCodes.ResourceNotFound);
+        }
 
-            if (match == null)
-            {
-                return Error("Match not found", ErrorCodes.ResourceNotFound);
-            }
+        if (match.OfferingUserId != request.UserId && match.RequestingUserId != request.UserId)
+        {
+            return Error("You are not authorized to complete this match", ErrorCodes.InsufficientPermissions);
+        }
 
-            if (match.OfferingUserId != request.UserId && match.RequestingUserId != request.UserId)
-            {
-                return Error("You are not authorized to complete this match", ErrorCodes.InsufficientPermissions);
-            }
+        if (match.Status != MatchStatus.Accepted)
+        {
+            return Error($"Cannot complete match in {match.Status} status", ErrorCodes.InvalidOperation);
+        }
 
-            if (match.Status != MatchStatus.Accepted)
-            {
-                return Error($"Cannot complete match in {match.Status} status", ErrorCodes.InvalidOperation);
-            }
-
-            // Set rating based on who is completing
+        if (request.Rating.HasValue)
+        {
             if (match.OfferingUserId == request.UserId)
             {
-                match.RatingByOffering = request.Rating;
+                match.RateByOffering(request.Rating.Value);
             }
             else
             {
-                match.RatingByRequesting = request.Rating;
+                match.RateByRequesting(request.Rating.Value);
             }
-
-            match.Complete(request.SessionDurationMinutes, request.CompletionNotes);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-
-            // Publish domain event
-            await _eventPublisher.Publish(new MatchCompletedDomainEvent(
-                match.Id,
-                match.OfferingUserId,
-                match.RequestingUserId,
-                match.SessionDurationMinutes,
-                match.CompletedAt!.Value), cancellationToken);
-
-            return Success(new CompleteMatchResponse(
-                match.Id,
-                match.Status == MatchStatus.Completed,
-                match.CompletedAt!.Value));
         }
+
+        match.Complete(request.CompletionNotes);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _eventPublisher.Publish(new MatchCompletedDomainEvent(
+            match.Id,
+            match.OfferingUserId,
+            match.RequestingUserId,
+            match.AcceptedMatchRequest.SessionDurationMinutes ?? 60,
+            match.CompletedAt!.Value), cancellationToken);
+
+        return Success(new CompleteMatchResponse(
+            match.Id,
+            match.Status == MatchStatus.Completed,
+            match.CompletedAt!.Value));
     }
 }

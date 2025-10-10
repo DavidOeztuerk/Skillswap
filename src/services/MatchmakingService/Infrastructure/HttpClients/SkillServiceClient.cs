@@ -1,20 +1,22 @@
-using System.Net.Http.Json;
+using Infrastructure.Communication;
+using Contracts.Skill.Responses;
 
 namespace MatchmakingService.Infrastructure.HttpClients;
 
 public interface ISkillServiceClient
 {
     Task<string> GetSkillNameAsync(string skillId, CancellationToken cancellationToken = default);
+    Task<string> GetSkillCategoryAsync(string skillId, CancellationToken cancellationToken = default);
 }
 
 public class SkillServiceClient : ISkillServiceClient
 {
-    private readonly HttpClient _httpClient;
+    private readonly IServiceCommunicationManager _serviceCommunication;
     private readonly ILogger<SkillServiceClient> _logger;
 
-    public SkillServiceClient(HttpClient httpClient, ILogger<SkillServiceClient> logger)
+    public SkillServiceClient(IServiceCommunicationManager serviceCommunication, ILogger<SkillServiceClient> logger)
     {
-        _httpClient = httpClient;
+        _serviceCommunication = serviceCommunication;
         _logger = logger;
     }
 
@@ -22,26 +24,47 @@ public class SkillServiceClient : ISkillServiceClient
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/api/skills/{skillId}", cancellationToken);
-            
-            if (!response.IsSuccessStatusCode)
+            var response = await _serviceCommunication.GetAsync<GetSkillDetailsResponse>(
+                "skillservice",
+                $"skills/{skillId}",
+                cancellationToken);
+
+            if (response == null)
             {
-                _logger.LogWarning("Failed to get skill {SkillId}, status: {StatusCode}", skillId, response.StatusCode);
+                _logger.LogWarning("Failed to get skill {SkillId} from SkillService", skillId);
                 return "Unknown Skill";
             }
 
-            var skill = await response.Content.ReadFromJsonAsync<SkillResponse>(cancellationToken);
-            return skill?.Name ?? "Unknown Skill";
+            return response.Name ?? "Unknown Skill";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching skill {SkillId}", skillId);
+            _logger.LogError(ex, "Error fetching skill {SkillId} from SkillService", skillId);
             return "Unknown Skill";
         }
     }
 
-    private class SkillResponse
+    public async Task<string> GetSkillCategoryAsync(string skillId, CancellationToken cancellationToken = default)
     {
-        public string? Name { get; set; }
+        try
+        {
+            var response = await _serviceCommunication.GetAsync<GetSkillDetailsResponse>(
+                "skillservice",
+                $"skills/{skillId}",
+                cancellationToken);
+
+            if (response == null)
+            {
+                _logger.LogWarning("Failed to get skill category for {SkillId} from SkillService", skillId);
+                return "General";
+            }
+
+            return response.Category?.Name ?? "General";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching skill category for {SkillId} from SkillService", skillId);
+            return "General";
+        }
     }
 }

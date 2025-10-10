@@ -14,10 +14,10 @@ export const selectIsProficiencyLevelCreating = (state: RootState) => state.prof
 export const selectIsProficiencyLevelUpdating = (state: RootState) => state.proficiencyLevel.isUpdating;
 export const selectIsProficiencyLevelDeleting = (state: RootState) => state.proficiencyLevel.isDeleting;
 
-// Entity selectors using the normalized structure
+// Entity selectors - use proficiencyLevels array directly
 export const selectAllProficiencyLevels = createSelector(
   [selectProficiencyLevelState],
-  (proficiencyLevelState) => Object.values(proficiencyLevelState.entities).filter(Boolean)
+  (proficiencyLevelState) => proficiencyLevelState.proficiencyLevels || []
 );
 
 export const selectProficiencyLevelById = createSelector(

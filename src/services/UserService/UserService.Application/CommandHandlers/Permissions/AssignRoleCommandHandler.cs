@@ -1,6 +1,7 @@
 using CQRS.Handlers;
 using CQRS.Models;
 using EventSourcing;
+using Events.Domain.User;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.Permissions;
 using UserService.Domain.Repositories;
@@ -13,11 +14,13 @@ namespace UserService.Application.CommandHandlers.Permissions;
 /// </summary>
 public class AssignRoleCommandHandler(
     IPermissionRepository permissionRepository,
+    IUserProfileRepository userProfileRepository,
     IDomainEventPublisher eventPublisher,
     ILogger<AssignRoleCommandHandler> logger)
     : BaseCommandHandler<AssignRoleCommand, ApiResponse<bool>>(logger)
 {
     private readonly IPermissionRepository _permissionRepository = permissionRepository;
+    private readonly IUserProfileRepository _userProfileRepository = userProfileRepository;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<ApiResponse<bool>>> Handle(
@@ -53,8 +56,17 @@ public class AssignRoleCommandHandler(
             Logger.LogInformation("Role {Role} assigned to user {UserId} by {AssignedBy}",
                 request.RoleName, request.UserId, request.AssignedBy);
 
-            // TODO: Publish domain event for role assigned
-            // await _eventPublisher.Publish(new RoleAssignedDomainEvent(...), cancellationToken);
+            var user = await _userProfileRepository.GetUserProfile(request.UserId, cancellationToken);
+            if (user != null)
+            {
+                await _eventPublisher.Publish(
+                    new UserRoleAssignedDomainEvent(
+                        request.UserId,
+                        user.Email,
+                        request.RoleName,
+                        request.AssignedBy ?? "System"),
+                    cancellationToken);
+            }
 
             return Success(ApiResponse<bool>.SuccessResult(true, "Role assigned successfully"));
         }

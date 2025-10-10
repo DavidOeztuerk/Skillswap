@@ -37,8 +37,12 @@ const Tabbar: React.FC = () => {
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
   
   
-  // Get dynamic badge counts from Redux store
-  const pendingMatches = useAppSelector((state) => state.matchmaking?.matches?.filter((match) => match.status === 'pending') || []);
+  // Get dynamic badge counts from Redux store - use selector
+  const pendingMatches = useAppSelector((state) => {
+    const matchesAdapter = state.matchmaking;
+    if (!matchesAdapter?.entities) return [];
+    return Object.values(matchesAdapter.entities).filter(match => match?.status === 'pending');
+  });
 
   // Bestimme den aktiven Pfad für die Navigation mit verbesserter Logik
   const getCurrentPath = () => {

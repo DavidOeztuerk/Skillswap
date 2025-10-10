@@ -1,8 +1,10 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
 using NotificationService.Domain.Models;
-using System.Text.Json;
+using Infrastructure.Communication;
+using Contracts.User.Responses;
 
 namespace NotificationService.Infrastructure.Services;
 
@@ -13,7 +15,7 @@ public class SmartNotificationRouter : ISmartNotificationRouter
 {
     private readonly NotificationDbContext _dbContext;
     private readonly ILogger<SmartNotificationRouter> _logger;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IServiceCommunicationManager _serviceCommunication;
 
     // Routing rules configuration
     private readonly Dictionary<string, NotificationPriority> _templatePriorityMap = new()
@@ -44,11 +46,11 @@ public class SmartNotificationRouter : ISmartNotificationRouter
     public SmartNotificationRouter(
         NotificationDbContext dbContext,
         ILogger<SmartNotificationRouter> logger,
-        IHttpClientFactory httpClientFactory)
+        IServiceCommunicationManager serviceCommunication)
     {
         _dbContext = dbContext;
         _logger = logger;
-        _httpClientFactory = httpClientFactory;
+        _serviceCommunication = serviceCommunication;
     }
 
     public async Task<NotificationRoutingDecision> RouteNotificationAsync(NotificationRoutingRequest request)
@@ -112,16 +114,15 @@ public class SmartNotificationRouter : ISmartNotificationRouter
 
         try
         {
-            // Get user data from UserService
-            var userServiceClient = _httpClientFactory.CreateClient("UserService");
-            var response = await userServiceClient.GetAsync($"/users/{userId}");
+            // Get user data from UserService via ServiceCommunicationManager (internal endpoint with M2M token)
+            var userData = await _serviceCommunication.GetAsync<UserProfileResponse>(
+                "userservice",
+                $"users/internal/{userId}");
 
-            if (response.IsSuccessStatusCode)
+            if (userData != null)
             {
-                var userData = await response.Content.ReadFromJsonAsync<UserData>();
-
                 // Email channel
-                if (!string.IsNullOrEmpty(userData?.Email))
+                if (!string.IsNullOrEmpty(userData.Email))
                 {
                     channels.Add(new UserChannelInfo
                     {
@@ -135,13 +136,13 @@ public class SmartNotificationRouter : ISmartNotificationRouter
                 }
 
                 // SMS channel
-                if (!string.IsNullOrEmpty(userData?.PhoneNumber))
+                if (!string.IsNullOrEmpty(userData.PhoneNumber))
                 {
                     channels.Add(new UserChannelInfo
                     {
                         Channel = NotificationChannel.SMS,
                         IsAvailable = true,
-                        IsVerified = userData.PhoneVerified,
+                        IsVerified = false, // UserProfileResponse doesn't have PhoneVerified
                         Address = userData.PhoneNumber,
                         Priority = 2,
                         SuccessRate = await CalculateChannelSuccessRateAsync(userId, "SMS")
@@ -584,12 +585,4 @@ public class SmartNotificationRouter : ISmartNotificationRouter
         }
     }
 
-    private class UserData
-    {
-        public string? Id { get; set; }
-        public string? Email { get; set; }
-        public bool EmailVerified { get; set; }
-        public string? PhoneNumber { get; set; }
-        public bool PhoneVerified { get; set; }
-    }
 }

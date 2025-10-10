@@ -8,20 +8,42 @@ public record GetUserMatchesQuery(
     bool IncludeCompleted = true,
     int PageNumber = 1,
     int PageSize = 20)
-    : IPagedQuery<UserMatchResponse>, ICacheableQuery
+    : IPagedQuery<UserMatchResponse>
 {
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
-
-    public string CacheKey => $"user-matches:{UserId}:{Status}:{IncludeCompleted}:{PageNumber}:{PageSize}";
-    public TimeSpan CacheDuration => TimeSpan.FromMinutes(2);
 }
 
 public record UserMatchResponse(
-    string MatchId,
+    string Id,
+    string SkillId,
     string SkillName,
+    string SkillCategory,
     string Status,
-    double CompatibilityScore,
+    string PartnerId,
+    string PartnerName,
+    double PartnerRating,
+    string? PartnerAvatar,
+    string RequesterId,
+    string ResponderId,
+    bool IsSkillExchange,
+    string? ExchangeSkillId,
+    string? ExchangeSkillName,
+    bool IsMonetary,
+    decimal? OfferedAmount,
+    string? Currency,
     bool IsOffering,
+    double? CompatibilityScore,
     DateTime CreatedAt,
-    DateTime? AcceptedAt);
+    DateTime? AcceptedAt,
+    DateTime? CompletedAt,
+    bool IsLearningMode,
+    string[] PreferredDays,
+    string[] PreferredTimes,
+    SessionInfoResponse? SessionInfo,
+    string? AdditionalNotes);
+
+public record SessionInfoResponse(
+    int CompletedSessions,
+    int TotalSessions,
+    DateTime? NextSessionDate);

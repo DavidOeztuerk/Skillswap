@@ -125,11 +125,14 @@ const proficiencyLevelsSlice = createSlice({
         state.isLoading = false;
         // Null-safe access to API response
         const mapSkillResponseToSkill = (response: ProficiencyLevelResponse): ProficiencyLevel => {
-                  return {
-                    id: response.levelId,
-                    ...response
-                  }
-                }
+          return {
+            id: response.levelId,
+            level: response.level,
+            rank: response.rank,
+            color: response.color,
+            skillCount: response.skillCount
+          }
+        }
         if (isDefined(action.payload.data)) {
           state.proficiencyLevels = action.payload.data.map(x => mapSkillResponseToSkill(x));
         } else {

@@ -56,6 +56,11 @@ public class MatchRequest : AuditableEntity
     [MaxLength(500)]
     public string? ResponseMessage { get; set; }
 
+    [MaxLength(2000)]
+    public string? AdditionalNotes { get; set; }
+
+    public double? CompatibilityScore { get; set; }
+
     public DateTime? RespondedAt { get; set; }
 
     // Navigation Properties
@@ -63,11 +68,11 @@ public class MatchRequest : AuditableEntity
     public virtual ICollection<MatchRequest> CounterOffers { get; set; } = [];
 
     // Helper properties
-    public bool IsPending => Status == "Pending";
-    public bool IsAccepted => Status == "Accepted";
-    public bool IsRejected => Status == "Rejected";
-    public bool IsExpired => Status == "Expired";
-    public bool IsCounterOffered => Status == "CounterOffered";
+    public bool IsPending => Status.ToLower() == "pending";
+    public bool IsAccepted => Status.ToLower() == "accepted";
+    public bool IsRejected => Status.ToLower() == "rejected";
+    public bool IsExpired => Status.ToLower() == "expired";
+    public bool IsCounterOffered => Status.ToLower() == "counteroffered";
 
     public void Accept(string? responseMessage = null)
     {

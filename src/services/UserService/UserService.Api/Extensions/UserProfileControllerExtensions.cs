@@ -4,6 +4,7 @@ using Contracts.User.Responses;
 using CQRS.Extensions;
 using Infrastructure.Extensions;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UserService.Api.Application.Queries;
 using UserService.Application.Commands;
@@ -15,7 +16,33 @@ public static class UserProfileControllerExtensions
 {
     public static RouteGroupBuilder MapUserProfileController(this IEndpointRouteBuilder builder)
     {
-        RouteGroupBuilder profile = builder.MapGroup("/users/profile")
+        // Public endpoints for service-to-service communication (no auth required)
+        var publicProfile = builder.MapGroup("/users/public")
+            .AllowAnonymous()
+            .WithTags("User Profile - Public");
+
+        publicProfile.MapGet("/{userId}", HandleGetPublicUserProfileAnonymous)
+            .WithName("GetPublicUserProfileAnonymous")
+            .WithSummary("Get public user profile (Service-to-Service)")
+            .WithDescription("Gets a user's public profile information without authentication - for service-to-service calls")
+            .Produces<PublicUserProfileResponse>(200)
+            .Produces(404);
+
+        // Internal service-to-service endpoint with full user data (Email, Phone)
+        var internalProfile = builder.MapGroup("/users/internal")
+            .RequireAuthorization(policy => policy.RequireRole("Service"))
+            .WithTags("User Profile - Internal");
+
+        internalProfile.MapGet("/{userId}", HandleGetInternalUserProfile)
+            .WithName("GetInternalUserProfile")
+            .WithSummary("Get full user profile for services (M2M)")
+            .WithDescription("Gets full user profile including email and phone - requires Service role (M2M token)")
+            .Produces<UserProfileResponse>(200)
+            .Produces(401)
+            .Produces(404);
+
+        // Authenticated endpoints for user requests
+        RouteGroupBuilder profile = builder.MapGroup("/api/users/profile")
             .RequireAuthorization()
             .WithTags("User Profile");
 
@@ -26,10 +53,10 @@ public static class UserProfileControllerExtensions
             .Produces<UserProfileResponse>(200)
             .Produces(401);
 
-        profile.MapGet("/{userId}", HandleGetPublicUserProfile)
+        profile.MapGet("/user/{userId}", HandleGetPublicUserProfile)
             .WithName("GetPublicUserProfile")
-            .WithSummary("Get public user profile")
-            .WithDescription("Gets a user's public profile information")
+            .WithSummary("Get public user profile (Authenticated)")
+            .WithDescription("Gets a user's public profile information (requires authentication)")
             .Produces<UserProfileResponse>(200)
             .Produces(401)
             .Produces(404);
@@ -62,6 +89,22 @@ public static class UserProfileControllerExtensions
             var userId = user.GetUserId();
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
+            var query = new GetUserProfileQuery(userId);
+            return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> HandleGetPublicUserProfileAnonymous(IMediator mediator, string userId)
+        {
+            // For service-to-service calls - no authentication required
+            // Using "system" as the requesting user ID since this is a service call
+            var query = new GetPublicUserProfileQuery(userId, "system");
+            return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> HandleGetInternalUserProfile(IMediator mediator, string userId)
+        {
+            // For authenticated service-to-service calls with M2M token
+            // Returns full user profile including email and phone number
             var query = new GetUserProfileQuery(userId);
             return await mediator.SendQuery(query);
         }

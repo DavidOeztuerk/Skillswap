@@ -34,8 +34,9 @@ public class SkillCreatedConsumer(
             _logger.LogInformation("Created match request {RequestId} for skill {SkillName}",
                 matchRequest.Id, context.Message.Name);
 
-            // TODO: Immediately try to find matches for this new skill
-            // This could be done by publishing a FindMatchCommand
+            // Note: Automatic matching should be triggered by user action (e.g., "Find Matches" button)
+            // or by a scheduled background job using CompatibilityCalculator
+            // to avoid spamming users with unwanted match requests
         }
         catch (Exception ex)
         {

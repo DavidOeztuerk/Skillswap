@@ -70,7 +70,7 @@ export const selectDashboardCards = createSelector(
     },
     {
       title: 'Termine',
-      description: `${stats.totalAppointments} Termine${stats.pendingAppointmentsCount > 0 ? ` • ${stats.pendingAppointmentsCount} ausstehend` : ''}`,
+      description: `${stats.totalAppointments} ${stats.totalAppointments === 1 ? 'Termin' : 'Termine'}${stats.pendingAppointmentsCount > 0 ? ` • ${stats.pendingAppointmentsCount} ausstehend` : ''}`,
       count: stats.totalAppointments,
       badge: stats.pendingAppointmentsCount,
       path: '/appointments',
@@ -107,14 +107,40 @@ export const selectLearningSkillsForDashboard = createSelector(
 export const selectUpcomingAppointmentsForDashboard = createSelector(
   [selectUserUpcomingAppointments],
   (upcomingAppointments) => {
+    console.log('🎯 selectUpcomingAppointmentsForDashboard: Processing appointments', {
+      upcomingAppointments,
+      appointmentsCount: upcomingAppointments?.length || 0,
+      firstAppointment: upcomingAppointments?.[0]
+    });
+
     const now = new Date();
-    return upcomingAppointments
-      .filter(appointment => 
-        new Date(appointment.startTime) > now && 
-        appointment.status === 'Confirmed'
-      )
+    const filtered = upcomingAppointments
+      .filter(appointment => {
+        const appointmentDate = new Date(appointment.startTime);
+        const isFuture = appointmentDate > now;
+        const isRelevantStatus = ['Pending', 'Confirmed', 'Accepted'].includes(appointment.status);
+
+        console.log('🔍 Dashboard filter check:', {
+          appointmentId: appointment.id,
+          startTime: appointment.startTime,
+          status: appointment.status,
+          isFuture,
+          isRelevantStatus,
+          willInclude: isFuture && isRelevantStatus
+        });
+
+        return isFuture && isRelevantStatus;
+      })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
       .slice(0, 3);
+
+    console.log('✅ selectUpcomingAppointmentsForDashboard: Filtered result', {
+      originalCount: upcomingAppointments?.length || 0,
+      filteredCount: filtered.length,
+      filtered
+    });
+
+    return filtered;
   }
 );
 

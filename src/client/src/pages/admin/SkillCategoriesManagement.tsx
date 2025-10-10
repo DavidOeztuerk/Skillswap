@@ -154,15 +154,13 @@ const SkillCategoriesManagement: React.FC = () => {
       let result: any;
       
       if (selectedCategory) {
-        // Update existing category using the hook
         result = await updateCategory(
           selectedCategory.id,
-          formData.name,
+          { name: formData.name }
         );
       } else {
-        // Create new category using the hook
         result = await createCategory(
-          formData.name,
+          { name: formData.name }
         );
       }
       

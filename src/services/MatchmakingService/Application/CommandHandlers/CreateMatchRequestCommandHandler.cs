@@ -48,8 +48,19 @@ public class CreateMatchRequestCommandHandler(
         {
             throw new BusinessRuleViolationException(
                 ErrorCodes.BusinessRuleViolation,
-                "CreateMatchRequest", 
+                "CreateMatchRequest",
                 "You cannot create a match request for your own skill");
+        }
+
+        // Validate that the requesting user has verified their email
+        var isUserVerified = await _userServiceClient.ValidateUserForMatchRequestAsync(request.UserId ?? "", cancellationToken);
+        if (!isUserVerified)
+        {
+            Logger.LogWarning("User {UserId} attempted to create match request without email verification", request.UserId);
+            throw new BusinessRuleViolationException(
+                ErrorCodes.AccountNotVerified,
+                "CreateMatchRequest",
+                "You must verify your email address before creating match requests");
         }
 
         // Check for existing pending request for the same skill
@@ -95,6 +106,7 @@ public class CreateMatchRequestCommandHandler(
                 TotalSessions = request.TotalSessions,
                 PreferredDays = request.PreferredDays?.ToList() ?? new List<string>(),
                 PreferredTimes = request.PreferredTimes?.ToList() ?? new List<string>(),
+                AdditionalNotes = request.AdditionalNotes,
                 ExpiresAt = DateTime.UtcNow.AddDays(7),
                 ViewCount = 0,
                 MatchAttempts = 0,
