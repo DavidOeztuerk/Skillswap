@@ -127,12 +127,12 @@ const matchmakingSlice = createSlice({
         }
 
         state.pagination = {
-          pageNumber: action.payload?.pagination?.pageNumber ?? 1,
-          pageSize: action.payload?.pagination?.pageSize ?? 20,
-          totalRecords: action.payload?.pagination?.totalRecords ?? 0,
-          totalPages: action.payload?.pagination?.totalPages ?? 0,
-          hasNextPage: action.payload?.pagination?.hasNextPage ?? false,
-          hasPreviousPage: action.payload?.pagination?.hasPreviousPage ?? false,
+          pageNumber: action.payload?.pageNumber ?? 1,
+          pageSize: action.payload?.pageSize ?? 20,
+          totalRecords: action.payload?.totalRecords ?? 0,
+          totalPages: action.payload?.totalPages ?? 0,
+          hasNextPage: action.payload?.hasNextPage ?? false,
+          hasPreviousPage: action.payload?.hasPreviousPage ?? false,
         };
       })
       .addCase(fetchMatches.rejected, (state, action) => {
@@ -154,12 +154,12 @@ const matchmakingSlice = createSlice({
         }
 
         state.pagination = {
-          pageNumber: action.payload.pagination.pageNumber ?? 1,
-          pageSize: action.payload.pagination.pageSize ?? 20,
-          totalRecords: action.payload.pagination.totalRecords ?? 0,
-          totalPages: action.payload.pagination.totalPages ?? 0,
-          hasNextPage: action.payload.pagination.hasNextPage ?? false,
-          hasPreviousPage: action.payload.pagination.hasPreviousPage ?? false,
+          pageNumber: action.payload.pageNumber ?? 1,
+          pageSize: action.payload.pageSize ?? 20,
+          totalRecords: action.payload.totalRecords ?? 0,
+          totalPages: action.payload.totalPages ?? 0,
+          hasNextPage: action.payload.hasNextPage ?? false,
+          hasPreviousPage: action.payload.hasPreviousPage ?? false,
         };
       })
       .addCase(fetchUserMatches.rejected, (state, action) => {
@@ -182,12 +182,12 @@ const matchmakingSlice = createSlice({
         }
 
         state.pagination = {
-          pageNumber: action.payload.pagination.pageNumber ?? 1,
-          pageSize: action.payload.pagination.pageSize ?? 20,
-          totalRecords: action.payload.pagination.totalRecords ?? 0,
-          totalPages: action.payload.pagination.totalPages ?? 0,
-          hasNextPage: action.payload.pagination.hasNextPage ?? false,
-          hasPreviousPage: action.payload.pagination.hasPreviousPage ?? false,
+          pageNumber: action.payload.pageNumber ?? 1,
+          pageSize: action.payload.pageSize ?? 20,
+          totalRecords: action.payload.totalRecords ?? 0,
+          totalPages: action.payload.totalPages ?? 0,
+          hasNextPage: action.payload.hasNextPage ?? false,
+          hasPreviousPage: action.payload.hasPreviousPage ?? false,
         };
       })
       .addCase(fetchIncomingMatchRequests.rejected, (state, action) => {
@@ -210,12 +210,12 @@ const matchmakingSlice = createSlice({
         }
 
         state.pagination = {
-          pageNumber: action.payload.pagination.pageNumber ?? 1,
-          pageSize: action.payload.pagination.pageSize ?? 20,
-          totalRecords: action.payload.pagination.totalRecords ?? 0,
-          totalPages: action.payload.pagination.totalPages ?? 0,
-          hasNextPage: action.payload.pagination.hasNextPage ?? false,
-          hasPreviousPage: action.payload.pagination.hasPreviousPage ?? false,
+          pageNumber: action.payload.pageNumber ?? 1,
+          pageSize: action.payload.pageSize ?? 20,
+          totalRecords: action.payload.totalRecords ?? 0,
+          totalPages: action.payload.totalPages ?? 0,
+          hasNextPage: action.payload.hasNextPage ?? false,
+          hasPreviousPage: action.payload.hasPreviousPage ?? false,
         };
       })
       .addCase(fetchOutgoingMatchRequests.rejected, (state, action) => {

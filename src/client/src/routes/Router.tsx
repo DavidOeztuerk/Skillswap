@@ -94,11 +94,11 @@ const protectedRoutes = {
       useSkeleton: true,
       skeletonVariant: 'list',
     }),
-    detail: createLazyRoute(() => import('../pages/appointments/AppointmentDetailPage'), {
+    detail: createLazyRoute(() => import('../pages/sessions/SessionDetailPage'), {
       roles: ['*'], // Any authenticated user
       useSkeleton: true,
       skeletonVariant: 'details',
-      loadingMessage: "Termin wird geladen...",
+      loadingMessage: "Session wird geladen...",
     }),
     calendar: createLazyRoute(() => import('../pages/appointments/AppointmentCalendarPage'), {
       roles: ['*'], // Any authenticated user
@@ -109,7 +109,7 @@ const protectedRoutes = {
   },
   
   // Video Call - High Priority
-  videoCall: createLazyRoute(() => import('../pages/videocall/EnhancedVideoCallPage'), {
+  videoCall: createLazyRoute(() => import('../pages/videocall/VideoCallPage'), {
     roles: ['*'], // Any authenticated user
     useSkeleton: false,
     loadingMessage: "Video-Call wird initialisiert...",
@@ -128,7 +128,14 @@ const protectedRoutes = {
     skeletonVariant: 'form',
     loadingMessage: 'Sicherheitseinstellungen werden geladen...',
   }),
-  
+
+  notificationPreferences: createLazyRoute(() => import('../pages/settings/NotificationPreferencesPage'), {
+    roles: ['*'], // Any authenticated user
+    useSkeleton: true,
+    skeletonVariant: 'form',
+    loadingMessage: 'Benachrichtigungseinstellungen werden geladen...',
+  }),
+
   notifications: createLazyRoute(() => import('../pages/notifications/NotificationsPage'), {
     roles: ['*'], // Any authenticated user
     useSkeleton: true,
@@ -385,10 +392,6 @@ const routes: RouteObject[] = [
         children: [
           {
             index: true,
-            element: <protectedRoutes.appointments.list.component />,
-          },
-          {
-            path: 'calendar',
             element: <protectedRoutes.appointments.calendar.component />,
           },
           {
@@ -412,6 +415,10 @@ const routes: RouteObject[] = [
       {
         path: 'settings/security',
         element: <protectedRoutes.securitySettings.component />,
+      },
+      {
+        path: 'settings/notifications',
+        element: <protectedRoutes.notificationPreferences.component />,
       },
       {
         path: 'notifications',

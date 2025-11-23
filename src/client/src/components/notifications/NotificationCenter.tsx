@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../hooks/useNotifications';
 import { Notification, NotificationType } from '../../types/models/Notification';
 import EmptyState from '../ui/EmptyState';
@@ -97,6 +98,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
   const {
     notifications,
     unreadCount,
@@ -121,13 +123,18 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   };
 
   const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read
     if (!notification.isRead) {
       await markAsRead(notification.id);
     }
-    
-    // Navigation zur entsprechenden Seite wenn actionUrl vorhanden
+
+    // Navigate to the action URL if available
     if (notification.actionUrl) {
-      window.location.href = notification.actionUrl;
+      // Close notification center
+      onClose();
+
+      // Use navigate for SPA routing (no page reload)
+      navigate(notification.actionUrl);
     }
   };
 

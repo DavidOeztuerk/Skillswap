@@ -137,29 +137,37 @@ export const APPOINTMENT_ENDPOINTS = {
   GET_SINGLE: '/api/appointments', // + /{appointmentId}
   UPDATE: '/api/appointments', // + /{appointmentId}
   DELETE: '/api/appointments', // + /{appointmentId}
-  
+
   // Appointment actions
   ACCEPT: '/api/appointments', // + /{appointmentId}/accept
   CANCEL: '/api/appointments', // + /{appointmentId}/cancel
   RESCHEDULE: '/api/appointments/{appointmentId}/reschedule',
   GENERATE_MEETING_LINK: '/api/appointments/{appointmentId}/meeting-link',
-  
+
   // Availability and scheduling
   GET_AVAILABILITY: '/api/appointments/availability', // + /{userId}
   SET_AVAILABILITY: '/api/appointments/availability',
   GET_TIME_SLOTS: '/api/appointments/time-slots',
-  
+
   // Reminders and notifications
   SET_REMINDER: '/api/appointments', // + /{appointmentId}/reminder
   GET_UPCOMING: '/api/appointments/upcoming',
-  
+
   // History and analytics
   GET_HISTORY: '/api/appointments/history',
   GET_STATISTICS: '/api/appointments/statistics',
-  
+
   // Rating and feedback
   RATE_APPOINTMENT: '/api/appointments', // + /{appointmentId}/rate
   PROVIDE_FEEDBACK: '/api/appointments', // + /{appointmentId}/feedback
+
+  // Session lifecycle endpoints
+  START_SESSION: '/api/appointments', // + /{appointmentId}/start
+  COMPLETE_SESSION: '/api/appointments', // + /{appointmentId}/complete-session
+  RATE_SESSION: '/api/appointments', // + /{appointmentId}/rate-session
+  RESCHEDULE_SESSION: '/api/appointments', // + /{appointmentId}/reschedule-session
+  CANCEL_SESSION: '/api/appointments', // + /{appointmentId}/cancel-session
+  PROCESS_PAYMENT: '/api/appointments', // + /{appointmentId}/payment
 };
 
 /**
@@ -168,10 +176,10 @@ export const APPOINTMENT_ENDPOINTS = {
 export const VIDEOCALL_ENDPOINTS = {
   // Call management
   CREATE: '/api/calls/create',
-  JOIN: '/api/calls', // + /{roomId}/join
-  LEAVE: '/api/calls', // + /{roomId}/leave
-  START: '/api/calls', // + /{roomId}/start
-  END_CALL: '/api/calls', // + /{roomId}/end
+  JOIN: '/api/calls/join',
+  LEAVE: '/api/calls/leave',
+  START: '/api/calls/start',
+  END_CALL: '/api/calls/end',
   DETAILS: '/api/calls', // + /{roomId}
   
   // Call history and user calls

@@ -40,17 +40,19 @@ import {
   Refresh as RefreshIcon,
   TrendingUp as TrendingIcon,
 } from '@mui/icons-material';
+import { LoadingButton } from '@mui/lab';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../store/store.hooks';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
+import { useToast } from '../../hooks/useToast';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { AcceptMatchRequestRequest, RejectMatchRequestRequest } from '../../types/contracts/MatchmakingDisplay';
+import { MatchRequestDisplay, AcceptMatchRequestRequest, RejectMatchRequestRequest } from '../../types/contracts/MatchmakingDisplay';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -74,11 +76,12 @@ function TabPanel(props: TabPanelProps) {
 }
 
 interface MatchRequestCardProps {
-  request: any;
+  request: MatchRequestDisplay;
   onAccept?: () => void;
   onReject?: () => void;
   onCounter?: () => void;
   onViewTimeline?: () => void;
+  isLoading?: boolean;
 }
 
 const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
@@ -87,6 +90,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
   onReject,
   onCounter,
   onViewTimeline,
+  isLoading = false,
 }) => {
   const getStatusColor = () => {
     switch (request?.status) {
@@ -94,7 +98,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
         return 'success';
       case 'rejected':
         return 'error';
-      case 'countered':
+      case 'counter':
         return 'warning';
       default:
         return 'primary';
@@ -221,22 +225,25 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
           {/* Actions */}
           {request.status === 'pending' && request.type === 'incoming' && (
             <Box display="flex" gap={1} mt={2} onClick={(e) => e.stopPropagation()}>
-              <Button
+              <LoadingButton
                 size="small"
                 variant="contained"
                 color="success"
                 startIcon={<CheckIcon />}
                 onClick={onAccept}
+                loading={isLoading}
+                disabled={isLoading}
                 fullWidth
               >
                 Annehmen
-              </Button>
+              </LoadingButton>
               <Button
                 size="small"
                 variant="outlined"
                 color="warning"
                 startIcon={<SwapIcon />}
                 onClick={onCounter}
+                disabled={isLoading}
                 fullWidth
               >
                 Gegenangebot
@@ -245,6 +252,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
                 size="small"
                 color="error"
                 onClick={onReject}
+                disabled={isLoading}
                 sx={{ border: 1, borderColor: 'error.main' }}
               >
                 <CloseIcon />
@@ -277,13 +285,15 @@ interface MatchRequestsOverviewPageProps {
 
 const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ embedded = false }) => {
   const navigate = useNavigate();
+  const toast = useToast();
   const { acceptMatchRequest, rejectMatchRequest, loadIncomingRequests, loadOutgoingRequests } = useMatchmaking();
-  
+
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [_sortBy, setSortBy] = useState('newest');
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<null | HTMLElement>(null);
   const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null);
+  const [loadingRequestIds, setLoadingRequestIds] = useState<Set<string>>(new Set());
 
   const { incomingRequests, outgoingRequests, isLoadingRequests } = useAppSelector((state) => state.matchmaking);
 
@@ -322,15 +332,55 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
     }
   };
 
-  const handleAcceptRequest = (requestId: string, request: AcceptMatchRequestRequest) => {
-    if (requestId) {
-      acceptMatchRequest(requestId, request);
+  const handleAcceptRequest = async (requestId: string, request: AcceptMatchRequestRequest) => {
+    if (!requestId) return;
+
+    setLoadingRequestIds(prev => new Set(prev).add(requestId));
+
+    try {
+      const result = await acceptMatchRequest(requestId, request);
+
+      // Check if action was successful
+      if (result?.payload?.success !== false) {
+        toast.success('Match-Anfrage akzeptiert! 🎉');
+      } else {
+        toast.error('Fehler beim Akzeptieren der Anfrage');
+      }
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      toast.error('Fehler beim Akzeptieren der Anfrage');
+    } finally {
+      setLoadingRequestIds(prev => {
+        const next = new Set(prev);
+        next.delete(requestId);
+        return next;
+      });
     }
   };
 
-  const handleRejectRequest = (requestId: string, request: RejectMatchRequestRequest) => {
-    if (requestId) {
-      rejectMatchRequest(requestId, request);
+  const handleRejectRequest = async (requestId: string, request: RejectMatchRequestRequest) => {
+    if (!requestId) return;
+
+    setLoadingRequestIds(prev => new Set(prev).add(requestId));
+
+    try {
+      const result = await rejectMatchRequest(requestId, request);
+
+      // Check if action was successful
+      if (result?.payload?.success !== false) {
+        toast.warning('Match-Anfrage abgelehnt');
+      } else {
+        toast.error('Fehler beim Ablehnen der Anfrage');
+      }
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      toast.error('Fehler beim Ablehnen der Anfrage');
+    } finally {
+      setLoadingRequestIds(prev => {
+        const next = new Set(prev);
+        next.delete(requestId);
+        return next;
+      });
     }
   };
 
@@ -531,6 +581,7 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
                           onReject={() => handleRejectRequest(request.id, { responseMessage: ""})}
                           onCounter={() => handleCounterRequest(request.id)}
                           onViewTimeline={() => handleViewTimeline(request.threadId || request.id)}
+                          isLoading={loadingRequestIds.has(request.id)}
                         />
                       </Grid>
                     ) : null

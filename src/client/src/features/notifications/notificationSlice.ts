@@ -119,10 +119,10 @@ const notificationSlice = createSlice({
         }
         // Update pagination
         state.pagination = {
-          page: withDefault(action.payload.pagination.pageNumber, 1),
-          limit: withDefault(action.payload.pagination.pageSize, 20),
-          total: withDefault(action.payload.pagination.totalRecords, 0),
-          totalPages: withDefault(action.payload.pagination.totalPages, 0),
+          page: withDefault(action.payload.pageNumber, 1),
+          limit: withDefault(action.payload.pageSize, 20),
+          total: withDefault(action.payload.totalRecords, 0),
+          totalPages: withDefault(action.payload.totalPages, 0),
         };
       })
       .addCase(fetchNotifications.rejected, (state, action) => {

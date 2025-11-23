@@ -199,9 +199,29 @@ public class RedisDistributedCacheService : IDistributedCacheService
         try
         {
             var searchPattern = GetCacheKey(pattern);
-            var deletedCount = await _database.ScriptEvaluateAsync(
-                DeleteByPatternScript,
-                values: new RedisValue[] { searchPattern });
+
+            // Use SCAN instead of KEYS for better production performance (non-blocking)
+            // SCAN is iterative and doesn't block Redis like KEYS does
+            var deletedCount = 0;
+            var cursor = 0L;
+            var pageSize = 250; // Process in batches
+
+            do
+            {
+                // SCAN returns cursor and matching keys
+                var result = await _database.ExecuteAsync("SCAN", cursor.ToString(), "MATCH", searchPattern, "COUNT", pageSize.ToString());
+                var scanResult = (RedisResult[])result!;
+
+                cursor = long.Parse((string)scanResult[0]!);
+                var keys = (RedisKey[])scanResult[1]!;
+
+                if (keys.Length > 0)
+                {
+                    // Delete keys in batch
+                    var deleted = await _database.KeyDeleteAsync(keys);
+                    deletedCount += (int)deleted;
+                }
+            } while (cursor != 0 && !cancellationToken.IsCancellationRequested);
 
             _logger.LogDebug("Removed {Count} cache entries matching pattern {Pattern}", deletedCount, pattern);
         }

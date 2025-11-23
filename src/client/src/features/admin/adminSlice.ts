@@ -186,7 +186,7 @@ const adminSlice = createSlice({
         state.isLoadingUsers = false;
         if (isDefined(action.payload.data)) {
           state.users = action.payload.data;
-          state.pagination.users.total = withDefault(action.payload.pagination.totalRecords, action.payload.data?.length || 0);
+          state.pagination.users.total = withDefault(action.payload.totalRecords, action.payload.data?.length || 0);
         }
         state.userError = undefined;
       })
@@ -235,7 +235,7 @@ const adminSlice = createSlice({
         state.isLoadingSkills = false;
         if (isDefined(action.payload.data)) {
           state.skills = action.payload.data;
-          state.pagination.skills.total = withDefault(action.payload.pagination.totalRecords, action.payload.data?.length || 0);
+          state.pagination.skills.total = withDefault(action.payload.totalRecords, action.payload.data?.length || 0);
         }
         state.skillError = undefined;
       })
@@ -261,7 +261,7 @@ const adminSlice = createSlice({
       .addCase(fetchAdminAppointments.fulfilled, (state, action) => {
         state.isLoadingAppointments = false;
         state.appointments = action.payload.data;
-        state.pagination.appointments.total = action.payload.pagination.totalRecords || action.payload.data?.length || 0;
+        state.pagination.appointments.total = action.payload.totalRecords || action.payload.data?.length || 0;
         state.appointmentError = undefined;
       })
       .addCase(fetchAdminAppointments.rejected, (state, action) => {
@@ -277,7 +277,7 @@ const adminSlice = createSlice({
       .addCase(fetchAdminMatches.fulfilled, (state, action) => {
         state.isLoadingMatches = false;
         state.matches = action.payload.data;
-        state.pagination.matches.total = action.payload.pagination.totalRecords || action.payload.data.length || 0;
+        state.pagination.matches.total = action.payload.totalRecords || action.payload.data.length || 0;
         state.matchError = undefined;
       })
       .addCase(fetchAdminMatches.rejected, (state, action) => {
@@ -323,7 +323,7 @@ const adminSlice = createSlice({
       .addCase(fetchAuditLogs.fulfilled, (state, action) => {
         state.isLoadingAuditLogs = false;
         state.auditLogs = action.payload.data;
-        state.pagination.auditLogs.total = action.payload.pagination.totalRecords || action.payload.data?.length || 0;
+        state.pagination.auditLogs.total = action.payload.totalRecords || action.payload.data?.length || 0;
         state.auditLogError = undefined;
       })
       .addCase(fetchAuditLogs.rejected, (state, action) => {
@@ -339,7 +339,7 @@ const adminSlice = createSlice({
       .addCase(fetchModerationReports.fulfilled, (state, action) => {
         state.isLoadingReports = false;
         state.moderationReports = action.payload.data;
-        state.pagination.reports.total = action.payload.pagination.totalRecords || action.payload.data?.length || 0;
+        state.pagination.reports.total = action.payload.totalRecords || action.payload.data?.length || 0;
         state.reportError = undefined;
       })
       .addCase(fetchModerationReports.rejected, (state, action) => {

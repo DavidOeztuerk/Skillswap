@@ -10,6 +10,7 @@ import { TwoFactorDialogProvider } from './components/auth/TwoFactorDialog';
 import { PermissionProvider } from './contexts/PermissionContext';
 import { LoadingProvider } from './contexts/LoadingContext';
 import { EmailVerificationProvider } from './contexts/EmailVerificationContext';
+import { ToastProvider } from './contexts/ToastContext';
 import GlobalErrorBoundary from './components/error/GlobalErrorBoundary';
 import GlobalLoadingIndicator from './components/common/GlobalLoadingIndicator';
 import { ToastContainer } from 'react-toastify';
@@ -63,18 +64,20 @@ const App = memo(() => {
     scheduleWork();
   }, []);
   
-  // TEMPORARY DISABLE - PREVENTING INFINITE LOOPS!
+  /**
+   * Performance Dashboard keyboard shortcut (Development only)
+   * Ctrl+Shift+P to toggle performance metrics overlay
+   */
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+Shift+P to toggle performance dashboard
       if (e.ctrlKey && e.shiftKey && e.key === 'P') {
         e.preventDefault();
         togglePerformanceDashboard();
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePerformanceDashboard]);
@@ -87,26 +90,28 @@ const App = memo(() => {
           <LoadingProvider>
             <PermissionProvider>
               <EmailVerificationProvider>
-                <TwoFactorDialogProvider>
-                  <SkipLinks />
-                  <GlobalLoadingIndicator position="top" />
-                  <NetworkStatusIndicator position="top" compact />
-                  <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
-                    <Outlet />
-                  </MainLayout>
-                  <ToastContainer
-                    position="bottom-right"
-                    autoClose={3000}
-                    hideProgressBar={false}
-                    newestOnTop={false}
-                    closeOnClick
-                    rtl={false}
-                    pauseOnFocusLoss
-                    draggable
-                    pauseOnHover
-                    theme={mode === 'dark' ? 'dark' : 'light'}
-                  />
-                </TwoFactorDialogProvider>
+                <ToastProvider>
+                  <TwoFactorDialogProvider>
+                    <SkipLinks />
+                    <GlobalLoadingIndicator position="top" />
+                    <NetworkStatusIndicator position="top" compact />
+                    <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
+                      <Outlet />
+                    </MainLayout>
+                    <ToastContainer
+                      position="bottom-right"
+                      autoClose={3000}
+                      hideProgressBar={false}
+                      newestOnTop={false}
+                      closeOnClick
+                      rtl={false}
+                      pauseOnFocusLoss
+                      draggable
+                      pauseOnHover
+                      theme={mode === 'dark' ? 'dark' : 'light'}
+                    />
+                  </TwoFactorDialogProvider>
+                </ToastProvider>
               </EmailVerificationProvider>
             </PermissionProvider>
           </LoadingProvider>

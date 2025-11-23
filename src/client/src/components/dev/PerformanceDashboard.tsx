@@ -43,12 +43,12 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = memo(({ visibl
   const [realTimeBundleStats, setRealTimeBundleStats] = useState<any>(null);
 
   // Real-time stats listeners
-  const handleStatsUpdate = useCallback((stats: any[]) => {
+  const handleStatsUpdate = useCallback((stats: unknown[]) => {
     setRenderStats(stats);
     setRealTimeStats(performanceProfiler.getRealTimeStats());
   }, []);
-  
-  const handleBundleStatsUpdate = useCallback((bundleStats: any) => {
+
+  const handleBundleStatsUpdate = useCallback((bundleStats: unknown) => {
     setRealTimeBundleStats(bundleStats);
   }, []);
   
@@ -350,7 +350,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = memo(({ visibl
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {realTimeBundleStats.summary.largestResources.slice(0, 8).map((resource: any, index: number) => (
+                    {realTimeBundleStats.summary.largestResources.slice(0, 8).map((resource: { name: string; loadTime: number; cached?: boolean; category?: string; size?: number }, index: number) => (
                       <TableRow 
                         key={`${resource.name}-${index}`}
                         sx={{ 
@@ -362,8 +362,8 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = memo(({ visibl
                           {resource.category === 'main' && ' 🎯'}
                           {resource.loadTime > 1000 && ' 🐌'}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.7rem', fontWeight: resource.size > 100*1024 ? 'bold' : 'normal' }}>
-                          {(resource.size / 1024).toFixed(1)}KB
+                        <TableCell sx={{ fontSize: '0.7rem', fontWeight: (resource.size || 0) > 100*1024 ? 'bold' : 'normal' }}>
+                          {((resource.size || 0) / 1024).toFixed(1)}KB
                         </TableCell>
                         <TableCell sx={{ 
                           fontSize: '0.7rem',

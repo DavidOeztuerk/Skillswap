@@ -19,7 +19,7 @@ export interface UserPermissions {
 export interface RegisterResponse {
   accessToken: string;
   refreshToken: string;
-  tokenType: number;
+  tokenType: string;
   expiresAt: Date;
   userInfo: UserInfo;
   emailVerificationRequired: boolean;
@@ -29,7 +29,7 @@ export interface RegisterResponse {
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
-  tokenType: number;
+  tokenType: string;
   expiresAt: Date;
   userInfo: UserInfo;
   requires2FA: boolean;

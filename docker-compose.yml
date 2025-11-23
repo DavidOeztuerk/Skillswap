@@ -10,6 +10,10 @@ services:
       dockerfile: client/Dockerfile
       args:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080}
+        - VITE_WEBRTC_STUN_URLS=${VITE_WEBRTC_STUN_URLS:-stun:stun.l.google.com:19302}
+        - VITE_WEBRTC_TURN_URLS=${VITE_WEBRTC_TURN_URLS}
+        - VITE_WEBRTC_TURN_USERNAME=${VITE_WEBRTC_TURN_USERNAME}
+        - VITE_WEBRTC_TURN_CREDENTIAL=${VITE_WEBRTC_TURN_CREDENTIAL}
     container_name: "skillswap-frontend"
     networks:
       - skillswap-network
@@ -132,6 +136,8 @@ services:
       - SERVICE_SERVICE_SKILL_PASSWORD=${SERVICE_SERVICE_SKILL_PASSWORD}
       - SERVICE_SERVICE_NOTIFICATION_PASSWORD=${SERVICE_SERVICE_NOTIFICATION_PASSWORD}
       - SERVICE_SERVICE_VIDEOCALL_PASSWORD=${SERVICE_SERVICE_VIDEOCALL_PASSWORD}
+      - ServiceCommunication__UseGateway=true
+      - ServiceEndpoints__Gateway=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health/live"]
       interval: 30s
@@ -148,7 +154,7 @@ services:
   skillservice:
     build:
       context: ./src
-      dockerfile: services/SkillService/Dockerfile
+      dockerfile: services/SkillService/SkillService.Api/Dockerfile
     container_name: "skillswap-skillservice"
     depends_on:
       postgres_skillservice:
@@ -167,6 +173,8 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
       - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
+      - ServiceCommunication__UseGateway=true
+      - ServiceEndpoints__Gateway=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health/live"]
       interval: 30s
@@ -183,7 +191,7 @@ services:
   matchmakingservice:
     build:
       context: ./src
-      dockerfile: services/MatchmakingService/Dockerfile
+      dockerfile: services/MatchmakingService.Api/Dockerfile
     container_name: "skillswap-matchmakingservice"
     depends_on:
       rabbitmq:
@@ -200,6 +208,8 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
       - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
+      - ServiceCommunication__UseGateway=true
+      - ServiceEndpoints__Gateway=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5003/health/live"]
       interval: 30s
@@ -216,7 +226,7 @@ services:
   appointmentservice:
     build:
       context: ./src
-      dockerfile: services/AppointmentService/Dockerfile
+      dockerfile: services/AppointmentService/AppointmentService.Api/Dockerfile
     container_name: "skillswap-appointmentservice"
     depends_on:
       rabbitmq:
@@ -233,6 +243,8 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
       - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
+      - ServiceCommunication__UseGateway=true
+      - ServiceEndpoints__Gateway=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health/live"]
       interval: 30s
@@ -249,7 +261,7 @@ services:
   videocallservice:
     build:
       context: ./src
-      dockerfile: services/VideocallService/Dockerfile
+      dockerfile: services/VideocallService.Api/Dockerfile
     container_name: "skillswap-videocallservice"
     depends_on:
       rabbitmq:
@@ -266,6 +278,8 @@ services:
       - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
       - JWT_EXPIRE=${JWT_EXPIRE:-60}
       - REDIS_CONNECTION_STRING=redis:6379
+      - ServiceCommunication__UseGateway=true
+      - ServiceEndpoints__Gateway=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5005/health/live"]
       interval: 30s
@@ -282,7 +296,7 @@ services:
   notificationservice:
     build:
       context: ./src
-      dockerfile: services/NotificationService/Dockerfile
+      dockerfile: services/NotificationService.Api/Dockerfile
     container_name: "skillswap-notificationservice"
     depends_on:
       rabbitmq:
@@ -305,6 +319,8 @@ services:
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USE_SSL=${SMTP_USE_SSL:-true}
       - SMS_PROVIDER=${SMS_PROVIDER:-twilio}
+      - ServiceCommunication__UseGateway=true
+      - ServiceEndpoints__Gateway=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5006/health/live"]
       interval: 30s

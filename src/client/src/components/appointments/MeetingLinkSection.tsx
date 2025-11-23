@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -18,7 +19,6 @@ import {
 import {
   VideoCall as VideoCallIcon,
   ContentCopy as CopyIcon,
-  Launch as LaunchIcon,
   Check as CheckIcon,
   Info as InfoIcon,
   Schedule as ScheduleIcon,
@@ -34,6 +34,7 @@ import JoinCallButton from './JoinCallButton';
 import axios from 'axios';
 
 interface MeetingLinkSectionProps {
+  appointmentId: string;
   meetingUrl?: string | null;
   startTime: string;
   endTime: string;
@@ -52,6 +53,7 @@ interface MeetingLinkSectionProps {
  * Displays and manages video call meeting links for appointments
  */
 const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
+  appointmentId,
   meetingUrl,
   startTime,
   endTime,
@@ -64,6 +66,7 @@ const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
   activationDelayMinutes = 5,
   linkGeneratedAt,
 }) => {
+  const navigate = useNavigate();
   const { withLoading, isLoading } = useLoading();
   const [copied, setCopied] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -210,10 +213,10 @@ const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
     });
   };
 
-  // Open meeting in new tab
+  // Navigate to video call page in same window
   const handleOpenMeeting = () => {
-    if (effectiveMeetingUrl) {
-      window.open(effectiveMeetingUrl, '_blank', 'noopener,noreferrer');
+    if (appointmentId) {
+      navigate(`/videocall/${appointmentId}`);
     }
   };
 
@@ -333,11 +336,11 @@ const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
 
             <Button
               variant="outlined"
-              startIcon={<LaunchIcon />}
+              startIcon={<VideoCallIcon />}
               onClick={handleOpenMeeting}
               disabled={!meetingStatus.canJoin}
             >
-              In neuem Tab öffnen
+              Zum Videoanruf
             </Button>
           </Stack>
 

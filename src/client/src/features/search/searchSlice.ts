@@ -85,10 +85,10 @@ const searchSlice = createSlice({
         }
 
         state.userPagination = {
-          page: withDefault(action.payload.pagination.pageNumber, 1),
-          pageSize: withDefault(action.payload.pagination.pageSize, 12),
-          totalItems: withDefault(action.payload.pagination.totalRecords, 0),
-          totalPages: withDefault(action.payload.pagination.totalPages, 0),
+          page: withDefault(action.payload.pageNumber, 1),
+          pageSize: withDefault(action.payload.pageSize, 12),
+          totalItems: withDefault(action.payload.totalRecords, 0),
+          totalPages: withDefault(action.payload.totalPages, 0),
         };
       })
       .addCase(fetchUserSearchResults.rejected, (state, action) => {
@@ -110,10 +110,10 @@ const searchSlice = createSlice({
           state.allSkills = [];
         }
         state.allSkillsPagination = {
-          page: withDefault(action.payload.pagination.pageNumber, 1),
-          pageSize: withDefault(action.payload.pagination.pageSize, 12),
-          totalItems: withDefault(action.payload.pagination.totalRecords, 0),
-          totalPages: withDefault(action.payload.pagination.totalPages, 0),
+          page: withDefault(action.payload.pageNumber, 1),
+          pageSize: withDefault(action.payload.pageSize, 12),
+          totalItems: withDefault(action.payload.totalRecords, 0),
+          totalPages: withDefault(action.payload.totalPages, 0),
         };
       })
       .addCase(fetchAllSkills.rejected, (state, action) => {

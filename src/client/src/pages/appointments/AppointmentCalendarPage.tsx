@@ -41,14 +41,15 @@ import errorService from '../../services/errorService';
 const AppointmentCalendarPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { appointments, isLoading, errorMessage } = useAppointments();
-    
+    const { appointments, isLoading, errorMessage, loadAppointments } = useAppointments();
+
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
     useEffect(() => {
         errorService.addBreadcrumb('Loading appointment calendar', 'navigation');
-    }, []);
+        loadAppointments({ pageNumber: 1, pageSize: 100, includePast: true });
+    }, [loadAppointments]);
 
     const handleAppointmentClick = (appointment: Appointment) => {
         setSelectedAppointment(appointment);
@@ -68,9 +69,36 @@ const AppointmentCalendarPage: React.FC = () => {
     };
 
     const handleJoinCall = () => {
-        if (selectedAppointment?.meetingLink) {
-            window.open(selectedAppointment.meetingLink, '_blank');
+        if (selectedAppointment?.id) {
+            navigate(`/videocall/${selectedAppointment.id}`);
         }
+    };
+
+    // Check if appointment can be joined (5 minutes before start)
+    const canJoinCall = (appointment: Appointment | null): { canJoin: boolean; message: string } => {
+        if (!appointment?.scheduledDate) {
+            return { canJoin: false, message: 'Kein Termin ausgewählt' };
+        }
+
+        const now = new Date();
+        const appointmentStart = new Date(appointment.scheduledDate);
+        const appointmentEnd = new Date(appointmentStart.getTime() + appointment.durationMinutes * 60000);
+        const fiveMinutesBefore = new Date(appointmentStart.getTime() - 5 * 60000);
+
+        // Can join 5 minutes before until appointment end
+        if (now < fiveMinutesBefore) {
+            const minutesUntil = Math.ceil((fiveMinutesBefore.getTime() - now.getTime()) / 60000);
+            return {
+                canJoin: false,
+                message: `Verfügbar in ${minutesUntil} Minute${minutesUntil !== 1 ? 'n' : ''}`
+            };
+        }
+
+        if (now > appointmentEnd) {
+            return { canJoin: false, message: 'Termin ist beendet' };
+        }
+
+        return { canJoin: true, message: 'Jetzt beitreten' };
     };
 
     const getAppointmentIcon = (appointment: Appointment) => {
@@ -219,7 +247,7 @@ const AppointmentCalendarPage: React.FC = () => {
                                 />
                                 {selectedAppointment.sessionNumber && selectedAppointment.sessionNumber > 1 && (
                                     <Chip
-                                        label={`Session ${selectedAppointment.sessionNumber}/${selectedAppointment.totalSessions}`}
+                                        label={`Session ${selectedAppointment.sessionNumber}/${selectedAppointment.totalSessionsInSeries || selectedAppointment.totalSessions || '?'}`}
                                         size="small"
                                         variant="outlined"
                                         sx={{ ml: 1, mb: 1 }}
@@ -301,21 +329,30 @@ const AppointmentCalendarPage: React.FC = () => {
                             </List>
 
                             {/* Meeting Link */}
-                            {selectedAppointment.meetingLink && (
-                                <Box sx={{ mt: 2, p: 2, bgcolor: 'primary.light', borderRadius: 1 }}>
-                                    <Typography variant="body2" sx={{ mb: 1 }}>
-                                        Meeting-Link verfügbar
-                                    </Typography>
-                                    <Button
-                                        variant="contained"
-                                        startIcon={<VideoCall />}
-                                        onClick={handleJoinCall}
-                                        fullWidth
-                                    >
-                                        Videoanruf beitreten
-                                    </Button>
-                                </Box>
-                            )}
+                            {selectedAppointment.meetingLink && (() => {
+                                const joinStatus = canJoinCall(selectedAppointment);
+                                return (
+                                    <Box sx={{ mt: 2, p: 2, bgcolor: joinStatus.canJoin ? 'primary.light' : 'action.hover', borderRadius: 1 }}>
+                                        <Typography variant="body2" sx={{ mb: 1 }}>
+                                            {joinStatus.canJoin ? 'Meeting-Link verfügbar' : 'Meeting-Raum'}
+                                        </Typography>
+                                        <Button
+                                            variant="contained"
+                                            startIcon={<VideoCall />}
+                                            onClick={handleJoinCall}
+                                            disabled={!joinStatus.canJoin}
+                                            fullWidth
+                                        >
+                                            {joinStatus.message}
+                                        </Button>
+                                        {!joinStatus.canJoin && joinStatus.message.includes('Verfügbar') && (
+                                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                                Der Raum öffnet sich 5 Minuten vor Terminbeginn
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                );
+                            })()}
                         </Box>
                     )}
                 </DialogContent>

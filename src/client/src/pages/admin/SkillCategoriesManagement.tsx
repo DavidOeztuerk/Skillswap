@@ -151,8 +151,8 @@ const SkillCategoriesManagement: React.FC = () => {
 
     setSaving(true);
     try {
-      let result: any;
-      
+      let result: { meta: { requestStatus: string } };
+
       if (selectedCategory) {
         result = await updateCategory(
           selectedCategory.id,
@@ -163,7 +163,7 @@ const SkillCategoriesManagement: React.FC = () => {
           { name: formData.name }
         );
       }
-      
+
       if (result.meta.requestStatus === 'fulfilled') {
         await fetchCategories(); // Refresh categories
         handleCloseDialog();

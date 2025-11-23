@@ -23,43 +23,19 @@ import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
 import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
 
 // Zod-Schema
-const appointmentFormSchema = z
-  .object({
-    matchId: z.string(),
-    startDate: z
-      .date()
-      .refine((date) => isAfter(date, addDays(new Date(), -1)), {
-        message: 'Das Datum muss in der Zukunft liegen',
-      }),
-    startTime: z.date(),
-    endTime: z.date(),
-    notes: z
-      .string()
-      .max(500, 'Notizen dürfen maximal 500 Zeichen enthalten')
-      .optional(),
-  })
-  .refine(
-    (data) => {
-      // Datum+Uhrzeit zusammenführen
-      const startDateTime = new Date(
-        data.startDate.getFullYear(),
-        data.startDate.getMonth(),
-        data.startDate.getDate(),
-        data.startTime.getHours(),
-        data.startTime.getMinutes()
-      );
-      const endDateTime = new Date(
-        data.startDate.getFullYear(),
-        data.startDate.getMonth(),
-        data.startDate.getDate(),
-        data.endTime.getHours(),
-        data.endTime.getMinutes()
-      );
-      // Muss endTime > startTime sein
-      return isAfter(endDateTime, startDateTime);
-    },
-    { message: 'Die Endzeit muss nach der Startzeit liegen', path: ['endTime'] }
-  );
+const appointmentFormSchema = z.object({
+  matchId: z.string(),
+  startDate: z
+    .date()
+    .refine((date) => isAfter(date, addDays(new Date(), -1)), {
+      message: 'Das Datum muss in der Zukunft liegen',
+    }),
+  startTime: z.date(),
+  notes: z
+    .string()
+    .max(500, 'Notizen dürfen maximal 500 Zeichen enthalten')
+    .optional(),
+});
 
 type AppointmentFormValues = z.infer<typeof appointmentFormSchema>;
 
@@ -129,25 +105,27 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
         data.startTime.getHours(),
         data.startTime.getMinutes()
       );
-      const endDateTime = new Date(
-        data.startDate.getFullYear(),
-        data.startDate.getMonth(),
-        data.startDate.getDate(),
-        data.endTime.getHours(),
-        data.endTime.getMinutes()
-      );
+
+      // Generate meaningful title and description
+      const skillName = match.skillName || 'Unbekannter Skill';
+      const teacherName = match.isLearningMode ? (match.partnerName || 'Lehrer') : 'Du';
+      const studentName = match.isLearningMode ? 'Du' : (match.partnerName || 'Student');
 
       const appointmentRequest: AppointmentRequest = {
         matchId: data.matchId,
-        startTime: startDateTime.toISOString(),
-        endTime: endDateTime.toISOString(),
-        notes: data.notes,
+        scheduledDate: startDateTime.toISOString(),
+        title: `Lerntermin: ${skillName}`,
+        description: data.notes || `${teacherName} lehrt ${studentName} in ${skillName}`,
+        durationMinutes: 60,
+        participantUserId: match.partnerId,
+        skillId: match.skillId || undefined,
+        meetingType: 'VideoCall'
       };
 
       await onSubmit(appointmentRequest);
       onClose();
     } catch (error) {
-      console.error('Failed to create appointment:', error);
+      console.error('❌ Failed to create appointment:', error);
     }
   };
 
@@ -165,7 +143,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
               Abbrechen
             </Button>
             <LoadingButton
-              type="submit"
+              onClick={handleSubmit(handleFormSubmit)}
               color="primary"
               variant="contained"
               loading={isLoading}
@@ -276,7 +254,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
             </Grid>
 
             {/* Endzeit */}
-            <Grid size={{ xs: 12, md: 4 }}>
+            {/* <Grid size={{ xs: 12, md: 4 }}>
               <Controller
                 name="endTime"
                 control={control}
@@ -297,7 +275,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                   />
                 )}
               />
-            </Grid>
+            </Grid> */}
 
             {/* Notizen */}
             <Grid size={{ xs: 12 }}>

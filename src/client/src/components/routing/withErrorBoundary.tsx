@@ -1,4 +1,4 @@
-import React, { ComponentType, ErrorInfo } from 'react';
+import React, { ComponentType, ComponentProps, ErrorInfo } from 'react';
 import ErrorBoundary from '../error/ErrorBoundary';
 
 interface WithErrorBoundaryOptions {
@@ -8,11 +8,12 @@ interface WithErrorBoundaryOptions {
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withErrorBoundary<T extends ComponentType<any>>(
   Component: T,
   options: WithErrorBoundaryOptions = {}
-) {
-  const WrappedComponent = (props: any) => {
+): T {
+  const WrappedComponent = ((props: ComponentProps<T>) => {
     return (
       <ErrorBoundary
         fallback={options.fallback}
@@ -23,13 +24,14 @@ export function withErrorBoundary<T extends ComponentType<any>>(
         <Component {...props} />
       </ErrorBoundary>
     );
-  };
+  }) as unknown as T;
 
   WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name || 'Component'})`;
-  
+
   return WrappedComponent;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withPageErrorBoundary<T extends ComponentType<any>>(
   Component: T,
   options: Omit<WithErrorBoundaryOptions, 'level'> = {}
@@ -40,6 +42,7 @@ export function withPageErrorBoundary<T extends ComponentType<any>>(
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withSectionErrorBoundary<T extends ComponentType<any>>(
   Component: T,
   options: Omit<WithErrorBoundaryOptions, 'level'> = {}

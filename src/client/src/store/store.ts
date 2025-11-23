@@ -6,6 +6,7 @@ import proficiencyLevel from '../features/skills/proficiencyLevelSlice';
 import search from '../features/search/searchSlice';
 import matchmaking from '../features/matchmaking/matchmakingSlice';
 import appointments from '../features/appointments/appointmentsSlice';
+import sessions from '../features/sessions/sessionsSlice';
 import videoCall from '../features/videocall/videoCallSlice';
 import notifications from '../features/notifications/notificationSlice';
 import admin from '../features/admin/adminSlice';
@@ -19,10 +20,19 @@ export const store = configureStore({
     search,
     matchmaking,
     appointments,
+    sessions,
     videoCall,
     notifications,
     admin
-  }
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        // Ignore MediaStream objects in videoCall state (they are DOM objects and non-serializable)
+        ignoredActions: ['videoCall/setLocalStream', 'videoCall/setRemoteStream'],
+        ignoredPaths: ['videoCall.localStream', 'videoCall.remoteStream'],
+      },
+    }),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

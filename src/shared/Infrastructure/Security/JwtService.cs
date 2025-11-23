@@ -104,9 +104,19 @@ public class JwtService : IJwtService
 
     private async Task<string> GenerateAccessTokenAsync(UserClaims user, string jti)
     {
-        var signingCredentials = new SigningCredentials(
-            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret)),
-            SecurityAlgorithms.HmacSha256);
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret))
+        {
+            KeyId = "SkillswapKey" // Add KeyId to resolve validation error
+        };
+
+        // DEBUG: Log signing key details
+        var secretPreview = _jwtSettings.Secret?.Length > 20 ? _jwtSettings.Secret[..20] + "..." : _jwtSettings.Secret;
+        var secretBytes = Encoding.UTF8.GetBytes(_jwtSettings.Secret ?? string.Empty);
+        var secretHash = Convert.ToBase64String(SHA256.HashData(secretBytes));
+        _logger.LogWarning("🔑 [TOKEN GENERATION] Secret Hash: {Hash}, Preview: {Preview}, Length: {Length}",
+            secretHash, secretPreview, _jwtSettings.Secret?.Length ?? 0);
+
+        var signingCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>
         {
@@ -124,8 +134,27 @@ public class JwtService : IJwtService
             new("account_status", user.AccountStatus)
         };
 
-        // Add role claims
-        foreach (var role in user.Roles)
+        // Add role claims with hierarchy support
+        // SuperAdmin inherits all roles: SuperAdmin > Admin > Moderator > User
+        var rolesToAdd = new HashSet<string>(user.Roles);
+
+        if (user.Roles.Contains("SuperAdmin"))
+        {
+            rolesToAdd.Add("Admin");      // SuperAdmin hat auch Admin-Rechte
+            rolesToAdd.Add("Moderator");  // SuperAdmin hat auch Moderator-Rechte
+            rolesToAdd.Add("User");       // SuperAdmin hat auch User-Rechte
+        }
+        else if (user.Roles.Contains("Admin"))
+        {
+            rolesToAdd.Add("Moderator");  // Admin hat auch Moderator-Rechte
+            rolesToAdd.Add("User");       // Admin hat auch User-Rechte
+        }
+        else if (user.Roles.Contains("Moderator"))
+        {
+            rolesToAdd.Add("User");       // Moderator hat auch User-Rechte
+        }
+
+        foreach (var role in rolesToAdd)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
             claims.Add(new Claim("role", role)); // Custom claim for easier access

@@ -55,8 +55,9 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('🧹 AuthProvider: Cleared invalid tokens from storage');
       }
       
-    } catch (error: any) {
-      console.error('❌ AuthProvider: Silent login failed with exception:', error?.message || error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('❌ AuthProvider: Silent login failed with exception:', errorMessage);
       // Clear invalid tokens on exception using helper
       removeToken();
       console.log('🧹 AuthProvider: Cleared invalid tokens after exception');

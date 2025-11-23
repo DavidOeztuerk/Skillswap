@@ -14,8 +14,9 @@ const AdminMetricsPage = () => {
       setError(null);
       const data = await metricsService.getMetrics(service);
       setMetrics(data);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Failed to load metrics';
+      setError(errorMessage);
       setMetrics(null);
     }
   };
@@ -26,8 +27,9 @@ const AdminMetricsPage = () => {
       try {
         const data = await metricsService.getMetrics(service);
         setMetrics(data);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : 'Failed to load metrics';
+        setError(errorMessage);
         setMetrics(null);
       }
     };

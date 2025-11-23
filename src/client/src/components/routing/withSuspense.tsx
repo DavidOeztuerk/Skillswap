@@ -104,30 +104,31 @@ const applyErrorBoundary = <P extends object>(
 /**
  * Basis HOC für lazy loading mit Suspense
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withSuspense<T extends ComponentType<any>>(
   importFn: ImportFunction<T>,
   options: WithSuspenseOptions = {}
 ): FC<React.ComponentProps<T>> {
   // Lazy load einmal erstellen (nicht bei jedem Render)
   const LazyComponent = lazy(importFn) as LazyExoticComponent<T>;
-  
+
   // Wrapper-Komponente mit memo für Performance
   const SuspenseWrapper: FC<React.ComponentProps<T>> = memo((props) => {
     const fallback = createFallback(options);
-    
+
     return (
       <Suspense fallback={fallback}>
-        <LazyComponent {...(props as any)} />
+        <LazyComponent {...props} />
       </Suspense>
     );
   });
-  
+
   // Display name für Dev-Tools
   SuspenseWrapper.displayName = `withSuspense(LazyComponent)`;
-  
+
   // Error Boundary anwenden mit korrekten Typen
   return applyErrorBoundary<React.ComponentProps<T>>(
-    SuspenseWrapper, 
+    SuspenseWrapper,
     options
   ) as FC<React.ComponentProps<T>>;
 }
@@ -135,13 +136,14 @@ export function withSuspense<T extends ComponentType<any>>(
 /**
  * HOC für lazy loading mit PrivateRoute
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withPrivateRoute<T extends ComponentType<any>>(
   importFn: ImportFunction<T>,
   options: WithPrivateRouteOptions = {}
 ): FC<React.ComponentProps<T>> {
   // Lazy load einmal erstellen
   const LazyComponent = lazy(importFn) as LazyExoticComponent<T>;
-  
+
   // Extrahiere die verschiedenen Option-Gruppen
   const {
     // Loading options
@@ -156,39 +158,39 @@ export function withPrivateRoute<T extends ComponentType<any>>(
     // PrivateRoute options
     ...privateRouteConfig
   } = options;
-  
+
   const loadingOptions: BaseLoadingOptions = {
     fallback,
     loadingMessage,
     skeletonVariant,
     useSkeleton,
   };
-  
+
   const errorOptions: ErrorBoundaryOptions = {
     withErrorBoundary,
     onError,
     errorFallback,
   };
-  
+
   // Wrapper-Komponente
   const PrivateRouteWrapper: FC<React.ComponentProps<T>> = memo((props) => {
     const fallbackElement = createFallback(loadingOptions);
-    
+
     return (
       <PrivateRoute {...privateRouteConfig}>
         <Suspense fallback={fallbackElement}>
-          <LazyComponent {...(props as any)} />
+          <LazyComponent {...props} />
         </Suspense>
       </PrivateRoute>
     );
   });
-  
+
   // Display name für Dev-Tools
   PrivateRouteWrapper.displayName = `withPrivateRoute(LazyComponent)`;
-  
+
   // Error Boundary anwenden mit korrekten Typen
   return applyErrorBoundary<React.ComponentProps<T>>(
-    PrivateRouteWrapper, 
+    PrivateRouteWrapper,
     errorOptions
   ) as FC<React.ComponentProps<T>>;
 }
@@ -196,42 +198,45 @@ export function withPrivateRoute<T extends ComponentType<any>>(
 /**
  * Erweiterte Version mit Preloading-Support
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withPreloadableSuspense<T extends ComponentType<any>>(
   importFn: ImportFunction<T>,
   options: WithSuspenseOptions = {}
 ) {
   // Preload-Funktion exponieren
   const preload = () => importFn();
-  
+
   const Component = withSuspense(importFn, options);
-  
+
   // Preload-Methode an die Komponente anhängen
-  (Component as any).preload = preload;
-  
-  return Component as FC<React.ComponentProps<T>> & { preload: () => Promise<LazyComponentModule<T>> };
+  const PreloadableComponent = Component as FC<React.ComponentProps<T>> & { preload: () => Promise<LazyComponentModule<T>> };
+  PreloadableComponent.preload = preload;
+
+  return PreloadableComponent;
 }
 
 /**
  * Factory für Router-Konfiguration
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createLazyRoute<T extends ComponentType<any>>(
   importFn: ImportFunction<T>,
   options: WithPrivateRouteOptions = {}
 ) {
   // Check if authentication is required (special role '*' means any authenticated user)
   const hasAuthRequirements = Boolean(
-    options.roles?.length || 
+    options.roles?.length ||
     options.permissions?.length ||
     options.requireAuth
   );
-  
+
   // If roles contain '*', it means any authenticated user
-  const modifiedOptions = options.roles?.includes('*') 
+  const modifiedOptions = options.roles?.includes('*')
     ? { ...options, roles: [], requireAuth: true } // Clear roles but explicitly require auth
     : options;
-  
+
   return {
-    component: hasAuthRequirements 
+    component: hasAuthRequirements
       ? withPrivateRoute(importFn, modifiedOptions)
       : withSuspense(importFn, options),
     preload: () => importFn(),
@@ -243,43 +248,52 @@ export function createLazyRoute<T extends ComponentType<any>>(
 /**
  * Batch-Import für mehrere lazy Components
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createLazyComponents<
   T extends Record<string, ImportFunction<ComponentType<any>>>
 >(
   imports: T,
   defaultOptions?: WithSuspenseOptions
 ): {
-  [K in keyof T]: FC<React.ComponentProps<ReturnType<T[K]> extends Promise<infer U> 
-    ? U extends LazyComponentModule<infer C> 
-      ? C 
-      : never 
+  [K in keyof T]: FC<React.ComponentProps<ReturnType<T[K]> extends Promise<infer U>
+    ? U extends LazyComponentModule<infer C>
+      ? C
+      : never
     : never>>
 } {
-  const components = {} as any;
-  
+  type ResultType = {
+    [K in keyof T]: FC<React.ComponentProps<ReturnType<T[K]> extends Promise<infer U>
+      ? U extends LazyComponentModule<infer C>
+        ? C
+        : never
+      : never>>
+  };
+
+  const components = {} as ResultType;
+
   for (const [name, importFn] of Object.entries(imports)) {
-    components[name] = withSuspense(importFn as any, defaultOptions);
+    (components as Record<string, FC>)[name] = withSuspense(importFn, defaultOptions);
   }
-  
+
   return components;
 }
 
 /**
  * Type Guards für Runtime-Checks
  */
-export const isLazyComponent = (component: any): component is LazyExoticComponent<any> => {
-  return component && component.$$typeof === Symbol.for('react.lazy');
+export const isLazyComponent = (component: unknown): component is LazyExoticComponent<ComponentType> => {
+  return component !== null && typeof component === 'object' && (component as { $$typeof?: symbol }).$$typeof === Symbol.for('react.lazy');
 };
 
-export const hasPreload = (component: any): component is { preload: Function } => {
-  return component && typeof component.preload === 'function';
+export const hasPreload = (component: unknown): component is { preload: () => Promise<unknown> } => {
+  return component !== null && typeof component === 'object' && typeof (component as { preload?: unknown }).preload === 'function';
 };
 
 /**
  * Utility: Preload multiple components
  */
 export const preloadComponents = async (
-  components: Array<{ preload: () => Promise<any> }>
+  components: Array<{ preload: () => Promise<unknown> }>
 ): Promise<void> => {
   await Promise.all(components.map(c => c.preload()));
 };
@@ -288,7 +302,7 @@ export const preloadComponents = async (
  * Hook für Preloading on Hover/Focus
  */
 export const usePreloadOnInteraction = (
-  component: any,
+  component: unknown,
   delay: number = 200
 ) => {
   let timeoutId: NodeJS.Timeout;

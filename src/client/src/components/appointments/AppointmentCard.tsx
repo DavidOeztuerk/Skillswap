@@ -56,13 +56,13 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
 
   const getStatusColor = (status: AppointmentStatus): string => {
     switch (status) {
-      case 'Pending':
+      case AppointmentStatus.Pending:
         return theme.palette.warning.main;
-      case 'Confirmed':
+      case AppointmentStatus.Accepted:
         return theme.palette.success.main;
-      case 'Cancelled':
+      case AppointmentStatus.Cancelled:
         return theme.palette.error.main;
-      case 'Completed':
+      case AppointmentStatus.Completed:
         return theme.palette.info.main;
       default:
         return theme.palette.grey[500];
@@ -71,13 +71,13 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
 
   const getStatusLabel = (status: AppointmentStatus): string => {
     switch (status) {
-      case 'Pending':
+      case AppointmentStatus.Pending:
         return 'Ausstehend';
-      case 'Confirmed':
+      case AppointmentStatus.Accepted:
         return 'Bestätigt';
-      case 'Cancelled':
+      case AppointmentStatus.Cancelled:
         return 'Abgesagt';
-      case 'Completed':
+      case AppointmentStatus.Completed:
         return 'Abgeschlossen';
       default:
         return status;
@@ -85,20 +85,21 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   };
 
   const canJoinCall =
-    appointment.status === 'Confirmed' &&
+    appointment.status === AppointmentStatus.Accepted &&
     appointment.videocallUrl &&
     appointment.endTime &&
     !isPastDate(appointment.endTime);
 
-  const canConfirm = isTeacher && appointment.status === 'Pending';
+  // FIX: Only the PARTICIPANT (not the organizer) can accept the appointment
+  const canConfirm = !appointment.isOrganizer && appointment.status === AppointmentStatus.Pending;
 
   const canCancel =
-    appointment.status === 'Pending' ||
-    (appointment.status === 'Confirmed' && appointment.startTime && !isPastDate(appointment.startTime));
+    appointment.status === AppointmentStatus.Pending ||
+    (appointment.status === AppointmentStatus.Accepted && appointment.startTime && !isPastDate(appointment.startTime));
 
   const canComplete =
     isTeacher &&
-    appointment.status === 'Confirmed' &&
+    appointment.status === AppointmentStatus.Accepted &&
     appointment.endTime &&
     isPastDate(appointment.endTime) &&
     !isPastDate(new Date(new Date(appointment.endTime).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()); // Innerhalb von 7 Tagen nach Ende

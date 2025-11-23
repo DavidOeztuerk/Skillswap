@@ -83,7 +83,17 @@ export interface GetUserSkillResponse {
   endorsementCount: number,
   status: string,
   createdAt: Date,
-  updatedAt: Date
+  updatedAt: Date,
+  // Optional properties for favorites/extended views
+  matchCount?: number,
+  addedToFavoritesAt?: string,
+  ownerId?: string,
+  ownerName?: string,
+  ownerAvatarUrl?: string,
+  thumbnailUrl?: string,
+  isFavorite?: boolean,
+  price?: number,
+  currency?: string
 }
 
 export interface SkillSearchResultResponse{
@@ -130,4 +140,26 @@ export interface SkillRecommendation {
   score: number;
   reason: string;
   matchPercentage: number;
+}
+
+// Additional Response Types
+export interface DeleteSkillResponse {
+  skillId: string;
+  success: boolean;
+  deletedAt: string;
+  apiVersion: string;
+}
+
+export interface RateSkillResponse {
+  ratingId: string;
+  rating: number;
+  newAverageRating: number;
+  totalRatings: number;
+  apiVersion: string;
+}
+
+export interface EndorseSkillResponse {
+  endorsementId: string;
+  totalEndorsements: number;
+  apiVersion: string;
 }

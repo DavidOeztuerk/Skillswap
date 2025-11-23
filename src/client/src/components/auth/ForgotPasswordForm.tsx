@@ -48,12 +48,14 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onSuccess }) =>
         if (onSuccess) {
           onSuccess(data.email);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Password reset request failed:', err);
-        setError(
-          err?.response?.data?.message || 
-          'Fehler beim Senden der Passwort-Reset-E-Mail. Bitte versuchen Sie es später erneut.'
-        );
+        let errorMessage = 'Fehler beim Senden der Passwort-Reset-E-Mail. Bitte versuchen Sie es später erneut.';
+        if (err && typeof err === 'object' && 'response' in err) {
+          const responseError = err as { response?: { data?: { message?: string } } };
+          errorMessage = responseError.response?.data?.message || errorMessage;
+        }
+        setError(errorMessage);
       }
     });
   };

@@ -13,7 +13,8 @@ interface PerformanceMetrics {
  * Automatically tracks render count, timing, and prop changes
  */
 export function usePerformance(componentName: string, props?: Record<string, unknown>): PerformanceMetrics {
-  const profilerEnabled = performanceProfiler.isEnabled();
+  // Only enable in development and when profiler is enabled
+  const profilerEnabled = performanceProfiler.isEnabled() && import.meta.env.DEV;
   const renderStartTime = useRef<number>(0);
   const previousProps = useRef(props);
   const renderCount = useRef(0);
@@ -79,20 +80,14 @@ export function usePerformance(componentName: string, props?: Record<string, unk
 
     previousProps.current = props;
 
-    if (process.env.NODE_ENV === 'development') {
-      if (renderTime > 16) {
-        console.warn(`🐌 ${componentName}: Slow render ${renderTime.toFixed(2)}ms (render #${renderCount.current})`);
-      }
+    // Only log critical performance issues (slow renders > 50ms)
+    if (import.meta.env.DEV && renderTime > 50) {
+      console.warn(`🐌 ${componentName}: Slow render ${renderTime.toFixed(2)}ms (render #${renderCount.current})`);
+    }
 
-      if (renderCount.current > 5 && !propsChanged && renderCount.current % 5 === 0) {
-        console.warn(`🔄 ${componentName}: ${renderCount.current} renders without prop changes`);
-      }
-
-      if (renderCount.current <= 5 || renderCount.current % 10 === 0) {
-        console.log(
-          `⚡ ${componentName}: Render #${renderCount.current} (${renderTime.toFixed(2)}ms, props changed: ${propsChanged})`
-        );
-      }
+    // Only warn about excessive re-renders without prop changes (> 20 renders)
+    if (import.meta.env.DEV && renderCount.current > 20 && !propsChanged && renderCount.current % 10 === 0) {
+      console.warn(`🔄 ${componentName}: ${renderCount.current} renders without prop changes - consider React.memo`);
     }
   }, [componentName, profilerEnabled, props, propsChanged]);
 
@@ -102,8 +97,9 @@ export function usePerformance(componentName: string, props?: Record<string, unk
     return () => {
       performanceProfiler.remove(trackerKeyRef.current);
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🧹 ${componentName}: Unmounted after ${renderCount.current} renders`);
+      // Only log unmounts for components with excessive renders (potential memory leak indicator)
+      if (import.meta.env.DEV && renderCount.current > 50) {
+        console.warn(`🧹 ${componentName}: Unmounted after ${renderCount.current} renders (check for memory leaks)`);
       }
     };
   }, [componentName, profilerEnabled]);

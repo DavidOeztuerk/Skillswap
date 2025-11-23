@@ -1,0 +1,143 @@
+using Contracts.Matchmaking.Responses;
+using CQRS.Handlers;
+using Microsoft.EntityFrameworkCore;
+using CQRS.Models;
+using MatchmakingService.Application.Queries;
+using Microsoft.Extensions.Logging;
+using MatchmakingService.Domain.Services;
+using MatchmakingService.Domain.Repositories;
+
+namespace MatchmakingService.Application.QueryHandlers;
+
+public class GetIncomingMatchRequestsQueryHandler(
+    IMatchmakingUnitOfWork unitOfWork,
+    IUserServiceClient userServiceClient,
+    ISkillServiceClient skillServiceClient,
+    ILogger<GetIncomingMatchRequestsQueryHandler> logger)
+    : BasePagedQueryHandler<GetIncomingMatchRequestsQuery, MatchRequestDisplayResponse>(logger)
+{
+    private readonly IMatchmakingUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IUserServiceClient _userServiceClient = userServiceClient;
+    private readonly ISkillServiceClient _skillServiceClient = skillServiceClient;
+
+    public override async Task<PagedResponse<MatchRequestDisplayResponse>> Handle(
+        GetIncomingMatchRequestsQuery request,
+        CancellationToken cancellationToken)
+    {
+        {
+            if (string.IsNullOrEmpty(request.UserId))
+            {
+                return Success([], request.PageNumber, request.PageSize, 0);
+            }
+
+            // Query incoming requests where current user is the target (skill owner)
+            var query = _unitOfWork.MatchRequests.Query
+                .Where(mr => mr.TargetUserId == request.UserId && mr.Status.ToLower() == "pending")
+                .OrderByDescending(mr => mr.CreatedAt);
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var matchRequests = await query
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
+
+            var displayResponses = new List<MatchRequestDisplayResponse>();
+
+            foreach (var mr in matchRequests)
+            {
+                // Get skill data
+                var skillData = await GetSkillData(mr.SkillId, cancellationToken);
+
+                // Get requester data (the one who sent the request)
+                var requesterData = await GetUserData(mr.RequesterId, cancellationToken);
+
+                // Get exchange skill data if needed
+                string? exchangeSkillName = null;
+                if (!string.IsNullOrEmpty(mr.ExchangeSkillId))
+                {
+                    var exchangeSkillData = await GetSkillData(mr.ExchangeSkillId, cancellationToken);
+                    exchangeSkillName = exchangeSkillData?.Name;
+                }
+
+                var displayResponse = new MatchRequestDisplayResponse(
+                    Id: mr.Id,
+                    SkillId: mr.SkillId,
+                    SkillName: skillData?.Name ?? "Unknown Skill",
+                    SkillCategory: skillData?.Category ?? "General",
+                    Message: mr.Message,
+                    Status: mr.Status?.ToLowerInvariant() ?? "pending",
+                    Type: "incoming",
+                    OtherUserId: mr.RequesterId,
+                    OtherUserName: requesterData?.Name ?? "Unknown User",
+                    OtherUserRating: requesterData?.Rating ?? 0m,
+                    OtherUserAvatar: requesterData?.Avatar,
+                    IsSkillExchange: mr.IsSkillExchange,
+                    ExchangeSkillId: mr.ExchangeSkillId,
+                    ExchangeSkillName: exchangeSkillName,
+                    IsMonetary: mr.IsMonetaryOffer,
+                    OfferedAmount: mr.OfferedAmount,
+                    Currency: mr.Currency ?? "EUR",
+                    SessionDurationMinutes: mr.SessionDurationMinutes ?? 60,
+                    TotalSessions: mr.TotalSessions ?? 1,
+                    PreferredDays: mr.PreferredDays?.ToArray() ?? Array.Empty<string>(),
+                    PreferredTimes: mr.PreferredTimes?.ToArray() ?? Array.Empty<string>(),
+                    CreatedAt: mr.CreatedAt,
+                    RespondedAt: mr.RespondedAt,
+                    ExpiresAt: mr.ExpiresAt,
+                    ThreadId: mr.ThreadId,
+                    IsRead: true
+                );
+
+                displayResponses.Add(displayResponse);
+            }
+
+            return Success(displayResponses, request.PageNumber, request.PageSize, totalCount);
+        }
+    }
+
+    private async Task<SkillData?> GetSkillData(string skillId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var skillName = await _skillServiceClient.GetSkillNameAsync(skillId, cancellationToken);
+            if (string.IsNullOrEmpty(skillName))
+            {
+                Logger.LogWarning("Failed to get skill name for {SkillId}", skillId);
+                return new SkillData("Unknown Skill", "General");
+            }
+
+            var skillCategory = await _skillServiceClient.GetSkillCategoryAsync(skillId, cancellationToken);
+            return new SkillData(skillName, skillCategory);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting skill data for {SkillId}", skillId);
+            return new SkillData("Unknown Skill", "General");
+        }
+    }
+
+    private async Task<UserData?> GetUserData(string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userName = await _userServiceClient.GetUserNameAsync(userId, cancellationToken);
+            if (string.IsNullOrEmpty(userName))
+            {
+                Logger.LogWarning("Failed to get user name for {UserId}", userId);
+                return new UserData("Unknown User", 0m, null);
+            }
+
+            var userRating = await _userServiceClient.GetUserRatingAsync(userId, cancellationToken);
+            return new UserData(userName, (decimal)userRating, null);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting user data for {UserId}", userId);
+            return new UserData("Unknown User", 0m, null);
+        }
+    }
+
+    private record SkillData(string Name, string Category);
+    private record UserData(string Name, decimal Rating, string? Avatar);
+}

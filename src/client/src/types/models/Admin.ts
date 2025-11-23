@@ -147,7 +147,36 @@ export interface AdminMatch {
 }
 
 export interface AdminAnalytics {
-  userMetrics: {
+  // Flat properties for easier access
+  totalUsers?: number;
+  activeUsers?: number;
+  totalSkills?: number;
+  totalMatches?: number;
+  totalAppointments?: number;
+  completedAppointments?: number;
+  userGrowthRate?: number;
+  matchSuccessRate?: number;
+  avgSessionDuration?: string;
+  sessionsPerUser?: string;
+  matchToAppointmentRate?: string;
+  avgRating?: string;
+
+  // Top skills data
+  topSkills?: Array<{
+    name: string;
+    count: number;
+  }>;
+
+  // Recent activity data
+  recentActivity?: Array<{
+    date: string;
+    newUsers: number;
+    newMatches: number;
+    newAppointments: number;
+  }>;
+
+  // Nested structure (optional for backend compatibility)
+  userMetrics?: {
     totalUsers: number;
     activeUsers: number;
     newUsersToday: number;
@@ -156,7 +185,7 @@ export interface AdminAnalytics {
     userRetentionRate: number;
     averageSessionDuration: number;
   };
-  skillMetrics: {
+  skillMetrics?: {
     totalSkills: number;
     skillsPerUser: number;
     topCategories: Array<{
@@ -170,7 +199,7 @@ export interface AdminAnalytics {
       percentage: number;
     }>;
   };
-  appointmentMetrics: {
+  appointmentMetrics?: {
     totalAppointments: number;
     completedAppointments: number;
     cancelledAppointments: number;
@@ -182,20 +211,20 @@ export interface AdminAnalytics {
       count: number;
     }>;
   };
-  matchingMetrics: {
+  matchingMetrics?: {
     totalMatches: number;
     successfulMatches: number;
     matchSuccessRate: number;
     averageMatchScore: number;
     responseTime: number;
   };
-  platformHealth: {
+  platformHealth?: {
     systemUptime: number;
     averageResponseTime: number;
     errorRate: number;
     apiCallsPerHour: number;
   };
-  trends: {
+  trends?: {
     userGrowth: Array<{
       date: string;
       count: number;
@@ -220,8 +249,30 @@ export interface AdminAnalytics {
 }
 
 export interface SystemHealth {
-  status: 'healthy' | 'warning' | 'critical';
-  services: Array<{
+  status?: 'healthy' | 'warning' | 'critical';
+
+  // Flat service status properties for easier access
+  userService?: string;
+  skillService?: string;
+  matchmakingService?: string;
+  appointmentService?: string;
+  videocallService?: string;
+  notificationService?: string;
+  gateway?: string;
+
+  // Flat infrastructure status properties
+  database?: string;
+  cache?: string;
+  messageBus?: string;
+
+  // Flat performance metrics
+  avgResponseTime?: string;
+  requestsPerMinute?: string;
+  errorRate?: string;
+  uptime?: string;
+
+  // Nested structure (optional for backend compatibility)
+  services?: Array<{
     name: string;
     status: 'online' | 'offline' | 'degraded';
     responseTime: number;
@@ -229,7 +280,7 @@ export interface SystemHealth {
     lastCheck: string;
     errorRate: number;
   }>;
-  infrastructure: {
+  infrastructure?: {
     database: {
       status: 'connected' | 'disconnected' | 'slow';
       connectionCount: number;
@@ -249,7 +300,7 @@ export interface SystemHealth {
       errorRate: number;
     };
   };
-  performance: {
+  performance?: {
     cpuUsage: number;
     memoryUsage: number;
     diskUsage: number;
@@ -258,7 +309,7 @@ export interface SystemHealth {
       outbound: number;
     };
   };
-  alerts: Array<{
+  alerts?: Array<{
     id: string;
     severity: 'info' | 'warning' | 'error' | 'critical';
     message: string;
@@ -271,7 +322,17 @@ export interface SystemHealth {
 export interface AuditLog {
   id: string;
   action: string;
-  actor: {
+
+  // Flat properties for easier access (admin page compatibility)
+  userId?: string;
+  userName?: string;
+  entityType?: string;
+  entityId?: string;
+  severity?: string;
+  details?: string;
+
+  // Nested structure (optional for backend compatibility)
+  actor?: {
     id: string;
     firstName: string;
     lastName: string;
@@ -283,27 +344,38 @@ export interface AuditLog {
     id: string;
     name: string;
   };
-  description: string;
-  metadata: Record<string, unknown>;
+  description?: string;
+  metadata?: Record<string, unknown>;
   ipAddress: string;
   userAgent: string;
   timestamp: string;
-  success: boolean;
+  success?: boolean;
   errorMessage?: string;
 }
 
 export interface ModerationReport {
   id: string;
-  type: 'inappropriate-content' | 'spam' | 'harassment' | 'fake-profile' | 'copyright' | 'other';
-  status: 'pending' | 'approved' | 'rejected' | 'escalated';
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  reporter: {
+  type: 'inappropriate-content' | 'spam' | 'harassment' | 'fake-profile' | 'copyright' | 'other' | 'User' | 'Skill' | 'Comment' | 'Review';
+  status: 'pending' | 'approved' | 'rejected' | 'escalated' | 'Pending' | 'Approved' | 'Rejected' | 'Flagged';
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+
+  // Flat properties for easier access (admin page compatibility)
+  reportedBy?: string;
+  reportedByName?: string;
+  reportedUser?: string;
+  reportedUserName?: string;
+  reason?: string;
+  content?: string;
+  severity?: 'Low' | 'Medium' | 'High' | 'Critical';
+
+  // Nested structure (optional for backend compatibility)
+  reporter?: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
   };
-  reported: {
+  reported?: {
     type: 'user' | 'skill' | 'appointment' | 'message';
     id: string;
     name: string;
@@ -314,15 +386,14 @@ export interface ModerationReport {
       email: string;
     };
   };
-  reason: string;
-  description: string;
+  description?: string;
   evidence?: Array<{
     type: 'screenshot' | 'text' | 'url' | 'other';
     content: string;
     url?: string;
   }>;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   handledBy?: {
     id: string;
     firstName: string;
@@ -331,7 +402,7 @@ export interface ModerationReport {
   };
   handledAt?: string;
   resolution?: string;
-  actions: Array<{
+  actions?: Array<{
     action: 'warning' | 'temporary-ban' | 'permanent-ban' | 'content-removal' | 'no-action';
     reason: string;
     timestamp: string;

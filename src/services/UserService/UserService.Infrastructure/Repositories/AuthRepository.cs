@@ -9,6 +9,7 @@ using Contracts.User.Responses.Auth;
 using Contracts.User.Responses;
 using Core.Common.Exceptions;
 using Core.Common;
+using System.Security.Cryptography;
 
 namespace UserService.Infrastructure.Repositories;
 
@@ -33,17 +34,21 @@ public class AuthRepository(
         if (await _dbContext.Users.AnyAsync(u => u.Email == email, cancellationToken))
             throw new ResourceAlreadyExistsException("User", "email", email);
 
+        // Generate 6-digit verification code
+        var verificationCode = GenerateVerificationCode();
+        var hashedCode = HashVerificationCode(verificationCode);
+
         var user = new User
         {
             Email = email,
-            UserName = userName,
+            UserName = string.IsNullOrWhiteSpace(userName) ? email : userName, // Use email as username if not provided
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
             FirstName = firstName,
             LastName = lastName,
             AccountStatus = AccountStatus.PendingVerification,
             EmailVerified = false,
             CreatedAt = DateTime.UtcNow,
-            EmailVerificationToken = Guid.NewGuid().ToString("N"),
+            EmailVerificationToken = hashedCode,
             EmailVerificationTokenExpiresAt = DateTime.UtcNow.AddDays(3)
         };
 
@@ -99,13 +104,9 @@ public class AuthRepository(
         });
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Events
+        // Events - Only publish domain event (integration event published by CommandHandler)
         await _eventPublisher.Publish(
             new UserRegisteredDomainEvent(user.Id, user.Email, user.FirstName, user.LastName),
-            cancellationToken);
-
-        await _eventPublisher.Publish(
-            new EmailVerificationRequestedDomainEvent(user.Id, user.Email, user.EmailVerificationToken!, user.FirstName),
             cancellationToken);
 
         var profileData = new UserInfo(
@@ -132,7 +133,9 @@ public class AuthRepository(
             tokens.ExpiresAt,
             profileData,
             true,
-            permissions);
+            permissions,
+            user.EmailVerificationToken,
+            verificationCode);
     }
 
     public async Task<LoginResponse> LoginUser(
@@ -162,7 +165,7 @@ public class AuthRepository(
                     roleNames2Fa, user.FavoriteSkillIds, user.EmailVerified, user.AccountStatus.ToString());
 
                 return new LoginResponse(
-                    string.Empty, string.Empty, TokenType.None, DateTime.UtcNow,
+                    string.Empty, string.Empty, string.Empty, DateTime.UtcNow,
                     userInfo2Fa, true, tempToken, null);
             }
 
@@ -216,13 +219,9 @@ public class AuthRepository(
             userPermissionNames.ToList(),
             permissionsByCategory);
 
-        var tokenType = string.Equals(tokens.TokenType, TokenType.Bearer.ToString(), StringComparison.OrdinalIgnoreCase)
-            ? TokenType.Bearer
-            : TokenType.None;
-
         return new LoginResponse(
             tokens.AccessToken, tokens.RefreshToken,
-            tokenType, tokens.ExpiresAt,
+            tokens.TokenType, tokens.ExpiresAt,
             profileData, false, string.Empty, permissions);
     }
 
@@ -320,13 +319,16 @@ public class AuthRepository(
             newTokens.ExpiresAt);
     }
 
-    public async Task<bool> VerifyEmail(string email, string token, CancellationToken cancellationToken = default)
+    public async Task<(bool Success, string? UserId, string? Email, string? FirstName)> VerifyEmail(string email, string token, CancellationToken cancellationToken = default)
     {
+        // Hash the input token to compare with stored hash
+        var hashedToken = HashVerificationCode(token);
+
         var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == email && u.EmailVerificationToken == token, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email == email && u.EmailVerificationToken == hashedToken, cancellationToken);
 
         if (user == null || user.EmailVerificationTokenExpiresAt < DateTime.UtcNow)
-            return false;
+            return (false, null, null, null);
 
         user.EmailVerified = true;
         user.EmailVerificationToken = null;
@@ -335,7 +337,7 @@ public class AuthRepository(
         user.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return (true, user.Id, user.Email, user.FirstName);
     }
 
     public async Task ResendVerificationEmail(string email, CancellationToken cancellationToken = default)
@@ -354,10 +356,10 @@ public class AuthRepository(
             cancellationToken);
     }
 
-    public async Task RequestPasswordReset(string email, CancellationToken cancellationToken = default)
+    public async Task<(string UserId, string Email, string ResetToken, string FirstName)?> RequestPasswordReset(string email, CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
-        if (user == null) return;
+        if (user == null) return null;
 
         user.PasswordResetToken = Guid.NewGuid().ToString("N");
         user.PasswordResetTokenExpiresAt = DateTime.UtcNow.AddHours(1);
@@ -365,8 +367,8 @@ public class AuthRepository(
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Optional: Event publizieren
-        // await _eventPublisher.Publish(new PasswordResetRequestedDomainEvent(...), cancellationToken);
+        // Return user info for event publishing
+        return (user.Id, user.Email, user.PasswordResetToken, user.FirstName);
     }
 
     public async Task<bool> ResetPassword(string email, string token, string newPassword, CancellationToken cancellationToken = default)
@@ -453,5 +455,23 @@ public class AuthRepository(
             AccessToken: tokens.AccessToken,
             ExpiresIn: tokens.ExpiresIn,
             ServiceName: serviceName);
+    }
+
+    private string GenerateVerificationCode()
+    {
+        // Generate a 6-digit numeric code
+        using var rng = RandomNumberGenerator.Create();
+        var bytes = new byte[4];
+        rng.GetBytes(bytes);
+        var code = Math.Abs(BitConverter.ToInt32(bytes, 0)) % 1000000;
+        return code.ToString("D6");
+    }
+
+    private string HashVerificationCode(string code)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(code);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
     }
 }

@@ -47,6 +47,7 @@ import { de } from 'date-fns/locale';
 import MatchingErrorBoundary from '../../components/error/MatchingErrorBoundary';
 import errorService from '../../services/errorService';
 import { useSearchParams } from 'react-router-dom';
+import { MatchRequestDisplay } from '../../types/contracts/MatchmakingDisplay';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -84,7 +85,7 @@ interface RequestThread {
   requests: Array<{
     id: string;
     type: 'incoming' | 'outgoing';
-    status: 'pending' | 'accepted' | 'rejected' | 'counter';
+    status: 'pending' | 'accepted' | 'rejected' | 'counter' | 'expired';
     message: string;
     createdAt: string;
     updatedAt?: string;
@@ -93,7 +94,7 @@ interface RequestThread {
   }>;
   latestRequest: {
     id: string;
-    status: 'pending' | 'accepted' | 'rejected' | 'counter';
+    status: 'pending' | 'accepted' | 'rejected' | 'counter' | 'expired';
     createdAt: string;
     type: 'incoming' | 'outgoing';
   };
@@ -108,7 +109,7 @@ const MatchmakingPage: React.FC = () => {
   const [currentTab, setCurrentTab] = useState(initialTab);
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [responseDialogOpen, setResponseDialogOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [selectedRequest, setSelectedRequest] = useState<MatchRequestDisplay | null>(null);
   const [responseMessage, setResponseMessage] = useState('');
   const [counterOfferDialog, setCounterOfferDialog] = useState(false);
   const [counterOfferMessage, setCounterOfferMessage] = useState('');
@@ -154,7 +155,7 @@ const MatchmakingPage: React.FC = () => {
   }, [loadUserMatches, loadIncomingRequests, loadOutgoingRequests, withLoading]);
 
   // Group requests into threads by user + skill
-  const groupRequestsIntoThreads = (incoming: any[], outgoing: any[]): RequestThread[] => {
+  const groupRequestsIntoThreads = (incoming: MatchRequestDisplay[], outgoing: MatchRequestDisplay[]): RequestThread[] => {
     const threadsMap = new Map<string, RequestThread>();
 
     // Process incoming requests
@@ -199,7 +200,7 @@ const MatchmakingPage: React.FC = () => {
       // Update latest if this is newer
       if (new Date(request.createdAt) > new Date(thread.latestRequest.createdAt)) {
         thread.latestRequest = {
-          id: request.matchId,
+          id: request.id,
           status: request.status,
           createdAt: request.createdAt,
           type: 'incoming',
@@ -214,13 +215,13 @@ const MatchmakingPage: React.FC = () => {
     // Process outgoing requests
     outgoing.forEach((request) => {
       // ✅ KORRIGIERT: Verwende echte ThreadId aus Backend anstatt generierte threadKey
-      const threadId = request.threadId || `${request.targetUserId}-${request.skillId}`;
+      const threadId = request.threadId || `${request.otherUserId}-${request.skillId}`;
       if (!threadsMap.has(threadId)) {
         threadsMap.set(threadId, {
           threadId: threadId,
           otherUser: {
-            id: request.targetUserId,
-            name: request.targetUserName || 'Unbekannter Nutzer',
+            id: request.otherUserId,
+            name: request.otherUserName || 'Unbekannter Nutzer',
           },
           skill: {
             id: request.skillId,
@@ -228,7 +229,7 @@ const MatchmakingPage: React.FC = () => {
           },
           requests: [],
           latestRequest: {
-            id: request.matchId,
+            id: request.id,
             status: request.status,
             createdAt: request.createdAt,
             type: 'outgoing',
@@ -239,7 +240,7 @@ const MatchmakingPage: React.FC = () => {
 
       const thread = threadsMap.get(threadId)!;
       thread.requests.push({
-        id: request.matchId,
+        id: request.id,
         type: 'outgoing',
         status: request.status,
         message: request.message || 'Match-Anfrage gesendet',
@@ -249,7 +250,7 @@ const MatchmakingPage: React.FC = () => {
       // Update latest if this is newer
       if (new Date(request.createdAt) > new Date(thread.latestRequest.createdAt)) {
         thread.latestRequest = {
-          id: request.matchId,
+          id: request.id,
           status: request.status,
           createdAt: request.createdAt,
           type: 'outgoing',
@@ -363,12 +364,13 @@ const MatchmakingPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): "success" | "warning" | "error" | "info" | "default" => {
     switch (status) {
       case 'accepted': return 'success';
       case 'pending': return 'warning';
       case 'rejected': return 'error';
       case 'counter': return 'info';
+      case 'expired': return 'default';
       default: return 'default';
     }
   };
@@ -614,7 +616,7 @@ const MatchmakingPage: React.FC = () => {
                       <Box display="flex" alignItems="center" gap={1}>
                         <Chip
                           label={thread.latestRequest.status}
-                          color={getStatusColor(thread.latestRequest.status) as any}
+                          color={getStatusColor(thread.latestRequest.status)}
                           size="small"
                         />
                         <IconButton
@@ -655,12 +657,14 @@ const MatchmakingPage: React.FC = () => {
                           color="info"
                           startIcon={<ReplyIcon />}
                           onClick={() => {
-                            setSelectedRequest({ 
-                              ...thread.latestRequest, 
-                              requesterId: thread.otherUser.id,
-                              skillId: thread.skill.id 
-                            });
-                            setCounterOfferDialog(true);
+                            // Find the full request object from the arrays
+                            const fullRequest = [...incomingRequestsArray, ...outgoingRequestsArray].find(
+                              r => r.id === thread.latestRequest.id
+                            );
+                            if (fullRequest) {
+                              setSelectedRequest(fullRequest);
+                              setCounterOfferDialog(true);
+                            }
                           }}
                           loading={matchmakingLoading}
                         >
@@ -708,7 +712,7 @@ const MatchmakingPage: React.FC = () => {
                                   <Chip 
                                     label={request.status} 
                                     size="small" 
-                                    color={getStatusColor(request.status) as any}
+                                    color={getStatusColor(request.status)}
                                   />
                                 </Box>
                               </Box>
@@ -771,7 +775,7 @@ const MatchmakingPage: React.FC = () => {
                       <Box display="flex" alignItems="center" gap={1}>
                         <Chip
                           label={thread.latestRequest.status}
-                          color={getStatusColor(thread.latestRequest.status) as any}
+                          color={getStatusColor(thread.latestRequest.status)}
                           size="small"
                         />
                         <IconButton
@@ -822,7 +826,7 @@ const MatchmakingPage: React.FC = () => {
                                   <Chip 
                                     label={request.status} 
                                     size="small" 
-                                    color={getStatusColor(request.status) as any}
+                                    color={getStatusColor(request.status)}
                                   />
                                 </Box>
                               </Box>
@@ -983,18 +987,20 @@ const MatchmakingPage: React.FC = () => {
           <Button onClick={() => setResponseDialogOpen(false)}>
             Abbrechen
           </Button>
-          <Button 
-            onClick={() => handleRejectRequest(selectedRequest?.id, responseMessage)}
+          <Button
+            onClick={() => selectedRequest?.id && handleRejectRequest(selectedRequest.id, responseMessage)}
             color="error"
             startIcon={<CloseIcon />}
+            disabled={!selectedRequest?.id}
           >
             Ablehnen
           </Button>
-          <Button 
-            onClick={() => handleAcceptRequest(selectedRequest?.id, responseMessage)}
-            variant="contained" 
+          <Button
+            onClick={() => selectedRequest?.id && handleAcceptRequest(selectedRequest.id, responseMessage)}
+            variant="contained"
             color="success"
             startIcon={<CheckIcon />}
+            disabled={!selectedRequest?.id}
           >
             Akzeptieren
           </Button>

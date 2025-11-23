@@ -9,7 +9,7 @@ import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRe
 import { UpdateSkillResponse } from '../../types/contracts/responses/UpdateSkillResponse';
 import { AddFavoriteSkillRequest } from '../../types/contracts/requests/AddFavoriteSkillRequest';
 import { ApiResponse, PagedResponse } from '../../types/api/UnifiedResponse';
-import { GetUserSkillResponse, SkillDetailsResponse, SkillRecommendation, SkillSearchParams, SkillSearchResultResponse, SkillStatistics } from '../../types/contracts/responses/SkillResponses';
+import { GetUserSkillResponse, SkillDetailsResponse, SkillRecommendation, SkillSearchParams, SkillSearchResultResponse, SkillStatistics, DeleteSkillResponse, RateSkillResponse, EndorseSkillResponse } from '../../types/contracts/responses/SkillResponses';
 import { apiClient } from '../apiClient';
 
 /**
@@ -39,23 +39,27 @@ const skillService = {
    * Get current user's skills
    */
   async getUserSkills(
-    pageNumber = 1, 
-    pageSize = 12, 
-    isOffered?: boolean, 
-    categoryId?: string, 
+    pageNumber = 1,
+    pageSize = 12,
+    isOffered?: boolean,
+    categoryId?: string,
     proficiencyLevelId?: string,
     includeInactive = false
   ): Promise<PagedResponse<GetUserSkillResponse>> {
-    const params = new URLSearchParams();
-    if (isOffered !== undefined) params.append('IsOffered', isOffered.toString());
-    if (categoryId) params.append('CategoryId', categoryId);
-    if (proficiencyLevelId) params.append('ProficiencyLevelId', proficiencyLevelId);
-    if (includeInactive !== undefined) params.append('IncludeInactive', includeInactive.toString());
-    params.append('PageNumber', pageNumber.toString());
-    params.append('PageSize', pageSize.toString());
-    const url = `${SKILL_ENDPOINTS.GET_USER_SKILLS}?${params.toString()}`;
+    const params: Record<string, unknown> = {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+    };
 
-    const response = await apiClient.getPaged<GetUserSkillResponse>(url);
+    if (isOffered !== undefined) params.IsOffered = isOffered;
+    if (categoryId) params.CategoryId = categoryId;
+    if (proficiencyLevelId) params.ProficiencyLevelId = proficiencyLevelId;
+    if (includeInactive !== undefined) params.IncludeInactive = includeInactive;
+
+    const response = await apiClient.getPaged<GetUserSkillResponse>(
+      SKILL_ENDPOINTS.GET_USER_SKILLS,
+      params
+    );
     return response as PagedResponse<GetUserSkillResponse>;
   },
 
@@ -79,18 +83,23 @@ const skillService = {
   /**
    * Delete skill
    */
-  async deleteSkill(skillId: string, reason?: string): Promise<ApiResponse<any>> {
-    return apiClient.delete<any>(`${SKILL_ENDPOINTS.DELETE_SKILL}/${skillId}`, { params: { reason } });
+  async deleteSkill(skillId: string, reason?: string): Promise<ApiResponse<DeleteSkillResponse>> {
+    // Backend expects DeleteSkillRequest in body: { SkillId, Reason }
+    return apiClient.delete<DeleteSkillResponse>(
+      `${SKILL_ENDPOINTS.DELETE_SKILL}/${skillId}`,
+      undefined,
+      { SkillId: skillId, Reason: reason }
+    );
   },
 
   /**
    * Rate skill
    */
-  async rateSkill(skillId: string, rating: number, review?: string): Promise<ApiResponse<any>> {
+  async rateSkill(skillId: string, rating: number, review?: string): Promise<ApiResponse<RateSkillResponse>> {
     if (!skillId?.trim()) throw new Error('Skill-ID ist erforderlich');
     if (rating < 1 || rating > 5) throw new Error('Bewertung muss zwischen 1 und 5 liegen');
-    
-    return apiClient.post<any>(`${SKILL_ENDPOINTS.RATE_SKILL}/${skillId}/rate`, {
+
+    return apiClient.post<RateSkillResponse>(`${SKILL_ENDPOINTS.RATE_SKILL}/${skillId}/rate`, {
       rating,
       review,
     });
@@ -99,8 +108,8 @@ const skillService = {
   /**
    * Endorse skill
    */
-  async endorseSkill(skillId: string, message?: string): Promise<ApiResponse<any>> {
-    return apiClient.post<any>(`${SKILL_ENDPOINTS.ENDORSE_SKILL}/${skillId}/endorse`, { message });
+  async endorseSkill(skillId: string, message?: string): Promise<ApiResponse<EndorseSkillResponse>> {
+    return apiClient.post<EndorseSkillResponse>(`${SKILL_ENDPOINTS.ENDORSE_SKILL}/${skillId}/endorse`, { message });
   },
 
   // Category management
@@ -182,11 +191,11 @@ const skillService = {
     return await apiClient.getPaged<string>(url) as PagedResponse<string>;
   },
   
-  async getFavoriteSkillsWithDetails(pageNumber: number = 1, pageSize: number = 20): Promise<PagedResponse<any>> {
+  async getFavoriteSkillsWithDetails(pageNumber: number = 1, pageSize: number = 20): Promise<PagedResponse<GetUserSkillResponse>> {
     const params = new URLSearchParams();
     params.append('PageNumber', pageNumber.toString());
     params.append('PageSize', pageSize.toString());
-    return await apiClient.getPaged<any>(`/api/users/favorites/details?${params.toString()}`) as PagedResponse<any>;
+    return await apiClient.getPaged<GetUserSkillResponse>(`/api/users/favorites/details?${params.toString()}`) as PagedResponse<GetUserSkillResponse>;
   },
 
   async addFavoriteSkill(skillId: string): Promise<ApiResponse<boolean>> {
@@ -202,3 +211,31 @@ const skillService = {
 export { skillService as SkillService };
 export default skillService;
 
+
+
+//  type FavoriteSkillDetail = GetUserSkillResponse;
+//        42 -  
+//        41    const FavoriteSkillsPage: React.FC = () => {
+//        42      const navigate = useNavigate();
+//        43 -    const [favoriteSkills, setFavoriteSkills] = useState<FavoriteSkillDetail[]>([]);
+//    const [loading, setLoading] = useState(true);
+//        45      const [removing, setRemoving] = useState<string | null>(null);
+//        46      const [page, setPage] = useState(1);
+
+// ⏺ Bash(npm run build 2>&1 | head -100)
+//   ⎿  > client@0.0.0 build                                                                                                                                         
+//      > tsc -b && vite build
+
+
+  // ⎿  Updated src/components/routing/withSuspense.tsx with 2 additions and 1 removal                            
+  //      198    /**
+  //      199     * Erweiterte Version mit Preloading-Support
+  //      200     */
+  //      201 -  export function withPreloadableSuspense<T extends ComponentType<P>, P = Record<string, unknown>>(
+  //      201 +  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  //      202 +  export function withPreloadableSuspense<T extends ComponentType<any>>(
+  //      203      importFn: ImportFunction<T>,
+  //      204      options: WithSuspenseOptions = {}
+  //      205    ) {
+
+  

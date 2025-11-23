@@ -31,12 +31,12 @@ export const fetchAllSkills = createAppAsyncThunk<
       
       const skills = response.data.map(mapSkillResponseToSkill);
       const pagination: PaginationState = {
-        pageNumber: response.pagination.pageNumber,
-        pageSize: response.pagination.pageSize,
-        totalPages: response.pagination.totalPages,
-        totalRecords: response.pagination.totalRecords,
-        hasNextPage: response.pagination.hasNextPage,
-        hasPreviousPage: response.pagination.hasPreviousPage,
+        pageNumber: response.pageNumber,
+        pageSize: response.pageSize,
+        totalPages: response.totalPages,
+        totalRecords: response.totalRecords,
+        hasNextPage: response.hasNextPage,
+        hasPreviousPage: response.hasPreviousPage,
       };
       
       return { skills, pagination };
@@ -87,12 +87,12 @@ export const fetchUserSkills = createAppAsyncThunk<
       
       const skills = response.data.map(mapUserSkillsResponseToSkill);
       const pagination: PaginationState = {
-        pageNumber: response.pagination.pageNumber,
-        pageSize: response.pagination.pageSize,
-        totalPages: response.pagination.totalPages,
-        totalRecords: response.pagination.totalRecords,
-        hasNextPage: response.pagination.hasNextPage,
-        hasPreviousPage: response.pagination.hasPreviousPage,
+        pageNumber: response.pageNumber,
+        pageSize: response.pageSize,
+        totalPages: response.totalPages,
+        totalRecords: response.totalRecords,
+        hasNextPage: response.hasNextPage,
+        hasPreviousPage: response.hasPreviousPage,
       };
       
       return { skills, pagination };

@@ -8,7 +8,13 @@ import { User } from "../../types/models/User";
  * Backend returns MatchDisplay, so we store that directly in normalized state
  */
 export const matchesAdapter = createEntityAdapter<MatchDisplay, EntityId>({
-  selectId: (match) => match.id,
+  selectId: (match) => {
+    if (!match?.id) {
+      console.error('Match without ID detected:', match);
+      return `temp-${Date.now()}-${Math.random()}`;
+    }
+    return match.id;
+  },
   sortComparer: (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 });
 

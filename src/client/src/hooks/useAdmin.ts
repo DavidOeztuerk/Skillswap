@@ -20,6 +20,14 @@ import {
   updateAdminSettings,
 } from '../features/admin/adminThunks';
 import {
+  UserFilters,
+  SkillFilters,
+  AppointmentFilters,
+  MatchFilters,
+  AuditLogFilters,
+  ModerationReportFilters,
+} from '../types/filters/AdminFilters';
+import {
   clearError,
   clearUserError,
   clearSkillError,
@@ -137,7 +145,7 @@ export const useAdmin = () => {
     },
 
     // === USER MANAGEMENT ===
-    fetchAdminUsers: (params?: { page?: number; limit?: number; filters?: any }) => {
+    fetchAdminUsers: (params?: { page?: number; limit?: number; filters?: UserFilters }) => {
       return dispatch(fetchAdminUsers(params || {}));
     },
 
@@ -158,7 +166,7 @@ export const useAdmin = () => {
     },
 
     // === SKILL MANAGEMENT ===
-    fetchAdminSkills: (params?: { page?: number; limit?: number; filters?: any }) => {
+    fetchAdminSkills: (params?: { page?: number; limit?: number; filters?: SkillFilters }) => {
       return dispatch(fetchAdminSkills(params || {}));
     },
 
@@ -167,12 +175,12 @@ export const useAdmin = () => {
     },
 
     // === APPOINTMENT MANAGEMENT ===
-    fetchAdminAppointments: (params?: { page?: number; limit?: number; filters?: any }) => {
+    fetchAdminAppointments: (params?: { page?: number; limit?: number; filters?: AppointmentFilters }) => {
       return dispatch(fetchAdminAppointments(params || {}));
     },
 
     // === MATCH MANAGEMENT ===
-    fetchAdminMatches: (params?: { page?: number; limit?: number; filters?: any }) => {
+    fetchAdminMatches: (params?: { page?: number; limit?: number; filters?: MatchFilters }) => {
       return dispatch(fetchAdminMatches(params || {}));
     },
 
@@ -182,12 +190,12 @@ export const useAdmin = () => {
     },
 
     // === AUDIT LOGS ===
-    fetchAuditLogs: (params?: { page?: number; limit?: number; filters?: any }) => {
+    fetchAuditLogs: (params?: { page?: number; limit?: number; filters?: AuditLogFilters }) => {
       return dispatch(fetchAuditLogs(params || {}));
     },
 
     // === MODERATION ===
-    fetchModerationReports: (params?: { page?: number; limit?: number; filters?: any }) => {
+    fetchModerationReports: (params?: { page?: number; limit?: number; filters?: ModerationReportFilters }) => {
       return dispatch(fetchModerationReports(params || {}));
     },
 
@@ -200,7 +208,7 @@ export const useAdmin = () => {
       return dispatch(fetchAdminSettings());
     },
 
-    updateAdminSettings: (settings: any) => {
+    updateAdminSettings: (settings: Record<string, unknown>) => {
       return dispatch(updateAdminSettings(settings));
     },
 
@@ -246,27 +254,27 @@ export const useAdmin = () => {
     },
 
     // === FILTER OPERATIONS ===
-    setUserFilters: (filters: any) => {
+    setUserFilters: (filters: UserFilters) => {
       dispatch(setUserFilters(filters));
     },
 
-    setSkillFilters: (filters: any) => {
+    setSkillFilters: (filters: SkillFilters) => {
       dispatch(setSkillFilters(filters));
     },
 
-    setAppointmentFilters: (filters: any) => {
+    setAppointmentFilters: (filters: AppointmentFilters) => {
       dispatch(setAppointmentFilters(filters));
     },
 
-    setMatchFilters: (filters: any) => {
+    setMatchFilters: (filters: MatchFilters) => {
       dispatch(setMatchFilters(filters));
     },
 
-    setAuditLogFilters: (filters: any) => {
+    setAuditLogFilters: (filters: AuditLogFilters) => {
       dispatch(setAuditLogFilters(filters));
     },
 
-    setReportFilters: (filters: any) => {
+    setReportFilters: (filters: ModerationReportFilters) => {
       dispatch(setReportFilters(filters));
     },
 

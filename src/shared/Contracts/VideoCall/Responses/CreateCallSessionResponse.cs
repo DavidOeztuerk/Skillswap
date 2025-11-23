@@ -5,6 +5,7 @@ namespace Contracts.VideoCall.Responses;
 /// </summary>
 public record CreateCallSessionResponse(
     string SessionId,
+    string RoomId,
     string Status,
     DateTime CreatedAt)
 {

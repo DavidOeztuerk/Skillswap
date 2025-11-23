@@ -28,6 +28,9 @@ import {
   selectTodaysAppointments,
   selectNextAppointment
 } from '../store/selectors/appointmentsSelectors';
+import { Appointment, AppointmentStatus } from '../types/models/Appointment';
+import { GetUserAppointmentsRequest } from '../api/services/appointmentService';
+import { AppointmentRequest } from '../types/contracts/requests/AppointmentRequest';
 
 /**
  * 🚀 ROBUSTE USEAPPOINTMENTS HOOK 
@@ -56,7 +59,7 @@ export const useAppointments = () => {
   const actions = useMemo(() => ({
     
     // === FETCH OPERATIONS ===
-    loadAppointments: (params: any = {}) => {
+    loadAppointments: (params: GetUserAppointmentsRequest = {}) => {
       return dispatch(fetchAppointments(params));
     },
 
@@ -73,11 +76,11 @@ export const useAppointments = () => {
     },
 
     // === CRUD OPERATIONS ===
-    createAppointment: (appointmentData: any) => {
+    createAppointment: (appointmentData: AppointmentRequest) => {
       return dispatch(createAppointment(appointmentData));
     },
 
-    respondToAppointment: (appointmentId: string, status: any) => {
+    respondToAppointment: (appointmentId: string, status: AppointmentStatus) => {
       return dispatch(respondToAppointment({ appointmentId, status }));
     },
 
@@ -111,7 +114,7 @@ export const useAppointments = () => {
       return dispatch(completeAppointment(appointmentId));
     },
 
-    updateAppointmentDetails: (appointmentId: string, updates: any) => {
+    updateAppointmentDetails: (appointmentId: string, updates: Partial<Appointment>) => {
       return dispatch(updateAppointmentDetails({ appointmentId, updates }));
     },
 
@@ -129,16 +132,6 @@ export const useAppointments = () => {
 
   }), [dispatch]);
 
-  // ===== DEBUG LOGGING =====
-  console.log('🎯 useAppointments: Hook data', {
-    appointmentsCount: appointments?.length || 0,
-    upcomingAppointmentsCount: upcomingAppointments?.length || 0,
-    pastAppointmentsCount: pastAppointments?.length || 0,
-    userAppointmentsCount: userAppointments?.length || 0,
-    isLoading,
-    error,
-    appointments: appointments?.slice(0, 2) // Show first 2 for debugging
-  });
 
   // ===== RETURN OBJECT =====
   return {
@@ -162,10 +155,10 @@ export const useAppointments = () => {
     // === LEGACY COMPATIBILITY ===
     loadAppointments: actions.loadAppointments,
     scheduleAppointment: actions.createAppointment,
-    acceptAppointment: (appointmentId: string) => 
-      actions.respondToAppointment(appointmentId, 'Confirmed'),
-    declineAppointment: (appointmentId: string) => 
-      actions.respondToAppointment(appointmentId, 'Cancelled'),
+    acceptAppointment: (appointmentId: string) =>
+      actions.respondToAppointment(appointmentId, AppointmentStatus.Accepted),
+    declineAppointment: (appointmentId: string) =>
+      actions.respondToAppointment(appointmentId, AppointmentStatus.Cancelled),
     requestMeetingLink: actions.generateMeetingLink,
     clearError: () => dispatch(clearError()),
     dismissError: () => dispatch(clearError()),

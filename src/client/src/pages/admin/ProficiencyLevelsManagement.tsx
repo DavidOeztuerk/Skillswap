@@ -166,8 +166,8 @@ const ProficiencyLevelsManagement: React.FC = () => {
 
     setSaving(true);
     try {
-      let result: any;
-      
+      let result: { meta: { requestStatus: string } };
+
       if (selectedLevel) {
         // Update existing level using the hook
         result = await updateProficiencyLevel(
@@ -184,7 +184,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
           rank: formData.rank
         });
       }
-      
+
       if (result.meta.requestStatus === 'fulfilled') {
         await fetchProficiencyLevels(); // Refresh levels
         handleCloseDialog();

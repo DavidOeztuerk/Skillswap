@@ -11,8 +11,9 @@ const videoCallSlice = createSlice({
   initialState: initialVideoCalllState,
   reducers: {
     initializeCall: (state, action: PayloadAction<VideoCallConfig>) => {
+      state.sessionId = action.payload?.sessionId || null;
       state.roomId = action.payload?.roomId;
-      state.peerId = action.payload?.peerId;
+      state.peerId = action.payload?.participantUserId || null;
       state.isConnected = false;
       state.errorMessage = undefined;
     },
@@ -42,6 +43,7 @@ const videoCallSlice = createSlice({
     },
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
       if (action.payload) {
+        state.messages = state.messages || [];
         state.messages.push(action.payload);
       }
     },
@@ -49,7 +51,7 @@ const videoCallSlice = createSlice({
       state.messages = [];
     },
     setError: (state, action: PayloadAction<string | undefined>) => {
-        state.errorMessage = action.payload;
+      state.errorMessage = action.payload;
     },
     clearError: (state) => {
       state.errorMessage = undefined;
@@ -63,10 +65,10 @@ const videoCallSlice = createSlice({
     setCallDuration: (state, action: PayloadAction<number>) => {
       state.callDuration = action.payload;
     },
-    setCallStartTime: (state, action: PayloadAction<Date | null>) => {
+    setCallStartTime: (state, action: PayloadAction<string | null>) => {
       state.callStartTime = action.payload;
     },
-    addParticipant: (state, action) => {
+    addParticipant: (state, action: PayloadAction<any>) => {
       if (action.payload) {
         const callParticipant: CallParticipant = {
           id: action.payload.id,
@@ -75,47 +77,47 @@ const videoCallSlice = createSlice({
           isMuted: !action.payload.audioEnabled,
           isVideoEnabled: action.payload.videoEnabled || false,
           isScreenSharing: false,
-          joinedAt: new Date(),
+          joinedAt: new Date().toISOString(),
           connectionQuality: 'good'
         };
+        state.participants = state.participants || [];
         state.participants.push(callParticipant);
       }
     },
-    removeParticipant: (state, action) => {
-      state.participants = state.participants?.filter(p => p?.id !== action.payload);
+    removeParticipant: (state, action: PayloadAction<string>) => {
+      state.participants = (state.participants || []).filter(p => p?.id !== action.payload);
     },
-    updateParticipant: (state, action) => {
-      const index = state.participants?.findIndex(p => p?.id === action.payload?.id);
-      if (index !== -1 && state.participants[index]) {
+    updateParticipant: (state, action: PayloadAction<any>) => {
+      const index = (state.participants || []).findIndex(p => p?.id === action.payload?.id);
+      if (index !== -1 && state.participants && state.participants[index]) {
         state.participants[index] = { ...state.participants[index], ...action.payload };
       }
     },
-    setConnectionQuality: (state, action) => {
+    setConnectionQuality: (state, action: PayloadAction<any>) => {
       state.connectionQuality = action.payload;
     },
-    updateCallStatistics: (state, action) => {
+    updateCallStatistics: (state, action: PayloadAction<any>) => {
       state.callStatistics = { ...state.callStatistics, ...action.payload };
     },
-    updateSettings: (state, action) => {
+    updateSettings: (state, action: PayloadAction<any>) => {
       state.settings = { ...state.settings, ...action.payload };
     },
-    setRecording: (state, action) => {
+    setRecording: (state, action: PayloadAction<boolean>) => {
       state.isRecording = action.payload;
     },
     resetCall: () => initialVideoCalllState,
   },
   extraReducers: (builder) => {
     builder
-      // Get Call Config
       .addCase(getCallConfig.pending, (state) => {
         state.isLoading = true;
         state.errorMessage = undefined;
       })
       .addCase(getCallConfig.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (isDefined(action.payload.data)) {
+        if (isDefined(action.payload?.data)) {
           state.roomId = withDefault(action.payload.data?.roomId, "");
-          state.peerId = withDefault(action.payload.data?.peerId, "");
+          state.peerId = withDefault(action.payload.data?.participantUserId, "");
         }
         state.errorMessage = undefined;
       })
@@ -124,7 +126,6 @@ const videoCallSlice = createSlice({
         state.errorMessage = action.payload?.message;
       })
 
-      // End Video Call
       .addCase(endVideoCall.pending, (state) => {
         state.isLoading = true;
       })
@@ -140,7 +141,6 @@ const videoCallSlice = createSlice({
         state.errorMessage = action.payload?.message;
       })
 
-      // Save Call Info
       .addCase(saveCallInfo.pending, (state) => {
         state.isLoading = true;
       })
@@ -153,15 +153,14 @@ const videoCallSlice = createSlice({
         state.errorMessage = action.payload?.message;
       })
 
-      // Join Video Call
       .addCase(joinVideoCall.pending, (state) => {
         state.isInitializing = true;
         state.errorMessage = undefined;
       })
-      .addCase(joinVideoCall.fulfilled, (state, _action) => {
+      .addCase(joinVideoCall.fulfilled, (state) => {
         state.isInitializing = false;
         state.isConnected = true;
-        state.callStartTime = new Date();
+        state.callStartTime = new Date().toISOString();
         state.errorMessage = undefined;
       })
       .addCase(joinVideoCall.rejected, (state, action) => {
@@ -169,7 +168,6 @@ const videoCallSlice = createSlice({
         state.errorMessage = action.payload?.message;
       })
 
-      // Leave Video Call
       .addCase(leaveVideoCall.fulfilled, (state) => {
         state.isConnected = false;
         state.localStream = null;
@@ -179,19 +177,16 @@ const videoCallSlice = createSlice({
         state.callDuration = 0;
       })
 
-      // Start Recording
       .addCase(startRecording.fulfilled, (state) => {
         state.isRecording = true;
       })
 
-      // Stop Recording
       .addCase(stopRecording.fulfilled, (state) => {
         state.isRecording = false;
       })
 
-      // Get Call Statistics
       .addCase(getCallStatistics.fulfilled, (state, action) => {
-        if (isDefined(action.payload.data)) {
+        if (isDefined(action.payload?.data)) {
           state.callStatistics = action.payload.data;
         }
       });
