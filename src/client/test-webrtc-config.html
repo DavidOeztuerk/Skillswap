@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC TURN Configuration Test</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+    .status {
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border-left: 4px solid #28a745;
+    }
+    .warning {
+      background: #fff3cd;
+      color: #856404;
+      border-left: 4px solid #ffc107;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border-left: 4px solid #dc3545;
+    }
+    .config-box {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 15px;
+      margin: 15px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      overflow-x: auto;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .metric:last-child {
+      border-bottom: none;
+    }
+    .metric-label {
+      font-weight: bold;
+      color: #666;
+    }
+    .metric-value {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎥 WebRTC TURN Configuration Test</h1>
+
+    <div id="status"></div>
+
+    <h2>Environment Variables</h2>
+    <div class="config-box">
+      <pre id="env-vars">Loading...</pre>
+    </div>
+
+    <h2>ICE Server Configuration</h2>
+    <div class="config-box">
+      <pre id="ice-config">Loading...</pre>
+    </div>
+
+    <h2>Connection Quality Estimate</h2>
+    <div id="quality-metrics"></div>
+
+    <button onclick="testStunTurnConnectivity()">Test STUN/TURN Connectivity</button>
+
+    <div id="test-results"></div>
+  </div>
+
+  <script type="module">
+    // Import webrtcConfig functions
+    import { getWebRTCConfiguration, hasTurnServers, getExpectedConnectionQuality, logWebRTCConfig } from '/src/utils/webrtcConfig.ts';
+
+    // Display environment variables
+    const envVars = {
+      'VITE_WEBRTC_STUN_URLS': import.meta.env.VITE_WEBRTC_STUN_URLS || 'NOT SET',
+      'VITE_WEBRTC_TURN_URLS': import.meta.env.VITE_WEBRTC_TURN_URLS || 'NOT SET',
+      'VITE_WEBRTC_TURN_USERNAME': import.meta.env.VITE_WEBRTC_TURN_USERNAME || 'NOT SET',
+      'VITE_WEBRTC_TURN_CREDENTIAL': import.meta.env.VITE_WEBRTC_TURN_CREDENTIAL ? '***HIDDEN***' : 'NOT SET',
+    };
+    document.getElementById('env-vars').textContent = JSON.stringify(envVars, null, 2);
+
+    // Display ICE configuration
+    const webrtcConfig = getWebRTCConfiguration();
+    document.getElementById('ice-config').textContent = JSON.stringify(webrtcConfig, null, 2);
+
+    // Display connection quality
+    const quality = getExpectedConnectionQuality();
+    const hasTurn = hasTurnServers();
+
+    const statusDiv = document.getElementById('status');
+    if (hasTurn) {
+      statusDiv.className = 'status success';
+      statusDiv.innerHTML = `✅ TURN Servers Configured Successfully!<br>Expected Success Rate: ${quality.successRate}`;
+    } else {
+      statusDiv.className = 'status warning';
+      statusDiv.innerHTML = `⚠️ No TURN Servers Configured<br>Expected Success Rate: ${quality.successRate}`;
+    }
+
+    const qualityMetrics = document.getElementById('quality-metrics');
+    qualityMetrics.innerHTML = `
+      <div class="metric">
+        <span class="metric-label">Quality Level:</span>
+        <span class="metric-value" style="color: ${quality.quality === 'high' ? '#28a745' : '#ffc107'}">${quality.quality.toUpperCase()}</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Success Rate:</span>
+        <span class="metric-value">${quality.successRate}</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Description:</span>
+        <span class="metric-value">${quality.description}</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">STUN Servers:</span>
+        <span class="metric-value">${webrtcConfig.iceServers.filter(s => s.urls.toString().includes('stun')).length}</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">TURN Servers:</span>
+        <span class="metric-value">${webrtcConfig.iceServers.filter(s => s.urls.toString().includes('turn')).length}</span>
+      </div>
+    `;
+
+    // Log to console
+    logWebRTCConfig();
+
+    // Test connectivity function
+    window.testStunTurnConnectivity = async () => {
+      const resultsDiv = document.getElementById('test-results');
+      resultsDiv.innerHTML = '<div class="config-box"><p>Testing connectivity...</p></div>';
+
+      try {
+        const pc = new RTCPeerConnection(webrtcConfig);
+
+        // Create a dummy data channel to trigger ICE gathering
+        pc.createDataChannel('test');
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        const candidates = [];
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            candidates.push(event.candidate);
+          } else {
+            // ICE gathering complete
+            const stunCandidates = candidates.filter(c => c.candidate.includes('typ srflx'));
+            const turnCandidates = candidates.filter(c => c.candidate.includes('typ relay'));
+
+            let resultHTML = '<div class="config-box"><h3>Test Results:</h3>';
+            resultHTML += `<p><strong>Total ICE Candidates:</strong> ${candidates.length}</p>`;
+            resultHTML += `<p><strong>STUN Candidates (srflx):</strong> ${stunCandidates.length} ${stunCandidates.length > 0 ? '✅' : '❌'}</p>`;
+            resultHTML += `<p><strong>TURN Candidates (relay):</strong> ${turnCandidates.length} ${turnCandidates.length > 0 ? '✅' : '⚠️'}</p>`;
+
+            if (turnCandidates.length > 0) {
+              resultHTML += '<div class="status success">✅ TURN servers are working correctly!</div>';
+            } else {
+              resultHTML += '<div class="status warning">⚠️ No TURN candidates found. This might be normal in some network environments.</div>';
+            }
+
+            resultHTML += '<pre>' + JSON.stringify(candidates, null, 2) + '</pre>';
+            resultHTML += '</div>';
+
+            resultsDiv.innerHTML = resultHTML;
+            pc.close();
+          }
+        };
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          if (resultsDiv.innerHTML.includes('Testing')) {
+            resultsDiv.innerHTML = '<div class="status error">❌ Test timed out. Check your network connection.</div>';
+            pc.close();
+          }
+        }, 10000);
+
+      } catch (error) {
+        resultsDiv.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+      }
+    };
+  </script>
+</body>
+</html>

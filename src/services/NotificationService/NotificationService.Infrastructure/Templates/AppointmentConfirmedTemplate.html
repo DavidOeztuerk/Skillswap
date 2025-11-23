@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termin bestätigt - Skillswap</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            margin: -30px -30px 30px -30px;
+        }
+        .success-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .appointment-card {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #4CAF50;
+        }
+        .appointment-details {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #666;
+        }
+        .detail-value {
+            color: #333;
+        }
+        .meeting-link-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+            text-align: center;
+        }
+        .meeting-link {
+            display: inline-block;
+            background-color: white;
+            color: #667eea !important;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .meeting-link:hover {
+            opacity: 0.9;
+        }
+        .meeting-id {
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .calendar-section {
+            background-color: #e8f5e9;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .calendar-links {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .calendar-button {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: white;
+            color: #4CAF50 !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            border: 1px solid #4CAF50;
+        }
+        .calendar-button:hover {
+            background-color: #4CAF50;
+            color: white !important;
+        }
+        .participant-info {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .participant-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #667eea;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        .tips-section {
+            background-color: #fff3cd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .tips-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #856404;
+        }
+        .tips-list {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .tips-list li {
+            margin: 5px 0;
+            color: #856404;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .action-button {
+            padding: 8px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .btn-reschedule {
+            background-color: #ffc107;
+            color: #333 !important;
+        }
+        .btn-cancel {
+            background-color: #dc3545;
+            color: white !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="success-icon">✅</div>
+            <h1>Termin bestätigt!</h1>
+        </div>
+
+        <p>Hallo {{RecipientName}},</p>
+        
+        <p>Großartige Neuigkeiten! Dein Skill-Austausch-Termin wurde von beiden Teilnehmern bestätigt. Hier sind alle Details:</p>
+
+        <div class="appointment-card">
+            <h3 style="margin-top: 0;">📅 Termin-Details</h3>
+            <div class="appointment-details">
+                <span class="detail-label">Skill:</span>
+                <span class="detail-value"><strong>{{SkillName}}</strong></span>
+                
+                <span class="detail-label">Datum:</span>
+                <span class="detail-value">{{AppointmentDate}}</span>
+                
+                <span class="detail-label">Uhrzeit:</span>
+                <span class="detail-value">{{AppointmentTime}}</span>
+                
+                <span class="detail-label">Dauer:</span>
+                <span class="detail-value">{{DurationMinutes}} Minuten</span>
+                
+                <span class="detail-label">Format:</span>
+                <span class="detail-value">Videocall 💻</span>
+            </div>
+        </div>
+
+        <div class="participant-info">
+            <div class="participant-avatar">{{PartnerInitials}}</div>
+            <div>
+                <strong>Dein Skill-Partner:</strong><br>
+                {{PartnerName}}<br>
+                <span style="color: #666; font-size: 14px;">{{PartnerEmail}}</span>
+            </div>
+        </div>
+
+        <div class="meeting-link-section">
+            <h3 style="margin-top: 0;">🎥 Meeting beitreten</h3>
+            <p>Klicke zum Startzeitpunkt auf den folgenden Link:</p>
+            <a href="{{MeetingLink}}" class="meeting-link">Meeting beitreten</a>
+            <div class="meeting-id">
+                Meeting-ID: {{MeetingId}}<br>
+                <small>Der Link wird 5 Minuten vor Beginn aktiviert</small>
+            </div>
+        </div>
+
+        <div class="calendar-section">
+            <strong>📅 Zum Kalender hinzufügen:</strong>
+            <div class="calendar-links">
+                <a href="{{GoogleCalendarLink}}" class="calendar-button">Google Calendar</a>
+                <a href="{{OutlookCalendarLink}}" class="calendar-button">Outlook</a>
+                <a href="{{ICalDownloadLink}}" class="calendar-button">iCal (.ics)</a>
+            </div>
+        </div>
+
+        <div class="tips-section">
+            <div class="tips-title">💡 Tipps für eine erfolgreiche Session:</div>
+            <ul class="tips-list">
+                <li>Teste deine Kamera und dein Mikrofon vor dem Termin</li>
+                <li>Stelle sicher, dass du eine stabile Internetverbindung hast</li>
+                <li>Bereite Fragen oder Materialien vor, die du teilen möchtest</li>
+                <li>Sei pünktlich - der Meeting-Raum öffnet 5 Minuten vor Beginn</li>
+                <li>Nutze einen ruhigen Ort ohne Störungen</li>
+            </ul>
+        </div>
+
+        <div class="action-buttons">
+            <a href="{{RescheduleLink}}" class="action-button btn-reschedule">Termin verschieben</a>
+            <a href="{{CancelLink}}" class="action-button btn-cancel">Termin absagen</a>
+        </div>
+
+        <p style="color: #666; font-size: 14px;">
+            <strong>Erinnerungen:</strong> Du erhältst automatische Erinnerungen 24 Stunden und 1 Stunde vor dem Termin.
+        </p>
+
+        <div class="footer">
+            <p>© 2024 Skillswap. Alle Rechte vorbehalten.</p>
+            <p>
+                Diese E-Mail wurde an {{RecipientEmail}} gesendet.<br>
+                Termin-ID: {{AppointmentId}}
+            </p>
+            <p style="margin-top: 10px;">
+                <a href="{{UnsubscribeLink}}" style="color: #666;">E-Mail-Benachrichtigungen verwalten</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
