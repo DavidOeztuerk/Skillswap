@@ -110,12 +110,13 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
     clearErrors,
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
+    mode: 'onSubmit',  // Only validate on form submit, not on blur/change
+    shouldUnregister: true,  // Unregister fields on unmount
     defaultValues: {
       email: pendingLoginCredentials?.email ?? '',
       password: '',
       rememberMe: pendingLoginCredentials?.rememberMe ?? false,
     },
-    mode: 'onBlur',
   });
 
 
@@ -261,9 +262,10 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
           onSuccess();
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('2FA verification error:', error);
-      setTwoFactorError(error?.message || 'Invalid verification code');
+      const errorMessage = error instanceof Error ? error.message : 'Invalid verification code';
+      setTwoFactorError(errorMessage);
       throw error;
     }
   };

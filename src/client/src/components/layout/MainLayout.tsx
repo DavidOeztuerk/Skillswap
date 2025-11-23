@@ -1,5 +1,5 @@
 // src/components/layout/MainLayout.tsx
-import React, { useState, memo, useCallback } from 'react';
+import React, { useState, memo, useCallback, useEffect } from 'react';
 import { Box, useMediaQuery, Theme } from '@mui/material';
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -24,12 +24,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   );
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // TEMPORARY DISABLE - PREVENTING INFINITE LOOPS!
-  // useEffect(() => {
-  //   if (!isMobile && mobileOpen) {
-  //     setMobileOpen(false);
-  //   }
-  // }, [isMobile, mobileOpen]);
+  /**
+   * Auto-close mobile drawer when switching from mobile to desktop view
+   * Only watches isMobile to prevent infinite loops
+   */
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileOpen(false);
+    }
+  }, [isMobile]);
 
   const handleDrawerToggle = useCallback(() => {
     setMobileOpen(prev => !prev);

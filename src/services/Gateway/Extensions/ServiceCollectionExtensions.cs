@@ -14,7 +14,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSharedInfrastructure(configuration, environment, serviceName);
 
-        services.AddJwtAuthentication(configuration);
+        services.AddJwtAuthentication(configuration, environment);
 
         services.AddSkillSwapAuthorization();
         services.AddPermissionAuthorization();

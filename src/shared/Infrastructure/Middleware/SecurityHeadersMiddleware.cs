@@ -45,10 +45,11 @@ public class SecurityHeadersMiddleware(
         response.Headers.TryAdd("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 
         // Feature Policy / Permissions Policy
-        response.Headers.TryAdd("Permissions-Policy", 
+        // Allow camera and microphone for video calls (self)
+        response.Headers.TryAdd("Permissions-Policy",
+            "camera=(self), " +
+            "microphone=(self), " +
             "geolocation=(), " +
-            "microphone=(), " +
-            "camera=(), " +
             "payment=(), " +
             "usb=(), " +
             "magnetometer=(), " +

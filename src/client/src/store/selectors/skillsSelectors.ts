@@ -1,5 +1,6 @@
 import { createSelector } from '@reduxjs/toolkit';
 import { RootState } from '../store';
+import { skillsAdapter } from '../adapters/skillsAdapter+State';
 
 /**
  * Skills Selectors
@@ -11,23 +12,33 @@ export const selectSkillsState = (state: RootState) => state.skills;
 export const selectSkillsLoading = (state: RootState) => state.skills.isLoading;
 export const selectSkillsError = (state: RootState) => state.skills.errorMessage;
 
-// Entity selectors using the normalized structure
+// EntityAdapter selectors
+const adapterSelectors = skillsAdapter.getSelectors<RootState>(state => state.skills);
+
+// Export EntityAdapter's built-in selectors
+export const {
+  selectAll: selectAllSkillsFromEntities,
+  selectById: selectSkillByIdFromEntities,
+  selectIds: selectSkillIds,
+  selectEntities: selectSkillEntities,
+} = adapterSelectors;
+
+// Collection-specific selectors using ID arrays
 export const selectAllSkills = createSelector(
-  [selectSkillsState],
-  (skillsState) => Object.values(skillsState.allSkills.entities).filter(Boolean)
+  [selectSkillEntities, (state: RootState) => state.skills.allSkillIds],
+  (entities, allSkillIds) =>
+    allSkillIds.map(id => entities[id]).filter(Boolean)
 );
 
 export const selectUserSkills = createSelector(
-  [selectSkillsState],
-  (skillsState) => Object.values(skillsState.userSkills.entities).filter(Boolean)
+  [selectSkillEntities, (state: RootState) => state.skills.userSkillIds],
+  (entities, userSkillIds) =>
+    userSkillIds.map(id => entities[id]).filter(Boolean)
 );
 
 export const selectSkillById = createSelector(
-  [selectSkillsState, (_: RootState, skillId: string) => skillId],
-  (skillsState, skillId) => 
-    skillsState.allSkills.entities[skillId] || 
-    skillsState.userSkills.entities[skillId] || 
-    null
+  [selectSkillEntities, (_: RootState, skillId: string) => skillId],
+  (entities, skillId) => entities[skillId] ?? null
 );
 
 export const selectSelectedSkillId = createSelector(

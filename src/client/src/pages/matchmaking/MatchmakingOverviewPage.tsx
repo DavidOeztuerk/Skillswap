@@ -22,6 +22,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { useAppointments } from '../../hooks/useAppointments';
+import { useToast } from '../../hooks/useToast';
 import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
 import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import MatchRequestsOverviewPage from './MatchRequestsOverviewPage';
@@ -63,6 +64,7 @@ function a11yProps(index: number) {
 const MatchmakingOverviewPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const toast = useToast();
   const didInitialLoad = useRef(false);
   const lastTabValue = useRef<number | null>(null);
   
@@ -215,10 +217,7 @@ const MatchmakingOverviewPage: React.FC = () => {
       }
 
       if (success) {
-        setStatusMessage({
-          text: `Match erfolgreich ${action === 'accept' ? 'akzeptiert' : 'abgelehnt'}`,
-          type: 'success',
-        });
+        toast.success(`Match erfolgreich ${action === 'accept' ? 'akzeptiert' : 'abgelehnt'}`);
 
         if (action === 'accept') {
           void loadMatches();
@@ -230,10 +229,7 @@ const MatchmakingOverviewPage: React.FC = () => {
         throw new Error(`Fehler beim ${action === 'accept' ? 'Akzeptieren' : 'Ablehnen'} des Matches`);
       }
     } catch (error) {
-      setStatusMessage({
-        text: `Fehler beim ${action === 'accept' ? 'Akzeptieren' : 'Ablehnen'} des Matches: ` + String(error),
-        type: 'error',
-      });
+      toast.error(`Fehler beim ${action === 'accept' ? 'Akzeptieren' : 'Ablehnen'} des Matches`);
     } finally {
       handleConfirmDialogClose();
     }
@@ -257,10 +253,7 @@ const MatchmakingOverviewPage: React.FC = () => {
       const success = await scheduleAppointment(data);
 
       if (success) {
-        setStatusMessage({
-          text: 'Termin erfolgreich erstellt',
-          type: 'success',
-        });
+        toast.success('Termin erfolgreich erstellt! 📅');
         handleCloseAppointmentForm();
 
         // Zu den Terminen navigieren
@@ -269,10 +262,8 @@ const MatchmakingOverviewPage: React.FC = () => {
         throw new Error('Fehler beim Erstellen des Termins');
       }
     } catch (error) {
-      setStatusMessage({
-        text: 'Fehler beim Erstellen des Termins' + '' + error,
-        type: 'error',
-      });
+      console.error('Error creating appointment:', error);
+      toast.error('Fehler beim Erstellen des Termins');
     }
   };
 

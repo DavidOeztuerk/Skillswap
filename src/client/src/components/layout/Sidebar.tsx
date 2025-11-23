@@ -358,12 +358,15 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     setOpenSubmenu((prev) => (prev === text ? null : text));
   }, []);
 
-  // TEMPORARY DISABLE - PREVENTING INFINITE LOOPS!
-  // React.useEffect(() => {
-  //   if (location.pathname.startsWith('/admin') && isAdmin && !permissionsLoading) {
-  //     setOpenSubmenu('Admin');
-  //   }
-  // }, [location.pathname, isAdmin, permissionsLoading]);
+  /**
+   * Auto-expand Admin menu when navigating to admin pages
+   * Uses conditional state update to prevent infinite loops
+   */
+  React.useEffect(() => {
+    if (location.pathname.startsWith('/admin') && isAdmin && !permissionsLoading) {
+      setOpenSubmenu(prev => prev === 'Admin' ? prev : 'Admin');
+    }
+  }, [location.pathname, isAdmin, permissionsLoading]);
 
   // Drawer-Inhalt
   const drawer = (

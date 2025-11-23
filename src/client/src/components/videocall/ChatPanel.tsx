@@ -61,7 +61,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const groupedMessages: { [date: string]: ChatMessage[] } = {};
 
   messages.forEach((message) => {
-    const messageDate = new Date(message.timestamp);
+    const messageDate = new Date(message.sentAt);
     const dateKey = messageDate.toDateString();
 
     if (!groupedMessages[dateKey]) {
@@ -177,7 +177,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                             boxShadow: 1,
                           }}
                         >
-                          {message.content}
+                          {message.message}
                         </Box>
                       }
                       secondary={
@@ -187,7 +187,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                           align={isCurrentUser ? 'right' : 'left'}
                           sx={{ display: 'block', mt: 0.5 }}
                         >
-                          {formatDate(new Date(message.timestamp), 'HH:mm')}
+                          {formatDate(new Date(message.sentAt), 'HH:mm')}
                         </Typography>
                       }
                       sx={{

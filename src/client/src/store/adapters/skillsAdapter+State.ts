@@ -6,27 +6,34 @@ import { SkillCategoryResponse, ProficiencyLevelResponse } from "../../types/con
 import { withDefault } from "../../utils/safeAccess";
 
 export const skillsAdapter = createEntityAdapter<Skill, EntityId>({
-    selectId: (skill) => skill.id,
+    selectId: (skill) => {
+        if (!skill?.id) {
+            console.error('Skill without ID detected:', skill);
+            return `temp-${Date.now()}-${Math.random()}`;
+        }
+        return skill.id;
+    },
     sortComparer: (a, b) => a.name.localeCompare(b.name),
 });
 
 export interface SkillsEntityState extends EntityState<Skill, EntityId>, RequestState {
-  // Normalized Entities
-  allSkills: NormalizedState<Skill>;
-  userSkills: NormalizedState<Skill>;
-  
+  // Collection tracking (using EntityAdapter's entities + ids)
+  // Instead of duplicating normalized state, track which skills belong to which collection
+  allSkillIds: string[];      // IDs of skills from "all skills" endpoint
+  userSkillIds: string[];     // IDs of user's skills
+
   // UI State
   favoriteSkillIds: string[];
   selectedSkillId: string | null;
   searchQuery: string;
   searchResults: string[]; // skill IDs
   isSearchActive: boolean;
-  
+
   // Pagination
   allSkillsPagination: PaginationState;
   userSkillsPagination: PaginationState;
   searchResultsPagination: PaginationState;
-  
+
   // Additional Data
   statistics: SkillStatistics | null;
   recommendations: SkillRecommendation[];
@@ -34,17 +41,17 @@ export interface SkillsEntityState extends EntityState<Skill, EntityId>, Request
 }
 
 export const initialSkillsState: SkillsEntityState = skillsAdapter.getInitialState({
-  // Normalized Entities
-  allSkills: { entities:{}, ids:[] },
-  userSkills: { entities:{}, ids:[] },
-  
+  // Collection tracking (EntityAdapter provides entities + ids automatically)
+  allSkillIds: [],
+  userSkillIds: [],
+
   // UI State
   favoriteSkillIds: [],
   selectedSkillId: null,
   searchQuery: '',
   searchResults: [],
   isSearchActive: false,
-  
+
   // Pagination
   allSkillsPagination: {
     pageNumber: 1,
@@ -70,7 +77,7 @@ export const initialSkillsState: SkillsEntityState = skillsAdapter.getInitialSta
     hasNextPage: false,
     hasPreviousPage: false,
   },
-  
+
   // Additional Data
   statistics: null,
   recommendations: [],
@@ -83,12 +90,7 @@ export const initialSkillsState: SkillsEntityState = skillsAdapter.getInitialSta
 export const skillsSelectors = skillsAdapter.getSelectors();
 
 
-// ===== NORMALIZED STATE STRUCTURE =====
-export interface NormalizedState<T> {
-  entities: Record<string, T>;
-  ids: string[];
-}
-
+// ===== PAGINATION STATE =====
 export interface PaginationState {
   pageNumber: number;
   pageSize: number;
@@ -173,39 +175,3 @@ export const mapProficiencyLevelResponse = (response: ProficiencyLevelResponse):
   rank: response.rank,
   color: response.color,
 });
-
-
-// ===== HELPER FUNCTIONS =====
-
-export const normalizeEntities = <T extends { id: string }>(items: T[]): NormalizedState<T> => {
-  const entities: Record<string, T> = {};
-  const ids: string[] = [];
-  
-  items.forEach(item => {
-    entities[item.id] = item;
-    ids.push(item.id);
-  });
-  
-  return { entities, ids };
-};
-
-export const updateEntity = <T extends { id: string }>(
-  state: NormalizedState<T>,
-  entity: T
-): NormalizedState<T> => {
-  return {
-    entities: {
-      ...state.entities,
-      [entity.id]: entity
-    },
-    ids: state.ids.includes(entity.id) ? state.ids : [...state.ids, entity.id]
-  };
-};
-
-export const removeEntity = <T>(state: NormalizedState<T>, entityId: string): NormalizedState<T> => {
-  const { [entityId]: removed, ...entities } = state.entities;
-  return {
-    entities,
-    ids: state.ids.filter(id => id !== entityId)
-  };
-};

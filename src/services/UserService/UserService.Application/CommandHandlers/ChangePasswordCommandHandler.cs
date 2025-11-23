@@ -7,17 +7,19 @@ using Microsoft.Extensions.Logging;
 using CQRS.Models;
 using Core.Common.Exceptions;
 using Core.Common;
+using MassTransit;
+using Events.Security.Authentication;
 
 namespace UserService.Application.CommandHandlers;
 
 public class ChangePasswordCommandHandler(
     IUserProfileRepository userProfileRepository,
-    IDomainEventPublisher eventPublisher,
+    IPublishEndpoint publishEndpoint,
     ILogger<ChangePasswordCommandHandler> logger)
     : BaseCommandHandler<ChangePasswordCommand, ChangePasswordResponse>(logger)
 {
     private readonly IUserProfileRepository _userProfileRepository = userProfileRepository;
-    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
+    private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
 
     public override async Task<ApiResponse<ChangePasswordResponse>> Handle(
         ChangePasswordCommand request,
@@ -31,10 +33,22 @@ public class ChangePasswordCommandHandler(
             request.NewPassword,
             cancellationToken);
 
-        if (!result)
+        if (!result.Success)
         {
             Logger.LogWarning("Invalid current password attempt for user {UserId}", request.UserId);
             throw new InvalidCredentialsException("Current password is incorrect");
+        }
+
+        // Publish password changed notification event
+        if (result.Email != null)
+        {
+            await _publishEndpoint.Publish(
+                new PasswordChangedNotificationEvent(
+                    request.UserId,
+                    result.Email),
+                cancellationToken);
+
+            Logger.LogInformation("Password changed notification event published for user {UserId}", request.UserId);
         }
 
         Logger.LogInformation("Password changed successfully for user {UserId}", request.UserId);

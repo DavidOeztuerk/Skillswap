@@ -1,8 +1,7 @@
-// src/pages/appointments/AppointmentsPage.tsx
+// src/pages/appointments/AppointmentsPage.tsx      
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box } from '@mui/material';
-
 import PageHeader, {
   PageHeaderAction,
 } from '../../components/layout/PageHeader';
@@ -115,9 +114,9 @@ const AppointmentsPage: React.FC = () => {
     await withLoading(loadingKey, async () => {
       try {
         errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action });
-        
+
         let success = false;
-        let result: any;
+        let result: { meta: { requestStatus: string } };
         let messageText = '';
 
         switch (action) {
@@ -174,13 +173,22 @@ const AppointmentsPage: React.FC = () => {
           { label: 'Termine' },
         ]}
         actions={
-          <PageHeaderAction
-            label="Zum Matchmaking"
-            onClick={() => {
-              errorService.addBreadcrumb('Navigating to matchmaking from appointments', 'navigation');
-              navigate('/matchmaking');
-            }}
-          />
+          <>
+            <PageHeaderAction
+              label="Kalenderansicht"
+              onClick={() => {
+                errorService.addBreadcrumb('Navigating to calendar from appointments', 'navigation');
+                navigate('/appointments/calendar');
+              }}
+            />
+            <PageHeaderAction
+              label="Zum Matchmaking"
+              onClick={() => {
+                errorService.addBreadcrumb('Navigating to matchmaking from appointments', 'navigation');
+                navigate('/matchmaking');
+              }}
+            />
+          </>
         }
       />
 

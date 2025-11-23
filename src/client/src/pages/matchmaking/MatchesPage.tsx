@@ -181,7 +181,7 @@ const MatchesPage: React.FC = () => {
     return 'Skill-Sharing';
   };
 
-  const renderMatchCard = (match: any) => (
+  const renderMatchCard = (match: MatchDisplay) => (
     <Grid sx={{ xs:12, sm:6, md:4 }} key={match.id}>
       <Card sx={{ 
         height: '100%', 

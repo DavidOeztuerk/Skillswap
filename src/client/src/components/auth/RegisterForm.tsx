@@ -74,6 +74,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
+    mode: 'onSubmit',  // Only validate on form submit, not on blur/change
+    shouldUnregister: true,  // Unregister fields on unmount
     defaultValues: {
       firstName: '',
       lastName: '',

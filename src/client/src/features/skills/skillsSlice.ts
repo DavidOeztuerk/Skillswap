@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { initialSkillsState, normalizeEntities, removeEntity, updateEntity } from '../../store/adapters/skillsAdapter+State';
+import { initialSkillsState, skillsAdapter } from '../../store/adapters/skillsAdapter+State';
 import { fetchUserSkills, fetchSkillById, createSkill, updateSkill, deleteSkill, fetchFavoriteSkills, toggleFavoriteSkill, fetchAllSkills } from './thunks/skillsThunks';
 
 // ===== REDUX SLICE =====
@@ -41,7 +41,10 @@ const skillsSlice = createSlice({
     });
     builder.addCase(fetchAllSkills.fulfilled, (state, action) => {
       state.isLoading = false;
-      state.allSkills = normalizeEntities(action.payload.skills);
+      // Use EntityAdapter's setMany to add/update skills
+      skillsAdapter.setMany(state, action.payload.skills);
+      // Track which skills belong to "all skills" collection
+      state.allSkillIds = action.payload.skills.map(s => s.id);
       state.allSkillsPagination = action.payload.pagination;
     });
     builder.addCase(fetchAllSkills.rejected, (state, action) => {
@@ -56,7 +59,10 @@ const skillsSlice = createSlice({
     });
     builder.addCase(fetchUserSkills.fulfilled, (state, action) => {
       state.isLoading = false;
-      state.userSkills = normalizeEntities(action.payload.skills);
+      // Use EntityAdapter's setMany to add/update skills
+      skillsAdapter.setMany(state, action.payload.skills);
+      // Track which skills belong to user's collection
+      state.userSkillIds = action.payload.skills.map(s => s.id);
       state.userSkillsPagination = action.payload.pagination;
     });
     builder.addCase(fetchUserSkills.rejected, (state, action) => {
@@ -71,8 +77,8 @@ const skillsSlice = createSlice({
     });
     builder.addCase(fetchSkillById.fulfilled, (state, action) => {
       state.isLoading = false;
-      // Add to both allSkills and potentially userSkills
-      state.allSkills = updateEntity(state.allSkills, action.payload);
+      // Use EntityAdapter's upsertOne to add or update the skill
+      skillsAdapter.upsertOne(state, action.payload);
       // Set as selected
       state.selectedSkillId = action.payload.id;
     });
@@ -80,7 +86,7 @@ const skillsSlice = createSlice({
       state.isLoading = false;
       state.errorMessage = action.payload?.errors?.[0] || 'Failed to fetch skill details';
     });
-    
+
     // === CREATE SKILL ===
     builder.addCase(createSkill.pending, (state) => {
       state.isLoading = true;
@@ -88,15 +94,21 @@ const skillsSlice = createSlice({
     });
     builder.addCase(createSkill.fulfilled, (state, action) => {
       state.isLoading = false;
-      // Add to both allSkills and userSkills
-      state.allSkills = updateEntity(state.allSkills, action.payload);
-      state.userSkills = updateEntity(state.userSkills, action.payload);
+      // Use EntityAdapter's addOne to add the new skill
+      skillsAdapter.addOne(state, action.payload);
+      // Add to both collections
+      if (!state.allSkillIds.includes(action.payload.id)) {
+        state.allSkillIds.push(action.payload.id);
+      }
+      if (!state.userSkillIds.includes(action.payload.id)) {
+        state.userSkillIds.push(action.payload.id);
+      }
     });
     builder.addCase(createSkill.rejected, (state, action) => {
       state.isLoading = false;
       state.errorMessage = action.payload?.errors?.[0] || 'Failed to create skill';
     });
-    
+
     // === UPDATE SKILL ===
     builder.addCase(updateSkill.pending, (state) => {
       state.isLoading = true;
@@ -104,15 +116,14 @@ const skillsSlice = createSlice({
     });
     builder.addCase(updateSkill.fulfilled, (state, action) => {
       state.isLoading = false;
-      // Update in both allSkills and userSkills
-      state.allSkills = updateEntity(state.allSkills, action.payload);
-      state.userSkills = updateEntity(state.userSkills, action.payload);
+      // Use EntityAdapter's upsertOne to update the skill
+      skillsAdapter.upsertOne(state, action.payload);
     });
     builder.addCase(updateSkill.rejected, (state, action) => {
       state.isLoading = false;
       state.errorMessage = action.payload?.errors?.[0] || 'Failed to update skill';
     });
-    
+
     // === DELETE SKILL ===
     builder.addCase(deleteSkill.pending, (state) => {
       state.isLoading = true;
@@ -120,9 +131,11 @@ const skillsSlice = createSlice({
     });
     builder.addCase(deleteSkill.fulfilled, (state, action) => {
       state.isLoading = false;
-      // Remove from both allSkills and userSkills
-      state.allSkills = removeEntity(state.allSkills, action.payload);
-      state.userSkills = removeEntity(state.userSkills, action.payload);
+      // Use EntityAdapter's removeOne to delete the skill
+      skillsAdapter.removeOne(state, action.payload);
+      // Remove from both ID collections
+      state.allSkillIds = state.allSkillIds.filter(id => id !== action.payload);
+      state.userSkillIds = state.userSkillIds.filter(id => id !== action.payload);
       // Clear selected if it was the deleted skill
       if (state.selectedSkillId === action.payload) {
         state.selectedSkillId = null;

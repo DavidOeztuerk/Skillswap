@@ -85,17 +85,6 @@ export const useDashboard = () => {
 
   }), [dispatch]);
 
-  // ===== DEBUG LOGGING =====
-  console.log('🎯 useDashboard: Hook data', {
-    upcomingAppointmentsCount: upcomingAppointments?.length || 0,
-    teachingSkillsCount: teachingSkills?.length || 0,
-    learningSkillsCount: learningSkills?.length || 0,
-    cards: cards?.length || 0,
-    isLoading: loadingStates.isAnyLoading,
-    errors: errorStates.errors,
-    upcomingAppointments: upcomingAppointments?.slice(0, 2) // First 2 for debugging
-  });
-
   // ===== COMPUTED DASHBOARD STATE (memoized) =====
   const computed = useMemo(() => ({
     

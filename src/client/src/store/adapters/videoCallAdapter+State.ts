@@ -9,6 +9,7 @@ export const videoCallAdapter = createEntityAdapter<VideoCallConfig, EntityId>({
 });
 
 export interface VideoCallEntityState extends EntityState<VideoCallConfig, EntityId>, RequestState {
+  sessionId: string | null;
   roomId: string | null;
   isConnected: boolean;
   isInitializing: boolean;
@@ -17,7 +18,7 @@ export interface VideoCallEntityState extends EntityState<VideoCallConfig, Entit
   remoteStream: MediaStream | null;
   participants: CallParticipant[];
   callDuration: number;
-  callStartTime: Date | null;
+  callStartTime: string | null; // ISO string
   connectionQuality: 'poor' | 'fair' | 'good' | 'excellent';
   isMicEnabled: boolean;
   isVideoEnabled: boolean;
@@ -30,7 +31,8 @@ export interface VideoCallEntityState extends EntityState<VideoCallConfig, Entit
 }
 
 export const initialVideoCalllState: VideoCallEntityState = videoCallAdapter.getInitialState({
-    roomId: null,
+  sessionId: null,
+  roomId: null,
   isConnected: false,
   isInitializing: false,
   peerId: null,
@@ -72,7 +74,7 @@ export interface CallParticipant {
   isMuted: boolean;
   isVideoEnabled: boolean;
   isScreenSharing: boolean;
-  joinedAt: Date;
+  joinedAt: string; // ISO string
   connectionQuality: 'poor' | 'fair' | 'good' | 'excellent';
 }
 

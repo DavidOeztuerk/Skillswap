@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -45,18 +45,18 @@ const AdminDashboardPage: React.FC = () => {
     fetchSystemHealth,
   } = useAdmin();
 
-  // TEMPORARY DISABLE - DEBUGGING INFINITE LOOP
-  // useEffect(() => {
-  //   dispatch(fetchAdminDashboard());
-  //   dispatch(fetchSystemHealth());
-  //   
-  //   // Auto-refresh every 30 seconds
-  //   const interval = setInterval(() => {
-  //     dispatch(fetchSystemHealth());
-  //   }, 30000);
-  //   
-  //   return () => clearInterval(interval);
-  // }, [dispatch]);
+  // Load dashboard data on mount
+  useEffect(() => {
+    fetchAdminDashboard();
+    fetchSystemHealth();
+
+    // Auto-refresh system health every 30 seconds
+    const interval = setInterval(() => {
+      fetchSystemHealth();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchAdminDashboard, fetchSystemHealth]);
 
   const handleRefresh = () => {
     fetchAdminDashboard();
@@ -243,7 +243,7 @@ const AdminDashboardPage: React.FC = () => {
                   <Typography variant="h6" component="h3">
                     System Status
                   </Typography>
-                  {systemHealth && (
+                  {systemHealth && systemHealth.status && (
                     <Chip
                       label={systemHealth.status.toUpperCase()}
                       color={getHealthStatusColor(systemHealth.status) as any}
@@ -270,13 +270,13 @@ const AdminDashboardPage: React.FC = () => {
                       <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                         <Typography variant="body2">CPU Auslastung</Typography>
                         <Typography variant="body2">
-                          {(systemHealth.performance.cpuUsage * 100).toFixed(1)}%
+                          {((systemHealth.performance?.cpuUsage || 0) * 100).toFixed(1)}%
                         </Typography>
                       </Box>
                       <LinearProgress
                         variant="determinate"
-                        value={systemHealth.performance.cpuUsage}
-                        color={systemHealth.performance.cpuUsage > 80 ? 'error' : systemHealth.performance.cpuUsage > 60 ? 'warning' : 'primary'}
+                        value={(systemHealth.performance?.cpuUsage || 0) * 100}
+                        color={(systemHealth.performance?.cpuUsage || 0) > 0.8 ? 'error' : (systemHealth.performance?.cpuUsage || 0) > 0.6 ? 'warning' : 'primary'}
                       />
                     </Box>
 
@@ -284,13 +284,13 @@ const AdminDashboardPage: React.FC = () => {
                       <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                         <Typography variant="body2">Speicher Auslastung</Typography>
                         <Typography variant="body2">
-                          {(systemHealth.performance.memoryUsage * 100).toFixed(1)}%
+                          {((systemHealth.performance?.memoryUsage || 0) * 100).toFixed(1)}%
                         </Typography>
                       </Box>
                       <LinearProgress
                         variant="determinate"
-                        value={systemHealth.performance.memoryUsage}
-                        color={systemHealth.performance.memoryUsage > 80 ? 'error' : systemHealth.performance.memoryUsage > 60 ? 'warning' : 'primary'}
+                        value={(systemHealth.performance?.memoryUsage || 0) * 100}
+                        color={(systemHealth.performance?.memoryUsage || 0) > 0.8 ? 'error' : (systemHealth.performance?.memoryUsage || 0) > 0.6 ? 'warning' : 'primary'}
                       />
                     </Box>
 
@@ -298,13 +298,13 @@ const AdminDashboardPage: React.FC = () => {
                       <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                         <Typography variant="body2">Festplatten Auslastung</Typography>
                         <Typography variant="body2">
-                          {(systemHealth.performance.diskUsage * 100).toFixed(1)}%
+                          {((systemHealth.performance?.diskUsage || 0) * 100).toFixed(1)}%
                         </Typography>
                       </Box>
                       <LinearProgress
                         variant="determinate"
-                        value={systemHealth.performance.diskUsage}
-                        color={systemHealth.performance.diskUsage > 80 ? 'error' : systemHealth.performance.diskUsage > 60 ? 'warning' : 'primary'}
+                        value={(systemHealth.performance?.diskUsage || 0) * 100}
+                        color={(systemHealth.performance?.diskUsage || 0) > 0.8 ? 'error' : (systemHealth.performance?.diskUsage || 0) > 0.6 ? 'warning' : 'primary'}
                       />
                     </Box>
 
@@ -313,8 +313,8 @@ const AdminDashboardPage: React.FC = () => {
                       Services
                     </Typography>
                     <List dense>
-                      {systemHealth.services.map((service, index) => (
-                        <ListItem key={service.name} divider={index < systemHealth.services?.length - 1}>
+                      {(systemHealth.services || []).map((service, index) => (
+                        <ListItem key={service.name} divider={index < (systemHealth.services?.length || 0) - 1}>
                           <ListItemText
                             primary={service.name}
                             secondary={`Uptime: ${(service.uptime * 100).toFixed(1)}% | Response: ${service.responseTime}ms`}

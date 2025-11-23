@@ -41,6 +41,7 @@ public static class AuthControllerExensions
             .WithSummary("Refresh access token")
             .WithDescription("Refreshes an expired access token using a valid refresh token")
             .WithTags("Authentication")
+            .AllowAnonymous()
             .Produces<RefreshTokenResponse>(200)
             .Produces(400)
             .Produces(401);
@@ -165,7 +166,7 @@ public static class AuthControllerExensions
 
         static async Task<IResult> HandleVerifyEmail(IMediator mediator, [FromBody] VerifyEmailRequest request)
         {
-            var command = new VerifyEmailCommand(request.Token, request.Email);
+            var command = new VerifyEmailCommand(request.Email, request.VerificationToken);
             return await mediator.SendCommand(command);
         }
 

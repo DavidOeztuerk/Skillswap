@@ -46,13 +46,42 @@ const mapUserAppointmentToAppointment = (userApp: UserAppointmentResponse, curre
   return {
     id: userApp.appointmentId,
     title: userApp.title,
-    // matchId, skillId, description, meetingLink: Nur in Detail-Endpoint verfügbar
+    description: userApp.description,
+    skillId: userApp.skillId,
+    meetingLink: userApp.meetingLink,
 
     // KORREKTE Mapping-Logik:
     // isOrganizer=true  → Ich bin Organizer, andere Person ist Participant
     // isOrganizer=false → Ich bin Participant, andere Person ist Organizer
     organizerUserId: userApp.isOrganizer ? (currentUserId || '') : userApp.otherPartyUserId,
     participantUserId: userApp.isOrganizer ? userApp.otherPartyUserId : (currentUserId || ''),
+    isOrganizer: userApp.isOrganizer,
+
+    // Store other party name for display
+    otherPartyName: userApp.otherPartyName,
+    otherPartyUserId: userApp.otherPartyUserId,
+
+    // Connection-level data (NEW MODEL)
+    connectionId: userApp.connectionId,
+    connectionType: userApp.connectionType,
+    connectionStatus: userApp.connectionStatus,
+
+    // Series-level data (NEW MODEL)
+    sessionSeriesId: userApp.sessionSeriesId,
+    sessionSeriesTitle: userApp.sessionSeriesTitle,
+    sessionNumber: userApp.sessionNumber,
+    totalSessionsInSeries: userApp.totalSessionsInSeries,
+    completedSessionsInSeries: userApp.completedSessionsInSeries,
+
+    // Derived flags (already calculated by backend!)
+    isSkillExchange: userApp.isSkillExchange,
+    isMonetary: userApp.isMonetary,
+
+    // Session-specific data
+    isConfirmed: userApp.isConfirmed,
+    isPaymentCompleted: userApp.isPaymentCompleted,
+    paymentAmount: userApp.paymentAmount,
+    currency: userApp.currency,
 
     scheduledDate: userApp.scheduledDate, // ISO string vom Backend
     startTime: startDate.toISOString(),
@@ -63,6 +92,10 @@ const mapUserAppointmentToAppointment = (userApp: UserAppointmentResponse, curre
     meetingType: userApp.meetingType || 'VideoCall',
     createdAt: startDate.toISOString(), // Fallback auf scheduledDate
     updatedAt: startDate.toISOString(), // Fallback auf scheduledDate
+
+    // Legacy compatibility
+    totalSessions: userApp.totalSessionsInSeries, // Map to legacy field
+    amount: userApp.paymentAmount, // Map to legacy field
   };
 };
 
@@ -75,7 +108,15 @@ export const fetchAppointments = createAppAsyncThunk<PagedSuccessResponse<Appoin
       const response = await appointmentService.getAppointments(request);
 
       if (!isPagedResponse(response)) {
-        return rejectWithValue(response);
+        const errorMessage = (response as any)?.message ||
+                           (response as any)?.errors?.[0] ||
+                           `Invalid response: ${JSON.stringify(response).substring(0, 100)}`;
+        return rejectWithValue({
+          success: false,
+          message: errorMessage,
+          errorCode: (response as any)?.errorCode || 'INVALID_RESPONSE',
+          errors: (response as any)?.errors || [errorMessage]
+        } as any);
       }
 
       // Get current user ID from state
@@ -92,11 +133,13 @@ export const fetchAppointments = createAppAsyncThunk<PagedSuccessResponse<Appoin
     } catch (error) {
       console.error('❌ fetchAppointments error:', error);
       // Return serializable error object for Redux
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return rejectWithValue({
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to fetch appointments',
-        errors: [error instanceof Error ? error.message : String(error)]
-      });
+        message: errorMessage,
+        errorCode: (error as any)?.code || 'UNKNOWN_ERROR',
+        errors: [errorMessage]
+      } as any);
     }
   }
 );
@@ -122,7 +165,15 @@ export const fetchUpcomingAppointments = createAppAsyncThunk<PagedSuccessRespons
       const response = await appointmentService.getUpcomingAppointments(params?.limit);
 
       if (!isPagedResponse(response)) {
-        return rejectWithValue(response);
+        const errorMessage = (response as any)?.message ||
+                           (response as any)?.errors?.[0] ||
+                           `Invalid response: ${JSON.stringify(response).substring(0, 100)}`;
+        return rejectWithValue({
+          success: false,
+          message: errorMessage,
+          errorCode: (response as any)?.errorCode || 'INVALID_RESPONSE',
+          errors: (response as any)?.errors || [errorMessage]
+        } as any);
       }
 
       const state = getState();
@@ -136,7 +187,13 @@ export const fetchUpcomingAppointments = createAppAsyncThunk<PagedSuccessRespons
       } as PagedSuccessResponse<Appointment>;
     } catch (error) {
       console.error('❌ fetchUpcomingAppointments error:', error);
-      return rejectWithValue(error as any);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return rejectWithValue({
+        success: false,
+        message: errorMessage,
+        errorCode: (error as any)?.code || 'UNKNOWN_ERROR',
+        errors: [errorMessage]
+      } as any);
     }
   }
 );
@@ -148,7 +205,15 @@ export const fetchPastAppointments = createAppAsyncThunk<PagedSuccessResponse<Ap
       const response = await appointmentService.getPastAppointments(params);
 
       if (!isPagedResponse(response)) {
-        return rejectWithValue(response);
+        const errorMessage = (response as any)?.message ||
+                           (response as any)?.errors?.[0] ||
+                           `Invalid response: ${JSON.stringify(response).substring(0, 100)}`;
+        return rejectWithValue({
+          success: false,
+          message: errorMessage,
+          errorCode: (response as any)?.errorCode || 'INVALID_RESPONSE',
+          errors: (response as any)?.errors || [errorMessage]
+        } as any);
       }
 
       const state = getState();
@@ -162,7 +227,13 @@ export const fetchPastAppointments = createAppAsyncThunk<PagedSuccessResponse<Ap
       } as PagedSuccessResponse<Appointment>;
     } catch (error) {
       console.error('❌ fetchPastAppointments error:', error);
-      return rejectWithValue(error as any);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return rejectWithValue({
+        success: false,
+        message: errorMessage,
+        errorCode: (error as any)?.code || 'UNKNOWN_ERROR',
+        errors: [errorMessage]
+      } as any);
     }
   }
 );
@@ -176,7 +247,7 @@ export const createAppointment = createAppAsyncThunk<SuccessResponse<Appointment
       const response = await appointmentService.createAppointment(appointmentData);
       return isSuccessResponse(response) ? response : rejectWithValue(response);
     } catch (error) {
-      console.error('❌ createAppointment error:', error);
+      console.error('❌ createAppointment THUNK error:', error);
       return rejectWithValue(error as any);
     }
   }
@@ -187,7 +258,7 @@ export const respondToAppointment = createAppAsyncThunk<SuccessResponse<Appointm
   async ({ appointmentId, status }, { rejectWithValue }) => {
     try {
       let response;
-      if (status === AppointmentStatus.Confirmed) {
+      if (status === AppointmentStatus.Accepted) {
         response = await appointmentService.acceptAppointment(appointmentId);
       } else {
         response = await appointmentService.cancelAppointment(appointmentId);

@@ -1,6 +1,143 @@
 {
   "Routes": [
     {
+      "Comment": "SignalR HTTP Negotiation",
+      "UpstreamPathTemplate": "/api/videocall/hub/{everything}",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "DownstreamPathTemplate": "/api/videocall/hub/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }]
+    },
+    {
+      "Comment": "SignalR WebSocket",
+      "UpstreamPathTemplate": "/api/videocall/hub",
+      "UpstreamHttpMethod": ["GET"],
+      "DownstreamPathTemplate": "/api/videocall/hub",
+      "DownstreamScheme": "ws",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }]
+    },
+    {
+      "Comment": "========== VIDEOCALL REST API ==========",
+      "UpstreamPathTemplate": "/api/videocall/sessions/create",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/videocall/sessions/create",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "localhost", "Port": 5005 } ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/calls/{sessionId}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "DownstreamPathTemplate": "/api/calls/{sessionId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "localhost", "Port": 5005 } ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/calls/{sessionId}/config",
+      "UpstreamHttpMethod": [ "GET", "OPTIONS" ],
+      "DownstreamPathTemplate": "/api/calls/{sessionId}/config",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [ { "Host": "localhost", "Port": 5005 } ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+   {
+      "DownstreamPathTemplate": "/api/calls/create",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/create",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/calls/join",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/join",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/calls/leave",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/leave",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/calls/start",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/start",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/calls/end",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/end",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/my/calls",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/my/calls",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/api/statistics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/statistics",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/api/calls/{sessionId}/quality-metrics",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
+      "UpstreamPathTemplate": "/api/calls/{sessionId}/quality-metrics",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
       "DownstreamPathTemplate": "/users/auth/register",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
@@ -184,6 +321,23 @@
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/profile/{userId}",
       "UpstreamHttpMethod": ["GET"]
+    },
+    {
+      "DownstreamPathTemplate": "/users/public/{userId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/public/{userId}",
+      "UpstreamHttpMethod": ["GET"]
+    },
+    {
+      "DownstreamPathTemplate": "/users/internal/{userId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/internal/{userId}",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
     },
     {
       "DownstreamPathTemplate": "/api/users/profile",
@@ -751,6 +905,19 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/appointments/{appointmentId}/meeting-link",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5004 }
+      ],
+      "UpstreamPathTemplate": "/api/appointments/{appointmentId}/meeting-link",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/appointments/{appointmentId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -775,92 +942,6 @@
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       },
-      "AddQueriesToRequest": true
-    },
-    {
-      "DownstreamPathTemplate": "/calls/create",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/create",
-      "UpstreamHttpMethod": ["POST", "OPTIONS"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/calls/join",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/join",
-      "UpstreamHttpMethod": ["POST", "OPTIONS"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/calls/leave",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/leave",
-      "UpstreamHttpMethod": ["POST", "OPTIONS"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/calls/start",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/start",
-      "UpstreamHttpMethod": ["POST", "OPTIONS"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/calls/end",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/end",
-      "UpstreamHttpMethod": ["POST", "OPTIONS"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/calls/{sessionId}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/{sessionId}",
-      "UpstreamHttpMethod": ["GET"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-    {
-      "DownstreamPathTemplate": "/my/calls",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/my/calls",
-      "UpstreamHttpMethod": ["GET"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      },
-      "AddQueriesToRequest": true
-    },
-    {
-      "DownstreamPathTemplate": "/statistics",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/statistics",
-      "UpstreamHttpMethod": ["GET"],
       "AddQueriesToRequest": true
     },
     {
@@ -1014,18 +1095,6 @@
       "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/calls/{sessionId}/quality-metrics",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5005 }],
-      "UpstreamPathTemplate": "/api/calls/{sessionId}/quality-metrics",
-      "UpstreamHttpMethod": ["GET"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      },
-      "AddQueriesToRequest": true
-    },
-    {
       "DownstreamPathTemplate": "/health/status",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
@@ -1149,6 +1218,20 @@
       ],
       "UpstreamPathTemplate": "/api/notifications/read-all",
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "Comment": "========== SIGNALR HUB ROUTE (WebSocket Support) ==========",
+      "DownstreamPathTemplate": "/hubs/notifications",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/notification-service/hubs/notifications",
+      "UpstreamHttpMethod": ["GET", "POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -1458,7 +1541,7 @@
         "AuthenticationProviderKey": "Bearer"
       },
       "RouteClaimsRequirement": {
-        "permission": "admin:view_statistics"
+        "role": "Admin"
       }
     },
     {
@@ -1471,7 +1554,7 @@
         "AuthenticationProviderKey": "Bearer"
       },
       "RouteClaimsRequirement": {
-        "permission": "admin:view_statistics"
+        "role": "Admin"
       },
       "AddQueriesToRequest": true
     },
@@ -1485,7 +1568,7 @@
         "AuthenticationProviderKey": "Bearer"
       },
       "RouteClaimsRequirement": {
-        "permission": "admin:view_statistics"
+        "role": "Admin"
       },
       "AddQueriesToRequest": true
     },

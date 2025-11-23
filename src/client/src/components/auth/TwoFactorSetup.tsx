@@ -169,9 +169,9 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
           : 'Verification failed';
         setVerificationError(errorMsg);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ 2FA verification error:', err);
-      const errorMessage = err?.message || 'Invalid verification code. Please try again.';
+      const errorMessage = err instanceof Error ? err.message : 'Invalid verification code. Please try again.';
       setVerificationError(errorMessage);
     }
   };

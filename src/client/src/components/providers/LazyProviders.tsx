@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, memo } from 'react';
-import { ThemeProvider } from '@mui/material';
+import { ThemeProvider, Theme } from '@mui/material';
 import LoadingSpinner from '../ui/LoadingSpinner';
 
 // Lazy loaded providers to improve initial startup time
@@ -19,7 +19,7 @@ const EmailVerificationProvider = React.lazy(() =>
 
 interface LazyProvidersProps {
   children: React.ReactNode;
-  theme: any;
+  theme: Theme;
 }
 
 // Progressive loading of providers to avoid 333ms initial render

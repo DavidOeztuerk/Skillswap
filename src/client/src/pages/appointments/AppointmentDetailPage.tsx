@@ -1,4 +1,3 @@
-// src/pages/appointments/AppointmentDetailPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -23,7 +22,6 @@ import {
   ListItemText,
   Grid,
 } from '@mui/material';
-
 import {
   ArrowBack as ArrowBackIcon,
   VideoCall as VideoCallIcon,
@@ -46,7 +44,6 @@ import {
   DoneAll as DoneAllIcon,
   Update as UpdateIcon,
 } from '@mui/icons-material';
-
 import {
   Timeline,
   TimelineItem,
@@ -56,7 +53,6 @@ import {
   TimelineContent,
   TimelineOppositeContent,
 } from '@mui/lab';
-
 import PageLoader from '../../components/ui/PageLoader';
 import EmptyState from '../../components/ui/EmptyState';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -68,7 +64,7 @@ import {
   formatDate,
   isPastDate,
 } from '../../utils/dateUtils';
-import { Appointment } from '../../types/models/Appointment';
+import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
 import AppointmentErrorBoundary from '../../components/error/AppointmentErrorBoundary';
 import errorService from '../../services/errorService';
 import RescheduleDialog from '../../components/appointments/RescheduleDialog';
@@ -164,39 +160,6 @@ const AppointmentDetailPage: React.FC = () => {
     }
   }, [appointmentId, appointments]);
 
-  // Mock messages
-  // const loadMockMessages = () => {
-  //   setMessages([
-  //     {
-  //       id: '1',
-  //       senderId: 'teacher1',
-  //       senderName: 'Anna Müller',
-  //       content:
-  //         'Hallo! Ich freue mich auf unsere Session. Haben Sie schon Erfahrungen mit React?',
-  //       timestamp: '2024-01-15T09:00:00Z',
-  //       type: 'message',
-  //     },
-  //     {
-  //       id: '2',
-  //       senderId: 'student1',
-  //       senderName: 'Max Schmidt',
-  //       content:
-  //         'Hallo Anna! Nein, ich bin noch kompletter Anfänger. Freue mich sehr darauf!',
-  //       timestamp: '2024-01-15T09:15:00Z',
-  //       type: 'message',
-  //     },
-  //     {
-  //       id: '3',
-  //       senderId: 'system',
-  //       senderName: 'System',
-  //       content: 'Termin wurde bestätigt',
-  //       timestamp: '2024-01-15T08:30:00Z',
-  //       type: 'system',
-  //     },
-  //   ]);
-  // };
-
-  // Handlers
   const handleConfirmDialogOpen = (
     action: 'confirm' | 'cancel' | 'complete'
   ) => {
@@ -237,9 +200,9 @@ const AppointmentDetailPage: React.FC = () => {
 
     try {
       errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action: confirmDialog.action });
-      
+
       let success = false;
-      let result: any;
+      let result: { meta: { requestStatus: string } };
       const { action } = confirmDialog;
 
       switch (action) {
@@ -322,24 +285,93 @@ const AppointmentDetailPage: React.FC = () => {
 
   const handleJoinVideoCall = () => {
     errorService.addBreadcrumb('Joining video call', 'navigation', { appointmentId });
-    
-    if (appointment?.videocallUrl) {
-      window.open(appointment.videocallUrl, '_blank');
-    } else {
+
+    if (appointmentId) {
       navigate(`/videocall/${appointmentId}`);
     }
   };
 
   const handleGenerateMeetingLink = async (): Promise<string> => {
-    // This would call the backend API to generate a meeting link
-    // For now, return a mock URL
-    return `https://meet.skillswap.com/room/${appointmentId}`;
+    if (!appointmentId) {
+      throw new Error('Appointment ID is required');
+    }
+
+    try {
+      errorService.addBreadcrumb('Generating meeting link', 'action', { appointmentId });
+
+      const response = await appointmentService.generateMeetingLink(appointmentId);
+
+      if (!response.success) {
+        const errorMsg = 'errors' in response ? response.errors.join(', ') : 'Failed to generate meeting link';
+        throw new Error(errorMsg);
+      }
+
+      if (!('data' in response) || !response.data) {
+        throw new Error('No meeting link returned from server');
+      }
+
+      errorService.addBreadcrumb('Meeting link generated successfully', 'action', { appointmentId });
+      setStatusMessage({
+        text: 'Meeting-Link wurde erfolgreich generiert',
+        type: 'success',
+      });
+
+      return response.data;
+    } catch (error) {
+      errorService.addBreadcrumb('Error generating meeting link', 'error', {
+        appointmentId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      setStatusMessage({
+        text: 'Fehler beim Generieren des Meeting-Links',
+        type: 'error',
+      });
+
+      throw error;
+    }
   };
 
   const handleRefreshMeetingLink = async (): Promise<string> => {
-    // This would call the backend API to refresh the meeting link
-    // For now, return a mock URL
-    return `https://meet.skillswap.com/room/${appointmentId}?token=${Date.now()}`;
+    if (!appointmentId) {
+      throw new Error('Appointment ID is required');
+    }
+
+    try {
+      errorService.addBreadcrumb('Refreshing meeting link', 'action', { appointmentId });
+
+      // Backend uses same endpoint for refresh - it generates a new link
+      const response = await appointmentService.generateMeetingLink(appointmentId);
+
+      if (!response.success) {
+        const errorMsg = 'errors' in response ? response.errors.join(', ') : 'Failed to refresh meeting link';
+        throw new Error(errorMsg);
+      }
+
+      if (!('data' in response) || !response.data) {
+        throw new Error('No meeting link returned from server');
+      }
+
+      errorService.addBreadcrumb('Meeting link refreshed successfully', 'action', { appointmentId });
+      setStatusMessage({
+        text: 'Meeting-Link wurde aktualisiert',
+        type: 'success',
+      });
+
+      return response.data;
+    } catch (error) {
+      errorService.addBreadcrumb('Error refreshing meeting link', 'error', {
+        appointmentId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      setStatusMessage({
+        text: 'Fehler beim Aktualisieren des Meeting-Links',
+        type: 'error',
+      });
+
+      throw error;
+    }
   };
 
   const handleReschedule = async (newDateTime: Date, newDuration?: number, reason?: string) => {
@@ -435,31 +467,31 @@ const AppointmentDetailPage: React.FC = () => {
     ? appointment.studentDetails
     : appointment.teacherDetails;
   const canJoinCall =
-    appointment.status === 'Confirmed' &&
+    appointment.status === AppointmentStatus.Accepted &&
     appointment.videocallUrl &&
     !isPastDate(appointment.endTime);
-  const canConfirm = isTeacher && appointment.status === 'Pending';
+  const canConfirm = isTeacher && appointment.status === AppointmentStatus.Pending;
   const canCancel =
-    appointment.status === 'Pending' ||
-    (appointment.status === 'Confirmed' && !isPastDate(appointment.startTime));
-  const canReschedule = 
-    appointment.status === 'Confirmed' && 
+    appointment.status === AppointmentStatus.Pending ||
+    (appointment.status === AppointmentStatus.Accepted && !isPastDate(appointment.startTime));
+  const canReschedule =
+    appointment.status === AppointmentStatus.Accepted &&
     !isPastDate(appointment.startTime) &&
     isTeacher; // Only teacher can reschedule for now
   const canComplete =
     isTeacher &&
-    appointment.status === 'Confirmed' &&
+    appointment.status === AppointmentStatus.Accepted &&
     isPastDate(appointment.endTime);
 
   const getStatusIcon = () => {
     switch (appointment.status) {
-      case 'Pending':
+      case AppointmentStatus.Pending:
         return <ScheduleIcon />;
-      case 'Confirmed':
+      case AppointmentStatus.Accepted:
         return <EventAvailableIcon />;
-      case 'Cancelled':
+      case AppointmentStatus.Cancelled:
         return <EventBusyIcon />;
-      case 'Completed':
+      case AppointmentStatus.Completed:
         return <DoneAllIcon />;
       default:
         return <CalendarIcon />;
@@ -468,13 +500,13 @@ const AppointmentDetailPage: React.FC = () => {
 
   const getStatusColor = () => {
     switch (appointment.status) {
-      case 'Pending':
+      case AppointmentStatus.Pending:
         return 'warning';
-      case 'Confirmed':
+      case AppointmentStatus.Accepted:
         return 'success';
-      case 'Cancelled':
+      case AppointmentStatus.Cancelled:
         return 'error';
-      case 'Completed':
+      case AppointmentStatus.Completed:
         return 'info';
       default:
         return 'default';
@@ -483,13 +515,13 @@ const AppointmentDetailPage: React.FC = () => {
 
   const getStatusLabel = () => {
     switch (appointment.status) {
-      case 'Pending':
+      case AppointmentStatus.Pending:
         return 'Ausstehend';
-      case 'Confirmed':
+      case AppointmentStatus.Accepted:
         return 'Bestätigt';
-      case 'Cancelled':
+      case AppointmentStatus.Cancelled:
         return 'Abgesagt';
-      case 'Completed':
+      case AppointmentStatus.Completed:
         return 'Abgeschlossen';
       default:
         return appointment.status;
@@ -705,8 +737,9 @@ const AppointmentDetailPage: React.FC = () => {
           </Paper>
 
           {/* Meeting Link Section */}
-          {appointment.status === 'Confirmed' && (
+          {appointment.status === AppointmentStatus.Accepted && (
             <MeetingLinkSection
+              appointmentId={appointmentId!}
               meetingUrl={appointment.videocallUrl}
               startTime={appointment.startTime || appointment.scheduledDate}
               endTime={appointment.endTime || new Date(new Date(appointment.scheduledDate).getTime() + appointment.durationMinutes * 60000).toISOString()}

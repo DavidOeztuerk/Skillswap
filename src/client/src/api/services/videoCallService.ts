@@ -2,6 +2,7 @@ import { VIDEOCALL_ENDPOINTS } from '../../config/endpoints';
 import { apiClient } from '../apiClient';
 import { VideoCallConfig } from '../../types/models/VideoCallConfig';
 import { ApiResponse, PagedResponse } from '../../types/api/UnifiedResponse';
+import { ChatMessage, SendChatMessageRequest } from '../../types/models/ChatMessage';
 
 /**
  * Service for video call operations
@@ -82,17 +83,24 @@ const videoCallService = {
   /**
    * Join call with updated endpoint
    */
-  async joinCall(roomId: string): Promise<ApiResponse<VideoCallConfig>> {
-    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
-    return apiClient.post<VideoCallConfig>(`${VIDEOCALL_ENDPOINTS.JOIN}/${roomId}`);
+  async joinCall(sessionId: string, connectionId?: string, cameraEnabled: boolean = true, microphoneEnabled: boolean = true, deviceInfo?: string): Promise<ApiResponse<VideoCallConfig>> {
+    if (!sessionId?.trim()) throw new Error('Session-ID ist erforderlich');
+
+    return apiClient.post<VideoCallConfig>(VIDEOCALL_ENDPOINTS.JOIN, {
+      sessionId,
+      connectionId: connectionId || `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      cameraEnabled,
+      microphoneEnabled,
+      deviceInfo: deviceInfo || navigator.userAgent
+    });
   },
 
   /**
    * Leave call with updated endpoint
    */
-  async leaveCall(roomId: string): Promise<void> {
-    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
-    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.LEAVE}/${roomId}`);
+  async leaveCall(sessionId: string): Promise<void> {
+    if (!sessionId?.trim()) throw new Error('Session-ID ist erforderlich');
+    await apiClient.post<void>(VIDEOCALL_ENDPOINTS.LEAVE, { sessionId });
   },
 
   /**
@@ -177,16 +185,14 @@ const videoCallService = {
   },
 
   /**
-   * Send chat message
+   * Send chat message - messages are persisted to database
+   * @param request - Message details including sessionId, senderId, and message content
    */
-  async sendChatMessage(roomId: string, message: string): Promise<void> {
-    if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
-    if (!message?.trim()) throw new Error('Nachricht ist erforderlich');
-    
-    await apiClient.post<void>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/chat`, {
-      message: message.trim(),
-      timestamp: new Date().toISOString(),
-    });
+  async sendChatMessage(request: SendChatMessageRequest): Promise<ApiResponse<boolean>> {
+    if (!request.sessionId?.trim()) throw new Error('Session-ID ist erforderlich');
+    if (!request.message?.trim()) throw new Error('Nachricht ist erforderlich');
+
+    return apiClient.post<boolean>(`${VIDEOCALL_ENDPOINTS.DETAILS}/chat/send`, request);
   },
 
   /**
@@ -195,6 +201,18 @@ const videoCallService = {
   async getCallParticipants(roomId: string): Promise<PagedResponse<{ id: string; name: string; isConnected: boolean }>> {
     if (!roomId?.trim()) throw new Error('Raum-ID ist erforderlich');
     return await apiClient.getPaged<{ id: string; name: string; isConnected: boolean }[]>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/participants`) as PagedResponse<{ id: string; name: string; isConnected: boolean }>;
+  },
+
+  /**
+   * Get chat history for a session - retrieves persisted messages from database
+   * @param sessionId - The video call session ID
+   * @param limit - Optional limit on number of messages to retrieve
+   */
+  async getChatHistory(sessionId: string, limit?: number): Promise<ApiResponse<ChatMessage[]>> {
+    if (!sessionId?.trim()) throw new Error('Session-ID ist erforderlich');
+
+    const params = limit ? { limit } : undefined;
+    return apiClient.get<ChatMessage[]>(`${VIDEOCALL_ENDPOINTS.DETAILS}/chat/${sessionId}`, params);
   },
 };
 

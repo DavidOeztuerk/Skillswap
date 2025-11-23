@@ -9,7 +9,7 @@ interface UseProgressiveLoadingOptions<T> {
   }>;
   pageSize?: number;
   initialLoad?: boolean;
-  deps?: unknown[];
+  deps?: readonly unknown[];
 }
 
 interface UseProgressiveLoadingReturn<T> {

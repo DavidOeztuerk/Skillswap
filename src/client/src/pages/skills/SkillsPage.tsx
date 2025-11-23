@@ -295,7 +295,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
               loading={isLoading}
               onEditSkill={handleEditSkill}
               onDeleteSkill={(skillId: string) => handleDelete(skillId)}
-              onToggleFavorite={(skill: any) => handleToggleFavorite(skill.id, skill.isFavorite)}
+              onToggleFavorite={(skill: Skill) => handleToggleFavorite(skill.id, skill.isFavorite || false)}
               isFavorite={isFavoriteSkill}
               isOwnerView={isOwnerView}
             />

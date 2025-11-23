@@ -22,6 +22,7 @@ export interface Skill  {
   activeMatches?: number;
   completionRate?: number;
   isVerified?: boolean;
+  isFavorite?: boolean;
 }
 
 export interface SkillCategory {

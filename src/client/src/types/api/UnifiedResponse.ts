@@ -26,15 +26,14 @@ export interface ErrorResponse extends BaseResponse {
 export type ApiResponse<T> = SuccessResponse<T> | ErrorResponse;
 
 // Paged Response für Listen mit Pagination
+// IMPORTANT: Matches backend CQRS.Models.PagedResponse<T> flat structure
 export interface PagedSuccessResponse<T> extends SuccessResponse<T[]> {
-  pagination: {
-    pageNumber: number;
-    pageSize: number;
-    totalPages: number;
-    totalRecords: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  totalRecords: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 }
 
 export type PagedResponse<T> = PagedSuccessResponse<T> | ErrorResponse;
@@ -49,7 +48,7 @@ export function isErrorResponse<T>(response: ApiResponse<T>): response is ErrorR
 }
 
 export function isPagedResponse<T>(response: ApiResponse<T[]> | PagedResponse<T>): response is PagedSuccessResponse<T> {
-  return isSuccessResponse(response) && 'pagination' in response;
+  return isSuccessResponse(response) && 'pageNumber' in response && 'totalRecords' in response;
 }
 
 // Data Extractor Helper

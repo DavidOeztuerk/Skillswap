@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { Box, Typography, Button, CircularProgress } from '@mui/material';
+import { Box, Typography, Button, CircularProgress, SxProps, Theme } from '@mui/material';
 import SkeletonLoader from './SkeletonLoader';
 import useProgressiveLoading from '../../hooks/useProgressiveLoading';
 
 interface InfiniteScrollListProps<T> {
-  loadFn: (page: number, pageSize: number, ...args: any[]) => Promise<{
+  loadFn: (page: number, pageSize: number, ...args: unknown[]) => Promise<{
     data: T[];
     totalCount: number;
     hasMore: boolean;
@@ -19,8 +19,8 @@ interface InfiniteScrollListProps<T> {
   showLoadMoreButton?: boolean;
   emptyMessage?: string;
   loadingMessage?: string;
-  deps?: any[];
-  containerSx?: Record<string, any>;
+  deps?: React.DependencyList;
+  containerSx?: SxProps<Theme>;
 }
 
 function InfiniteScrollList<T>({

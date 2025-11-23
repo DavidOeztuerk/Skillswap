@@ -7,10 +7,16 @@ public record UpdateUserStatusCommand(
     string NewStatus,
     string? Reason = null,
     string? AdminUserId = null)
-    : ICommand<UpdateUserStatusResponse>, IAuditableCommand
+    : ICommand<UpdateUserStatusResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "user-profile:{UserId}:*",
+        "public-profile:{UserId}:*"
+    };
 }
 
 public record UpdateUserStatusResponse(

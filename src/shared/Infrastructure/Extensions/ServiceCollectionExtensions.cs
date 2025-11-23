@@ -87,7 +87,7 @@ public static class ServiceCollectionExtensions
         services.AddResilience();
 
         // Security Services (from SecurityExtensions.cs)
-        services.AddSecretManagement(configuration);
+        services.AddSecretManagement(configuration, environment);
         services.AddSecurityAuditLogging();
         
         // Add Data Encryption
@@ -115,7 +115,18 @@ public static class ServiceCollectionExtensions
         // Add Caching Services
         if (!string.IsNullOrEmpty(redisConnectionString))
         {
-            services.AddSingleton<IDistributedCacheService, RedisDistributedCacheService>();
+            // CRITICAL FIX: Use same prefix as IDistributedCache for cache invalidation to work
+            // IDistributedCache uses GetCurrentServiceName() which returns lowercase (line 297)
+            // so we must use the same lowercase format!
+            var cachePrefix = serviceName.ToLowerInvariant();
+            services.AddSingleton<IDistributedCacheService>(sp =>
+                new RedisDistributedCacheService(
+                    sp.GetRequiredService<IConnectionMultiplexer>(),
+                    sp.GetRequiredService<ILogger<RedisDistributedCacheService>>(),
+                    keyPrefix: $"{cachePrefix}:",  // Must match IDistributedCache prefix (lowercase)!
+                    tagPrefix: $"{cachePrefix}:tag:"
+                )
+            );
             services.AddSingleton<IDistributedRateLimitStore, RedisDistributedRateLimitStore>();
         }
         else
@@ -321,25 +332,72 @@ public static class ServiceCollectionExtensions
     /// - Environment variable support (JWT_SECRET, JWT_ISSUER, JWT_AUDIENCE)
     /// - Token revocation check via JwtBearerEvents.OnTokenValidated
     /// - Custom 401 JSON responses
+    /// - Placeholder secret validation for production safety
     /// </summary>
     public static IServiceCollection AddJwtAuthentication(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
-        var jwtSettings = configuration.GetSection("JwtSettings");
-        services.Configure<JwtSettings>(jwtSettings);
-        
+        // Load secret from Environment Variable FIRST, then appsettings
         var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
-            ?? jwtSettings["Secret"]
-            ?? throw new ConfigurationException("JWT_SECRET", "JwtSettings", "JWT Secret not configured. Please set JWT_SECRET environment variable or configure JwtSettings:Secret");
-            
+            ?? configuration["JwtSettings:Secret"];
+
+        // DEBUG: Log which secret source was used
+        var logger = services.BuildServiceProvider().GetService<ILogger<Microsoft.Extensions.DependencyInjection.ServiceCollection>>();
+        var secretSource = Environment.GetEnvironmentVariable("JWT_SECRET") != null ? "Environment Variable" : "appsettings.json";
+        var secretPreview = secret?.Length > 20 ? secret.Substring(0, 20) + "..." : secret;
+        logger?.LogWarning("🔐 JWT_SECRET loaded from: {Source}, Preview: {Preview}, Length: {Length}",
+            secretSource, secretPreview, secret?.Length ?? 0);
+
+        // Validate JWT secret is properly configured
+        if (string.IsNullOrWhiteSpace(secret) || secret.Contains("REPLACE_WITH_SECURE_SECRET_IN_PRODUCTION"))
+        {
+            if (environment.IsProduction())
+            {
+                throw new ConfigurationException("JWT_SECRET", "JwtSettings",
+                    "JWT Secret not configured or using placeholder value. " +
+                    "Set JWT_SECRET environment variable to the SAME value for ALL services. " +
+                    "Generate a secure secret with: openssl rand -base64 32");
+            }
+
+            throw new ConfigurationException("JWT_SECRET", "JwtSettings",
+                "JWT Secret not configured. Set JWT_SECRET environment variable to the SAME value for ALL services.");
+        }
+
         var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
-            ?? jwtSettings["Issuer"]
+            ?? configuration["JwtSettings:Issuer"]
             ?? throw new ConfigurationException("JWT_ISSUER", "JwtSettings", "JWT Issuer not configured. Please set JWT_ISSUER environment variable or configure JwtSettings:Issuer");
-            
+
         var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
-            ?? jwtSettings["Audience"]
+            ?? configuration["JwtSettings:Audience"]
             ?? throw new ConfigurationException("JWT_AUDIENCE", "JwtSettings", "JWT Audience not configured. Please set JWT_AUDIENCE environment variable or configure JwtSettings:Audience");
+
+        var expireMinutes = int.TryParse(
+            Environment.GetEnvironmentVariable("JwtSettings__ExpireMinutes") ?? configuration["JwtSettings:ExpireMinutes"],
+            out var expire) ? expire : 60;
+
+        // CRITICAL: Configure JwtSettings with Environment Variables!
+        // This ensures JwtService uses the SAME secret as the authentication middleware
+        services.Configure<JwtSettings>(opts =>
+        {
+            opts.Secret = secret;
+            opts.Issuer = issuer;
+            opts.Audience = audience;
+            opts.ExpireMinutes = expireMinutes;
+        });
+
+        // DEBUG: Log secret hash to verify it matches UserService
+        var secretBytes = Encoding.UTF8.GetBytes(secret);
+        var secretHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(secretBytes));
+        logger?.LogWarning("🔑 [TOKEN VALIDATION] Secret Hash: {Hash}, Issuer: {Issuer}, Audience: {Audience}",
+            secretHash, issuer, audience);
+
+        // Create signing key
+        var signingKey = new SymmetricSecurityKey(secretBytes)
+        {
+            KeyId = "SkillswapKey" // Must match the KeyId in JwtService
+        };
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(opts =>
@@ -356,7 +414,7 @@ public static class ServiceCollectionExtensions
                     ValidateLifetime = true,
                     ValidIssuer = issuer,
                     ValidAudience = audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+                    IssuerSigningKey = signingKey,
                     ClockSkew = TimeSpan.Zero,
                     RequireSignedTokens = true,
                     RequireExpirationTime = true,
@@ -366,6 +424,22 @@ public static class ServiceCollectionExtensions
 
                 opts.Events = new JwtBearerEvents
                 {
+                    // CRITICAL: Allow access_token in query string for WebSocket/SignalR connections
+                    // WebSockets cannot send Authorization headers, so token must be in query string
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"].FirstOrDefault();
+                        var path = context.HttpContext.Request.Path;
+
+                        // Only apply to SignalR hub endpoints
+                        if (!string.IsNullOrEmpty(accessToken) &&
+                            (path.StartsWithSegments("/api/videocall/hub") ||
+                             path.StartsWithSegments("/hubs")))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    },
                     OnTokenValidated = async context =>
                     {
                         var tokenRevocationService = context.HttpContext.RequestServices
@@ -392,9 +466,9 @@ public static class ServiceCollectionExtensions
                         context.HandleResponse();
                         context.Response.StatusCode = 401;
                         context.Response.ContentType = "application/json";
-                        var result = System.Text.Json.JsonSerializer.Serialize(new { 
-                            error = "unauthorized", 
-                            message = "You are not authorized to access this resource" 
+                        var result = System.Text.Json.JsonSerializer.Serialize(new {
+                            error = "unauthorized",
+                            message = "You are not authorized to access this resource"
                         });
                         await context.Response.WriteAsync(result);
                     }

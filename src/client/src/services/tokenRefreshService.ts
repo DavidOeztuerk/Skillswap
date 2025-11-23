@@ -28,17 +28,36 @@ class TokenRefreshService {
     this.refreshTimer = null;
 
     const token = getToken();
-    if (!token) return;
+    console.log('🔍 [TokenRefreshService] scheduleNextRefresh called');
+    console.log('🔍 [TokenRefreshService] Has token:', !!token);
 
-    if (isTokenExpired(token)) {
+    if (!token) {
+      console.log('🔍 [TokenRefreshService] No token found, exiting');
+      return;
+    }
+
+    const expired = isTokenExpired(token);
+    console.log('🔍 [TokenRefreshService] Is token expired?', expired);
+
+    if (expired) {
+      console.log('⚠️ [TokenRefreshService] Token is EXPIRED, refreshing immediately!');
       this.refreshToken();
       return;
     }
 
     const timeUntilExpiry = getTimeUntilExpiration(token);
-    if (!timeUntilExpiry) return;
+    console.log('🔍 [TokenRefreshService] Time until expiry (ms):', timeUntilExpiry);
+    console.log('🔍 [TokenRefreshService] Time until expiry (minutes):', timeUntilExpiry ? Math.round(timeUntilExpiry / 60000) : null);
+
+    if (!timeUntilExpiry) {
+      console.log('🔍 [TokenRefreshService] No time until expiry, exiting');
+      return;
+    }
 
     const refreshIn = Math.max(timeUntilExpiry - this.REFRESH_BUFFER, this.MIN_REFRESH_INTERVAL);
+    console.log('🔍 [TokenRefreshService] Will refresh in (ms):', refreshIn);
+    console.log('🔍 [TokenRefreshService] Will refresh in (minutes):', Math.round(refreshIn / 60000));
+
     if (!silent) console.debug(`⏱️ next refresh in ${Math.round(refreshIn / 1000)}s`);
     this.refreshTimer = setTimeout(() => this.refreshToken(), refreshIn);
   }

@@ -29,7 +29,7 @@ import { startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
 import AppointmentCard from './AppointmentCard';
 import SkeletonLoader from '../ui/SkeletonLoader';
 import EmptyState from '../ui/EmptyState';
-import { Appointment } from '../../types/models/Appointment';
+import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
 
 /**
  * Props für die Terminliste
@@ -68,12 +68,6 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
 
   // Filterlogik
   const filteredAppointments = useMemo(() => {
-    console.log('🎯 AppointmentList: Processing appointments', {
-      appointments,
-      appointmentsCount: appointments?.length || 0,
-      firstAppointment: appointments?.[0]
-    });
-
     if (!appointments) return [];
     return appointments.filter((appointment) => {
       // Welcher Nutzer ist "der andere"?
@@ -112,11 +106,11 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
       let matchesTab = true;
       if (tabValue === 1) {
         // Ausstehend
-        matchesTab = appointment.status === 'Pending';
+        matchesTab = appointment.status === AppointmentStatus.Pending;
       } else if (tabValue === 2) {
         // Bestätigt (noch in Zukunft)
         matchesTab =
-          appointment.status === 'Confirmed' &&
+          appointment.status === AppointmentStatus.Accepted &&
           isAfter(new Date(appointment.startTime), new Date());
       } else if (tabValue === 3) {
         // Vergangen: endTime < now ODER Cancelled/Completed
@@ -337,14 +331,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         {/* Termine-Liste */}
         {displayedAppointments?.length > 0 ? (
           <Grid container columns={12} spacing={3}>
-            {displayedAppointments.map((appointment, index) => {
-              console.log('🎯 AppointmentList: Rendering appointment', {
-                id: appointment.id,
-                index,
-                hasId: !!appointment.id,
-                idType: typeof appointment.id
-              });
-              return (
+            {displayedAppointments.map((appointment, index) => (
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={appointment.id || `appointment-${index}`}>
                 <AppointmentCard
                   appointment={appointment}
@@ -354,8 +341,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
                   onComplete={onComplete}
                 />
               </Grid>
-              );
-            })}
+            ))}
           </Grid>
         ) : (
           <EmptyState

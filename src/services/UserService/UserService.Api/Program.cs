@@ -1,8 +1,12 @@
+using DotNetEnv;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using UserService.Api.Extensions;
 using UserService.Infrastructure.Data;
 using UserService.Infrastructure.Extensions;
+
+// Load .env file before anything else
+Env.Load();
 
 ThreadPool.SetMinThreads(200, 200);
 ThreadPool.SetMaxThreads(1000, 1000);

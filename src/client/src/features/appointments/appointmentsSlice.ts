@@ -75,6 +75,32 @@ const appointmentsSlice = createSlice({
     },
 
     /**
+     * Add single appointment to normalized state (from SignalR)
+     */
+    addAppointment: (state, action: PayloadAction<Appointment>) => {
+      appointmentsAdapter.upsertOne(state, action.payload);
+    },
+
+    /**
+     * Add multiple appointments to normalized state (from SignalR batch)
+     */
+    addMany: (state, action: PayloadAction<Appointment[]>) => {
+      appointmentsAdapter.upsertMany(state, action.payload);
+    },
+
+    /**
+     * Upsert single appointment (update or insert)
+     */
+    upsertOne: (state, action: PayloadAction<Appointment>) => {
+      appointmentsAdapter.upsertOne(state, action.payload);
+
+      // Update activeAppointment if it matches
+      if (state.activeAppointment?.id === action.payload.id) {
+        state.activeAppointment = action.payload;
+      }
+    },
+
+    /**
      * Remove appointment from normalized state
      */
     removeAppointmentFromList: (state, action: PayloadAction<string>) => {
@@ -122,10 +148,10 @@ const appointmentsSlice = createSlice({
         }
 
         state.pagination = {
-          page: action.payload.pagination.pageNumber ?? 1,
-          limit: action.payload.pagination.pageSize ?? 10,
-          total: action.payload.pagination.totalRecords ?? 0,
-          totalPages: action.payload.pagination.totalPages ?? 0,
+          page: action.payload.pageNumber ?? 1,
+          limit: action.payload.pageSize ?? 10,
+          total: action.payload.totalRecords ?? 0,
+          totalPages: action.payload.totalPages ?? 0,
         };
       })
       .addCase(fetchAppointments.rejected, (state, action) => {
@@ -253,10 +279,10 @@ const appointmentsSlice = createSlice({
         }
 
         state.pagination = {
-          page: action.payload.pagination.pageNumber ?? 1,
-          limit: action.payload.pagination.pageSize ?? 10,
-          total: action.payload.pagination.totalRecords ?? 0,
-          totalPages: action.payload.pagination.totalPages ?? 0,
+          page: action.payload.pageNumber ?? 1,
+          limit: action.payload.pageSize ?? 10,
+          total: action.payload.totalRecords ?? 0,
+          totalPages: action.payload.totalPages ?? 0,
         };
       })
       .addCase(fetchPastAppointments.rejected, (state, action) => {

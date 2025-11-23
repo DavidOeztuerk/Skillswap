@@ -29,26 +29,6 @@ export interface GetMatchRequestsParams {
   includeCompleted?: boolean;
 }
 
-const qp = (p: GetMatchRequestsParams) => {
-  const pageNumber = (p.pageNumber ?? 1).toString();
-  const pageSize = (p.pageSize ?? 12).toString();
-  const q = new URLSearchParams();
-  q.append('pageNumber', pageNumber);
-  q.append('pageSize', pageSize);
-  if (p.status) q.append('status', p.status);
-  if (p.includeCompleted !== undefined) q.append('includeCompleted', p.includeCompleted.toString());
-  return `?${q.toString()}`;
-};
-
-const parseParams = (url: string): Record<string, unknown> => {
-  const params: Record<string, unknown> = {};
-  const urlParams = new URLSearchParams(url.split('?')[1] || '');
-  urlParams.forEach((value, key) => {
-    params[key] = value;
-  });
-  return params;
-};
-
 const matchmakingService = {
   async createMatchRequest(req: CreateMatchRequestRequest): Promise<ApiResponse<CreateMatchRequestResponse>> {
     
@@ -70,10 +50,11 @@ const matchmakingService = {
   },
 
   async getIncomingMatchRequests(params: GetMatchRequestsParams): Promise<PagedResponse<MatchRequestDisplay>> {
-    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_INCOMING}${qp(params)}`;
-
     try {
-      const response = await apiClient.getPaged<MatchRequestDisplay>(url.split('?')[0], parseParams(url)) as PagedResponse<MatchRequestDisplay>;
+      const response = await apiClient.getPaged<MatchRequestDisplay>(
+        MATCHMAKING_ENDPOINTS.REQUESTS.GET_INCOMING,
+        params
+      ) as PagedResponse<MatchRequestDisplay>;
       return response;
     } catch (error) {
       console.error('❌ [MatchmakingService] Failed to fetch incoming requests:', error);
@@ -82,13 +63,17 @@ const matchmakingService = {
   },
 
   async getOutgoingMatchRequests(params: GetMatchRequestsParams): Promise<PagedResponse<MatchRequestDisplay>> {
-    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.GET_OUTGOING}${qp(params)}`;
-    return await apiClient.getPaged<MatchRequestDisplay>(url.split('?')[0], parseParams(url)) as PagedResponse<MatchRequestDisplay>;
+    return await apiClient.getPaged<MatchRequestDisplay>(
+      MATCHMAKING_ENDPOINTS.REQUESTS.GET_OUTGOING,
+      params
+    ) as PagedResponse<MatchRequestDisplay>;
   },
 
   async getAcceptedMatchRequests(params: GetMatchRequestsParams): Promise<PagedResponse<MatchDisplay>> {
-    const url = `${MATCHMAKING_ENDPOINTS.REQUESTS.ACCEPT}${qp(params)}`;
-    return await apiClient.getPaged<MatchDisplay>(url.split('?')[0], parseParams(url)) as PagedResponse<MatchDisplay>;
+    return await apiClient.getPaged<MatchDisplay>(
+      MATCHMAKING_ENDPOINTS.REQUESTS.GET_ACCEPTED,
+      params
+    ) as PagedResponse<MatchDisplay>;
   },
 
   async acceptMatchRequest(requestId: string, req: AcceptMatchRequestRequest): Promise<ApiResponse<AcceptMatchRequestResponse>> {
@@ -124,13 +109,17 @@ const matchmakingService = {
   },
 
   async getUserMatches(params: GetMatchRequestsParams): Promise<PagedResponse<MatchDisplay>> {
-    const url = `${MATCHMAKING_ENDPOINTS.MATCHES.USER}${qp(params)}`;
-    return await apiClient.getPaged<MatchDisplay>(url.split('?')[0], parseParams(url)) as PagedResponse<MatchDisplay>;
+    return await apiClient.getPaged<MatchDisplay>(
+      MATCHMAKING_ENDPOINTS.MATCHES.USER,
+      params
+    ) as PagedResponse<MatchDisplay>;
   },
 
   async searchMatches(req: CreateMatchRequestRequest): Promise<PagedResponse<MatchDisplay>> {
+    // TODO: Backend should return PagedResponse<MatchDisplay> directly
+    // Currently returns MatchDisplay[] wrapped in ApiResponse, needs type assertion
     const response = await apiClient.post<MatchDisplay[]>(MATCHMAKING_ENDPOINTS.MATCHES.SEARCH, req);
-    return response as any; // This endpoint should return PagedResponse but we need to cast
+    return response as unknown as PagedResponse<MatchDisplay>;
   },
 
   async getMatchDetails(matchId: string): Promise<ApiResponse<MatchDisplay>> {

@@ -4,6 +4,7 @@ import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRe
 import { AppointmentResponse } from '../../types/contracts/responses/AppointmentResponse';
 import { RescheduleAppointmentRequest } from '../../types/contracts/requests/RescheduleAppointmentRequest';
 import { RescheduleAppointmentResponse } from '../../types/contracts/responses/RescheduleAppointmentResponse';
+import { TimeSlot, AppointmentStatisticsResponse, AvailabilityPreferences } from '../../types/contracts/responses/AppointmentResponses';
 import { apiClient } from '../apiClient';
 import { ApiResponse, PagedResponse } from '../../types/api/UnifiedResponse';
 
@@ -19,13 +20,40 @@ export interface GetUserAppointmentsRequest {
 export interface UserAppointmentResponse {
   appointmentId: string;
   title: string;
-  scheduledDate: string; // Changed to string since API sends ISO string
+  scheduledDate: string; // ISO string
   durationMinutes: number;
   status: string;
   otherPartyUserId: string;
   otherPartyName: string;
   meetingType: string;
   isOrganizer: boolean;
+
+  // Connection-level data (NEW MODEL)
+  connectionId: string;
+  connectionType: string; // "SkillExchange" | "Payment" | "Free"
+  connectionStatus: string;
+
+  // Series-level data (NEW MODEL)
+  sessionSeriesId: string;
+  sessionSeriesTitle: string;
+  sessionNumber: number;
+  totalSessionsInSeries: number;
+  completedSessionsInSeries: number;
+
+  // Derived flags for frontend compatibility
+  isSkillExchange: boolean; // true if connectionType === "SkillExchange"
+  isMonetary: boolean;      // true if connectionType === "Payment"
+
+  // Session-specific data
+  meetingLink?: string;
+  isConfirmed: boolean;
+  isPaymentCompleted: boolean;
+  paymentAmount?: number;
+  currency?: string;
+
+  // Additional metadata
+  skillId?: string;
+  description?: string;
 }
 
 export interface PagedUserAppointmentsResponse {
@@ -71,10 +99,21 @@ const appointmentService = {
    * Create new appointment
    */
   async createAppointment(appointmentData: AppointmentRequest): Promise<ApiResponse<Appointment>> {
-    if (!appointmentData.matchId) throw new Error('Match-ID ist erforderlich');
-    if (!appointmentData.startTime) throw new Error('Startzeitpunkt ist erforderlich');
-    if (!appointmentData.endTime) throw new Error('Endzeitpunkt ist erforderlich');
-    return await apiClient.post<Appointment>(APPOINTMENT_ENDPOINTS.CREATE, appointmentData);
+    if (!appointmentData.title) {
+      throw new Error('Titel ist erforderlich');
+    }
+    if (!appointmentData.scheduledDate) {
+      throw new Error('Terminzeit ist erforderlich');
+    }
+    if (!appointmentData.durationMinutes) {
+      throw new Error('Dauer ist erforderlich');
+    }
+    if (!appointmentData.participantUserId) {
+      throw new Error('Teilnehmer-ID ist erforderlich');
+    }
+
+    const result = await apiClient.post<Appointment>(APPOINTMENT_ENDPOINTS.CREATE, appointmentData);
+    return result;
   },
 
   /**
@@ -99,7 +138,7 @@ const appointmentService = {
     appointmentId: string,
     status: AppointmentStatus
   ): Promise<ApiResponse<AppointmentResponse>> {
-    if (status === AppointmentStatus.Confirmed) {
+    if (status === AppointmentStatus.Accepted) {
       return this.acceptAppointment(appointmentId);
     } else {
       return this.cancelAppointment(appointmentId);
@@ -107,11 +146,13 @@ const appointmentService = {
   },
 
   /**
-   * Complete appointment - Note: This endpoint may not exist in backend
+   * Complete appointment
    */
   async completeAppointment(appointmentId: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
-    return await apiClient.post<AppointmentResponse>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}/complete`);
+    return await apiClient.post<AppointmentResponse>(
+      APPOINTMENT_ENDPOINTS.COMPLETE_SESSION.replace('{appointmentId}', appointmentId)
+    );
   },
 
   /**
@@ -144,7 +185,7 @@ const appointmentService = {
   /**
    * Get available time slots for a user - Note: This endpoint may not exist in backend
    */
-  async getAvailableSlots(userId: string, date: string): Promise<any[]> {
+  async getAvailableSlots(userId: string, date: string): Promise<TimeSlot[]> {
     if (!userId?.trim()) throw new Error('Benutzer-ID ist erforderlich');
     if (!date?.trim()) throw new Error('Datum ist erforderlich');
     // This endpoint doesn't exist in backend - would need to be implemented
@@ -196,13 +237,16 @@ const appointmentService = {
   },
 
   /**
-   * Rate completed appointment - Note: This endpoint may not exist in backend
+   * Rate completed appointment
    */
-  async rateAppointment(appointmentId: string, rating: number, _?: string): Promise<Appointment> {
+  async rateAppointment(appointmentId: string, rating: number, feedback?: string): Promise<ApiResponse<AppointmentResponse>> {
     if (!appointmentId?.trim()) throw new Error('Termin-ID ist erforderlich');
     if (rating < 1 || rating > 5) throw new Error('Bewertung muss zwischen 1 und 5 liegen');
-    await apiClient.post<{ success: boolean }>(`${APPOINTMENT_ENDPOINTS.GET_SINGLE}/${appointmentId}/rate`, { rating });
-    return { id: appointmentId } as any;
+
+    return await apiClient.post<AppointmentResponse>(
+      `${APPOINTMENT_ENDPOINTS.RATE_SESSION}/${appointmentId}/rate-session`,
+      { rating, feedback }
+    );
   },
 
   /**
@@ -218,8 +262,8 @@ const appointmentService = {
   /**
    * Get appointment statistics - Note: This endpoint may not exist in backend
    */
-  async getAppointmentStatistics(_?: string): Promise<any> {
-    return apiClient.get<any>(APPOINTMENT_ENDPOINTS.GET_STATISTICS);
+  async getAppointmentStatistics(_?: string): Promise<ApiResponse<AppointmentStatisticsResponse>> {
+    return apiClient.get<AppointmentStatisticsResponse>(APPOINTMENT_ENDPOINTS.GET_STATISTICS);
   },
 
   /**
@@ -233,7 +277,7 @@ const appointmentService = {
   /**
    * Get user availability preferences - Note: This endpoint may not exist in backend
    */
-  async getAvailabilityPreferences(): Promise<any> {
+  async getAvailabilityPreferences(): Promise<ApiResponse<AvailabilityPreferences>> {
     // This endpoint doesn't exist in backend - would need to be implemented
     throw new Error('Availability preferences endpoint not implemented in backend');
   },
@@ -241,7 +285,7 @@ const appointmentService = {
   /**
    * Update user availability preferences - Note: This endpoint may not exist in backend
    */
-  async updateAvailabilityPreferences(_: Record<string, unknown>): Promise<ApiResponse<unknown>> {
+  async updateAvailabilityPreferences(_preferences: Partial<AvailabilityPreferences>): Promise<ApiResponse<AvailabilityPreferences>> {
     // This endpoint doesn't exist in backend - would need to be implemented
     throw new Error('Update availability preferences endpoint not implemented in backend');
   },

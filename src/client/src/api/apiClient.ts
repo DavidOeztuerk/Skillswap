@@ -159,47 +159,63 @@ class CircuitBreaker {
     
     try {
       const result = await fn();
-      
+
       if (this.state === 'HALF_OPEN') {
         this.successCount++;
         this.halfOpenAttempts++;
       }
-      
+
       if (this.state === 'CLOSED' && this.failures > 0) {
         this.failures = Math.max(0, this.failures - 1);
       }
-      
+
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Only count specific errors
-      const statusCode = error?.response?.status || error?.statusCode;
+      const statusCode = this.getStatusCode(error);
       const monitoredErrors = this.config.monitoredErrors || [500, 502, 503, 504];
-      
-      if (monitoredErrors.includes(statusCode)) {
+
+      if (statusCode && monitoredErrors.includes(statusCode)) {
         this.failures++;
         this.lastFailureTime = Date.now();
-        
+
         if (this.state === 'HALF_OPEN') {
           this.halfOpenAttempts++;
         }
-        
+
         if (this.failures >= this.config.failureThreshold) {
           this.state = 'OPEN';
           console.error(`Circuit breaker opened after ${this.failures} failures`);
         }
       }
-      
+
       throw error;
     }
   }
   
+  private getStatusCode(error: unknown): number | undefined {
+    if (error && typeof error === 'object') {
+      // Check for axios-style error (error.response.status)
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError.response?.status) {
+        return axiosError.response.status;
+      }
+      // Check for direct statusCode property
+      const statusError = error as { statusCode?: number };
+      if (statusError.statusCode) {
+        return statusError.statusCode;
+      }
+    }
+    return undefined;
+  }
+
   reset(): void {
     this.failures = 0;
     this.state = 'CLOSED';
     this.halfOpenAttempts = 0;
     this.successCount = 0;
   }
-  
+
   getState(): string {
     return this.state;
   }
@@ -300,7 +316,7 @@ export class ApiClient {
         'Content-Type': 'application/json',
       }
     });
-    
+
     // Initialize optional features
     if (config.enableCircuitBreaker) {
       this.circuitBreaker = new CircuitBreaker(
@@ -312,14 +328,14 @@ export class ApiClient {
         }
       );
     }
-    
+
     if (config.enableRateLimiting) {
       this.rateLimiter = new RateLimiter({
         maxRequests: 100,
         windowMs: 60000
       });
     }
-    
+
     this.setupInterceptors();
   }
   
@@ -426,15 +442,23 @@ export class ApiClient {
         
         // Handle 401 Unauthorized - Token refresh
         if (status === 401 && !originalRequest._retry && !originalRequest.skipAuth) {
+          console.log('🔍 [apiClient] 401 Error detected!');
+          console.log('🔍 [apiClient] Request URL:', originalRequest.url);
+          console.log('🔍 [apiClient] Request retry flag:', originalRequest._retry);
+
           // Check if it's a login/register endpoint
           const isAuthEndpoint = originalRequest.url?.includes('/login') ||
                                 originalRequest.url?.includes('/register') ||
                                 originalRequest.url?.includes('/refresh');
 
+          console.log('🔍 [apiClient] Is auth endpoint:', isAuthEndpoint);
+
           // Only try to refresh token if we have tokens (user was authenticated)
           const hasTokens = getToken() && getRefreshToken();
+          console.log('🔍 [apiClient] Has tokens:', hasTokens);
 
           if (!isAuthEndpoint && hasTokens) {
+            console.log('⚠️ [apiClient] Triggering token refresh due to 401!');
             return this.handleTokenRefresh(originalRequest);
           }
 
@@ -615,12 +639,13 @@ export class ApiClient {
     }
     
     // Create abort controller
-    const abortKey = `${config.method}:${config.url}`;
+    // ✅ FIX: Use dedupKey to avoid aborting different requests to the same endpoint
+    const abortKey = this.deduplicationManager.getDedupKey(config);
     const existingController = this.abortControllers.get(abortKey);
     if (existingController) {
       existingController.abort();
     }
-    
+
     const controller = new AbortController();
     this.abortControllers.set(abortKey, controller);
     config.signal = controller.signal;
@@ -707,11 +732,12 @@ export class ApiClient {
     });
   }
   
-  async delete<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
+  async delete<T>(url: string, config?: RequestConfig, data?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>({
       ...config,
       method: 'DELETE',
       url,
+      data,
     });
   }
   
@@ -798,23 +824,21 @@ export class ApiClient {
       params,
     });
     
-    // Check if response has pagination structure
-    if ('pagination' in response && response.pagination) {
+    // Check if response has pagination structure (flat structure)
+    if ('pageNumber' in response && 'totalRecords' in response) {
       return response as PagedResponse<T>;
     }
-    
-    // Convert to paged response if needed
+
+    // Convert to paged response if needed (use flat structure)
     if (isSuccessResponse(response)) {
       return {
         ...response,
-        pagination: {
-          pageNumber: 1,
-          pageSize: Array.isArray(response.data) ? response.data.length : 1,
-          totalPages: 1,
-          totalRecords: Array.isArray(response.data) ? response.data.length : 1,
-          hasNextPage: false,
-          hasPreviousPage: false,
-        }
+        pageNumber: 1,
+        pageSize: Array.isArray(response.data) ? response.data.length : 1,
+        totalPages: 1,
+        totalRecords: Array.isArray(response.data) ? response.data.length : 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
       } as PagedResponse<T>;
     }
     

@@ -3,8 +3,25 @@ import { Appointment, AppointmentStatus } from "../../types/models/Appointment";
 import { RequestState } from "../../types/common/RequestState";
 
 export const appointmentsAdapter = createEntityAdapter<Appointment, EntityId>({
-  selectId: (appointment) => appointment.id,
-  sortComparer: (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
+  selectId: (appointment) => {
+    // Backend sendet 'appointmentId', Frontend erwartet 'id'
+    // Unterstütze beide Feldnamen defensiv
+    const id = (appointment as any)?.appointmentId || appointment?.id;
+
+    if (!id) {
+      console.error('Appointment ohne ID erkannt:', appointment);
+      return `temp-${Date.now()}-${Math.random()}`;
+    }
+    return id;
+  },
+  sortComparer: (a, b) => {
+    // Backend sendet 'scheduledDate', Frontend erwartet 'startTime'
+    // Unterstütze beide Feldnamen defensiv
+    const aTime = (a as any)?.scheduledDate || a.startTime;
+    const bTime = (b as any)?.scheduledDate || b.startTime;
+
+    return new Date(bTime).getTime() - new Date(aTime).getTime();
+  },
 });
 
 /**

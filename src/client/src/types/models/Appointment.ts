@@ -11,8 +11,11 @@ export interface Appointment {
   studentDetails?: User;
   organizerUserId?: string;
   participantUserId?: string;
-  skillId?: string; // Made optional - not always in list response
-  matchId?: string; // Added - from backend Appointment entity
+  otherPartyUserId?: string; // From list endpoint
+  otherPartyName?: string;   // From list endpoint
+  otherPartyAvatarUrl?: string; // From list endpoint
+  skillId?: string;
+  matchId?: string;
   skill?: Skill;
   scheduledDate: string;
   startTime: string;  // Always required for display
@@ -23,21 +26,44 @@ export interface Appointment {
   videocallUrl?: string;
   meetingLink?: string;
   meetingType?: string;
-  isSkillExchange?: boolean;
-  exchangeSkillId?: string;
-  isMonetary?: boolean;
-  amount?: number;
-  currency?: string;
+  isOrganizer?: boolean; // Whether current user is organizer
+
+  // Connection-level data (NEW MODEL)
+  connectionId?: string;
+  connectionType?: string; // "SkillExchange" | "Payment" | "Free"
+  connectionStatus?: string;
+
+  // Series-level data (NEW MODEL)
+  sessionSeriesId?: string;
+  sessionSeriesTitle?: string;
   sessionNumber?: number;
-  totalSessions?: number;
+  totalSessionsInSeries?: number;
+  completedSessionsInSeries?: number;
+
+  // Derived flags (for backward compatibility)
+  isSkillExchange?: boolean; // true if connectionType === "SkillExchange"
+  isMonetary?: boolean;      // true if connectionType === "Payment"
+
+  // Session-specific data
+  isConfirmed?: boolean;
+  isPaymentCompleted?: boolean;
+  paymentAmount?: number;
+  currency?: string;
+
+  // Legacy compatibility
+  exchangeSkillId?: string;
+  amount?: number; // @deprecated use paymentAmount
+  totalSessions?: number; // @deprecated use totalSessionsInSeries
+
   createdAt: string;
-  updatedAt?: string; // Added for consistency with backend
+  updatedAt?: string;
 }
 
 export enum AppointmentStatus {
   Pending = 'Pending',
-  Accepted = 'Accepted',
-  Confirmed = 'Confirmed',
+  Confirmed = 'Confirmed', // NEW: Backend uses "Confirmed" for SessionAppointments
+  Accepted = 'Accepted',   // LEGACY: Old appointments may still use "Accepted"
   Cancelled = 'Cancelled',
   Completed = 'Completed',
+  Rescheduled = 'Rescheduled'
 }

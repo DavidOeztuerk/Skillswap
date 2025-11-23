@@ -171,11 +171,26 @@ export const decodeToken = (token: string): JwtPayload | null => {
 export const getTimeUntilExpiration = (token: string): number | null => {
   try {
     const decoded = decodeToken(token);
-    if (!decoded?.exp) return null;
+    console.log('🔍 [authHelpers] Decoded token:', decoded);
+
+    if (!decoded?.exp) {
+      console.log('🔍 [authHelpers] No exp claim in token!');
+      return null;
+    }
+
     const expMs = decoded.exp * 1000;
-    const diff = expMs - Date.now();
+    const now = Date.now();
+    const diff = expMs - now;
+
+    console.log('🔍 [authHelpers] Token exp timestamp:', decoded.exp);
+    console.log('🔍 [authHelpers] Token expires at:', new Date(expMs).toISOString());
+    console.log('🔍 [authHelpers] Current time:', new Date(now).toISOString());
+    console.log('🔍 [authHelpers] Time diff (ms):', diff);
+    console.log('🔍 [authHelpers] Time diff (minutes):', Math.round(diff / 60000));
+
     return diff > 0 ? diff : null;
-  } catch {
+  } catch (error) {
+    console.error('🔍 [authHelpers] Error in getTimeUntilExpiration:', error);
     return null;
   }
 };

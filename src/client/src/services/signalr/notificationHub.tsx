@@ -13,6 +13,7 @@ import {
   setNotifications,
 } from '../../features/notifications/notificationSlice';
 import type { Notification as ClientNotification } from '../../types/models/Notification';
+import type { Appointment } from '../../types/models/Appointment';
 import { toast } from 'react-toastify';
 
 /**
@@ -129,6 +130,109 @@ class NotificationHubService {
     this.connection.on('Error', (error: string) => {
       console.error('NotificationHub error:', error);
       toast.error(`Benachrichtigungsfehler: ${error}`);
+    });
+
+    // NEUE APPOINTMENTS (von Backend nach Match Accept)
+    this.connection.on('NewAppointments', (appointments: any[]) => {
+      console.log('SignalR: Received NewAppointments', appointments);
+
+      // Map to frontend Appointment format
+      const mappedAppointments: Appointment[] = appointments.map((apt: any) => {
+        const scheduledDate = new Date(apt.scheduledDate);
+        const endDate = new Date(scheduledDate.getTime() + apt.durationMinutes * 60000);
+
+        return {
+          id: apt.id,
+          title: apt.title,
+          description: `Session ${apt.sessionNumber} von ${apt.totalSessions}`,
+          scheduledDate: apt.scheduledDate,
+          startTime: scheduledDate.toISOString(),
+          endTime: endDate.toISOString(),
+          durationMinutes: apt.durationMinutes,
+          status: apt.status || 'Confirmed',
+          organizerUserId: apt.organizerUserId,
+          participantUserId: apt.participantUserId,
+          skillId: apt.matchId, // Using matchId as skillId for now
+          matchId: apt.matchId,
+          meetingLink: apt.meetingLink,
+          meetingType: apt.isSkillExchange ? 'Exchange' : 'Learning',
+          isSkillExchange: apt.isSkillExchange,
+          exchangeSkillId: apt.exchangeSkillName ? 'exchange-skill-id' : undefined,
+          isMonetary: apt.isMonetary,
+          amount: apt.amount,
+          currency: apt.currency,
+          sessionNumber: apt.sessionNumber,
+          totalSessions: apt.totalSessions,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      });
+
+      // Add to Redux store using adapter
+      store.dispatch({
+        type: 'appointments/addMany',
+        payload: mappedAppointments,
+      });
+
+      // Show toast notification
+      const partnerName = appointments[0]?.partnerName || 'deinem Partner';
+      toast.success(
+        `🎉 ${appointments.length} neue Termine mit ${partnerName} erstellt!`,
+        { autoClose: 5000 }
+      );
+    });
+
+    // EINZELNER APPOINTMENT UPDATE
+    this.connection.on('NewAppointment', (appointment: any) => {
+      console.log('SignalR: Received NewAppointment', appointment);
+
+      const scheduledDate = new Date(appointment.scheduledDate);
+      const endDate = new Date(scheduledDate.getTime() + appointment.durationMinutes * 60000);
+
+      const mappedAppointment: Appointment = {
+        id: appointment.id,
+        title: appointment.title,
+        description: appointment.description || '',
+        scheduledDate: appointment.scheduledDate,
+        startTime: scheduledDate.toISOString(),
+        endTime: endDate.toISOString(),
+        durationMinutes: appointment.durationMinutes,
+        status: appointment.status || 'Pending',
+        organizerUserId: appointment.organizerUserId,
+        participantUserId: appointment.participantUserId,
+        skillId: appointment.skillId,
+        matchId: appointment.matchId,
+        meetingLink: appointment.meetingLink,
+        meetingType: appointment.meetingType || 'Learning',
+        isSkillExchange: appointment.isSkillExchange,
+        exchangeSkillId: appointment.exchangeSkillId,
+        isMonetary: appointment.isMonetary,
+        amount: appointment.amount,
+        currency: appointment.currency,
+        sessionNumber: appointment.sessionNumber,
+        totalSessions: appointment.totalSessions,
+        createdAt: appointment.createdAt || new Date().toISOString(),
+        updatedAt: appointment.updatedAt || new Date().toISOString(),
+      };
+
+      store.dispatch({
+        type: 'appointments/upsertOne',
+        payload: mappedAppointment,
+      });
+
+      toast.success('Neuer Termin erstellt!');
+    });
+
+    // APPOINTMENT UPDATE
+    this.connection.on('AppointmentUpdated', (appointment: any) => {
+      console.log('SignalR: Received AppointmentUpdated', appointment);
+
+      store.dispatch({
+        type: 'appointments/upsertOne',
+        payload: appointment,
+      });
+
+      toast.info('Termin wurde aktualisiert');
     });
 
     // Lifecycle

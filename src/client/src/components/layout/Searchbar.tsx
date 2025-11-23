@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   InputBase,
@@ -22,73 +22,73 @@ import {
   EmojiObjects as SkillIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { Skill } from '../../types/models/Skill';
+import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
+import { fetchAllSkills } from '../../features/skills/thunks/skillsThunks';
+import { selectAllSkills, selectSkillsLoading } from '../../store/selectors/skillsSelectors';
+import { useDebounce } from '../../hooks/useDebounce';
 import { User } from '../../types/models/User';
 
-type SearchResult = {
-  skills: {
-    items: Skill[];
-    isLoading: boolean;
-  };
-  users: {
-    items: User[];
-    isLoading: boolean;
-  };
-  popularSearches: string[];
-};
+const POPULAR_SEARCHES = [
+  'python programming',
+  'react js',
+  'webentwicklung',
+  'ai skills',
+  'machine learning',
+];
+
+const MAX_SUGGESTIONS = 5;
 
 const SearchBar: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Beispiel-Zustand für die Suchergebnisse
-  const [searchResults] = useState<SearchResult>({
+  // Debounce search query to avoid excessive API calls
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Get search results from Redux state using selectors
+  const skills = useAppSelector(selectAllSkills);
+  const isLoading = useAppSelector(selectSkillsLoading);
+
+  /**
+   * Live search implementation with debouncing
+   * Prevents infinite loops by ONLY depending on debouncedSearchQuery and dispatch
+   * dispatch is stable, so no re-render loop
+   */
+  useEffect(() => {
+    if (debouncedSearchQuery.length > 2) {
+      // Dispatch search action with query parameter
+      dispatch(fetchAllSkills({
+        searchTerm: debouncedSearchQuery,
+        pageNumber: 1,
+        pageSize: MAX_SUGGESTIONS
+      }));
+      setIsOpen(true);
+    } else if (debouncedSearchQuery.length === 0) {
+      setIsOpen(false);
+    }
+  }, [debouncedSearchQuery, dispatch]);
+
+  /**
+   * Memoize search results to prevent unnecessary re-renders
+   * Uses useMemo to compute derived state only when dependencies change
+   */
+  const searchResults = useMemo(() => ({
     skills: {
-      items: [],
-      isLoading: false,
+      items: skills || [],
+      isLoading: isLoading,
     },
     users: {
-      items: [],
+      items: [] as User[], // TODO: Implement user search in future
       isLoading: false,
     },
-    popularSearches: [
-      'python programming',
-      'react js',
-      'webentwicklung',
-      'ai skills',
-      'machine learning',
-    ],
-  });
-
-  // TEMPORARY DISABLE - CAUSING INFINITE LOOP - EXACT ERROR FROM STACK TRACE!
-  // useEffect(() => {
-  //   if (debouncedSearchQuery.length > 2) {
-  //     // Skills suchen
-  //     searchSkillsByQuery(debouncedSearchQuery);
-  //
-  //     // Hier könntest du weitere Suchoperationen durchführen, z.B. nach Benutzern suchen
-  //     // Diese könnten aus einem useUsers Hook kommen
-  //
-  //     setIsOpen(true);
-  //   } else if (debouncedSearchQuery?.length === 0) {
-  //     setIsOpen(false);
-  //   }
-  // }, [debouncedSearchQuery, searchSkillsByQuery]);
-
-  // TEMPORARY DISABLE - CAUSING INFINITE setState LOOPS!
-  // useEffect(() => {
-  //   setSearchResults((prev: SearchResult) => ({
-  //     ...prev,
-  //     skills: {
-  //       items: skills || [],
-  //       isLoading: isLoading,
-  //     },
-  //   }));
-  // }, [skills, isLoading]);
+    popularSearches: POPULAR_SEARCHES,
+  }), [skills, isLoading]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
@@ -97,45 +97,42 @@ const SearchBar: React.FC = () => {
     }
   };
 
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     setSearchQuery('');
     setIsOpen(false);
     if (inputRef.current) {
       inputRef.current.focus();
     }
-  };
+  }, []);
 
-  const handleSearchSubmit = (event: React.FormEvent) => {
+  const handleSearchSubmit = useCallback((event: React.FormEvent) => {
     event.preventDefault();
     if (searchQuery.trim() !== '') {
       navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
       setIsOpen(false);
     }
-  };
+  }, [searchQuery, navigate]);
 
-  const handleSkillClick = (skillId: string) => {
+  const handleSkillClick = useCallback((skillId: string) => {
     navigate(`/skills/${skillId}`);
     setIsOpen(false);
-  };
+  }, [navigate]);
 
-  const handleUserClick = (userId: string) => {
+  const handleUserClick = useCallback((userId: string) => {
     navigate(`/profile/${userId}`);
     setIsOpen(false);
-  };
+  }, [navigate]);
 
-  const handlePopularSearchClick = (search: string) => {
+  const handlePopularSearchClick = useCallback((search: string) => {
     setSearchQuery(search);
     navigate(`/search?q=${encodeURIComponent(search)}`);
     setIsOpen(false);
-  };
+  }, [navigate]);
 
-  const handleClickAway = () => {
+  const handleClickAway = useCallback(() => {
     setIsOpen(false);
     setIsFocused(false);
-  };
-
-  // Maximale Anzahl für Vorschläge
-  const MAX_SUGGESTIONS = 5;
+  }, []);
 
   return (
     <ClickAwayListener onClickAway={handleClickAway}>

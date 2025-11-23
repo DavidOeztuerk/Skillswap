@@ -46,6 +46,23 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
 
+      // Versuche das Video automatisch zu starten (kann durch Autoplay-Policy blockiert werden)
+      // Fehler werden nur geloggt, damit die UI nicht abstürzt.
+      try {
+        // play() gibt ein Promise zurück, handle mögliche Ablehnungen
+        const p = videoRef.current.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch((e) => {
+            // Silent debug, hilft in Browser-Console zu sehen, ob Autoplay blockiert wurde
+            // eslint-disable-next-line no-console
+            console.debug('RemoteVideo: play() rejected', e);
+          });
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.debug('RemoteVideo: play() threw', err);
+      }
+
       // Überwache, ob Video-Tracks aktiv sind
       const checkVideoTracks = () => {
         const hasVideoTracks = stream
@@ -70,6 +87,14 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
         stream.removeEventListener('removetrack', handleTrackChange);
       };
     } else {
+      if (videoRef.current) {
+        try {
+          videoRef.current.srcObject = null;
+          videoRef.current.pause();
+        } catch (e) {
+          // ignore
+        }
+      }
       setVideoActive(false);
     }
   }, [stream]);
@@ -180,17 +205,22 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
         />
       )}
 
-      {/* Video-Element */}
+      {/* Video-Element – immer gerendert, aber transparent wenn kein Bild */}
       {stream && (
         <video
           ref={videoRef}
           autoPlay
           playsInline
           style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
             width: '100%',
             height: '100%',
             objectFit: isScreenSharing ? 'contain' : 'cover',
-            display: videoActive && !isVideoOff ? 'block' : 'none',
+            opacity: (videoActive && !isVideoOff) ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+            zIndex: 0,
           }}
         />
       )}

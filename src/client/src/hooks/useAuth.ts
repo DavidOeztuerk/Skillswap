@@ -34,6 +34,13 @@ import {
   selectUserRoles,
   selectIsProfileComplete
 } from '../store/selectors/authSelectors';
+import { LoginRequest } from '../types/contracts/requests/LoginRequest';
+import { RegisterRequest } from '../types/contracts/requests/RegisterRequest';
+import { UpdateProfileRequest } from '../types/contracts/requests/UpdateProfileRequest';
+import { ChangePasswordRequest } from '../types/contracts/requests/ChangePasswordRequest';
+import { VerifyEmailRequest } from '../types/contracts/requests/VerifyEmailRequest';
+import { VerifyTwoFactorCodeRequest } from '../types/contracts/requests/VerifyTwoFactorCodeRequest';
+import { DisableTwoFactorRequest } from '../types/contracts/requests/DisableTwoFactorRequest';
 
 interface LocationState {
   from?: { pathname: string };
@@ -69,30 +76,30 @@ export const useAuth = () => {
   const actions = useMemo(() => ({
     
     // === AUTH OPERATIONS ===
-    login: (credentials: any, redirectPath?: string) => {
+    login: (credentials: LoginRequest, redirectPath?: string) => {
       const result = dispatch(loginAction(credentials));
-      
-      result.then((action: any) => {
+
+      result.then((action: { meta: { requestStatus: string } }) => {
         if (action.meta.requestStatus === 'fulfilled') {
           const state = location.state as LocationState;
           const from = state?.from?.pathname || redirectPath || '/dashboard';
           navigate(from, { replace: true });
         }
       });
-      
+
       return result;
     },
 
-    register: (userData: any, redirectPath?: string) => {
+    register: (userData: RegisterRequest, redirectPath?: string) => {
       const result = dispatch(registerAction(userData));
-      
-      result.then((action: any) => {
+
+      result.then((action: { meta: { requestStatus: string } }) => {
         if (action.meta.requestStatus === 'fulfilled') {
           const path = redirectPath || '/dashboard';
           navigate(path, { replace: true });
         }
       });
-      
+
       return result;
     },
 
@@ -115,7 +122,7 @@ export const useAuth = () => {
       return dispatch(getProfile());
     },
 
-    updateProfile: (profileData: any) => {
+    updateProfile: (profileData: UpdateProfileRequest) => {
       return dispatch(updateProfileAction(profileData));
     },
 
@@ -124,11 +131,11 @@ export const useAuth = () => {
     },
 
     // === PASSWORD & SECURITY ===
-    changePassword: (passwordData: any) => {
+    changePassword: (passwordData: ChangePasswordRequest) => {
       return dispatch(changePasswordAction(passwordData));
     },
 
-    verifyEmail: (request: any) => {
+    verifyEmail: (request: VerifyEmailRequest) => {
       return dispatch(verifyEmailAction(request));
     },
 
@@ -137,7 +144,7 @@ export const useAuth = () => {
       return dispatch(generateTwoFactorSecretAction());
     },
 
-    verifyTwoFactorCode: (request: any) => {
+    verifyTwoFactorCode: (request: VerifyTwoFactorCodeRequest) => {
       return dispatch(verifyTwoFactorCodeAction(request));
     },
 
@@ -145,7 +152,7 @@ export const useAuth = () => {
       return dispatch(getTwoFactorStatus());
     },
 
-    disableTwoFactor: (request: any) => {
+    disableTwoFactor: (request: DisableTwoFactorRequest) => {
       return dispatch(disableTwoFactor(request));
     },
 
@@ -154,7 +161,7 @@ export const useAuth = () => {
       return dispatch(requestPasswordReset(email));
     },
 
-    resetPassword: (data: any) => {
+    resetPassword: (data: { token: string; password: string }) => {
       return dispatch(resetPassword(data));
     },
 

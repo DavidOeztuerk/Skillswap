@@ -3,7 +3,13 @@ import { Notification, NotificationSettings } from "../../types/models/Notificat
 import { RequestState } from "../../types/common/RequestState";
 
 export const notificationsAdapter = createEntityAdapter<Notification, EntityId>({
-  selectId: (notification) => notification.id,
+  selectId: (notification) => {
+    if (!notification?.id) {
+      console.error('Notification without ID detected:', notification);
+      return `temp-${Date.now()}-${Math.random()}`;
+    }
+    return notification.id;
+  },
   sortComparer: (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 });
 

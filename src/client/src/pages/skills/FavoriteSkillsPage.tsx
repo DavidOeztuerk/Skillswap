@@ -35,31 +35,12 @@ import skillService from '../../api/services/skillsService';
 import { toast } from 'react-toastify';
 import PageHeader from '../../components/layout/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
-import { isSuccessResponse } from '../../types/api/UnifiedResponse';
-
-interface FavoriteSkillDetail {
-  skillId: string;
-  name: string;
-  description: string;
-  category: string;
-  proficiencyLevel: string;
-  isOffered: boolean;
-  price?: number;
-  currency?: string;
-  rating: number;
-  reviewCount: number;
-  matchCount: number;
-  addedToFavoritesAt: string;
-  thumbnailUrl?: string;
-  tags: string[];
-  ownerId: string;
-  ownerName: string;
-  ownerAvatarUrl?: string;
-}
+import { isSuccessResponse, isPagedResponse } from '../../types/api/UnifiedResponse';
+import { GetUserSkillResponse } from '../../types/contracts/responses/SkillResponses';
 
 const FavoriteSkillsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [favoriteSkills, setFavoriteSkills] = useState<FavoriteSkillDetail[]>([]);
+  const [favoriteSkills, setFavoriteSkills] = useState<GetUserSkillResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -79,8 +60,10 @@ const FavoriteSkillsPage: React.FC = () => {
       if (isSuccessResponse(response)) {
         if (response.data) {
           setFavoriteSkills(response.data);
-          setTotalPages(response.pagination.totalPages || 1);
-          setTotalCount(response.pagination.totalRecords || 0);
+          if (isPagedResponse(response)) {
+            setTotalPages(response.totalPages || 1);
+            setTotalCount(response.totalRecords || 0);
+          }
         }
       }
     } catch (error: unknown) {
@@ -244,7 +227,7 @@ const FavoriteSkillsPage: React.FC = () => {
               >
                 {skill.thumbnailUrl ? (
                   <img
-                    src={skill.thumbnailUrl}
+                    src={skill.thumbnailUrl || ''}
                     alt={skill.name}
                     style={{
                       width: '100%',
@@ -296,13 +279,13 @@ const FavoriteSkillsPage: React.FC = () => {
                 <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
                   <Chip
                     size="small"
-                    label={skill.category}
+                    label={skill.category.name}
                     icon={<CategoryIcon />}
                     variant="outlined"
                   />
                   <Chip
                     size="small"
-                    label={skill.proficiencyLevel}
+                    label={skill.proficiencyLevel.level}
                     variant="outlined"
                     color="primary"
                   />
@@ -330,7 +313,7 @@ const FavoriteSkillsPage: React.FC = () => {
                     <Stack direction="row" spacing={0.5} alignItems="center">
                       <HandshakeIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                       <Typography variant="body2" color="text.secondary">
-                        {skill.matchCount} Matches
+                        {skill.matchCount || 0} Matches
                       </Typography>
                     </Stack>
                   </Tooltip>
@@ -398,7 +381,7 @@ const FavoriteSkillsPage: React.FC = () => {
               {/* Added to favorites date */}
               <Box sx={{ px: 2, pb: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Favorit seit: {new Date(skill.addedToFavoritesAt).toLocaleDateString('de-DE')}
+                  Favorit seit: {skill.addedToFavoritesAt ? new Date(skill.addedToFavoritesAt).toLocaleDateString('de-DE') : 'Unbekannt'}
                 </Typography>
               </Box>
             </Card>

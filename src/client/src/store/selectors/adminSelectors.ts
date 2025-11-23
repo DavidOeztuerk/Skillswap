@@ -275,9 +275,10 @@ export const selectFilteredAuditLogs = createSelector(
 
     if (filters.user.trim()) {
       const userTerm = filters.user.toLowerCase();
-      filtered = filtered.filter(log => 
-        log.actor.firstName?.toLowerCase().includes(userTerm) ||
-        log.actor.email?.toLowerCase().includes(userTerm)
+      filtered = filtered.filter(log =>
+        log.actor?.firstName?.toLowerCase().includes(userTerm) ||
+        log.actor?.email?.toLowerCase().includes(userTerm) ||
+        log.userName?.toLowerCase().includes(userTerm)
       );
     }
 

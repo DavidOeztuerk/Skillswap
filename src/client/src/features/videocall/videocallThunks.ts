@@ -1,7 +1,9 @@
+// src/features/videocall/videocallThunks.ts
 import videoCallService from "../../api/services/videoCallService";
 import { createAppAsyncThunk } from "../../store/thunkHelpers";
 import { SuccessResponse, isSuccessResponse } from "../../types/api/UnifiedResponse";
 import { VideoCallConfig } from "../../types/models/VideoCallConfig";
+import { ChatMessage, SendChatMessageRequest } from "../../types/models/ChatMessage";
 
 export const getCallConfig = createAppAsyncThunk<SuccessResponse<VideoCallConfig>, string>(
   'videoCall/getCallConfig',
@@ -25,17 +27,18 @@ export const saveCallInfo = createAppAsyncThunk<void, { roomId: string; duration
   }
 );
 
-export const joinVideoCall = createAppAsyncThunk<void, string>(
+export const joinVideoCall = createAppAsyncThunk<void, { sessionId: string; connectionId?: string; cameraEnabled?: boolean; microphoneEnabled?: boolean; deviceInfo?: string }>(
   'videoCall/joinCall',
-  async (roomId: string, {}) => {
-    await videoCallService.joinCall(roomId);
+  async (payload, {}) => {
+    const { sessionId, connectionId, cameraEnabled = true, microphoneEnabled = true, deviceInfo } = payload;
+    await videoCallService.joinCall(sessionId, connectionId, cameraEnabled, microphoneEnabled, deviceInfo);
   }
 );
 
 export const leaveVideoCall = createAppAsyncThunk<void, string>(
   'videoCall/leaveCall',
-  async (roomId: string, {}) => {
-    await videoCallService.leaveCall(roomId);
+  async (sessionId: string, {}) => {
+    await videoCallService.leaveCall(sessionId);
   }
 );
 
@@ -73,5 +76,22 @@ export const reportTechnicalIssue = createAppAsyncThunk<void, { roomId: string; 
   'videoCall/reportIssue',
   async ({ roomId, issue, description }, {}) => {
     await videoCallService.reportTechnicalIssue(roomId, issue, description);
+  }
+);
+
+// Chat persistence - messages are stored in database and retrievable
+export const sendChatMessage = createAppAsyncThunk<boolean, SendChatMessageRequest>(
+  'videoCall/sendChatMessage',
+  async (request, { rejectWithValue }) => {
+    const response = await videoCallService.sendChatMessage(request);
+    return isSuccessResponse(response) ? response.data! : rejectWithValue(response);
+  }
+);
+
+export const getChatHistory = createAppAsyncThunk<ChatMessage[], { sessionId: string; limit?: number }>(
+  'videoCall/getChatHistory',
+  async ({ sessionId, limit }, { rejectWithValue }) => {
+    const response = await videoCallService.getChatHistory(sessionId, limit);
+    return isSuccessResponse(response) ? response.data! : rejectWithValue(response);
   }
 );

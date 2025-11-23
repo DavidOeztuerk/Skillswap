@@ -94,8 +94,8 @@ const authService = {
    * Update profile
    */
   async updateProfile(profileData: UpdateProfileRequest): Promise<ApiResponse<UpdateUserProfileResponse>> {
-    return apiClient.post<UpdateUserProfileResponse>(
-      PROFILE_ENDPOINTS.UPDATE, 
+    return apiClient.put<UpdateUserProfileResponse>(
+      PROFILE_ENDPOINTS.UPDATE,
       profileData
     );
   },

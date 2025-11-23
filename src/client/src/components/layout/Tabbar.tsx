@@ -27,6 +27,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { useAppSelector } from '../../store/store.hooks';
 import { usePermissions } from '../../contexts/PermissionContext';
+import { selectPendingMatches } from '../../store/selectors/matchmakingSelectors';
 
 const Tabbar: React.FC = () => {
   const location = useLocation();
@@ -36,13 +37,9 @@ const Tabbar: React.FC = () => {
   const { hasPermission, isAdmin } = usePermissions();
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
   
-  
-  // Get dynamic badge counts from Redux store - use selector
-  const pendingMatches = useAppSelector((state) => {
-    const matchesAdapter = state.matchmaking;
-    if (!matchesAdapter?.entities) return [];
-    return Object.values(matchesAdapter.entities).filter(match => match?.status === 'pending');
-  });
+
+  // Get dynamic badge counts from Redux store - use memoized selector
+  const pendingMatches = useAppSelector(selectPendingMatches);
 
   // Bestimme den aktiven Pfad für die Navigation mit verbesserter Logik
   const getCurrentPath = () => {

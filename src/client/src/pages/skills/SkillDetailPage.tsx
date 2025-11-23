@@ -47,6 +47,7 @@ import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { useEmailVerificationContext } from '../../contexts/EmailVerificationContext';
 import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
+import { MatchRequestDisplay } from '../../types/contracts/MatchmakingDisplay';
 import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
 import errorService from '../../services/errorService';
 import { useAuth } from '../../hooks/useAuth';
@@ -300,7 +301,7 @@ const SkillDetailPage: React.FC = () => {
 
     // Check if user already has a pending request for this skill
     const existingRequest = outgoingRequests?.find(
-      (req: any) => req.skillId === selectedSkill.id && 
+      (req: MatchRequestDisplay) => req.skillId === selectedSkill.id &&
       (req.status === 'pending' || req.status === 'accepted')
     );
 

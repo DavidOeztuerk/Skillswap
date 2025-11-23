@@ -19,6 +19,8 @@ import {
   selectUnreadNotifications,
   selectNotificationStatistics
 } from '../store/selectors/notificationsSelectors';
+import { NotificationType, NotificationSettings } from '../types/models/Notification';
+import { NotificationHistoryRequest } from '../api/services/notificationService';
 
 /**
  * 🚀 ROBUSTE USENOTIFICATIONS HOOK 
@@ -46,7 +48,7 @@ export const useNotifications = () => {
   const actions = useMemo(() => ({
     
     // === FETCH OPERATIONS ===
-    loadNotifications: (request: any = {}) => {
+    loadNotifications: (request: NotificationHistoryRequest = {}) => {
       return dispatch(fetchNotifications(request));
     },
 
@@ -71,7 +73,7 @@ export const useNotifications = () => {
       return dispatch(deleteNotification(notificationId));
     },
 
-    updateSettings: (newSettings: any) => {
+    updateSettings: (newSettings: NotificationSettings) => {
       return dispatch(updateNotificationSettings(newSettings));
     },
 
@@ -79,9 +81,9 @@ export const useNotifications = () => {
 
   // ===== COMPUTED VALUES (memoized) =====
   const computed = useMemo(() => ({
-    
+
     // Get notifications by type
-    getNotificationsByType: (type: any) => {
+    getNotificationsByType: (type: NotificationType) => {
       return notifications?.filter(notification => notification?.type === type) || [];
     },
 
@@ -91,14 +93,14 @@ export const useNotifications = () => {
     },
 
     // Check if has unread of type
-    hasUnreadOfType: (type: any) => {
+    hasUnreadOfType: (type: NotificationType) => {
       return notifications?.some(
         notification => notification?.type === type && !notification?.isRead
       ) || false;
     },
 
     // Get unread count by type
-    getUnreadCountByType: (type: any) => {
+    getUnreadCountByType: (type: NotificationType) => {
       return notifications?.filter(
         notification => notification?.type === type && !notification?.isRead
       ).length || 0;

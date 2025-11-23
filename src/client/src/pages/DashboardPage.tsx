@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, memo, useMemo } from 'react';
+import React, { useEffect, memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -25,7 +25,6 @@ import {
   VideoCall as VideoCallIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
-
 import PageHeader from '../components/layout/PageHeader';
 import PageContainer from '../components/layout/PageContainer';
 import { SkeletonLoader } from '../components/ui/SkeletonLoader';
@@ -63,25 +62,24 @@ const DashboardPage: React.FC = memo(() => {
     getErrorType,
   } = useApiErrorRecovery();
 
-  // ✅ FIXED STABLE DATA LOADING - no more infinite loops!
-  const loadData = useCallback(async () => {
-    await withLoading(LoadingKeys.FETCH_DATA, async () => {
-      await executeWithRecovery(async () => {
-        // 🎯 Fixed: Uses centralized dashboard hook with proper data loading
-        await loadDashboardData();
-      }, {
-        maxRetries: 1,
-        retryDelay: 2000,
-        exponentialBackoff: false,
-      });
-    });
-  }, [withLoading, executeWithRecovery, loadDashboardData]);
-
   useEffect(() => {
-    void loadData();
-  }, [loadData]); 
+    // Load dashboard data once on mount
+    const loadData = async () => {
+      await withLoading(LoadingKeys.FETCH_DATA, async () => {
+        await executeWithRecovery(async () => {
+          await loadDashboardData();
+        }, {
+          maxRetries: 1,
+          retryDelay: 2000,
+          exponentialBackoff: false,
+        });
+      });
+    };
 
-  // ⚡ PERFORMANCE: Memoize dashboard cards to prevent re-creation on every render
+    void loadData();
+    // Only run once on mount
+  }, []); 
+
   const dashboardCards = useMemo(() => cards.map(card => ({
     ...card,
     icon: card.title === 'Skills' ? <SkillsIcon fontSize="large" /> :
@@ -91,9 +89,6 @@ const DashboardPage: React.FC = memo(() => {
     action: () => navigate(card.path),
   })), [cards, navigate]);
 
-  // ✅ Data already computed via selectors - teachingSkills, learningSkills, upcomingAppointments
-
-  // ⚡ PERFORMANCE: Memoize loading and error states
   const isDashboardLoading = useMemo(() => 
     contextLoading(LoadingKeys.FETCH_DATA) || isLoading, 
     [contextLoading, isLoading]
@@ -278,13 +273,11 @@ const DashboardPage: React.FC = memo(() => {
                                 variant="body2"
                                 color="text.primary"
                               >
-                                {appointment.teacherId === user?.id
-                                  ? 'Schüler:in'
-                                  : 'Lehrer:in'}
+                                {appointment.organizerUserId === user?.id
+                                  ? 'Teilnehmer:in'
+                                  : 'Organisator:in'}
                                 :{' '}
-                                {appointment.teacherId === user?.id
-                                  ? `${appointment.studentDetails?.firstName || ''} ${appointment.studentDetails?.lastName || ''}`
-                                  : `${appointment.teacherDetails?.firstName || ''} ${appointment.teacherDetails?.lastName || ''}`}
+                                {appointment.otherPartyName || 'Unbekannt'}
                               </Typography>
                               {appointment.notes && (
                                 <Typography

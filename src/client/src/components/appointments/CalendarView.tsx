@@ -26,8 +26,9 @@ import {
     SwapHoriz,
     AttachMoney,
 } from '@mui/icons-material';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, addWeeks, isSameMonth, isSameDay, isToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, addWeeks, isSameMonth, isSameDay, isToday, differenceInMinutes } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { Appointment } from '../../types/models/Appointment';
 
 type ViewType = 'month' | 'week' | 'day';
@@ -44,15 +45,28 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, onAppointment
     const [viewType, setViewType] = useState<ViewType>('month');
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const navigate = useNavigate();
 
-    // Update current time every minute for the time indicator
+    // Auto-update current time every minute for red time indicator and upcoming meetings
     useEffect(() => {
-        const timer = setInterval(() => {
+        const interval = setInterval(() => {
             setCurrentTime(new Date());
-        }, 60000); // Update every minute
+        }, 60000); // Update every 60 seconds
 
-        return () => clearInterval(timer);
+        return () => clearInterval(interval);
     }, []);
+
+    // Get upcoming appointments (within next 10 minutes)
+    const upcomingAppointments = appointments.filter(apt => {
+        if (apt.status !== 'Accepted') return false;
+
+        const startTime = new Date(apt.scheduledDate);
+        const now = currentTime;
+        const minutesUntilStart = differenceInMinutes(startTime, now);
+
+        // Show if meeting starts within next 10 minutes or already started (but not more than 5 minutes ago)
+        return minutesUntilStart >= -5 && minutesUntilStart <= 10 && apt.meetingLink;
+    }).sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
 
     const handleViewChange = (_: React.MouseEvent<HTMLElement>, newView: ViewType | null) => {
         if (newView !== null) {
@@ -225,10 +239,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, onAppointment
         const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
         const hours = Array.from({ length: 24 }, (_, i) => i);
 
-        // Calculate current time position
+        // Calculate current time position in pixels (60px per hour)
         const currentHour = currentTime.getHours();
         const currentMinute = currentTime.getMinutes();
-        const currentTimePosition = (currentHour * 60 + currentMinute) / (24 * 60) * 100;
+        const HOUR_HEIGHT = 60; // px per hour
+        const currentTimePositionPx = (currentHour * HOUR_HEIGHT) + (currentMinute / 60 * HOUR_HEIGHT);
 
         return (
             <Box sx={{ position: 'relative' }}>
@@ -245,13 +260,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, onAppointment
                         </Grid>
                     ))}
                 </Grid>
-                <Box sx={{ position: 'relative', height: '600px', overflowY: 'auto' }}>
+                <Box sx={{
+                    position: 'relative',
+                    height: '100%',
+                    overflowY: 'auto',
+                    scrollBehavior: 'smooth',
+                    // GPU acceleration + Anti-Aliasing für scharfes Rendering
+                    transform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden',
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                    // Bessere Border-Qualität
+                    imageRendering: 'crisp-edges'
+                }}>
                     {/* Time indicator line */}
                     {isToday(weekStart) || weekDays.some(day => isToday(day)) && (
                         <Box
                             sx={{
                                 position: 'absolute',
-                                top: `${currentTimePosition}%`,
+                                top: `${currentTimePositionPx}px`,
                                 left: 0,
                                 right: 0,
                                 height: 2,
@@ -336,27 +363,40 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, onAppointment
 
     const renderDayView = () => {
         const hours = Array.from({ length: 24 }, (_, i) => i);
-        const dayAppointments = appointments.filter(apt => 
+        const dayAppointments = appointments.filter(apt =>
             isSameDay(new Date(apt.scheduledDate), currentDate)
         );
 
-        // Calculate current time position for today
+        // Calculate current time position in pixels (60px per hour)
         const currentHour = currentTime.getHours();
         const currentMinute = currentTime.getMinutes();
-        const currentTimePosition = (currentHour * 60 + currentMinute) / (24 * 60) * 100;
+        const HOUR_HEIGHT = 60; // px per hour
+        const currentTimePositionPx = (currentHour * HOUR_HEIGHT) + (currentMinute / 60 * HOUR_HEIGHT);
 
         return (
             <Box sx={{ position: 'relative' }}>
                 <Typography variant="h6" sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
                     {format(currentDate, 'EEEE, d. MMMM yyyy', { locale: de })}
                 </Typography>
-                <Box sx={{ position: 'relative', height: '600px', overflowY: 'auto' }}>
+                <Box sx={{
+                    position: 'relative',
+                    height: '100%',
+                    overflowY: 'auto',
+                    scrollBehavior: 'smooth',
+                    // GPU acceleration + Anti-Aliasing für scharfes Rendering
+                    transform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden',
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                    // Bessere Border-Qualität
+                    imageRendering: 'crisp-edges'
+                }}>
                     {/* Time indicator line for today */}
                     {isToday(currentDate) && (
                         <Box
                             sx={{
                                 position: 'absolute',
-                                top: `${currentTimePosition}%`,
+                                top: `${currentTimePositionPx}px`,
                                 left: 0,
                                 right: 0,
                                 height: 2,
@@ -428,8 +468,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, onAppointment
                                                         </Typography>
                                                     )}
                                                     {apt.sessionNumber && apt.sessionNumber > 1 && (
-                                                        <Chip 
-                                                            label={`Session ${apt.sessionNumber}/${apt.totalSessions}`}
+                                                        <Chip
+                                                            label={`Session ${apt.sessionNumber}/${apt.totalSessionsInSeries || apt.totalSessions || '?'}`}
                                                             size="small"
                                                             sx={{ mt: 0.5, bgcolor: 'rgba(255,255,255,0.2)' }}
                                                         />
@@ -463,7 +503,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, onAppointment
     };
 
     return (
-        <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
+        <Paper
+            elevation={2}
+            sx={{
+                p: 2,
+                height: '100%',
+                WebkitFontSmoothing: 'antialiased',
+                MozOsxFontSmoothing: 'grayscale',
+                textRendering: 'optimizeLegibility',
+            }}
+        >
             <Box sx={{ mb: 2 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Stack direction="row" spacing={1} alignItems="center">
@@ -508,6 +557,73 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, onAppointment
                         </ToggleButton>
                     </ToggleButtonGroup>
                 </Stack>
+
+                {/* Upcoming Meetings Panel */}
+                {upcomingAppointments.length > 0 && (
+                    <Box sx={{ mt: 2, mb: 2 }}>
+                        <Card sx={{ bgcolor: 'primary.light', borderLeft: 4, borderColor: 'primary.main' }}>
+                            <CardContent>
+                                <Stack spacing={1.5}>
+                                    <Typography variant="subtitle2" fontWeight="bold" color="primary.dark">
+                                        ⚡ Bevorstehende Termine
+                                    </Typography>
+                                    {upcomingAppointments.map(apt => {
+                                        const minutesUntil = differenceInMinutes(new Date(apt.scheduledDate), currentTime);
+                                        const isStartingSoon = minutesUntil >= 0 && minutesUntil <= 5;
+                                        const hasStarted = minutesUntil < 0;
+
+                                        return (
+                                            <Box
+                                                key={apt.id}
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    p: 1.5,
+                                                    bgcolor: 'background.paper',
+                                                    borderRadius: 1,
+                                                    boxShadow: 1
+                                                }}
+                                            >
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                    <Box>
+                                                        {getAppointmentIcon(apt)}
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="body2" fontWeight="medium">
+                                                            {apt.title}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {format(new Date(apt.scheduledDate), 'HH:mm', { locale: de })} Uhr
+                                                            {hasStarted ? ' (läuft bereits)' : ` (in ${minutesUntil} Min.)`}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                                <Button
+                                                    variant={isStartingSoon || hasStarted ? "contained" : "outlined"}
+                                                    color={isStartingSoon || hasStarted ? "success" : "primary"}
+                                                    size="small"
+                                                    startIcon={<VideoCall />}
+                                                    onClick={() => navigate(`/videocall/${apt.id}`)}
+                                                    sx={{
+                                                        minWidth: 120,
+                                                        animation: isStartingSoon ? 'pulse 2s infinite' : 'none',
+                                                        '@keyframes pulse': {
+                                                            '0%, 100%': { opacity: 1 },
+                                                            '50%': { opacity: 0.7 }
+                                                        }
+                                                    }}
+                                                >
+                                                    {hasStarted ? 'Beitreten' : 'Jetzt beitreten'}
+                                                </Button>
+                                            </Box>
+                                        );
+                                    })}
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Box>
+                )}
 
                 {/* Legend */}
                 <Stack direction="row" spacing={1} sx={{ mt: 2 }}>

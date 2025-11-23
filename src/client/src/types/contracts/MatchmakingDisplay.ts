@@ -6,7 +6,7 @@ export interface MatchRequestDisplay {
   skillName: string;
   skillCategory: string;
   message: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'expired';
+  status: 'pending' | 'accepted' | 'rejected' | 'expired' | 'counter';
   type: 'incoming' | 'outgoing';
   
   // User info (requester or target based on type)
@@ -60,10 +60,24 @@ export interface MatchDisplay {
   requesterId: string;
   responderId: string;
 
+  // Admin page compatibility - user IDs
+  user1Id?: string;
+  user2Id?: string;
+
   // Exchange info
   isSkillExchange?: boolean;
   exchangeSkillId?: string;
   exchangeSkillName?: string;
+
+  // Admin page compatibility - skill objects
+  offeredSkill?: {
+    id: string;
+    name: string;
+  };
+  requestedSkill?: {
+    id: string;
+    name: string;
+  };
 
   // Monetary info
   isMonetary?: boolean;
@@ -87,6 +101,9 @@ export interface MatchDisplay {
   createdAt: string;
   acceptedAt?: string;
   completedAt?: string;
+
+  // Rating given after match completion
+  rating?: number;
 
   isLearningMode: boolean;
   preferredDays: string[];
