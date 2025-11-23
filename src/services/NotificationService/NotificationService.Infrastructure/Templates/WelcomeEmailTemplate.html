@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Willkommen bei Skillswap!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 48px;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-top: 20px;
+        }
+        .welcome-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .welcome-banner h2 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .get-started-button {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white !important;
+            padding: 15px 40px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .get-started-button:hover {
+            background-color: #45a049;
+        }
+        .feature-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #4CAF50;
+            padding: 15px 20px;
+            margin: 15px 0;
+        }
+        .feature-box h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        .steps {
+            counter-reset: step-counter;
+            list-style: none;
+            padding: 0;
+        }
+        .steps li {
+            counter-increment: step-counter;
+            margin: 15px 0;
+            padding-left: 40px;
+            position: relative;
+        }
+        .steps li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background-color: #4CAF50;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        .social-links {
+            margin: 20px 0;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #4CAF50;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🔄 Skillswap</div>
+        </div>
+
+        <div class="welcome-banner">
+            <h2>🎉 Willkommen bei Skillswap, {{FirstName}}!</h2>
+            <p style="margin: 10px 0 0 0; font-size: 18px;">Deine E-Mail-Adresse wurde erfolgreich bestätigt!</p>
+        </div>
+
+        <p>Wir freuen uns sehr, dass du Teil der Skillswap-Community bist! 🚀</p>
+
+        <p>
+            Skillswap ist die Plattform für gegenseitigen Wissensaustausch. Hier kannst du deine Fähigkeiten mit anderen teilen
+            und gleichzeitig neue Skills von erfahrenen Mitgliedern lernen.
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{AppUrl}}/dashboard" class="get-started-button">Jetzt loslegen →</a>
+        </div>
+
+        <h2>So startest du durch:</h2>
+
+        <ol class="steps">
+            <li>
+                <strong>Erstelle dein Skill-Profil</strong><br>
+                Zeig der Community, was du kannst und was du lernen möchtest
+            </li>
+            <li>
+                <strong>Finde passende Tauschpartner</strong><br>
+                Unsere intelligente Matching-Funktion findet Skills, die zu dir passen
+            </li>
+            <li>
+                <strong>Vereinbare eine Session</strong><br>
+                Plane einen Termin mit deinem Match und beginne mit dem Austausch
+            </li>
+            <li>
+                <strong>Lerne und lehre</strong><br>
+                Teile dein Wissen und erweitere gleichzeitig deine eigenen Fähigkeiten
+            </li>
+        </ol>
+
+        <h2>Das erwartet dich:</h2>
+
+        <div class="feature-box">
+            <h3>📚 Unbegrenzte Lernmöglichkeiten</h3>
+            <p>Zugriff auf hunderte Skills aus verschiedenen Bereichen - Programmierung, Design, Sprachen, Musik und vieles mehr!</p>
+        </div>
+
+        <div class="feature-box">
+            <h3>🤝 Vertrauensvolle Community</h3>
+            <p>Bewertungssystem, verifizierte Profile und sichere Kommunikation für einen reibungslosen Austausch.</p>
+        </div>
+
+        <div class="feature-box">
+            <h3>📅 Flexible Terminplanung</h3>
+            <p>Integrierter Kalender mit Erinnerungen - plane Sessions wann und wie es für dich passt.</p>
+        </div>
+
+        <div class="feature-box">
+            <h3>💬 Video-Calls & Chat</h3>
+            <p>Direkte Video-Sessions und Chat-Funktion für effektive Online-Zusammenarbeit.</p>
+        </div>
+
+        <h2>Brauchst du Hilfe?</h2>
+        <p>
+            Unser Support-Team steht dir bei Fragen jederzeit zur Verfügung:<br>
+            📧 <a href="mailto:support@skillswap.com">support@skillswap.com</a>
+        </p>
+
+        <p>
+            Oder besuche unsere <a href="{{AppUrl}}/help">Hilfeseite</a> für FAQs und Anleitungen.
+        </p>
+
+        <div class="social-links">
+            <p style="margin-bottom: 10px;">Folge uns auf Social Media:</p>
+            <a href="#">Twitter</a> |
+            <a href="#">LinkedIn</a> |
+            <a href="#">Instagram</a>
+        </div>
+
+        <div style="background-color: #e8f5e9; padding: 20px; border-radius: 5px; margin: 30px 0; text-align: center;">
+            <p style="margin: 0; font-size: 16px; color: #2e7d32;">
+                <strong>💡 Tipp:</strong> Vervollständige dein Profil, um bessere Matches zu erhalten und mehr Skills zu entdecken!
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 Skillswap. Alle Rechte vorbehalten.</p>
+            <p>Du erhältst diese E-Mail, weil du dich bei Skillswap registriert hast.</p>
+            <p style="margin-top: 15px;">
+                <a href="{{AppUrl}}/settings/notifications">Benachrichtigungseinstellungen</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
