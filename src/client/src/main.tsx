@@ -1,34 +1,52 @@
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
-import GlobalErrorBoundary from './components/error/GlobalErrorBoundary.tsx';
-import { store } from './store/store.ts';
 import { RouterProvider } from 'react-router-dom';
-import { router } from './routes/Router.tsx';
+import { store } from './store/store';
+import { router } from './routes/Router';
 import './styles/global.css';
 
+// ============================================================================
+// Font Loading - Optimized with proper idle callback
+// ============================================================================
+
 const loadFonts = () => {
+  // Load critical font weight immediately
   import('@fontsource/roboto/400.css');
-  const scheduleRemainingFonts = () => {
+
+  // Schedule non-critical font weights during idle time
+  const loadRemainingFonts = () => {
     import('@fontsource/roboto/300.css');
     import('@fontsource/roboto/500.css');
     import('@fontsource/roboto/700.css');
   };
-  if (typeof window.requestIdleCallback === 'function') {
-    requestIdleCallback(scheduleRemainingFonts);
+
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(loadRemainingFonts, { timeout: 2000 });
   } else {
-    setTimeout(scheduleRemainingFonts, 100);
+    setTimeout(loadRemainingFonts, 100);
   }
 };
 
-setTimeout(loadFonts, 0);
+// Load fonts after initial render
+queueMicrotask(loadFonts);
 
-const container = document.getElementById('root')!;
+// ============================================================================
+// App Mounting
+// ============================================================================
+
+const container = document.getElementById('root');
+
+if (!container) {
+  throw new Error('Root element not found. Make sure there is a <div id="root"></div> in your HTML.');
+}
+
 const root = createRoot(container);
 
 root.render(
-  <GlobalErrorBoundary>
+  <StrictMode>
     <Provider store={store}>
       <RouterProvider router={router} />
     </Provider>
-  </GlobalErrorBoundary>
+  </StrictMode>
 );

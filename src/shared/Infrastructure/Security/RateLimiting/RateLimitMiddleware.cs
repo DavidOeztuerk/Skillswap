@@ -1,4 +1,5 @@
 using Infrastructure.Security.Audit;
+using Infrastructure.Security.Monitoring;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -311,11 +312,55 @@ public class RateLimitMiddleware
 
     private async Task HandleRateLimitExceeded(HttpContext context, RateLimitResult result)
     {
+        var clientId = GetClientId(context);
+        var ipAddress = GetClientIpAddress(context);
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
         // Log rate limit violation
         _logger.LogWarning(
             "Rate limit exceeded for {ClientId} on {Method} {Path} - {Used}/{Limit}, Rule: {Rule}, Severity: {Severity}",
-            GetClientId(context), context.Request.Method, context.Request.Path,
+            clientId, context.Request.Method, context.Request.Path,
             result.CurrentCount, result.Limit, result.TriggeredRule?.Name, result.Severity);
+
+        // Send security alert
+        try
+        {
+            var securityAlertService = context.RequestServices.GetService<ISecurityAlertService>();
+            if (securityAlertService != null)
+            {
+                var alertLevel = result.Severity switch
+                {
+                    RateLimitSeverity.Critical => SecurityAlertLevel.Critical,
+                    RateLimitSeverity.Severe => SecurityAlertLevel.High,
+                    RateLimitSeverity.Warning => SecurityAlertLevel.Medium,
+                    _ => SecurityAlertLevel.Low
+                };
+
+                await securityAlertService.SendAlertAsync(
+                    alertLevel,
+                    SecurityAlertType.RateLimitExceeded,
+                    "Rate Limit Exceeded",
+                    $"Rate limit exceeded on {context.Request.Method} {context.Request.Path}. {result.CurrentCount}/{result.Limit} requests in window.",
+                    new Dictionary<string, object>
+                    {
+                        ["ClientId"] = clientId,
+                        ["UserId"] = userId ?? "anonymous",
+                        ["IpAddress"] = ipAddress,
+                        ["Endpoint"] = context.Request.Path.Value ?? "",
+                        ["Method"] = context.Request.Method,
+                        ["CurrentCount"] = result.CurrentCount,
+                        ["Limit"] = result.Limit,
+                        ["RuleName"] = result.TriggeredRule?.Name ?? "unknown",
+                        ["Severity"] = result.Severity.ToString(),
+                        ["UserAgent"] = context.Request.Headers.UserAgent.ToString()
+                    },
+                    CancellationToken.None);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send security alert for rate limit violation");
+        }
 
         // Set appropriate status code
         context.Response.StatusCode = result.TriggeredRule?.Actions.CustomStatusCode ?? 429; // Too Many Requests

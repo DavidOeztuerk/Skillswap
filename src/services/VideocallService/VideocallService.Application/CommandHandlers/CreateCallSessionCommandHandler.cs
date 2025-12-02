@@ -1,6 +1,4 @@
 using CQRS.Handlers;
-using Infrastructure.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VideocallService.Application.Commands;
 using VideocallService.Domain.Entities;
@@ -8,7 +6,7 @@ using VideocallService.Domain.Repositories;
 using EventSourcing;
 using Events.Domain.VideoCall;
 using CQRS.Models;
-using Core.Common.Exceptions;
+using Contracts.VideoCall.Responses;
 
 namespace VideocallService.Application.CommandHandlers;
 
@@ -25,6 +23,24 @@ public class CreateCallSessionCommandHandler(
         CreateCallSessionCommand request,
         CancellationToken cancellationToken)
     {
+        // Validate distinct users
+        if (request.UserId == request.ParticipantUserId)
+        {
+            Logger.LogError(
+                "❌ [CreateCallSession] Cannot create session: InitiatorUserId and ParticipantUserId are identical. " +
+                "UserId={UserId}, ParticipantUserId={ParticipantUserId}",
+                request.UserId, request.ParticipantUserId);
+
+            throw new Core.Common.Exceptions.InvalidOperationException(
+                "CreateCallSession",
+                "SameUserNotAllowed",
+                "Initiator and Participant cannot be the same user");
+        }
+
+        Logger.LogInformation(
+            "✅ [CreateCallSession] User ID mapping - InitiatorUserId: {InitiatorUserId}, ParticipantUserId: {ParticipantUserId}",
+            request.UserId, request.ParticipantUserId);
+
         // Check if initiator has an active call
         var initiatorHasActiveCall = await _unitOfWork.VideoCallSessions
             .HasActiveSessionAsync(request.UserId!, cancellationToken);
@@ -78,6 +94,9 @@ public class CreateCallSessionCommandHandler(
                 session.Id,
                 session.RoomId,
                 session.Status,
-                session.CreatedAt));
+                session.CreatedAt,
+                session.InitiatorUserId,
+                session.ParticipantUserId,
+                session.AppointmentId));
     }
 }

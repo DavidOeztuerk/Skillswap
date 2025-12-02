@@ -57,7 +57,6 @@ const AppointmentsPage: React.FC = () => {
     // Beim Start immer den letzten Status löschen
     setStatusMessage(null);
 
-    // 🔥 APPOINTMENTS LADEN!
     console.log('🎯 AppointmentsPage: Loading appointments...');
     loadAppointments({ pageNumber: 1, pageSize: 12, includePast: true });
   }, []); // Leere deps - läuft nur beim Mount

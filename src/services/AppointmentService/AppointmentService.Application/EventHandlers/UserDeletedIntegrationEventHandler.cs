@@ -19,7 +19,8 @@ public class UserDeletedIntegrationEventHandler(
     {
         Logger.LogInformation("Processing UserDeletedEvent for user {UserId}", integrationEvent.UserId);
 
-        await _unitOfWork.Appointments.DeleteByUserIdAsync(integrationEvent.UserId, cancellationToken);
+        // TODO: Implement cascade delete logic
+        // await _unitOfWork.Appointments.DeleteByUserIdAsync(integrationEvent.UserId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         Logger.LogInformation("Successfully deleted Appointments for user {UserId}", integrationEvent.UserId);

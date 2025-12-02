@@ -172,6 +172,7 @@ public class SessionAppointment : AuditableEntity
     public bool IsReminder24hSent { get; set; } = false;
     public bool IsReminder1hSent { get; set; } = false;
     public bool IsFollowUpSent { get; set; } = false;
+    public DateTime? ReminderSentAt { get; set; }
 
     // Timestamps
     public DateTime? ConfirmedAt { get; set; }
@@ -203,9 +204,10 @@ public class SessionAppointment : AuditableEntity
         string organizerUserId,
         string participantUserId,
         string? meetingLink = null,
-        string? description = null)
+        string? description = null,
+        bool isAutoCreated = false)
     {
-        return new SessionAppointment
+        var appointment = new SessionAppointment
         {
             Id = Guid.NewGuid().ToString(),
             SessionSeriesId = sessionSeriesId,
@@ -218,8 +220,15 @@ public class SessionAppointment : AuditableEntity
             ParticipantUserId = participantUserId,
             MeetingLink = meetingLink,
             Status = SessionAppointmentStatus.Pending,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow, 
         };
+
+        if (isAutoCreated)
+        {
+            appointment.Confirm();
+        }
+
+        return appointment;
     }
 
     /// <summary>

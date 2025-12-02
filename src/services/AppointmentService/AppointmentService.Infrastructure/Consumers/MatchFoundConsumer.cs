@@ -13,7 +13,7 @@ public class MatchFoundConsumer(
 
     public async Task Consume(ConsumeContext<MatchFoundEvent> context)
     {
-        var appointment = new Appointment
+        var appointment = new SessionAppointment
         {
             Title = "Skill Swap: " + context.Message.SkillName,
             Description = "Automatisch erstellter Termin für den Skill-Tausch",
@@ -23,7 +23,7 @@ public class MatchFoundConsumer(
             Status = "Pending"
         };
 
-        _dbContext.Appointments.Add(appointment);
+        _dbContext.SessionAppointments.Add(appointment);
         await _dbContext.SaveChangesAsync();
     }
 }

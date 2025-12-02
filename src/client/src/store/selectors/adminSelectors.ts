@@ -368,13 +368,38 @@ export const selectCriticalSystemIssues = createSelector(
   [selectSystemHealth],
   (systemHealth) => {
     if (!systemHealth) return [];
-    
+
     const issues = [];
     if (systemHealth.infrastructure?.database?.status === 'disconnected') issues.push('Database Down');
     if (systemHealth.infrastructure?.cache?.status === 'disconnected') issues.push('Cache Down');
     if (systemHealth.infrastructure?.messageQueue?.status === 'disconnected') issues.push('Message Queue Down');
     if (systemHealth.status === 'critical') issues.push('System Critical');
-    
+
     return issues;
   }
+);
+
+// Security Alert selectors
+export const selectSecurityAlerts = createSelector(
+  [selectAdminState],
+  (adminState) => adminState.securityAlerts
+);
+
+export const selectSecurityAlertStatistics = createSelector(
+  [selectAdminState],
+  (adminState) => adminState.securityAlertStatistics
+);
+
+export const selectIsLoadingSecurityAlerts = (state: RootState) => state.admin.isLoadingSecurityAlerts;
+export const selectIsLoadingSecurityStatistics = (state: RootState) => state.admin.isLoadingSecurityStatistics;
+export const selectSecurityAlertError = (state: RootState) => state.admin.securityAlertError;
+
+export const selectSecurityAlertFilters = createSelector(
+  [selectAdminFilters],
+  (filters) => filters.securityAlerts
+);
+
+export const selectSecurityAlertsPagination = createSelector(
+  [selectAdminPagination],
+  (pagination) => pagination.securityAlerts
 );

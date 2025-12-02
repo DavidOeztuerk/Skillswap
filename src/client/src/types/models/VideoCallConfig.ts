@@ -1,6 +1,6 @@
 export interface VideoCallConfig {
   roomId: string;
-  peerId: string;
+  peerId?: string; // Optional - derived from participantUserId in Redux
   // optional extras
   iceServers?: RTCIceServer[];
   initiatorUserId?: string;

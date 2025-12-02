@@ -22,7 +22,7 @@ public static class VideocallControllerExtensions
             .RequireAuthorization(policy => policy.RequireRole("Service"))
             .WithTags("VideoCalls - Internal");
 
-        sessions.MapPost("/create", async (IMediator mediator, IServiceCommunicationManager serviceCommunication, [FromBody] CreateCallSessionRequest request) =>
+        sessions.MapPost("/create", async (IMediator mediator, IServiceCommunicationManager serviceCommunication, ILogger<Program> logger, [FromBody] CreateCallSessionRequest request) =>
         {
             // Fetch appointment details to get participant IDs
             var appointment = await serviceCommunication.GetAsync<GetAppointmentDetailsResponse>(
@@ -34,15 +34,23 @@ public static class VideocallControllerExtensions
                 return Results.NotFound(new { error = "Appointment not found" });
             }
 
-            var command = new CreateCallSessionCommand(
+            // Log user ID mapping
+            logger.LogInformation(
+                "🔍 [CreateCallSession] Mapping user IDs from Appointment {AppointmentId}: " +
+                "OrganizerUserId={OrganizerUserId} → InitiatorUserId, " +
+                "ParticipantUserId={ParticipantUserId} → ParticipantUserId",
+                request.AppointmentId,
                 appointment.OrganizerUserId,
+                appointment.ParticipantUserId);
+
+            var command = new CreateCallSessionCommand(
+                appointment.ParticipantUserId,
                 request.AppointmentId,
                 appointment.MatchId,
                 false,
                 request.MaxParticipants)
             {
-                UserId = appointment.OrganizerUserId,
-                ParticipantUserId = appointment.ParticipantUserId
+                UserId = appointment.OrganizerUserId
             };
             return await mediator.SendCommand(command);
         })

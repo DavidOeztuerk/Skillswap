@@ -27,6 +27,8 @@ using Microsoft.AspNetCore.Http;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Core.Common.Exceptions;
+using Infrastructure.Security.Monitoring;
+using Infrastructure.BackgroundServices;
 
 namespace Infrastructure.Extensions;
 
@@ -44,6 +46,12 @@ public static class ServiceCollectionExtensions
         // Core Security Services
         services.AddScoped<IJwtService, JwtService>();
         services.AddSingleton<ITotpService, TotpService>();
+
+        // Security Monitoring
+        services.Configure<SecurityAlertConfiguration>(configuration.GetSection("SecurityAlerts"));
+        services.AddSingleton<ISecurityAlertService, SecurityAlertService>();
+        services.AddHostedService<ThreatDetectionBackgroundService>();
+        services.AddHttpContextAccessor();
 
         // Error Handling Services
         services.AddSingleton<IErrorMessageService, ErrorMessageService>();

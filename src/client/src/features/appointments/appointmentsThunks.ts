@@ -1,6 +1,6 @@
 import appointmentService, { GetUserAppointmentsRequest, UserAppointmentResponse } from "../../api/services/appointmentService";
 import { createAppAsyncThunk } from "../../store/thunkHelpers";
-import { PagedSuccessResponse, isPagedResponse, SuccessResponse, isSuccessResponse } from "../../types/api/UnifiedResponse";
+import { PagedSuccessResponse, isPagedResponse, SuccessResponse, isSuccessResponse, ErrorResponse } from "../../types/api/UnifiedResponse";
 import { AppointmentRequest } from "../../types/contracts/requests/AppointmentRequest";
 import { RescheduleAppointmentResponse } from "../../types/contracts/responses/RescheduleAppointmentResponse";
 import { Appointment, AppointmentStatus } from "../../types/models/Appointment";
@@ -101,9 +101,9 @@ const mapUserAppointmentToAppointment = (userApp: UserAppointmentResponse, curre
 
 // ==================== FETCH OPERATIONS ====================
 
-export const fetchAppointments = createAppAsyncThunk<PagedSuccessResponse<Appointment>, GetUserAppointmentsRequest>(
+export const fetchAppointments = createAppAsyncThunk(
   'appointments/fetchAppointments',
-  async (request: GetUserAppointmentsRequest = {}, { rejectWithValue, getState }) => {
+  async (request: GetUserAppointmentsRequest, { rejectWithValue, getState }) => {
     try {
       const response = await appointmentService.getAppointments(request);
 
@@ -139,7 +139,7 @@ export const fetchAppointments = createAppAsyncThunk<PagedSuccessResponse<Appoin
         message: errorMessage,
         errorCode: (error as any)?.code || 'UNKNOWN_ERROR',
         errors: [errorMessage]
-      } as any);
+      } as ErrorResponse);
     }
   }
 );

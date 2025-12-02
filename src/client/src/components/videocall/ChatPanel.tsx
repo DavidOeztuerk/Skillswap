@@ -16,12 +16,20 @@ import {
 import { Send as SendIcon, Close as CloseIcon } from '@mui/icons-material';
 import { formatDate } from '../../utils/dateUtils';
 import { ChatMessage } from '../../types/models/ChatMessage';
+import { ChatE2EEStatusHeader, MessageE2EEIndicator } from './ChatE2EEIndicator';
+import { ChatE2EEStatus } from '../../store/adapters/videoCallAdapter+State';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   onSendMessage: (content: string) => void;
   onClose: () => void;
   currentUserId: string;
+  // E2EE Props
+  e2eeStatus?: ChatE2EEStatus;
+  isE2EEActive?: boolean;
+  messagesEncrypted?: number;
+  messagesDecrypted?: number;
+  verificationFailures?: number;
 }
 
 /**
@@ -32,6 +40,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onSendMessage,
   onClose,
   currentUserId,
+  e2eeStatus = 'disabled',
+  isE2EEActive = false,
+  messagesEncrypted = 0,
+  messagesDecrypted = 0,
+  verificationFailures = 0,
 }) => {
   const theme = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -99,6 +112,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           <CloseIcon />
         </IconButton>
       </Box>
+
+      {/* E2EE Status Header */}
+      {e2eeStatus !== 'disabled' && (
+        <ChatE2EEStatusHeader
+          status={e2eeStatus}
+          isActive={isE2EEActive}
+          messagesEncrypted={messagesEncrypted}
+          messagesDecrypted={messagesDecrypted}
+          verificationFailures={verificationFailures}
+        />
+      )}
 
       {/* Messages Area */}
       <Box
@@ -178,6 +202,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                           }}
                         >
                           {message.message}
+                          {message.isEncrypted && (
+                            <MessageE2EEIndicator
+                              isEncrypted={message.isEncrypted}
+                              isVerified={message.isVerified}
+                              variant="icon"
+                            />
+                          )}
                         </Box>
                       }
                       secondary={

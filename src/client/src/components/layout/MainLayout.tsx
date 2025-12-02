@@ -1,4 +1,3 @@
-// src/components/layout/MainLayout.tsx
 import React, { useState, memo, useCallback, useEffect } from 'react';
 import { Box, useMediaQuery, Theme } from '@mui/material';
 import Header from './Header';

@@ -9,7 +9,7 @@ export interface User {
   timeZone?: string;
   roles?: string[];
   permissions?: string[];
-  favoriteSkills: string[];
+  favoriteSkills?: string[];
   emailVerified?: boolean;
   accountStatus?: string;
   createdAt?: string;

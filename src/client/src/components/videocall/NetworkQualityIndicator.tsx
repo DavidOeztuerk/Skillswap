@@ -72,18 +72,42 @@ export const NetworkQualityIndicator: React.FC<NetworkQualityIndicatorProps> = (
       <Typography variant="body2" fontWeight="bold" gutterBottom>
         Netzwerkqualität: {getQualityText()}
       </Typography>
-      <Typography variant="caption" display="block">
-        Paketverlust: {stats.packetsLost}
+      <Typography variant="caption" display="block" fontWeight="bold">
+        Video:
       </Typography>
-      <Typography variant="caption" display="block">
-        Jitter: {stats.jitter}ms
+      <Typography variant="caption" display="block" sx={{ ml: 1 }}>
+        Paketverlust: {stats.videoPacketsLostPerSecond}/s
       </Typography>
-      <Typography variant="caption" display="block">
+      <Typography variant="caption" display="block" sx={{ ml: 1 }}>
+        Jitter: {stats.videoJitter}ms
+      </Typography>
+      <Typography variant="caption" display="block" sx={{ ml: 1 }}>
+        Bandbreite: {stats.videoBandwidth}kbps
+      </Typography>
+      
+      <Typography variant="caption" display="block" fontWeight="bold" sx={{ mt: 0.5 }}>
+        Audio:
+      </Typography>
+      <Typography variant="caption" display="block" sx={{ ml: 1 }}>
+        Paketverlust: {stats.audioPacketsLostPerSecond}/s
+      </Typography>
+      <Typography variant="caption" display="block" sx={{ ml: 1 }}>
+        Jitter: {stats.audioJitter}ms
+      </Typography>
+      <Typography variant="caption" display="block" sx={{ ml: 1 }}>
+        Bandbreite: {stats.audioBandwidth}kbps
+      </Typography>
+      
+      <Typography variant="caption" display="block" fontWeight="bold" sx={{ mt: 0.5 }}>
+        Gesamt:
+      </Typography>
+      <Typography variant="caption" display="block" sx={{ ml: 1 }}>
         Round-Trip-Time: {stats.roundTripTime}ms
       </Typography>
-      <Typography variant="caption" display="block">
-        Bandbreite: {stats.bandwidth}kbps
+      <Typography variant="caption" display="block" sx={{ ml: 1 }}>
+        Gesamt-Bandbreite: {stats.totalBandwidth}kbps
       </Typography>
+      
       <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.7 }}>
         Aktualisiert: {stats.lastUpdate.toLocaleTimeString()}
       </Typography>
@@ -117,7 +141,7 @@ export const NetworkQualityIndicator: React.FC<NetworkQualityIndicatorProps> = (
               {getQualityText()}
             </Typography>
             <Typography variant="caption" sx={{ opacity: 0.7, fontSize: '0.65rem' }}>
-              {stats.bandwidth}kbps • {stats.roundTripTime}ms
+              {stats.totalBandwidth}kbps • {stats.roundTripTime}ms
             </Typography>
           </Box>
         )}
@@ -125,3 +149,5 @@ export const NetworkQualityIndicator: React.FC<NetworkQualityIndicatorProps> = (
     </Tooltip>
   );
 };
+
+export default NetworkQualityIndicator;

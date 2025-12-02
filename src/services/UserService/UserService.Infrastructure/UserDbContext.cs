@@ -289,7 +289,11 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.RevokedReason).HasMaxLength(200);
         e.Property(x => x.IpAddress).HasMaxLength(45);
         e.Property(x => x.UserAgent).HasMaxLength(500);
+        e.Property(x => x.TokenFamilyId).HasMaxLength(450);
+        e.Property(x => x.ReplacedByToken).HasMaxLength(450);
+        e.Property(x => x.SessionId).HasMaxLength(450);
         e.Property(x => x.IsRevoked).HasDefaultValue(false);
+        e.Property(x => x.IsUsed).HasDefaultValue(false);
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
         e.Property(x => x.IsDeleted).HasDefaultValue(false);
 
@@ -297,6 +301,11 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasIndex(x => x.UserId);
         e.HasIndex(x => x.ExpiryDate);
         e.HasIndex(x => x.IsRevoked);
+        e.HasIndex(x => x.IsUsed);
+        e.HasIndex(x => x.TokenFamilyId);
+        e.HasIndex(x => x.SessionId);
+        e.HasIndex(x => new { x.UserId, x.IsRevoked, x.IsUsed, x.ExpiryDate })
+            .HasDatabaseName("IX_RefreshTokens_Valid");
 
         e.HasOne(x => x.User)
          .WithMany(u => u.RefreshTokens)
@@ -340,17 +349,31 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.IpAddress).HasMaxLength(45);
         e.Property(x => x.UserAgent).HasMaxLength(500);
         e.Property(x => x.DeviceType).HasMaxLength(100);
+        e.Property(x => x.DeviceFingerprint).HasMaxLength(500);
+        e.Property(x => x.Browser).HasMaxLength(100);
+        e.Property(x => x.OperatingSystem).HasMaxLength(100);
+        e.Property(x => x.ScreenResolution).HasMaxLength(50);
+        e.Property(x => x.TimeZone).HasMaxLength(50);
+        e.Property(x => x.Language).HasMaxLength(100);
+        e.Property(x => x.RevokedReason).HasMaxLength(500);
         e.Property(x => x.StartedAt).HasDefaultValueSql("NOW()");
         e.Property(x => x.LastActivity).HasDefaultValueSql("NOW()");
+        e.Property(x => x.ExpiresAt).HasDefaultValueSql("NOW() + INTERVAL '24 hours'");
         e.Property(x => x.IsActive).HasDefaultValue(true);
+        e.Property(x => x.IsRevoked).HasDefaultValue(false);
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
         e.Property(x => x.IsDeleted).HasDefaultValue(false);
 
         e.HasIndex(x => x.UserId);
         e.HasIndex(x => x.SessionToken).IsUnique();
+        e.HasIndex(x => x.DeviceFingerprint);
         e.HasIndex(x => x.StartedAt);
         e.HasIndex(x => x.LastActivity);
+        e.HasIndex(x => x.ExpiresAt);
         e.HasIndex(x => x.IsActive);
+        e.HasIndex(x => x.IsRevoked);
+        e.HasIndex(x => new { x.UserId, x.IsActive, x.ExpiresAt })
+            .HasDatabaseName("IX_UserSessions_ActiveSessions");
 
         e.HasOne(x => x.User)
          .WithMany(u => u.Sessions)

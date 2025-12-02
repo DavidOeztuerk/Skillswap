@@ -2,12 +2,11 @@ using AppointmentService.Application.Services;
 using AppointmentService.Domain.Entities;
 using AppointmentService.Domain.Services;
 using AppointmentService.Domain.StateMachines;
-using AppointmentService.Infrastructure.Data;
 using Core.Common.Exceptions;
 using EventSourcing;
 using Events.Domain.Appointment;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using AppointmentService.Domain.Repositories;
 
 namespace AppointmentService.Infrastructure.Services;
 
@@ -15,27 +14,19 @@ namespace AppointmentService.Infrastructure.Services;
 /// Orchestrates the creation and management of the session hierarchy:
 /// Connection → SessionSeries → SessionAppointments
 /// </summary>
-public class SessionOrchestrationService : ISessionOrchestrationService
+public class SessionOrchestrationService(
+    IAppointmentUnitOfWork unitOfWork,
+    IMeetingLinkService meetingLinkService,
+    IAppointmentSchedulingAlgorithm schedulingAlgorithm,
+    IDomainEventPublisher eventPublisher,
+    ILogger<SessionOrchestrationService> logger)
+    : ISessionOrchestrationService
 {
-    private readonly AppointmentDbContext _dbContext;
-    private readonly IMeetingLinkService _meetingLinkService;
-    private readonly IAppointmentSchedulingAlgorithm _schedulingAlgorithm;
-    private readonly IDomainEventPublisher _eventPublisher;
-    private readonly ILogger<SessionOrchestrationService> _logger;
-
-    public SessionOrchestrationService(
-        AppointmentDbContext dbContext,
-        IMeetingLinkService meetingLinkService,
-        IAppointmentSchedulingAlgorithm schedulingAlgorithm,
-        IDomainEventPublisher eventPublisher,
-        ILogger<SessionOrchestrationService> logger)
-    {
-        _dbContext = dbContext;
-        _meetingLinkService = meetingLinkService;
-        _schedulingAlgorithm = schedulingAlgorithm;
-        _eventPublisher = eventPublisher;
-        _logger = logger;
-    }
+    private readonly IAppointmentUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IMeetingLinkService _meetingLinkService = meetingLinkService;
+    private readonly IAppointmentSchedulingAlgorithm _schedulingAlgorithm = schedulingAlgorithm;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
+    private readonly ILogger<SessionOrchestrationService> _logger = logger;
 
     public async Task<Connection> CreateSessionHierarchyFromMatchAsync(
         string matchRequestId,
@@ -57,211 +48,215 @@ public class SessionOrchestrationService : ISessionOrchestrationService
             "Creating session hierarchy from match. MatchRequestId: {MatchRequestId}, Requester: {RequesterId}, Target: {TargetUserId}, TotalSessions: {TotalSessions}",
             matchRequestId, requesterId, targetUserId, totalSessions);
 
-        // Use EF Core Execution Strategy to handle transactions with retry policy
-        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        // 1. Create Connection
+        var connectionType = isSkillExchange ? ConnectionType.SkillExchange :
+            isMonetary ? ConnectionType.Payment :
+            ConnectionType.Free;
 
-        return await strategy.ExecuteAsync(async () =>
+        var connection = Connection.Create(
+            matchRequestId: matchRequestId,
+            requesterId: requesterId,
+            targetUserId: targetUserId,
+            connectionType: connectionType,
+            skillId: skillId,
+            exchangeSkillId: exchangeSkillId,
+            paymentRatePerHour: offeredAmount,
+            currency: currency
+        );
+
+        await _unitOfWork.Connections.CreateAsync(connection, cancellationToken);
+
+        _logger.LogInformation("Connection created: {ConnectionId}", connection.Id);
+
+        // 2. Create SessionSeries based on connection type
+        if (isSkillExchange && !string.IsNullOrWhiteSpace(exchangeSkillId))
         {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+            // For skill exchange: Create TWO series (one for each skill)
+            var halfSessions = totalSessions / 2;
+            var remainder = totalSessions % 2;
 
-            try
-            {
-
-            // 1. Create Connection
-            var connectionType = isSkillExchange ? ConnectionType.SkillExchange :
-                                isMonetary ? ConnectionType.Payment :
-                                ConnectionType.Free;
-
-            var connection = Connection.Create(
-                matchRequestId: matchRequestId,
-                requesterId: requesterId,
-                targetUserId: targetUserId,
-                connectionType: connectionType,
+            // Series 1: Requester teaches primary skill to Target
+            var series1 = await CreateSessionSeriesInternalAsync(
+                connection.Id,
+                $"Learning {skillId}", // Will be enriched with actual skill name later
+                teacherUserId: requesterId,
+                learnerUserId: targetUserId,
                 skillId: skillId,
-                exchangeSkillId: exchangeSkillId,
-                paymentRatePerHour: offeredAmount,
-                currency: currency
-            );
-
-            await _dbContext.Connections.AddAsync(connection, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation("Connection created: {ConnectionId}", connection.Id);
-
-            // 2. Create SessionSeries based on connection type
-            if (isSkillExchange && !string.IsNullOrWhiteSpace(exchangeSkillId))
-            {
-                // For skill exchange: Create TWO series (one for each skill)
-                var halfSessions = totalSessions / 2;
-                var remainder = totalSessions % 2;
-
-                // Series 1: Requester teaches primary skill to Target
-                var series1 = await CreateSessionSeriesInternalAsync(
-                    connection.Id,
-                    $"Learning {skillId}", // Will be enriched with actual skill name later
-                    teacherUserId: requesterId,
-                    learnerUserId: targetUserId,
-                    skillId: skillId,
-                    totalSessions: halfSessions + remainder, // Give remainder to first series
-                    defaultDurationMinutes: sessionDurationMinutes,
-                    description: $"Session series for learning {skillId}",
-                    cancellationToken);
-
-                // Series 2: Target teaches exchange skill to Requester
-                var series2 = await CreateSessionSeriesInternalAsync(
-                    connection.Id,
-                    $"Learning {exchangeSkillId}", // Will be enriched with actual skill name later
-                    teacherUserId: targetUserId,
-                    learnerUserId: requesterId,
-                    skillId: exchangeSkillId,
-                    totalSessions: halfSessions,
-                    defaultDurationMinutes: sessionDurationMinutes,
-                    description: $"Session series for learning {exchangeSkillId}",
-                    cancellationToken);
-
-                connection.TotalSessionsPlanned = totalSessions;
-            }
-            else
-            {
-                // For payment or free: Create ONE series
-                var teacherUserId = requesterId; // Requester teaches by default (or can be configured)
-                var learnerUserId = targetUserId;
-
-                var series = await CreateSessionSeriesInternalAsync(
-                    connection.Id,
-                    $"Learning {skillId}",
-                    teacherUserId: teacherUserId,
-                    learnerUserId: learnerUserId,
-                    skillId: skillId,
-                    totalSessions: totalSessions,
-                    defaultDurationMinutes: sessionDurationMinutes,
-                    description: $"Session series for learning {skillId}",
-                    cancellationToken);
-
-                connection.TotalSessionsPlanned = totalSessions;
-            }
-
-            // 3. Generate and create appointment slots based on preferences
-            _logger.LogInformation("Generating appointment slots using preferences. Days: {Days}, Times: {Times}",
-                string.Join(", ", preferredDays), string.Join(", ", preferredTimes));
-
-            var schedulingRequest = new SchedulingRequest
-            {
-                RequesterId = requesterId,
-                TargetUserId = targetUserId,
-                PreferredDays = preferredDays,
-                PreferredTimes = preferredTimes,
-                TotalSessions = totalSessions,
-                SessionDurationMinutes = sessionDurationMinutes,
-                IsSkillExchange = isSkillExchange,
-                EarliestStartDate = DateTime.UtcNow.AddDays(7), // Start scheduling from next week
-                MinimumDaysBetweenSessions = 1,
-                MaximumDaysBetweenSessions = 14,
-                DistributeEvenly = true
-            };
-
-            var proposedAppointments = await _schedulingAlgorithm.GenerateAppointmentSlotsAsync(
-                schedulingRequest,
+                totalSessions: halfSessions + remainder, // Give remainder to first series
+                defaultDurationMinutes: sessionDurationMinutes,
+                description: $"Session series for learning {skillId}",
                 cancellationToken);
 
-            _logger.LogInformation("Generated {Count} appointment slots", proposedAppointments.Count);
+            // Series 2: Target teaches exchange skill to Requester
+            var series2 = await CreateSessionSeriesInternalAsync(
+                connection.Id,
+                $"Learning {exchangeSkillId}", // Will be enriched with actual skill name later
+                teacherUserId: targetUserId,
+                learnerUserId: requesterId,
+                skillId: exchangeSkillId,
+                totalSessions: halfSessions,
+                defaultDurationMinutes: sessionDurationMinutes,
+                description: $"Session series for learning {exchangeSkillId}",
+                cancellationToken);
 
-            // 4. Create SessionAppointments from proposed slots
-            if (proposedAppointments.Count > 0)
+            connection.TotalSessionsPlanned = totalSessions;
+        }
+        else
+        {
+            // For payment or free: Create ONE series
+            // TargetUserId is the skill owner (teaches), RequesterId is the requester (learns)
+            var teacherUserId = targetUserId;
+            var learnerUserId = requesterId;
+
+            var series = await CreateSessionSeriesInternalAsync(
+                connection.Id,
+                $"Learning {skillId}",
+                teacherUserId: teacherUserId,
+                learnerUserId: learnerUserId,
+                skillId: skillId,
+                totalSessions: totalSessions,
+                defaultDurationMinutes: sessionDurationMinutes,
+                description: $"Session series for learning {skillId}",
+                cancellationToken);
+
+            connection.TotalSessionsPlanned = totalSessions;
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // 3. Generate and create appointment slots based on preferences
+        _logger.LogInformation("Generating appointment slots using preferences. Days: {Days}, Times: {Times}",
+            string.Join(", ", preferredDays), string.Join(", ", preferredTimes));
+
+        var minimumBufferHours = 2;
+        var schedulingRequest = new SchedulingRequest
+        {
+            RequesterId = requesterId,
+            TargetUserId = targetUserId,
+            PreferredDays = preferredDays,
+            PreferredTimes = preferredTimes,
+            TotalSessions = totalSessions,
+            SessionDurationMinutes = sessionDurationMinutes,
+            IsSkillExchange = isSkillExchange,
+            EarliestStartDate = DateTime.UtcNow.AddHours(minimumBufferHours),
+            MinimumDaysBetweenSessions = 1,
+            MaximumDaysBetweenSessions = 14,
+            DistributeEvenly = true
+        };
+
+        var proposedAppointments = await _schedulingAlgorithm.GenerateAppointmentSlotsAsync(
+            schedulingRequest,
+            cancellationToken);
+
+        _logger.LogInformation("Generated {Count} appointment slots", proposedAppointments.Count);
+
+        // 4. Create SessionAppointments from proposed slots
+        if (proposedAppointments.Count > 0)
+        {
+            // Get all session series for this connection
+            var allSeries = await _unitOfWork.SessionSeries
+                .GetByConnectionAsync(connection.Id, cancellationToken);
+
+            if (allSeries.Count == 0)
             {
-                // Get all session series for this connection
-                var allSeries = await _dbContext.SessionSeries
-                    .Where(s => s.ConnectionId == connection.Id)
-                    .ToListAsync(cancellationToken);
+                _logger.LogError("No SessionSeries found for Connection {ConnectionId}", connection.Id);
+                throw new System.InvalidOperationException($"No SessionSeries found for Connection {connection.Id}");
+            }
 
-                foreach (var proposed in proposedAppointments)
+            foreach (var proposed in proposedAppointments)
+            {
+                // For skill exchange, alternate between series
+                // For single series, always use the first one
+                SessionSeries targetSeries;
+                if (isSkillExchange && allSeries.Count == 2)
                 {
-                    // For skill exchange, alternate between series
-                    // For single series, always use the first one
-                    SessionSeries targetSeries;
-                    if (isSkillExchange && allSeries.Count == 2)
-                    {
-                        // Odd sessions go to first series, even to second
-                        targetSeries = proposed.SessionNumber % 2 == 1 ? allSeries[0] : allSeries[1];
-                    }
-                    else
-                    {
-                        targetSeries = allSeries[0];
-                    }
+                    // Odd sessions go to first series, even to second
+                    targetSeries = proposed.SessionNumber % 2 == 1 ? allSeries[0] : allSeries[1];
+                }
+                else
+                {
+                    targetSeries = allSeries[0];
+                }
 
-                    var appointment = SessionAppointment.Create(
-                        sessionSeriesId: targetSeries.Id,
-                        title: $"Session {proposed.SessionNumber}: {targetSeries.Title}",
-                        scheduledDate: proposed.ScheduledDate,
-                        durationMinutes: proposed.DurationMinutes,
-                        sessionNumber: proposed.SessionNumber,
-                        organizerUserId: proposed.OrganizerUserId,
-                        participantUserId: proposed.ParticipantUserId,
-                        description: proposed.Notes
-                    );
+                var appointment = SessionAppointment.Create(
+                    sessionSeriesId: targetSeries.Id,
+                    title: $"Session {proposed.SessionNumber}: {targetSeries.Title}",
+                    scheduledDate: proposed.ScheduledDate,
+                    durationMinutes: proposed.DurationMinutes,
+                    sessionNumber: proposed.SessionNumber,
+                    organizerUserId: proposed.OrganizerUserId,
+                    participantUserId: proposed.ParticipantUserId,
+                    description: proposed.Notes,
+                    isAutoCreated: true
+                );
 
-                    await _dbContext.SessionAppointments.AddAsync(appointment, cancellationToken);
+                await _unitOfWork.SessionAppointments.CreateAsync(appointment, cancellationToken);
 
-                    // Try to generate meeting link
-                    try
-                    {
-                        var meetingLink = await _meetingLinkService.GenerateMeetingLinkAsync(
-                            appointment.Id,
-                            cancellationToken);
-                        appointment.UpdateMeetingLink(meetingLink);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex,
-                            "Failed to generate meeting link for appointment {AppointmentId}, will retry later",
-                            appointment.Id);
-                    }
+                _logger.LogDebug(
+                    "Created appointment {AppointmentId} for session {SessionNumber} at {ScheduledDate}",
+                    appointment.Id, proposed.SessionNumber, proposed.ScheduledDate);
+            }
+        }
+        else
+        {
+            _logger.LogWarning(
+                "No appointment slots could be generated for the given preferences. Connection created but appointments not scheduled.");
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // 4. Generate meeting links for all created appointments
+        if (proposedAppointments.Count > 0)
+        {
+            var createdAppointments = await _unitOfWork.SessionAppointments
+                .GetByConnectionAsync(connection.Id, cancellationToken);
+
+            foreach (var appointment in createdAppointments)
+            {
+                try
+                {
+                    var meetingLink = await _meetingLinkService.GenerateMeetingLinkAsync(
+                        appointment.Id,
+                        cancellationToken);
+
+                    appointment.UpdateMeetingLink(meetingLink);
 
                     _logger.LogDebug(
-                        "Created appointment {AppointmentId} for session {SessionNumber} at {ScheduledDate}",
-                        appointment.Id, proposed.SessionNumber, proposed.ScheduledDate);
+                        "Generated meeting link for appointment {AppointmentId}: {MeetingLink}",
+                        appointment.Id, meetingLink);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to generate meeting link for appointment {AppointmentId}, can be retried later",
+                        appointment.Id);
                 }
             }
-            else
-            {
-                _logger.LogWarning(
-                    "No appointment slots could be generated for the given preferences. Connection created but appointments not scheduled.");
-            }
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
 
-            // 5. Publish Domain Event
-            await _eventPublisher.Publish(new ConnectionCreatedEvent(
-                connection.Id,
-                connection.RequesterId,
-                connection.TargetUserId,
-                connection.ConnectionType,
-                connection.SkillId,
-                connection.TotalSessionsPlanned
-            ), cancellationToken);
+        // 5. Publish Domain Event
+        await _eventPublisher.Publish(new ConnectionCreatedEvent(
+            connection.Id,
+            connection.RequesterId,
+            connection.TargetUserId,
+            connection.ConnectionType,
+            connection.SkillId,
+            connection.TotalSessionsPlanned
+        ), cancellationToken);
 
-                await transaction.CommitAsync(cancellationToken);
+        _logger.LogInformation(
+        "Session hierarchy created successfully. ConnectionId: {ConnectionId}, TotalSessions: {TotalSessions}",
+        connection.Id, connection.TotalSessionsPlanned);
 
-                _logger.LogInformation(
-                    "Session hierarchy created successfully. ConnectionId: {ConnectionId}, TotalSessions: {TotalSessions}",
-                    connection.Id, connection.TotalSessionsPlanned);
+        // Reload connection with all related data for notification purposes
+        var connectionWithData = await _unitOfWork.Connections
+            .GetWithSeriesAsync(connection.Id, cancellationToken);
 
-                // Reload connection with all related data for notification purposes
-                var connectionWithData = await _dbContext.Connections
-                    .Include(c => c.SessionSeries)
-                        .ThenInclude(s => s.SessionAppointments)
-                    .FirstOrDefaultAsync(c => c.Id == connection.Id, cancellationToken);
-
-                return connectionWithData ?? connection;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                _logger.LogError(ex, "Error creating session hierarchy from match {MatchRequestId}", matchRequestId);
-                throw;
-            }
-        });
+        return connectionWithData ?? connection;
     }
+
 
     public async Task<SessionSeries> CreateSessionSeriesAsync(
         string connectionId,
@@ -274,8 +269,8 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         string? description = null,
         CancellationToken cancellationToken = default)
     {
-        var connection = await _dbContext.Connections
-            .FirstOrDefaultAsync(c => c.Id == connectionId, cancellationToken);
+        var connection = await _unitOfWork.Connections
+            .GetByIdAsync(connectionId, cancellationToken);
 
         if (connection == null)
         {
@@ -304,9 +299,8 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         string? description = null,
         CancellationToken cancellationToken = default)
     {
-        var series = await _dbContext.SessionSeries
-            .Include(s => s.SessionAppointments)
-            .FirstOrDefaultAsync(s => s.Id == sessionSeriesId, cancellationToken);
+        var series = await _unitOfWork.SessionSeries
+            .GetWithAppointmentsAsync(sessionSeriesId, cancellationToken);
 
         if (series == null)
         {
@@ -327,14 +321,14 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         );
 
         // Generate meeting link
-        await _dbContext.SessionAppointments.AddAsync(appointment, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SessionAppointments.CreateAsync(appointment, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         try
         {
             var meetingLink = await _meetingLinkService.GenerateMeetingLinkAsync(appointment.Id, cancellationToken);
             appointment.UpdateMeetingLink(meetingLink);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -361,10 +355,7 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         string sessionAppointmentId,
         CancellationToken cancellationToken = default)
     {
-        var appointment = await _dbContext.SessionAppointments
-            .Include(a => a.SessionSeries)
-            .ThenInclude(s => s.Connection)
-            .FirstOrDefaultAsync(a => a.Id == sessionAppointmentId, cancellationToken);
+        var appointment = await _unitOfWork.SessionAppointments.GetWithSeriesAsync(sessionAppointmentId, cancellationToken);
 
         if (appointment == null)
         {
@@ -376,61 +367,43 @@ public class SessionOrchestrationService : ISessionOrchestrationService
             appointment.Status,
             SessionAppointmentStatus.Completed);
 
-        // Use EF Core Execution Strategy to handle transactions with retry policy
-        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        // 1. Complete the appointment
+        appointment.Complete();
 
-        await strategy.ExecuteAsync(async () =>
+        // 2. Update session series
+        appointment.SessionSeries.CompleteSession();
+
+        // 3. Update connection
+        appointment.SessionSeries.Connection.IncrementCompletedSessions();
+
+        // 4. Update session balance for skill exchange
+        if (appointment.SessionSeries.Connection.IsSkillExchange)
         {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+            appointment.SessionSeries.Connection.UpdateSessionBalance(
+                appointment.DurationMinutes,
+                appointment.OrganizerUserId);
+        }
 
-            try
-            {
-                // 1. Complete the appointment
-                appointment.Complete();
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                // 2. Update session series
-                appointment.SessionSeries.CompleteSession();
+        // 5. Publish event
+        await _eventPublisher.Publish(new SessionCompletedEvent(
+            appointment.Id,
+            appointment.SessionSeriesId,
+            appointment.SessionSeries.ConnectionId,
+            appointment.OrganizerUserId,
+            appointment.ParticipantUserId,
+            appointment.DurationMinutes
+        ), cancellationToken);
 
-                // 3. Update connection
-                appointment.SessionSeries.Connection.IncrementCompletedSessions();
 
-                // 4. Update session balance for skill exchange
-                if (appointment.SessionSeries.Connection.IsSkillExchange)
-                {
-                    appointment.SessionSeries.Connection.UpdateSessionBalance(
-                        appointment.DurationMinutes,
-                        appointment.OrganizerUserId);
-                }
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
-
-                // 5. Publish event
-                await _eventPublisher.Publish(new SessionCompletedEvent(
-                    appointment.Id,
-                    appointment.SessionSeriesId,
-                    appointment.SessionSeries.ConnectionId,
-                    appointment.OrganizerUserId,
-                    appointment.ParticipantUserId,
-                    appointment.DurationMinutes
-                ), cancellationToken);
-
-                await transaction.CommitAsync(cancellationToken);
-
-                _logger.LogInformation(
-                    "Session completed: {AppointmentId}, Series completed: {SeriesCompleted}/{TotalSessions}, Connection completed: {ConnectionCompleted}/{TotalPlanned}",
-                    appointment.Id,
-                    appointment.SessionSeries.CompletedSessions,
-                    appointment.SessionSeries.TotalSessions,
-                    appointment.SessionSeries.Connection.TotalSessionsCompleted,
-                    appointment.SessionSeries.Connection.TotalSessionsPlanned);
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                _logger.LogError(ex, "Error completing session {AppointmentId}", sessionAppointmentId);
-                throw;
-            }
-        });
+        _logger.LogInformation(
+            "Session completed: {AppointmentId}, Series completed: {SeriesCompleted}/{TotalSessions}, Connection completed: {ConnectionCompleted}/{TotalPlanned}",
+            appointment.Id,
+            appointment.SessionSeries.CompletedSessions,
+            appointment.SessionSeries.TotalSessions,
+            appointment.SessionSeries.Connection.TotalSessionsCompleted,
+            appointment.SessionSeries.Connection.TotalSessionsPlanned);
     }
 
     public async Task CancelSessionAsync(
@@ -439,8 +412,8 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         string? reason,
         CancellationToken cancellationToken = default)
     {
-        var appointment = await _dbContext.SessionAppointments
-            .FirstOrDefaultAsync(a => a.Id == sessionAppointmentId, cancellationToken);
+        var appointment = await _unitOfWork.SessionAppointments
+            .GetByIdAsync(sessionAppointmentId, cancellationToken);
 
         if (appointment == null)
         {
@@ -455,7 +428,7 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         }
 
         appointment.Cancel(cancelledByUserId, reason);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Publish event
         await _eventPublisher.Publish(new SessionCancelledEvent(
@@ -479,8 +452,8 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         string reason,
         CancellationToken cancellationToken = default)
     {
-        var appointment = await _dbContext.SessionAppointments
-            .FirstOrDefaultAsync(a => a.Id == sessionAppointmentId, cancellationToken);
+        var appointment = await _unitOfWork.SessionAppointments
+            .GetByIdAsync(sessionAppointmentId, cancellationToken);
 
         if (appointment == null)
         {
@@ -494,7 +467,7 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         }
 
         appointment.RequestReschedule(requestedByUserId, proposedDate, proposedDuration, reason);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Publish event
         await _eventPublisher.Publish(new SessionRescheduleRequestedEvent(
@@ -515,8 +488,8 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         string approvedByUserId,
         CancellationToken cancellationToken = default)
     {
-        var appointment = await _dbContext.SessionAppointments
-            .FirstOrDefaultAsync(a => a.Id == sessionAppointmentId, cancellationToken);
+        var appointment = await _unitOfWork.SessionAppointments
+            .GetByIdAsync(sessionAppointmentId, cancellationToken);
 
         if (appointment == null)
         {
@@ -532,7 +505,7 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         var newDate = appointment.ProposedRescheduleDate!.Value;
 
         appointment.ApproveReschedule();
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Publish event
         await _eventPublisher.Publish(new SessionRescheduledEvent(
@@ -552,8 +525,8 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         string rejectedByUserId,
         CancellationToken cancellationToken = default)
     {
-        var appointment = await _dbContext.SessionAppointments
-            .FirstOrDefaultAsync(a => a.Id == sessionAppointmentId, cancellationToken);
+        var appointment = await _unitOfWork.SessionAppointments
+            .GetByIdAsync(sessionAppointmentId, cancellationToken);
 
         if (appointment == null)
         {
@@ -566,7 +539,7 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         }
 
         appointment.RejectReschedule();
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
             "Reschedule rejected for session {AppointmentId} by {UserId}",
@@ -579,8 +552,8 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         string reportedByUserId,
         CancellationToken cancellationToken = default)
     {
-        var appointment = await _dbContext.SessionAppointments
-            .FirstOrDefaultAsync(a => a.Id == sessionAppointmentId, cancellationToken);
+        var appointment = await _unitOfWork.SessionAppointments
+            .GetByIdAsync(sessionAppointmentId, cancellationToken);
 
         if (appointment == null)
         {
@@ -588,7 +561,7 @@ public class SessionOrchestrationService : ISessionOrchestrationService
         }
 
         appointment.MarkAsNoShow(noShowUserIds);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Publish event
         await _eventPublisher.Publish(new SessionNoShowEvent(
@@ -625,8 +598,7 @@ public class SessionOrchestrationService : ISessionOrchestrationService
             description: description
         );
 
-        await _dbContext.SessionSeries.AddAsync(series, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SessionSeries.CreateAsync(series, cancellationToken);
 
         _logger.LogInformation(
             "SessionSeries created: {SeriesId}, Connection: {ConnectionId}, TotalSessions: {TotalSessions}",

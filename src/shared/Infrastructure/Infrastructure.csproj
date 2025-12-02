@@ -57,6 +57,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.Common\Core.Common.csproj" />
+    <ProjectReference Include="..\Core\Domain.Absractions\Domain.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

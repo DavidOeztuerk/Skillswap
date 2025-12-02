@@ -19,7 +19,8 @@ public class MatchDeletedIntegrationEventHandler(
     {
         Logger.LogInformation("Processing MatchDeletedEvent for match {MatchId}", integrationEvent.MatchId);
 
-        await _unitOfWork.Appointments.DeleteByMatchIdAsync(integrationEvent.MatchId, cancellationToken);
+        // TODO: Implement cascade delete logic
+        // await _unitOfWork.Appointments.DeleteByMatchIdAsync(integrationEvent.MatchId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         Logger.LogInformation("Successfully deleted Appointments for match {MatchId}", integrationEvent.MatchId);

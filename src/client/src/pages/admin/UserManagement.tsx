@@ -93,11 +93,9 @@ const UserManagement: React.FC = memo(() => {
           search: searchTerm
         });
         const response = await apiClient.get<any>('/api/admin/users', {
-          params: {
-            page: page + 1,
-            pageSize: rowsPerPage,
-            search: searchTerm
-          }
+          pageNumber: page + 1,
+          pageSize: rowsPerPage,
+          search: searchTerm
         });
         
         const responseData = unwrap<any>(response);

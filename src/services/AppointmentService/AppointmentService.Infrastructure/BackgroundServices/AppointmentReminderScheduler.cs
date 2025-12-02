@@ -63,7 +63,7 @@ public class AppointmentReminderScheduler : BackgroundService
         // 1. Are accepted
         // 2. Start within the next 5 minutes
         // 3. Haven't been reminded yet (or reminder was sent more than 6 minutes ago to avoid duplicates)
-        var upcomingAppointments = await dbContext.Appointments
+        var upcomingAppointments = await dbContext.SessionAppointments
             .Where(a => a.Status == AppointmentStatus.Accepted)
             .Where(a => a.ScheduledDate > now && a.ScheduledDate <= reminderTime)
             .Where(a => a.ReminderSentAt == null || a.ReminderSentAt < now.AddMinutes(-6))
@@ -94,7 +94,7 @@ public class AppointmentReminderScheduler : BackgroundService
     }
 
     private async Task SendAppointmentReminder(
-        Appointment appointment,
+        SessionAppointment appointment,
         IServiceCommunicationManager serviceCommunication,
         CancellationToken cancellationToken)
     {

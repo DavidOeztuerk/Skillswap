@@ -1,64 +1,83 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
+
+// ============================================================================
+// Types
+// ============================================================================
 
 interface LoadingState {
   [key: string]: boolean;
 }
 
 interface LoadingContextType {
-  // Check if a specific operation is loading
+  /** Check if a specific operation is loading */
   isLoading: (key?: string) => boolean;
-  // Start loading for a specific operation
+  /** Start loading for a specific operation */
   startLoading: (key: string) => void;
-  // Stop loading for a specific operation
+  /** Stop loading for a specific operation */
   stopLoading: (key: string) => void;
-  // Execute an async operation with automatic loading state
+  /** Execute an async operation with automatic loading state */
   withLoading: <T>(key: string, operation: () => Promise<T>) => Promise<T>;
-  // Get all loading states
+  /** Get all loading states (for debugging) */
   getLoadingStates: () => LoadingState;
-  // Check if anything is loading
+  /** Check if anything is loading */
   isAnyLoading: () => boolean;
-  // Clear all loading states
+  /** Clear all loading states */
   clearAllLoading: () => void;
 }
 
+// ============================================================================
+// Context
+// ============================================================================
+
 const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 
-export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// ============================================================================
+// Provider
+// ============================================================================
+
+interface LoadingProviderProps {
+  children: React.ReactNode;
+}
+
+export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) => {
   const [loadingStates, setLoadingStates] = useState<LoadingState>({});
-  const loadingCountRef = useRef<{ [key: string]: number }>({});
+  
+  // Track nested loading calls (for operations that might overlap)
+  const loadingCountRef = useRef<Record<string, number>>({});
 
   const startLoading = useCallback((key: string) => {
-    // Track loading count for nested operations
+    // Increment count for nested operations
     loadingCountRef.current[key] = (loadingCountRef.current[key] || 0) + 1;
-    
-    setLoadingStates(prev => ({
-      ...prev,
-      [key]: true
-    }));
+
+    setLoadingStates(prev => {
+      // Only update if not already loading
+      if (prev[key]) return prev;
+      return { ...prev, [key]: true };
+    });
   }, []);
 
   const stopLoading = useCallback((key: string) => {
-    // Decrement loading count
+    // Decrement count
     if (loadingCountRef.current[key]) {
       loadingCountRef.current[key]--;
-      
-      // Only stop loading when count reaches 0
+
+      // Only stop when count reaches 0
       if (loadingCountRef.current[key] === 0) {
+        delete loadingCountRef.current[key];
         setLoadingStates(prev => {
+          if (!prev[key]) return prev;
           const newState = { ...prev };
           delete newState[key];
           return newState;
         });
-        delete loadingCountRef.current[key];
       }
     }
   }, []);
 
-  const isLoading = useCallback((key?: string) => {
+  const isLoading = useCallback((key?: string): boolean => {
     if (key) {
-      return loadingStates[key] || false;
+      return !!loadingStates[key];
     }
-    // If no key provided, check if anything is loading
     return Object.keys(loadingStates).length > 0;
   }, [loadingStates]);
 
@@ -68,18 +87,17 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   ): Promise<T> => {
     startLoading(key);
     try {
-      const result = await operation();
-      return result;
+      return await operation();
     } finally {
       stopLoading(key);
     }
   }, [startLoading, stopLoading]);
 
-  const getLoadingStates = useCallback(() => {
+  const getLoadingStates = useCallback((): LoadingState => {
     return { ...loadingStates };
   }, [loadingStates]);
 
-  const isAnyLoading = useCallback(() => {
+  const isAnyLoading = useCallback((): boolean => {
     return Object.keys(loadingStates).length > 0;
   }, [loadingStates]);
 
@@ -88,8 +106,9 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     loadingCountRef.current = {};
   }, []);
 
-  // REMOVED PROBLEMATIC useMemo - was causing infinite re-renders!
-  const value: LoadingContextType = {
+  // Memoize value to prevent unnecessary re-renders
+  // Functions are stable due to useCallback
+  const value = useMemo<LoadingContextType>(() => ({
     isLoading,
     startLoading,
     stopLoading,
@@ -97,7 +116,7 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     getLoadingStates,
     isAnyLoading,
     clearAllLoading,
-  };
+  }), [isLoading, startLoading, stopLoading, withLoading, getLoadingStates, isAnyLoading, clearAllLoading]);
 
   return (
     <LoadingContext.Provider value={value}>
@@ -106,8 +125,12 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
-// Custom hook to use loading context
-export const useLoading = () => {
+// ============================================================================
+// Hooks
+// ============================================================================
+
+/** Main hook to access loading context */
+export const useLoading = (): LoadingContextType => {
   const context = useContext(LoadingContext);
   if (!context) {
     throw new Error('useLoading must be used within a LoadingProvider');
@@ -115,23 +138,26 @@ export const useLoading = () => {
   return context;
 };
 
-// Hook for component-specific loading
+/** Hook for component-specific loading with namespaced keys */
 export const useComponentLoading = (componentName: string) => {
   const { isLoading, startLoading, stopLoading, withLoading } = useLoading();
 
-  return {
-    isLoading: (operation?: string) => 
+  return useMemo(() => ({
+    isLoading: (operation?: string) =>
       isLoading(operation ? `${componentName}.${operation}` : componentName),
-    startLoading: (operation: string) => 
+    startLoading: (operation: string) =>
       startLoading(`${componentName}.${operation}`),
-    stopLoading: (operation: string) => 
+    stopLoading: (operation: string) =>
       stopLoading(`${componentName}.${operation}`),
     withLoading: <T,>(operation: string, fn: () => Promise<T>) =>
       withLoading(`${componentName}.${operation}`, fn),
-  };
+  }), [componentName, isLoading, startLoading, stopLoading, withLoading]);
 };
 
-// Loading keys constants for consistency
+// ============================================================================
+// Loading Keys Constants
+// ============================================================================
+
 export const LoadingKeys = {
   // Auth operations
   LOGIN: 'auth.login',
@@ -140,37 +166,42 @@ export const LoadingKeys = {
   REFRESH_TOKEN: 'auth.refreshToken',
   VERIFY_EMAIL: 'auth.verifyEmail',
   RESET_PASSWORD: 'auth.resetPassword',
-  
+
   // User operations
   FETCH_PROFILE: 'user.fetchProfile',
   UPDATE_PROFILE: 'user.updateProfile',
   UPLOAD_AVATAR: 'user.uploadAvatar',
-  
+
   // Skill operations
   FETCH_SKILLS: 'skills.fetch',
   CREATE_SKILL: 'skills.create',
   UPDATE_SKILL: 'skills.update',
   DELETE_SKILL: 'skills.delete',
   SEARCH_SKILLS: 'skills.search',
-  
+
   // Matching operations
   FETCH_MATCHES: 'matches.fetch',
   CREATE_MATCH: 'matches.create',
   ACCEPT_MATCH: 'matches.accept',
   REJECT_MATCH: 'matches.reject',
-  
+
   // Appointment operations
   FETCH_APPOINTMENTS: 'appointments.fetch',
   CREATE_APPOINTMENT: 'appointments.create',
   UPDATE_APPOINTMENT: 'appointments.update',
   CANCEL_APPOINTMENT: 'appointments.cancel',
-  
+
+  // Video call operations
+  VIDEO_CALL_INIT: 'videocall.init',
+  VIDEO_CALL_JOIN: 'videocall.join',
+  VIDEO_CALL_LEAVE: 'videocall.leave',
+
   // Admin operations
   FETCH_USERS: 'admin.fetchUsers',
   UPDATE_USER: 'admin.updateUser',
   DELETE_USER: 'admin.deleteUser',
   FETCH_STATS: 'admin.fetchStats',
-  
+
   // General operations
   FETCH_DATA: 'general.fetchData',
   SUBMIT_FORM: 'general.submitForm',

@@ -44,7 +44,6 @@ public class MatchAcceptedIntegrationEventHandler : IConsumer<MatchAcceptedInteg
         {
             // NOTE: SessionOrchestrationService now handles the entire hierarchy creation
             // It creates: Connection → SessionSeries → SessionAppointments with meeting links
-            // This is a massive simplification compared to the old 450+ line implementation
 
             var connection = await _sessionOrchestrationService.CreateSessionHierarchyFromMatchAsync(
                 matchRequestId: message.MatchId,

@@ -1,5 +1,4 @@
 using CQRS.Handlers;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VideocallService.Application.Commands;
 using VideocallService.Domain.Entities;
@@ -88,7 +87,7 @@ public class JoinCallCommandHandler(
             .GetActiveParticipantInSessionAsync(session.Id, request.UserId!, cancellationToken);
 
         CallParticipant participant;
-        bool isRejoin = false;
+        // bool isRejoin = false;
 
         if (existingParticipant != null && existingParticipant.LeftAt == null)
         {
@@ -108,7 +107,7 @@ public class JoinCallCommandHandler(
 
             await _unitOfWork.CallParticipants.UpdateAsync(existingParticipant, cancellationToken);
             participant = existingParticipant;
-            isRejoin = true;
+            // isRejoin = true;
 
             Logger.LogInformation("✅ [JoinCall] User {UserId} reactivated in session {SessionId}", request.UserId, session.Id);
         }

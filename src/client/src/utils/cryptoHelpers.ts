@@ -1,180 +1,314 @@
 /**
- * Client-side encryption utilities for sensitive data
- * Note: This provides basic obfuscation, not true security against determined attackers
+ * Client-side encryption utilities - KORRIGIERTE VERSION
+ *
+ * Fixes:
+ * 1. ✅ Echte AES-256-GCM Verschlüsselung statt XOR
+ * 2. ✅ Web Crypto API für kryptographische Operationen
+ * 3. ✅ Sichere Key Derivation mit PBKDF2
+ * 4. ✅ Proper IV Generation
+ * 5. ✅ ArrayBuffer Type-Fixes für TypeScript strict mode
  */
 
-// Constants for future crypto enhancements
-// const ENCRYPTION_KEY_SIZE = 32;
-// const IV_SIZE = 16;
+const ENCRYPTION_ALGORITHM = 'AES-GCM';
+const KEY_LENGTH = 256;
+const IV_LENGTH = 12; // 96 bits für GCM
+const AUTH_TAG_LENGTH = 128;
+const PBKDF2_ITERATIONS = 100000;
+const SALT_LENGTH = 16;
+
+// Session Storage Keys
+const SESSION_SALT_ID = 'crypto_session_salt';
 
 /**
- * Generates a simple encryption key from user session data
- * This is not cryptographically secure but adds basic protection
+ * Mit explizitem ArrayBuffer cast für TypeScript strict mode
  */
-function getEncryptionKey(): string {
-  // Use a combination of user agent, screen resolution, and timestamp
+async function deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const passwordBuffer = encoder.encode(password);
+
+  // Importiere Passwort als Key Material
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    passwordBuffer,
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+
+  const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer;
+
+  // Derive AES Key mit PBKDF2
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: saltBuffer,
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: ENCRYPTION_ALGORITHM, length: KEY_LENGTH },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+/**
+ * Verwendet Browser Fingerprint + Session Storage für Konsistenz
+ */
+async function getOrCreateSessionKey(): Promise<CryptoKey> {
+  let saltBase64 = sessionStorage.getItem(SESSION_SALT_ID);
+  let salt: Uint8Array;
+
+  if (!saltBase64) {
+    // Generiere neues Salt
+    salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+    saltBase64 = arrayBufferToBase64(salt.buffer as ArrayBuffer);
+    sessionStorage.setItem(SESSION_SALT_ID, saltBase64);
+  } else {
+    salt = new Uint8Array(base64ToArrayBuffer(saltBase64));
+  }
+
+  // Generiere Session-spezifisches "Passwort" aus stabilen Browser-Eigenschaften
+  const fingerprint = await generateBrowserFingerprint();
+
+  return deriveKeyFromPassword(fingerprint, salt);
+}
+
+/**
+ * Sichere Browser Fingerprint Generation
+ */
+async function generateBrowserFingerprint(): Promise<string> {
+  const components = [
+    navigator.userAgent,
+    navigator.language,
+    screen.width.toString(),
+    screen.height.toString(),
+    screen.colorDepth.toString(),
+    new Date().getTimezoneOffset().toString(),
+    navigator.hardwareConcurrency?.toString() ?? '0',
+    // Hinzufügen von mehr Entropie
+    performance.timeOrigin.toString(),
+  ];
+
+  const fingerprintString = components.join('|');
+
+  // Hash für konsistente Länge
+  const encoder = new TextEncoder();
+  const data = encoder.encode(fingerprintString);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+  return arrayBufferToHex(hashBuffer);
+}
+
+/**
+ * AES-256-GCM Verschlüsselung
+ */
+export async function encryptData(data: string): Promise<string> {
+  if (!data) return '';
+
+  try {
+    const key = await getOrCreateSessionKey();
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
+
+    // Generiere zufälliges IV
+    const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+
+    // Verschlüssele mit AES-GCM
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      {
+        name: ENCRYPTION_ALGORITHM,
+        iv,
+        tagLength: AUTH_TAG_LENGTH,
+      },
+      key,
+      dataBuffer
+    );
+
+    // Kombiniere IV + Ciphertext
+    const combined = new Uint8Array(IV_LENGTH + encryptedBuffer.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(encryptedBuffer), IV_LENGTH);
+
+    // Version Prefix für zukünftige Kompatibilität
+    return 'v2:' + arrayBufferToBase64(combined.buffer as ArrayBuffer);
+  } catch (error) {
+    console.error('Encryption failed:', error);
+    throw new Error('Failed to encrypt data');
+  }
+}
+
+/**
+ * AES-256-GCM Entschlüsselung
+ */
+export async function decryptData(encryptedData: string): Promise<string | null> {
+  if (!encryptedData) return null;
+
+  try {
+    // Check version prefix
+    if (encryptedData.startsWith('v2:')) {
+      // Neue sichere Verschlüsselung
+      const base64Data = encryptedData.substring(3);
+      const combined = new Uint8Array(base64ToArrayBuffer(base64Data));
+
+      // Extrahiere IV
+      const iv = combined.slice(0, IV_LENGTH);
+      const ciphertext = combined.slice(IV_LENGTH);
+
+      const key = await getOrCreateSessionKey();
+
+      // Entschlüssele
+      const decryptedBuffer = await crypto.subtle.decrypt(
+        {
+          name: ENCRYPTION_ALGORITHM,
+          iv,
+          tagLength: AUTH_TAG_LENGTH,
+        },
+        key,
+        ciphertext
+      );
+
+      const decoder = new TextDecoder();
+      return decoder.decode(decryptedBuffer);
+    }
+
+    // Legacy fallback für alte XOR-verschlüsselte Daten
+    // WARNUNG: Dies sollte nur für Migration verwendet werden!
+    console.warn('⚠️ Attempting to decrypt legacy XOR data - consider re-encrypting');
+    return decryptLegacyData(encryptedData);
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Legacy XOR Decryption für Migration (nur lesen, nicht schreiben!)
+ * @deprecated Nur für Migration alter Daten
+ */
+function decryptLegacyData(encryptedData: string): string | null {
+  try {
+    const decoded = atob(encryptedData);
+    const parts = decoded.split('|');
+
+    if (parts.length !== 2) {
+      return encryptedData; // Assume unencrypted
+    }
+
+    const [checksum, encrypted] = parts;
+    if (checksum !== encrypted.length.toString(36)) {
+      return null;
+    }
+
+    // Legacy XOR
+    const key = getLegacyKey();
+    let result = '';
+    for (let i = 0; i < encrypted.length; i++) {
+      result += String.fromCharCode(encrypted.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function getLegacyKey(): string {
   const fingerprint = [
     navigator.userAgent,
     screen.width + 'x' + screen.height,
     navigator.language,
-    new Date().getTimezoneOffset().toString()
+    new Date().getTimezoneOffset().toString(),
   ].join('|');
-  
-  // Simple hash function (not cryptographically secure)
+
   let hash = 0;
   for (let i = 0; i < fingerprint.length; i++) {
     const char = fingerprint.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
   }
-  
+
   return Math.abs(hash).toString(36).padStart(8, '0');
 }
 
 /**
- * Simple XOR encryption/decryption
- * @param data - Data to encrypt/decrypt
- * @param key - Encryption key
- * @returns Encrypted/decrypted data
- */
-function xorCrypt(data: string, key: string): string {
-  let result = '';
-  for (let i = 0; i < data.length; i++) {
-    result += String.fromCharCode(
-      data.charCodeAt(i) ^ key.charCodeAt(i % key.length)
-    );
-  }
-  return result;
-}
-
-/**
- * Encrypts sensitive data for storage
- * @param data - Data to encrypt
- * @returns Base64 encoded encrypted data
- */
-export function encryptData(data: string): string {
-  try {
-    if (!data) return '';
-    
-    const key = getEncryptionKey();
-    const encrypted = xorCrypt(data, key);
-    
-    // Add simple checksum for integrity
-    const checksum = encrypted.length.toString(36);
-    const withChecksum = checksum + '|' + encrypted;
-    
-    return btoa(withChecksum);
-  } catch (error) {
-    console.error('Encryption failed:', error);
-    return data; // Fallback to unencrypted
-  }
-}
-
-/**
- * Decrypts data from storage
- * @param encryptedData - Base64 encoded encrypted data
- * @returns Decrypted data or null if invalid
- */
-export function decryptData(encryptedData: string): string | null {
-  try {
-    if (!encryptedData) return null;
-    
-    const decoded = atob(encryptedData);
-    const parts = decoded.split('|');
-    
-    if (parts?.length !== 2) {
-      // Assume unencrypted data for backward compatibility
-      return encryptedData;
-    }
-    
-    const [checksum, encrypted] = parts;
-    const expectedChecksum = encrypted.length.toString(36);
-    
-    // Verify checksum
-    if (checksum !== expectedChecksum) {
-      console.warn('Data integrity check failed');
-      return null;
-    }
-    
-    const key = getEncryptionKey();
-    return xorCrypt(encrypted, key);
-  } catch (error) {
-    console.error('Decryption failed:', error);
-    // Try to return as-is for backward compatibility
-    return encryptedData;
-  }
-}
-
-/**
- * Generates a secure random string for CSRF protection
- * @param length - Length of the random string
- * @returns Random string
+ * Generiert kryptographisch sicheren Random Token
  */
 export function generateSecureToken(length: number = 32): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  
-  // Use crypto.getRandomValues if available
-  if (window.crypto && window.crypto.getRandomValues) {
-    const array = new Uint8Array(length);
-    window.crypto.getRandomValues(array);
-    
-    for (let i = 0; i < length; i++) {
-      result += chars[array[i] % chars.length];
-    }
-  } else {
-    // Fallback to Math.random
-    for (let i = 0; i < length; i++) {
-      result += chars[Math.floor(Math.random() * chars.length)];
-    }
-  }
-  
-  return result;
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  return arrayBufferToBase64(array.buffer as ArrayBuffer).replace(/[+/=]/g, (c) =>
+    c === '+' ? '-' : c === '/' ? '_' : ''
+  );
 }
 
 /**
- * Hashes sensitive data for comparison (one-way)
- * @param data - Data to hash
- * @returns Hashed data
+ * Sichere Hash-Funktion mit SHA-256
  */
-export function hashData(data: string): string {
-  let hash = 0;
-  if (data?.length === 0) return hash.toString();
-  
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  
-  return Math.abs(hash).toString(36);
+export async function hashData(data: string): Promise<string> {
+  if (!data) return '';
+
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+
+  return arrayBufferToHex(hashBuffer);
+}
+
+/**
+ * HMAC für Message Authentication
+ */
+export async function createHMAC(data: string, keyString: string): Promise<string> {
+  const encoder = new TextEncoder();
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(keyString),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
+
+  return arrayBufferToHex(signature);
+}
+
+/**
+ * Verifiziere HMAC
+ */
+export async function verifyHMAC(data: string, signature: string, keyString: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(keyString),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+
+  const signatureBuffer = hexToArrayBuffer(signature);
+
+  return crypto.subtle.verify('HMAC', key, signatureBuffer, encoder.encode(data));
 }
 
 /**
  * Sanitizes data to prevent XSS
- * @param input - User input to sanitize
- * @returns Sanitized string
  */
 export function sanitizeInput(input: string): string {
   if (!input) return '';
-  
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
+
+  const div = document.createElement('div');
+  div.textContent = input;
+  return div.innerHTML;
 }
 
 /**
  * Validates if a string contains potentially dangerous content
- * @param input - String to validate
- * @returns true if potentially dangerous
  */
 export function containsDangerousContent(input: string): boolean {
   if (!input) return false;
-  
+
   const dangerousPatterns = [
     /<script/i,
     /javascript:/i,
@@ -183,8 +317,60 @@ export function containsDangerousContent(input: string): boolean {
     /<object/i,
     /<embed/i,
     /data:.*base64/i,
-    /vbscript:/i
+    /vbscript:/i,
+    /<svg.*onload/i,
+    /<img.*onerror/i,
   ];
-  
-  return dangerousPatterns?.some(pattern => pattern.test(input));
+
+  return dangerousPatterns.some((pattern) => pattern.test(input));
+}
+
+/**
+ * Constant-time comparison für Timing-Attack Prevention
+ */
+export function secureCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+
+  return result === 0;
+}
+
+// === Utility Functions ===
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer as ArrayBuffer;
+}
+
+function arrayBufferToHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function hexToArrayBuffer(hex: string): ArrayBuffer {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes.buffer as ArrayBuffer;
 }

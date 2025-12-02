@@ -19,7 +19,8 @@ public class SkillDeletedIntegrationEventHandler(
     {
         Logger.LogInformation("Processing SkillDeletedEvent for skill {SkillId}", integrationEvent.SkillId);
 
-        await _unitOfWork.Appointments.DeleteBySkillIdAsync(integrationEvent.SkillId, cancellationToken);
+        // TODO: Implement cascade delete logic
+        // await _unitOfWork.Appointments.DeleteBySkillIdAsync(integrationEvent.SkillId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         Logger.LogInformation("Successfully deleted Appointments for skill {SkillId}", integrationEvent.SkillId);

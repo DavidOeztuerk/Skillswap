@@ -1,5 +1,5 @@
 // src/components/layout/MobileTabbar.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -9,7 +9,7 @@ import {
   Badge,
   useTheme,
   Menu,
-  MenuItem,
+  MenuItem as MuiMenuItem,
   ListItemIcon,
   ListItemText,
   Divider,
@@ -29,6 +29,29 @@ import { useAppSelector } from '../../store/store.hooks';
 import { usePermissions } from '../../contexts/PermissionContext';
 import { selectPendingMatches } from '../../store/selectors/matchmakingSelectors';
 
+// ============================================================================
+// Types
+// ============================================================================
+
+interface NavMenuItem {
+  label: string;
+  icon: React.ReactNode;
+  path: string;
+  authRequired: boolean;
+  permissions?: string[];
+  badge?: number;
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const MAX_VISIBLE_ITEMS = 4;
+
+// ============================================================================
+// Component
+// ============================================================================
+
 const Tabbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -36,134 +59,155 @@ const Tabbar: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { hasPermission, isAdmin } = usePermissions();
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
-  
 
-  // Get dynamic badge counts from Redux store - use memoized selector
+  // Get dynamic badge counts from Redux store
   const pendingMatches = useAppSelector(selectPendingMatches);
+  const pendingMatchCount = pendingMatches?.length ?? 0;
 
-  // Bestimme den aktiven Pfad für die Navigation mit verbesserter Logik
-  const getCurrentPath = () => {
+  // =========================================================================
+  // Memoized Menu Items
+  // =========================================================================
+  const menuItems = useMemo<NavMenuItem[]>(() => {
+    const items: NavMenuItem[] = [
+      {
+        label: 'Home',
+        icon: <HomeIcon />,
+        path: '/',
+        authRequired: false,
+      },
+      {
+        label: 'Dashboard',
+        icon: <DashboardIcon />,
+        path: '/dashboard',
+        authRequired: true,
+      },
+      {
+        label: 'Skills',
+        icon: <SkillsIcon />,
+        path: '/skills',
+        authRequired: true,
+      },
+      {
+        label: 'Matches',
+        icon: <MatchmakingIcon />,
+        path: '/matchmaking',
+        authRequired: true,
+        badge: pendingMatchCount,
+      },
+      {
+        label: 'Termine',
+        icon: <AppointmentsIcon />,
+        path: '/appointments',
+        authRequired: true,
+      },
+      {
+        label: 'Profil',
+        icon: <ProfileIcon />,
+        path: '/profile',
+        authRequired: true,
+      },
+    ];
+
+    // Add admin menu item for admins
+    if (isAdmin || hasPermission('admin:access_dashboard')) {
+      items.push({
+        label: 'Admin',
+        icon: <AdminIcon />,
+        path: '/admin/dashboard',
+        authRequired: true,
+        permissions: ['admin:access_dashboard'],
+      });
+    }
+
+    return items;
+  }, [isAdmin, hasPermission, pendingMatchCount]);
+
+  // =========================================================================
+  // Filtered Menu Items
+  // =========================================================================
+  const filteredMenuItems = useMemo(() => {
+    return menuItems.filter((item) => {
+      // Check authentication
+      if (item.authRequired && !isAuthenticated) return false;
+
+      // Check permissions
+      if (item.permissions && item.permissions.length > 0) {
+        return item.permissions.some((permission) => hasPermission(permission));
+      }
+
+      return true;
+    });
+  }, [menuItems, isAuthenticated, hasPermission]);
+
+  // Split into visible and overflow
+  const visibleMenuItems = useMemo(
+    () => filteredMenuItems.slice(0, MAX_VISIBLE_ITEMS),
+    [filteredMenuItems]
+  );
+
+  const overflowMenuItems = useMemo(
+    () => filteredMenuItems.slice(MAX_VISIBLE_ITEMS),
+    [filteredMenuItems]
+  );
+
+  const hasOverflow = overflowMenuItems.length > 0;
+
+  // =========================================================================
+  // Path Detection
+  // =========================================================================
+  const getCurrentPath = useCallback(() => {
     const path = location.pathname;
 
-    // Exakte Pfadübereinstimmung zuerst
+    // Exact path match first
     const exactMatches = ['/', '/dashboard', '/skills', '/matchmaking', '/appointments', '/profile'];
-    if (exactMatches?.includes(path)) {
+    if (exactMatches.includes(path)) {
       return path;
     }
 
-    // Intelligente Pfad-Zuordnung mit Priorität
-    if (path.startsWith('/skills/')) {
-      // Skills-Unterpfade werden zu /skills zugeordnet
-      return '/skills';
-    }
-    if (path.startsWith('/matchmaking/')) {
-      return '/matchmaking';
-    }
-    if (path.startsWith('/appointments/')) {
-      return '/appointments';
-    }
-    if (path.startsWith('/profile/') || path.startsWith('/users/')) {
-      return '/profile';
-    }
-    if (path.startsWith('/dashboard/')) {
-      return '/dashboard';
-    }
+    // Intelligent path mapping with priority
+    if (path.startsWith('/skills/')) return '/skills';
+    if (path.startsWith('/matchmaking/')) return '/matchmaking';
+    if (path.startsWith('/appointments/')) return '/appointments';
+    if (path.startsWith('/profile/') || path.startsWith('/users/')) return '/profile';
+    if (path.startsWith('/dashboard/')) return '/dashboard';
+    if (path.startsWith('/admin/')) return '/admin/dashboard';
 
-    // Für unbekannte Pfade: prüfe ob authentifiziert, dann dashboard, sonst home
+    // For unknown paths: authenticated -> dashboard, otherwise -> home
     return isAuthenticated ? '/dashboard' : '/';
-  };
+  }, [location.pathname, isAuthenticated]);
 
-  interface MenuItem {
-    label: string;
-    icon: React.ReactNode;
-    path: string;
-    authRequired: boolean;
-    permissions?: string[];
-    badge?: number;
-  }
-
-  const menuItems: MenuItem[] = [
-    {
-      label: 'Home',
-      icon: <HomeIcon />,
-      path: '/',
-      authRequired: false,
-    },
-    {
-      label: 'Dashboard',
-      icon: <DashboardIcon />,
-      path: '/dashboard',
-      authRequired: true,
-    },
-    {
-      label: 'Skills',
-      icon: <SkillsIcon />,
-      path: '/skills',
-      authRequired: true,
-    },
-    {
-      label: 'Matches',
-      icon: <MatchmakingIcon />,
-      path: '/matchmaking',
-      authRequired: true,
-      badge: pendingMatches.length
-    },
-    {
-      label: 'Termine',
-      icon: <AppointmentsIcon />,
-      path: '/appointments',
-      authRequired: true,
-    },
-    {
-      label: 'Profil',
-      icon: <ProfileIcon />,
-      path: '/profile',
-      authRequired: true,
-    },
-  ];
-
-  // Admin menu item - für Admin und SuperAdmin Rollen
-  if (isAdmin || hasPermission('admin:access_dashboard')) {
-    menuItems.push({
-      label: 'Admin',
-      icon: <AdminIcon />,
-      path: '/admin/dashboard',
-      authRequired: true,
-      permissions: ['admin:access_dashboard'],
-    });
-  }
-
-  // Filtere Menüeinträge basierend auf Authentifizierung und Permissions
-  const filteredMenuItems = menuItems.filter((item) => {
-    // Check authentication
-    if (item.authRequired && !isAuthenticated) return false;
-    
-    // Check permissions
-    if (item.permissions && item.permissions.length > 0) {
-      return item.permissions?.some(permission => hasPermission(permission));
-    }
-    
-    return true;
-  });
-
-  // Intelligente Mobile Menu Verteilung
-  const MAX_VISIBLE_ITEMS = 4; // Reserve space for "More" button
-  const visibleMenuItems = filteredMenuItems.slice(0, MAX_VISIBLE_ITEMS);
-  const overflowMenuItems = filteredMenuItems.slice(MAX_VISIBLE_ITEMS);
-  const hasOverflow = overflowMenuItems?.length > 0;
-
-  const handleMoreClick = (event: React.MouseEvent<HTMLElement>) => {
+  // =========================================================================
+  // Event Handlers
+  // =========================================================================
+  const handleMoreClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
     setMoreMenuAnchor(event.currentTarget);
-  };
+  }, []);
 
-  const handleMoreClose = () => {
+  const handleMoreClose = useCallback(() => {
     setMoreMenuAnchor(null);
-  };
+  }, []);
 
-  const handleOverflowNavigation = (path: string) => {
-    navigate(path);
-    handleMoreClose();
-  };
+  const handleOverflowNavigation = useCallback(
+    (path: string) => {
+      navigate(path);
+      handleMoreClose();
+    },
+    [navigate, handleMoreClose]
+  );
+
+  const handleNavigationChange = useCallback(
+    (_: React.SyntheticEvent, newValue: string) => {
+      if (newValue !== 'more') {
+        navigate(newValue);
+      }
+    },
+    [navigate]
+  );
+
+  // =========================================================================
+  // Render
+  // =========================================================================
+  const currentPath = getCurrentPath();
 
   return (
     <Box
@@ -185,12 +229,8 @@ const Tabbar: React.FC = () => {
         }}
       >
         <BottomNavigation
-          value={getCurrentPath()}
-          onChange={(_, newValue) => {
-            if (newValue !== 'more') {
-              navigate(newValue);
-            }
-          }}
+          value={currentPath}
+          onChange={handleNavigationChange}
           showLabels
           sx={{
             height: { xs: 72, sm: 64 },
@@ -239,7 +279,7 @@ const Tabbar: React.FC = () => {
               }
             />
           ))}
-          
+
           {/* More Button for overflow items */}
           {hasOverflow && (
             <BottomNavigationAction
@@ -265,33 +305,35 @@ const Tabbar: React.FC = () => {
           vertical: 'bottom',
           horizontal: 'center',
         }}
-        PaperProps={{
-          elevation: 8,
-          sx: {
-            minWidth: 200,
-            '&::before': {
-              content: '""',
-              display: 'block',
-              position: 'absolute',
-              bottom: -8,
-              left: '50%',
-              width: 0,
-              height: 0,
-              borderLeft: '8px solid transparent',
-              borderRight: '8px solid transparent',
-              borderTop: '8px solid',
-              borderTopColor: 'background.paper',
-              transform: 'translateX(-50%)',
-              zIndex: 0,
+        slotProps={{
+          paper: {
+            elevation: 8,
+            sx: {
+              minWidth: 200,
+              '&::before': {
+                content: '""',
+                display: 'block',
+                position: 'absolute',
+                bottom: -8,
+                left: '50%',
+                width: 0,
+                height: 0,
+                borderLeft: '8px solid transparent',
+                borderRight: '8px solid transparent',
+                borderTop: '8px solid',
+                borderTopColor: 'background.paper',
+                transform: 'translateX(-50%)',
+                zIndex: 0,
+              },
             },
           },
         }}
       >
         {overflowMenuItems.map((item) => {
-          const isActive = getCurrentPath() === item.path;
-          
+          const isActive = currentPath === item.path;
+
           return (
-            <MenuItem
+            <MuiMenuItem
               key={item.path}
               onClick={() => handleOverflowNavigation(item.path)}
               selected={isActive}
@@ -331,14 +373,14 @@ const Tabbar: React.FC = () => {
                   color: isActive ? 'primary.main' : 'inherit',
                 }}
               />
-            </MenuItem>
+            </MuiMenuItem>
           );
         })}
-        
-        {overflowMenuItems?.length > 0 && (
+
+        {overflowMenuItems.length > 0 && (
           <>
             <Divider sx={{ my: 1 }} />
-            <MenuItem
+            <MuiMenuItem
               onClick={handleMoreClose}
               sx={{
                 py: 1,
@@ -348,7 +390,7 @@ const Tabbar: React.FC = () => {
               }}
             >
               Schließen
-            </MenuItem>
+            </MuiMenuItem>
           </>
         )}
       </Menu>

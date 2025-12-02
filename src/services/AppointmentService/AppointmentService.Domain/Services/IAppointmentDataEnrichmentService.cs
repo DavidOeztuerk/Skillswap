@@ -10,10 +10,6 @@ namespace AppointmentService.Domain.Services;
 public interface IAppointmentDataEnrichmentService
 {
     Task<EnrichedAppointmentData> EnrichAppointmentDataAsync(
-        Appointment appointment,
-        CancellationToken cancellationToken = default);
-
-    Task<EnrichedAppointmentData> EnrichAppointmentDataAsync(
         SessionAppointment appointment,
         CancellationToken cancellationToken = default);
 }

@@ -30,7 +30,7 @@ const LocalVideo: React.FC<LocalVideoProps> = ({
 
   // Wenn der Stream sich ändert, diesen dem Video-Element zuweisen
   useEffect(() => {
-    if (videoRef.current && stream) {
+    if (videoRef.current) {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
@@ -51,22 +51,28 @@ const LocalVideo: React.FC<LocalVideoProps> = ({
         border: `1px solid ${theme.palette.divider}`,
       }}
     >
-      {stream && isVideoEnabled ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted // Lokales Video immer stumm schalten, um Feedback zu vermeiden
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transform: 'scaleX(-1)', // Spiegeln, damit es natürlicher wirkt (wie ein Spiegel)
-          }}
-        />
-      ) : (
+      {/* Video element - always in DOM to keep srcObject */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted // Lokales Video immer stumm schalten, um Feedback zu vermeiden
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          transform: 'scaleX(-1)', // Spiegeln, damit es natürlicher wirkt (wie ein Spiegel)
+          display: stream && isVideoEnabled ? 'block' : 'none', // Hide with CSS instead of unmounting
+        }}
+      />
+
+      {/* Placeholder when video is disabled */}
+      {(!stream || !isVideoEnabled) && (
         <Box
           sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
             width: '100%',
             height: '100%',
             display: 'flex',
@@ -93,9 +99,11 @@ const LocalVideo: React.FC<LocalVideoProps> = ({
             color="text.secondary"
             sx={{ fontSize: '0.75rem' }}
           >
-            {isVideoEnabled
-              ? 'Kamera ist eingeschaltet'
-              : 'Kamera ist ausgeschaltet'}
+            {!stream
+              ? 'Warte auf Videostream...'
+              : isVideoEnabled
+                ? 'Kamera ist eingeschaltet'
+                : 'Kamera ist ausgeschaltet'}
           </Typography>
         </Box>
       )}

@@ -11,7 +11,6 @@
 export const getWebRTCConfiguration = (): RTCConfiguration => {
   const iceServers: RTCIceServer[] = [];
 
-  // 🔥 VERBESSERT: Bessere STUN Server Auswahl
   const stunUrls = import.meta.env.VITE_WEBRTC_STUN_URLS;
   if (stunUrls) {
     const stunServerUrls = stunUrls.split(',').map((url: string) => url.trim()).filter((url: any) => url);
@@ -23,7 +22,6 @@ export const getWebRTCConfiguration = (): RTCConfiguration => {
     }
   }
 
-  // 🔥 FALLBACK: Zuverlässige öffentliche STUN Server
   if (iceServers.length === 0) {
     const fallbackStunServers = [
       'stun:stun.l.google.com:19302',
@@ -39,7 +37,6 @@ export const getWebRTCConfiguration = (): RTCConfiguration => {
     console.log('🔧 Using fallback STUN servers');
   }
 
-  // 🔥 VERBESSERT: TURN Server Konfiguration
   const turnUrls = import.meta.env.VITE_WEBRTC_TURN_URLS;
   const turnUsername = import.meta.env.VITE_WEBRTC_TURN_USERNAME;
   const turnCredential = import.meta.env.VITE_WEBRTC_TURN_CREDENTIAL;
@@ -55,7 +52,6 @@ export const getWebRTCConfiguration = (): RTCConfiguration => {
       console.log('✅ Using TURN servers:', turnServerUrls);
     }
   } else {
-    // 🔥 FALLBACK: Kostenlose TURN Server für Entwicklung
     console.warn('⚠️ No TURN servers configured, using public fallback (limited reliability)');
     
     iceServers.push({
@@ -69,7 +65,6 @@ export const getWebRTCConfiguration = (): RTCConfiguration => {
     });
   }
 
-  // 🔥 OPTIMIERT: WebRTC Konfiguration für bessere Verbindungsstabilität
   return {
     iceServers,
     iceCandidatePoolSize: 10,
@@ -109,7 +104,6 @@ export const getExpectedConnectionQuality = (): {
 } => {
   const config = getWebRTCConfiguration();
   
-  // 🔥 KORREKTUR: Type-safe URL checking
   const stunCount = config.iceServers?.filter(server => {
     const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
     return urls.some(url => typeof url === 'string' && url.startsWith('stun:'));
@@ -194,7 +188,6 @@ export const testWebRTCConnectivity = async (): Promise<{
       let hasGathered = false;
       let timeoutId: NodeJS.Timeout;
 
-      // 🔥 VERBESSERT: Zähle ICE Candidates
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           gatheredCandidates++;
@@ -225,7 +218,6 @@ export const testWebRTCConnectivity = async (): Promise<{
         }
       };
 
-      // 🔥 VERBESSERT: Handle connection state changes
       pc.oniceconnectionstatechange = () => {
         console.log('ICE Connection State:', pc.iceConnectionState);
         

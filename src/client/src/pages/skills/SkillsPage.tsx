@@ -106,7 +106,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
   }, [showOnly, user?.id, fetchUserSkills, fetchAllSkills, fetchFavoriteSkills]);
 
   // ===== STABLE DATA LOADING useEffect =====  
-  // 🔥 This is THE NEW PATTERN: absolutely stable dependencies
   useEffect(() => {
     const loadData = async () => {
       // Prevent unnecessary re-fetches using ref comparison
@@ -145,7 +144,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     
     loadData();
     
-    // 🔥 CRITICAL: Only showOnly and user?.id as dependencies
     // loadMetadata and loadSkillsData are stable due to useCallback
   }, [showOnly, user?.id, withLoading, loadMetadata, loadSkillsData]);
 

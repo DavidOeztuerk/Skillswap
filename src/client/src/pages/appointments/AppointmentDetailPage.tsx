@@ -24,7 +24,7 @@ import {
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
-  VideoCall as VideoCallIcon,
+  // VideoCall as VideoCallIcon,
   Message as MessageIcon,
   Edit as EditIcon,
   Cancel as CancelIcon,
@@ -283,13 +283,13 @@ const AppointmentDetailPage: React.FC = () => {
     });
   };
 
-  const handleJoinVideoCall = () => {
-    errorService.addBreadcrumb('Joining video call', 'navigation', { appointmentId });
+  // const handleJoinVideoCall = () => {
+  //   errorService.addBreadcrumb('Joining video call', 'navigation', { appointmentId });
 
-    if (appointmentId) {
-      navigate(`/videocall/${appointmentId}`);
-    }
-  };
+  //   if (appointmentId) {
+  //     navigate(`/videocall/${appointmentId}`);
+  //   }
+  // };
 
   const handleGenerateMeetingLink = async (): Promise<string> => {
     if (!appointmentId) {
@@ -466,10 +466,6 @@ const AppointmentDetailPage: React.FC = () => {
   const otherUser = isTeacher
     ? appointment.studentDetails
     : appointment.teacherDetails;
-  const canJoinCall =
-    appointment.status === AppointmentStatus.Accepted &&
-    appointment.videocallUrl &&
-    !isPastDate(appointment.endTime);
   const canConfirm = isTeacher && appointment.status === AppointmentStatus.Pending;
   const canCancel =
     appointment.status === AppointmentStatus.Pending ||
@@ -671,18 +667,6 @@ const AppointmentDetailPage: React.FC = () => {
             {/* Action buttons */}
             <Divider sx={{ my: 3 }} />
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              {canJoinCall && (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  startIcon={<VideoCallIcon />}
-                  onClick={handleJoinVideoCall}
-                >
-                  Videoanruf beitreten
-                </Button>
-              )}
-
               {canConfirm && (
                 <Button
                   variant="outlined"

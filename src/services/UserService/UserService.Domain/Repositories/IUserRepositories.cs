@@ -8,8 +8,21 @@ namespace UserService.Domain.Repositories;
 public interface IAuthRepository
 {
     Task<RegisterResponse> RegisterUserWithTokens(string email, string password, string firstName, string lastName, string userName, CancellationToken cancellationToken = default);
-    Task<LoginResponse> LoginUser(string email, string password, string? twoFactorCode = null, string? deviceId = null, string? deviceInfo = null, CancellationToken cancellationToken = default);
-    Task<RefreshTokenResponse> RefreshUserToken(string accessToken, string refreshToken, CancellationToken cancellationToken = default);
+    Task<LoginResponse> LoginUser(
+        string email,
+        string password,
+        string? twoFactorCode = null,
+        string? deviceId = null,
+        string? deviceInfo = null,
+        string? deviceFingerprint = null,
+        string? browser = null,
+        string? operatingSystem = null,
+        string? screenResolution = null,
+        string? timeZone = null,
+        string? language = null,
+        string? ipAddress = null,
+        CancellationToken cancellationToken = default);
+    Task<RefreshTokenResponse> RefreshUserToken(string accessToken, string refreshToken, string? sessionId = null, CancellationToken cancellationToken = default);
     Task<(bool Success, string? UserId, string? Email, string? FirstName)> VerifyEmail(string email, string token, CancellationToken cancellationToken = default);
     Task ResendVerificationEmail(string email, CancellationToken cancellationToken = default);
     Task<(string UserId, string Email, string ResetToken, string FirstName)?> RequestPasswordReset(string email, CancellationToken cancellationToken = default);

@@ -1,5 +1,6 @@
 import { createEntityAdapter, EntityState, EntityId } from "@reduxjs/toolkit";
 import { AdminAnalytics, AdminAppointment, AdminDashboardData, AdminMatch, AdminSettings, AdminSkill, AdminUser, AuditLog, ModerationReport, SystemHealth } from "../../types/models/Admin";
+import { SecurityAlertResponse, SecurityAlertStatisticsResponse } from "../../types/models/SecurityAlert";
 import { RequestState } from "../../types/common/RequestState";
 
 export const adminUsersAdapter = createEntityAdapter<AdminUser, EntityId>({
@@ -19,7 +20,9 @@ export interface AdminEntityState extends EntityState<AdminUser, EntityId>, Requ
   auditLogs: AuditLog[];
   moderationReports: ModerationReport[];
   settings: AdminSettings | null;
-  
+  securityAlerts: SecurityAlertResponse[];
+  securityAlertStatistics: SecurityAlertStatisticsResponse | null;
+
   // Loading states
   isLoading: boolean;
   isLoadingUsers: boolean;
@@ -31,7 +34,9 @@ export interface AdminEntityState extends EntityState<AdminUser, EntityId>, Requ
   isLoadingAuditLogs: boolean;
   isLoadingReports: boolean;
   isLoadingSettings: boolean;
-  
+  isLoadingSecurityAlerts: boolean;
+  isLoadingSecurityStatistics: boolean;
+
   // Error states
   userError: string | undefined;
   skillError: string | undefined;
@@ -42,6 +47,7 @@ export interface AdminEntityState extends EntityState<AdminUser, EntityId>, Requ
   auditLogError: string | undefined;
   reportError: string | undefined;
   settingsError: string | undefined;
+  securityAlertError: string | undefined;
   
   // Pagination
   pagination: {
@@ -51,8 +57,9 @@ export interface AdminEntityState extends EntityState<AdminUser, EntityId>, Requ
     matches: AdminPagination;
     auditLogs: AdminPagination;
     reports: AdminPagination;
+    securityAlerts: AdminPagination;
   };
-  
+
   // Filters
   filters: AdminFilters;
 }
@@ -68,7 +75,9 @@ export const initialAdminState: AdminEntityState = adminUsersAdapter.getInitialS
   auditLogs: [],
   moderationReports: [],
   settings: null,
-  
+  securityAlerts: [],
+  securityAlertStatistics: null,
+
   isLoading: false,
   isLoadingUsers: false,
   isLoadingSkills: false,
@@ -79,7 +88,9 @@ export const initialAdminState: AdminEntityState = adminUsersAdapter.getInitialS
   isLoadingAuditLogs: false,
   isLoadingReports: false,
   isLoadingSettings: false,
-  
+  isLoadingSecurityAlerts: false,
+  isLoadingSecurityStatistics: false,
+
   errorMessage: undefined,
   userError: undefined,
   skillError: undefined,
@@ -90,6 +101,7 @@ export const initialAdminState: AdminEntityState = adminUsersAdapter.getInitialS
   auditLogError: undefined,
   reportError: undefined,
   settingsError: undefined,
+  securityAlertError: undefined,
 
   pagination: {
     users: { page: 1, limit: 20, total: 0 },
@@ -98,6 +110,7 @@ export const initialAdminState: AdminEntityState = adminUsersAdapter.getInitialS
     matches: { page: 1, limit: 20, total: 0 },
     auditLogs: { page: 1, limit: 50, total: 0 },
     reports: { page: 1, limit: 20, total: 0 },
+    securityAlerts: { page: 1, limit: 20, total: 0 },
   },
   
   filters: {
@@ -107,6 +120,12 @@ export const initialAdminState: AdminEntityState = adminUsersAdapter.getInitialS
     matches: { status: 'all', dateRange: null },
     auditLogs: { action: 'all', user: '', dateRange: null },
     reports: { type: 'all', status: 'all' },
+    securityAlerts: {
+      minLevel: '',
+      type: '',
+      includeRead: true,
+      includeDismissed: false,
+    },
   },
 });
 
@@ -145,5 +164,11 @@ export interface AdminFilters {
   reports: {
     type: 'all' | 'inappropriate-content' | 'spam' | 'harassment' | 'other';
     status: 'all' | 'pending' | 'approved' | 'rejected' | 'escalated';
+  };
+  securityAlerts: {
+    minLevel: string;
+    type: string;
+    includeRead: boolean;
+    includeDismissed: boolean;
   };
 }

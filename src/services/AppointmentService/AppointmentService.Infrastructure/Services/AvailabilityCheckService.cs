@@ -95,12 +95,15 @@ public class AvailabilityCheckService : IAvailabilityCheckService
         var timeRanges = _timeParser.ParseTimeRanges(preferredTimes);
 
         // 2. Generate potential slots (next 4-8 weeks to ensure enough slots)
-        var weeksToCheck = Math.Max(4, (sessionsNeeded / days.Count) + 2); // Adaptive weeks
+        var minimumBufferHours = 2;
+        var earliestStartDate = DateTime.UtcNow.AddHours(minimumBufferHours);
+
+        var weeksToCheck = Math.Max(4, (sessionsNeeded / days.Count) + 2);
         var potentialSlots = _timeParser.GeneratePotentialSlots(
             days,
             timeRanges,
             sessionDurationMinutes,
-            DateTime.UtcNow.AddDays(7), // Start from next week
+            earliestStartDate,
             weeksToCheck);
 
         _logger.LogDebug("Generated {Count} potential slots to check", potentialSlots.Count);

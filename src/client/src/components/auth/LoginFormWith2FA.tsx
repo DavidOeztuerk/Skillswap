@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -33,8 +33,24 @@ import { sanitizeInput } from '../../utils/cryptoHelpers';
 import TwoFactorInput from './TwoFactorInput';
 import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
+import { isSuccessResponse } from '../../types/api/UnifiedResponse';
+import type { LoginResponse } from '../../types/contracts/responses/AuthResponse';
 
-// Enhanced validation schema with 2FA
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const MAX_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const LOCK_STORAGE_KEY = 'loginLock';
+
+// Debug flag - nur in Development loggen
+const DEBUG = import.meta.env.DEV;
+
+// ============================================================================
+// VALIDATION SCHEMA
+// ============================================================================
+
 const loginSchema = z.object({
   email: z
     .string()
@@ -55,6 +71,10 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+// ============================================================================
+// INTERFACES
+// ============================================================================
+
 interface LoginFormWith2FAProps {
   onSuccess?: () => void;
   showRememberMe?: boolean;
@@ -62,46 +82,121 @@ interface LoginFormWith2FAProps {
   showRegisterLink?: boolean;
 }
 
+interface LockData {
+  timestamp: number;
+  attempts: number;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Safely get lock data from localStorage (SSR-safe)
+ */
+const getLockData = (): LockData | null => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return null;
+  }
+
+  try {
+    const data = localStorage.getItem(LOCK_STORAGE_KEY);
+    if (!data) return null;
+
+    const parsed = JSON.parse(data);
+    if (typeof parsed.timestamp !== 'number' || typeof parsed.attempts !== 'number') {
+      localStorage.removeItem(LOCK_STORAGE_KEY);
+      return null;
+    }
+
+    return parsed as LockData;
+  } catch {
+    localStorage.removeItem(LOCK_STORAGE_KEY);
+    return null;
+  }
+};
+
+/**
+ * Save lock data to localStorage (SSR-safe)
+ */
+const saveLockData = (data: LockData): void => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return;
+  }
+  localStorage.setItem(LOCK_STORAGE_KEY, JSON.stringify(data));
+};
+
+/**
+ * Clear lock data from localStorage (SSR-safe)
+ */
+const clearLockData = (): void => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return;
+  }
+  localStorage.removeItem(LOCK_STORAGE_KEY);
+};
+
+/**
+ * Format remaining lock time as MM:SS
+ */
+const formatLockTime = (ms: number): string => {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
 const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
   onSuccess,
   showRememberMe = true,
   showForgotPassword = true,
   showRegisterLink = true,
 }) => {
-  const { 
-    isLoading: authLoading, 
-    errorMessage, 
-    user, 
-    login, 
-    clearError, 
-    clearTwoFactorState, 
-    pendingLoginCredentials 
+  // ─────────────────────────────────────────────────────────────────────────
+  // HOOKS
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  const {
+    isLoading: authLoading,
+    errorMessage,
+    login,
+    clearError,
+    clearTwoFactorState,
+    pendingLoginCredentials,
   } = useAuth();
+  
   const { withLoading, isLoading } = useLoading();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // LOCAL STATE
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const [showPassword, setShowPassword] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [lockTimeRemaining, setLockTimeRemaining] = useState(0);
   const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // REFS
+  // ─────────────────────────────────────────────────────────────────────────
   
-  // Combine auth loading state with context loading state
+  const mountedRef = useRef(true);
+  const lockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COMPUTED
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const loginLoading = authLoading || isLoading(LoadingKeys.LOGIN);
 
-  // Rate limiting configuration
-  const MAX_ATTEMPTS = 5;
-  const LOCK_DURATION = 15 * 60 * 1000; // 15 minutes
-
-  // Clear errors and 2FA state when component mounts
-  useEffect(() => {
-    clearError();
-    clearTwoFactorState();
-    return () => {
-      clearError();
-      clearTwoFactorState();
-    };
-  }, [clearError, clearTwoFactorState]);
-
-  // React Hook Form setup
+  // ─────────────────────────────────────────────────────────────────────────
+  // FORM
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const {
     control,
     handleSubmit,
@@ -110,8 +205,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
     clearErrors,
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    mode: 'onSubmit',  // Only validate on form submit, not on blur/change
-    shouldUnregister: true,  // Unregister fields on unmount
+    mode: 'onSubmit',
     defaultValues: {
       email: pendingLoginCredentials?.email ?? '',
       password: '',
@@ -119,65 +213,115 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
     },
   });
 
-
-  // Handle rate limiting
+  // ─────────────────────────────────────────────────────────────────────────
+  // EFFECTS
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // Cleanup on unmount
   useEffect(() => {
-    const lockData = typeof localStorage !== 'undefined' ? localStorage.getItem('loginLock') : null;
-    if (lockData) {
-      try {
-        const { timestamp, attempts } = JSON.parse(lockData);
-        if (typeof timestamp !== 'number' || typeof attempts !== 'number') {
-          if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem('loginLock');
-          }
-          return;
-        }
-        const elapsed = Date.now() - timestamp;
+    mountedRef.current = true;
+    clearError();
 
-        if (elapsed < LOCK_DURATION && attempts >= MAX_ATTEMPTS) {
-          setIsLocked(true);
-          setLockTimeRemaining(LOCK_DURATION - elapsed);
-          setAttemptCount(attempts);
-        } else if (elapsed >= LOCK_DURATION) {
-          if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem('loginLock');
-          }
-          setAttemptCount(0);
-        } else {
-          setAttemptCount(attempts || 0);
-        }
-      } catch (error) {
-        console.error('Error parsing lock data:', error);
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem('loginLock');
-        }
+    return () => {
+      mountedRef.current = false;
+      clearError();
+      clearTwoFactorState();
+      if (lockTimerRef.current) {
+        clearInterval(lockTimerRef.current);
       }
+    };
+  }, [clearError, clearTwoFactorState]);
+
+  // Initialize rate limiting state from localStorage
+  useEffect(() => {
+    const lockData = getLockData();
+    if (!lockData) {
+      setAttemptCount(0);
+      return;
     }
-  }, [LOCK_DURATION]);
+
+    const elapsed = Date.now() - lockData.timestamp;
+
+    if (elapsed >= LOCK_DURATION_MS) {
+      // Lock expired
+      clearLockData();
+      setAttemptCount(0);
+    } else if (lockData.attempts >= MAX_ATTEMPTS) {
+      // Still locked
+      setIsLocked(true);
+      setLockTimeRemaining(LOCK_DURATION_MS - elapsed);
+      setAttemptCount(lockData.attempts);
+    } else {
+      // Has attempts but not locked
+      setAttemptCount(lockData.attempts);
+    }
+  }, []);
 
   // Lock countdown timer
   useEffect(() => {
     if (!isLocked || lockTimeRemaining <= 0) return;
 
-    const timer = setInterval(() => {
+    lockTimerRef.current = setInterval(() => {
       setLockTimeRemaining((prev) => {
         if (prev <= 1000) {
           setIsLocked(false);
-          if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem('loginLock');
-        }
+          clearLockData();
           setAttemptCount(0);
+          if (lockTimerRef.current) {
+            clearInterval(lockTimerRef.current);
+          }
           return 0;
         }
         return prev - 1000;
       });
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      if (lockTimerRef.current) {
+        clearInterval(lockTimerRef.current);
+      }
+    };
   }, [isLocked, lockTimeRemaining]);
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // HANDLERS
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  /**
+   * Record a failed login attempt
+   */
+  const handleFailedAttempt = useCallback(() => {
+    const newCount = attemptCount + 1;
+    setAttemptCount(newCount);
 
-  // Handle form submission
+    saveLockData({
+      timestamp: Date.now(),
+      attempts: newCount,
+    });
+
+    if (newCount >= MAX_ATTEMPTS) {
+      setIsLocked(true);
+      setLockTimeRemaining(LOCK_DURATION_MS);
+      setError('root', {
+        message: `Zu viele fehlgeschlagene Anmeldeversuche. Konto wurde für ${Math.ceil(
+          LOCK_DURATION_MS / 60000
+        )} Minuten gesperrt.`,
+      });
+    }
+  }, [attemptCount, setError]);
+
+  /**
+   * Clear rate limiting after successful login
+   */
+  const handleSuccessfulLogin = useCallback(() => {
+    clearLockData();
+    setAttemptCount(0);
+    onSuccess?.();
+  }, [onSuccess]);
+
+  /**
+   * Handle form submission
+   */
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     if (isLocked) {
       setError('root', {
@@ -190,7 +334,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
       clearErrors();
       setTwoFactorError(null);
 
-      // Sanitize input data
+      // Sanitize input
       const sanitizedEmail = sanitizeInput(data.email.trim().toLowerCase());
       const sanitizedPassword = sanitizeInput(data.password);
 
@@ -199,48 +343,55 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
           email: sanitizedEmail,
           password: sanitizedPassword,
           rememberMe: data.rememberMe,
-          ...(data.twoFactorCode && { twoFactorCode: data.twoFactorCode })
+          ...(data.twoFactorCode && { twoFactorCode: data.twoFactorCode }),
         });
       });
 
       if (result.meta.requestStatus === 'fulfilled') {
+        // Also: { success: true, data: LoginResponse }
         const payload = result.payload;
         
-        // Check if response indicates 2FA is required
-        if (payload && typeof payload === 'object' && 'requires2FA' in payload && payload.requires2FA) {
-          // 2FA is required, component will show 2FA input
-          return;
+        if (payload && isSuccessResponse(payload)) {
+          const loginData = payload.data as LoginResponse;
+          
+          if (DEBUG) {
+            console.debug('🔐 Login response:', { 
+              requires2FA: loginData?.requires2FA,
+              hasAccessToken: !!loginData?.accessToken 
+            });
+          }
+          
+          // Check if 2FA is required
+          if (loginData?.requires2FA) {
+            // 2FA required - component will show 2FA input via pendingLoginCredentials
+            return;
+          }
+
+          // Login successful - accessToken vorhanden
+          if (loginData?.accessToken) {
+            handleSuccessfulLogin();
+            return;
+          }
         }
-        
-        // Login successful
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem('loginLock');
-        }
-        setAttemptCount(0);
-        onSuccess?.();
-        return;
       }
-
-
-     
-      // Clear rate limiting on successful login
-      localStorage.removeItem('loginLock');
-      setAttemptCount(0);
-
-      if (onSuccess) {
-        onSuccess();
-      }
+      
+      // Login failed oder kein accessToken
+      handleFailedAttempt();
     } catch (error: unknown) {
-      console.error('Login form error:', error);
+      if (DEBUG) {
+        console.error('Login form error:', error);
+      }
       errorService.handleError(error, 'Login failed', 'LoginForm');
       handleFailedAttempt();
     }
   };
 
-  // Handle 2FA code submission
-  const handle2FASubmit = async (code: string) => {
+  /**
+   * Handle 2FA code submission
+   */
+  const handle2FASubmit = async (code: string): Promise<void> => {
     if (!pendingLoginCredentials) {
-      setTwoFactorError('Session expired. Please login again.');
+      setTwoFactorError('Sitzung abgelaufen. Bitte melden Sie sich erneut an.');
       clearTwoFactorState();
       return;
     }
@@ -253,93 +404,98 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
         twoFactorCode: code,
       });
 
-      if (result.meta.requestStatus === 'fulfilled' && (result.payload as any)?.accessToken) {
-        // Clear rate limiting on successful login
-        localStorage.removeItem('loginLock');
-        setAttemptCount(0);
-
-        if (onSuccess) {
-          onSuccess();
+      if (result.meta.requestStatus === 'fulfilled') {
+        const payload = result.payload;
+        
+        if (payload && isSuccessResponse(payload)) {
+          const loginData = payload.data as LoginResponse;
+          
+          if (loginData?.accessToken) {
+            handleSuccessfulLogin();
+            return;
+          }
         }
+        
+        // Kein accessToken in Response
+        setTwoFactorError('Verifizierung fehlgeschlagen. Bitte versuchen Sie es erneut.');
+      } else {
+        // rejected
+        setTwoFactorError('Ungültiger Code. Bitte versuchen Sie es erneut.');
+        handleFailedAttempt();
       }
     } catch (error: unknown) {
-      console.error('2FA verification error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Invalid verification code';
-      setTwoFactorError(errorMessage);
-      throw error;
+      if (DEBUG) {
+        console.error('2FA verification error:', error);
+      }
+      const errorMsg = error instanceof Error 
+        ? error.message 
+        : 'Verifizierung fehlgeschlagen.';
+      setTwoFactorError(errorMsg);
+      handleFailedAttempt();
     }
   };
 
-  // Handle failed login attempts and rate limiting
-  const handleFailedAttempt = () => {
-    const newAttemptCount = attemptCount + 1;
-    setAttemptCount(newAttemptCount);
+  /**
+   * Cancel 2FA and return to login form
+   */
+  const handleCancel2FA = useCallback(() => {
+    clearTwoFactorState();
+    setTwoFactorError(null);
+  }, [clearTwoFactorState]);
 
-    const lockData = {
-      timestamp: Date.now(),
-      attempts: newAttemptCount,
-    };
-    localStorage.setItem('loginLock', JSON.stringify(lockData));
+  // ─────────────────────────────────────────────────────────────────────────
+  // COMPUTED VALUES
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // Check for validation errors (exclude root errors which are API errors)
+  const hasValidationErrors = Object.keys(errors).filter((key) => key !== 'root').length > 0;
 
-    if (newAttemptCount >= MAX_ATTEMPTS) {
-      setIsLocked(true);
-      setLockTimeRemaining(LOCK_DURATION);
-      setError('root', {
-        message: `Zu viele fehlgeschlagene Anmeldeversuche. Konto wurde für ${Math.ceil(
-          LOCK_DURATION / 60000
-        )} Minuten gesperrt.`,
-      });
-    } else {
-      // Don't override the API error message with rate limiting message
-      // The API error is already stored in Redux state, let it be displayed
-    }
-  };
-
-  // Format lock time remaining
-  const formatLockTime = (ms: number): string => {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  // Check if form has any errors
-  // Check if form has validation errors (exclude root errors which are API errors)
-  const hasErrors = Object.keys(errors).filter(key => key !== 'root').length > 0;
-
-  // Show 2FA input if required
-  if (user?.preferences) {
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER - 2FA INPUT
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // ✅ KORREKT: Check pendingLoginCredentials für 2FA-Anzeige (nicht user?.preferences!)
+  if (pendingLoginCredentials) {
     return (
-      <Fade in={true}>
+      <Fade in>
         <Box>
-          <Paper elevation={0} sx={{ p: 3, mb: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 3,
+              mb: 2,
+              bgcolor: 'primary.light',
+              color: 'primary.contrastText',
+            }}
+          >
             <Box display="flex" alignItems="center" gap={2}>
               <SecurityIcon fontSize="large" />
               <Box>
-                <Typography variant="h6">Two-Factor Authentication</Typography>
+                <Typography variant="h6">Zwei-Faktor-Authentifizierung</Typography>
                 <Typography variant="body2">
-                  Enter the code from your authenticator app to continue
+                  Geben Sie den Code aus Ihrer Authenticator-App ein
                 </Typography>
               </Box>
             </Box>
           </Paper>
-          
+
           <TwoFactorInput
             onSubmit={handle2FASubmit}
-            onCancel={() => clearTwoFactorState()}
+            onCancel={handleCancel2FA}
             loading={loginLoading}
             error={twoFactorError}
             title=""
-            description="Enter your 6-digit authentication code"
+            description="Geben Sie Ihren 6-stelligen Authentifizierungscode ein"
           />
-          
+
           <Box mt={3} textAlign="center">
             <Link
               component="button"
               variant="body2"
-              onClick={() => clearTwoFactorState()}
+              onClick={handleCancel2FA}
               sx={{ cursor: 'pointer' }}
             >
-              Back to login
+              Zurück zur Anmeldung
             </Link>
           </Box>
         </Box>
@@ -347,16 +503,18 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
     );
   }
 
-  // Show regular login form
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER - LOGIN FORM
+  // ─────────────────────────────────────────────────────────────────────────
+  
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Stack spacing={3}>
-        {/* Enhanced Error Display */}
-        
-        <EnhancedErrorAlert 
+        {/* Error Display */}
+        <EnhancedErrorAlert
           error={errorMessage || (errors.root && { message: errors.root.message })}
-          onDismiss={() => clearError()}
-          compact={process.env.NODE_ENV === 'production'}
+          onDismiss={clearError}
+          compact={import.meta.env.PROD}
         />
 
         {/* Rate Limiting Warning */}
@@ -371,7 +529,8 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
         {/* Lock Status */}
         {isLocked && (
           <Alert severity="error">
-            Konto temporär gesperrt. Versuchen Sie es in {formatLockTime(lockTimeRemaining)} erneut.
+            Konto temporär gesperrt. Versuchen Sie es in {formatLockTime(lockTimeRemaining)}{' '}
+            erneut.
           </Alert>
         )}
 
@@ -398,7 +557,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
                     </InputAdornment>
                   ),
                   type: 'email',
-                }
+                },
               }}
             />
           )}
@@ -439,13 +598,13 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
                       </IconButton>
                     </InputAdornment>
                   ),
-                }
+                },
               }}
             />
           )}
         />
 
-        {/* Remember Me Checkbox */}
+        {/* Remember Me */}
         {showRememberMe && (
           <Controller
             name="rememberMe"
@@ -486,7 +645,7 @@ const LoginFormWith2FA: React.FC<LoginFormWith2FAProps> = ({
           variant="contained"
           color="primary"
           loading={loginLoading}
-          disabled={isLocked || hasErrors}
+          disabled={isLocked || hasValidationErrors}
           loadingText="Anmeldung läuft..."
           size="large"
           sx={{
