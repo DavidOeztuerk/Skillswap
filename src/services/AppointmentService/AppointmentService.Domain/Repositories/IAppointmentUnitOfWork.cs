@@ -7,11 +7,6 @@ namespace AppointmentService.Domain.Repositories;
 public interface IAppointmentUnitOfWork : IAsyncDisposable
 {
     /// <summary>
-    /// Repository for Appointment entities
-    /// </summary>
-    IAppointmentRepository Appointments { get; }
-
-    /// <summary>
     /// Repository for SessionAppointment entities
     /// </summary>
     ISessionAppointmentRepository SessionAppointments { get; }
@@ -55,4 +50,9 @@ public interface IAppointmentUnitOfWork : IAsyncDisposable
     /// Rolls back the current transaction.
     /// </summary>
     Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Executes an operation within a transaction with automatic commit/rollback.
+    /// </summary>
+    // Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken = default);
 }

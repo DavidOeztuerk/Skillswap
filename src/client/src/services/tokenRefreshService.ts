@@ -145,6 +145,5 @@ class TokenRefreshService {
 }
 
 const tokenRefreshService = new TokenRefreshService();
+
 export default tokenRefreshService;
-
-

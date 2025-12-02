@@ -24,6 +24,7 @@ public class RefreshTokenCommandHandler(
             var result = await _authRepository.RefreshUserToken(
                 request.AccessToken,
                 request.RefreshToken,
+                null, // sessionId - not available in refresh token request yet
                 cancellationToken);
 
             Logger.LogInformation("Tokens refreshed successfully");

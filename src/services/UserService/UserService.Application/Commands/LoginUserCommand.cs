@@ -9,7 +9,14 @@ public record LoginUserCommand(
     string Password,
     string? TwoFactorCode = null,
     string? DeviceId = null,
-    string? DeviceInfo = null)
+    string? DeviceInfo = null,
+    string? DeviceFingerprint = null,
+    string? Browser = null,
+    string? OperatingSystem = null,
+    string? ScreenResolution = null,
+    string? TimeZone = null,
+    string? Language = null,
+    string? IpAddress = null)
     : ICommand<LoginResponse>, IAuditableCommand
 {
     public string? UserId { get; set; }

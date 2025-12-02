@@ -7,7 +7,10 @@ public record CreateCallSessionResponse(
     string SessionId,
     string RoomId,
     string Status,
-    DateTime CreatedAt)
+    DateTime CreatedAt,
+    string InitiatorUserId,
+    string ParticipantUserId,
+    string? AppointmentId)
 {
     /// <summary>
     /// API Version this response supports

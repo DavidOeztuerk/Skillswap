@@ -1,206 +1,464 @@
-import { createSlice, UnknownAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { removeToken } from '../../utils/authHelpers';
 import { withDefault, isDefined } from '../../utils/safeAccess';
 import errorService from '../../services/errorService';
 import { ErrorResponse } from '../../types/api/UnifiedResponse';
-import { initialUsersState } from '../../store/adapters/authAdapter+State';
-import { login, register, refreshToken, getProfile, updateProfile, uploadProfilePicture, changePassword, silentLogin, logout, verifyEmail, generateTwoFactorSecret, verifyTwoFactorCode, getTwoFactorStatus, disableTwoFactor } from './authThunks';
+import { initialUsersState, UsersEntityState } from '../../store/adapters/authAdapter+State';
+import { User } from '../../types/models/User';
+import {
+  login,
+  register,
+  refreshToken,
+  getProfile,
+  updateProfile,
+  uploadProfilePicture,
+  changePassword,
+  silentLogin,
+  logout,
+  verifyEmail,
+  generateTwoFactorSecret,
+  verifyTwoFactorCode,
+  getTwoFactorStatus,
+  disableTwoFactor,
+} from './authThunks';
 
-// Slice
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Maps UserInfo from API response to User model
+ * Eliminates code duplication between login and register
+ */
+const mapUserInfoToUser = (
+  userData: {
+    userId?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    userName?: string;
+    roles?: string[];
+    favoriteSkills?: string[];
+    emailVerified?: boolean;
+    accountStatus?: string;
+    twoFactorEnabled?: boolean;
+  } | undefined,
+  defaults?: Partial<User>
+): User | null => {
+  if (!isDefined(userData)) return null;
+
+  return {
+    id: withDefault(userData.userId, ''),
+    email: withDefault(userData.email, ''),
+    firstName: withDefault(userData.firstName, ''),
+    lastName: withDefault(userData.lastName, ''),
+    userName: withDefault(userData.userName, ''),
+    roles: withDefault(userData.roles, defaults?.roles ?? []),
+    favoriteSkills: userData.favoriteSkills,
+    emailVerified: withDefault(userData.emailVerified, false),
+    accountStatus: withDefault(userData.accountStatus, defaults?.accountStatus ?? 'active'),
+    twoFactorEnabled: withDefault(userData.twoFactorEnabled, false),
+    twoFactorRequired: false, // TODO: Backend should provide this
+  };
+};
+
+/**
+ * Sets error service user context after successful auth
+ */
+const setErrorServiceContext = (user: User | null, action: string): void => {
+  if (user) {
+    errorService.setUserContext(user.id, user.email, user.userName);
+    errorService.addBreadcrumb(`User ${action}`, 'auth', {
+      userId: user.id,
+      method: action === 'logged in' ? 'standard' : 'registration',
+    });
+  }
+};
+
+/**
+ * Extracts error message from rejected action payload
+ */
+const extractErrorMessage = (payload: unknown): string | undefined => {
+  if (!payload) return undefined;
+  
+  // Handle ErrorResponse type
+  if (typeof payload === 'object' && payload !== null) {
+    const errorResponse = payload as ErrorResponse;
+    
+    // Try message first
+    if (errorResponse.message) {
+      return errorResponse.message;
+    }
+    
+    // Try errors array
+    if (Array.isArray(errorResponse.errors) && errorResponse.errors.length > 0) {
+      return errorResponse.errors[0];
+    }
+  }
+  
+  return 'Ein unbekannter Fehler ist aufgetreten';
+};
+
+// ============================================
+// SLICE DEFINITION
+// ============================================
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: initialUsersState,
   reducers: {
+    /**
+     * Clears any error message in auth state
+     */
     clearError: (state) => {
       state.errorMessage = undefined;
     },
-    setError: (state, action) => {
+
+    /**
+     * Sets a specific error message
+     */
+    setError: (state, action: PayloadAction<string | undefined>) => {
       state.errorMessage = action.payload;
     },
-    setLoading: (state, action) => {
+
+    /**
+     * Sets loading state manually
+     */
+    setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
+
+    /**
+     * Clears pending 2FA login credentials
+     */
     clearTwoFactorState: (state) => {
       state.pendingLoginCredentials = null;
     },
+
+    /**
+     * Updates user data partially (for optimistic updates)
+     */
+    updateUserPartial: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
+
+    /**
+     * Resets entire auth state (for testing or force logout)
+     */
+    resetAuthState: () => initialUsersState,
   },
+
   extraReducers: (builder) => {
     builder
-      // Login
+      // ============================================
+      // LOGIN
+      // ============================================
+      .addCase(login.pending, (state) => {
+        state.isLoading = true;
+        state.errorMessage = undefined;
+      })
       .addCase(login.fulfilled, (state, action) => {
         const response = action.payload;
-        // 2FA required branch
+        state.isLoading = false;
+        state.errorMessage = undefined;
+
+        // Handle 2FA required
         if (response.data?.requires2FA) {
-          state.isLoading = false;
           state.isAuthenticated = false;
           state.pendingLoginCredentials = action.meta.arg;
           return;
         }
 
-        state.isLoading = false;
+        // Successful login
         state.isAuthenticated = true;
         state.pendingLoginCredentials = null;
+        state.user = mapUserInfoToUser(response.data?.userInfo);
 
-        const userData = response.data?.userInfo;
-        state.user = isDefined(userData)
-          ? {
-              id: withDefault(userData.userId, ''),
-              email: withDefault(userData.email, ''),
-              firstName: withDefault(userData.firstName, ''),
-              lastName: withDefault(userData.lastName, ''),
-              userName: withDefault(userData.userName, ''),
-              roles: withDefault(userData.roles, []),
-              favoriteSkills: userData.favoriteSkills,
-              emailVerified: withDefault(userData.emailVerified, false),
-              accountStatus: withDefault(userData.accountStatus, 'active'),
-              twoFactorEnabled: false, // TODO - muss vom backend mitkommen
-              twoFactorRequired: false // TODO - muss vom backend mutkommen
-            }
-          : null;
+        setErrorServiceContext(state.user, 'logged in');
+      })
+      .addCase(login.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isAuthenticated = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
 
-
-        if (state.user) {
-          errorService.setUserContext(state.user.id, state.user.email, state.user.userName);
-          errorService.addBreadcrumb('User logged in', 'auth', { userId: state.user.id, method: 'standard' });
-        }
-
-        // ✅ SECURITY FIX: Removed localStorage permission storage - permissions now handled by PermissionContext
+      // ============================================
+      // REGISTER
+      // ============================================
+      .addCase(register.pending, (state) => {
+        state.isLoading = true;
+        state.errorMessage = undefined;
       })
       .addCase(register.fulfilled, (state, action) => {
+        const response = action.payload;
         state.isLoading = false;
+        state.errorMessage = undefined;
         state.isAuthenticated = true;
 
-        const response = action.payload;
-        const userData = response.data?.userInfo;
-        state.user = isDefined(userData)
-          ? {
-              id: withDefault(userData.userId, ''),
-              email: withDefault(userData.email, ''),
-              firstName: withDefault(userData.firstName, ''),
-              lastName: withDefault(userData.lastName, ''),
-              userName: withDefault(userData.userName, ''),
-              roles: withDefault(userData.roles, ['User']),
-              favoriteSkills: userData.favoriteSkills,
-              emailVerified: withDefault(userData.emailVerified, false),
-              accountStatus: withDefault(userData.accountStatus, 'PendingVerification'),
-              twoFactorEnabled: false, // TODO - muss vom backend mitkommen
-              twoFactorRequired: false // TODO - muss vom backend mutkommen
-            }
-          : null;
+        state.user = mapUserInfoToUser(response.data?.userInfo, {
+          roles: ['User'],
+          accountStatus: 'PendingVerification',
+        });
 
-        if (state.user) {
-          errorService.setUserContext(state.user.id, state.user.email, state.user.userName);
-          errorService.addBreadcrumb('User registered', 'auth', { userId: state.user.id, method: 'registration' });
-        }
-
-        // ✅ SECURITY FIX: Removed localStorage permission storage - permissions now handled by PermissionContext
+        setErrorServiceContext(state.user, 'registered');
       })
-      // Token Refresh
+      .addCase(register.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isAuthenticated = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
+
+      // ============================================
+      // TOKEN REFRESH
+      // ============================================
+      .addCase(refreshToken.pending, (state) => {
+        // Don't set isLoading for silent refresh
+        state.errorMessage = undefined;
+      })
       .addCase(refreshToken.fulfilled, (state) => {
         state.isLoading = false;
         state.errorMessage = undefined;
-        // ✅ FIXED: Don't read from localStorage in reducer - use action payload
         state.isAuthenticated = true;
-        // Keep user data intact during refresh
+        // User data is preserved during refresh
       })
       .addCase(refreshToken.rejected, (state) => {
+        state.isLoading = false;
         state.isAuthenticated = false;
         state.user = null;
+        // Don't set error for silent refresh failure
       })
-      // Get Profile
+
+      // ============================================
+      // GET PROFILE
+      // ============================================
+      .addCase(getProfile.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(getProfile.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.errorMessage = undefined;
         const profileData = action.payload.data;
-        state.user = 
-        { 
-          id: action.payload.data.userId,
+        
+        // Merge with existing user data to preserve fields not in profile response
+        state.user = {
+          ...state.user,
+          id: profileData.userId,
           ...profileData,
-        };
+        } as User;
       })
-      // Update Profile
+      .addCase(getProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
+
+      // ============================================
+      // UPDATE PROFILE
+      // ============================================
+      .addCase(updateProfile.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.errorMessage = undefined;
         const updateData = action.payload.data;
-        state.user = 
-        { 
-          id: action.payload.data.userId,
-          favoriteSkills: state.user?.favoriteSkills ?? [], ...updateData 
-        };
+        
+        state.user = {
+          id: updateData.userId,
+          favoriteSkills: state.user?.favoriteSkills ?? [],
+          ...updateData,
+        } as User;
       })
-      // Upload Profile Picture
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
+
+      // ============================================
+      // UPLOAD PROFILE PICTURE
+      // ============================================
+      .addCase(uploadProfilePicture.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(uploadProfilePicture.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.errorMessage = undefined;
         state.user = action.payload.data;
       })
-      // Change Password
+      .addCase(uploadProfilePicture.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
+
+      // ============================================
+      // CHANGE PASSWORD
+      // ============================================
+      .addCase(changePassword.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(changePassword.fulfilled, (state) => {
         state.isLoading = false;
+        state.errorMessage = undefined;
       })
-      // Silent Login
+      .addCase(changePassword.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
+
+      // ============================================
+      // SILENT LOGIN
+      // ============================================
+      .addCase(silentLogin.pending, () => {
+        // Don't show loading for silent login
+      })
       .addCase(silentLogin.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
         state.user = action.payload;
+        state.errorMessage = undefined;
       })
       .addCase(silentLogin.rejected, (state) => {
         state.isLoading = false;
         state.isAuthenticated = false;
         state.user = null;
+        // Don't set error for silent login - it's expected to fail sometimes
       })
-      // Logout
+
+      // ============================================
+      // LOGOUT
+      // ============================================
+      .addCase(logout.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(logout.fulfilled, (state) => {
+        // Clear error service context
         errorService.setUserContext('', '', '');
         errorService.clearBreadcrumbs();
         errorService.addBreadcrumb('User logged out', 'auth');
 
+        // Reset state
         state.user = null;
         state.isAuthenticated = false;
         state.isLoading = false;
         state.errorMessage = undefined;
+        state.pendingLoginCredentials = null;
 
-        // ✅ SECURITY FIX: No longer storing permissions in localStorage - handled by PermissionContext
+        // Clear tokens
         removeToken();
       })
-      // Email Verification
+      .addCase(logout.rejected, (state) => {
+        // Still clear state even if server logout fails
+        state.user = null;
+        state.isAuthenticated = false;
+        state.isLoading = false;
+        state.pendingLoginCredentials = null;
+        removeToken();
+      })
+
+      // ============================================
+      // EMAIL VERIFICATION
+      // ============================================
+      .addCase(verifyEmail.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(verifyEmail.fulfilled, (state) => {
         state.isLoading = false;
-        if (state.user) state.user.emailVerified = true;
+        state.errorMessage = undefined;
+        if (state.user) {
+          state.user.emailVerified = true;
+        }
       })
-      // 2FA flow
+      .addCase(verifyEmail.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
+
+      // ============================================
+      // 2FA - GENERATE SECRET
+      // ============================================
+      .addCase(generateTwoFactorSecret.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(generateTwoFactorSecret.fulfilled, (state) => {
         state.isLoading = false;
+        state.errorMessage = undefined;
+      })
+      .addCase(generateTwoFactorSecret.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
+
+      // ============================================
+      // 2FA - VERIFY CODE
+      // ============================================
+      .addCase(verifyTwoFactorCode.pending, (state) => {
+        state.isLoading = true;
       })
       .addCase(verifyTwoFactorCode.fulfilled, (state) => {
         state.isLoading = false;
+        state.errorMessage = undefined;
         state.pendingLoginCredentials = null;
+        
+        // Update user 2FA status
+        if (state.user) {
+          state.user.twoFactorEnabled = true;
+        }
       })
-      .addCase(getTwoFactorStatus.fulfilled, (state, _) => {
+      .addCase(verifyTwoFactorCode.rejected, (state, action) => {
         state.isLoading = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
+
+      // ============================================
+      // 2FA - GET STATUS
+      // ============================================
+      .addCase(getTwoFactorStatus.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getTwoFactorStatus.fulfilled, (state) => {
+        state.isLoading = false;
+        state.errorMessage = undefined;
+      })
+      .addCase(getTwoFactorStatus.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      })
+
+      // ============================================
+      // 2FA - DISABLE
+      // ============================================
+      .addCase(disableTwoFactor.pending, (state) => {
+        state.isLoading = true;
       })
       .addCase(disableTwoFactor.fulfilled, (state) => {
         state.isLoading = false;
+        state.errorMessage = undefined;
+        
+        if (state.user) {
+          state.user.twoFactorEnabled = false;
+        }
       })
-      // ---- Generic matchers: pending + rejectedWithValue (ONLY for auth actions)
-      .addMatcher(
-        (action) => action.type.startsWith('auth/') && action.type.endsWith('/pending'),
-        (state) => {
-          state.isLoading = true;
-          state.errorMessage = undefined;
-        }
-      )
-      .addMatcher(
-        (action) => action.type.startsWith('auth/') && (action.type.endsWith('/rejected') || action.type.endsWith('/fulfilled')),
-        (state, action: UnknownAction) => {
-          state.isLoading = false;
-          state.errorMessage = action.type
-          // Only set error for rejected actions
-          if (action.type.endsWith('/rejected')) {
-            state.errorMessage = (action.payload as ErrorResponse)?.message ?? 'Unbekannter Fehler';
-          }
-        }
-      );
+      .addCase(disableTwoFactor.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage = extractErrorMessage(action.payload);
+      });
   },
 });
 
-export const { clearError, setError, setLoading, clearTwoFactorState } = authSlice.actions;
+export const {
+  clearError,
+  setError,
+  setLoading,
+  clearTwoFactorState,
+  updateUserPartial,
+  resetAuthState,
+} = authSlice.actions;
+
 export default authSlice.reducer;
+
+// ============================================
+// TYPE EXPORTS
+// ============================================
+
+export type AuthState = UsersEntityState;

@@ -12,9 +12,12 @@ public class PreferredTimeParser : IPreferredTimeParser
 {
     private readonly ILogger<PreferredTimeParser> _logger;
 
-    // Regex pattern for validating time ranges: "HH:MM-HH:MM"
     private static readonly Regex TimeRangePattern = new Regex(
         @"^([0-1]?[0-9]|2[0-3]):([0-5][0-9])-([0-1]?[0-9]|2[0-3]):([0-5][0-9])$",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SingleTimePattern = new Regex(
+        @"^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$",
         RegexOptions.Compiled);
 
     // Mapping of day names to DayOfWeek (case-insensitive)
@@ -119,27 +122,60 @@ public class PreferredTimeParser : IPreferredTimeParser
             }
 
             var trimmed = timeRangeStr.Trim();
-            var match = TimeRangePattern.Match(trimmed);
+            var rangeMatch = TimeRangePattern.Match(trimmed);
+            var singleMatch = SingleTimePattern.Match(trimmed);
 
-            if (!match.Success)
+            if (!rangeMatch.Success && !singleMatch.Success)
             {
-                _logger.LogWarning("Invalid time range format '{TimeRange}', expected 'HH:MM-HH:MM', skipping", trimmed);
+                _logger.LogWarning("Invalid time format '{TimeRange}', expected 'HH:MM' or 'HH:MM-HH:MM', skipping", trimmed);
                 continue;
             }
 
             try
             {
-                var startHour = int.Parse(match.Groups[1].Value);
-                var startMinute = int.Parse(match.Groups[2].Value);
-                var endHour = int.Parse(match.Groups[3].Value);
-                var endMinute = int.Parse(match.Groups[4].Value);
+                TimeSpan start;
+                TimeSpan end;
 
-                var start = new TimeSpan(startHour, startMinute, 0);
-                var end = new TimeSpan(endHour, endMinute, 0);
-
-                if (start >= end)
+                if (rangeMatch.Success)
                 {
-                    _logger.LogWarning("Invalid time range '{TimeRange}': start time must be before end time, skipping", trimmed);
+                    if (rangeMatch.Groups.Count < 5)
+                    {
+                        _logger.LogWarning("Invalid time range regex groups for '{TimeRange}', skipping", trimmed);
+                        continue;
+                    }
+
+                    var startHour = int.Parse(rangeMatch.Groups[1].Value);
+                    var startMinute = int.Parse(rangeMatch.Groups[2].Value);
+                    var endHour = int.Parse(rangeMatch.Groups[3].Value);
+                    var endMinute = int.Parse(rangeMatch.Groups[4].Value);
+
+                    start = new TimeSpan(startHour, startMinute, 0);
+                    end = new TimeSpan(endHour, endMinute, 0);
+
+                    if (start >= end)
+                    {
+                        _logger.LogWarning("Invalid time range '{TimeRange}': start time must be before end time, skipping", trimmed);
+                        continue;
+                    }
+                }
+                else if (singleMatch.Success)
+                {
+                    if (singleMatch.Groups.Count < 3)
+                    {
+                        _logger.LogWarning("Invalid single time regex groups for '{Time}', skipping", trimmed);
+                        continue;
+                    }
+
+                    var hour = int.Parse(singleMatch.Groups[1].Value);
+                    var minute = int.Parse(singleMatch.Groups[2].Value);
+                    start = new TimeSpan(hour, minute, 0);
+                    end = start.Add(TimeSpan.FromHours(1));
+
+                    _logger.LogDebug("Single time '{Time}' converted to range {Start}-{End}", trimmed, start, end);
+                }
+                else
+                {
+                    _logger.LogWarning("Neither range nor single time pattern matched for '{Time}', skipping", trimmed);
                     continue;
                 }
 
@@ -148,7 +184,7 @@ public class PreferredTimeParser : IPreferredTimeParser
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error parsing time range '{TimeRange}', skipping", trimmed);
+                _logger.LogWarning(ex, "Error parsing time '{Time}', skipping", trimmed);
             }
         }
 
@@ -268,31 +304,37 @@ public class PreferredTimeParser : IPreferredTimeParser
                     continue;
                 }
 
-                var match = TimeRangePattern.Match(timeRange.Trim());
-                if (!match.Success)
+                var trimmed = timeRange.Trim();
+                var rangeMatch = TimeRangePattern.Match(trimmed);
+                var singleMatch = SingleTimePattern.Match(trimmed);
+
+                if (!rangeMatch.Success && !singleMatch.Success)
                 {
-                    result.AddError($"Invalid time range format: '{timeRange}'. Expected format: 'HH:MM-HH:MM' (e.g., '09:00-17:00')");
+                    result.AddError($"Invalid time format: '{timeRange}'. Expected format: 'HH:MM' or 'HH:MM-HH:MM' (e.g., '09:00' or '09:00-17:00')");
                     continue;
                 }
 
                 try
                 {
-                    var startHour = int.Parse(match.Groups[1].Value);
-                    var startMinute = int.Parse(match.Groups[2].Value);
-                    var endHour = int.Parse(match.Groups[3].Value);
-                    var endMinute = int.Parse(match.Groups[4].Value);
-
-                    var start = new TimeSpan(startHour, startMinute, 0);
-                    var end = new TimeSpan(endHour, endMinute, 0);
-
-                    if (start >= end)
+                    if (rangeMatch.Success)
                     {
-                        result.AddError($"Invalid time range '{timeRange}': start time must be before end time");
+                        var startHour = int.Parse(rangeMatch.Groups[1].Value);
+                        var startMinute = int.Parse(rangeMatch.Groups[2].Value);
+                        var endHour = int.Parse(rangeMatch.Groups[3].Value);
+                        var endMinute = int.Parse(rangeMatch.Groups[4].Value);
+
+                        var start = new TimeSpan(startHour, startMinute, 0);
+                        var end = new TimeSpan(endHour, endMinute, 0);
+
+                        if (start >= end)
+                        {
+                            result.AddError($"Invalid time range '{timeRange}': start time must be before end time");
+                        }
                     }
                 }
                 catch (Exception)
                 {
-                    result.AddError($"Error parsing time range: '{timeRange}'");
+                    result.AddError($"Error parsing time: '{timeRange}'");
                 }
             }
         }

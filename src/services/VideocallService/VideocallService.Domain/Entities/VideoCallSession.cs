@@ -92,6 +92,28 @@ public class VideoCallSession : AuditableEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
+    public void Leave(DateTime? appointmentEndTime = null)
+    {
+        var now = DateTime.UtcNow;
+
+        if (appointmentEndTime.HasValue && now < appointmentEndTime.Value)
+        {
+            Status = CallStatus.Pending;
+        }
+        else
+        {
+            Status = CallStatus.Completed;
+            EndedAt = now;
+        }
+
+        if (StartedAt.HasValue && Status == CallStatus.Completed)
+        {
+            ActualDurationMinutes = (int)(now - StartedAt.Value).TotalMinutes;
+        }
+
+        UpdatedAt = now;
+    }
+
     public void Cancel(string? reason = null)
     {
         Status = CallStatus.Cancelled;

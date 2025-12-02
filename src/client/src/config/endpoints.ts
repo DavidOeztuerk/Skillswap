@@ -281,6 +281,13 @@ export const ADMIN_ENDPOINTS = {
     REJECT_CONTENT: '/api/admin/moderation/reject', // + /{contentId}
     QUARANTINE: '/api/admin/moderation/quarantine', // + /{contentId}
   },
+  SECURITY: {
+    GET_ALERTS: '/api/admin/security/alerts',
+    GET_ALERT_BY_ID: '/api/admin/security/alerts', // + /{alertId}
+    GET_STATISTICS: '/api/admin/security/statistics',
+    DISMISS_ALERT: '/api/admin/security/alerts', // + /{alertId}/dismiss
+    MARK_ALERT_READ: '/api/admin/security/alerts', // + /{alertId}/mark-read
+  },
 };
 
 /**

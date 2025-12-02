@@ -5,10 +5,12 @@ import {
   createLazyComponents,
   preloadComponents,
 } from '../components/routing/withSuspense';
+import { Permissions, Roles } from '../components/auth/permissions.constants';
 
-/**
- * Public Routes - keine Authentifizierung erforderlich
- */
+// ============================================================================
+// Public Routes - keine Authentifizierung erforderlich
+// ============================================================================
+
 const publicRoutes = {
   home: createLazyRoute(() => import('../pages/HomePage'), {
     useSkeleton: true,
@@ -32,12 +34,13 @@ const publicRoutes = {
   }),
 };
 
-/**
- * Protected Routes - Authentifizierung erforderlich
- */
+// ============================================================================
+// Protected Routes - Authentifizierung erforderlich (any authenticated user)
+// ============================================================================
+
 const protectedRoutes = {
   dashboard: createLazyRoute(() => import('../pages/DashboardPage'), {
-    roles: ['*'], // Any authenticated user
+    requireAuth: true, // ✅ Explicit auth requirement (replaces roles: ['*'])
     useSkeleton: true,
     skeletonVariant: 'dashboard',
   }),
@@ -45,17 +48,17 @@ const protectedRoutes = {
   // Skills Module
   skills: {
     list: createLazyRoute(() => import('../pages/skills/SkillsPage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'list',
     }),
     detail: createLazyRoute(() => import('../pages/skills/SkillDetailPage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'details',
     }),
     edit: createLazyRoute(() => import('../pages/skills/SkillEditPage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'form',
     }),
@@ -64,23 +67,23 @@ const protectedRoutes = {
   // Matchmaking Module
   matchmaking: {
     overview: createLazyRoute(() => import('../pages/matchmaking/MatchmakingOverviewPage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'list',
     }),
     timeline: createLazyRoute(() => import('../pages/matchmaking/MatchRequestTimelinePage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'details',
     }),
     matches: createLazyRoute(() => import('../pages/matchmaking/MatchesPage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'list',
       loadingMessage: 'Matches werden geladen...',
     }),
     matchDetail: createLazyRoute(() => import('../pages/matchmaking/MatchDetailPage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'details',
       loadingMessage: 'Match-Details werden geladen...',
@@ -90,18 +93,18 @@ const protectedRoutes = {
   // Appointments Module
   appointments: {
     list: createLazyRoute(() => import('../pages/appointments/AppointmentsPage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'list',
     }),
     detail: createLazyRoute(() => import('../pages/sessions/SessionDetailPage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'details',
       loadingMessage: "Session wird geladen...",
     }),
     calendar: createLazyRoute(() => import('../pages/appointments/AppointmentCalendarPage'), {
-      roles: ['*'], // Any authenticated user
+      requireAuth: true,
       useSkeleton: true,
       skeletonVariant: 'dashboard',
       loadingMessage: "Kalender wird geladen...",
@@ -110,137 +113,173 @@ const protectedRoutes = {
   
   // Video Call - High Priority
   videoCall: createLazyRoute(() => import('../pages/videocall/VideoCallPage'), {
-    roles: ['*'], // Any authenticated user
+    requireAuth: true,
     useSkeleton: false,
     loadingMessage: "Video-Call wird initialisiert...",
   }),
   
   // User Profile & Settings
   profile: createLazyRoute(() => import('../pages/profile/ProfilePage'), {
-    roles: ['*'], // Any authenticated user
+    requireAuth: true,
     useSkeleton: true,
     skeletonVariant: 'profile',
   }),
   
   securitySettings: createLazyRoute(() => import('../pages/settings/SecuritySettings'), {
-    roles: ['*'], // Any authenticated user
+    requireAuth: true,
     useSkeleton: true,
     skeletonVariant: 'form',
     loadingMessage: 'Sicherheitseinstellungen werden geladen...',
   }),
 
   notificationPreferences: createLazyRoute(() => import('../pages/settings/NotificationPreferencesPage'), {
-    roles: ['*'], // Any authenticated user
+    requireAuth: true,
     useSkeleton: true,
     skeletonVariant: 'form',
     loadingMessage: 'Benachrichtigungseinstellungen werden geladen...',
   }),
 
   notifications: createLazyRoute(() => import('../pages/notifications/NotificationsPage'), {
-    roles: ['*'], // Any authenticated user
+    requireAuth: true,
     useSkeleton: true,
     skeletonVariant: 'list',
   }),
 };
 
-/**
- * Admin Routes - mit role: 'admin'
- */
+// ============================================================================
+// Admin Routes - Role-based and Permission-based access
+// ============================================================================
+
 const adminRoutes = {
+  // Permission-based routes
   dashboard: createLazyRoute(() => import('../pages/admin/Dashboard'), {
-    permissions: ['admin:access_dashboard'],
+    permissions: [Permissions.Admin.ACCESS_DASHBOARD],
     useSkeleton: true,
     skeletonVariant: 'dashboard',
     loadingMessage: "Admin-Dashboard wird geladen...",
   }),
   
   users: createLazyRoute(() => import('../pages/admin/UserManagement'), {
-    permissions: ['users:view_all'],
+    permissions: [Permissions.Users.VIEW_ALL],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Benutzer werden geladen...",
   }),
   
+  // Role-based routes
   skills: createLazyRoute(() => import('../pages/admin/AdminSkillsPage'), {
-    roles: ['Admin', 'SuperAdmin'],
+    roles: [Roles.ADMIN, Roles.SUPER_ADMIN],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Skills werden geladen...",
   }),
   
   appointments: createLazyRoute(() => import('../pages/admin/AdminAppointmentsPage'), {
-    roles: ['Admin', 'SuperAdmin'],
+    permissions: [Permissions.Appointments.MANAGE],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Termine werden geladen...",
   }),
   
   matches: createLazyRoute(() => import('../pages/admin/AdminMatchesPage'), {
-    roles: ['Admin', 'SuperAdmin'],
+    permissions: [Permissions.Matching.MANAGE],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Matches werden geladen...",
   }),
   
   analytics: createLazyRoute(() => import('../pages/admin/AdminAnalyticsPage'), {
-    roles: ['Admin', 'SuperAdmin'],
+    permissions: [Permissions.Admin.VIEW_STATISTICS],
     useSkeleton: true,
     skeletonVariant: 'dashboard',
     loadingMessage: "Analytics werden geladen...",
   }),
   
   systemHealth: createLazyRoute(() => import('../pages/admin/AdminSystemHealthPage'), {
-    roles: ['Admin', 'SuperAdmin'],
+    permissions: [Permissions.System.VIEW_LOGS],
     useSkeleton: true,
     skeletonVariant: 'dashboard',
     loadingMessage: "System-Status wird geladen...",
   }),
   
   auditLogs: createLazyRoute(() => import('../pages/admin/AdminAuditLogsPage'), {
-    roles: ['Admin', 'SuperAdmin'],
+    permissions: [Permissions.System.VIEW_LOGS],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Audit-Logs werden geladen...",
   }),
   
   moderation: createLazyRoute(() => import('../pages/admin/AdminModerationPage'), {
-    roles: ['Admin', 'SuperAdmin'],
+    permissions: [Permissions.Moderation.HANDLE_REPORTS],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Moderations-Berichte werden geladen...",
   }),
   
   settings: createLazyRoute(() => import('../pages/admin/AdminSettingsPage'), {
-    roles: ['Admin', 'SuperAdmin'],
+    permissions: [Permissions.System.MANAGE_SETTINGS],
     useSkeleton: true,
     skeletonVariant: 'form',
     loadingMessage: "Einstellungen werden geladen...",
   }),
-  
+
+  security: createLazyRoute(() => import('../pages/admin/AdminSecurityPage'), {
+    roles: [Roles.ADMIN, Roles.SUPER_ADMIN],
+    useSkeleton: true,
+    skeletonVariant: 'list',
+    loadingMessage: "Security Alerts werden geladen...",
+  }),
+
   metrics: createLazyRoute(() => import('../pages/admin/AdminMetricsPage'), {
-    roles: ['Admin', 'SuperAdmin'],
+    permissions: [Permissions.Admin.VIEW_STATISTICS],
     useSkeleton: true,
     skeletonVariant: 'list',
   }),
   
+  // Permission-based skill management
   skillCategories: createLazyRoute(() => import('../pages/admin/SkillCategoriesManagement'), {
-    permissions: ['skills:manage_categories'],
+    permissions: [Permissions.Skills.MANAGE_CATEGORIES],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Skill-Kategorien werden geladen...",
   }),
   
   proficiencyLevels: createLazyRoute(() => import('../pages/admin/ProficiencyLevelsManagement'), {
-    permissions: ['skills:manage_proficiency'],
+    permissions: [Permissions.Skills.MANAGE_PROFICIENCY],
     useSkeleton: true,
     skeletonVariant: 'list',
     loadingMessage: "Proficiency Levels werden geladen...",
   }),
 };
 
-/**
- * Error Pages
- */
+// ============================================================================
+// SuperAdmin Routes - Highest privilege level (requireAll for stricter access)
+// ============================================================================
+
+const superAdminRoutes = {
+  // Requires BOTH SuperAdmin role AND system:manage_all permission
+  systemConfig: createLazyRoute(() => import('../pages/admin/AdminSettingsPage'), {
+    roles: [Roles.SUPER_ADMIN],
+    permissions: [Permissions.System.MANAGE_ALL],
+    requireAll: true,
+    useSkeleton: true,
+    skeletonVariant: 'form',
+    loadingMessage: "System-Konfiguration wird geladen...",
+  }),
+  
+  // Role management (SuperAdmin only)
+  roleManagement: createLazyRoute(() => import('../pages/admin/AdminSettingsPage'), {
+    permissions: [Permissions.Roles.MANAGE_PERMISSIONS],
+    useSkeleton: true,
+    skeletonVariant: 'form',
+    loadingMessage: "Rollen-Verwaltung wird geladen...",
+  }),
+};
+
+// ============================================================================
+// Error Pages - No protection needed
+// ============================================================================
+
 const errorPages = createLazyComponents({
   notFound: () => import('../pages/NotFoundPage'),
   forbidden: () => import('../pages/ForbiddenPage'),
@@ -250,9 +289,10 @@ const errorPages = createLazyComponents({
   withErrorBoundary: false,
 });
 
-/**
- * Preloading-Strategien
- */
+// ============================================================================
+// Preloading-Strategien
+// ============================================================================
+
 export const preloadStrategies = {
   critical: async () => {
     await preloadComponents([
@@ -286,9 +326,10 @@ export const preloadStrategies = {
   },
 };
 
-/**
- * Skills-Komponente Wrapper für verschiedene showOnly Props
- */
+// ============================================================================
+// Skills-Komponente Wrapper für verschiedene showOnly Props
+// ============================================================================
+
 const SkillsPageAll = () => {
   const Component = protectedRoutes.skills.list.component;
   return <Component showOnly="all" />;
@@ -304,15 +345,18 @@ const SkillsPageFavorite = () => {
   return <Component showOnly="favorite" />;
 };
 
-/**
- * Route-Konfiguration
- */
+// ============================================================================
+// Route-Konfiguration
+// ============================================================================
+
 const routes: RouteObject[] = [
   {
     path: '/',
     element: <App />,
     children: [
+      // ─────────────────────────────────────────────────────────────────────
       // Public Routes
+      // ─────────────────────────────────────────────────────────────────────
       {
         index: true,
         element: <publicRoutes.home.component />,
@@ -330,7 +374,9 @@ const routes: RouteObject[] = [
         element: <publicRoutes.search.component />,
       },
       
-      // Protected Routes
+      // ─────────────────────────────────────────────────────────────────────
+      // Protected Routes (any authenticated user)
+      // ─────────────────────────────────────────────────────────────────────
       {
         path: 'dashboard',
         element: <protectedRoutes.dashboard.component />
@@ -354,7 +400,7 @@ const routes: RouteObject[] = [
           },
           {
             path: ':skillId',
-            element:  <protectedRoutes.skills.detail.component />
+            element: <protectedRoutes.skills.detail.component />
           },
           {
             path: ':skillId/edit',
@@ -425,7 +471,9 @@ const routes: RouteObject[] = [
         element: <protectedRoutes.notifications.component />,
       },
       
-      // Admin Routes
+      // ─────────────────────────────────────────────────────────────────────
+      // Admin Routes (role-based & permission-based)
+      // ─────────────────────────────────────────────────────────────────────
       {
         path: 'admin',
         children: [
@@ -490,10 +538,16 @@ const routes: RouteObject[] = [
             path: 'settings',
             element: <adminRoutes.settings.component />,
           },
+          {
+            path: 'security',
+            element: <adminRoutes.security.component />,
+          },
         ],
       },
       
+      // ─────────────────────────────────────────────────────────────────────
       // Error Pages
+      // ─────────────────────────────────────────────────────────────────────
       {
         path: 'forbidden',
         element: <errorPages.forbidden />,
@@ -510,27 +564,52 @@ const routes: RouteObject[] = [
   },
 ];
 
+// ============================================================================
 // Router erstellen
+// ============================================================================
+
 export const router = createBrowserRouter(routes);
 
+// ============================================================================
 // Hook für Route-Preloading
+// ============================================================================
+
+/**
+ * Flattens nested route objects into a flat map
+ */
+const flattenRoutes = (
+  routes: Record<string, unknown>,
+  prefix = ''
+): Record<string, { preload?: () => Promise<unknown> }> => {
+  const result: Record<string, { preload?: () => Promise<unknown> }> = {};
+  
+  for (const [key, value] of Object.entries(routes)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    
+    if (value && typeof value === 'object' && 'preload' in value) {
+      // It's a route with preload
+      result[fullKey] = value as { preload: () => Promise<unknown> };
+    } else if (value && typeof value === 'object' && !('preload' in value)) {
+      // It's a nested object - recurse
+      Object.assign(result, flattenRoutes(value as Record<string, unknown>, fullKey));
+    }
+  }
+  
+  return result;
+};
+
 export const useRoutePreloading = () => {
   const preloadRoute = (routeName: string) => {
-    const allRoutes: Record<string, any> = {
-      ...publicRoutes,
-      ...protectedRoutes,
-      ...adminRoutes,
-      'skills.list': protectedRoutes.skills.list,
-      'skills.detail': protectedRoutes.skills.detail,
-      'skills.edit': protectedRoutes.skills.edit,
-      'matchmaking.overview': protectedRoutes.matchmaking.overview,
-      'matchmaking.timeline': protectedRoutes.matchmaking.timeline,
-      'appointments.list': protectedRoutes.appointments.list,
-      'appointments.detail': protectedRoutes.appointments.detail,
+    // Flatten all routes including nested ones
+    const allRoutes = {
+      ...flattenRoutes(publicRoutes),
+      ...flattenRoutes(protectedRoutes),
+      ...flattenRoutes(adminRoutes),
+      ...flattenRoutes(superAdminRoutes),
     };
     
     const route = allRoutes[routeName];
-    if (route && 'preload' in route) {
+    if (route && 'preload' in route && typeof route.preload === 'function') {
       route.preload();
     }
   };
@@ -542,15 +621,21 @@ export const useRoutePreloading = () => {
   return { preloadRoute, preloadStrategy };
 };
 
+// ============================================================================
 // Export für Navigation
+// ============================================================================
+
 export const routeConfig = {
   public: publicRoutes,
   protected: protectedRoutes,
   admin: adminRoutes,
+  superAdmin: superAdminRoutes,
   error: errorPages,
 } as const;
 
-// DISABLED - Initiales Preloading causing potential infinite loops
+// ============================================================================
+// DISABLED - Initiales Preloading kann Infinite Loops verursachen
+// ============================================================================
 // if (typeof window !== 'undefined') {
 //   setTimeout(() => {
 //     preloadStrategies.critical();

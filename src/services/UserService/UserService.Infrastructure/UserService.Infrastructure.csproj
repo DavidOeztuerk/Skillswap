@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\..\shared\Core\Events\Events.csproj" />
     <ProjectReference Include="..\..\..\shared\Contracts\Contracts.csproj" />
     <ProjectReference Include="..\UserService.Domain\UserService.Domain.csproj" />
+    <ProjectReference Include="..\UserService.Application\UserService.Application.csproj" />
   </ItemGroup>
 
 </Project>

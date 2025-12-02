@@ -13,7 +13,6 @@ public class AppointmentUnitOfWork : IAppointmentUnitOfWork
     private readonly AppointmentDbContext _dbContext;
     private IDbContextTransaction? _transaction;
 
-    private IAppointmentRepository? _appointments;
     private ISessionAppointmentRepository? _sessionAppointments;
     private ISessionSeriesRepository? _sessionSeries;
     private ISessionRatingRepository? _sessionRatings;
@@ -24,12 +23,6 @@ public class AppointmentUnitOfWork : IAppointmentUnitOfWork
     {
         _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
     }
-
-    /// <summary>
-    /// Gets or creates the Appointment repository
-    /// </summary>
-    public IAppointmentRepository Appointments =>
-        _appointments ??= new AppointmentRepository(_dbContext);
 
     /// <summary>
     /// Gets or creates the SessionAppointment repository
@@ -129,6 +122,29 @@ public class AppointmentUnitOfWork : IAppointmentUnitOfWork
             }
         }
     }
+
+    // /// <summary>
+    // /// Executes an operation within a transaction with automatic commit/rollback.
+    // /// </summary>
+    // public async Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken = default)
+    // {
+    //     var strategy = _dbContext.Database.CreateExecutionStrategy();
+    //     return await strategy.ExecuteAsync(async () =>
+    //     {
+    //         await BeginTransactionAsync(cancellationToken);
+    //         try
+    //         {
+    //             var result = await operation();
+    //             await CommitTransactionAsync(cancellationToken);
+    //             return result;
+    //         }
+    //         catch
+    //         {
+    //             await RollbackTransactionAsync(cancellationToken);
+    //             throw;
+    //         }
+    //     });
+    // }
 
     /// <summary>
     /// Disposes the DbContext and transaction resources.

@@ -6,7 +6,7 @@ import {
 } from '../../types/models/Admin';
 import { withDefault, isDefined } from '../../utils/safeAccess';
 import { initialAdminState } from '../../store/adapters/adminAdapter+State';
-import { fetchAdminDashboard, fetchAdminUsers, updateUserRole, suspendUser, unsuspendUser, deleteUser, fetchAdminSkills, moderateSkill, fetchAdminAppointments, fetchAdminMatches, fetchAdminAnalytics, fetchSystemHealth, fetchAuditLogs, fetchModerationReports, handleModerationReport, fetchAdminSettings, updateAdminSettings } from './adminThunks';
+import { fetchAdminDashboard, fetchAdminUsers, updateUserRole, suspendUser, unsuspendUser, deleteUser, fetchAdminSkills, moderateSkill, fetchAdminAppointments, fetchAdminMatches, fetchAdminAnalytics, fetchSystemHealth, fetchAuditLogs, fetchModerationReports, handleModerationReport, fetchAdminSettings, updateAdminSettings, fetchSecurityAlerts, fetchSecurityAlertStatistics } from './adminThunks';
 
 const adminSlice = createSlice({
   name: 'admin',
@@ -42,6 +42,9 @@ const adminSlice = createSlice({
     clearSettingsError: (state) => {
       state.settingsError = undefined;
     },
+    clearSecurityAlertError: (state) => {
+      state.securityAlertError = undefined;
+    },
     setUserFilters: (state, action: PayloadAction<any>) => {
       state.filters.users = { ...state.filters.users, ...action.payload };
     },
@@ -60,7 +63,10 @@ const adminSlice = createSlice({
     setReportFilters: (state, action: PayloadAction<any>) => {
       state.filters.reports = { ...state.filters.reports, ...action.payload };
     },
-    
+    setSecurityAlertFilters: (state, action: PayloadAction<any>) => {
+      state.filters.securityAlerts = { ...state.filters.securityAlerts, ...action.payload };
+    },
+
     setUserPagination: (state, action: PayloadAction<{ page?: number; limit?: number }>) => {
       state.pagination.users = { ...state.pagination.users, ...action.payload };
     },
@@ -79,7 +85,10 @@ const adminSlice = createSlice({
     setReportPagination: (state, action: PayloadAction<{ page?: number; limit?: number }>) => {
       state.pagination.reports = { ...state.pagination.reports, ...action.payload };
     },
-    
+    setSecurityAlertPagination: (state, action: PayloadAction<{ page?: number; limit?: number }>) => {
+      state.pagination.securityAlerts = { ...state.pagination.securityAlerts, ...action.payload };
+    },
+
     updateUserInList: (state, action: PayloadAction<AdminUser>) => {
       const index = state.users.findIndex(user => user.id === action.payload.id);
       if (index !== -1) {
@@ -371,6 +380,34 @@ const adminSlice = createSlice({
       
       .addCase(updateAdminSettings.fulfilled, (state, action) => {
         state.settings = action.payload.data;
+      })
+
+      // Security Alerts
+      .addCase(fetchSecurityAlerts.pending, (state) => {
+        state.isLoadingSecurityAlerts = true;
+        state.securityAlertError = undefined;
+      })
+      .addCase(fetchSecurityAlerts.fulfilled, (state, action) => {
+        state.isLoadingSecurityAlerts = false;
+        state.securityAlerts = action.payload.data || [];
+        state.pagination.securityAlerts.total = action.payload.totalRecords || 0;
+      })
+      .addCase(fetchSecurityAlerts.rejected, (state, action: any) => {
+        state.isLoadingSecurityAlerts = false;
+        state.securityAlertError = action.payload?.message || 'Fehler beim Laden der Security Alerts';
+      })
+
+      .addCase(fetchSecurityAlertStatistics.pending, (state) => {
+        state.isLoadingSecurityStatistics = true;
+        state.securityAlertError = undefined;
+      })
+      .addCase(fetchSecurityAlertStatistics.fulfilled, (state, action) => {
+        state.isLoadingSecurityStatistics = false;
+        state.securityAlertStatistics = action.payload.data || null;
+      })
+      .addCase(fetchSecurityAlertStatistics.rejected, (state, action: any) => {
+        state.isLoadingSecurityStatistics = false;
+        state.securityAlertError = action.payload?.message || 'Fehler beim Laden der Statistiken';
       });
   },
 });
@@ -386,18 +423,21 @@ export const {
   clearAuditLogError,
   clearReportError,
   clearSettingsError,
+  clearSecurityAlertError,
   setUserFilters,
   setSkillFilters,
   setAppointmentFilters,
   setMatchFilters,
   setAuditLogFilters,
   setReportFilters,
+  setSecurityAlertFilters,
   setUserPagination,
   setSkillPagination,
   setAppointmentPagination,
   setMatchPagination,
   setAuditLogPagination,
   setReportPagination,
+  setSecurityAlertPagination,
   updateUserInList,
   removeUserFromList,
   updateSkillInList,

@@ -10,6 +10,9 @@ using Microsoft.Extensions.DependencyInjection;
 using UserService.Domain.Repositories;
 using UserService.Infrastructure.Repositories;
 using UserService.Infrastructure.HttpClients;
+using UserService.Application.Services;
+using UserService.Infrastructure.Services;
+using UserService.Infrastructure.BackgroundServices;
 
 namespace UserService.Infrastructure.Extensions;
 
@@ -30,6 +33,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserBlockingRepository, UserBlockingRepository>();
         services.AddScoped<IUserActivityRepository, UserActivityRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
+
+        // Session Management - for concurrent session control
+        services.AddScoped<ISessionManager, SessionManager>();
 
         // Register service clients that use IServiceCommunicationManager
         services.AddScoped<ISkillServiceClient, SkillServiceClient>();
@@ -61,6 +67,12 @@ public static class ServiceCollectionExtensions
         services.AddSkillSwapAuthorization();
         services.AddPermissionAuthorization();
         services.AddAuthorization(options => options.AddPermissionPolicies());
+
+        // Background Services for cleanup tasks
+        services.AddHostedService<SessionCleanupBackgroundService>();
+        services.AddHostedService<TokenCleanupBackgroundService>();
+        // NOTE: LoginAttemptsCleanupBackgroundService removed - rate limiting is now handled
+        // by DistributedRateLimitingMiddleware in Gateway with Redis-backed storage
 
         return services;
     }

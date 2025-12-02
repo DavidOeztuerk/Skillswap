@@ -134,6 +134,22 @@ public class JwtService : IJwtService
             new("account_status", user.AccountStatus)
         };
 
+        // Add session claims for concurrent session control
+        if (!string.IsNullOrEmpty(user.SessionId))
+        {
+            claims.Add(new("session_id", user.SessionId));
+        }
+
+        if (!string.IsNullOrEmpty(user.DeviceFingerprint))
+        {
+            claims.Add(new("device_fingerprint", user.DeviceFingerprint));
+        }
+
+        if (!string.IsNullOrEmpty(user.IpAddress))
+        {
+            claims.Add(new("ip_address", user.IpAddress));
+        }
+
         // Add role claims with hierarchy support
         // SuperAdmin inherits all roles: SuperAdmin > Admin > Moderator > User
         var rolesToAdd = new HashSet<string>(user.Roles);

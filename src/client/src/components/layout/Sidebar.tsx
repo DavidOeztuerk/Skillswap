@@ -39,6 +39,7 @@ import {
   Settings as AdminSettingsIcon,
   ConnectWithoutContact as MatchesIcon,
   Security as SecurityIcon,
+  Shield as ShieldIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermissions } from '../../contexts/PermissionContext';
@@ -250,6 +251,13 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
           path: '/admin/audit-logs',
           authRequired: true,
           permissions: ['system:view_logs'],
+        },
+        {
+          text: 'Security Monitoring',
+          icon: <ShieldIcon fontSize="small" />,
+          path: '/admin/security',
+          authRequired: true,
+          permissions: ['system:view_logs', 'security:view_alerts'],
         },
         {
           text: 'Moderation',

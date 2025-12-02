@@ -1,24 +1,40 @@
 import { useMemo, useCallback, useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store.hooks';
-import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
+import { HubConnection, HubConnectionBuilder, LogLevel, HubConnectionState } from '@microsoft/signalr';
 import {
   initializeCall,
+  resetCall,
   toggleMic,
   toggleVideo,
   toggleScreenShare,
   toggleChat,
   addMessage,
-  setLocalStream,
-  setRemoteStream,
+  setLocalStreamId,
+  setRemoteStreamId,
   setConnected,
   setLoading,
   setError,
   clearError,
+  addParticipant,
+  removeParticipant,
+  updateParticipant,
+  setE2EEStatus,
+  setE2EELocalFingerprint,
+  setE2EERemoteFingerprint,
+  setE2EEKeyGeneration,
+  setE2EEErrorMessage,
+  setE2EEEncryptionStats,
+  setChatE2EEStatus,
+  setChatE2EELocalFingerprint,
+  incrementChatMessagesEncrypted,
+  incrementChatMessagesDecrypted,
+  incrementChatVerificationFailures,
 } from '../features/videocall/videoCallSlice';
 import { joinVideoCall, leaveVideoCall } from '../features/videocall/videocallThunks';
 import { selectAuthUser } from '../store/selectors/authSelectors';
 import { VideoCallConfig } from '../types/models/VideoCallConfig';
 import { ChatMessage } from '../types/models/ChatMessage';
+import { EncryptionStats } from '../store/adapters/videoCallAdapter+State';
 import videoCallService from '../api/services/videoCallService';
 import { ApiResponse, isSuccessResponse } from '../types/api/UnifiedResponse';
 import { withDefault } from '../utils/safeAccess';
@@ -28,8 +44,6 @@ import {
   selectRoomId,
   selectIsConnected,
   selectPeerId,
-  selectLocalStream,
-  selectRemoteStream,
   selectIsMicEnabled,
   selectIsVideoEnabled,
   selectIsScreenSharing,
@@ -39,20 +53,59 @@ import {
   selectParticipants,
   selectVideocallLoading,
   selectVideocallError,
+  selectE2EEStatus,
+  selectE2EELocalFingerprint,
+  selectE2EERemoteFingerprint,
+  selectE2EEKeyGeneration,
+  selectE2EEEncryptionStats,
+  selectE2EEErrorMessage,
+  selectChatE2EEStatus,
+  selectIsChatE2EEActive,
+  selectChatE2EEStats,
 } from '../store/selectors/videoCallSelectors';
 import { getWebRTCConfiguration } from '../utils/webrtcConfig';
+import {
+  E2EEManager,
+  isInsertableStreamsSupported,
+  getE2EECompatibility,
+} from '../utils/crypto/e2eeVideoEncryption';
+import { InsertableStreamsHandler } from '../utils/crypto/insertableStreamsHandler';
+import { E2EEKeyExchangeManager, KeyExchangeEvents } from '../utils/crypto/e2eeKeyExchange';
+import { E2EEChatManager, EncryptedMessage } from '../utils/crypto/e2eeChatEncryption';
+import { useStreams } from '../contexts/StreamContext';
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const MAX_ICE_BUFFER_SIZE = 50;
+const RECONNECT_DELAYS = [0, 1000, 5000, 10000, 30000];
+const HEARTBEAT_INTERVAL = 30000;
+const E2EE_INIT_DELAY = 1500;
+const STATS_UPDATE_INTERVAL = 5000;
+const CONNECTION_TIMEOUT = 5000;
+
+// ============================================================================
+// Hook
+// ============================================================================
 
 export const useVideoCall = () => {
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectAuthUser);
+
+  const {
+    localStream,
+    remoteStream,
+    setLocalStream,
+    setRemoteStream,
+    cleanup: cleanupStreams,
+  } = useStreams();
 
   // ===== SELECTORS =====
   const sessionId = useAppSelector(selectSessionId);
   const roomId = useAppSelector(selectRoomId);
   const isConnected = useAppSelector(selectIsConnected);
   const peerId = useAppSelector(selectPeerId);
-  const localStream = useAppSelector(selectLocalStream);
-  const remoteStream = useAppSelector(selectRemoteStream);
   const isMicEnabled = useAppSelector(selectIsMicEnabled);
   const isVideoEnabled = useAppSelector(selectIsVideoEnabled);
   const isScreenSharing = useAppSelector(selectIsScreenSharing);
@@ -63,83 +116,124 @@ export const useVideoCall = () => {
   const isLoading = useAppSelector(selectVideocallLoading);
   const error = useAppSelector(selectVideocallError);
 
+  // E2EE Selectors
+  const e2eeStatus = useAppSelector(selectE2EEStatus);
+  const localKeyFingerprint = useAppSelector(selectE2EELocalFingerprint);
+  const remotePeerFingerprint = useAppSelector(selectE2EERemoteFingerprint);
+  const keyGeneration = useAppSelector(selectE2EEKeyGeneration);
+  const e2eeErrorMessage = useAppSelector(selectE2EEErrorMessage);
+  const encryptionStats = useAppSelector(selectE2EEEncryptionStats);
+  const chatE2EEStatus = useAppSelector(selectChatE2EEStatus);
+  const chatStats = useAppSelector(selectChatE2EEStats);
+  const isChatE2EEActive = useAppSelector(selectIsChatE2EEActive);
+
   // ===== REFS =====
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const signalRConnectionRef = useRef<HubConnection | null>(null);
   const iceCandidatesBuffer = useRef<RTCIceCandidateInit[]>([]);
-  const isInitializedRef = useRef<boolean>(false);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitializedRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastKeyRotationRef = useRef<string | null>(null);
 
-  // ===== KORRIGIERTE PEERCONNECTION MANAGEMENT =====
-  const createPeerConnection = (config: VideoCallConfig): RTCPeerConnection => {
-    console.log('🔧 Creating new RTCPeerConnection with config:', getWebRTCConfiguration());
-    
+  const roomIdRef = useRef(roomId);
+  const sessionIdRef = useRef(sessionId);
+  const peerIdRef = useRef(peerId);
+  const isConnectedRef = useRef(isConnected);
+  const isMicEnabledRef = useRef(isMicEnabled);
+  const isVideoEnabledRef = useRef(isVideoEnabled);
+  const isScreenSharingRef = useRef(isScreenSharing);
+  const chatE2EEStatusRef = useRef(chatE2EEStatus);
+  const userRef = useRef(user);
+
+  // E2EE Refs
+  const e2eeManagerRef = useRef<E2EEManager | null>(null);
+  const streamsHandlerRef = useRef<InsertableStreamsHandler | null>(null);
+  const keyExchangeManagerRef = useRef<E2EEKeyExchangeManager | null>(null);
+  const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const chatManagerRef = useRef<E2EEChatManager>(new E2EEChatManager());
+  const localSigningKeyRef = useRef<CryptoKey | null>(null);
+  const localVerificationKeyRef = useRef<CryptoKey | null>(null);
+  const configRef = useRef<VideoCallConfig | null>(null);
+
+  const compatibility = getE2EECompatibility();
+
+  // ===== SYNC REFS WITH STATE =====
+  useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  useEffect(() => { peerIdRef.current = peerId; }, [peerId]);
+  useEffect(() => { isConnectedRef.current = isConnected; }, [isConnected]);
+  useEffect(() => { isMicEnabledRef.current = isMicEnabled; }, [isMicEnabled]);
+  useEffect(() => { isVideoEnabledRef.current = isVideoEnabled; }, [isVideoEnabled]);
+  useEffect(() => { isScreenSharingRef.current = isScreenSharing; }, [isScreenSharing]);
+  useEffect(() => { chatE2EEStatusRef.current = chatE2EEStatus; }, [chatE2EEStatus]);
+  useEffect(() => { userRef.current = user; }, [user]);
+
+  // ===== PEER CONNECTION MANAGEMENT =====
+  const createPeerConnection = useCallback((config: VideoCallConfig): RTCPeerConnection => {
+    console.log('🔧 Creating new RTCPeerConnection');
+
     const pc = new RTCPeerConnection(getWebRTCConfiguration());
-    
-    console.log('🧊 ICE Servers:', getWebRTCConfiguration().iceServers);
 
-    // WICHTIG: Event Handler vor dem Hinzufügen von Tracks setzen
     pc.ontrack = (event) => {
-      console.log('🎥 ONTRACK EVENT FIRED!', {
+      console.log('🎥 ONTRACK EVENT:', {
         streams: event.streams.length,
         track: event.track?.kind,
         trackId: event.track?.id,
-        trackState: event.track?.readyState
       });
-      
-      if (event.streams && event.streams.length > 0) {
-        const remoteStream = event.streams[0];
-        console.log('📹 Remote Stream erhalten mit Tracks:', 
-          remoteStream.getTracks().map(t => ({
-            kind: t.kind,
-            id: t.id,
-            enabled: t.enabled,
-            readyState: t.readyState
-          }))
-        );
-        
-        dispatch(setRemoteStream(remoteStream));
+
+      if (event.streams?.[0]) {
+        const stream = event.streams[0];
+        setRemoteStream(stream);
+        dispatch(setRemoteStreamId(stream.id));
       }
     };
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('🧊 ICE Candidate gefunden:', event.candidate);
-        if (signalRConnectionRef.current && config.roomId) {
-          const targetUserId = config.initiatorUserId === user?.id 
-            ? config.participantUserId 
+        console.log('🧊 ICE Candidate found');
+        const connection = signalRConnectionRef.current;
+        const currentRoomId = roomIdRef.current;
+        const currentUser = userRef.current;
+
+        if (connection && currentRoomId && config) {
+          const targetUserId = config.initiatorUserId === currentUser?.id
+            ? config.participantUserId
             : config.initiatorUserId;
-          
+
           if (targetUserId) {
-            signalRConnectionRef.current.invoke('SendIceCandidate', config.roomId, targetUserId, JSON.stringify(event.candidate.toJSON()))
-              .catch(err => console.error('Failed to send ICE candidate:', err));
+            connection.invoke(
+              'SendIceCandidate',
+              currentRoomId,
+              targetUserId,
+              JSON.stringify(event.candidate.toJSON())
+            ).catch((err) => console.error('Failed to send ICE candidate:', err));
           }
         }
-      } else {
-        console.log('🧊 ICE Gathering complete');
       }
     };
 
-    // VERBESSERT: Besseres Connection State Management
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState;
       console.log('🔗 PeerConnection State:', state);
-      
+
+      if (!isMountedRef.current) return;
+
       if (state === 'connected') {
         dispatch(setConnected(true));
-        console.log('✅ PeerConnection connected successfully');
       } else if (state === 'disconnected' || state === 'failed') {
-        console.warn(`🔄 PeerConnection ${state}, attempting recovery...`);
+        console.warn(`🔄 PeerConnection ${state}`);
         dispatch(setConnected(false));
-        
-        // VERBESSERT: Nicht sofort cleanen, erst nach Timeout
+
+        // Delayed cleanup
         setTimeout(() => {
           if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-            console.warn('🔄 PeerConnection still disconnected, cleaning up...');
-            cleanupResources(false);
+            if (isMountedRef.current) {
+              cleanupResources(false);
+            }
           }
-        }, 5000);
+        }, CONNECTION_TIMEOUT);
       }
     };
 
@@ -147,457 +241,326 @@ export const useVideoCall = () => {
       console.log('❄️ ICE Connection State:', pc.iceConnectionState);
     };
 
-    pc.onsignalingstatechange = () => {
-      console.log('📡 Signaling State:', pc.signalingState);
-    };
-
     return pc;
-  };
+  }, [dispatch, setRemoteStream]);
 
-  const ensurePeerConnection = (config: VideoCallConfig): RTCPeerConnection => {
+  const ensurePeerConnection = useCallback((config: VideoCallConfig): RTCPeerConnection => {
     const existingPc = peerRef.current;
+
     if (existingPc) {
-      const isUsable = 
-        existingPc.signalingState !== 'closed' && 
+      const isUsable =
+        existingPc.signalingState !== 'closed' &&
         existingPc.connectionState !== 'closed' &&
-        existingPc.connectionState !== 'disconnected' &&
-        existingPc.connectionState !== 'failed' &&
-        existingPc.iceConnectionState !== 'disconnected' &&
-        existingPc.iceConnectionState !== 'failed';
-      
+        existingPc.connectionState !== 'failed';
+
       if (isUsable) {
-        console.log('✅ Reusing existing PeerConnection in state:', existingPc.connectionState);
         return existingPc;
-      } else {
-        console.log('🔄 Existing PC not usable, state:', {
-          signaling: existingPc.signalingState,
-          connection: existingPc.connectionState,
-          ice: existingPc.iceConnectionState
-        });
       }
     }
 
-    // Neue PC erstellen
-    console.log('🔄 Creating new PeerConnection');
     const pc = createPeerConnection(config);
     peerRef.current = pc;
 
-    // Local Stream zur NEUEN PC hinzufügen
-    const currentStream = localStreamRef.current;
-    if (currentStream) {
-      console.log('🎯 Adding local tracks to NEW PeerConnection');
-      
-      currentStream.getTracks().forEach(track => {
-        try {
-          if (track.readyState === 'ended') {
-            console.warn(`⚠️ Track ${track.kind} is already ended, skipping`);
-            return;
+    // Add existing tracks
+    if (localStream) {
+      localStream.getTracks().forEach((track: MediaStreamTrack) => {
+        if (track.readyState !== 'ended') {
+          try {
+            pc.addTrack(track, localStream);
+            console.log(`✅ Added ${track.kind} track to PC`);
+          } catch (e) {
+            console.error(`Failed to add ${track.kind} track:`, e);
           }
-          
-          const sender = pc.addTrack(track, currentStream);
-          console.log(`✅ Added ${track.kind} track to NEW PC, sender:`, sender);
-        } catch (error) {
-          console.error(`❌ Failed to add ${track.kind} track to NEW PC:`, error);
         }
       });
-    } else {
-      console.warn('⚠️ No local stream available for NEW PeerConnection');
     }
-    
+
     return pc;
-  };
+  }, [createPeerConnection, localStream]);
 
-  // 🔥 NEU: Handler für eingehende Answers
-  const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
+  // ===== SIGNALING HANDLERS =====
+  const handleAnswer = useCallback(async (answer: RTCSessionDescriptionInit) => {
+    const pc = peerRef.current;
+    if (!pc) return;
+
+    if (pc.remoteDescription?.type === 'answer') {
+      console.warn('Already have answer, ignoring');
+      return;
+    }
+
     try {
-      const pc = peerRef.current;
-      if (!pc) {
-        console.error('❌ No PeerConnection available for answer');
-        return;
-      }
-
-      // Prüfe ob wir schon eine Remote Description haben
-      if (pc.remoteDescription && pc.remoteDescription.type === 'answer') {
-        console.warn('⚠️ Already have answer, ignoring duplicate');
-        return;
-      }
-
-      console.log('📩 Setting remote description from answer');
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
 
-      // Verarbeite gepufferte ICE Candidates
+      // Process buffered candidates
       while (iceCandidatesBuffer.current.length > 0) {
         const candidate = iceCandidatesBuffer.current.shift();
         if (candidate) {
           try {
             await pc.addIceCandidate(candidate);
-            console.log('🧊 Added buffered ICE candidate');
           } catch (e) {
-            console.warn('⚠️ Failed to add buffered ICE candidate:', e);
+            console.warn('Failed to add buffered ICE candidate:', e);
           }
         }
       }
     } catch (error) {
-      console.error('❌ Error handling answer:', error);
+      console.error('Error handling answer:', error);
     }
-  };
+  }, []);
 
-  // 🔥 NEU: Handler für eingehende ICE Candidates
-  const handleIceCandidate = async (candidate: RTCIceCandidateInit) => {
+  const handleIceCandidate = useCallback(async (candidate: RTCIceCandidateInit) => {
+    const pc = peerRef.current;
+
+    if (!pc || !pc.remoteDescription) {
+      if (iceCandidatesBuffer.current.length < MAX_ICE_BUFFER_SIZE) {
+        iceCandidatesBuffer.current.push(candidate);
+      } else {
+        console.warn('ICE buffer full, dropping candidate');
+      }
+      return;
+    }
+
     try {
-      const pc = peerRef.current;
-      if (!pc) {
-        console.warn('🧊 No PeerConnection yet, buffering ICE candidate');
-        iceCandidatesBuffer.current.push(candidate);
-        return;
-      }
-
-      // Prüfe ob wir schon eine Remote Description haben
-      if (!pc.remoteDescription) {
-        console.warn('🧊 No remote description yet, buffering ICE candidate');
-        iceCandidatesBuffer.current.push(candidate);
-        return;
-      }
-
       await pc.addIceCandidate(candidate);
-      console.log('🧊 Added incoming ICE candidate');
     } catch (error) {
-      console.error('❌ Error adding ICE candidate:', error);
+      console.error('Error adding ICE candidate:', error);
     }
-  };
+  }, []);
 
-  const createOfferForTarget = async (config: VideoCallConfig, targetUserId: string) => {
+  const createOfferForTarget = useCallback(async (
+    config: VideoCallConfig,
+    targetUserId: string
+  ) => {
+    if (!targetUserId || !config?.roomId) return;
+
     try {
-      if (!targetUserId) {
-        console.warn('createOffer aborted: no targetUserId');
-        return;
-      }
-      if (!config?.roomId) {
-        console.warn('createOffer aborted: missing roomId in config');
-        return;
-      }
-
-      console.log('🎯 Creating offer for target user:', targetUserId);
-
       const pc = ensurePeerConnection(config);
 
-      if (!pc) {
-        console.error('❌ createOffer: No PeerConnection available after ensure!');
-        return;
+      // Ensure we have tracks
+      if (pc.getSenders().length === 0 && localStream) {
+        localStream.getTracks().forEach((track: MediaStreamTrack) => {
+          if (track.readyState !== 'ended') {
+            pc.addTrack(track, localStream);
+          }
+        });
       }
-
-      // PRÜFE: Hat die PC Local Tracks?
-      const senders = pc.getSenders();
-      console.log('🔍 Current senders in PC:', senders.map(s => ({
-        track: s.track?.kind,
-        id: s.track?.id,
-        enabled: s.track?.enabled,
-        readyState: s.track?.readyState
-      })));
-
-      // FALLBACK: Wenn keine Tracks vorhanden sind, versuche Stream neu zu holen
-      if (senders.length === 0) {
-        console.log('🔄 No senders found, attempting to reacquire media stream...');
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-          });
-
-          stream.getTracks().forEach(track => {
-            try {
-              pc.addTrack(track, stream);
-              console.log(`✅ Added ${track.kind} track to PC during offer creation`);
-            } catch (error) {
-              console.error(`❌ Failed to add ${track.kind} track during offer:`, error);
-            }
-          });
-
-          localStreamRef.current = stream;
-          dispatch(setLocalStream(stream));
-        } catch (streamError) {
-          console.error('❌ Failed to reacquire media stream:', streamError);
-        }
-      }
-
-      // Debug: Prüfe SDP vor createOffer
-      console.log('🔍 PC state before createOffer:', {
-        signalingState: pc.signalingState,
-        connectionState: pc.connectionState,
-        iceConnectionState: pc.iceConnectionState,
-        senders: pc.getSenders().length
-      });
 
       const offer = await pc.createOffer();
 
-      // DEBUG: Prüfe das generierte SDP
-      console.log('📋 Generated Offer SDP:', {
-        type: offer.type,
-        hasAudio: /m=audio/.test(offer.sdp || ''),
-        hasVideo: /m=video/.test(offer.sdp || ''),
-        hasBundle: /a=group:BUNDLE/.test(offer.sdp || '')
-      });
-
       if (!offer.sdp || (!/m=audio/.test(offer.sdp) && !/m=video/.test(offer.sdp))) {
-        console.error('❌ CRITICAL: Offer SDP contains no media lines!');
-        console.log('SDP Content:', offer.sdp);
+        console.error('CRITICAL: Offer SDP contains no media!');
         return;
       }
 
       await pc.setLocalDescription(offer);
 
-      if (!signalRConnectionRef.current) {
-        console.warn('createOffer aborted: SignalR not connected');
-        return;
+      const connection = signalRConnectionRef.current;
+      if (connection?.state === HubConnectionState.Connected) {
+        await connection.invoke('SendOffer', config.roomId, targetUserId, offer.sdp);
+        console.log('📤 Sent offer to', targetUserId);
       }
-
-      console.log('📤 Sending offer to', targetUserId, 'room', config.roomId);
-      await signalRConnectionRef.current.invoke('SendOffer', config.roomId, targetUserId, offer.sdp);
-
-    } catch (err: any) {
-      console.error('❌ createOffer failed:', err);
+    } catch (err) {
+      console.error('createOffer failed:', err);
     }
-  };
+  }, [ensurePeerConnection, localStream]);
 
-  // ===== KORRIGIERTE CLEANUP LOGIK =====
+  // ===== CLEANUP =====
   const cleanupResources = useCallback((isFullCleanup: boolean = false) => {
-    console.log('🧹 Cleaning up resources...', { 
-      isFullCleanup, 
-      isInitialized: isInitializedRef.current,
-      hasPeerConnection: !!peerRef.current,
-      hasSignalR: !!signalRConnectionRef.current
-    });
-    
-    // Clear reconnect timeout
+    console.log('🧹 Cleaning up resources...', { isFullCleanup });
+
+    // Clear timers
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
-    
-    if (!isInitializedRef.current && !peerRef.current && !signalRConnectionRef.current) {
-      console.log('🔄 Skip cleanup - not initialized');
-      return;
+
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
     }
-    
-    // PeerConnection schließen
+
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
+
+    // PeerConnection cleanup
     if (peerRef.current) {
-      console.log('🔌 Closing PeerConnection');
-      
       const pc = peerRef.current;
-      console.log('📊 PeerConnection state before close:', {
-        signalingState: pc.signalingState,
-        connectionState: pc.connectionState,
-        iceConnectionState: pc.iceConnectionState
-      });
-      
       try {
         pc.onicecandidate = null;
         pc.ontrack = null;
         pc.onconnectionstatechange = null;
         pc.oniceconnectionstatechange = null;
-        pc.onsignalingstatechange = null;
-      } catch (e) {
-        console.warn('⚠️ Error removing PC event handlers:', e);
-      }
-      
-      try {
-        if (pc.signalingState !== 'closed' && pc.connectionState !== 'closed') {
+
+        if (pc.signalingState !== 'closed') {
           pc.close();
         }
-      } catch (closeError) {
-        console.warn('⚠️ Error closing PeerConnection:', closeError);
+      } catch (e) {
+        console.warn('Error closing PeerConnection:', e);
       }
       peerRef.current = null;
     }
-    
-    // SignalR Verbindung stoppen
+
+    // SignalR cleanup
     if (signalRConnectionRef.current) {
-      console.log('📡 Stopping SignalR connection');
-      try {
-        signalRConnectionRef.current.stop().catch(err => 
-          console.warn('⚠️ Error stopping SignalR:', err)
-        );
-      } catch (stopError) {
-        console.warn('⚠️ Exception stopping SignalR:', stopError);
-      }
+      signalRConnectionRef.current.stop().catch(() => {});
       signalRConnectionRef.current = null;
     }
-    
-    // Clear ICE candidates buffer
+
+    // Clear buffers
     iceCandidatesBuffer.current = [];
-    
-    // Streams nur bei vollständigem Cleanup stoppen
+
+    // E2EE cleanup
+    e2eeManagerRef.current?.stopKeyRotation();
+    e2eeManagerRef.current?.cleanup();
+    streamsHandlerRef.current?.cleanup();
+    keyExchangeManagerRef.current?.cleanup();
+
+    const currentRoomId = roomIdRef.current;
+    if (currentRoomId) {
+      chatManagerRef.current.removeConversation(currentRoomId);
+    }
+
+    // Full cleanup
     if (isFullCleanup) {
-      const streamToStop = localStreamRef.current;
-      if (streamToStop) {
-        console.log('🛑 Stopping local stream tracks');
-        streamToStop.getTracks().forEach(track => {
-          try {
-            if (track.readyState === 'live') {
-              track.stop();
-              console.log(`✅ Stopped ${track.kind} track`);
-            }
-          } catch (trackError) {
-            console.warn(`⚠️ Error stopping ${track.kind} track:`, trackError);
-          }
-        });
-        localStreamRef.current = null;
-        dispatch(setLocalStream(null));
-      }
-      
-      dispatch(setRemoteStream(null));
-      dispatch(setConnected(false));
-      
+      cleanupStreams();
+      dispatch(resetCall());
       isInitializedRef.current = false;
     }
-  }, [dispatch]);
+  }, [dispatch, cleanupStreams]);
 
-  // ===== KORRIGIERTE SETUP FUNKTIONEN =====
-  const setupWebRTC = async (config: VideoCallConfig) => {
+  // ===== WEBRTC SETUP =====
+  const setupWebRTC = useCallback(async (config: VideoCallConfig) => {
     if (isInitializedRef.current) {
-      console.log('⚠️ setupWebRTC already initialized, skipping...');
+      console.log('Already initialized, skipping');
       return;
     }
 
     isInitializedRef.current = true;
+    configRef.current = config;
 
     try {
       console.log('🎥 Requesting media devices...');
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: { ideal: 1280 }, 
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
           height: { ideal: 720 },
-          frameRate: { ideal: 30 }
-        }, 
+          frameRate: { ideal: 30 },
+        },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
-        }
+          autoGainControl: true,
+        },
       });
-      
-      console.log('✅ MediaStream erhalten mit Tracks:', 
-        stream.getTracks().map(t => ({
-          kind: t.kind,
-          id: t.id,
-          enabled: t.enabled,
-          readyState: t.readyState
-        }))
-      );
-      
-      localStreamRef.current = stream;
-      dispatch(setLocalStream(stream));
-      
+
+      console.log('✅ MediaStream obtained:', stream.getTracks().length, 'tracks');
+
+      setLocalStream(stream);
+      dispatch(setLocalStreamId(stream.id));
+
       const pc = createPeerConnection(config);
       peerRef.current = pc;
-      
-      console.log('🔗 Adding tracks to initial PeerConnection');
-      
-      stream.getTracks().forEach(track => {
-        try {
-          if (track.readyState === 'ended') {
-            console.warn(`⚠️ Track ${track.kind} is already ended, skipping`);
-            return;
-          }
-          
-          const sender = pc.addTrack(track, stream);
-          console.log(`✅ Added ${track.kind} track to initial PC, sender:`, sender);
-        } catch (error: any) {
-          console.error(`❌ Failed to add ${track.kind} track:`, error);
+
+      stream.getTracks().forEach((track: MediaStreamTrack) => {
+        if (track.readyState !== 'ended') {
+          pc.addTrack(track, stream);
+          console.log(`✅ Added ${track.kind} track`);
         }
       });
 
       await setupSignalR(config);
-      
-      console.log('✅ WebRTC Setup completed with active stream');
-      
-    } catch (err: any) {
-      console.error('❌ WebRTC Setup Error:', err);
+
+      console.log('✅ WebRTC Setup completed');
+    } catch (err: unknown) {
+      console.error('WebRTC Setup Error:', err);
       isInitializedRef.current = false;
-      dispatch(setError(err?.message || 'Verbindungsaufbau fehlgeschlagen.'));
+      dispatch(setError(err instanceof Error ? err.message : 'Verbindungsaufbau fehlgeschlagen'));
       cleanupResources(true);
     }
-  };
+  }, [dispatch, setLocalStream, createPeerConnection, cleanupResources]);
 
-  const setupSignalR = async (config: VideoCallConfig) => {
+  // ===== SIGNALR SETUP =====
+  const setupSignalR = useCallback(async (config: VideoCallConfig) => {
     const token = getToken();
 
     if (!token) {
-      console.error("❌ Kein Token gefunden für SignalR");
-      dispatch(setError("Authentifizierungsfehler beim Verbindungsaufbau"));
+      dispatch(setError('Authentifizierungsfehler'));
       return;
     }
 
-    console.log("🔌 Starte SignalR Verbindung mit Token...");
+    console.log('🔌 Starting SignalR connection...');
 
     const connection = new HubConnectionBuilder()
-      .withUrl(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/videocall/hub?roomId=${config.roomId}`, {
-        accessTokenFactory: () => token
-      })
+      .withUrl(
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/videocall/hub?roomId=${config.roomId}`,
+        { accessTokenFactory: () => token }
+      )
       .configureLogging(LogLevel.Information)
-      .withAutomaticReconnect([0, 1000, 5000, 10000])
+      .withAutomaticReconnect(RECONNECT_DELAYS)
       .build();
 
-    // 🔥 KORRIGIERT: UserJoined Event Handler
-    connection.on('UserJoined', async (data: { userId: string; connectionId?: string }) => {
-      try {
-        const joinedUserId = data.userId;
-        console.log('👥 UserJoined event received', {
-          joinedUserId,
-          me: user?.id,
-          roomId: config.roomId
-        });
+    // UserJoined
+    connection.on('UserJoined', async (data: { userId: string }) => {
+      const joinedUserId = data.userId;
+      const currentUser = userRef.current;
 
-        if (!joinedUserId || joinedUserId === user?.id) {
-          console.log('👤 UserJoined: joiner is me -> ignore');
-          return;
-        }
+      console.log('👥 UserJoined:', joinedUserId);
 
-        await new Promise(resolve => setTimeout(resolve, 500));
+      if (!joinedUserId || joinedUserId === currentUser?.id) return;
 
-        if (config.initiatorUserId === user?.id) {
-          console.log('🎯 I am initiator -> creating offer for', joinedUserId);
-          await createOfferForTarget(config, joinedUserId);
-        } else {
-          console.log('👀 Not initiator -> waiting for offer');
-        }
-      } catch (err) {
-        console.error('❌ UserJoined handler error:', err);
+      // Add participant to state
+      dispatch(addParticipant({
+        id: joinedUserId,
+        name: 'Participant',
+        audioEnabled: true,
+        videoEnabled: true,
+      }));
+
+      await new Promise((r) => setTimeout(r, 500));
+
+      if (config.initiatorUserId === currentUser?.id) {
+        console.log('I am initiator, creating offer');
+        await createOfferForTarget(config, joinedUserId);
       }
     });
 
-    // 🔥 KORRIGIERT: RoomJoined Event Handler
-    connection.on('RoomJoined', (data: { roomId: string; participants: string[] }) => {
-      console.log('🏠 RoomJoined', data);
+    // UserLeft
+    connection.on('UserLeft', (data: { userId: string }) => {
+      console.log('👋 UserLeft:', data.userId);
+      dispatch(removeParticipant(data.userId));
     });
 
-    // 🔥 KORRIGIERT: ReceiveOffer mit besserem Error Handling
+    // RoomJoined
+    connection.on('RoomJoined', (data: { roomId: string; participants: string[] }) => {
+      console.log('🏠 RoomJoined:', data);
+    });
+
+    // ReceiveOffer
     connection.on('ReceiveOffer', async (data: { fromUserId: string; offer: string }) => {
-      const { fromUserId, offer } = data;
-      console.log('📩 ReceiveOffer from', fromUserId);
+      console.log('📩 ReceiveOffer from', data.fromUserId);
+
       try {
         const pc = ensurePeerConnection(config);
-        if (!pc) {
-          throw new Error('PeerConnection not available for offer');
-        }
 
-        if (pc.remoteDescription && pc.remoteDescription.type) {
-          console.warn('⚠️ Already have remote description, ignoring duplicate offer');
+        if (pc.remoteDescription?.type) {
+          console.warn('Already have remote description');
           return;
         }
 
-        await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: offer }));
+        await pc.setRemoteDescription(
+          new RTCSessionDescription({ type: 'offer', sdp: data.offer })
+        );
 
-        // Verarbeite gepufferte ICE Candidates
+        // Process buffered candidates
         while (iceCandidatesBuffer.current.length > 0) {
           const candidate = iceCandidatesBuffer.current.shift();
           if (candidate) {
             try {
               await pc.addIceCandidate(candidate);
-              console.log('🧊 Added buffered ICE candidate');
             } catch (e) {
-              console.warn('⚠️ Failed to add buffered ICE candidate:', e);
+              console.warn('Failed to add buffered candidate:', e);
             }
           }
         }
@@ -605,257 +568,470 @@ export const useVideoCall = () => {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
-        if (connection.state === 'Connected') {
-          await connection.invoke('SendAnswer', config.roomId, fromUserId, answer.sdp);
-          console.log('📤 Sent Answer to', fromUserId);
-        } else {
-          console.warn('⚠️ SignalR not connected, cannot send answer');
+        if (connection.state === HubConnectionState.Connected) {
+          await connection.invoke('SendAnswer', config.roomId, data.fromUserId, answer.sdp);
+          console.log('📤 Sent answer');
         }
       } catch (e) {
-        console.error('❌ Error handling ReceiveOffer', e);
+        console.error('Error handling offer:', e);
       }
     });
 
-    // 🔥 NEU: ReceiveAnswer Handler
+    // ReceiveAnswer
     connection.on('ReceiveAnswer', async (data: { fromUserId: string; answer: string }) => {
-      const { fromUserId, answer } = data;
-      console.log('📩 ReceiveAnswer from', fromUserId);
-      try {
-        await handleAnswer({ type: 'answer', sdp: answer });
-      } catch (error) {
-        console.error('❌ Error handling ReceiveAnswer:', error);
-      }
+      console.log('📩 ReceiveAnswer from', data.fromUserId);
+      await handleAnswer({ type: 'answer', sdp: data.answer });
     });
 
-    // 🔥 NEU: ReceiveIceCandidate Handler
+    // ReceiveIceCandidate
     connection.on('ReceiveIceCandidate', async (data: { fromUserId: string; candidate: string }) => {
-      const { fromUserId, candidate } = data;
-      console.log('🧊 ReceiveIceCandidate from', fromUserId);
+      console.log('🧊 ReceiveIceCandidate from', data.fromUserId);
       try {
-        const candidateObj = JSON.parse(candidate);
+        const candidateObj = JSON.parse(data.candidate);
         await handleIceCandidate(candidateObj);
-      } catch (error) {
-        console.error('❌ Error handling ReceiveIceCandidate:', error);
+      } catch (e) {
+        console.error('Error handling ICE candidate:', e);
       }
     });
 
-    // Chat message handler - receives messages from other users via SignalR
-    connection.on('ChatMessage', (data: { userId: string; message: string; timestamp: string }) => {
-      console.log('💬 ChatMessage received:', data);
-      if (data.userId !== user?.id) {
-        const chatMessage: ChatMessage = {
-          id: Date.now().toString(),
-          sessionId: sessionId || '',
-          senderId: data.userId,
-          senderName: 'Other User', // TODO: Get actual user name
-          message: data.message,
-          sentAt: data.timestamp,
-          messageType: 'Text'
-        };
-        dispatch(addMessage(chatMessage));
+    // ChatMessage
+    connection.on('ChatMessage', async (data: { userId: string; message: string; timestamp: string }) => {
+      const currentUser = userRef.current;
+      if (data.userId === currentUser?.id) return;
+
+      let messageContent = data.message;
+      let isEncrypted = false;
+      let isVerified = false;
+
+      // Try to decrypt
+      const currentChatE2EEStatus = chatE2EEStatusRef.current;
+      const currentRoomId = roomIdRef.current;
+
+      if (currentChatE2EEStatus === 'active' && currentRoomId) {
+        try {
+          const encryptedData: EncryptedMessage = JSON.parse(data.message);
+          const decrypted = await chatManagerRef.current.decryptMessage(currentRoomId, encryptedData);
+          messageContent = decrypted.content;
+          isEncrypted = true;
+          isVerified = decrypted.isVerified;
+
+          dispatch(incrementChatMessagesDecrypted());
+          if (!isVerified) {
+            dispatch(incrementChatVerificationFailures());
+          }
+        } catch {
+          // Use original message
+        }
       }
+
+      const chatMessage: ChatMessage = {
+        id: Date.now().toString(),
+        sessionId: sessionIdRef.current || '',
+        senderId: data.userId,
+        senderName: 'Participant',
+        message: messageContent,
+        sentAt: data.timestamp,
+        messageType: isEncrypted ? 'Encrypted' : 'Text',
+        isEncrypted,
+        isVerified,
+      };
+
+      dispatch(addMessage(chatMessage));
+    });
+
+    // MediaStateChanged
+    connection.on('MediaStateChanged', (data: { userId: string; type: string; enabled: boolean }) => {
+      dispatch(updateParticipant({
+        id: data.userId,
+        ...(data.type === 'audio' && { isMuted: !data.enabled }),
+        ...(data.type === 'video' && { isVideoEnabled: data.enabled }),
+        ...(data.type === 'screen' && { isScreenSharing: data.enabled }),
+      }));
     });
 
     // Connection lifecycle
     connection.onclose((error) => {
-      console.warn('🔌 SignalR connection closed', error);
-      dispatch(setConnected(false));
+      console.warn('🔌 SignalR closed', error);
+      if (isMountedRef.current) {
+        dispatch(setConnected(false));
+      }
+
       if (signalRConnectionRef.current === connection) {
         signalRConnectionRef.current = null;
       }
 
-      if (isInitializedRef.current) {
-        console.log('🔄 Attempting to reconnect...');
+      if (isInitializedRef.current && isMountedRef.current) {
         reconnectTimeoutRef.current = setTimeout(() => setupSignalR(config), 2000);
       }
     });
 
-    connection.onreconnecting((error) => {
-      console.log('🔄 SignalR reconnecting...', error);
+    connection.onreconnected(async () => {
+      console.log('✅ SignalR reconnected');
+      dispatch(setConnected(true));
+
+      // Re-join room after reconnect
+      const currentRoomId = roomIdRef.current;
+      if (currentRoomId) {
+        try {
+          await connection.invoke('JoinRoom', currentRoomId);
+          console.log('✅ Re-joined room after reconnect');
+        } catch (e) {
+          console.warn('Failed to re-join room:', e);
+        }
+      }
     });
 
-    connection.onreconnected((connectionId) => {
-      console.log('✅ SignalR reconnected:', connectionId);
-      dispatch(setConnected(true));
+    connection.onreconnecting(() => {
+      console.log('🔄 SignalR reconnecting...');
     });
 
     try {
       await connection.start();
-      console.log('✅ SignalR connected, connectionId=', connection.connectionId);
+      console.log('✅ SignalR connected');
       signalRConnectionRef.current = connection;
       dispatch(setConnected(true));
 
       if (config.roomId) {
-        try {
-          await connection.invoke('JoinRoom', config.roomId);
-          console.log('✅ Joined room:', config.roomId);
-        } catch (joinErr) {
-          console.warn('⚠️ JoinRoom failed:', joinErr);
-        }
+        await connection.invoke('JoinRoom', config.roomId);
+        console.log('✅ Joined room:', config.roomId);
       }
-    } catch (startErr) {
-      console.error('❌ SignalR start failed:', startErr);
-      dispatch(setError('SignalR-Verbindung fehlgeschlagen'));
-      throw startErr;
-    }
-  };
 
-  // ===== KORRIGIERTE ACTIONS =====
-  const handleToggleScreenSharing = useCallback(async () => {
-    if (!peerRef.current) {
-      console.warn('⚠️ Cannot toggle screen share: Peer connection not established');
+      // Start heartbeat
+      heartbeatIntervalRef.current = setInterval(async () => {
+        const currentRoomId = roomIdRef.current;
+        if (connection.state === HubConnectionState.Connected && currentRoomId) {
+          try {
+            await connection.invoke('SendHeartbeat', currentRoomId);
+          } catch (e) {
+            console.warn('Heartbeat failed:', e);
+          }
+        }
+      }, HEARTBEAT_INTERVAL);
+    } catch (err) {
+      console.error('SignalR start failed:', err);
+      dispatch(setError('SignalR-Verbindung fehlgeschlagen'));
+      throw err;
+    }
+  }, [
+    dispatch,
+    ensurePeerConnection,
+    createOfferForTarget,
+    handleAnswer,
+    handleIceCandidate,
+  ]);
+
+  // ===== E2EE FUNCTIONS =====
+  const initializeE2EE = useCallback(async () => {
+    const currentRoomId = roomIdRef.current;
+    const currentPeerId = peerIdRef.current;
+    const currentUser = userRef.current;
+
+    if (!peerRef.current || !signalRConnectionRef.current || !currentRoomId || !currentPeerId) {
+      console.warn('E2EE: Missing dependencies');
+      return;
+    }
+
+    if (!isInsertableStreamsSupported()) {
+      dispatch(setE2EEStatus('unsupported'));
       return;
     }
 
     try {
-      if (isScreenSharing) {
+      dispatch(setE2EEStatus('initializing'));
+      console.log('🚀 E2EE: Initializing...');
+
+      e2eeManagerRef.current = new E2EEManager();
+      streamsHandlerRef.current = new InsertableStreamsHandler(e2eeManagerRef.current);
+      await streamsHandlerRef.current.initializeWorkers();
+
+      const keyExchangeEvents: KeyExchangeEvents = {
+        onKeyExchangeComplete: (fingerprint, generation) => {
+          console.log(`✅ E2EE: Key exchange complete (gen ${generation})`);
+          dispatch(setE2EERemoteFingerprint(fingerprint));
+          dispatch(setE2EEKeyGeneration(generation));
+          applyE2EEToMediaTracks();
+
+          const keyMaterial = e2eeManagerRef.current?.getCurrentKeyMaterial();
+          if (keyMaterial && streamsHandlerRef.current) {
+            streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
+          }
+
+          initializeChatE2EE(keyMaterial?.encryptionKey);
+          dispatch(setE2EEStatus('active'));
+        },
+        onKeyRotation: (generation) => {
+          console.log(`🔄 E2EE: Key rotated to gen ${generation}`);
+          dispatch(setE2EEKeyGeneration(generation));
+          lastKeyRotationRef.current = new Date().toISOString();
+
+          const keyMaterial = e2eeManagerRef.current?.getCurrentKeyMaterial();
+          if (keyMaterial && streamsHandlerRef.current) {
+            streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
+          }
+          dispatch(setE2EEStatus('active'));
+        },
+        onKeyExchangeError: (error) => {
+          console.error('E2EE: Key exchange error:', error);
+          dispatch(setE2EEStatus('error'));
+          dispatch(setE2EEErrorMessage(error));
+        },
+      };
+
+      keyExchangeManagerRef.current = new E2EEKeyExchangeManager(
+        e2eeManagerRef.current,
+        keyExchangeEvents
+      );
+
+      dispatch(setE2EEStatus('key-exchange'));
+      const isInitiator = configRef.current?.initiatorUserId === currentUser?.id;
+      await keyExchangeManagerRef.current.initialize(
+        signalRConnectionRef.current,
+        currentRoomId,
+        currentPeerId,
+        isInitiator
+      );
+
+      const localFp = keyExchangeManagerRef.current.getLocalFingerprint();
+      dispatch(setE2EELocalFingerprint(localFp));
+
+      e2eeManagerRef.current.startKeyRotation(() => {
+        dispatch(setE2EEStatus('key-rotation'));
+        keyExchangeManagerRef.current?.rotateKeys();
+      });
+
+      statsIntervalRef.current = setInterval(() => {
+        if (streamsHandlerRef.current && isMountedRef.current) {
+          const frameStats = streamsHandlerRef.current.getStats();
+          
+          const encryptionStats: EncryptionStats = {
+            totalFrames: frameStats.totalFrames,
+            encryptedFrames: frameStats.encryptedFrames,
+            decryptedFrames: frameStats.decryptedFrames,
+            encryptionErrors: frameStats.encryptionErrors,
+            decryptionErrors: frameStats.decryptionErrors,
+            averageEncryptionTime: frameStats.averageEncryptionTime,
+            averageDecryptionTime: frameStats.averageDecryptionTime,
+            droppedFrames: 0, // Not tracked in FrameStats
+            lastKeyRotation: lastKeyRotationRef.current,
+          };
+          
+          dispatch(setE2EEEncryptionStats(encryptionStats));
+        }
+      }, STATS_UPDATE_INTERVAL);
+
+      console.log('✅ E2EE: Initialization complete');
+    } catch (error) {
+      console.error('E2EE: Initialization error:', error);
+      dispatch(setE2EEStatus('error'));
+      dispatch(setE2EEErrorMessage(String(error)));
+    }
+  }, [dispatch]);
+
+  const applyE2EEToMediaTracks = useCallback(() => {
+    if (!peerRef.current || !streamsHandlerRef.current) return;
+
+    console.log('🔒 E2EE: Applying to media tracks...');
+
+    peerRef.current.getSenders().forEach((sender) => {
+      if (sender.track) {
+        const kind = sender.track.kind as 'video' | 'audio';
+        try {
+          streamsHandlerRef.current!.applyEncryptionToSender(sender, kind);
+          console.log(`✅ E2EE: Encryption applied to ${kind} sender`);
+        } catch (e) {
+          console.error(`E2EE: Failed to apply to ${kind} sender:`, e);
+        }
+      }
+    });
+
+    peerRef.current.getReceivers().forEach((receiver) => {
+      if (receiver.track) {
+        const kind = receiver.track.kind as 'video' | 'audio';
+        try {
+          streamsHandlerRef.current!.applyDecryptionToReceiver(receiver, kind);
+          console.log(`✅ E2EE: Decryption applied to ${kind} receiver`);
+        } catch (e) {
+          console.error(`E2EE: Failed to apply to ${kind} receiver:`, e);
+        }
+      }
+    });
+  }, []);
+
+  const initializeChatE2EE = useCallback(async (sharedEncryptionKey: CryptoKey | undefined) => {
+    const currentRoomId = roomIdRef.current;
+    if (!sharedEncryptionKey || !currentRoomId) return;
+
+    try {
+      dispatch(setChatE2EEStatus('initializing'));
+
+      const signingKeys = await chatManagerRef.current.generateSigningKeyPair();
+      localSigningKeyRef.current = signingKeys.signingKey;
+      localVerificationKeyRef.current = signingKeys.verificationKey;
+      dispatch(setChatE2EELocalFingerprint(signingKeys.fingerprint));
+
+      await chatManagerRef.current.initializeConversation(
+        currentRoomId,
+        sharedEncryptionKey,
+        signingKeys.signingKey,
+        signingKeys.verificationKey,
+        signingKeys.fingerprint
+      );
+
+      dispatch(setChatE2EEStatus('active'));
+      console.log('✅ Chat E2EE: Initialized');
+    } catch (error) {
+      console.error('Chat E2EE: Initialization error:', error);
+      dispatch(setChatE2EEStatus('error'));
+    }
+  }, [dispatch]);
+
+  // ===== MEDIA CONTROLS =====
+  const handleToggleScreenSharing = useCallback(async () => {
+    if (!peerRef.current) return;
+
+    const currentIsScreenSharing = isScreenSharingRef.current;
+    const currentRoomId = roomIdRef.current;
+
+    try {
+      if (currentIsScreenSharing) {
+        // Stop screen sharing
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         const videoTrack = stream.getVideoTracks()[0];
 
-        const sender = peerRef.current.getSenders().find(s => s.track?.kind === 'video');
+        const sender = peerRef.current.getSenders().find((s) => s.track?.kind === 'video');
         if (sender) {
           await sender.replaceTrack(videoTrack);
         }
 
-        localStreamRef.current?.getVideoTracks().forEach(t => t.stop());
-        localStreamRef.current = stream;
-        dispatch(setLocalStream(stream));
+        localStream?.getVideoTracks().forEach((t: MediaStreamTrack) => t.stop());
+        setLocalStream(stream);
+        dispatch(setLocalStreamId(stream.id));
         dispatch(toggleScreenShare());
 
-        if (signalRConnectionRef.current && roomId) {
-          signalRConnectionRef.current.invoke('StopScreenShare', roomId);
+        if (signalRConnectionRef.current && currentRoomId) {
+          signalRConnectionRef.current.invoke('MediaStateChanged', currentRoomId, 'screen', false);
         }
-
       } else {
+        // Start screen sharing
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const screenTrack = screenStream.getVideoTracks()[0];
 
         screenTrack.onended = () => {
-          if (isScreenSharing) handleToggleScreenSharing();
+          if (isScreenSharingRef.current) {
+            handleToggleScreenSharing();
+          }
         };
 
-        const sender = peerRef.current.getSenders().find(s => s.track?.kind === 'video');
+        const sender = peerRef.current.getSenders().find((s) => s.track?.kind === 'video');
         if (sender) {
           await sender.replaceTrack(screenTrack);
         }
 
         const newStream = new MediaStream([
           screenTrack,
-          ...(localStreamRef.current?.getAudioTracks() || [])
+          ...(localStream?.getAudioTracks() || []),
         ]);
 
-        localStreamRef.current = newStream;
-        dispatch(setLocalStream(newStream));
+        setLocalStream(newStream);
+        dispatch(setLocalStreamId(newStream.id));
         dispatch(toggleScreenShare());
 
-        if (signalRConnectionRef.current && roomId) {
-          signalRConnectionRef.current.invoke('StartScreenShare', roomId);
+        if (signalRConnectionRef.current && currentRoomId) {
+          signalRConnectionRef.current.invoke('MediaStateChanged', currentRoomId, 'screen', true);
         }
       }
     } catch (err) {
-      console.error('❌ Error toggling screen share:', err);
+      console.error('Error toggling screen share:', err);
       dispatch(setError('Bildschirmfreigabe fehlgeschlagen'));
     }
-  }, [dispatch, isScreenSharing, roomId]);
+  }, [dispatch, localStream, setLocalStream]);
 
+  // ===== ACTIONS =====
   const actions = useMemo(() => ({
     startVideoCall: async (appointmentId: string) => {
-      try {
-        if (isInitializedRef.current) {
-          console.warn('⚠️ Video call already initialized, skipping start...');
-          return;
-        }
+      if (isInitializedRef.current) {
+        console.warn('Already initialized');
+        return;
+      }
 
+      try {
         dispatch(setLoading(true));
 
         let configResponse: ApiResponse<VideoCallConfig>;
-
-        // Try to get existing call config first
         configResponse = await videoCallService.getCallConfig(appointmentId);
 
-        // If failed (session ended/not found), create a new session
         if (!isSuccessResponse(configResponse)) {
-          console.warn("📞 No active session found, creating new session for appointment:", appointmentId);
           configResponse = await videoCallService.createCallRoom(appointmentId);
         }
 
         if (!isSuccessResponse(configResponse) || !configResponse.data) {
-          throw new Error('Konnte Anruf-Konfiguration nicht laden.');
+          throw new Error('Konnte Anruf-Konfiguration nicht laden');
         }
 
         const config = configResponse.data;
-        console.log("📞 Initialisiere Call mit Config:", config);
+        console.log('📞 Initializing call with config:', config.roomId);
 
-        dispatch(initializeCall({
-          ...config,
-          peerId: config.participantUserId || ""
-        }));
-
+        dispatch(initializeCall(config));
         await setupWebRTC(config);
 
-        if (config.sessionId) {
+        if (config.sessionId && signalRConnectionRef.current) {
           try {
-            const connId = signalRConnectionRef.current?.connectionId ?? undefined;
-            await dispatch(joinVideoCall({ sessionId: config.sessionId, connectionId: connId })).unwrap();
-          } catch (joinError) {
-            console.warn('⚠️ API Join failed (User likely already in session):', joinError);
+            await dispatch(joinVideoCall({
+              sessionId: config.sessionId,
+              connectionId: signalRConnectionRef.current.connectionId ?? undefined,
+              cameraEnabled: true,
+              microphoneEnabled: true,
+            })).unwrap();
+          } catch (e) {
+            console.warn('API Join failed:', e);
           }
         }
-
-      } catch (err: any) {
-        console.error('❌ Start Video Call Failed:', err);
-        dispatch(setError(err.message || 'Fehler beim Starten des Anrufs'));
+      } catch (err: unknown) {
+        console.error('Start Video Call Failed:', err);
+        dispatch(setError(err instanceof Error ? err.message : 'Fehler beim Starten'));
         cleanupResources(true);
       } finally {
         dispatch(setLoading(false));
       }
     },
 
-    endCall: async () => {
-      console.log('📞 Ending call with full cleanup');
+    hangUp: async () => {
+      console.log('📞 Hanging up...');
 
-      // CRITICAL FIX: Wait for /leave API call to complete BEFORE cleanup
-      // This ensures DB is updated before SignalR disconnect
-      if (sessionId) {
+      const currentSessionId = sessionIdRef.current;
+      if (currentSessionId) {
         try {
-          console.log('📡 Calling /leave API endpoint with sessionId:', sessionId);
-          await dispatch(leaveVideoCall(sessionId)).unwrap();
-          console.log('✅ Successfully left call via API');
+          await dispatch(leaveVideoCall(currentSessionId)).unwrap();
         } catch (e) {
-          console.error('❌ Failed to leave call via API:', e);
-          // Continue with cleanup even if API call fails
+          console.error('Failed to leave via API:', e);
         }
-      } else {
-        console.warn('⚠️ No sessionId available, skipping /leave API call');
       }
 
-      // Now cleanup local resources and disconnect SignalR
       cleanupResources(true);
     },
 
-    hangUp: async () => {
-      console.log('📞 Hanging up call');
-      await actions.endCall();
-    },
-
-    toggleMicrophone: async () => {
-      const currentStream = localStreamRef.current || localStream;
-      if (currentStream) {
-        currentStream.getAudioTracks().forEach(t => (t.enabled = !t.enabled));
+    toggleMicrophone: () => {
+      if (localStream) {
+        const newEnabled = !isMicEnabledRef.current;
+        localStream.getAudioTracks().forEach((t: MediaStreamTrack) => (t.enabled = newEnabled));
         dispatch(toggleMic());
-        if (signalRConnectionRef.current && roomId) {
-          signalRConnectionRef.current.invoke('ToggleMicrophone', roomId, !isMicEnabled);
+
+        const currentRoomId = roomIdRef.current;
+        if (signalRConnectionRef.current && currentRoomId) {
+          signalRConnectionRef.current.invoke('MediaStateChanged', currentRoomId, 'audio', newEnabled);
         }
       }
     },
 
-    toggleCamera: async () => {
-      const currentStream = localStreamRef.current || localStream;
-      if (currentStream) {
-        currentStream.getVideoTracks().forEach(t => (t.enabled = !t.enabled));
+    toggleCamera: () => {
+      if (localStream) {
+        const newEnabled = !isVideoEnabledRef.current;
+        localStream.getVideoTracks().forEach((t: MediaStreamTrack) => (t.enabled = newEnabled));
         dispatch(toggleVideo());
-        if (signalRConnectionRef.current && roomId) {
-          signalRConnectionRef.current.invoke('ToggleCamera', roomId, !isVideoEnabled);
+
+        const currentRoomId = roomIdRef.current;
+        if (signalRConnectionRef.current && currentRoomId) {
+          signalRConnectionRef.current.invoke('MediaStateChanged', currentRoomId, 'video', newEnabled);
         }
       }
     },
@@ -864,131 +1040,173 @@ export const useVideoCall = () => {
       dispatch(toggleChat());
     },
 
+    toggleScreenSharing: handleToggleScreenSharing,
+
     sendChatMessage: async (content: string) => {
-      if (signalRConnectionRef.current && sessionId && roomId && user) {
-        const senderName = withDefault(user.firstName, 'Ich');
-        const msg: ChatMessage = {
-          id: Date.now().toString(),
-          sessionId: sessionId,
-          senderId: user.id,
-          senderName: senderName,
-          message: content,
-          sentAt: new Date().toISOString(),
-          messageType: 'Text'
-        };
+      const connection = signalRConnectionRef.current;
+      const currentSessionId = sessionIdRef.current;
+      const currentRoomId = roomIdRef.current;
+      const currentUser = userRef.current;
+      const currentChatE2EEStatus = chatE2EEStatusRef.current;
 
-        // Add message to local state immediately (optimistic update)
-        dispatch(addMessage(msg));
+      if (!connection || !currentSessionId || !currentRoomId || !currentUser) return;
 
+      const senderName = withDefault(currentUser.firstName, 'Ich');
+      let messageContent = content;
+      let encryptedData: EncryptedMessage | null = null;
+
+      if (currentChatE2EEStatus === 'active') {
         try {
-          // Send message via SignalR for real-time delivery to other participants
-          await signalRConnectionRef.current.invoke('SendChatMessage', roomId, content);
-          console.log('✅ Chat message sent via SignalR');
-        } catch (e) {
-          console.error("❌ Error sending chat message:", e);
+          encryptedData = await chatManagerRef.current.encryptMessage(currentRoomId, content);
+          messageContent = JSON.stringify(encryptedData);
+          dispatch(incrementChatMessagesEncrypted());
+        } catch {
+          // Fall back to unencrypted
         }
-      } else {
-        console.warn('⚠️ Cannot send message - missing sessionId, roomId or user');
+      }
+
+      const msg: ChatMessage = {
+        id: Date.now().toString(),
+        sessionId: currentSessionId,
+        senderId: currentUser.id,
+        senderName,
+        message: content, // Show original to self
+        sentAt: new Date().toISOString(),
+        messageType: encryptedData ? 'Encrypted' : 'Text',
+        isEncrypted: !!encryptedData,
+        isVerified: true,
+      };
+
+      dispatch(addMessage(msg));
+
+      try {
+        await connection.invoke('SendChatMessage', currentRoomId, messageContent);
+      } catch (e) {
+        console.error('Error sending chat message:', e);
       }
     },
-
-    toggleScreenSharing: handleToggleScreenSharing
-
   }), [
-    dispatch, roomId, localStream, user, isMicEnabled, isVideoEnabled,
-    handleToggleScreenSharing, cleanupResources
+    dispatch,
+    setupWebRTC,
+    cleanupResources,
+    handleToggleScreenSharing,
+    localStream,
   ]);
 
+  // ===== E2EE INITIALIZATION EFFECT =====
   useEffect(() => {
+    if (!roomId || !peerId || !peerRef.current || !signalRConnectionRef.current || !isConnected) {
+      return;
+    }
+
+    if (e2eeStatus !== 'disabled') return;
+
+    const timer = setTimeout(initializeE2EE, E2EE_INIT_DELAY);
+    return () => clearTimeout(timer);
+  }, [roomId, peerId, e2eeStatus, isConnected, initializeE2EE]);
+
+  // ===== CLEANUP ON UNMOUNT =====
+  useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
-      console.log('🔄 useVideoCall unmounting - performing cleanup');
+      console.log('🔄 useVideoCall unmounting');
+      isMountedRef.current = false;
       cleanupResources(true);
     };
   }, [cleanupResources]);
 
-  // Debug helper
+  // ===== DEBUG HELPERS =====
   useEffect(() => {
-    try {
-      const dbg = {
-        getPeer: () => peerRef.current,
-        getLocalStream: () => localStreamRef.current || localStream,
-        getSignalR: () => signalRConnectionRef.current,
-        isInitialized: () => isInitializedRef.current,
-        listSenders: () => {
-          const pc = peerRef.current;
-          if (!pc) return [] as any[];
-          return pc.getSenders().map(s => ({
-            kind: s.track?.kind,
-            state: s.track?.readyState,
-            id: s.track?.id,
-            enabled: s.track?.enabled
-          }));
-        },
-        listReceivers: () => {
-          const pc = peerRef.current;
-          if (!pc) return [] as any[];
-          return pc.getReceivers().map(r => ({
-            kind: r.track?.kind,
-            state: r.track?.readyState,
-            id: r.track?.id
-          }));
-        },
-        getConnectionState: () => ({
-          peer: peerRef.current?.connectionState,
-          signalR: signalRConnectionRef.current?.state,
-          initialized: isInitializedRef.current
-        })
-      };
-      (window as any).__vcDebug = dbg;
-      return () => {
-        try {
-          if ((window as any).__vcDebug === dbg) (window as any).__vcDebug = undefined;
-        } catch { }
-      };
-    } catch (e) {
-      console.warn('Could not install vc debug helpers', e);
-    }
-  }, []);
+    if (process.env.NODE_ENV !== 'development') return;
 
-  useEffect(() => {
-    console.log('🔄 Redux State Update - Local Stream:',
-      localStream ? `HAS STREAM (${localStream.getTracks().length} tracks)` : 'NO STREAM'
-    );
-  }, [localStream]);
-
-  // Heartbeat system - keep session alive by sending heartbeat every 30 seconds
-  useEffect(() => {
-    if (!isConnected || !roomId || !signalRConnectionRef.current) {
-      return;
-    }
-
-    console.log('💓 [Heartbeat] Starting heartbeat timer for session:', roomId);
-
-    const heartbeatInterval = setInterval(async () => {
-      if (signalRConnectionRef.current && roomId) {
-        try {
-          await signalRConnectionRef.current.invoke('SendHeartbeat', roomId);
-          console.log('💓 [Heartbeat] Sent heartbeat for session:', roomId);
-        } catch (error) {
-          console.error('❌ [Heartbeat] Failed to send heartbeat:', error);
-        }
-      }
-    }, 30000); // Every 30 seconds
-
-    // Cleanup on unmount or disconnect
-    return () => {
-      console.log('💓 [Heartbeat] Stopping heartbeat timer');
-      clearInterval(heartbeatInterval);
+    const dbg = {
+      getPeer: () => peerRef.current,
+      getSignalR: () => signalRConnectionRef.current,
+      getLocalStream: () => localStream,
+      getRemoteStream: () => remoteStream,
+      getSenders: () => peerRef.current?.getSenders().map((s) => ({
+        kind: s.track?.kind,
+        id: s.track?.id,
+        enabled: s.track?.enabled,
+      })) ?? [],
+      getReceivers: () => peerRef.current?.getReceivers().map((r) => ({
+        kind: r.track?.kind,
+        id: r.track?.id,
+      })) ?? [],
+      getState: () => ({
+        peer: peerRef.current?.connectionState,
+        signalR: signalRConnectionRef.current?.state,
+        initialized: isInitializedRef.current,
+      }),
     };
-  }, [isConnected, roomId]);
 
+    (window as any).__vcDebug = dbg;
+    return () => {
+      if ((window as any).__vcDebug === dbg) {
+        (window as any).__vcDebug = undefined;
+      }
+    };
+  }, [localStream, remoteStream]);
+
+  // ===== RETURN =====
   return {
-    sessionId, roomId, isConnected, peerId, localStream, remoteStream,
-    isMicEnabled, isVideoEnabled, isScreenSharing, isChatOpen,
-    messages, callDuration, participants, isLoading, error,
+    // State
+    sessionId,
+    roomId,
+    isConnected,
+    peerId,
+    localStream,
+    remoteStream,
+    isMicEnabled,
+    isVideoEnabled,
+    isScreenSharing,
+    isChatOpen,
+    messages,
+    callDuration,
+    participants,
+    isLoading,
+    error,
+
+    // Actions
     ...actions,
-    toggleScreenSharing: actions.toggleScreenSharing,
-    hangUp: actions.hangUp,
-    clearError: () => dispatch(clearError())
+    clearError: () => dispatch(clearError()),
+
+    peerConnection: peerRef.current,
+
+    // E2EE Video
+    e2ee: {
+      status: e2eeStatus,
+      isActive: e2eeStatus === 'active',
+      localKeyFingerprint,
+      remotePeerFingerprint,
+      formattedLocalFingerprint: localKeyFingerprint
+        ? E2EEKeyExchangeManager.formatFingerprintForDisplay(localKeyFingerprint)
+        : null,
+      formattedRemoteFingerprint: remotePeerFingerprint
+        ? E2EEKeyExchangeManager.formatFingerprintForDisplay(remotePeerFingerprint)
+        : null,
+      keyGeneration,
+      encryptionStats,
+      compatibility,
+      errorMessage: e2eeErrorMessage,
+      rotateKeys: async () => {
+        if (keyExchangeManagerRef.current) {
+          dispatch(setE2EEStatus('key-rotation'));
+          await keyExchangeManagerRef.current.rotateKeys();
+        }
+      },
+    },
+
+    // E2EE Chat
+    chatE2EE: {
+      status: chatE2EEStatus,
+      isActive: isChatE2EEActive,
+      localFingerprint: null,
+      peerFingerprint: null,
+      stats: chatStats,
+    },
   };
 };
+
+export default useVideoCall;

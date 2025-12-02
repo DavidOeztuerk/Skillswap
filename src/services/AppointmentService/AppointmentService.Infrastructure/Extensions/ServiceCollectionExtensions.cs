@@ -89,7 +89,7 @@ public static class ServiceCollectionExtensions
 
         // Register Unit of Work and Repositories
         services.AddScoped<IAppointmentUnitOfWork, AppointmentUnitOfWork>();
-        services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+        // services.AddScoped<IAppointmentRepository, AppointmentRepository>();
         services.AddScoped<ISessionAppointmentRepository, SessionAppointmentRepository>();
         services.AddScoped<ISessionSeriesRepository, SessionSeriesRepository>();
         services.AddScoped<ISessionRatingRepository, SessionRatingRepository>();

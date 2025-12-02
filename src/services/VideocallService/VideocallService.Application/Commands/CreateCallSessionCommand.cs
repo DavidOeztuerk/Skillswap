@@ -1,3 +1,4 @@
+using Contracts.VideoCall.Responses;
 using CQRS.Interfaces;
 using FluentValidation;
 
@@ -19,12 +20,6 @@ public record CreateCallSessionCommand(
         "call-statistics"
     };
 }
-
-public record CreateCallSessionResponse(
-    string SessionId,
-    string RoomId,
-    string Status,
-    DateTime CreatedAt);
 
 public class CreateCallSessionCommandValidator : AbstractValidator<CreateCallSessionCommand>
 {

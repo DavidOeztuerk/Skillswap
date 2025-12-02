@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo } from 'react';
 import { Box, LinearProgress, Fade } from '@mui/material';
 import { useLoading } from '../../contexts/LoadingContext';
 
@@ -13,12 +13,14 @@ export const GlobalLoadingIndicator: React.FC<GlobalLoadingIndicatorProps> = mem
 }) => {
   const { isAnyLoading, getLoadingStates } = useLoading();
   const isLoading = isAnyLoading();
-  const loadingStates = useMemo(() => getLoadingStates(), [getLoadingStates]);
 
   if (!isLoading) return null;
 
+  const loadingStates = getLoadingStates();
+  const loadingKeys = Object.keys(loadingStates);
+
   return (
-    <Fade in={isLoading}>
+    <Fade in={isLoading} timeout={200}>
       <Box
         sx={{
           position: 'fixed',
@@ -28,6 +30,9 @@ export const GlobalLoadingIndicator: React.FC<GlobalLoadingIndicatorProps> = mem
           zIndex: 9999,
           pointerEvents: 'none',
         }}
+        role="progressbar"
+        aria-label="Loading indicator"
+        aria-busy={isLoading}
       >
         <LinearProgress 
           sx={{ 
@@ -37,7 +42,9 @@ export const GlobalLoadingIndicator: React.FC<GlobalLoadingIndicatorProps> = mem
             }
           }} 
         />
-        {showKeys && process.env.NODE_ENV === 'development' && (
+        
+        {/* Debug: Show loading keys in development */}
+        {showKeys && import.meta.env.DEV && loadingKeys.length > 0 && (
           <Box
             sx={{
               position: 'absolute',
@@ -52,14 +59,20 @@ export const GlobalLoadingIndicator: React.FC<GlobalLoadingIndicatorProps> = mem
               fontSize: 12,
               fontFamily: 'monospace',
               pointerEvents: 'auto',
+              maxWidth: 300,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
           >
-            Loading: {Object.keys(loadingStates).join(', ')}
+            Loading: {loadingKeys.join(', ')}
           </Box>
         )}
       </Box>
     </Fade>
   );
 });
+
+GlobalLoadingIndicator.displayName = 'GlobalLoadingIndicator';
 
 export default GlobalLoadingIndicator;

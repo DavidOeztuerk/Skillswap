@@ -8,17 +8,21 @@ using EventSourcing;
 using Events.Domain.VideoCall;
 using Contracts.VideoCall.Responses;
 using Core.Common.Exceptions;
+using Infrastructure.Communication;
+using Contracts.Appointment.Responses;
 
 namespace VideocallService.Application.CommandHandlers;
 
 public class EndCallCommandHandler(
     IVideocallUnitOfWork unitOfWork,
     IDomainEventPublisher eventPublisher,
+    IServiceCommunicationManager serviceCommunication,
     ILogger<EndCallCommandHandler> logger)
     : BaseCommandHandler<EndCallCommand, EndCallResponse>(logger)
 {
     private readonly IVideocallUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
+    private readonly IServiceCommunicationManager _serviceCommunication = serviceCommunication;
 
     public override async Task<ApiResponse<EndCallResponse>> Handle(
         EndCallCommand request,
@@ -51,14 +55,41 @@ public class EndCallCommandHandler(
                 return Error("You are not authorized to end this call", ErrorCodes.InsufficientPermissions);
             }
 
-            // End the session
+            DateTime? appointmentEndTime = null;
+
+            if (!string.IsNullOrEmpty(session.AppointmentId))
+            {
+                try
+                {
+                    var appointment = await _serviceCommunication.GetAsync<GetAppointmentDetailsResponse>(
+                        "AppointmentService",
+                        $"/api/appointments/{session.AppointmentId}");
+
+                    if (appointment != null)
+                    {
+                        appointmentEndTime = appointment.ScheduledDate.DateTime.AddMinutes(appointment.DurationMinutes);
+                        Logger.LogInformation("📅 [EndCall] Appointment ends at {EndTime}", appointmentEndTime);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "⚠️ [EndCall] Could not fetch appointment {AppointmentId}, will complete session",
+                        session.AppointmentId);
+                }
+            }
+
             var endedAt = DateTime.UtcNow;
-            session.End("Call ended by user");  // Pass string reason, not DateTime
+
+            session.Leave(appointmentEndTime);
+            session.EndReason = "User left call";
             session.ActualDurationMinutes = request.DurationSeconds / 60;
             session.QualityRating = request.Rating;
             session.SessionNotes = request.Feedback;
             session.UpdatedAt = endedAt;
             session.UpdatedBy = request.UserId;
+
+            Logger.LogInformation("⏹️ [EndCall] Session {SessionId} status set to {Status}",
+                request.SessionId, session.Status);
 
             // Mark all active participants as left
             var activeParticipants = session.Participants.Where(p => p.LeftAt == null).ToList();

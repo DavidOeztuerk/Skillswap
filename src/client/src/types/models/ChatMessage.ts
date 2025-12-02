@@ -7,6 +7,9 @@ export interface ChatMessage {
   sentAt: string;
   messageType: string;
   metadata?: string;
+  // E2EE fields
+  isEncrypted?: boolean;
+  isVerified?: boolean;
 }
 
 export interface SendChatMessageRequest {

@@ -3,7 +3,9 @@ using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using System.Text.Json;
 using Infrastructure.Security;
+using Infrastructure.Security.Monitoring;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Infrastructure.Middleware;
 
@@ -57,11 +59,42 @@ public class PermissionMiddleware
         var userPermissions = GetUserPermissions(context.User);
         if (!HasPermission(userPermissions, requiredPermission))
         {
+            var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
             _logger.LogWarning(
                 "User {UserId} attempted to access {Path} without permission {Permission}",
-                context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                userId,
                 context.Request.Path,
                 requiredPermission);
+
+            // Send security alert
+            try
+            {
+                var securityAlertService = context.RequestServices.GetService<ISecurityAlertService>();
+                if (securityAlertService != null)
+                {
+                    await securityAlertService.SendAlertAsync(
+                        SecurityAlertLevel.High,
+                        SecurityAlertType.UnauthorizedAccessAttempt,
+                        "Unauthorized Access Attempt",
+                        $"User attempted to access {context.Request.Path} without required permission: {requiredPermission}",
+                        new Dictionary<string, object>
+                        {
+                            ["UserId"] = userId ?? "unknown",
+                            ["Endpoint"] = context.Request.Path.Value ?? "",
+                            ["Method"] = context.Request.Method,
+                            ["RequiredPermission"] = requiredPermission,
+                            ["UserPermissions"] = userPermissions,
+                            ["IpAddress"] = context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                            ["UserAgent"] = context.Request.Headers.UserAgent.ToString()
+                        },
+                        CancellationToken.None);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send security alert for unauthorized access attempt");
+            }
 
             await HandleForbidden(context, $"Missing required permission: {requiredPermission}");
             return;

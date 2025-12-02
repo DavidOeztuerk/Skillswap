@@ -30,37 +30,6 @@ public class AppointmentDataEnrichmentService : IAppointmentDataEnrichmentServic
     }
 
     public async Task<EnrichedAppointmentData> EnrichAppointmentDataAsync(
-        Appointment appointment,
-        CancellationToken cancellationToken = default)
-    {
-        var enrichedData = new EnrichedAppointmentData
-        {
-            AppointmentId = appointment.Id,
-            ScheduledDate = appointment.ScheduledDate,
-            DurationMinutes = appointment.DurationMinutes,
-            MeetingLink = appointment.MeetingLink,
-            Status = appointment.Status
-        };
-
-        // Fetch user data in parallel
-        var organizerTask = FetchUserDataAsync(appointment.OrganizerUserId, cancellationToken);
-        var participantTask = FetchUserDataAsync(appointment.ParticipantUserId, cancellationToken);
-
-        await Task.WhenAll(organizerTask, participantTask);
-
-        enrichedData.Organizer = await organizerTask;
-        enrichedData.Participant = await participantTask;
-
-        // Fetch skill data if available
-        if (!string.IsNullOrEmpty(appointment.SkillId))
-        {
-            enrichedData.Skill = await FetchSkillDataAsync(appointment.SkillId, cancellationToken);
-        }
-
-        return enrichedData;
-    }
-
-    public async Task<EnrichedAppointmentData> EnrichAppointmentDataAsync(
         SessionAppointment appointment,
         CancellationToken cancellationToken = default)
     {

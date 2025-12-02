@@ -4,7 +4,7 @@ import {
   AdminDashboardData,
   AdminUser,
   AdminSkill,
-  AdminAppointment,  
+  AdminAppointment,
   AdminMatch,
   AdminAnalytics,
   SystemHealth,
@@ -12,6 +12,12 @@ import {
   ModerationReport,
   AdminSettings,
 } from '../../types/models/Admin';
+import {
+  SecurityAlertResponse,
+  SecurityAlertStatisticsResponse,
+  SecurityAlertActionResponse,
+  DismissSecurityAlertRequest,
+} from '../../types/models/SecurityAlert';
 import { PagedResponse, ApiResponse } from '../../types/api/UnifiedResponse';
 
 export class AdminService {
@@ -246,6 +252,62 @@ export class AdminService {
         'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       },
     }).then(response => response.data);
+  }
+
+  // Security Monitoring
+  async getSecurityAlerts(params: {
+    pageNumber?: number;
+    pageSize?: number;
+    minLevel?: string;
+    type?: string;
+    includeRead?: boolean;
+    includeDismissed?: boolean;
+  }): Promise<PagedResponse<SecurityAlertResponse>> {
+    const queryParams = {
+      pageNumber: params.pageNumber || 1,
+      pageSize: params.pageSize || 50,
+      minLevel: params.minLevel,
+      type: params.type,
+      includeRead: params.includeRead ?? true,
+      includeDismissed: params.includeDismissed ?? false,
+    };
+    return await apiClient.getPaged<SecurityAlertResponse>(
+      ADMIN_ENDPOINTS.SECURITY.GET_ALERTS,
+      queryParams
+    ) as PagedResponse<SecurityAlertResponse>;
+  }
+
+  async getSecurityAlertById(alertId: string): Promise<ApiResponse<SecurityAlertResponse>> {
+    return await apiClient.get<SecurityAlertResponse>(
+      `${ADMIN_ENDPOINTS.SECURITY.GET_ALERT_BY_ID}/${alertId}`
+    );
+  }
+
+  async getSecurityAlertStatistics(params?: {
+    from?: string;
+    to?: string;
+  }): Promise<ApiResponse<SecurityAlertStatisticsResponse>> {
+    return await apiClient.get<SecurityAlertStatisticsResponse>(
+      ADMIN_ENDPOINTS.SECURITY.GET_STATISTICS,
+      params
+    );
+  }
+
+  async dismissSecurityAlert(
+    alertId: string,
+    request: DismissSecurityAlertRequest
+  ): Promise<ApiResponse<SecurityAlertActionResponse>> {
+    return await apiClient.post<SecurityAlertActionResponse>(
+      `${ADMIN_ENDPOINTS.SECURITY.DISMISS_ALERT}/${alertId}/dismiss`,
+      request
+    );
+  }
+
+  async markSecurityAlertAsRead(alertId: string): Promise<ApiResponse<SecurityAlertActionResponse>> {
+    return await apiClient.post<SecurityAlertActionResponse>(
+      `${ADMIN_ENDPOINTS.SECURITY.MARK_ALERT_READ}/${alertId}/mark-read`,
+      {}
+    );
   }
 }
 

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useState } from 'react';
+import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import { performanceProfiler } from '../utils/performanceProfiler';
 
 interface PerformanceMetrics {
@@ -15,12 +15,19 @@ interface PerformanceMetrics {
 export function usePerformance(componentName: string, props?: Record<string, unknown>): PerformanceMetrics {
   // Only enable in development and when profiler is enabled
   const profilerEnabled = performanceProfiler.isEnabled() && import.meta.env.DEV;
+  
   const renderStartTime = useRef<number>(0);
   const previousProps = useRef(props);
   const renderCount = useRef(0);
   const totalRenderTime = useRef(0);
   const renderTimes = useRef<number[]>([]);
-  const componentId = useRef(`${componentName}-${Math.random().toString(36).substr(2, 9)}`);
+  
+  // Use useMemo for stable component ID
+  const componentId = useMemo(() => 
+    `${componentName}-${Math.random().toString(36).substr(2, 9)}`, 
+    [componentName]
+  );
+  
   const trackerKeyRef = useRef('');
   const metricsRef = useRef<PerformanceMetrics>({
     renderCount: 0,
@@ -29,8 +36,9 @@ export function usePerformance(componentName: string, props?: Record<string, unk
     totalRenderTime: 0,
   });
 
+  // Initialize tracker key once
   if (!trackerKeyRef.current) {
-    trackerKeyRef.current = `${componentName}[${componentId.current}]`;
+    trackerKeyRef.current = `${componentName}[${componentId}]`;
   }
 
   // Start timing at the beginning of render (DEV only)
@@ -40,20 +48,33 @@ export function usePerformance(componentName: string, props?: Record<string, unk
 
   // Track prop changes (DEV only)
   const propsChanged = useMemo(() => {
-    if (!profilerEnabled) return false;
-    if (previousProps.current === undefined) return false;
+    if (!profilerEnabled || !props) return false;
+    if (previousProps.current === undefined) return true;
 
-    if (typeof props === 'object' && typeof previousProps.current === 'object') {
+    try {
+      // Simple shallow comparison for performance
+      const currentKeys = Object.keys(props);
+      const previousKeys = Object.keys(previousProps.current || {});
+      
+      if (currentKeys.length !== previousKeys.length) return true;
+      
+      for (const key of currentKeys) {
+        if (props[key] !== (previousProps.current as any)[key]) {
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      // Fallback to JSON comparison if shallow fails
       try {
         return JSON.stringify(props) !== JSON.stringify(previousProps.current);
       } catch {
         return true;
       }
     }
-
-    return props !== previousProps.current;
   }, [profilerEnabled, props]);
 
+  // Track render performance
   useEffect(() => {
     if (!profilerEnabled) return;
 
@@ -62,42 +83,50 @@ export function usePerformance(componentName: string, props?: Record<string, unk
     totalRenderTime.current += renderTime;
     renderTimes.current.push(renderTime);
 
-    if (renderTimes.current.length > 100) {
+    // Keep only last 50 renders for average calculation
+    if (renderTimes.current.length > 50) {
       renderTimes.current.shift();
     }
 
-    performanceProfiler.trackRender(trackerKeyRef.current, renderTime, propsChanged);
+    // Update metrics
+    const averageRenderTime = renderTimes.current.length > 0
+      ? renderTimes.current.reduce((a, b) => a + b, 0) / renderTimes.current.length
+      : 0;
 
     metricsRef.current = {
       renderCount: renderCount.current,
-      averageRenderTime:
-        renderTimes.current.length > 0
-          ? renderTimes.current.reduce((a, b) => a + b, 0) / renderTimes.current.length
-          : 0,
+      averageRenderTime,
       lastRenderTime: renderTime,
       totalRenderTime: totalRenderTime.current,
     };
 
+    // Track in profiler
+    performanceProfiler.trackRender(trackerKeyRef.current, renderTime, propsChanged);
+
+    // Update previous props for next comparison
     previousProps.current = props;
 
-    // Only log critical performance issues (slow renders > 50ms)
-    if (import.meta.env.DEV && renderTime > 50) {
-      console.warn(`🐌 ${componentName}: Slow render ${renderTime.toFixed(2)}ms (render #${renderCount.current})`);
-    }
+    // Performance warnings (only in development)
+    if (import.meta.env.DEV) {
+      // Slow render warning
+      if (renderTime > 50) {
+        console.warn(`🐌 ${componentName}: Slow render ${renderTime.toFixed(2)}ms (render #${renderCount.current})`);
+      }
 
-    // Only warn about excessive re-renders without prop changes (> 20 renders)
-    if (import.meta.env.DEV && renderCount.current > 20 && !propsChanged && renderCount.current % 10 === 0) {
-      console.warn(`🔄 ${componentName}: ${renderCount.current} renders without prop changes - consider React.memo`);
+      // Excessive re-renders warning (only every 10 renders after 20)
+      if (renderCount.current > 20 && !propsChanged && renderCount.current % 10 === 0) {
+        console.warn(`🔄 ${componentName}: ${renderCount.current} renders without prop changes - consider React.memo`);
+      }
     }
-  }, [componentName, profilerEnabled, props, propsChanged]);
+  });
 
+  // Cleanup on unmount
   useEffect(() => {
     if (!profilerEnabled) return;
 
     return () => {
       performanceProfiler.remove(trackerKeyRef.current);
 
-      // Only log unmounts for components with excessive renders (potential memory leak indicator)
       if (import.meta.env.DEV && renderCount.current > 50) {
         console.warn(`🧹 ${componentName}: Unmounted after ${renderCount.current} renders (check for memory leaks)`);
       }
@@ -111,30 +140,49 @@ export function usePerformance(componentName: string, props?: Record<string, unk
  * Hook for tracking expensive operations
  */
 export function useOperationPerformance() {
-  const operations = useRef<Map<string, number>>(new Map());
+  const operations = useRef<Map<string, { startTime: number; timeout?: NodeJS.Timeout }>>(new Map());
 
-  const startOperation = (operationName: string) => {
-    operations.current.set(operationName, performance.now());
-  };
-
-  const endOperation = (operationName: string) => {
-    const startTime = operations.current.get(operationName);
-    if (startTime) {
-      const duration = performance.now() - startTime;
-      operations.current.delete(operationName);
-      
-      // Log slow operations
-      if (duration > 100) {
-        console.warn(`⏱️ Slow operation: ${operationName} took ${duration.toFixed(2)}ms`);
+  const startOperation = useCallback((operationName: string, timeoutMs: number = 30000) => {
+    const startTime = performance.now();
+    
+    // Auto-cleanup after timeout to prevent memory leaks
+    const timeout = setTimeout(() => {
+      if (operations.current.has(operationName)) {
+        console.warn(`⏰ Operation timeout: ${operationName} exceeded ${timeoutMs}ms`);
+        operations.current.delete(operationName);
       }
-      
-      return duration;
-    }
-    return 0;
-  };
+    }, timeoutMs);
 
-  const measureOperation = async <T>(operationName: string, operation: () => Promise<T> | T): Promise<T> => {
-    startOperation(operationName);
+    operations.current.set(operationName, { startTime, timeout });
+  }, []);
+
+  const endOperation = useCallback((operationName: string): number => {
+    const operation = operations.current.get(operationName);
+    if (!operation) return 0;
+
+    const duration = performance.now() - operation.startTime;
+    
+    // Clear timeout
+    if (operation.timeout) {
+      clearTimeout(operation.timeout);
+    }
+    
+    operations.current.delete(operationName);
+
+    // Log slow operations
+    if (duration > 100) {
+      console.warn(`⏱️ Slow operation: ${operationName} took ${duration.toFixed(2)}ms`);
+    }
+    
+    return duration;
+  }, []);
+
+  const measureOperation = useCallback(async <T>(
+    operationName: string, 
+    operation: () => Promise<T> | T,
+    timeoutMs: number = 30000
+  ): Promise<T> => {
+    startOperation(operationName, timeoutMs);
     try {
       const result = await operation();
       endOperation(operationName);
@@ -143,7 +191,20 @@ export function useOperationPerformance() {
       endOperation(operationName);
       throw error;
     }
-  };
+  }, [startOperation, endOperation]);
+
+  // Cleanup pending operations on unmount
+  useEffect(() => {
+    return () => {
+      operations.current.forEach((operation, name) => {
+        if (operation.timeout) {
+          clearTimeout(operation.timeout);
+        }
+        console.warn(`🧹 Pending operation cleaned up: ${name}`);
+      });
+      operations.current.clear();
+    };
+  }, []);
 
   return {
     startOperation,
@@ -158,22 +219,25 @@ export function useOperationPerformance() {
 export function useBundlePerformance() {
   const loadingTimes = useRef<Map<string, number>>(new Map());
 
-  const trackChunkLoad = (chunkName: string) => {
+  const trackChunkLoad = useCallback((chunkName: string) => {
     const startTime = performance.now();
     loadingTimes.current.set(chunkName, startTime);
     
     return () => {
       const loadTime = performance.now() - startTime;
-      console.log(`📦 Chunk loaded: ${chunkName} in ${loadTime.toFixed(2)}ms`);
       
-      // Warn about slow chunk loads
-      if (loadTime > 1000) {
-        console.warn(`🐌 Slow chunk load: ${chunkName} took ${loadTime.toFixed(2)}ms`);
+      if (import.meta.env.DEV) {
+        console.log(`📦 Chunk loaded: ${chunkName} in ${loadTime.toFixed(2)}ms`);
+        
+        if (loadTime > 1000) {
+          console.warn(`🐌 Slow chunk load: ${chunkName} took ${loadTime.toFixed(2)}ms`);
+        }
       }
       
+      loadingTimes.current.delete(chunkName);
       return loadTime;
     };
-  };
+  }, []);
 
   return {
     trackChunkLoad
@@ -183,49 +247,70 @@ export function useBundlePerformance() {
 /**
  * Hook for detecting memory leaks
  */
-export function useMemoryLeak(componentName: string) {
+export function useMemoryLeakDetection(componentName: string) {
   const mountTime = useRef<number>(Date.now());
-  const eventListeners = useRef<Set<string>>(new Set());
+  const eventListeners = useRef<Map<EventTarget, { type: string; listener: EventListener }[]>>(new Map());
   const intervals = useRef<Set<NodeJS.Timeout>>(new Set());
   const timeouts = useRef<Set<NodeJS.Timeout>>(new Set());
 
-  const trackEventListener = (eventType: string) => {
-    eventListeners.current.add(eventType);
-  };
+  const trackEventListener = useCallback((target: EventTarget, type: string, listener: EventListener) => {
+    if (!eventListeners.current.has(target)) {
+      eventListeners.current.set(target, []);
+    }
+    eventListeners.current.get(target)!.push({ type, listener });
+  }, []);
 
-  const trackInterval = (interval: NodeJS.Timeout) => {
+  const trackInterval = useCallback((interval: NodeJS.Timeout) => {
     intervals.current.add(interval);
-  };
+  }, []);
 
-  const trackTimeout = (timeout: NodeJS.Timeout) => {
+  const trackTimeout = useCallback((timeout: NodeJS.Timeout) => {
     timeouts.current.add(timeout);
-  };
+  }, []);
+
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    // Clear all intervals
+    intervals.current.forEach(interval => clearInterval(interval));
+    intervals.current.clear();
+
+    // Clear all timeouts
+    timeouts.current.forEach(timeout => clearTimeout(timeout));
+    timeouts.current.clear();
+
+    // Remove all event listeners
+    eventListeners.current.forEach((listeners, target) => {
+      listeners.forEach(({ type, listener }) => {
+        target.removeEventListener(type, listener);
+      });
+    });
+    eventListeners.current.clear();
+  }, []);
 
   useEffect(() => {
     return () => {
       const componentLifetime = Date.now() - mountTime.current;
       
-      // Warn about long-lived components with potential memory leaks
-      if (componentLifetime > 300000 && (eventListeners.current.size > 0 || intervals.current.size > 0)) { // 5 minutes
-        console.warn(`🧠 Potential memory leak in ${componentName}:`, {
-          lifetime: `${(componentLifetime / 1000).toFixed(0)}s`,
-          eventListeners: Array.from(eventListeners.current),
-          intervals: intervals.current.size,
-          timeouts: timeouts.current.size
-        });
+      // Cleanup all resources
+      cleanup();
+      
+      // Warn about potential memory leaks for long-lived components
+      if (import.meta.env.DEV && componentLifetime > 300000) { // 5 minutes
+        console.warn(`🧠 ${componentName}: Component unmounted after ${(componentLifetime / 1000).toFixed(0)}s`);
       }
     };
-  }, [componentName]);
+  }, [componentName, cleanup]);
 
   return {
     trackEventListener,
     trackInterval,
-    trackTimeout
+    trackTimeout,
+    cleanup
   };
 }
 
 /**
- * Enhanced utility functions from legacy performance.ts
+ * Enhanced utility functions
  */
 
 /**
@@ -233,13 +318,28 @@ export function useMemoryLeak(componentName: string) {
  */
 export const debounce = <T extends (...args: any[]) => any>(
   func: T,
-  delay: number
+  delay: number,
+  immediate?: boolean
 ): ((...args: Parameters<T>) => void) => {
-  let timeoutId: NodeJS.Timeout;
+  let timeoutId: NodeJS.Timeout | undefined;
   
   return (...args: Parameters<T>) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
+    const later = () => {
+      timeoutId = undefined;
+      if (!immediate) func(...args);
+    };
+    
+    const callNow = immediate && !timeoutId;
+    
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    
+    timeoutId = setTimeout(later, delay);
+    
+    if (callNow) {
+      func(...args);
+    }
   };
 };
 
@@ -251,12 +351,22 @@ export const throttle = <T extends (...args: any[]) => any>(
   delay: number
 ): ((...args: Parameters<T>) => void) => {
   let lastExecution = 0;
+  let timeoutId: NodeJS.Timeout | undefined;
   
   return (...args: Parameters<T>) => {
     const now = Date.now();
-    if (now - lastExecution >= delay) {
+    
+    if (!lastExecution || now - lastExecution >= delay) {
       func(...args);
       lastExecution = now;
+    } else {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = setTimeout(() => {
+        func(...args);
+        lastExecution = Date.now();
+      }, delay - (now - lastExecution));
     }
   };
 };
@@ -274,7 +384,7 @@ export const measureAsync = async <T>(
     const endTime = performance.now();
     const duration = endTime - startTime;
     
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       if (duration > 1000) {
         console.warn(`🐌 Slow async operation: ${label} took ${duration.toFixed(2)}ms`);
       } else {
@@ -312,23 +422,35 @@ export function usePageLoadPerformance() {
   } | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.performance && window.performance.timing) {
-      const timing = window.performance.timing;
-      const loadTime = timing.loadEventEnd - timing.navigationStart;
-      const renderTime = timing.domContentLoadedEventEnd - timing.domContentLoadedEventStart;
+    if (typeof window !== 'undefined' && 'performance' in window && performance.timing) {
+      const timing = performance.timing;
       
-      setPageMetrics({
-        loadTime,
-        renderTime,
-        memoryUsage: getMemoryUsage()
-      });
+      const onLoad = () => {
+        setTimeout(() => {
+          const loadTime = timing.loadEventEnd - timing.navigationStart;
+          const renderTime = timing.domContentLoadedEventEnd - timing.domContentLoadedEventStart;
+          
+          setPageMetrics({
+            loadTime,
+            renderTime,
+            memoryUsage: getMemoryUsage()
+          });
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📊 Page Load Performance:', {
-          loadTime: `${loadTime}ms`,
-          renderTime: `${renderTime}ms`,
-          memoryUsage: `${(getMemoryUsage() / 1024 / 1024).toFixed(2)}MB`
-        });
+          if (import.meta.env.DEV) {
+            console.log('📊 Page Load Performance:', {
+              loadTime: `${loadTime}ms`,
+              renderTime: `${renderTime}ms`,
+              memoryUsage: `${(getMemoryUsage() / 1024 / 1024).toFixed(2)}MB`
+            });
+          }
+        }, 0);
+      };
+
+      if (document.readyState === 'complete') {
+        onLoad();
+      } else {
+        window.addEventListener('load', onLoad);
+        return () => window.removeEventListener('load', onLoad);
       }
     }
   }, []);

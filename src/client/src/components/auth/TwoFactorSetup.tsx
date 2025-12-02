@@ -18,6 +18,13 @@ import {
 import QRCode from 'qrcode';
 import { useAuth } from '../../hooks/useAuth';
 import { withDefault } from '../../utils/safeAccess';
+import { isSuccessResponse } from '../../types/api/UnifiedResponse';
+import type { GenerateTwoFactorSecretResponse } from '../../types/contracts/responses/GenerateTwoFactorSecretResponse';
+import type { VerifyTwoFactorCodeResponse } from '../../types/contracts/responses/VerifyTwoFactorCodeResponse';
+
+// ============================================================================
+// INTERFACES
+// ============================================================================
 
 interface TwoFactorSetupProps {
   open: boolean;
@@ -26,7 +33,22 @@ interface TwoFactorSetupProps {
   hasExistingSecret?: boolean;
 }
 
-const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSuccess }) => {
+// Debug flag - nur in Development loggen
+const DEBUG = import.meta.env.DEV;
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
+const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ 
+  open, 
+  onClose, 
+  onSuccess 
+}) => {
+  // ─────────────────────────────────────────────────────────────────────────
+  // HOOKS
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const { 
     isLoading, 
     errorMessage, 
@@ -35,154 +57,201 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
     verifyTwoFactorCode 
   } = useAuth();
   
+  // ─────────────────────────────────────────────────────────────────────────
+  // LOCAL STATE
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const [activeStep, setActiveStep] = useState(0);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [verificationCode, setVerificationCode] = useState('');
-  const [, setSecretKey] = useState('');
   const [manualEntryKey, setManualEntryKey] = useState('');
   const [verificationError, setVerificationError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   
-  // Track if dialog was previously open
+  // ─────────────────────────────────────────────────────────────────────────
+  // REFS
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const wasOpenRef = useRef(false);
+  
+  // ─────────────────────────────────────────────────────────────────────────
+  // CONSTANTS
+  // ─────────────────────────────────────────────────────────────────────────
   
   const steps = ['Generate Secret', 'Scan QR Code', 'Verify Code'];
 
-  // Initialize and generate secret when dialog opens
+  // ─────────────────────────────────────────────────────────────────────────
+  // EFFECTS
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // Reset state when dialog closes
   useEffect(() => {
-    if (!open) {
-      // Only reset if dialog was previously open (actually closing)
-      if (wasOpenRef.current) {
-        console.log('🔄 Dialog closed, resetting state');
-        setActiveStep(0);
-        setQrCodeUrl('');
-        setVerificationCode('');
-        setManualEntryKey('');
-        setVerificationError('');
-        setIsGenerating(false);
-        wasOpenRef.current = false;
-      }
-      return;
+    if (!open && wasOpenRef.current) {
+      if (DEBUG) console.debug('🔄 Dialog closed, resetting state');
+      setActiveStep(0);
+      setQrCodeUrl('');
+      setVerificationCode('');
+      setManualEntryKey('');
+      setVerificationError('');
+      setIsGenerating(false);
+      wasOpenRef.current = false;
     }
-    
-    // Dialog is opening
-    if (!wasOpenRef.current) {
+  }, [open]);
+
+  // Generate secret when dialog opens
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
       wasOpenRef.current = true;
+      
       // Only generate if we haven't already
       if (!qrCodeUrl && !isGenerating && activeStep === 0) {
-        console.log('🚀 Dialog opened, generating 2FA secret...');
+        if (DEBUG) console.debug('🚀 Dialog opened, generating 2FA secret...');
         void generateSecret();
       }
     }
-  }, [open]); // Only depend on open prop
+  }, [open, qrCodeUrl, isGenerating, activeStep]);
 
-  const generateSecret = async () => {
+  // ─────────────────────────────────────────────────────────────────────────
+  // HANDLERS
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  /**
+   * Generate 2FA secret
+   */
+  const generateSecret = async (): Promise<void> => {
     if (isGenerating) {
-      console.log('⚠️ Already generating secret, skipping...');
+      if (DEBUG) console.debug('⚠️ Already generating secret, skipping...');
       return;
     }
     
     setIsGenerating(true);
+    
     try {
-      console.log('🔑 Generating/fetching 2FA secret...');
+      if (DEBUG) console.debug('🔑 Generating/fetching 2FA secret...');
+      
       const result = await generateTwoFactorSecret();
-      console.log('🔑 2FA secret result:', result);
+      
+      if (DEBUG) console.debug('🔑 2FA secret result:', result.meta.requestStatus);
       
       if (result.meta.requestStatus === 'fulfilled') {
         const payload = result.payload;
         
-        // Type-safe response handling
-        if (payload && 
-            typeof payload === 'object' && 
-            'qrCodeUri' in payload && 
-            'secret' in payload &&
-            typeof payload.qrCodeUri === 'string' &&
-            typeof payload.secret === 'string') {
+        if (payload && isSuccessResponse(payload)) {
+          const secretData = payload.data as GenerateTwoFactorSecretResponse;
           
-          setSecretKey(payload.secret);
-          const manualKey = 'manualEntryKey' in payload && typeof payload.manualEntryKey === 'string' 
-            ? payload.manualEntryKey 
-            : payload.secret;
-          setManualEntryKey(manualKey);
-          
-          // Generate QR code
-          const qrDataUrl = await QRCode.toDataURL(payload.qrCodeUri);
-          console.log('📱 QR code generated successfully');
-          setQrCodeUrl(qrDataUrl);
-          setActiveStep(1);
-          console.log('✅ Moving to step 1 - QR code display');
+          if (secretData?.qrCodeUri && secretData?.secret) {
+            // manualEntryKey falls vorhanden, sonst secret
+            const manualKey = secretData.manualEntryKey ?? secretData.secret;
+            setManualEntryKey(manualKey);
+            
+            // Generate QR code
+            const qrDataUrl = await QRCode.toDataURL(secretData.qrCodeUri);
+            if (DEBUG) console.debug('📱 QR code generated successfully');
+            
+            setQrCodeUrl(qrDataUrl);
+            setActiveStep(1);
+            
+            if (DEBUG) console.debug('✅ Moving to step 1 - QR code display');
+          } else {
+            console.warn('⚠️ Invalid secret response format - missing qrCodeUri or secret');
+            setVerificationError('Invalid response from server. Please try again.');
+          }
         } else {
-          console.warn('⚠️ Invalid secret response format:', payload);
-          setVerificationError('Invalid response from server. Please try again.');
+          // Payload ist kein SuccessResponse (sollte nicht passieren bei fulfilled)
+          console.warn('⚠️ Unexpected payload format');
+          setVerificationError('Unexpected response format. Please try again.');
         }
       } else {
-        console.warn('⚠️ Request failed:', result);
+        // rejected
+        if (DEBUG) console.debug('⚠️ Request failed:', result.meta.requestStatus);
         setVerificationError('Failed to generate secret. Please try again.');
       }
     } catch (err) {
       console.error('❌ Failed to generate 2FA secret:', err);
       setVerificationError('Failed to generate 2FA secret. Please try again.');
-      // Don't close the dialog on error
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleVerifyCode = async () => {
+  /**
+   * Verify 2FA code
+   */
+  const handleVerifyCode = async (): Promise<void> => {
     if (verificationCode.length !== 6) {
       setVerificationError('Please enter a 6-digit code');
       return;
     }
 
+    if (!user?.id) {
+      setVerificationError('User not authenticated. Please log in again.');
+      return;
+    }
+    
     try {
-      if (!user?.id) {
-        setVerificationError('User not authenticated. Please log in again.');
-        return;
-      }
-      
       const result = await verifyTwoFactorCode({ 
         userId: user.id,
         code: verificationCode
       });
       
-      if (result?.meta?.requestStatus === 'fulfilled') {
+      if (result.meta.requestStatus === 'fulfilled') {
         const payload = result.payload;
         
-        // Check if verification was successful
-        if (payload && 
-            typeof payload === 'object' && 
-            ('success' in payload ? payload.success : true)) {
-          setActiveStep(3);
-          setTimeout(() => {
-            onSuccess();
-            handleClose();
-          }, 1500);
+        if (payload && isSuccessResponse(payload)) {
+          const verifyData = payload.data as VerifyTwoFactorCodeResponse;
+          
+          // Check if verification was successful
+          // VerifyTwoFactorCodeResponse hat typischerweise success oder isValid
+          const isVerified = verifyData?.success ?? true;
+          
+          if (isVerified) {
+            setActiveStep(3);
+            setTimeout(() => {
+              onSuccess();
+              handleClose();
+            }, 1500);
+          } else {
+            setVerificationError('Verification failed. Please check your code and try again.');
+          }
         } else {
-          setVerificationError('Verification failed. Please check your code and try again.');
+          setVerificationError('Unexpected response format. Please try again.');
         }
       } else {
-        // Handle error case - result.meta.requestStatus is 'rejected'
-        const errorMsg = result?.meta?.requestStatus === 'rejected' && 'payload' in result 
-          ? (typeof result.payload === 'object' && result.payload && 'message' in result.payload 
-            ? String(result.payload.message) 
-            : 'Verification failed')
-          : 'Verification failed';
+        // rejected - extract error message from payload
+        const errorPayload = result.payload;
+        let errorMsg = 'Verification failed';
+        
+        if (errorPayload && typeof errorPayload === 'object') {
+          if ('message' in errorPayload && typeof errorPayload.message === 'string') {
+            errorMsg = errorPayload.message;
+          } else if ('errors' in errorPayload && Array.isArray(errorPayload.errors)) {
+            errorMsg = errorPayload.errors[0] ?? errorMsg;
+          }
+        }
+        
         setVerificationError(errorMsg);
       }
     } catch (err: unknown) {
       console.error('❌ 2FA verification error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Invalid verification code. Please try again.';
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Invalid verification code. Please try again.';
       setVerificationError(errorMessage);
     }
   };
 
-  const handleClose = () => {
-    console.log('🚪 TwoFactorSetup handleClose called');
-    // The cleanup will be handled by the useEffect when open becomes false
+  /**
+   * Handle dialog close
+   */
+  const handleClose = (): void => {
+    if (DEBUG) console.debug('🚪 TwoFactorSetup handleClose called');
     onClose();
   };
 
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Handle verification code input change
+   */
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value.replace(/\D/g, '');
     if (value.length <= 6) {
       setVerificationCode(value);
@@ -190,6 +259,10 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
     }
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
+  
   // Don't render dialog if not open
   if (!open) return null;
   
@@ -197,17 +270,18 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
     <Dialog 
       open={true} 
       onClose={(_, reason) => {
-        console.log('🚪 Dialog onClose triggered, reason:', reason);
-        // Prevent closing on backdrop click or escape when loading or generating
+        if (DEBUG) console.debug('🚪 Dialog onClose triggered, reason:', reason);
+        // Prevent closing on backdrop click or escape when loading
         if ((isLoading || isGenerating) && (reason === 'backdropClick' || reason === 'escapeKeyDown')) {
-          console.log('⚠️ Preventing close while loading');
+          if (DEBUG) console.debug('⚠️ Preventing close while loading');
           return;
         }
         handleClose();
       }} 
       maxWidth="sm" 
       fullWidth
-      disableEscapeKeyDown={isLoading || isGenerating}>
+      disableEscapeKeyDown={isLoading || isGenerating}
+    >
       <DialogTitle>Set Up Two-Factor Authentication</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
@@ -219,6 +293,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
             ))}
           </Stepper>
 
+          {/* Step 0: Generating */}
           {activeStep === 0 && (
             <Box textAlign="center">
               <Typography variant="body1" gutterBottom>
@@ -238,6 +313,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
             </Box>
           )}
 
+          {/* Step 1: QR Code */}
           {activeStep === 1 && qrCodeUrl && (
             <Box>
               <Typography variant="body1" gutterBottom align="center">
@@ -271,6 +347,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
             </Box>
           )}
 
+          {/* Step 2: Verify Code */}
           {activeStep === 2 && (
             <Box>
               <Typography variant="body1" gutterBottom>
@@ -309,6 +386,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
             </Box>
           )}
 
+          {/* Step 3: Success */}
           {activeStep === 3 && (
             <Box textAlign="center">
               <Alert severity="success" sx={{ mb: 2 }}>
@@ -320,6 +398,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ open, onClose, onSucces
             </Box>
           )}
 
+          {/* Global Error */}
           {errorMessage && activeStep !== 3 && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {withDefault(errorMessage, 'An error occurred')}

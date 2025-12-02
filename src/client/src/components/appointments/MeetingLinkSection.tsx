@@ -333,15 +333,6 @@ const MeetingLinkSection: React.FC<MeetingLinkSectionProps> = ({
                 Link erneuern
               </Button>
             )}
-
-            <Button
-              variant="outlined"
-              startIcon={<VideoCallIcon />}
-              onClick={handleOpenMeeting}
-              disabled={!meetingStatus.canJoin}
-            >
-              Zum Videoanruf
-            </Button>
           </Stack>
 
           {/* Meeting details */}

@@ -2,6 +2,7 @@ import { adminService } from "../../api/services/adminService";
 import { createAppAsyncThunk } from "../../store/thunkHelpers";
 import { SuccessResponse, isSuccessResponse, PagedSuccessResponse, isPagedResponse } from "../../types/api/UnifiedResponse";
 import { AdminDashboardData, AdminUser, AdminSkill, AdminAppointment, AdminMatch, AuditLog, ModerationReport, AdminSettings } from "../../types/models/Admin";
+import { SecurityAlertResponse, SecurityAlertStatisticsResponse, SecurityAlertActionResponse } from "../../types/models/SecurityAlert";
 
 // Dashboard
 export const fetchAdminDashboard = createAppAsyncThunk<SuccessResponse<AdminDashboardData>, void>(
@@ -145,6 +146,39 @@ export const updateAdminSettings = createAppAsyncThunk<SuccessResponse<AdminSett
   'admin/updateSettings',
   async (settings, { rejectWithValue }) => {
     const response = await adminService.updateSettings(settings);
+    return isSuccessResponse(response) ? response : rejectWithValue(response);
+  }
+);
+
+// Security Monitoring
+export const fetchSecurityAlerts = createAppAsyncThunk<PagedSuccessResponse<SecurityAlertResponse>, { pageNumber?: number; pageSize?: number; minLevel?: string; type?: string; includeRead?: boolean; includeDismissed?: boolean }>(
+  'admin/fetchSecurityAlerts',
+  async (params, { rejectWithValue }) => {
+    const response = await adminService.getSecurityAlerts(params);
+    return isPagedResponse(response) ? response : rejectWithValue(response);
+  }
+);
+
+export const fetchSecurityAlertStatistics = createAppAsyncThunk<SuccessResponse<SecurityAlertStatisticsResponse>, { from?: string; to?: string }>(
+  'admin/fetchSecurityAlertStatistics',
+  async (params, { rejectWithValue }) => {
+    const response = await adminService.getSecurityAlertStatistics(params);
+    return isSuccessResponse(response) ? response : rejectWithValue(response);
+  }
+);
+
+export const dismissSecurityAlert = createAppAsyncThunk<SuccessResponse<SecurityAlertActionResponse>, { alertId: string; reason: string }>(
+  'admin/dismissSecurityAlert',
+  async ({ alertId, reason }, { rejectWithValue }) => {
+    const response = await adminService.dismissSecurityAlert(alertId, { reason });
+    return isSuccessResponse(response) ? response : rejectWithValue(response);
+  }
+);
+
+export const markSecurityAlertAsRead = createAppAsyncThunk<SuccessResponse<SecurityAlertActionResponse>, string>(
+  'admin/markSecurityAlertAsRead',
+  async (alertId, { rejectWithValue }) => {
+    const response = await adminService.markSecurityAlertAsRead(alertId);
     return isSuccessResponse(response) ? response : rejectWithValue(response);
   }
 );
