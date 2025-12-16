@@ -95,6 +95,7 @@ export class E2EEManager {
     remotePeerPublicKeyBase64: string
   ): Promise<E2EEKeyMaterial> {
     // Import remote public key
+    // WICHTIG: extractable=true für Safari, da hashKey() exportKey() aufruft
     const remotePeerPublicKeyBuffer = this.base64ToArrayBuffer(remotePeerPublicKeyBase64);
     const remotePeerPublicKey = await crypto.subtle.importKey(
       'raw',
@@ -103,11 +104,13 @@ export class E2EEManager {
         name: 'ECDH',
         namedCurve: 'P-256',
       },
-      false,
+      true, // Safari requires extractable=true for hashKey fingerprint calculation
       []
     );
 
     // Derive shared secret via ECDH
+    // WICHTIG: extractable=true ist erforderlich für Safari/Worker-basierte E2EE
+    // Die Keys müssen an Web Worker gesendet werden (exportKey → postMessage)
     const sharedSecret = await crypto.subtle.deriveKey(
       {
         name: 'ECDH',
@@ -118,7 +121,7 @@ export class E2EEManager {
         name: ALGORITHM,
         length: KEY_LENGTH,
       },
-      false, // not extractable (security best practice)
+      true, // extractable=true required for Safari Worker key transfer
       ['encrypt', 'decrypt']
     );
 
@@ -130,7 +133,7 @@ export class E2EEManager {
     this.publicKeyFingerprint = publicKeyFingerprint;
     this.keyGeneration++;
 
-    console.log(`🔐 E2EE: Derived shared key (generation ${this.keyGeneration})`);
+    console.debug(`🔐 E2EE: Derived shared key (generation ${this.keyGeneration.toString()})`);
 
     return {
       encryptionKey: sharedSecret,
@@ -146,15 +149,15 @@ export class E2EEManager {
   startKeyRotation(onRotation: (newKeyMaterial: E2EEKeyMaterial) => void): void {
     this.onKeyRotation = onRotation;
 
-    this.rotationTimer = setInterval(async () => {
-      console.log('🔄 E2EE: Key rotation triggered');
+    this.rotationTimer = setInterval(() => {
+      console.debug('🔄 E2EE: Key rotation triggered');
 
       // Trigger key exchange with peer
-      if (this.onKeyRotation) {
+      if (this.onKeyRotation && this.encryptionKey) {
         // Note: Actual key derivation happens after receiving peer's new public key
         // This is just a notification to initiate the exchange
         this.onKeyRotation({
-          encryptionKey: this.encryptionKey!,
+          encryptionKey: this.encryptionKey,
           createdAt: this.keyCreatedAt,
           publicKeyFingerprint: this.publicKeyFingerprint,
           generation: this.keyGeneration,
@@ -162,7 +165,9 @@ export class E2EEManager {
       }
     }, KEY_ROTATION_INTERVAL);
 
-    console.log(`🔄 E2EE: Key rotation enabled (every ${KEY_ROTATION_INTERVAL / 1000}s)`);
+    console.debug(
+      `🔄 E2EE: Key rotation enabled (every ${(KEY_ROTATION_INTERVAL / 1000).toString()}s)`
+    );
   }
 
   /**
@@ -172,7 +177,7 @@ export class E2EEManager {
     if (this.rotationTimer) {
       clearInterval(this.rotationTimer);
       this.rotationTimer = null;
-      console.log('🛑 E2EE: Key rotation stopped');
+      console.debug('🛑 E2EE: Key rotation stopped');
     }
   }
 
@@ -270,7 +275,7 @@ export class E2EEManager {
     this.keyGeneration = 0;
     this.keyCreatedAt = 0;
     this.publicKeyFingerprint = '';
-    console.log('🧹 E2EE: Cleanup complete');
+    console.debug('🧹 E2EE: Cleanup complete');
   }
 
   // --- Utility Methods ---

@@ -11,11 +11,21 @@ interface AnnouncementOptions {
  * Hook for managing screen reader announcements
  * Provides a centralized way to announce dynamic content changes
  */
-export const useAnnouncements = () => {
+export const useAnnouncements = (): {
+  announce: (message: string, options?: AnnouncementOptions) => void;
+  announcePolite: (message: string, delay?: number) => void;
+  announceAssertive: (message: string, delay?: number) => void;
+  announceFormError: (fieldName: string, errorMessage: string) => void;
+  announceSuccess: (message: string) => void;
+  announceNavigation: (pageName: string) => void;
+  announceLoading: (action: string) => void;
+  announceLoadingComplete: (action: string) => void;
+  clear: () => void;
+} => {
   const politeRegionRef = useRef<HTMLDivElement | null>(null);
   const assertiveRegionRef = useRef<HTMLDivElement | null>(null);
-  const timersRef = useRef<number[]>([]);
-  
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
   // Initialize live regions if they don't exist
   const ensureLiveRegions = useCallback(() => {
     if (!politeRegionRef.current) {
@@ -28,7 +38,7 @@ export const useAnnouncements = () => {
       politeRegion.style.width = '1px';
       politeRegion.style.height = '1px';
       politeRegion.style.overflow = 'hidden';
-      politeRegion.style.clip = 'rect(0, 0, 0, 0)';
+      politeRegion.style.clipPath = 'inset(50%)';
       politeRegion.style.whiteSpace = 'nowrap';
       document.body.appendChild(politeRegion);
       politeRegionRef.current = politeRegion;
@@ -44,7 +54,7 @@ export const useAnnouncements = () => {
       assertiveRegion.style.width = '1px';
       assertiveRegion.style.height = '1px';
       assertiveRegion.style.overflow = 'hidden';
-      assertiveRegion.style.clip = 'rect(0, 0, 0, 0)';
+      assertiveRegion.style.clipPath = 'inset(50%)';
       assertiveRegion.style.whiteSpace = 'nowrap';
       document.body.appendChild(assertiveRegion);
       assertiveRegionRef.current = assertiveRegion;
@@ -52,19 +62,14 @@ export const useAnnouncements = () => {
   }, []);
 
   const announce = useCallback(
-    (
-      message: string,
-      options: AnnouncementOptions = { priority: 'polite', delay: 100 }
-    ) => {
+    (message: string, options: AnnouncementOptions = { priority: 'polite', delay: 100 }) => {
       const safeMessage = message;
       if (!safeMessage.trim()) return;
 
       ensureLiveRegions();
 
       const region =
-        options.priority === 'assertive'
-          ? assertiveRegionRef.current
-          : politeRegionRef.current;
+        options.priority === 'assertive' ? assertiveRegionRef.current : politeRegionRef.current;
 
       if (!region) return;
 
@@ -77,28 +82,29 @@ export const useAnnouncements = () => {
       const safeDelay = Math.max(0, withDefault(options.delay, 100));
       (() => {
         const __id = setTimeout(() => {
-           region.textContent = safeMessage;
- 
-           // Auto-clear after 5 seconds
+          region.textContent = safeMessage;
+
+          // Auto-clear after 5 seconds
           const __id2 = setTimeout(() => {
-             if (region.textContent === safeMessage) {
-               region.textContent = '';
-             }
+            if (region.textContent === safeMessage) {
+              region.textContent = '';
+            }
           }, 5000);
-          timersRef.current.push(__id2 as any);
+          timersRef.current.push(__id2);
         }, safeDelay);
-        timersRef.current.push(__id as any);
+        timersRef.current.push(__id);
       })();
     },
     [ensureLiveRegions]
   );
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       for (const id of timersRef.current) clearTimeout(id);
       timersRef.current = [];
-    };
-  }, []);
+    },
+    []
+  );
 
   const announcePolite = useCallback(
     (message: string, delay = 100) => {

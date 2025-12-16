@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useTheme } from './hooks/useTheme';
+import { useThemeMode } from './hooks/useTheme';
 import MainLayout from './components/layout/MainLayout';
 import SkipLinks from './components/accessibility/SkipLinks';
 import NetworkStatusIndicator from './components/error/NetworkStatusIndicator';
@@ -23,17 +23,12 @@ import { StreamProvider } from './contexts/StreamContext';
 
 const PerformanceDashboard = lazy(() => import('./components/dev/PerformanceDashboard'));
 
-// Development-only debug helpers
-if (import.meta.env.DEV) {
-  void import('./utils/debugHelpers');
-}
-
 // ============================================================================
 // App Component
 // ============================================================================
 
 const App = memo(() => {
-  const { mode, theme, toggleTheme } = useTheme();
+  const { mode, theme, toggleTheme } = useThemeMode();
   const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
 
   // =========================================================================
@@ -45,9 +40,7 @@ const App = memo(() => {
 
     // Set document title if not already set
     if (!document.title.includes('SkillSwap')) {
-      document.title = document.title 
-        ? `SkillSwap - ${document.title}` 
-        : 'SkillSwap';
+      document.title = document.title ? `SkillSwap - ${document.title}` : 'SkillSwap';
     }
   }, []);
 
@@ -55,13 +48,13 @@ const App = memo(() => {
   // Performance Dashboard Toggle (Development Only)
   // =========================================================================
   const togglePerformanceDashboard = useCallback(() => {
-    setShowPerformanceDashboard(prev => !prev);
+    setShowPerformanceDashboard((prev) => !prev);
   }, []);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       // Ctrl+Shift+P to toggle performance dashboard
       if (e.ctrlKey && e.shiftKey && e.key === 'P') {
         e.preventDefault();
@@ -70,7 +63,9 @@ const App = memo(() => {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [togglePerformanceDashboard]);
 
   // =========================================================================
@@ -89,19 +84,16 @@ const App = memo(() => {
                     <TwoFactorDialogProvider>
                       {/* Accessibility */}
                       <SkipLinks />
-                      
+
                       {/* Global UI Indicators */}
                       <GlobalLoadingIndicator position="top" />
                       <NetworkStatusIndicator position="top" compact />
-                      
+
                       {/* Main Application Layout */}
-                      <MainLayout 
-                        onToggleTheme={toggleTheme} 
-                        darkMode={mode === 'dark'}
-                      >
+                      <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
                         <Outlet />
                       </MainLayout>
-                      
+
                       {/* Toast Notifications */}
                       <ToastContainer
                         position="bottom-right"

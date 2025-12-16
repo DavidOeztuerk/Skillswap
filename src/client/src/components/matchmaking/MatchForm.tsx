@@ -21,53 +21,50 @@ import {
   CircularProgress,
 } from '@mui/material';
 import FormDialog from '../ui/FormDialog';
-import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
 import LoadingButton from '../ui/LoadingButton';
-import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
-import { Skill } from '../../types/models/Skill';
+import type { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
+import type { Skill } from '../../types/models/Skill';
+import type {
+  SkillCategoryResponse,
+  ProficiencyLevelResponse,
+} from '../../types/contracts/responses/CreateSkillResponse';
 import { SkillService } from '../../api/services/skillsService';
 import QuickSkillCreate from './QuickSkillCreate';
 import { Add as AddIcon } from '@mui/icons-material';
-import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
-import { GetUserSkillResponse } from '../../types/contracts/responses/SkillResponses';
+import ErrorAlert from '../error/ErrorAlert';
+import type { GetUserSkillResponse } from '../../types/contracts/responses/SkillResponses';
 import { isSuccessResponse } from '../../types/api/UnifiedResponse';
 
 // Schema angepasst für CreateMatchRequest
-const matchFormSchema = z.object({
-  skillId: z.string().nonempty('Skill muss ausgewählt werden'),
-  description: z
-    .string()
-    .max(500, 'Beschreibung darf maximal 500 Zeichen enthalten')
-    .optional(),
-  message: z
-    .string()
-    .max(500, 'Nachricht darf maximal 500 Zeichen enthalten')
-    .optional(),
-  isOffering: z.boolean(),
-  isSkillExchange: z.boolean().optional(),
-  exchangeSkillId: z.string().optional(),
-  preferredDays: z.array(z.string()).min(1, 'Wähle mindestens einen Tag'),
-  preferredTimes: z.array(z.string()).min(1, 'Wähle mindestens eine Zeit'),
-  additionalNotes: z
-    .string()
-    .max(500, 'Notizen dürfen maximal 500 Zeichen enthalten')
-    .optional(),
-}).refine(
-  (data) => {
-    // Wenn Skill-Tausch gewählt ist, muss auch ein Tausch-Skill ausgewählt sein
-    if (data.isSkillExchange && !data.exchangeSkillId) {
-      return false;
+const matchFormSchema = z
+  .object({
+    skillId: z.string().nonempty('Skill muss ausgewählt werden'),
+    description: z.string().max(500, 'Beschreibung darf maximal 500 Zeichen enthalten').optional(),
+    message: z.string().max(500, 'Nachricht darf maximal 500 Zeichen enthalten').optional(),
+    isOffering: z.boolean(),
+    isSkillExchange: z.boolean().optional(),
+    exchangeSkillId: z.string().optional(),
+    preferredDays: z.array(z.string()).min(1, 'Wähle mindestens einen Tag'),
+    preferredTimes: z.array(z.string()).min(1, 'Wähle mindestens eine Zeit'),
+    additionalNotes: z.string().max(500, 'Notizen dürfen maximal 500 Zeichen enthalten').optional(),
+  })
+  .refine(
+    (data) => {
+      // Wenn Skill-Tausch gewählt ist, muss auch ein Tausch-Skill ausgewählt sein
+      if (data.isSkillExchange && !data.exchangeSkillId) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Bei einem Skill-Tausch muss ein eigener Skill ausgewählt werden',
+      path: ['exchangeSkillId'],
     }
-    return true;
-  },
-  {
-    message: 'Bei einem Skill-Tausch muss ein eigener Skill ausgewählt werden',
-    path: ['exchangeSkillId'],
-  }
-);
+  );
 
 type MatchFormValues = z.infer<typeof matchFormSchema>;
 
@@ -76,10 +73,10 @@ interface MatchFormProps {
   onClose: () => void;
   onSubmit: (data: CreateMatchRequest) => Promise<boolean>;
   skill: Skill;
-  targetUserId: string; 
-  targetUserName?: string; 
+  targetUserId: string;
+  targetUserName?: string;
   isLoading?: boolean;
-  userSkills?: GetUserSkillResponse[]; 
+  userSkills?: GetUserSkillResponse[];
   error?: string | undefined;
 }
 
@@ -108,66 +105,60 @@ const MatchForm: React.FC<MatchFormProps> = ({
   userSkills: providedUserSkills,
   error,
 }) => {
-  const [userSkills, setUserSkills] = useState<GetUserSkillResponse[]>(providedUserSkills || []);
+  const [userSkills, setUserSkills] = useState<GetUserSkillResponse[]>(providedUserSkills ?? []);
   const [loadingSkills, setLoadingSkills] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [proficiencyLevels, setProficiencyLevels] = useState<any[]>([]);
+  const [categories, setCategories] = useState<SkillCategoryResponse[]>([]);
+  const [proficiencyLevels, setProficiencyLevels] = useState<ProficiencyLevelResponse[]>([]);
 
-  // Lade User Skills wenn Dialog geöffnet wird und keine bereitgestellt wurden
-  useEffect(() => {
-    if (open) {
-      if (!providedUserSkills) {
-        loadUserSkills();
-      } else {
-        setUserSkills(providedUserSkills);
-      }
-      // Lade Kategorien und Levels für Quick Create
-      loadCategoriesAndLevels();
-    }
-  }, [open, providedUserSkills]);
-
-  const loadUserSkills = async () => {
+  const loadUserSkills = async (): Promise<void> => {
     try {
       setLoadingSkills(true);
-      const response = await SkillService.getUserSkills(1, 50, true); 
-    if (isSuccessResponse(response))
-        if (response.data) {
-          setUserSkills(response.data);
+      const response = await SkillService.getUserSkills(1, 50, true);
+      if (isSuccessResponse(response)) {
+        setUserSkills(response.data);
       }
-    } catch (error) {
-      console.error('Error loading user skills:', error);
+    } catch (err) {
+      console.error('Error loading user skills:', err);
       setUserSkills([]);
     } finally {
       setLoadingSkills(false);
     }
   };
 
-  const loadCategoriesAndLevels = async () => {
+  const loadCategoriesAndLevels = async (): Promise<void> => {
     try {
       const [catResponse, levelResponse] = await Promise.all([
         SkillService.getCategories(),
         SkillService.getProficiencyLevels(),
       ]);
-      if (isSuccessResponse(catResponse) && catResponse.data) setCategories(catResponse.data);
-      if (isSuccessResponse(levelResponse) && levelResponse.data) setProficiencyLevels(levelResponse.data);
-    } catch (error) {
-      console.error('Error loading categories/levels:', error);
+      if (isSuccessResponse(catResponse)) setCategories(catResponse.data);
+      if (isSuccessResponse(levelResponse)) setProficiencyLevels(levelResponse.data);
+    } catch (err) {
+      console.error('Error loading categories/levels:', err);
     }
   };
 
-  const handleQuickSkillCreated = async (skillId: string, _skillName: string) => {
-    // Skill wurde erstellt, lade Skills neu und wähle den neuen Skill aus
-    await loadUserSkills();
-    // Setze den neuen Skill als ausgewählt
-    setValue('exchangeSkillId', skillId);
-    setQuickCreateOpen(false);
-  };
+  // Lade User Skills wenn Dialog geöffnet wird und keine bereitgestellt wurden
+  useEffect(() => {
+    if (open) {
+      if (!providedUserSkills) {
+        void loadUserSkills();
+      } else {
+        setUserSkills(providedUserSkills);
+      }
+      // Lade Kategorien und Levels für Quick Create
+      void loadCategoriesAndLevels();
+    }
+  }, [open, providedUserSkills]);
+
   // Default-Werte
-  const defaultValues = useMemo(() => {
-    return {
+  const defaultValues = useMemo(
+    () => ({
       skillId: skill.id,
-      description: skill.isOffered ? 'Ich möchte diesen Skill lernen' : 'Ich kann bei diesem Skill helfen',
+      description: skill.isOffered
+        ? 'Ich möchte diesen Skill lernen'
+        : 'Ich kann bei diesem Skill helfen',
       isOffering: !skill.isOffered, // Umgekehrt: wenn der Nutzer den Skill anbietet, will er ihn hier lernen
       isSkillExchange: false,
       exchangeSkillId: '',
@@ -175,8 +166,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
       preferredTimes: ['18:00', '19:00'],
       message: '',
       additionalNotes: '',
-    };
-  }, [skill]);
+    }),
+    [skill]
+  );
 
   const {
     control,
@@ -189,6 +181,14 @@ const MatchForm: React.FC<MatchFormProps> = ({
     resolver: zodResolver(matchFormSchema),
     defaultValues,
   });
+
+  const handleQuickSkillCreated = async (skillId: string, _skillName: string): Promise<void> => {
+    // Skill wurde erstellt, lade Skills neu und wähle den neuen Skill aus
+    await loadUserSkills();
+    // Setze den neuen Skill als ausgewählt
+    setValue('exchangeSkillId', skillId);
+    setQuickCreateOpen(false);
+  };
 
   // Reset beim Öffnen
   React.useEffect(() => {
@@ -206,9 +206,12 @@ const MatchForm: React.FC<MatchFormProps> = ({
 
     const matchRequest: CreateMatchRequest = {
       skillId: data.skillId,
-      targetUserId: targetUserId,
-      message: data.message || data.description || (data.isOffering ? 'Ich möchte diesen Skill anbieten' : 'Ich möchte diesen Skill lernen'),
-      isSkillExchange: data.isSkillExchange || false,
+      targetUserId,
+      message:
+        data.message ??
+        data.description ??
+        (data.isOffering ? 'Ich möchte diesen Skill anbieten' : 'Ich möchte diesen Skill lernen'),
+      isSkillExchange: data.isSkillExchange ?? false,
       exchangeSkillId: data.exchangeSkillId,
       isMonetary: false, // Vorerst kein Geld-Austausch
       sessionDurationMinutes: 60, // Standard: 60 Minuten
@@ -218,8 +221,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
       // Frontend-only fields for display
       description: data.description,
       skillName: skill.name,
-      exchangeSkillName: data.exchangeSkillId 
-        ? userSkills.find(s => s.skillId === data.exchangeSkillId)?.name
+      exchangeSkillName: data.exchangeSkillId
+        ? userSkills.find((s) => s.skillId === data.exchangeSkillId)?.name
         : undefined,
     };
 
@@ -230,11 +233,11 @@ const MatchForm: React.FC<MatchFormProps> = ({
         onClose();
       } else {
         console.error('Match request failed - modal stays open for error display');
-        // Don't close modal on failure - let the error be displayed via EnhancedErrorAlert
+        // Don't close modal on failure - let the error be displayed via ErrorAlert
       }
-    } catch (error) {
-      console.error('Failed to create match request:', error);
-      // Don't close modal on error - let the error be displayed via EnhancedErrorAlert
+    } catch (err) {
+      console.error('Failed to create match request:', err);
+      // Don't close modal on error - let the error be displayed via ErrorAlert
     }
   };
 
@@ -256,7 +259,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             color="primary"
             variant="contained"
             loading={isLoading}
-            disabled={isLoading || Object.keys(errors).filter(key => key !== 'root').length > 0}
+            disabled={isLoading || Object.keys(errors).filter((key) => key !== 'root').length > 0}
           >
             Match-Anfrage senden
           </LoadingButton>
@@ -264,12 +267,12 @@ const MatchForm: React.FC<MatchFormProps> = ({
       }
     >
       <form id="match-request-form" onSubmit={handleSubmit(handleFormSubmit)}>
-        <EnhancedErrorAlert 
-          error={error || (errors.root && { message: errors.root.message })}
+        <ErrorAlert
+          error={error ?? (errors.root ? { message: errors.root.message ?? '' } : undefined)}
           onDismiss={() => {}}
           compact={process.env.NODE_ENV === 'production'}
         />
-        
+
         <Grid container spacing={3}>
           <Grid size={{ xs: 12 }}>
             <Box bgcolor="action.hover" p={2} borderRadius={1} mb={2}>
@@ -311,7 +314,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   label="Kurze Beschreibung"
                   fullWidth
                   error={!!errors.description}
-                  helperText={errors.description?.message || 'Beschreibe kurz, was du möchtest'}
+                  helperText={errors.description?.message ?? 'Beschreibe kurz, was du möchtest'}
                   disabled={isLoading}
                   placeholder="Was möchtest du mit diesem Skill machen?"
                 />
@@ -319,9 +322,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             />
 
             <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
-              <FormLabel component="legend">
-                Was möchtest du mit diesem Skill machen?
-              </FormLabel>
+              <FormLabel component="legend">Was möchtest du mit diesem Skill machen?</FormLabel>
               <Controller
                 name="isOffering"
                 control={control}
@@ -330,7 +331,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     control={
                       <Checkbox
                         checked={field.value}
-                        onChange={(e) => field.onChange(e.target.checked)}
+                        onChange={(e) => {
+                          field.onChange(e.target.checked);
+                        }}
                         disabled={isLoading}
                       />
                     }
@@ -343,7 +346,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                 )}
               />
             </FormControl>
-            
+
             {/* Skill Exchange Option */}
             <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
               <Controller
@@ -353,8 +356,10 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   <FormControlLabel
                     control={
                       <Checkbox
-                        checked={field.value || false}
-                        onChange={(e) => field.onChange(e.target.checked)}
+                        checked={field.value ?? false}
+                        onChange={(e) => {
+                          field.onChange(e.target.checked);
+                        }}
                         disabled={isLoading}
                       />
                     }
@@ -374,12 +379,12 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     <FormLabel>Wähle deinen Skill für den Tausch</FormLabel>
                     <Select
                       {...field}
-                      value={field.value || ''}
+                      value={field.value ?? ''}
                       disabled={isLoading || userSkills.length === 0}
                       displayEmpty
                     >
                       <MenuItem value="" disabled>
-                        {userSkills.length === 0 
+                        {userSkills.length === 0
                           ? 'Keine eigenen Skills vorhanden'
                           : 'Wähle einen Skill aus'}
                       </MenuItem>
@@ -399,12 +404,14 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     )}
                     {userSkills.length === 0 && (
                       <Alert severity="info" sx={{ mt: 1 }}>
-                        Du hast noch keine eigenen Skills. 
-                        <Button 
-                          size="small" 
-                          color="primary" 
+                        Du hast noch keine eigenen Skills.
+                        <Button
+                          size="small"
+                          color="primary"
                           sx={{ ml: 1 }}
-                          onClick={() => setQuickCreateOpen(true)}
+                          onClick={() => {
+                            setQuickCreateOpen(true);
+                          }}
                           startIcon={<AddIcon />}
                         >
                           Skill erstellen
@@ -416,7 +423,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
                         <Button
                           size="small"
                           startIcon={<AddIcon />}
-                          onClick={() => setQuickCreateOpen(true)}
+                          onClick={() => {
+                            setQuickCreateOpen(true);
+                          }}
                         >
                           Neuen Skill erstellen
                         </Button>
@@ -426,7 +435,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                 )}
               />
             )}
-            
+
             <Divider sx={{ my: 2 }} />
           </Grid>
 
@@ -462,13 +471,13 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   <Select
                     multiple
                     value={field.value}
-                    onChange={(event) => field.onChange(event.target.value)}
+                    onChange={(event) => {
+                      field.onChange(event.target.value);
+                    }}
                     input={<OutlinedInput id="select-multiple-days" />}
                     renderValue={(selected) => (
-                      <Box
-                        sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
-                      >
-                        {(selected as string[]).map((value) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.map((value) => (
                           <Chip key={value} label={value} />
                         ))}
                       </Box>
@@ -478,15 +487,13 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   >
                     {WEEKDAYS.map((day) => (
                       <MenuItem key={day} value={day}>
-                        <Checkbox checked={field.value.indexOf(day) > -1} />
+                        <Checkbox checked={field.value.includes(day)} />
                         <ListItemText primary={day} />
                       </MenuItem>
                     ))}
                   </Select>
                   {errors.preferredDays && (
-                    <FormHelperText>
-                      {errors.preferredDays.message}
-                    </FormHelperText>
+                    <FormHelperText>{errors.preferredDays.message}</FormHelperText>
                   )}
                 </FormControl>
               )}
@@ -504,13 +511,13 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   <Select
                     multiple
                     value={field.value}
-                    onChange={(event) => field.onChange(event.target.value)}
+                    onChange={(event) => {
+                      field.onChange(event.target.value);
+                    }}
                     input={<OutlinedInput id="select-multiple-times" />}
                     renderValue={(selected) => (
-                      <Box
-                        sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
-                      >
-                        {(selected as string[]).map((value) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.map((value) => (
                           <Chip key={value} label={value} />
                         ))}
                       </Box>
@@ -520,15 +527,13 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   >
                     {TIME_SLOTS.map((time) => (
                       <MenuItem key={time} value={time}>
-                        <Checkbox checked={field.value.indexOf(time) > -1} />
+                        <Checkbox checked={field.value.includes(time)} />
                         <ListItemText primary={time} />
                       </MenuItem>
                     ))}
                   </Select>
                   {errors.preferredTimes && (
-                    <FormHelperText>
-                      {errors.preferredTimes.message}
-                    </FormHelperText>
+                    <FormHelperText>{errors.preferredTimes.message}</FormHelperText>
                   )}
                 </FormControl>
               )}
@@ -557,16 +562,14 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   }
                   slotProps={{
                     input: {
-                      endAdornment: field.value ? (
-                        <InputAdornment position="end">
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                          >
-                            {field.value.length}/500
-                          </Typography>
-                        </InputAdornment>
-                      ) : null,
+                      endAdornment:
+                        field.value && field.value.length > 0 ? (
+                          <InputAdornment position="end">
+                            <Typography variant="caption" color="text.secondary">
+                              {String(field.value.length)}/500
+                            </Typography>
+                          </InputAdornment>
+                        ) : null,
                     },
                   }}
                 />
@@ -575,11 +578,13 @@ const MatchForm: React.FC<MatchFormProps> = ({
           </Grid>
         </Grid>
       </form>
-      
+
       {/* Quick Skill Create Dialog */}
       <QuickSkillCreate
         open={quickCreateOpen}
-        onClose={() => setQuickCreateOpen(false)}
+        onClose={() => {
+          setQuickCreateOpen(false);
+        }}
         onSkillCreated={handleQuickSkillCreated}
         categories={categories}
         proficiencyLevels={proficiencyLevels}

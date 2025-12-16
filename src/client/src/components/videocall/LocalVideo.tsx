@@ -1,10 +1,8 @@
-// src/components/videocall/LocalVideo.tsx
 import React, { useRef, useEffect } from 'react';
-import { Box, Paper, Typography, useTheme } from '@mui/material';
+import { Avatar, Box, Paper, Typography, useTheme } from '@mui/material';
 import {
   Mic as MicIcon,
   MicOff as MicOffIcon,
-  VideocamOff as VideoOffIcon,
   ScreenShare as ScreenShareIcon,
 } from '@mui/icons-material';
 
@@ -14,6 +12,10 @@ interface LocalVideoProps {
   isVideoEnabled: boolean;
   isScreenSharing: boolean;
   username: string;
+  /** Avatar-URL für Anzeige bei Kamera-aus */
+  avatarUrl?: string;
+  /** When true, fills parent container instead of floating PiP */
+  fullSize?: boolean;
 }
 
 /**
@@ -24,31 +26,46 @@ const LocalVideo: React.FC<LocalVideoProps> = ({
   isMicEnabled,
   isVideoEnabled,
   isScreenSharing,
+  username,
+  avatarUrl,
+  fullSize = false,
 }) => {
   const theme = useTheme();
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Wenn der Stream sich ändert, diesen dem Video-Element zuweisen
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    if (stream) {
+      videoElement.srcObject = stream;
+    } else {
+      // Safari: srcObject explizit auf null setzen für korrekten Cleanup
+      videoElement.srcObject = null;
     }
+
+    // Cleanup beim Unmount oder Stream-Wechsel
+    return () => {
+      // Safari: Erst srcObject auf null, dann wird die Medienpermission freigegeben
+      videoElement.srcObject = null;
+    };
   }, [stream]);
 
   return (
     <Paper
-      elevation={3}
+      elevation={fullSize ? 0 : 3}
       sx={{
-        position: 'absolute',
-        bottom: 80, // Platz für die Steuerelemente lassen
-        right: 16,
+        position: fullSize ? 'relative' : 'absolute',
+        bottom: fullSize ? 'auto' : 80,
+        right: fullSize ? 'auto' : 16,
         borderRadius: 2,
         overflow: 'hidden',
-        width: 180,
-        height: 120,
-        zIndex: 5,
+        width: fullSize ? '100%' : 180,
+        height: fullSize ? '100%' : 120,
+        zIndex: fullSize ? 1 : 5,
         backgroundColor: theme.palette.background.paper,
-        border: `1px solid ${theme.palette.divider}`,
+        border: fullSize ? 'none' : `1px solid ${theme.palette.divider}`,
       }}
     >
       {/* Video element - always in DOM to keep srcObject */}
@@ -66,7 +83,7 @@ const LocalVideo: React.FC<LocalVideoProps> = ({
         }}
       />
 
-      {/* Placeholder when video is disabled */}
+      {/* Placeholder when video is disabled - show Avatar or Initials */}
       {(!stream || !isVideoEnabled) && (
         <Box
           sx={{
@@ -79,32 +96,45 @@ const LocalVideo: React.FC<LocalVideoProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             flexDirection: 'column',
-            backgroundColor: theme.palette.action.hover,
-            p: 2,
+            backgroundColor: theme.palette.grey[800],
+            p: 1,
           }}
         >
-          {!isVideoEnabled && (
-            <VideoOffIcon
+          {/* Avatar oder Initialen - Größe angepasst für PiP */}
+          {avatarUrl ? (
+            <Avatar
+              src={avatarUrl}
+              alt={username}
               sx={{
-                fontSize: 40,
-                mb: 1,
-                color: theme.palette.text.secondary,
+                width: fullSize ? 80 : 48,
+                height: fullSize ? 80 : 48,
+                bgcolor: theme.palette.primary.main,
               }}
             />
+          ) : (
+            <Avatar
+              sx={{
+                width: fullSize ? 80 : 48,
+                height: fullSize ? 80 : 48,
+                fontSize: fullSize ? 32 : 20,
+                bgcolor: theme.palette.primary.main,
+              }}
+            >
+              {username.charAt(0).toUpperCase()}
+            </Avatar>
           )}
 
-          <Typography
-            variant="body2"
-            align="center"
-            color="text.secondary"
-            sx={{ fontSize: '0.75rem' }}
-          >
-            {!stream
-              ? 'Warte auf Videostream...'
-              : isVideoEnabled
-                ? 'Kamera ist eingeschaltet'
-                : 'Kamera ist ausgeschaltet'}
-          </Typography>
+          {/* Nur im fullSize-Modus zusätzlichen Text anzeigen */}
+          {fullSize && (
+            <Typography
+              variant="body2"
+              align="center"
+              color="white"
+              sx={{ mt: 1, fontSize: '0.75rem' }}
+            >
+              Kamera ist ausgeschaltet
+            </Typography>
+          )}
         </Box>
       )}
 
@@ -196,7 +226,7 @@ const LocalVideo: React.FC<LocalVideoProps> = ({
             backdropFilter: 'blur(4px)',
           }}
         >
-          Du
+          {username} (Du)
         </Typography>
       </Box>
     </Paper>

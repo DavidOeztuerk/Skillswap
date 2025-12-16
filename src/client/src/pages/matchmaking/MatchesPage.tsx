@@ -42,7 +42,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
+import type { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
 import PageHeader from '../../components/layout/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
 import { toast } from 'react-toastify';
@@ -54,9 +54,7 @@ interface TabPanelProps {
 }
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
-  <div hidden={value !== index}>
-    {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-  </div>
+  <div hidden={value !== index}>{value === index && <Box sx={{ py: 3 }}>{children}</Box>}</div>
 );
 
 const MatchesPage: React.FC = () => {
@@ -74,14 +72,16 @@ const MatchesPage: React.FC = () => {
 
   useEffect(() => {
     loadMatches({ pageNumber: 1, pageSize: 100 });
-  }, []);
+  }, [loadMatches]);
 
   // Filter matches by status - MatchDisplay uses string literals
-  const activeMatches = matches.filter(m => m.status === 'accepted' || m.status === 'active');
-  const completedMatches = matches.filter(m => m.status === 'completed');
-  const cancelledMatches = matches.filter(m => m.status === 'rejected' || m.status === 'cancelled');
+  const activeMatches = matches.filter((m) => m.status === 'accepted' || m.status === 'active');
+  const completedMatches = matches.filter((m) => m.status === 'completed');
+  const cancelledMatches = matches.filter(
+    (m) => m.status === 'rejected' || m.status === 'cancelled'
+  );
 
-  const getCurrentMatches = () => {
+  const getCurrentMatches = (): MatchDisplay[] => {
     switch (tabValue) {
       case 0:
         return activeMatches;
@@ -98,24 +98,24 @@ const MatchesPage: React.FC = () => {
   const totalPages = Math.ceil(currentMatches.length / pageSize);
   const paginatedMatches = currentMatches.slice((page - 1) * pageSize, page * pageSize);
 
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number): void => {
     setTabValue(newValue);
     setPage(1);
   };
 
-  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
+  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number): void => {
     setPage(value);
   };
 
-  const handleViewAppointments = (matchId: string) => {
-    navigate(`/appointments?matchId=${matchId}`);
+  const handleViewAppointments = (matchId: string): void => {
+    void navigate(`/appointments?matchId=${matchId}`);
   };
 
-  const handleCreateAppointment = (matchId: string) => {
-    navigate(`/appointments/create?matchId=${matchId}`);
+  const handleCreateAppointment = (matchId: string): void => {
+    void navigate(`/appointments/create?matchId=${matchId}`);
   };
 
-  const handleDissolveMatch = async () => {
+  const handleDissolveMatch = async (): Promise<void> => {
     if (!selectedMatch || !dissolveReason.trim()) {
       toast.error('Bitte gib einen Grund für die Auflösung an');
       return;
@@ -124,15 +124,15 @@ const MatchesPage: React.FC = () => {
     try {
       const { default: matchmakingService } = await import('../../api/services/matchmakingService');
       const response = await matchmakingService.dissolveMatch(selectedMatch.id, dissolveReason);
-      
+
       if (response.success) {
         toast.success('Match wurde erfolgreich aufgelöst');
         setDissolveDialogOpen(false);
         setSelectedMatch(null);
         setDissolveReason('');
-        await loadMatches({ pageNumber: 1, pageSize: 100 });
+        loadMatches({ pageNumber: 1, pageSize: 100 });
       } else {
-        toast.error(response.message || 'Fehler beim Auflösen des Matches');
+        toast.error(response.message ?? 'Fehler beim Auflösen des Matches');
       }
     } catch (error) {
       console.error('Error dissolving match:', error);
@@ -140,7 +140,7 @@ const MatchesPage: React.FC = () => {
     }
   };
 
-  const handleCompleteMatch = async () => {
+  const handleCompleteMatch = async (): Promise<void> => {
     if (!selectedMatch) return;
 
     try {
@@ -149,7 +149,7 @@ const MatchesPage: React.FC = () => {
         selectedMatch.id,
         rating,
         60,
-        feedback || undefined,
+        feedback.trim() || undefined,
         true
       );
 
@@ -159,9 +159,9 @@ const MatchesPage: React.FC = () => {
         setSelectedMatch(null);
         setRating(5);
         setFeedback('');
-        await loadMatches({ pageNumber: 1, pageSize: 100 });
+        loadMatches({ pageNumber: 1, pageSize: 100 });
       } else {
-        toast.error(response.message || 'Fehler beim Abschließen des Matches');
+        toast.error(response.message ?? 'Fehler beim Abschließen des Matches');
       }
     } catch (error) {
       console.error('Error completing match:', error);
@@ -169,28 +169,30 @@ const MatchesPage: React.FC = () => {
     }
   };
 
-  const getMatchTypeIcon = (match: MatchDisplay) => {
+  const getMatchTypeIcon = (match: MatchDisplay): React.ReactElement => {
     if (match.isSkillExchange) return <SwapIcon />;
     if (match.isMonetary) return <MoneyIcon />;
     return <HandshakeIcon />;
   };
 
-  const getMatchTypeLabel = (match: MatchDisplay) => {
+  const getMatchTypeLabel = (match: MatchDisplay): string => {
     if (match.isSkillExchange) return 'Skill-Tausch';
-    if (match.isMonetary) return `${match.offeredAmount} ${match.currency || '€'}`;
+    if (match.isMonetary) return `${String(match.offeredAmount ?? 0)} ${match.currency ?? '€'}`;
     return 'Skill-Sharing';
   };
 
-  const renderMatchCard = (match: MatchDisplay) => (
-    <Grid sx={{ xs:12, sm:6, md:4 }} key={match.id}>
-      <Card sx={{ 
-        height: '100%', 
-        display: 'flex', 
-        flexDirection: 'column',
-        '&:hover': { boxShadow: 3 },
-        cursor: 'pointer'
-      }}
-      onClick={() => navigate(`/matchmaking/matches/${match.id}`)}>
+  const renderMatchCard = (match: MatchDisplay): React.ReactNode => (
+    <Grid sx={{ xs: 12, sm: 6, md: 4 }} key={match.id}>
+      <Card
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          '&:hover': { boxShadow: 3 },
+          cursor: 'pointer',
+        }}
+        onClick={() => navigate(`/matchmaking/matches/${match.id}`)}
+      >
         <CardContent sx={{ flexGrow: 1 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
             <Chip
@@ -203,9 +205,11 @@ const MatchesPage: React.FC = () => {
               label={match.status}
               size="small"
               color={
-                match.status === 'active' ? 'success' :
-                match.status === 'completed' ? 'info' :
-                'error'
+                match.status === 'active'
+                  ? 'success'
+                  : match.status === 'completed'
+                    ? 'info'
+                    : 'error'
               }
             />
           </Stack>
@@ -225,9 +229,7 @@ const MatchesPage: React.FC = () => {
               <PersonIcon fontSize="small" />
             </Avatar>
             <Box>
-              <Typography variant="body2">
-                {match.partnerName || 'Unbekannter Nutzer'}
-              </Typography>
+              <Typography variant="body2">{match.partnerName || 'Unbekannter Nutzer'}</Typography>
               {match.partnerRating && match.partnerRating > 0 && (
                 <Rating value={match.partnerRating} size="small" readOnly />
               )}
@@ -246,7 +248,10 @@ const MatchesPage: React.FC = () => {
                 <Stack direction="row" spacing={1} alignItems="center">
                   <CalendarIcon fontSize="small" color="action" />
                   <Typography variant="body2" color="text.secondary">
-                    Nächste: {format(new Date(match.sessionInfo.nextSessionDate), 'dd.MM.yyyy', { locale: de })}
+                    Nächste:{' '}
+                    {format(new Date(match.sessionInfo.nextSessionDate), 'dd.MM.yyyy', {
+                      locale: de,
+                    })}
                   </Typography>
                 </Stack>
               )}
@@ -266,7 +271,9 @@ const MatchesPage: React.FC = () => {
               <Button
                 size="small"
                 startIcon={<CalendarIcon />}
-                onClick={() => handleViewAppointments(match.id)}
+                onClick={() => {
+                  handleViewAppointments(match.id);
+                }}
               >
                 Termine
               </Button>
@@ -289,7 +296,9 @@ const MatchesPage: React.FC = () => {
                 size="small"
                 variant="contained"
                 startIcon={<CalendarIcon />}
-                onClick={() => handleCreateAppointment(match.id)}
+                onClick={() => {
+                  handleCreateAppointment(match.id);
+                }}
               >
                 Termin erstellen
               </Button>
@@ -306,7 +315,7 @@ const MatchesPage: React.FC = () => {
               </Button>
             </>
           )}
-          {match.status === 'completed' && match.rating && (
+          {match.status === 'completed' && match.rating != null && match.rating > 0 && (
             <Stack direction="row" spacing={1} alignItems="center">
               <Rating value={match.rating} size="small" readOnly />
               <Typography variant="body2" color="text.secondary">
@@ -327,8 +336,8 @@ const MatchesPage: React.FC = () => {
           subtitle="Verwalte deine aktiven und vergangenen Skill-Matches"
         />
         <Grid container spacing={3} sx={{ mt: 2 }}>
-          {[...Array(6)].map((_, index) => (
-            <Grid sx={{ xs:12, sm:6, md:4 }} key={index}>
+          {Array.from({ length: 6 }, (_, index) => (
+            <Grid sx={{ xs: 12, sm: 6, md: 4 }} key={index}>
               <Skeleton variant="rectangular" height={250} />
             </Grid>
           ))}
@@ -346,7 +355,7 @@ const MatchesPage: React.FC = () => {
 
       <Paper sx={{ mb: 3 }}>
         <Grid container spacing={3} sx={{ p: 2 }}>
-          <Grid sx={{ xs:12, sm:4 }}>
+          <Grid sx={{ xs: 12, sm: 4 }}>
             <Stack alignItems="center">
               <Typography variant="h4" color="primary">
                 {activeMatches.length}
@@ -356,7 +365,7 @@ const MatchesPage: React.FC = () => {
               </Typography>
             </Stack>
           </Grid>
-          <Grid sx={{ xs:12, sm:4 }}>
+          <Grid sx={{ xs: 12, sm: 4 }}>
             <Stack alignItems="center">
               <Typography variant="h4" color="success.main">
                 {completedMatches.length}
@@ -366,7 +375,7 @@ const MatchesPage: React.FC = () => {
               </Typography>
             </Stack>
           </Grid>
-          <Grid  sx={{ xs:12, sm:4 }}>
+          <Grid sx={{ xs: 12, sm: 4 }}>
             <Stack alignItems="center">
               <Typography variant="h4" color="error.main">
                 {cancelledMatches.length}
@@ -381,9 +390,9 @@ const MatchesPage: React.FC = () => {
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab label={`Aktiv (${activeMatches.length})`} />
-          <Tab label={`Abgeschlossen (${completedMatches.length})`} />
-          <Tab label={`Aufgelöst (${cancelledMatches.length})`} />
+          <Tab label={`Aktiv (${String(activeMatches.length)})`} />
+          <Tab label={`Abgeschlossen (${String(completedMatches.length)})`} />
+          <Tab label={`Aufgelöst (${String(cancelledMatches.length)})`} />
         </Tabs>
       </Box>
 
@@ -468,11 +477,20 @@ const MatchesPage: React.FC = () => {
       </TabPanel>
 
       {/* Dissolve Match Dialog */}
-      <Dialog open={dissolveDialogOpen} onClose={() => setDissolveDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dissolveDialogOpen}
+        onClose={() => {
+          setDissolveDialogOpen(false);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
           Match auflösen
           <IconButton
-            onClick={() => setDissolveDialogOpen(false)}
+            onClick={() => {
+              setDissolveDialogOpen(false);
+            }}
             sx={{ position: 'absolute', right: 8, top: 8 }}
           >
             <CloseIcon />
@@ -480,7 +498,8 @@ const MatchesPage: React.FC = () => {
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Bist du sicher, dass du dieses Match auflösen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.
+            Bist du sicher, dass du dieses Match auflösen möchtest? Diese Aktion kann nicht
+            rückgängig gemacht werden.
           </DialogContentText>
           <Alert severity="info" sx={{ mb: 2 }}>
             Alle zukünftigen Termine werden automatisch storniert.
@@ -491,13 +510,21 @@ const MatchesPage: React.FC = () => {
             rows={3}
             label="Grund für die Auflösung"
             value={dissolveReason}
-            onChange={(e) => setDissolveReason(e.target.value)}
+            onChange={(e) => {
+              setDissolveReason(e.target.value);
+            }}
             placeholder="Bitte gib einen Grund an..."
             required
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDissolveDialogOpen(false)}>Abbrechen</Button>
+          <Button
+            onClick={() => {
+              setDissolveDialogOpen(false);
+            }}
+          >
+            Abbrechen
+          </Button>
           <Button
             onClick={handleDissolveMatch}
             color="warning"
@@ -510,11 +537,20 @@ const MatchesPage: React.FC = () => {
       </Dialog>
 
       {/* Complete Match Dialog */}
-      <Dialog open={completeDialogOpen} onClose={() => setCompleteDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={completeDialogOpen}
+        onClose={() => {
+          setCompleteDialogOpen(false);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
           Match abschließen
           <IconButton
-            onClick={() => setCompleteDialogOpen(false)}
+            onClick={() => {
+              setCompleteDialogOpen(false);
+            }}
             sx={{ position: 'absolute', right: 8, top: 8 }}
           >
             <CloseIcon />
@@ -524,7 +560,7 @@ const MatchesPage: React.FC = () => {
           <DialogContentText sx={{ mb: 3 }}>
             Bewerte deine Erfahrung mit diesem Match
           </DialogContentText>
-          
+
           <Stack spacing={3}>
             <Box>
               <Typography variant="subtitle2" gutterBottom>
@@ -532,24 +568,34 @@ const MatchesPage: React.FC = () => {
               </Typography>
               <Rating
                 value={rating}
-                onChange={(_, value) => setRating(value || 5)}
+                onChange={(_, value) => {
+                  setRating(value ?? 5);
+                }}
                 size="large"
               />
             </Box>
-            
+
             <TextField
               fullWidth
               multiline
               rows={3}
               label="Feedback (optional)"
               value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
+              onChange={(e) => {
+                setFeedback(e.target.value);
+              }}
               placeholder="Teile deine Erfahrung..."
             />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCompleteDialogOpen(false)}>Abbrechen</Button>
+          <Button
+            onClick={() => {
+              setCompleteDialogOpen(false);
+            }}
+          >
+            Abbrechen
+          </Button>
           <Button
             onClick={handleCompleteMatch}
             color="success"

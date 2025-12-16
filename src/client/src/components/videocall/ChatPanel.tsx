@@ -1,4 +1,3 @@
-// src/components/videocall/ChatPanel.tsx
 import React, { useRef, useEffect, useState } from 'react';
 import {
   Box,
@@ -15,9 +14,9 @@ import {
 } from '@mui/material';
 import { Send as SendIcon, Close as CloseIcon } from '@mui/icons-material';
 import { formatDate } from '../../utils/dateUtils';
-import { ChatMessage } from '../../types/models/ChatMessage';
+import type { ChatMessage } from '../../types/models/ChatMessage';
 import { ChatE2EEStatusHeader, MessageE2EEIndicator } from './ChatE2EEIndicator';
-import { ChatE2EEStatus } from '../../store/adapters/videoCallAdapter+State';
+import type { ChatE2EEStatus } from '../../store/adapters/videoCallAdapter+State';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -56,14 +55,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = (): void => {
     if (newMessage.trim()) {
       onSendMessage(newMessage.trim());
       setNewMessage('');
     }
   };
 
-  const handleKeyPress = (event: React.KeyboardEvent) => {
+  const handleKeyPress = (event: React.KeyboardEvent): void => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       handleSendMessage();
@@ -71,16 +70,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   // Gruppiere Nachrichten nach Datum
-  const groupedMessages: { [date: string]: ChatMessage[] } = {};
+  const groupedMessages: Record<string, ChatMessage[]> = {};
 
   messages.forEach((message) => {
     const messageDate = new Date(message.sentAt);
     const dateKey = messageDate.toDateString();
 
-    if (!groupedMessages[dateKey]) {
-      groupedMessages[dateKey] = [];
-    }
-
+    groupedMessages[dateKey] ??= [];
     groupedMessages[dateKey].push(message);
   });
 
@@ -174,9 +170,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                         height: 32,
                         ml: isCurrentUser ? 1 : 0,
                         mr: isCurrentUser ? 0 : 1,
-                        bgcolor: isCurrentUser
-                          ? 'primary.main'
-                          : 'secondary.main',
+                        bgcolor: isCurrentUser ? 'primary.main' : 'secondary.main',
                         fontSize: '0.875rem',
                       }}
                     >
@@ -188,12 +182,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                         <Box
                           sx={{
                             p: 1.5,
-                            bgcolor: isCurrentUser
-                              ? 'primary.main'
-                              : 'background.default',
-                            color: isCurrentUser
-                              ? 'primary.contrastText'
-                              : 'text.primary',
+                            bgcolor: isCurrentUser ? 'primary.main' : 'background.default',
+                            color: isCurrentUser ? 'primary.contrastText' : 'text.primary',
                             borderRadius: 2,
                             display: 'inline-block',
                             maxWidth: '85%',
@@ -237,7 +227,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         <div ref={messagesEndRef} />
 
         {/* Empty state for no messages */}
-        {messages?.length === 0 && (
+        {messages.length === 0 && (
           <Box
             sx={{
               flexGrow: 1,
@@ -248,12 +238,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               p: 3,
             }}
           >
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              align="center"
-              gutterBottom
-            >
+            <Typography variant="body2" color="text.secondary" align="center" gutterBottom>
               Noch keine Nachrichten
             </Typography>
             <Typography variant="caption" color="text.secondary" align="center">
@@ -278,7 +263,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             variant="outlined"
             size="small"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+            }}
             onKeyDown={handleKeyPress}
             multiline
             maxRows={3}

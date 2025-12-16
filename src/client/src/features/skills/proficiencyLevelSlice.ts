@@ -1,9 +1,14 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { ProficiencyLevel } from '../../types/models/Skill';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import type { ProficiencyLevel } from '../../types/models/Skill';
 import { withDefault, isDefined } from '../../utils/safeAccess';
-import { ProficiencyLevelResponse } from '../../types/contracts/responses/CreateSkillResponse';
+import type { ProficiencyLevelResponse } from '../../types/contracts/responses/CreateSkillResponse';
 import { initialProficiencyLevelState } from '../../store/adapters/proficiencyLevelAdapter+State';
-import { createProficiencyLevel, updateProficiencyLevel, deleteProficiencyLevel, fetchProficiencyLevels } from './thunks/proficiencyLevelThunks';
+import {
+  createProficiencyLevel,
+  updateProficiencyLevel,
+  deleteProficiencyLevel,
+  fetchProficiencyLevels,
+} from './thunks/proficiencyLevelThunks';
 
 /**
  * Proficiency Levels Slice
@@ -16,10 +21,7 @@ const proficiencyLevelsSlice = createSlice({
       state.errorMessage = undefined;
     },
 
-    setSelectedProficiencyLevel: (
-      state,
-      action,
-    ) => {
+    setSelectedProficiencyLevel: (state, action: PayloadAction<ProficiencyLevel | null>) => {
       state.selectedProficiencyLevel = action.payload;
     },
 
@@ -38,33 +40,28 @@ const proficiencyLevelsSlice = createSlice({
       if (existingIndex === -1) {
         state.proficiencyLevels.push(action.payload);
         // Sort by rank
-        state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
+        state.proficiencyLevels.sort((a, b) => withDefault(a.rank, 0) - withDefault(b.rank, 0));
       } else {
         state.proficiencyLevels[existingIndex] = action.payload;
       }
     },
 
     removeProficiencyLevel: (state, action: PayloadAction<string>) => {
-      state.proficiencyLevels = state.proficiencyLevels?.filter(
-        (level) => level?.id !== action.payload
+      state.proficiencyLevels = state.proficiencyLevels.filter(
+        (level) => level.id !== action.payload
       );
       if (state.selectedProficiencyLevel?.id === action.payload) {
         state.selectedProficiencyLevel = null;
       }
     },
 
-    updateProficiencyLevelInState: (
-      state,
-      action: PayloadAction<ProficiencyLevel>
-    ) => {
+    updateProficiencyLevelInState: (state, action: PayloadAction<ProficiencyLevel>) => {
       const updatedLevel = action.payload;
-      const index = state.proficiencyLevels?.findIndex(
-        (level) => level?.id === updatedLevel?.id
-      );
+      const index = state.proficiencyLevels.findIndex((level) => level.id === updatedLevel.id);
       if (index !== -1) {
         state.proficiencyLevels[index] = updatedLevel;
         // Re-sort after updating
-        state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
+        state.proficiencyLevels.sort((a, b) => withDefault(a.rank, 0) - withDefault(b.rank, 0));
       }
 
       if (state.selectedProficiencyLevel?.id === updatedLevel.id) {
@@ -77,38 +74,36 @@ const proficiencyLevelsSlice = createSlice({
       state.selectedProficiencyLevel = null;
     },
 
-    setError: (state, action) => {
+    setError: (state, action: PayloadAction<{ message?: string }>) => {
       state.errorMessage = action.payload.message;
     },
 
     // Optimistic updates
     createProficiencyLevelOptimistic: (state, action: PayloadAction<ProficiencyLevel>) => {
       state.proficiencyLevels.push(action.payload);
-      state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
+      state.proficiencyLevels.sort((a, b) => withDefault(a.rank, 0) - withDefault(b.rank, 0));
     },
-    
+
     updateProficiencyLevelOptimistic: (state, action: PayloadAction<ProficiencyLevel>) => {
-      const index = state.proficiencyLevels?.findIndex(
-        (level) => level?.id === action.payload?.id
-      );
+      const index = state.proficiencyLevels.findIndex((level) => level.id === action.payload.id);
       if (index !== -1) {
         state.proficiencyLevels[index] = action.payload;
-        state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
+        state.proficiencyLevels.sort((a, b) => withDefault(a.rank, 0) - withDefault(b.rank, 0));
       }
       if (state.selectedProficiencyLevel?.id === action.payload.id) {
         state.selectedProficiencyLevel = action.payload;
       }
     },
-    
+
     deleteProficiencyLevelOptimistic: (state, action: PayloadAction<string>) => {
-      state.proficiencyLevels = state.proficiencyLevels?.filter(
-        (level) => level?.id !== action.payload
+      state.proficiencyLevels = state.proficiencyLevels.filter(
+        (level) => level.id !== action.payload
       );
       if (state.selectedProficiencyLevel?.id === action.payload) {
         state.selectedProficiencyLevel = null;
       }
     },
-    
+
     // Rollback actions
     setProficiencyLevels: (state, action: PayloadAction<ProficiencyLevel[]>) => {
       state.proficiencyLevels = action.payload;
@@ -124,23 +119,21 @@ const proficiencyLevelsSlice = createSlice({
       .addCase(fetchProficiencyLevels.fulfilled, (state, action) => {
         state.isLoading = false;
         // Null-safe access to API response
-        const mapSkillResponseToSkill = (response: ProficiencyLevelResponse): ProficiencyLevel => {
-          return {
-            id: response.levelId,
-            level: response.level,
-            rank: response.rank,
-            color: response.color,
-            skillCount: response.skillCount
-          }
-        }
+        const mapSkillResponseToSkill = (response: ProficiencyLevelResponse): ProficiencyLevel => ({
+          id: response.levelId,
+          level: response.level,
+          rank: response.rank,
+          color: response.color,
+          skillCount: response.skillCount,
+        });
         if (isDefined(action.payload.data)) {
-          state.proficiencyLevels = action.payload.data.map(x => mapSkillResponseToSkill(x));
+          state.proficiencyLevels = action.payload.data.map((x) => mapSkillResponseToSkill(x));
         } else {
           state.proficiencyLevels = [];
         }
 
         // Sort proficiency levels by rank
-        state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
+        state.proficiencyLevels.sort((a, b) => withDefault(a.rank, 0) - withDefault(b.rank, 0));
 
         state.errorMessage = undefined;
       })
@@ -160,7 +153,7 @@ const proficiencyLevelsSlice = createSlice({
         if (isDefined(action.payload.data)) {
           state.proficiencyLevels.push(action.payload.data);
           // Re-sort after adding
-          state.proficiencyLevels.sort((a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0));
+          state.proficiencyLevels.sort((a, b) => withDefault(a.rank, 0) - withDefault(b.rank, 0));
         }
         state.errorMessage = undefined;
       })
@@ -177,20 +170,16 @@ const proficiencyLevelsSlice = createSlice({
       .addCase(updateProficiencyLevel.fulfilled, (state, action) => {
         state.isUpdating = false;
         if (isDefined(action.payload.data)) {
-          const index = state.proficiencyLevels?.findIndex(
-            (level) => level?.id === action.payload.data?.id
+          const index = state.proficiencyLevels.findIndex(
+            (level) => level.id === action.payload.data.id
           );
           if (index !== -1) {
             state.proficiencyLevels[index] = action.payload.data;
             // Re-sort after updating
-            state.proficiencyLevels.sort(
-              (a, b) => withDefault(a?.rank, 0) - withDefault(b?.rank, 0)
-            );
+            state.proficiencyLevels.sort((a, b) => withDefault(a.rank, 0) - withDefault(b.rank, 0));
           }
 
-          if (
-            state.selectedProficiencyLevel?.id === action.payload.data.id
-          ) {
+          if (state.selectedProficiencyLevel?.id === action.payload.data.id) {
             state.selectedProficiencyLevel = action.payload.data;
           }
         }

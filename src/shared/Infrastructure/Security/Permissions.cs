@@ -78,6 +78,10 @@ public static class Permissions
     // Moderator Panel
     public const string ModeratorAccessPanel = "moderator:access_panel";
 
+    // Security Alerts
+    public const string SecurityViewAlerts = "security:view_alerts";
+    public const string SecurityManageAlerts = "security:manage_alerts";
+
     // Role Management (Super Admin only)
     public const string RolesCreate = "roles:create";
     public const string RolesUpdate = "roles:update";

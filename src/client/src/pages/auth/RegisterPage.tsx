@@ -23,8 +23,7 @@ const RegisterPage: React.FC = () => {
             Neues Konto erstellen
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Tritt der SkillSwap-Community bei und beginne zu lernen und zu
-            lehren
+            Tritt der SkillSwap-Community bei und beginne zu lernen und zu lehren
           </Typography>
         </Box>
 

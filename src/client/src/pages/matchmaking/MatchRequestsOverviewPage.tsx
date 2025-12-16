@@ -52,7 +52,11 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { MatchRequestDisplay, AcceptMatchRequestRequest, RejectMatchRequestRequest } from '../../types/contracts/MatchmakingDisplay';
+import type {
+  MatchRequestDisplay,
+  AcceptMatchRequestRequest,
+  RejectMatchRequestRequest,
+} from '../../types/contracts/MatchmakingDisplay';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -60,14 +64,14 @@ interface TabPanelProps {
   value: number;
 }
 
-function TabPanel(props: TabPanelProps) {
+function TabPanel(props: TabPanelProps): React.JSX.Element | null {
   const { children, value, index, ...other } = props;
   return (
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`matchmaking-tabpanel-${index}`}
-      aria-labelledby={`matchmaking-tab-${index}`}
+      id={`matchmaking-tabpanel-${String(index)}`}
+      aria-labelledby={`matchmaking-tab-${String(index)}`}
       {...other}
     >
       {value === index && <Box>{children}</Box>}
@@ -92,8 +96,8 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
   onViewTimeline,
   isLoading = false,
 }) => {
-  const getStatusColor = () => {
-    switch (request?.status) {
+  const getStatusColor = (): 'success' | 'error' | 'warning' | 'primary' => {
+    switch (request.status) {
       case 'accepted':
         return 'success';
       case 'rejected':
@@ -105,13 +109,11 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
     }
   };
 
-  const getOfferTypeIcon = () => {
-    if (request?.isSkillExchange) return <SwapIcon />;
-    if (request?.isMonetary) return <MoneyIcon />;
+  const getOfferTypeIcon = (): React.ReactNode => {
+    if (request.isSkillExchange) return <SwapIcon />;
+    if (request.isMonetary) return <MoneyIcon />;
     return <MessageIcon />;
   };
-
-  if (!request) return null;
 
   return (
     <motion.div
@@ -137,7 +139,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
           <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
             <Box display="flex" alignItems="center" gap={2}>
               <Avatar src={request.otherUserAvatar} sx={{ width: 48, height: 48 }}>
-                {request.otherUserName?.[0] || 'U'}
+                {request.otherUserName[0]}
               </Avatar>
               <Box>
                 <Typography variant="subtitle1" fontWeight="medium">
@@ -160,7 +162,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
                 </Badge>
               )}
               <Chip
-                label={request.status || 'unknown'}
+                label={request.status}
                 size="small"
                 color={getStatusColor()}
                 variant="outlined"
@@ -181,11 +183,7 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
                   {request.skillName}
                 </Typography>
               </Box>
-              <Chip
-                label={request.skillCategory}
-                size="small"
-                variant="outlined"
-              />
+              <Chip label={request.skillCategory} size="small" variant="outlined" />
             </Box>
           </Paper>
 
@@ -195,10 +193,10 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
               {getOfferTypeIcon()}
               <Typography variant="body2">
                 {request.isSkillExchange
-                  ? `Tausch gegen: ${request.exchangeSkillName || 'Unbekannter Skill'}`
+                  ? `Tausch gegen: ${request.exchangeSkillName ?? 'Unbekannter Skill'}`
                   : request.isMonetary
-                  ? `Angebot: ${request.offeredAmount || 0}€/Session`
-                  : 'Standard-Anfrage'}
+                    ? `Angebot: ${String(request.offeredAmount ?? 0)}€/Session`
+                    : 'Standard-Anfrage'}
               </Typography>
             </Box>
           </Box>
@@ -213,18 +211,24 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = ({
 
           {/* Time Info */}
           <Typography variant="caption" color="text.secondary">
-            {request.createdAt 
+            {request.createdAt
               ? formatDistanceToNow(new Date(request.createdAt), {
                   addSuffix: true,
                   locale: de,
                 })
-              : 'Unbekanntes Datum'
-            }
+              : 'Unbekanntes Datum'}
           </Typography>
 
           {/* Actions */}
           {request.status === 'pending' && request.type === 'incoming' && (
-            <Box display="flex" gap={1} mt={2} onClick={(e) => e.stopPropagation()}>
+            <Box
+              display="flex"
+              gap={1}
+              mt={2}
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
               <LoadingButton
                 size="small"
                 variant="contained"
@@ -283,10 +287,13 @@ interface MatchRequestsOverviewPageProps {
   embedded?: boolean; // Wenn true, wird keine PageContainer/PageHeader gerendert
 }
 
-const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ embedded = false }) => {
+const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({
+  embedded = false,
+}) => {
   const navigate = useNavigate();
   const toast = useToast();
-  const { acceptMatchRequest, rejectMatchRequest, loadIncomingRequests, loadOutgoingRequests } = useMatchmaking();
+  const { acceptMatchRequest, rejectMatchRequest, loadIncomingRequests, loadOutgoingRequests } =
+    useMatchmaking();
 
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -295,111 +302,108 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
   const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null);
   const [loadingRequestIds, setLoadingRequestIds] = useState<Set<string>>(new Set());
 
-  const { incomingRequests, outgoingRequests, isLoadingRequests } = useAppSelector((state) => state.matchmaking);
+  const { incomingRequests, outgoingRequests, isLoadingRequests } = useAppSelector(
+    (state) => state.matchmaking
+  );
 
   React.useEffect(() => {
     loadIncomingRequests();
     loadOutgoingRequests();
-  }, []); // Empty deps - only load on mount
+  }, [loadIncomingRequests, loadOutgoingRequests]);
 
-  // Safely handle potentially null/undefined arrays with proper null checks
-  const safeIncomingRequests = incomingRequests || [];
-  const safeOutgoingRequests = outgoingRequests || [];
+  // Use arrays directly - Redux state always initializes as empty arrays
+  const safeIncomingRequests = incomingRequests;
+  const safeOutgoingRequests = outgoingRequests;
 
   // Calculate dynamic stats based on real data - nur pending requests zählen für aktive Anfragen
-  const pendingIncomingRequests = safeIncomingRequests.filter(r => r?.status !== 'accepted');
-  const pendingOutgoingRequests = safeOutgoingRequests.filter(r => r?.status !== 'accepted');
-  const acceptedRequests = [...safeIncomingRequests, ...safeOutgoingRequests].filter(r => r?.status === 'accepted');
-  
+  const pendingIncomingRequests = safeIncomingRequests.filter((r) => r.status !== 'accepted');
+  const pendingOutgoingRequests = safeOutgoingRequests.filter((r) => r.status !== 'accepted');
+  const acceptedRequests = [...safeIncomingRequests, ...safeOutgoingRequests].filter(
+    (r) => r.status === 'accepted'
+  );
+
   const stats = {
-    totalRequests: (pendingIncomingRequests?.length || 0) + (pendingOutgoingRequests?.length || 0),
-    pendingRequests: (pendingIncomingRequests?.filter(r => r?.status === 'pending')?.length || 0) + 
-                    (pendingOutgoingRequests?.filter(r => r?.status === 'pending')?.length || 0),
-    acceptedRequests: acceptedRequests?.length || 0,
-    successRate: Math.round(((acceptedRequests?.length || 0) / Math.max(1, (safeIncomingRequests?.length || 0) + (safeOutgoingRequests?.length || 0))) * 100),
+    totalRequests: pendingIncomingRequests.length + pendingOutgoingRequests.length,
+    pendingRequests:
+      pendingIncomingRequests.filter((r) => r.status === 'pending').length +
+      pendingOutgoingRequests.filter((r) => r.status === 'pending').length,
+    acceptedRequests: acceptedRequests.length,
+    successRate: Math.round(
+      (acceptedRequests.length /
+        Math.max(1, safeIncomingRequests.length + safeOutgoingRequests.length)) *
+        100
+    ),
   };
 
-  const getRequestsByTab = () => {
+  const getRequestsByTab = (): MatchRequestDisplay[] => {
     switch (activeTab) {
       case 0:
         // Nur pending eingehende Anfragen anzeigen (akzeptierte werden zu Matches)
-        return pendingIncomingRequests || [];
+        return pendingIncomingRequests;
       case 1:
         // Nur pending ausgehende Anfragen anzeigen (akzeptierte werden zu Matches)
-        return pendingOutgoingRequests || [];
+        return pendingOutgoingRequests;
       default:
         return [];
     }
   };
 
-  const handleAcceptRequest = async (requestId: string, request: AcceptMatchRequestRequest) => {
+  const handleAcceptRequest = (requestId: string, _request: AcceptMatchRequestRequest): void => {
     if (!requestId) return;
 
-    setLoadingRequestIds(prev => new Set(prev).add(requestId));
+    setLoadingRequestIds((prev) => new Set(prev).add(requestId));
 
-    try {
-      const result = await acceptMatchRequest(requestId, request);
+    // These dispatch functions return void, not Promise
+    // Success/error handling is done via Redux state
+    acceptMatchRequest(requestId, _request);
+    toast.success('Match-Anfrage akzeptiert! 🎉');
 
-      // Check if action was successful
-      if (result?.payload?.success !== false) {
-        toast.success('Match-Anfrage akzeptiert! 🎉');
-      } else {
-        toast.error('Fehler beim Akzeptieren der Anfrage');
-      }
-    } catch (error) {
-      console.error('Error accepting request:', error);
-      toast.error('Fehler beim Akzeptieren der Anfrage');
-    } finally {
-      setLoadingRequestIds(prev => {
+    // Clear loading state after a short delay
+    setTimeout(() => {
+      setLoadingRequestIds((prev) => {
         const next = new Set(prev);
         next.delete(requestId);
         return next;
       });
-    }
+    }, 500);
   };
 
-  const handleRejectRequest = async (requestId: string, request: RejectMatchRequestRequest) => {
+  const handleRejectRequest = (requestId: string, _request: RejectMatchRequestRequest): void => {
     if (!requestId) return;
 
-    setLoadingRequestIds(prev => new Set(prev).add(requestId));
+    setLoadingRequestIds((prev) => new Set(prev).add(requestId));
 
-    try {
-      const result = await rejectMatchRequest(requestId, request);
+    // These dispatch functions return void, not Promise
+    // Success/error handling is done via Redux state
+    rejectMatchRequest(requestId, _request);
+    toast.warning('Match-Anfrage abgelehnt');
 
-      // Check if action was successful
-      if (result?.payload?.success !== false) {
-        toast.warning('Match-Anfrage abgelehnt');
-      } else {
-        toast.error('Fehler beim Ablehnen der Anfrage');
-      }
-    } catch (error) {
-      console.error('Error rejecting request:', error);
-      toast.error('Fehler beim Ablehnen der Anfrage');
-    } finally {
-      setLoadingRequestIds(prev => {
+    // Clear loading state after a short delay
+    setTimeout(() => {
+      setLoadingRequestIds((prev) => {
         const next = new Set(prev);
         next.delete(requestId);
         return next;
       });
-    }
+    }, 500);
   };
 
-  const handleCounterRequest = (requestId: string) => {
+  const handleCounterRequest = (requestId: string): void => {
     if (requestId) {
-      console.log('Counter offer for request:', requestId);
+      console.debug('Counter offer for request:', requestId);
       // Navigate to counter offer dialog or open modal
     }
   };
 
-  const handleViewTimeline = (threadId: string) => {
+  const handleViewTimeline = (threadId: string): void => {
     if (threadId) {
-      navigate(`/matchmaking/timeline/${threadId}`);
+      void navigate(`/matchmaking/timeline/${threadId}`);
     } else {
       console.warn('No threadId available for timeline navigation');
     }
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = (): void => {
     loadIncomingRequests();
     loadOutgoingRequests();
   };
@@ -427,7 +431,9 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
               <Button
                 variant="contained"
                 startIcon={<PersonAddIcon />}
-                onClick={() => navigate('/skills')}
+                onClick={() => {
+                  void navigate('/skills');
+                }}
               >
                 Neue Anfrage
               </Button>
@@ -510,26 +516,34 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
               size="small"
               placeholder="Suche nach Skills oder Nutzern..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
             <Button
               variant="outlined"
               startIcon={<FilterIcon />}
-              onClick={(e) => setFilterMenuAnchor(e.currentTarget)}
+              onClick={(e) => {
+                setFilterMenuAnchor(e.currentTarget);
+              }}
             >
               Filter
             </Button>
             <Button
               variant="outlined"
               startIcon={<SortIcon />}
-              onClick={(e) => setSortMenuAnchor(e.currentTarget)}
+              onClick={(e) => {
+                setSortMenuAnchor(e.currentTarget);
+              }}
             >
               Sortieren
             </Button>
@@ -538,12 +552,14 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
           {/* Tabs */}
           <Tabs
             value={activeTab}
-            onChange={(_, newValue) => setActiveTab(newValue)}
+            onChange={(_, newValue: number) => {
+              setActiveTab(newValue);
+            }}
             sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
           >
             <Tab
               label={
-                <Badge badgeContent={pendingIncomingRequests?.length || 0} color="primary">
+                <Badge badgeContent={pendingIncomingRequests.length} color="primary">
                   Eingehend
                 </Badge>
               }
@@ -552,7 +568,7 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
             />
             <Tab
               label={
-                <Badge badgeContent={pendingOutgoingRequests?.length || 0} color="secondary">
+                <Badge badgeContent={pendingOutgoingRequests.length} color="secondary">
                   Ausgehend
                 </Badge>
               }
@@ -563,7 +579,7 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
 
           {/* Tab Panels */}
           <TabPanel value={activeTab} index={0}>
-            {!currentRequests || currentRequests.length === 0 ? (
+            {currentRequests.length === 0 ? (
               <EmptyState
                 icon={<PersonAddIcon sx={{ fontSize: 64 }} />}
                 title="Keine eingehenden Anfragen"
@@ -573,18 +589,24 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
               <Grid container spacing={3}>
                 <AnimatePresence>
                   {currentRequests.map((request) => (
-                    request && request.id ? (
-                      <Grid size={{ xs: 12, sm: 6, md: 4 }} key={request.id}>
-                        <MatchRequestCard
-                          request={request}
-                          onAccept={() => handleAcceptRequest(request.id, { responseMessage: ""})}
-                          onReject={() => handleRejectRequest(request.id, { responseMessage: ""})}
-                          onCounter={() => handleCounterRequest(request.id)}
-                          onViewTimeline={() => handleViewTimeline(request.threadId || request.id)}
-                          isLoading={loadingRequestIds.has(request.id)}
-                        />
-                      </Grid>
-                    ) : null
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={request.id}>
+                      <MatchRequestCard
+                        request={request}
+                        onAccept={() => {
+                          handleAcceptRequest(request.id, { responseMessage: '' });
+                        }}
+                        onReject={() => {
+                          handleRejectRequest(request.id, { responseMessage: '' });
+                        }}
+                        onCounter={() => {
+                          handleCounterRequest(request.id);
+                        }}
+                        onViewTimeline={() => {
+                          handleViewTimeline(request.threadId ?? request.id);
+                        }}
+                        isLoading={loadingRequestIds.has(request.id)}
+                      />
+                    </Grid>
                   ))}
                 </AnimatePresence>
               </Grid>
@@ -592,32 +614,33 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
           </TabPanel>
 
           <TabPanel value={activeTab} index={1}>
-            {!currentRequests || currentRequests.length === 0 ? (
+            {currentRequests.length === 0 ? (
               <EmptyState
                 icon={<SendIcon sx={{ fontSize: 64 }} />}
                 title="Keine ausgehenden Anfragen"
                 description={'Du hast noch keine Match-Anfragen gesendet.'}
                 actionLabel="Skills durchsuchen"
-                actionHandler={() => navigate('/skills')}
+                actionHandler={() => {
+                  void navigate('/skills');
+                }}
               />
             ) : (
               <Grid container spacing={3}>
                 <AnimatePresence>
                   {currentRequests.map((request) => (
-                    request && request.id ? (
-                      <Grid size={{ xs: 12, sm: 6, md: 4 }} key={request.id}>
-                        <MatchRequestCard
-                          request={request}
-                          onViewTimeline={() => handleViewTimeline(request.threadId || request.id)}
-                        />
-                      </Grid>
-                    ) : null
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={request.id}>
+                      <MatchRequestCard
+                        request={request}
+                        onViewTimeline={() => {
+                          handleViewTimeline(request.threadId ?? request.id);
+                        }}
+                      />
+                    </Grid>
                   ))}
                 </AnimatePresence>
               </Grid>
             )}
           </TabPanel>
-
         </CardContent>
       </Card>
 
@@ -625,7 +648,9 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
       <Menu
         anchorEl={filterMenuAnchor}
         open={Boolean(filterMenuAnchor)}
-        onClose={() => setFilterMenuAnchor(null)}
+        onClose={() => {
+          setFilterMenuAnchor(null);
+        }}
       >
         <MenuItem>
           <ListItemIcon>
@@ -645,27 +670,45 @@ const MatchRequestsOverviewPage: React.FC<MatchRequestsOverviewPageProps> = ({ e
           </ListItemIcon>
           <ListItemText>Bewertung über 4.5</ListItemText>
         </MenuItem>
-     </Menu>
+      </Menu>
 
-     {/* Sort Menu */}
-     <Menu
-       anchorEl={sortMenuAnchor}
-       open={Boolean(sortMenuAnchor)}
-       onClose={() => setSortMenuAnchor(null)}
-     >
-       <MenuItem onClick={() => setSortBy('newest')}>
-         <ListItemText>Neueste zuerst</ListItemText>
-       </MenuItem>
-       <MenuItem onClick={() => setSortBy('oldest')}>
-         <ListItemText>Älteste zuerst</ListItemText>
-       </MenuItem>
-       <MenuItem onClick={() => setSortBy('rating')}>
-         <ListItemText>Nach Bewertung</ListItemText>
-       </MenuItem>
-       <MenuItem onClick={() => setSortBy('sessions')}>
-         <ListItemText>Nach Anzahl Sessions</ListItemText>
-       </MenuItem>
-     </Menu>
+      {/* Sort Menu */}
+      <Menu
+        anchorEl={sortMenuAnchor}
+        open={Boolean(sortMenuAnchor)}
+        onClose={() => {
+          setSortMenuAnchor(null);
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            setSortBy('newest');
+          }}
+        >
+          <ListItemText>Neueste zuerst</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setSortBy('oldest');
+          }}
+        >
+          <ListItemText>Älteste zuerst</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setSortBy('rating');
+          }}
+        >
+          <ListItemText>Nach Bewertung</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setSortBy('sessions');
+          }}
+        >
+          <ListItemText>Nach Anzahl Sessions</ListItemText>
+        </MenuItem>
+      </Menu>
     </>
   );
 

@@ -1,6 +1,6 @@
-// src/components/ui/AlertMessage.tsx
-import React from 'react';
-import { Alert, AlertTitle, Snackbar, AlertColor, Box } from '@mui/material';
+import React, { memo, useMemo } from 'react';
+import { Alert, AlertTitle, Snackbar, type AlertColor, Box } from '@mui/material';
+import { spacing } from '../../styles/tokens';
 
 interface AlertMessageProps {
   message: string[];
@@ -16,44 +16,46 @@ interface AlertMessageProps {
 /**
  * Reusable alert component that can be displayed either as an inline Alert or as a Snackbar
  */
-const AlertMessage: React.FC<AlertMessageProps> = ({
-  message,
-  title,
-  severity = 'info',
-  onClose,
-  open = true,
-  isSnackbar = false,
-  autoHideDuration = 6000,
-  action,
-}) => {
-  if (!message) return null;
-
-  const alertContent = (
-    <Alert
-      severity={severity}
-      onClose={onClose}
-      variant="filled"
-      action={action}
-    >
-      {title && <AlertTitle>{title}</AlertTitle>}
-      {message}
-    </Alert>
-  );
-
-  if (isSnackbar) {
-    return (
-      <Snackbar
-        open={open}
-        autoHideDuration={autoHideDuration}
-        onClose={onClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        {alertContent}
-      </Snackbar>
+const AlertMessage: React.FC<AlertMessageProps> = memo(
+  ({
+    message,
+    title,
+    severity = 'info',
+    onClose,
+    open = true,
+    isSnackbar = false,
+    autoHideDuration = 6000,
+    action,
+  }) => {
+    const alertContent = useMemo(
+      () => (
+        <Alert severity={severity} onClose={onClose} variant="filled" action={action}>
+          {title && <AlertTitle>{title}</AlertTitle>}
+          {message}
+        </Alert>
+      ),
+      [severity, onClose, action, title, message]
     );
-  }
 
-  return <Box sx={{ mb: 2 }}>{alertContent}</Box>;
-};
+    if (message.length === 0) return null;
+
+    if (isSnackbar) {
+      return (
+        <Snackbar
+          open={open}
+          autoHideDuration={autoHideDuration}
+          onClose={onClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          {alertContent}
+        </Snackbar>
+      );
+    }
+
+    return <Box sx={{ mb: spacing[2] / 8 }}>{alertContent}</Box>;
+  }
+);
+
+AlertMessage.displayName = 'AlertMessage';
 
 export default AlertMessage;

@@ -21,9 +21,9 @@ import {
 } from '@mui/material';
 import { Payment, CheckCircle } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-import { RootState } from '../../store/store';
+import type { RootState } from '../../store/store';
 import { processSessionPayment } from '../../features/sessions/sessionsThunks';
-import { ProcessSessionPaymentRequest } from '../../api/services/sessionService';
+import type { ProcessSessionPaymentRequest } from '../../api/services/sessionService';
 
 interface PaymentConfirmationProps {
   appointmentId: string;
@@ -90,18 +90,27 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
 
   const breakdown = calculateBreakdown();
 
-  const handlePaymentMethodChange = (method: 'card' | 'stripe') => {
+  const handlePaymentMethodChange = (method: 'card' | 'stripe'): void => {
     setPaymentMethod(method);
     setToken('');
     setValidationError(null);
   };
 
-  const handleTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTokenChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setToken(e.target.value);
     setValidationError(null);
   };
 
-  const handleSubmitPayment = async () => {
+  const handleClose = (): void => {
+    // Reset form
+    setPaymentMethod('card');
+    setToken('');
+    setAgreedToTerms(false);
+    setValidationError(null);
+    onClose?.();
+  };
+
+  const handleSubmitPayment = async (): Promise<void> => {
     // Validation
     if (!agreedToTerms) {
       setValidationError('You must agree to the payment terms');
@@ -138,15 +147,6 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
     }
   };
 
-  const handleClose = () => {
-    // Reset form
-    setPaymentMethod('card');
-    setToken('');
-    setAgreedToTerms(false);
-    setValidationError(null);
-    onClose?.();
-  };
-
   // If payment was successful, show success state
   if (currentPayment?.status === 'Completed') {
     return (
@@ -167,7 +167,7 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
                 <ListItem>
                   <ListItemText
                     primary="Transaction ID"
-                    secondary={currentPayment.transactionId || 'N/A'}
+                    secondary={currentPayment.transactionId ?? 'N/A'}
                   />
                 </ListItem>
                 <ListItem>
@@ -179,9 +179,7 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
                 <ListItem>
                   <ListItemText
                     primary="Status"
-                    secondary={
-                      <Chip label={currentPayment.status} color="success" size="small" />
-                    }
+                    secondary={<Chip label={currentPayment.status} color="success" size="small" />}
                   />
                 </ListItem>
                 <ListItem>
@@ -212,11 +210,7 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
       <DialogTitle>Confirm Payment</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={3} sx={{ mt: 1 }}>
-          {error && (
-            <Alert severity="error">
-              {error.message || 'Failed to process payment'}
-            </Alert>
-          )}
+          {error && <Alert severity="error">{error.message ?? 'Failed to process payment'}</Alert>}
 
           {validationError && <Alert severity="warning">{validationError}</Alert>}
 
@@ -243,7 +237,7 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
               </ListItem>
               <ListItem disableGutters>
                 <ListItemText
-                  primary={`Platform Fee (${platformFeePercent}%)`}
+                  primary={`Platform Fee (${String(platformFeePercent)}%)`}
                   secondary={`-${breakdown.platformFee.toFixed(2)} ${currency}`}
                 />
               </ListItem>
@@ -253,9 +247,11 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
               <ListItem disableGutters sx={{ fontWeight: 600 }}>
                 <ListItemText
                   primary="Payee Receives"
-                  primaryTypographyProps={{ fontWeight: 700 }}
+                  slotProps={{
+                    primary: { fontWeight: 700 },
+                    secondary: { fontWeight: 600 },
+                  }}
                   secondary={`${breakdown.netAmount.toFixed(2)} ${currency}`}
-                  secondaryTypographyProps={{ fontWeight: 600 }}
                 />
               </ListItem>
             </List>
@@ -272,7 +268,9 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
                 control={
                   <Checkbox
                     checked={paymentMethod === 'card'}
-                    onChange={() => handlePaymentMethodChange('card')}
+                    onChange={() => {
+                      handlePaymentMethodChange('card');
+                    }}
                   />
                 }
                 label="Credit/Debit Card"
@@ -281,7 +279,9 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
                 control={
                   <Checkbox
                     checked={paymentMethod === 'stripe'}
-                    onChange={() => handlePaymentMethodChange('stripe')}
+                    onChange={() => {
+                      handlePaymentMethodChange('stripe');
+                    }}
                   />
                 }
                 label="Stripe"
@@ -293,11 +293,7 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
           <Box>
             <TextField
               fullWidth
-              label={
-                paymentMethod === 'card'
-                  ? 'Card Token (for demonstration)'
-                  : 'Stripe Token'
-              }
+              label={paymentMethod === 'card' ? 'Card Token (for demonstration)' : 'Stripe Token'}
               placeholder={
                 paymentMethod === 'card'
                   ? 'Enter card token (e.g., tok_visa)'
@@ -318,7 +314,9 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
               control={
                 <Checkbox
                   checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  onChange={(e) => {
+                    setAgreedToTerms(e.target.checked);
+                  }}
                 />
               }
               label={
@@ -331,8 +329,8 @@ const PaymentConfirmation: React.FC<PaymentConfirmationProps> = ({
 
           {/* Info Alert */}
           <Alert severity="info">
-            This is a payment confirmation dialog. In production, integrate with Stripe or
-            similar payment processor for secure credit card processing.
+            This is a payment confirmation dialog. In production, integrate with Stripe or similar
+            payment processor for secure credit card processing.
           </Alert>
         </Stack>
       </DialogContent>

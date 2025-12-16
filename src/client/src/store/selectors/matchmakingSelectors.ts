@@ -1,7 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit';
-import { RootState } from '../store';
+import type { RootState } from '../store';
 import { selectAuthUser } from './authSelectors';
-import { matchesAdapter } from '../adapters/matchmakingAdapter+State';
+import { matchesAdapter, type MatchesEntityState } from '../adapters/matchmakingAdapter+State';
 
 /**
  * MATCHMAKING SELECTORS - REFACTORED
@@ -14,22 +14,23 @@ import { matchesAdapter } from '../adapters/matchmakingAdapter+State';
 
 // ==================== BASE SELECTORS ====================
 
-export const selectMatchmakingState = (state: RootState) => state.matchmaking;
-export const selectMatchesLoading = (state: RootState) => state.matchmaking.isLoading;
-export const selectIsLoadingMatches = (state: RootState) => state.matchmaking.isLoadingMatches;
-export const selectMatchmakingError = (state: RootState) => state.matchmaking.errorMessage;
-export const selectIsLoadingRequests = (state: RootState) => state.matchmaking.isLoadingRequests;
-export const selectIsLoadingThread = (state: RootState) => state.matchmaking.isLoadingThread;
-
+export const selectMatchmakingState = (state: RootState): MatchesEntityState => state.matchmaking;
+export const selectMatchesLoading = (state: RootState): boolean => state.matchmaking.isLoading;
+export const selectIsLoadingMatches = (state: RootState): boolean =>
+  state.matchmaking.isLoadingMatches;
+export const selectMatchmakingError = (state: RootState): string | undefined =>
+  state.matchmaking.errorMessage;
+export const selectIsLoadingRequests = (state: RootState): boolean =>
+  state.matchmaking.isLoadingRequests;
+export const selectIsLoadingThread = (state: RootState): boolean =>
+  state.matchmaking.isLoadingThread;
 // ==================== ENTITY ADAPTER SELECTORS ====================
 
 /**
  * Get adapter selectors scoped to matchmaking state
  * These provide efficient access to normalized entities
  */
-const adapterSelectors = matchesAdapter.getSelectors<RootState>(
-  (state) => state.matchmaking
-);
+const adapterSelectors = matchesAdapter.getSelectors<RootState>((state) => state.matchmaking);
 
 // Export adapter selectors
 export const {
@@ -189,7 +190,7 @@ export const selectCurrentThread = createSelector(
 
 export const selectCurrentThreadRequests = createSelector(
   [selectCurrentThread],
-  (currentThread) => currentThread?.requests || []
+  (currentThread) => currentThread?.requests
 );
 
 export const selectCurrentThreadParticipants = createSelector(
@@ -204,7 +205,7 @@ export const selectCurrentThreadSkill = createSelector(
 
 export const selectCurrentThreadStatus = createSelector(
   [selectCurrentThread],
-  (currentThread) => currentThread?.status || 'active'
+  (currentThread) => currentThread?.status
 );
 
 // ==================== STATISTICS SELECTORS ====================
@@ -282,5 +283,5 @@ export const selectHasPendingRequests = createSelector(
  */
 export const selectNextMatchRequiringAction = createSelector(
   [selectPendingIncomingRequests],
-  (pendingRequests) => pendingRequests[0] || null
+  (pendingRequests) => pendingRequests[0]
 );

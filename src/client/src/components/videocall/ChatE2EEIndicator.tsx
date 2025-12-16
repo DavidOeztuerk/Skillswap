@@ -8,7 +8,7 @@
  * - Warning for unverified messages
  */
 
-import React from 'react';
+import React, { type JSX } from 'react';
 import { Box, Tooltip, Chip, Typography } from '@mui/material';
 import {
   Lock as LockIcon,
@@ -17,7 +17,7 @@ import {
   Warning as WarningIcon,
   Shield as ShieldIcon,
 } from '@mui/icons-material';
-import { ChatE2EEStatus } from '../../store/adapters/videoCallAdapter+State';
+import type { ChatE2EEStatus } from '../../store/adapters/videoCallAdapter+State';
 
 /**
  * Props for inline message encryption indicator
@@ -152,10 +152,14 @@ export const ChatE2EEStatusHeader: React.FC<ChatE2EEStatusHeaderProps> = ({
     }
   };
 
-  const getStatusIcon = () => {
+  const getStatusIcon = (): JSX.Element => {
     switch (status) {
       case 'active':
-        return verificationFailures > 0 ? <WarningIcon fontSize="small" /> : <LockIcon fontSize="small" />;
+        return verificationFailures > 0 ? (
+          <WarningIcon fontSize="small" />
+        ) : (
+          <LockIcon fontSize="small" />
+        );
       case 'error':
         return <LockOpenIcon fontSize="small" />;
       default:
@@ -185,14 +189,16 @@ export const ChatE2EEStatusHeader: React.FC<ChatE2EEStatusHeaderProps> = ({
 
       {isActive && (
         <Tooltip
-          title={`Encrypted: ${messagesEncrypted}, Decrypted: ${messagesDecrypted}${
-            verificationFailures > 0 ? `, Verification failures: ${verificationFailures}` : ''
+          title={`Encrypted: ${String(messagesEncrypted)}, Decrypted: ${String(messagesDecrypted)}${
+            verificationFailures > 0
+              ? `, Verification failures: ${String(verificationFailures)}`
+              : ''
           }`}
           arrow
         >
           <Chip
             icon={<ShieldIcon />}
-            label={`${messagesEncrypted + messagesDecrypted} msgs`}
+            label={`${String(messagesEncrypted + messagesDecrypted)} msgs`}
             size="small"
             color={getStatusColor()}
             sx={{ height: 20, fontSize: '0.65rem' }}
@@ -222,7 +228,10 @@ interface VerificationBadgeProps {
 /**
  * Verification badge (shows sender verification status)
  */
-export const VerificationBadge: React.FC<VerificationBadgeProps> = ({ isVerified, senderFingerprint }) => {
+export const VerificationBadge: React.FC<VerificationBadgeProps> = ({
+  isVerified,
+  senderFingerprint,
+}) => {
   if (!isVerified) {
     return (
       <Tooltip title="Sender identity could not be verified" arrow>

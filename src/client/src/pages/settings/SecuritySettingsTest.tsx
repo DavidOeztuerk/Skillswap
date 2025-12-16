@@ -2,8 +2,8 @@ import React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
 
 const SecuritySettingsTest: React.FC = () => {
-  console.log('SecuritySettingsTest component rendered!');
-  
+  console.debug('SecuritySettingsTest component rendered!');
+
   return (
     <Box sx={{ p: 3 }}>
       <Paper sx={{ p: 3 }}>

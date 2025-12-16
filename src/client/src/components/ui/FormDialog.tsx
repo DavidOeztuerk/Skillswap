@@ -1,4 +1,3 @@
-// src/components/ui/FormDialog.tsx
 import React from 'react';
 import {
   Dialog,
@@ -6,8 +5,8 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  SxProps,
-  Theme,
+  type SxProps,
+  type Theme,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
@@ -60,7 +59,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
       </DialogTitle>
     )}
     <DialogContent dividers>{children}</DialogContent>
-    {actions && <DialogActions>{actions}</DialogActions>}
+    {actions !== undefined && <DialogActions>{actions}</DialogActions>}
   </Dialog>
 );
 

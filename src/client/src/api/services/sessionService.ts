@@ -1,13 +1,12 @@
 import { APPOINTMENT_ENDPOINTS } from '../../config/endpoints';
 import { apiClient } from '../apiClient';
-import { ApiResponse } from '../../types/api/UnifiedResponse';
+import type { ApiResponse } from '../../types/api/UnifiedResponse';
 
 /**
  * Session lifecycle request/response interfaces
  */
-export interface StartSessionRequest {
-  // Empty body - appointmentId from route
-}
+// Empty body - appointmentId comes from route parameter
+export type StartSessionRequest = Record<string, never>;
 
 export interface CompleteSessionRequest {
   isNoShow?: boolean;
@@ -84,7 +83,7 @@ const sessionService = {
    * @returns Session status response
    */
   async startSession(appointmentId: string): Promise<ApiResponse<SessionStatusResponse>> {
-    if (!appointmentId?.trim()) throw new Error('Appointment ID is required');
+    if (!appointmentId.trim()) throw new Error('Appointment ID is required');
 
     return await apiClient.post<SessionStatusResponse>(
       `${APPOINTMENT_ENDPOINTS.START_SESSION}/${appointmentId}/start`,
@@ -104,13 +103,13 @@ const sessionService = {
     appointmentId: string,
     request?: CompleteSessionRequest
   ): Promise<ApiResponse<SessionStatusResponse>> {
-    if (!appointmentId?.trim()) throw new Error('Appointment ID is required');
+    if (!appointmentId.trim()) throw new Error('Appointment ID is required');
 
     return await apiClient.post<SessionStatusResponse>(
       `${APPOINTMENT_ENDPOINTS.COMPLETE_SESSION}/${appointmentId}/complete-session`,
       {
         isNoShow: request?.isNoShow ?? false,
-        noShowReason: request?.noShowReason || null,
+        noShowReason: request?.noShowReason ?? null,
       }
     );
   },
@@ -127,7 +126,7 @@ const sessionService = {
     appointmentId: string,
     request: RateSessionRequest
   ): Promise<ApiResponse<RatingResponse>> {
-    if (!appointmentId?.trim()) throw new Error('Appointment ID is required');
+    if (!appointmentId.trim()) throw new Error('Appointment ID is required');
     if (!request.rating || request.rating < 1 || request.rating > 5) {
       throw new Error('Rating must be between 1 and 5');
     }
@@ -136,10 +135,10 @@ const sessionService = {
       `${APPOINTMENT_ENDPOINTS.RATE_SESSION}/${appointmentId}/rate-session`,
       {
         rating: request.rating,
-        feedback: request.feedback || null,
+        feedback: request.feedback ?? null,
         isPublic: request.isPublic !== false,
-        wouldRecommend: request.wouldRecommend || null,
-        tags: request.tags || null,
+        wouldRecommend: request.wouldRecommend ?? null,
+        tags: request.tags ?? null,
       }
     );
   },
@@ -156,7 +155,7 @@ const sessionService = {
     appointmentId: string,
     request: RescheduleSessionRequest
   ): Promise<ApiResponse<SessionStatusResponse>> {
-    if (!appointmentId?.trim()) throw new Error('Appointment ID is required');
+    if (!appointmentId.trim()) throw new Error('Appointment ID is required');
     if (!request.proposedDate) throw new Error('Proposed date is required');
 
     const proposedDate = new Date(request.proposedDate);
@@ -168,8 +167,8 @@ const sessionService = {
       `${APPOINTMENT_ENDPOINTS.RESCHEDULE_SESSION}/${appointmentId}/reschedule-session`,
       {
         proposedDate: request.proposedDate,
-        proposedDurationMinutes: request.proposedDurationMinutes || null,
-        reason: request.reason || null,
+        proposedDurationMinutes: request.proposedDurationMinutes ?? null,
+        reason: request.reason ?? null,
       }
     );
   },
@@ -186,12 +185,12 @@ const sessionService = {
     appointmentId: string,
     reason?: string
   ): Promise<ApiResponse<SessionStatusResponse>> {
-    if (!appointmentId?.trim()) throw new Error('Appointment ID is required');
+    if (!appointmentId.trim()) throw new Error('Appointment ID is required');
 
     return await apiClient.post<SessionStatusResponse>(
       `${APPOINTMENT_ENDPOINTS.CANCEL_SESSION}/${appointmentId}/cancel-session`,
       {
-        reason: reason || null,
+        reason: reason ?? null,
       }
     );
   },
@@ -208,10 +207,10 @@ const sessionService = {
     appointmentId: string,
     request: ProcessSessionPaymentRequest
   ): Promise<ApiResponse<PaymentResponse>> {
-    if (!appointmentId?.trim()) throw new Error('Appointment ID is required');
-    if (!request.payeeId?.trim()) throw new Error('Payee ID is required');
+    if (!appointmentId.trim()) throw new Error('Appointment ID is required');
+    if (!request.payeeId.trim()) throw new Error('Payee ID is required');
     if (!request.amount || request.amount <= 0) throw new Error('Amount must be greater than 0');
-    if (!request.currency || request.currency.length !== 3) {
+    if (request.currency?.length !== 3) {
       throw new Error('Currency must be a valid 3-character code');
     }
 
@@ -220,9 +219,9 @@ const sessionService = {
       {
         payeeId: request.payeeId,
         amount: request.amount,
-        currency: request.currency || 'EUR',
-        paymentMethodToken: request.paymentMethodToken || null,
-        platformFeePercent: request.platformFeePercent || null,
+        currency: request.currency ?? 'EUR',
+        paymentMethodToken: request.paymentMethodToken ?? null,
+        platformFeePercent: request.platformFeePercent ?? null,
       }
     );
   },

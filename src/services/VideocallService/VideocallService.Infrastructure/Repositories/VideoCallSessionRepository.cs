@@ -37,6 +37,13 @@ public class VideoCallSessionRepository : IVideoCallSessionRepository
             .FirstOrDefaultAsync(s => s.RoomId == roomId && !s.IsDeleted, cancellationToken);
     }
 
+    public async Task<VideoCallSession?> GetByRoomIdWithParticipantsAsync(string roomId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.VideoCallSessions
+            .Include(s => s.Participants)
+            .FirstOrDefaultAsync(s => s.RoomId == roomId && !s.IsDeleted, cancellationToken);
+    }
+
     public async Task<List<VideoCallSession>> GetUserSessionsAsync(string userId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.VideoCallSessions

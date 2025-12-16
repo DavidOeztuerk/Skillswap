@@ -1,48 +1,17 @@
 import React, {
   createContext,
-  useContext,
   useState,
   useCallback,
-  useRef,
   useEffect,
-  ReactNode,
+  useMemo,
+  type ReactNode,
 } from 'react';
+import { useAppDispatch } from '../store/store.hooks';
+import { setLocalStreamId, setRemoteStreamId } from '../features/videocall/videoCallSlice';
+import { getStreamManager, type StreamEventCallback } from '../services/StreamManager';
+import type { StreamContextValue } from './streamContextTypes';
 
-// ============================================================================
-// Types
-// ============================================================================
-
-interface StreamContextState {
-  localStream: MediaStream | null;
-  remoteStream: MediaStream | null;
-  screenStream: MediaStream | null;
-}
-
-interface StreamContextValue extends StreamContextState {
-  // Setters
-  setLocalStream: (stream: MediaStream | null) => void;
-  setRemoteStream: (stream: MediaStream | null) => void;
-  setScreenStream: (stream: MediaStream | null) => void;
-
-  // Cleanup
-  stopLocalStream: () => void;
-  stopRemoteStream: () => void;
-  stopScreenStream: () => void;
-  cleanup: () => void;
-
-  // Track Management
-  addLocalTrack: (track: MediaStreamTrack) => void;
-  removeLocalTrack: (track: MediaStreamTrack) => void;
-  replaceLocalTrack: (oldTrack: MediaStreamTrack, newTrack: MediaStreamTrack) => boolean;
-
-  // Utilities
-  getLocalStreamId: () => string | null;
-  getRemoteStreamId: () => string | null;
-  hasLocalVideo: () => boolean;
-  hasLocalAudio: () => boolean;
-  hasRemoteVideo: () => boolean;
-  hasRemoteAudio: () => boolean;
-}
+const DEBUG = import.meta.env.DEV && import.meta.env.VITE_VERBOSE_STREAMS === 'true';
 
 // ============================================================================
 // Context
@@ -59,289 +28,469 @@ interface StreamProviderProps {
 }
 
 export const StreamProvider: React.FC<StreamProviderProps> = ({ children }) => {
+  const dispatch = useAppDispatch();
+  const streamManager = getStreamManager();
+
+  // React State für UI-Updates (synced mit StreamManager)
   const [localStream, setLocalStreamState] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStreamState] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStreamState] = useState<MediaStream | null>(null);
 
-  // Refs für Cleanup-Tracking
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteStreamRef = useRef<MediaStream | null>(null);
-  const screenStreamRef = useRef<MediaStream | null>(null);
+  // Stream IDs für schnellen Zugriff
+  const [localStreamId, setLocalStreamIdState] = useState<string | null>(null);
+  const [remoteStreamId, setRemoteStreamIdState] = useState<string | null>(null);
+  const [screenStreamId, setScreenStreamIdState] = useState<string | null>(null);
 
   // ========================================================================
-  // Stream Stop Helpers
+  // StreamManager Event Handler
   // ========================================================================
 
-  const stopStream = useCallback((stream: MediaStream | null) => {
-    if (stream) {
-      stream.getTracks().forEach((track: MediaStreamTrack) => {
-        try {
-          if (track.readyState === 'live') {
-            track.stop();
-            console.log(`🛑 Stopped ${track.kind} track: ${track.id}`);
-          }
-        } catch (e) {
-          console.warn(`Failed to stop track:`, e);
+  useEffect(() => {
+    const handleStreamCreated: StreamEventCallback = (event) => {
+      if (!event.stream || !event.metadata) return;
+
+      if (DEBUG) {
+        console.debug(
+          `📹 StreamContext: Stream created (${event.metadata.type}): ${event.streamId ?? 'unknown'}`
+        );
+      }
+
+      switch (event.metadata.type) {
+        case 'camera':
+          setLocalStreamState(event.stream);
+          setLocalStreamIdState(event.streamId ?? null);
+          dispatch(setLocalStreamId(event.streamId ?? null));
+          break;
+
+        case 'screen':
+          setScreenStreamState(event.stream);
+          setScreenStreamIdState(event.streamId ?? null);
+          break;
+
+        case 'remote':
+          setRemoteStreamState(event.stream);
+          setRemoteStreamIdState(event.streamId ?? null);
+          dispatch(setRemoteStreamId(event.streamId ?? null));
+          break;
+
+        default:
+          // This should never happen as type is 'camera' | 'screen' | 'remote'
+          console.warn('Unknown stream type received');
+          break;
+      }
+    };
+
+    const handleStreamDestroyed: StreamEventCallback = (event) => {
+      if (!event.streamId) return;
+
+      if (DEBUG) {
+        console.debug(`📹 StreamContext: Stream destroyed: ${event.streamId}`);
+      }
+
+      // Prüfe welcher Stream zerstört wurde und update State
+      if (event.streamId === localStreamId) {
+        setLocalStreamState(null);
+        setLocalStreamIdState(null);
+        dispatch(setLocalStreamId(null));
+      } else if (event.streamId === remoteStreamId) {
+        setRemoteStreamState(null);
+        setRemoteStreamIdState(null);
+        dispatch(setRemoteStreamId(null));
+      } else if (event.streamId === screenStreamId) {
+        setScreenStreamState(null);
+        setScreenStreamIdState(null);
+      }
+    };
+
+    const handleTrackEnded: StreamEventCallback = (event) => {
+      if (DEBUG) {
+        console.debug(`📹 StreamContext: Track ended in stream: ${event.streamId ?? 'unknown'}`);
+      }
+      // StreamManager handles cleanup - we just need to update UI state if needed
+    };
+
+    const handleError: StreamEventCallback = (event) => {
+      console.error('📹 StreamContext: StreamManager error:', event.error);
+    };
+
+    // Subscribe to StreamManager events
+    const unsubCreated = streamManager.on('streamCreated', handleStreamCreated);
+    const unsubDestroyed = streamManager.on('streamDestroyed', handleStreamDestroyed);
+    const unsubEnded = streamManager.on('trackEnded', handleTrackEnded);
+    const unsubError = streamManager.on('error', handleError);
+
+    return () => {
+      unsubCreated();
+      unsubDestroyed();
+      unsubEnded();
+      unsubError();
+    };
+  }, [dispatch, streamManager, localStreamId, remoteStreamId, screenStreamId]);
+
+  // ========================================================================
+  // Stream Creation (NEW - preferred methods)
+  // ========================================================================
+
+  const createLocalStream = useCallback(
+    async (constraints: MediaStreamConstraints): Promise<MediaStream> => {
+      // Cleanup existing stream first
+      if (localStreamId) {
+        streamManager.destroyStream(localStreamId);
+      }
+
+      const stream = await streamManager.createCameraStream(constraints);
+      return stream;
+    },
+    [streamManager, localStreamId]
+  );
+
+  const createScreenStream = useCallback(
+    async (constraints?: DisplayMediaStreamOptions): Promise<MediaStream> => {
+      // Cleanup existing screen stream first
+      if (screenStreamId) {
+        streamManager.destroyStream(screenStreamId);
+      }
+
+      const stream = await streamManager.createScreenStream(constraints);
+      return stream;
+    },
+    [streamManager, screenStreamId]
+  );
+
+  const registerRemoteStream = useCallback(
+    (stream: MediaStream, peerId?: string): void => {
+      // Cleanup existing remote stream first
+      if (remoteStreamId) {
+        streamManager.destroyStream(remoteStreamId);
+      }
+
+      streamManager.registerRemoteStream(stream, peerId);
+    },
+    [streamManager, remoteStreamId]
+  );
+
+  // ========================================================================
+  // Legacy Setters (for backward compatibility)
+  // ========================================================================
+
+  const setLocalStream = useCallback(
+    (stream: MediaStream | null) => {
+      console.debug('📹 StreamContext.setLocalStream called:', {
+        stream: stream ? `id=${stream.id}, tracks=${String(stream.getTracks().length)}` : 'null',
+        currentLocalStreamId: localStreamId,
+      });
+
+      if (stream === null) {
+        // Destroy existing stream
+        if (localStreamId) {
+          console.debug('📹 StreamContext: Destroying existing stream', localStreamId);
+          streamManager.destroyStream(localStreamId);
         }
-      });
-    }
-  }, []);
+      } else {
+        // Cleanup old stream if different
+        if (localStreamId && localStreamId !== stream.id) {
+          console.debug('📹 StreamContext: Cleanup old stream (different ID)', localStreamId);
+          streamManager.destroyStream(localStreamId);
+        }
+
+        // Prüfe ob Stream bereits registriert
+        const existing = streamManager.getStream(stream.id);
+        console.debug('📹 StreamContext: Existing stream check:', existing ? 'YES' : 'NO');
+
+        if (!existing) {
+          // Register new stream as camera type
+          console.debug('📹 StreamContext: Calling streamManager.registerStream for camera');
+          streamManager.registerStream(stream, 'camera');
+        }
+
+        // Update local state
+        console.debug('📹 StreamContext: Updating local state');
+        setLocalStreamState(stream);
+        setLocalStreamIdState(stream.id);
+        dispatch(setLocalStreamId(stream.id));
+      }
+    },
+    [streamManager, localStreamId, dispatch]
+  );
+
+  const setRemoteStream = useCallback(
+    (stream: MediaStream | null) => {
+      if (stream === null) {
+        if (remoteStreamId) {
+          // Don't destroy remote tracks - they're controlled by the peer
+          // Just clear our reference
+          setRemoteStreamState(null);
+          setRemoteStreamIdState(null);
+          dispatch(setRemoteStreamId(null));
+        }
+      } else {
+        // Cleanup old stream reference if different
+        if (remoteStreamId && remoteStreamId !== stream.id) {
+          setRemoteStreamState(null);
+          setRemoteStreamIdState(null);
+        }
+
+        // Register with StreamManager
+        const existing = streamManager.getStream(stream.id);
+        if (!existing) {
+          streamManager.registerRemoteStream(stream);
+        }
+
+        setRemoteStreamState(stream);
+        setRemoteStreamIdState(stream.id);
+        dispatch(setRemoteStreamId(stream.id));
+      }
+    },
+    [streamManager, remoteStreamId, dispatch]
+  );
+
+  const setScreenStream = useCallback(
+    (stream: MediaStream | null) => {
+      if (stream === null) {
+        if (screenStreamId) {
+          streamManager.destroyStream(screenStreamId);
+        }
+      } else {
+        if (screenStreamId && screenStreamId !== stream.id) {
+          streamManager.destroyStream(screenStreamId);
+        }
+
+        const existing = streamManager.getStream(stream.id);
+        if (!existing) {
+          streamManager.registerStream(stream, 'screen');
+        }
+
+        setScreenStreamState(stream);
+        setScreenStreamIdState(stream.id);
+      }
+    },
+    [streamManager, screenStreamId]
+  );
 
   // ========================================================================
-  // Setters with Cleanup
-  // ========================================================================
-
-  const setLocalStream = useCallback((stream: MediaStream | null) => {
-    // Stop previous stream if different
-    if (localStreamRef.current && localStreamRef.current !== stream) {
-      stopStream(localStreamRef.current);
-    }
-    localStreamRef.current = stream;
-    setLocalStreamState(stream);
-
-    if (stream) {
-      console.log(`📹 Local stream set: ${stream.id} (${stream.getTracks().length} tracks)`);
-    } else {
-      console.log('📹 Local stream cleared');
-    }
-  }, [stopStream]);
-
-  const setRemoteStream = useCallback((stream: MediaStream | null) => {
-    if (remoteStreamRef.current && remoteStreamRef.current !== stream) {
-      // Don't stop remote stream tracks - they're controlled by the peer
-      console.log('📹 Remote stream replaced');
-    }
-    remoteStreamRef.current = stream;
-    setRemoteStreamState(stream);
-
-    if (stream) {
-      console.log(`📹 Remote stream set: ${stream.id} (${stream.getTracks().length} tracks)`);
-
-      // Listen for track ended events
-      stream.getTracks().forEach((track: MediaStreamTrack) => {
-        track.onended = () => {
-          console.log(`📹 Remote ${track.kind} track ended`);
-        };
-      });
-    }
-  }, []);
-
-  const setScreenStream = useCallback((stream: MediaStream | null) => {
-    if (screenStreamRef.current && screenStreamRef.current !== stream) {
-      stopStream(screenStreamRef.current);
-    }
-    screenStreamRef.current = stream;
-    setScreenStreamState(stream);
-
-    if (stream) {
-      console.log(`🖥️ Screen stream set: ${stream.id}`);
-
-      // Auto-cleanup when screen sharing ends
-      stream.getVideoTracks().forEach((track: MediaStreamTrack) => {
-        track.onended = () => {
-          console.log('🖥️ Screen sharing ended by user');
-          setScreenStreamState(null);
-          screenStreamRef.current = null;
-        };
-      });
-    }
-  }, [stopStream]);
-
-  // ========================================================================
-  // Stop Methods
+  // Stop Methods (SYNCHRONOUS - critical for Safari camera cleanup)
   // ========================================================================
 
   const stopLocalStream = useCallback(() => {
-    stopStream(localStreamRef.current);
-    localStreamRef.current = null;
-    setLocalStreamState(null);
-  }, [stopStream]);
+    if (localStreamId) {
+      console.debug('🛑 StreamContext: Stopping local stream via StreamManager');
+      streamManager.destroyStream(localStreamId);
+      // State wird durch Event Handler gecleart
+    }
+  }, [streamManager, localStreamId]);
 
   const stopRemoteStream = useCallback(() => {
-    // Don't stop tracks, just clear reference
-    remoteStreamRef.current = null;
+    // Don't stop remote tracks - they're controlled by the peer
+    // Just clear our reference
     setRemoteStreamState(null);
-  }, []);
+    setRemoteStreamIdState(null);
+    dispatch(setRemoteStreamId(null));
+  }, [dispatch]);
 
   const stopScreenStream = useCallback(() => {
-    stopStream(screenStreamRef.current);
-    screenStreamRef.current = null;
-    setScreenStreamState(null);
-  }, [stopStream]);
+    if (screenStreamId) {
+      console.debug('🛑 StreamContext: Stopping screen stream via StreamManager');
+      streamManager.destroyStream(screenStreamId);
+    }
+  }, [streamManager, screenStreamId]);
 
   const cleanup = useCallback(() => {
-    console.log('🧹 StreamContext: Full cleanup');
-    stopLocalStream();
-    stopRemoteStream();
-    stopScreenStream();
-  }, [stopLocalStream, stopRemoteStream, stopScreenStream]);
+    console.debug('🧹 StreamContext: Full cleanup via StreamManager');
+    console.debug('🧹 StreamContext: Current state:', {
+      localStreamId,
+      remoteStreamId,
+      screenStreamId,
+      streamManagerDebug: streamManager.getDebugInfo(),
+    });
+
+    // Destroy all local streams through StreamManager
+    streamManager.destroyAllStreams();
+
+    // Clear local state
+    setLocalStreamState(null);
+    setRemoteStreamState(null);
+    setScreenStreamState(null);
+    setLocalStreamIdState(null);
+    setRemoteStreamIdState(null);
+    setScreenStreamIdState(null);
+
+    // Clear Redux state
+    dispatch(setLocalStreamId(null));
+    dispatch(setRemoteStreamId(null));
+
+    console.debug('✅ StreamContext: Cleanup complete');
+  }, [streamManager, dispatch, localStreamId, remoteStreamId, screenStreamId]);
 
   // ========================================================================
   // Track Management
   // ========================================================================
 
-  const addLocalTrack = useCallback((track: MediaStreamTrack) => {
-    if (localStreamRef.current) {
-      localStreamRef.current.addTrack(track);
-      console.log(`➕ Added ${track.kind} track to local stream`);
-    } else {
-      const stream = new MediaStream([track]);
-      setLocalStream(stream);
-    }
-  }, [setLocalStream]);
+  const addLocalTrack = useCallback(
+    (track: MediaStreamTrack) => {
+      if (localStream) {
+        localStream.addTrack(track);
+        if (DEBUG) console.debug(`➕ Added ${track.kind} track to local stream`);
+      } else {
+        // Create new stream with this track
+        const stream = new MediaStream([track]);
+        setLocalStream(stream);
+      }
+    },
+    [localStream, setLocalStream]
+  );
 
-  const removeLocalTrack = useCallback((track: MediaStreamTrack) => {
-    if (localStreamRef.current) {
-      localStreamRef.current.removeTrack(track);
-      track.stop();
-      console.log(`➖ Removed ${track.kind} track from local stream`);
-    }
-  }, []);
+  const removeLocalTrack = useCallback(
+    (track: MediaStreamTrack) => {
+      if (localStream) {
+        localStream.removeTrack(track);
+        track.stop();
+        if (DEBUG) console.debug(`➖ Removed ${track.kind} track from local stream`);
+      }
+    },
+    [localStream]
+  );
 
-  const replaceLocalTrack = useCallback((
-    oldTrack: MediaStreamTrack,
-    newTrack: MediaStreamTrack
-  ): boolean => {
-    if (!localStreamRef.current) return false;
+  const replaceLocalTrack = useCallback(
+    (oldTrack: MediaStreamTrack, newTrack: MediaStreamTrack): boolean => {
+      if (!localStream) return false;
 
-    try {
-      localStreamRef.current.removeTrack(oldTrack);
-      oldTrack.stop();
-      localStreamRef.current.addTrack(newTrack);
-      console.log(`🔄 Replaced ${oldTrack.kind} track in local stream`);
-      return true;
-    } catch (e) {
-      console.error('Failed to replace track:', e);
-      return false;
-    }
-  }, []);
+      try {
+        localStream.removeTrack(oldTrack);
+        oldTrack.stop();
+        localStream.addTrack(newTrack);
+        if (DEBUG) console.debug(`🔄 Replaced ${oldTrack.kind} track in local stream`);
+        return true;
+      } catch (e) {
+        console.error('Failed to replace track:', e);
+        return false;
+      }
+    },
+    [localStream]
+  );
 
   // ========================================================================
   // Utilities
   // ========================================================================
 
-  const getLocalStreamId = useCallback(() => {
-    return localStreamRef.current?.id ?? null;
-  }, []);
+  const getLocalStreamId = useCallback(() => localStreamId, [localStreamId]);
+  const getRemoteStreamId = useCallback(() => remoteStreamId, [remoteStreamId]);
 
-  const getRemoteStreamId = useCallback(() => {
-    return remoteStreamRef.current?.id ?? null;
-  }, []);
+  const hasLocalVideo = useCallback(
+    () =>
+      localStream
+        ?.getVideoTracks()
+        .some((t: MediaStreamTrack) => t.readyState === 'live' && t.enabled) ?? false,
+    [localStream]
+  );
 
-  const hasLocalVideo = useCallback(() => {
-    return localStreamRef.current?.getVideoTracks().some(
-      (t: MediaStreamTrack) => t.readyState === 'live' && t.enabled
-    ) ?? false;
-  }, []);
+  const hasLocalAudio = useCallback(
+    () =>
+      localStream
+        ?.getAudioTracks()
+        .some((t: MediaStreamTrack) => t.readyState === 'live' && t.enabled) ?? false,
+    [localStream]
+  );
 
-  const hasLocalAudio = useCallback(() => {
-    return localStreamRef.current?.getAudioTracks().some(
-      (t: MediaStreamTrack) => t.readyState === 'live' && t.enabled
-    ) ?? false;
-  }, []);
+  const hasRemoteVideo = useCallback(
+    () =>
+      remoteStream?.getVideoTracks().some((t: MediaStreamTrack) => t.readyState === 'live') ??
+      false,
+    [remoteStream]
+  );
 
-  const hasRemoteVideo = useCallback(() => {
-    return remoteStreamRef.current?.getVideoTracks().some(
-      (t: MediaStreamTrack) => t.readyState === 'live'
-    ) ?? false;
-  }, []);
+  const hasRemoteAudio = useCallback(
+    () =>
+      remoteStream?.getAudioTracks().some((t: MediaStreamTrack) => t.readyState === 'live') ??
+      false,
+    [remoteStream]
+  );
 
-  const hasRemoteAudio = useCallback(() => {
-    return remoteStreamRef.current?.getAudioTracks().some(
-      (t: MediaStreamTrack) => t.readyState === 'live'
-    ) ?? false;
-  }, []);
+  const getDebugInfo = useCallback(() => streamManager.getDebugInfo(), [streamManager]);
 
   // ========================================================================
   // Cleanup on Unmount
   // ========================================================================
 
-  useEffect(() => {
-    return () => {
-      console.log('🧹 StreamProvider unmounting - cleaning up all streams');
-      stopStream(localStreamRef.current);
-      stopStream(screenStreamRef.current);
-      // Don't stop remote stream tracks
-    };
-  }, [stopStream]);
-
-  // ========================================================================
-  // Context Value
-  // ========================================================================
-
-  const value: StreamContextValue = {
-    // State
-    localStream,
-    remoteStream,
-    screenStream,
-
-    // Setters
-    setLocalStream,
-    setRemoteStream,
-    setScreenStream,
-
-    // Cleanup
-    stopLocalStream,
-    stopRemoteStream,
-    stopScreenStream,
-    cleanup,
-
-    // Track Management
-    addLocalTrack,
-    removeLocalTrack,
-    replaceLocalTrack,
-
-    // Utilities
-    getLocalStreamId,
-    getRemoteStreamId,
-    hasLocalVideo,
-    hasLocalAudio,
-    hasRemoteVideo,
-    hasRemoteAudio,
-  };
-
-  return (
-    <StreamContext.Provider value={value}>
-      {children}
-    </StreamContext.Provider>
+  useEffect(
+    () => () => {
+      if (DEBUG) console.debug('🧹 StreamProvider unmounting - cleaning up all streams');
+      // StreamManager handles actual cleanup
+      streamManager.destroyAllStreams();
+    },
+    [streamManager]
   );
+
+  // ========================================================================
+  // Context Value (memoized to prevent unnecessary re-renders)
+  // ========================================================================
+
+  const value = useMemo<StreamContextValue>(
+    () => ({
+      // State
+      localStream,
+      remoteStream,
+      screenStream,
+
+      // Creation
+      createLocalStream,
+      createScreenStream,
+      registerRemoteStream,
+
+      // Setters (legacy)
+      setLocalStream,
+      setRemoteStream,
+      setScreenStream,
+
+      // Cleanup
+      stopLocalStream,
+      stopRemoteStream,
+      stopScreenStream,
+      cleanup,
+
+      // Track Management
+      addLocalTrack,
+      removeLocalTrack,
+      replaceLocalTrack,
+
+      // Utilities
+      getLocalStreamId,
+      getRemoteStreamId,
+      hasLocalVideo,
+      hasLocalAudio,
+      hasRemoteVideo,
+      hasRemoteAudio,
+      getDebugInfo,
+    }),
+    [
+      // State
+      localStream,
+      remoteStream,
+      screenStream,
+      // All callbacks are stable due to useCallback
+      createLocalStream,
+      createScreenStream,
+      registerRemoteStream,
+      setLocalStream,
+      setRemoteStream,
+      setScreenStream,
+      stopLocalStream,
+      stopRemoteStream,
+      stopScreenStream,
+      cleanup,
+      addLocalTrack,
+      removeLocalTrack,
+      replaceLocalTrack,
+      getLocalStreamId,
+      getRemoteStreamId,
+      hasLocalVideo,
+      hasLocalAudio,
+      hasRemoteVideo,
+      hasRemoteAudio,
+      getDebugInfo,
+    ]
+  );
+
+  return <StreamContext.Provider value={value}>{children}</StreamContext.Provider>;
 };
-
-// ============================================================================
-// Hook
-// ============================================================================
-
-export const useStreams = (): StreamContextValue => {
-  const context = useContext(StreamContext);
-
-  if (!context) {
-    throw new Error('useStreams must be used within a StreamProvider');
-  }
-
-  return context;
-};
-
-// ============================================================================
-// HOC for Legacy Components
-// ============================================================================
-
-export interface WithStreamsProps {
-  streams: StreamContextValue;
-}
-
-export function withStreams<P extends WithStreamsProps>(
-  WrappedComponent: React.ComponentType<P>
-): React.FC<Omit<P, 'streams'>> {
-  const WithStreamsComponent: React.FC<Omit<P, 'streams'>> = (props) => {
-    const streams = useStreams();
-    return <WrappedComponent {...(props as P)} streams={streams} />;
-  };
-
-  WithStreamsComponent.displayName = `withStreams(${
-    WrappedComponent.displayName || WrappedComponent.name || 'Component'
-  })`;
-
-  return WithStreamsComponent;
-}
 
 export default StreamContext;

@@ -11,27 +11,28 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { RootState } from '../../store/store';
+import type { RootState } from '../../store/store';
 import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
 import errorService from '../../services/errorService';
 
 const SearchResultsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { results, isLoading, errorMessage } = useSelector(
-    (state: RootState) => state.search
-  );
+  const { results, isLoading, errorMessage } = useSelector((state: RootState) => state.search);
 
   useEffect(() => {
-    errorService.addBreadcrumb('Viewing search results', 'navigation', { 
-      resultsCount: results?.length, 
-      isLoading, 
-      hasError: !!errorMessage 
+    errorService.addBreadcrumb('Viewing search results', 'navigation', {
+      resultsCount: results.length,
+      isLoading,
+      hasError: !!errorMessage,
     });
   }, [results, isLoading, errorMessage]);
 
-  const handleViewSkill = (skillId: string, skillName: string) => {
-    errorService.addBreadcrumb('Navigating to skill from search results', 'navigation', { skillId, skillName });
-    navigate(`/skills/${skillId}`);
+  const handleViewSkill = async (skillId: string, skillName: string): Promise<void> => {
+    errorService.addBreadcrumb('Navigating to skill from search results', 'navigation', {
+      skillId,
+      skillName,
+    });
+    await navigate(`/skills/${skillId}`);
   };
 
   return (
@@ -40,11 +41,9 @@ const SearchResultsPage: React.FC = () => {
         Suchergebnisse
       </Typography>
 
-      {isLoading && (
-        <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} />
-      )}
+      {isLoading && <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} />}
       {errorMessage && <Typography color="error">Fehler: {errorMessage}</Typography>}
-      {results?.length === 0 && !isLoading && !errorMessage && (
+      {results.length === 0 && !isLoading && !errorMessage && (
         <Typography variant="h6" color="textSecondary">
           Keine Ergebnisse gefunden.
         </Typography>
@@ -66,7 +65,9 @@ const SearchResultsPage: React.FC = () => {
                 <Button
                   size="small"
                   color="primary"
-                  onClick={() => handleViewSkill(skill.id, skill.name)}
+                  onClick={async () => {
+                    await handleViewSkill(skill.id, skill.name);
+                  }}
                 >
                   Mehr erfahren
                 </Button>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -37,20 +37,24 @@ import {
 } from '@mui/icons-material';
 
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
-import { LoadingButton } from '../../components/common/LoadingButton';
+import { LoadingButton } from '../../components/ui/LoadingButton';
 import EmptyState from '../../components/ui/EmptyState';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
 import MatchForm from '../../components/matchmaking/MatchForm';
 import { useSkills } from '../../hooks/useSkills';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
-import { useEmailVerificationContext } from '../../contexts/EmailVerificationContext';
-import { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
-import { MatchRequestDisplay } from '../../types/contracts/MatchmakingDisplay';
+import { useLoading } from '../../contexts/loadingContextHooks';
+import { LoadingKeys } from '../../contexts/loadingContextValue';
+import { useEmailVerificationContext } from '../../contexts/emailVerificationContextHook';
+import type { CreateMatchRequest } from '../../types/contracts/requests/CreateMatchRequest';
+import type { MatchRequestDisplay } from '../../types/contracts/MatchmakingDisplay';
 import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
 import errorService from '../../services/errorService';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
+import { usePermissions } from '../../contexts/permissionContextHook';
+import { Permissions } from '../../components/auth/permissions.constants';
 import SEO from '../../components/seo/SEO';
 import { trackMatchRequestClick } from '../../utils/analytics';
 
@@ -59,7 +63,19 @@ const SkillDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const toast = useToast();
+  const { hasPermission } = usePermissions();
+
+  // Memoize permission checks for own skills
+  const canUpdateOwnSkill = useMemo(
+    () => hasPermission(Permissions.Skills.UPDATE_OWN),
+    [hasPermission]
+  );
+  const canDeleteOwnSkill = useMemo(
+    () => hasPermission(Permissions.Skills.DELETE_OWN),
+    [hasPermission]
+  );
 
   const { withLoading, isLoading } = useLoading();
   const {
@@ -94,7 +110,7 @@ const SkillDetailPage: React.FC = () => {
     outgoingRequests,
     loadOutgoingRequests,
     isLoading: isMatchmakingLoading,
-    errorMessage: matchmakingError
+    error: matchmakingError,
   } = useMatchmaking();
 
   const { needsVerification, openVerificationModal } = useEmailVerificationContext();
@@ -102,93 +118,140 @@ const SkillDetailPage: React.FC = () => {
   // Load skill data
   useEffect(() => {
     if (skillId) {
-      withLoading(LoadingKeys.FETCH_DATA, async () => {
+      void withLoading(LoadingKeys.FETCH_DATA, async () => {
         errorService.addBreadcrumb('Loading skill details', 'navigation', { skillId });
-        console.log('🎯 Loading skill details for ID:', skillId);
-        await fetchSkillById(skillId);
+        fetchSkillById(skillId);
+        return Promise.resolve();
       });
     }
   }, [skillId, fetchSkillById, withLoading]);
 
-  const isOwner =
-    selectedSkill &&
-    userSkills?.some((userSkill) => userSkill.id === selectedSkill.id);
+  // Robust isOwner check - uses user.id (immediately available after login)
+  // with fallback to userSkills (for offline/cache scenarios)
+  const isOwner = useMemo(() => {
+    if (!selectedSkill) return false;
 
-  // Use ref to prevent double execution in StrictMode
+    // Primary: Check via user.id (immediately available after login)
+    if (user?.id && selectedSkill.userId) {
+      return user.id === selectedSkill.userId;
+    }
+
+    // Fallback: Check via userSkills (for offline/cache scenarios)
+    return userSkills.some((userSkill) => userSkill.id === selectedSkill.id);
+  }, [selectedSkill, user, userSkills]);
+
+  // Use refs to prevent double execution in StrictMode and redirect loops
   const hasOpenedMatchForm = useRef(false);
+  const hasRedirectedOwnSkill = useRef(false);
 
-  // Check for automatic match form opening
+  // Check for automatic match form opening (handles login redirect with ?showMatchForm=true)
   useEffect(() => {
     const shouldShowMatchForm = searchParams.get('showMatchForm') === 'true';
-    if (shouldShowMatchForm && selectedSkill && !isOwner && !hasOpenedMatchForm.current) {
-      hasOpenedMatchForm.current = true;
-      console.log('🚀 Auto-opening match form from URL parameter');
-      setMatchFormOpen(true);
+
+    if (!shouldShowMatchForm || !selectedSkill) return;
+
+    // Wait until user is loaded after login redirect (important for isOwner check!)
+    if (isAuthenticated && !user) return;
+
+    // Case 1: Own skill - redirect to dashboard with toast
+    if (isOwner) {
+      // Guard against multiple redirects (setSearchParams triggers re-render before navigation completes)
+      if (hasRedirectedOwnSkill.current) return;
+      hasRedirectedOwnSkill.current = true;
+
       // Clean up URL parameter
       const newSearchParams = new URLSearchParams(searchParams);
       newSearchParams.delete('showMatchForm');
       setSearchParams(newSearchParams, { replace: true });
+      toast.info('Das ist dein eigener Skill - du wurdest zum Dashboard weitergeleitet.');
+      void navigate('/dashboard', { replace: true });
+      return;
     }
-  }, [selectedSkill, isOwner, searchParams, setSearchParams]);
 
-  // ✅ HINZUGEFÜGT: Bestimme von welcher Seite der User kam
+    // Case 2: Foreign skill - open match form
+    if (!hasOpenedMatchForm.current) {
+      hasOpenedMatchForm.current = true;
+
+      // Clean up URL parameter
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('showMatchForm');
+      setSearchParams(newSearchParams, { replace: true });
+
+      console.debug('🚀 Auto-opening match form from URL parameter');
+      queueMicrotask(() => {
+        setMatchFormOpen(true);
+      });
+    }
+  }, [
+    selectedSkill,
+    isOwner,
+    isAuthenticated,
+    user,
+    searchParams,
+    setSearchParams,
+    toast,
+    navigate,
+  ]);
+
   const [cameFromMySkills, setCameFromMySkills] = useState(false);
 
   useEffect(() => {
     // Prüfe die Referrer-URL oder verwende eine andere Logik
-    const referrer = document.referrer;
-    const cameFromMy =
-      referrer?.includes('/skills/my-skills') || Boolean(isOwner);
-    setCameFromMySkills(cameFromMy);
+    const { referrer } = document;
+    const cameFromMy = referrer.includes('/skills/my-skills') || isOwner;
+    // Use queueMicrotask to avoid synchronous setState in effect
+    queueMicrotask(() => {
+      setCameFromMySkills(cameFromMy);
+    });
   }, [isOwner]);
 
   // Handlers
-  const handleBookmark = async () => {
+  const handleBookmark = (): void => {
     if (!selectedSkill?.id) return;
-    
+
     const isFav = isFavoriteSkill(selectedSkill.id);
-    try {
-      if (isFav) {
-        errorService.addBreadcrumb('Removing skill from favorites', 'action', { skillId: selectedSkill.id });
-        await removeFavoriteSkill(selectedSkill.id);
-        setStatusMessage({
-          text: 'Aus Favoriten entfernt',
-          type: 'success',
-        });
-      } else {
-        errorService.addBreadcrumb('Adding skill to favorites', 'action', { skillId: selectedSkill.id });
-        await addFavoriteSkill(selectedSkill.id);
-        setStatusMessage({
-          text: 'Zu Favoriten hinzugefügt',
-          type: 'success',
-        });
-      }
-    } catch (error) {
-      errorService.addBreadcrumb('Error toggling favorite', 'error', { skillId: selectedSkill.id, error: error instanceof Error ? error.message : 'Unknown error' });
+    if (isFav) {
+      errorService.addBreadcrumb('Removing skill from favorites', 'action', {
+        skillId: selectedSkill.id,
+      });
+      removeFavoriteSkill(selectedSkill.id);
       setStatusMessage({
-        text: 'Fehler beim Aktualisieren der Favoriten',
-        type: 'error',
+        text: 'Aus Favoriten entfernt',
+        type: 'success',
+      });
+    } else {
+      errorService.addBreadcrumb('Adding skill to favorites', 'action', {
+        skillId: selectedSkill.id,
+      });
+      addFavoriteSkill(selectedSkill.id);
+      setStatusMessage({
+        text: 'Zu Favoriten hinzugefügt',
+        type: 'success',
       });
     }
   };
 
-  const handleShare = async () => {
-    if (navigator.share && selectedSkill) {
+  const handleShare = async (): Promise<void> => {
+    if (selectedSkill) {
       try {
-        errorService.addBreadcrumb('Sharing skill via native share', 'action', { skillId: selectedSkill.id });
+        errorService.addBreadcrumb('Sharing skill via native share', 'action', {
+          skillId: selectedSkill.id,
+        });
         await navigator.share({
           title: selectedSkill.name,
           text: selectedSkill.description,
           url: window.location.href,
         });
-      } catch (error) {
+      } catch (err) {
         errorService.addBreadcrumb('Share cancelled by user', 'ui', { skillId: selectedSkill.id });
-        console.log('Share canceled', error);
+        console.debug('Share canceled', err);
       }
     } else {
       // Fallback: Copy to clipboard
-      errorService.addBreadcrumb('Copying skill link to clipboard', 'action', { skillId: selectedSkill?.id });
-      navigator.clipboard.writeText(window.location.href);
+      errorService.addBreadcrumb('Copying skill link to clipboard', 'action', {
+        skillId: selectedSkill,
+      });
+      void navigator.clipboard.writeText(window.location.href);
       setStatusMessage({
         text: 'Link in Zwischenablage kopiert',
         type: 'success',
@@ -196,80 +259,71 @@ const SkillDetailPage: React.FC = () => {
     }
   };
 
-  const handleRateSkill = async () => {
+  const handleRateSkill = (): void => {
     if (!skillId || rating === null || isOwner) return;
 
-    try {
-      errorService.addBreadcrumb('Rating skill', 'form', { skillId, rating });
-      const success = await rateSkill(skillId, rating, review);
-      if (success) {
-        errorService.addBreadcrumb('Skill rated successfully', 'form', { skillId, rating });
-        setStatusMessage({
-          text: 'Bewertung erfolgreich abgegeben',
-          type: 'success',
-        });
-        setRatingDialogOpen(false);
-        setRating(0);
-        setReview('');
-        // In real app: reload skill data to get updated rating
-      }
-    } catch (error) {
-      errorService.addBreadcrumb('Error rating skill', 'error', { skillId, error: error instanceof Error ? error.message : 'Unknown error' });
-      setStatusMessage({
-        text: 'Fehler beim Bewerten',
-        type: 'error',
-      });
-    }
+    errorService.addBreadcrumb('Rating skill', 'form', { skillId, rating });
+    rateSkill(skillId, rating, review);
+    errorService.addBreadcrumb('Skill rated successfully', 'form', { skillId, rating });
+    setStatusMessage({
+      text: 'Bewertung erfolgreich abgegeben',
+      type: 'success',
+    });
+    setRatingDialogOpen(false);
+    setRating(0);
+    setReview('');
   };
 
-  const handleEndorseSkill = async () => {
+  const handleEndorseSkill = (): void => {
     if (!skillId || isOwner) return;
 
-    try {
-      errorService.addBreadcrumb('Endorsing skill', 'form', { skillId });
-      const success = await endorseSkill(skillId, endorseMessage);
-      if (success) {
-        errorService.addBreadcrumb('Skill endorsed successfully', 'form', { skillId });
-        setStatusMessage({
-          text: 'Empfehlung erfolgreich abgegeben',
-          type: 'success',
-        });
-        setEndorseDialogOpen(false);
-        setEndorseMessage('');
-      }
-    } catch (error) {
-      errorService.addBreadcrumb('Error endorsing skill', 'error', { skillId, error: error instanceof Error ? error.message : 'Unknown error' });
-      setStatusMessage({
-        text: 'Fehler beim Empfehlen',
-        type: 'error',
-      });
-    }
+    errorService.addBreadcrumb('Endorsing skill', 'form', { skillId });
+    endorseSkill(skillId, endorseMessage);
+    errorService.addBreadcrumb('Skill endorsed successfully', 'form', { skillId });
+    setStatusMessage({
+      text: 'Empfehlung erfolgreich abgegeben',
+      type: 'success',
+    });
+    setEndorseDialogOpen(false);
+    setEndorseMessage('');
   };
 
-  const handleDeleteSkill = async () => {
+  const handleDeleteSkill = (): void => {
     if (!skillId || !isOwner) return;
 
-    try {
-      errorService.addBreadcrumb('Deleting skill', 'action', { skillId });
-      const success = await deleteSkill(skillId);
-      if (success) {
-        errorService.addBreadcrumb('Skill deleted successfully', 'action', { skillId });
-        navigate('/skills/my-skills');
-      }
-    } catch (error) {
-      errorService.addBreadcrumb('Error deleting skill', 'error', { skillId, error: error instanceof Error ? error.message : 'Unknown error' });
-      setStatusMessage({
-        text: 'Fehler beim Löschen',
-        type: 'error',
-      });
-    }
+    errorService.addBreadcrumb('Deleting skill', 'action', { skillId });
+    deleteSkill(skillId);
+    errorService.addBreadcrumb('Skill deleted successfully', 'action', { skillId });
+    void navigate('/skills/my-skills');
   };
 
-  const handleCreateMatch = () => {
+  const handleCreateMatch = async (): Promise<void> => {
     if (!selectedSkill) return;
 
+    // Check authentication first - redirect guests to login
+    if (!isAuthenticated) {
+      errorService.addBreadcrumb(
+        'Guest tried to create match - redirecting to login',
+        'navigation',
+        {
+          skillId: selectedSkill.id,
+        }
+      );
+      trackMatchRequestClick(selectedSkill.id, false);
+      await navigate('/auth/login', {
+        state: {
+          from: location,
+          action: 'createMatch',
+          skillId: selectedSkill.id,
+        },
+      });
+      return;
+    }
+
     if (isOwner) {
-      errorService.addBreadcrumb('User tried to match own skill', 'ui', { skillId: selectedSkill.id });
+      errorService.addBreadcrumb('User tried to match own skill', 'ui', {
+        skillId: selectedSkill.id,
+      });
       setStatusMessage({
         text: 'Du kannst kein Match mit deinem eigenen Skill erstellen',
         type: 'info',
@@ -283,26 +337,26 @@ const SkillDetailPage: React.FC = () => {
 
   const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
 
-  const handleMatchSubmit = async (data: CreateMatchRequest): Promise<boolean> => {
+  const handleMatchSubmit = (data: CreateMatchRequest): Promise<boolean> => {
     if (!selectedSkill) {
       errorService.addBreadcrumb('Match submit failed - no skill selected', 'error');
       setStatusMessage({
         text: 'Fehler: Kein Skill ausgewählt',
         type: 'error',
       });
-      return false;
+      return Promise.resolve(false);
     }
 
     // Prevent double submission
     if (isSubmittingMatch) {
       console.warn('⚠️ Match request already being submitted');
-      return false;
+      return Promise.resolve(false);
     }
 
     // Check if user already has a pending request for this skill
-    const existingRequest = outgoingRequests?.find(
-      (req: MatchRequestDisplay) => req.skillId === selectedSkill.id &&
-      (req.status === 'pending' || req.status === 'accepted')
+    const existingRequest = outgoingRequests.find(
+      (req: MatchRequestDisplay) =>
+        req.skillId === selectedSkill.id && (req.status === 'pending' || req.status === 'accepted')
     );
 
     if (existingRequest) {
@@ -311,83 +365,77 @@ const SkillDetailPage: React.FC = () => {
         type: 'warning',
       });
       console.warn('⚠️ User already has a pending request for this skill');
-      return false;
+      return Promise.resolve(false);
     }
 
     // Check if user email is verified
     if (needsVerification) {
-      errorService.addBreadcrumb('Match request blocked - email not verified', 'validation', { skillId: selectedSkill.id });
+      errorService.addBreadcrumb('Match request blocked - email not verified', 'validation', {
+        skillId: selectedSkill.id,
+      });
       setStatusMessage({
         text: 'Bitte verifizieren Sie zuerst Ihre E-Mail-Adresse, um Match-Anfragen senden zu können.',
         type: 'warning',
       });
       openVerificationModal();
-      return false;
+      return Promise.resolve(false);
     }
 
     setIsSubmittingMatch(true);
 
-    try {
-      errorService.addBreadcrumb('Submitting match request', 'form', { skillId: selectedSkill.id, targetUserId: selectedSkill.userId });
-      console.log('🤝 Submitting match request from detail page:', data);
-      console.log('📋 Selected skill:', selectedSkill);
+    errorService.addBreadcrumb('Submitting match request', 'form', {
+      skillId: selectedSkill.id,
+      targetUserId: selectedSkill.userId,
+    });
+    console.debug('🤝 Submitting match request from detail page:', data);
+    console.debug('📋 Selected skill:', selectedSkill);
 
-      const command: CreateMatchRequest = {
-        skillId: selectedSkill.id,
-        targetUserId: selectedSkill.userId,
-        message: data.message || 'Ich bin interessiert an diesem Skill!',
-        isSkillExchange: data.isSkillExchange,
-        exchangeSkillId: data.exchangeSkillId,
-        isMonetary: data.isMonetary,
-        offeredAmount: data.offeredAmount,
-        currency: data.currency,
-        sessionDurationMinutes: data.sessionDurationMinutes,
-        totalSessions: data.totalSessions,
-        preferredDays: data.preferredDays,
-        preferredTimes: data.preferredTimes,
-        // Frontend-only fields
-        description: data.description || 'Match-Anfrage von Skill-Detail-Seite',
-        skillName: selectedSkill.name,
-        exchangeSkillName: data.exchangeSkillName,
-      };
+    const command: CreateMatchRequest = {
+      skillId: selectedSkill.id,
+      targetUserId: selectedSkill.userId,
+      message: data.message,
+      isSkillExchange: data.isSkillExchange,
+      exchangeSkillId: data.exchangeSkillId,
+      isMonetary: data.isMonetary,
+      offeredAmount: data.offeredAmount,
+      currency: data.currency,
+      sessionDurationMinutes: data.sessionDurationMinutes,
+      totalSessions: data.totalSessions,
+      preferredDays: data.preferredDays,
+      preferredTimes: data.preferredTimes,
+      // Frontend-only fields
+      description: data.description ?? 'Match-Anfrage von Skill-Detail-Seite',
+      skillName: selectedSkill.name,
+      exchangeSkillName: data.exchangeSkillName,
+    };
 
-      console.log('📤 Sending CreateMatchRequestCommand:', command);
+    console.debug('📤 Sending CreateMatchRequestCommand:', command);
 
-      const success = await sendMatchRequest(command);
+    // Fire-and-forget - Redux handles success/error state
+    sendMatchRequest(command);
 
-      if (success) {
-        errorService.addBreadcrumb('Match request created successfully', 'form', { skillId: selectedSkill.id });
-        setMatchFormOpen(false);
-        setStatusMessage({
-          text: 'Match-Anfrage erfolgreich erstellt! Sie werden zu Ihren Anfragen weitergeleitet...',
-          type: 'success',
-        });
-        
-        // Reload outgoing requests immediately
-        await loadOutgoingRequests();
-        
-        // Navigate to match requests page after short delay to show success message
-        setTimeout(() => {
-          navigate('/matchmaking?tab=1');
-        }, 1500);
-        
-        return true;
-      } else {
-        errorService.addBreadcrumb('Match request creation failed', 'error', { skillId: selectedSkill.id });
-        // Error will be handled by MatchForm component via matchmakingError
-        return false;
-      }
-    } catch (error) {
-      errorService.addBreadcrumb('Error submitting match request', 'error', { skillId: selectedSkill.id, error: error instanceof Error ? error.message : 'Unknown error' });
-      console.error('❌ Match submission error:', error);
-      // Error will be handled by MatchForm component via matchmakingError
-      return false;
-    } finally {
-      setIsSubmittingMatch(false);
-    }
+    errorService.addBreadcrumb('Match request created successfully', 'form', {
+      skillId: selectedSkill.id,
+    });
+    setMatchFormOpen(false);
+    setStatusMessage({
+      text: 'Match-Anfrage erfolgreich erstellt! Sie werden zu Ihren Anfragen weitergeleitet...',
+      type: 'success',
+    });
+
+    // Reload outgoing requests
+    loadOutgoingRequests();
+
+    // Navigate to match requests page after short delay to show success message
+    setTimeout(() => {
+      void navigate('/matchmaking?tab=1');
+    }, 1500);
+
+    setIsSubmittingMatch(false);
+    return Promise.resolve(true);
   };
 
-  const handleEdit = () => {
+  const handleEdit = (): void => {
     if (!skillId || !isOwner) {
       errorService.addBreadcrumb('User tried to edit skill they do not own', 'ui', { skillId });
       setStatusMessage({
@@ -397,23 +445,29 @@ const SkillDetailPage: React.FC = () => {
       return;
     }
     errorService.addBreadcrumb('Navigating to skill edit', 'navigation', { skillId });
-    navigate(`/skills/${skillId}/edit`);
+    void navigate(`/skills/${skillId}/edit`);
   };
 
-  const handleBack = () => {
-    // Navigate back to the appropriate skills page based on ownership
-    const targetRoute = (isOwner || cameFromMySkills) ? '/skills/my-skills' : '/skills';
-    errorService.addBreadcrumb('Navigating back from skill detail', 'navigation', { targetRoute });
-    if (isOwner || cameFromMySkills) {
-      navigate('/skills/my-skills');
+  const handleBack = (): void => {
+    // Navigate back based on authentication status and ownership
+    let targetRoute: string;
+
+    if (!isAuthenticated) {
+      // Unauthenticated users came from homepage
+      targetRoute = '/';
+    } else if (isOwner || cameFromMySkills) {
+      targetRoute = '/skills/my-skills';
     } else {
-      navigate('/skills');
+      targetRoute = '/skills';
     }
+
+    errorService.addBreadcrumb('Navigating back from skill detail', 'navigation', { targetRoute });
+    void navigate(targetRoute);
   };
 
   // Loading state
   const isPageLoading = isLoading(LoadingKeys.FETCH_DATA) || (skillsLoading && !selectedSkill);
-  
+
   if (isPageLoading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
@@ -427,7 +481,14 @@ const SkillDetailPage: React.FC = () => {
           {/* Main content skeleton */}
           <Grid size={{ xs: 12, md: 8 }}>
             <Paper sx={{ p: 3, mb: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  mb: 2,
+                }}
+              >
                 <Box sx={{ flex: 1 }}>
                   <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                     <SkeletonLoader variant="text" width={80} height={24} />
@@ -486,7 +547,7 @@ const SkillDetailPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description={"Der angeforderte Skill existiert nicht oder ist nicht verfügbar."}
+          description={'Der angeforderte Skill existiert nicht oder ist nicht verfügbar.'}
           actionLabel="Zurück zu Skills"
           actionHandler={() => navigate('/skills')}
         />
@@ -499,7 +560,7 @@ const SkillDetailPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description={"Der angeforderte Skill existiert nicht oder ist nicht verfügbar."}
+          description={'Der angeforderte Skill existiert nicht oder ist nicht verfügbar.'}
           actionLabel="Zurück zu Skills"
           actionHandler={() => navigate('/skills')}
         />
@@ -507,13 +568,13 @@ const SkillDetailPage: React.FC = () => {
     );
   }
 
-  const averageRating = selectedSkill?.averageRating ?? 0;
-  const reviewCount = selectedSkill?.reviewCount ?? 0;
+  const averageRating = selectedSkill.averageRating ?? 0;
+  const reviewCount = selectedSkill.reviewCount ?? 0;
 
-  const getOwnerName = () => {
+  const getOwnerName = (): string => {
     if (isOwner) return 'Du';
-    if (selectedSkill?.ownerUserName) return selectedSkill.ownerUserName;
-    if (selectedSkill?.ownerFirstName && selectedSkill?.ownerLastName) {
+    if (selectedSkill.ownerUserName) return selectedSkill.ownerUserName;
+    if (selectedSkill.ownerFirstName && selectedSkill.ownerLastName) {
       return `${selectedSkill.ownerFirstName} ${selectedSkill.ownerLastName}`;
     }
     return 'Skill-Besitzer';
@@ -521,28 +582,28 @@ const SkillDetailPage: React.FC = () => {
 
   const skillOwner = {
     name: getOwnerName(),
-    memberSince: selectedSkill?.ownerMemberSince
+    memberSince: selectedSkill.ownerMemberSince
       ? new Date(selectedSkill.ownerMemberSince).getFullYear().toString()
       : '2024',
-    rating: selectedSkill?.ownerRating ?? 0,
+    rating: selectedSkill.ownerRating ?? 0,
     avatar: '',
   };
 
-  console.log('🔍 SkillDetailPage Debug:', {
-    skillId,
-    isOwner,
-    selectedSkillId: selectedSkill?.id,
-    userSkillsCount: userSkills?.length,
-    cameFromMySkills,
-  });
-
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
-      {selectedSkill && (
+      {selectedSkill.id && (
         <SEO
-          title={`${selectedSkill.name} - ${selectedSkill.category?.name || 'Skill'}`}
-          description={selectedSkill.description || `Lerne ${selectedSkill.name}. ${selectedSkill.proficiencyLevel?.level || ''} Niveau.`}
-          keywords={[selectedSkill.name, selectedSkill.category?.name || '', selectedSkill.proficiencyLevel?.level || '', 'Skill lernen']}
+          title={`${selectedSkill.name} - ${selectedSkill.category.name || 'Skill'}`}
+          description={
+            selectedSkill.description ||
+            `Lerne ${selectedSkill.name}. ${selectedSkill.proficiencyLevel.level || ''} Niveau.`
+          }
+          keywords={[
+            selectedSkill.name,
+            selectedSkill.category.name || '',
+            selectedSkill.proficiencyLevel.level || '',
+            'Skill lernen',
+          ]}
           type="article"
         />
       )}
@@ -550,7 +611,9 @@ const SkillDetailPage: React.FC = () => {
       {statusMessage && (
         <Alert
           severity={statusMessage.type}
-          onClose={() => setStatusMessage(null)}
+          onClose={() => {
+            setStatusMessage(null);
+          }}
           sx={{ mb: 2 }}
         >
           {statusMessage.text}
@@ -568,27 +631,27 @@ const SkillDetailPage: React.FC = () => {
 
       {/* Navigation */}
       <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={handleBack}
-          sx={{ mb: 2 }}
-        >
+        <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
           Zurück
         </Button>
 
         <Breadcrumbs aria-label="breadcrumb">
           <Link
             color="inherit"
-            href={isOwner || cameFromMySkills ? '/skills/my-skills' : '/skills'}
+            href={
+              !isAuthenticated ? '/' : isOwner || cameFromMySkills ? '/skills/my-skills' : '/skills'
+            }
             onClick={(e) => {
               e.preventDefault();
-              navigate(
-                isOwner || cameFromMySkills ? '/skills/my-skills' : '/skills'
-              );
+              handleBack();
             }}
             sx={{ cursor: 'pointer' }}
           >
-            {isOwner || cameFromMySkills ? 'Meine Skills' : 'Alle Skills'}
+            {!isAuthenticated
+              ? 'Startseite'
+              : isOwner || cameFromMySkills
+                ? 'Meine Skills'
+                : 'Alle Skills'}
           </Link>
           <Typography color="text.primary">{selectedSkill.name}</Typography>
         </Breadcrumbs>
@@ -608,28 +671,17 @@ const SkillDetailPage: React.FC = () => {
               }}
             >
               <Box sx={{ flex: 1 }}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
-                >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                   <Chip
                     label={selectedSkill.isOffered ? 'Angeboten' : 'Gesucht'}
                     color={selectedSkill.isOffered ? 'success' : 'secondary'}
                     size="small"
                   />
-                  {selectedSkill.category && (
-                    <Chip
-                      label={selectedSkill.category.name}
-                      variant="outlined"
-                      size="small"
-                    />
+                  {selectedSkill.category.id && (
+                    <Chip label={selectedSkill.category.name} variant="outlined" size="small" />
                   )}
                   {isOwner && (
-                    <Chip
-                      label="Mein Skill"
-                      color="primary"
-                      size="small"
-                      variant="outlined"
-                    />
+                    <Chip label="Mein Skill" color="primary" size="small" variant="outlined" />
                   )}
                 </Box>
 
@@ -637,14 +689,12 @@ const SkillDetailPage: React.FC = () => {
                   {selectedSkill.name}
                 </Typography>
 
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
-                >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                   <Rating value={averageRating} readOnly precision={0.5} />
                   <Typography variant="body2" color="text.secondary">
                     {averageRating.toFixed(1)} ({reviewCount} Bewertungen)
                   </Typography>
-                  {selectedSkill.proficiencyLevel && (
+                  {selectedSkill.proficiencyLevel.id && (
                     <Chip
                       label={selectedSkill.proficiencyLevel.level}
                       size="small"
@@ -657,13 +707,17 @@ const SkillDetailPage: React.FC = () => {
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Tooltip
                   title={
-                    selectedSkill && isFavoriteSkill(selectedSkill.id)
+                    selectedSkill.id && isFavoriteSkill(selectedSkill.id)
                       ? 'Aus Favoriten entfernen'
                       : 'Zu Favoriten hinzufügen'
                   }
                 >
                   <IconButton onClick={handleBookmark}>
-                    {selectedSkill && isFavoriteSkill(selectedSkill.id) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                    {selectedSkill.id && isFavoriteSkill(selectedSkill.id) ? (
+                      <BookmarkIcon />
+                    ) : (
+                      <BookmarkBorderIcon />
+                    )}
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Teilen">
@@ -671,62 +725,34 @@ const SkillDetailPage: React.FC = () => {
                     <ShareIcon />
                   </IconButton>
                 </Tooltip>
-                {isOwner && (
-                  <>
-                    <Tooltip title="Bearbeiten">
-                      <IconButton onClick={handleEdit}>
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Löschen">
-                      <IconButton
-                        onClick={() => setDeleteDialogOpen(true)}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </>
+                {isOwner && canUpdateOwnSkill && (
+                  <Tooltip title="Bearbeiten">
+                    <IconButton onClick={handleEdit}>
+                      <EditIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {isOwner && canDeleteOwnSkill && (
+                  <Tooltip title="Löschen">
+                    <IconButton
+                      onClick={() => {
+                        setDeleteDialogOpen(true);
+                      }}
+                      color="error"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Tooltip>
                 )}
               </Box>
             </Box>
 
             {/* Description */}
-            <Typography variant="body1" paragraph>
+            <Typography variant="body1" sx={{ mb: 2 }}>
               {selectedSkill.description}
             </Typography>
 
             <Divider sx={{ my: 3 }} />
-
-            {!isAuthenticated && (
-              <Alert severity="info" sx={{ mb: 3 }}>
-                <Typography variant="body1" gutterBottom fontWeight="bold">
-                  Möchtest du diesen Skill lernen oder lehren?
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 2 }}>
-                  Registriere dich jetzt kostenlos und sende eine Anfrage{selectedSkill.ownerUserName ? ` an ${selectedSkill.ownerUserName}` : ''}!
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => {
-                      trackMatchRequestClick(selectedSkill.id, false);
-                      navigate('/auth/register', { state: { from: location.pathname } });
-                    }}
-                  >
-                    Jetzt registrieren
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => navigate('/auth/login', { state: { from: location.pathname } })}
-                  >
-                    Anmelden
-                  </Button>
-                </Box>
-              </Alert>
-            )}
 
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               {!isOwner && isAuthenticated && (
@@ -738,32 +764,30 @@ const SkillDetailPage: React.FC = () => {
                     onClick={handleCreateMatch}
                     loading={isMatchmakingLoading}
                   >
-                    {selectedSkill.isOffered
-                      ? 'Lernen anfragen'
-                      : 'Hilfe anbieten'}
+                    {selectedSkill.isOffered ? 'Lernen anfragen' : 'Hilfe anbieten'}
                   </LoadingButton>
                   <Button
                     variant="outlined"
                     startIcon={<StarIcon />}
-                    onClick={() => setRatingDialogOpen(true)}
+                    onClick={() => {
+                      setRatingDialogOpen(true);
+                    }}
                   >
                     Bewerten
                   </Button>
                   <Button
                     variant="outlined"
                     startIcon={<ThumbUpIcon />}
-                    onClick={() => setEndorseDialogOpen(true)}
+                    onClick={() => {
+                      setEndorseDialogOpen(true);
+                    }}
                   >
                     Empfehlen
                   </Button>
                 </>
               )}
-              {isOwner && (
-                <Button
-                  variant="outlined"
-                  startIcon={<EditIcon />}
-                  onClick={handleEdit}
-                >
+              {isOwner && canUpdateOwnSkill && (
+                <Button variant="outlined" startIcon={<EditIcon />} onClick={handleEdit}>
                   Skill bearbeiten
                 </Button>
               )}
@@ -778,9 +802,7 @@ const SkillDetailPage: React.FC = () => {
 
             {reviewCount === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <SchoolIcon
-                  sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }}
-                />
+                <SchoolIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
                 <Typography variant="body1" color="text.secondary">
                   Noch keine Bewertungen vorhanden
                 </Typography>
@@ -805,9 +827,7 @@ const SkillDetailPage: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Anbieter
               </Typography>
-              <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
-              >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <Avatar sx={{ width: 56, height: 56 }} src={skillOwner.avatar}>
                   <PersonIcon />
                 </Avatar>
@@ -836,7 +856,7 @@ const SkillDetailPage: React.FC = () => {
                 Kategorie
               </Typography>
               <Typography variant="body1">
-                {selectedSkill.category?.name || 'Keine Kategorie'}
+                {selectedSkill.category.name || 'Keine Kategorie'}
               </Typography>
             </Box>
 
@@ -846,18 +866,13 @@ const SkillDetailPage: React.FC = () => {
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="body1">
-                  {selectedSkill.proficiencyLevel?.level || 'Keine Angabe'}
+                  {selectedSkill.proficiencyLevel.level || 'Keine Angabe'}
                 </Typography>
-                {selectedSkill.proficiencyLevel?.rank && (
+                {selectedSkill.proficiencyLevel.rank && selectedSkill.proficiencyLevel.rank > 0 && (
                   <Box sx={{ display: 'flex' }}>
-                    {[...Array(selectedSkill.proficiencyLevel.rank)].map(
-                      (_, i) => (
-                        <StarIcon
-                          key={i}
-                          sx={{ fontSize: 16, color: 'primary.main' }}
-                        />
-                      )
-                    )}
+                    {Array.from({ length: selectedSkill.proficiencyLevel.rank }, (_, i) => (
+                      <StarIcon key={i} sx={{ fontSize: 16, color: 'primary.main' }} />
+                    ))}
                   </Box>
                 )}
               </Box>
@@ -878,7 +893,7 @@ const SkillDetailPage: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Interessiert?
               </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {selectedSkill.isOffered
                   ? 'Möchtest du diesen Skill lernen? Erstelle eine Match-Anfrage!'
                   : 'Kannst du bei diesem Skill helfen? Biete deine Hilfe an!'}
@@ -891,41 +906,48 @@ const SkillDetailPage: React.FC = () => {
                 startIcon={<MessageIcon />}
                 loading={isMatchmakingLoading}
               >
-                {selectedSkill.isOffered
-                  ? 'Lernen anfragen'
-                  : 'Hilfe anbieten'}
+                {!isAuthenticated
+                  ? 'Einloggen um Match anzufragen'
+                  : selectedSkill.isOffered
+                    ? 'Lernen anfragen'
+                    : 'Hilfe anbieten'}
               </LoadingButton>
             </Paper>
           )}
 
-          {isOwner && (
+          {isOwner && (canUpdateOwnSkill || canDeleteOwnSkill) && (
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Dein Skill
               </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph>
-                Dies ist dein eigener Skill. Du kannst ihn bearbeiten oder
-                löschen.
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Dies ist dein eigener Skill. Du kannst ihn bearbeiten oder löschen.
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  fullWidth
-                  onClick={handleEdit}
-                  startIcon={<EditIcon />}
-                >
-                  Bearbeiten
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  fullWidth
-                  onClick={() => setDeleteDialogOpen(true)}
-                  startIcon={<DeleteIcon />}
-                >
-                  Löschen
-                </Button>
+                {canUpdateOwnSkill && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    onClick={handleEdit}
+                    startIcon={<EditIcon />}
+                  >
+                    Bearbeiten
+                  </Button>
+                )}
+                {canDeleteOwnSkill && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    fullWidth
+                    onClick={() => {
+                      setDeleteDialogOpen(true);
+                    }}
+                    startIcon={<DeleteIcon />}
+                  >
+                    Löschen
+                  </Button>
+                )}
               </Box>
             </Paper>
           )}
@@ -935,7 +957,9 @@ const SkillDetailPage: React.FC = () => {
       {!isOwner && (
         <Dialog
           open={ratingDialogOpen}
-          onClose={() => setRatingDialogOpen(false)}
+          onClose={() => {
+            setRatingDialogOpen(false);
+          }}
           maxWidth="sm"
           fullWidth
         >
@@ -947,7 +971,9 @@ const SkillDetailPage: React.FC = () => {
               </Typography>
               <Rating
                 value={rating}
-                onChange={(_, newValue) => setRating(newValue)}
+                onChange={(_, newValue) => {
+                  setRating(newValue);
+                }}
                 size="large"
               />
             </Box>
@@ -957,12 +983,18 @@ const SkillDetailPage: React.FC = () => {
               rows={4}
               label="Kommentar (optional)"
               value={review}
-              onChange={(e) => setReview(e.target.value)}
+              onChange={(e) => {
+                setReview(e.target.value);
+              }}
               placeholder="Teile deine Erfahrungen mit diesem Skill..."
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setRatingDialogOpen(false)}>
+            <Button
+              onClick={() => {
+                setRatingDialogOpen(false);
+              }}
+            >
               Abbrechen
             </Button>
             <Button
@@ -980,7 +1012,9 @@ const SkillDetailPage: React.FC = () => {
       {!isOwner && (
         <Dialog
           open={endorseDialogOpen}
-          onClose={() => setEndorseDialogOpen(false)}
+          onClose={() => {
+            setEndorseDialogOpen(false);
+          }}
           maxWidth="sm"
           fullWidth
         >
@@ -992,12 +1026,18 @@ const SkillDetailPage: React.FC = () => {
               rows={4}
               label="Empfehlungstext (optional)"
               value={endorseMessage}
-              onChange={(e) => setEndorseMessage(e.target.value)}
+              onChange={(e) => {
+                setEndorseMessage(e.target.value);
+              }}
               placeholder="Warum empfiehlst du diesen Skill?"
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setEndorseDialogOpen(false)}>
+            <Button
+              onClick={() => {
+                setEndorseDialogOpen(false);
+              }}
+            >
               Abbrechen
             </Button>
             <Button onClick={handleEndorseSkill} variant="contained">
@@ -1007,10 +1047,12 @@ const SkillDetailPage: React.FC = () => {
         </Dialog>
       )}
 
-      {selectedSkill && !isOwner && (
+      {selectedSkill.id && !isOwner && (
         <MatchForm
           open={matchFormOpen}
-          onClose={() => setMatchFormOpen(false)}
+          onClose={() => {
+            setMatchFormOpen(false);
+          }}
           onSubmit={handleMatchSubmit}
           skill={selectedSkill}
           targetUserId={selectedSkill.userId}
@@ -1020,16 +1062,18 @@ const SkillDetailPage: React.FC = () => {
         />
       )}
 
-      {isOwner && (
+      {isOwner && canDeleteOwnSkill && (
         <ConfirmDialog
           open={deleteDialogOpen}
           title="Skill löschen"
-          message={`Bist du sicher, dass du "${selectedSkill?.name}" löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.`}
+          message={`Bist du sicher, dass du "${selectedSkill.name}" löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.`}
           confirmLabel="Löschen"
           cancelLabel="Abbrechen"
           confirmColor="error"
           onConfirm={handleDeleteSkill}
-          onCancel={() => setDeleteDialogOpen(false)}
+          onCancel={() => {
+            setDeleteDialogOpen(false);
+          }}
         />
       )}
     </Container>

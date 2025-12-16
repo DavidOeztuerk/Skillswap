@@ -13,6 +13,12 @@ public class EnrichedAppointmentData
     public UserData Organizer { get; set; } = new();
     public UserData Participant { get; set; } = new();
     public SkillData? Skill { get; set; }
+
+    // Match/Connection Rollen - KONSTANT durch die gesamte Kette
+    // MatchRequester = Der User der die ursprüngliche Matchanfrage gestellt hat (INITIATOR)
+    // MatchTarget = Der Skill-Besitzer (PARTICIPANT)
+    public UserData? MatchRequester { get; set; }
+    public UserData? MatchTarget { get; set; }
 }
 
 public class UserData

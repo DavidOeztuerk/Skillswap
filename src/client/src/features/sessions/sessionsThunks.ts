@@ -1,14 +1,14 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import sessionService, {
-  CompleteSessionRequest,
-  RateSessionRequest,
-  RescheduleSessionRequest,
-  ProcessSessionPaymentRequest,
-  SessionStatusResponse,
-  RatingResponse,
-  PaymentResponse,
+  type CompleteSessionRequest,
+  type RateSessionRequest,
+  type RescheduleSessionRequest,
+  type ProcessSessionPaymentRequest,
+  type SessionStatusResponse,
+  type RatingResponse,
+  type PaymentResponse,
 } from '../../api/services/sessionService';
-import { ApiResponse } from '../../types/api/UnifiedResponse';
+import type { ApiResponse } from '../../types/api/UnifiedResponse';
 
 /**
  * Thunk error type for better type safety
@@ -36,7 +36,7 @@ export const startSession = createAsyncThunk<
 
     if (!response.success) {
       return rejectWithValue({
-        message: response.message || 'Failed to start session',
+        message: response.message ?? 'Failed to start session',
       });
     }
 
@@ -65,7 +65,7 @@ export const completeSession = createAsyncThunk<
 
     if (!response.success) {
       return rejectWithValue({
-        message: response.message || 'Failed to complete session',
+        message: response.message ?? 'Failed to complete session',
       });
     }
 
@@ -94,7 +94,7 @@ export const rateSession = createAsyncThunk<
 
     if (!response.success) {
       return rejectWithValue({
-        message: response.message || 'Failed to rate session',
+        message: response.message ?? 'Failed to rate session',
       });
     }
 
@@ -123,7 +123,7 @@ export const rescheduleSession = createAsyncThunk<
 
     if (!response.success) {
       return rejectWithValue({
-        message: response.message || 'Failed to reschedule session',
+        message: response.message ?? 'Failed to reschedule session',
       });
     }
 
@@ -152,7 +152,7 @@ export const cancelSession = createAsyncThunk<
 
     if (!response.success) {
       return rejectWithValue({
-        message: response.message || 'Failed to cancel session',
+        message: response.message ?? 'Failed to cancel session',
       });
     }
 
@@ -181,7 +181,7 @@ export const processSessionPayment = createAsyncThunk<
 
     if (!response.success) {
       return rejectWithValue({
-        message: response.message || 'Failed to process payment',
+        message: response.message ?? 'Failed to process payment',
       });
     }
 

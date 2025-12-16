@@ -1,15 +1,14 @@
-// src/pages/admin/AdminMetricsPage.tsx
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Typography, Box, TextField, Button } from '@mui/material';
 import metricsService from '../../api/services/metricsService';
 import MetricsTable from '../../components/admin/MetricsTable';
 
-const AdminMetricsPage = () => {
+const AdminMetricsPage = (): React.JSX.Element => {
   const [service, setService] = useState('userservice');
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const loadMetrics = async () => {
+  const loadMetrics = async (): Promise<void> => {
     try {
       setError(null);
       const data = await metricsService.getMetrics(service);
@@ -23,7 +22,7 @@ const AdminMetricsPage = () => {
 
   useEffect(() => {
     // Inline load um Function-Dependency zu vermeiden
-    const load = async () => {
+    const load = async (): Promise<void> => {
       try {
         const data = await metricsService.getMetrics(service);
         setMetrics(data);
@@ -33,9 +32,9 @@ const AdminMetricsPage = () => {
         setMetrics(null);
       }
     };
-    
+
     void load();
-  }, []); // Nur beim Mount laden
+  }, [service]);
 
   return (
     <Box p={2}>
@@ -46,7 +45,9 @@ const AdminMetricsPage = () => {
         <TextField
           label="Service"
           value={service}
-          onChange={(e) => setService(e.target.value)}
+          onChange={(e) => {
+            setService(e.target.value);
+          }}
           size="small"
         />
         <Button variant="contained" onClick={loadMetrics}>

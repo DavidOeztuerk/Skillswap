@@ -29,6 +29,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Core.Common.Exceptions;
 using Infrastructure.Security.Monitoring;
 using Infrastructure.BackgroundServices;
+using Infrastructure.Caching.Http;
 
 namespace Infrastructure.Extensions;
 
@@ -120,6 +121,9 @@ public static class ServiceCollectionExtensions
         // Add Caching with Redis or fallback to Memory
         services.AddCaching(redisConnectionString ?? string.Empty);
         
+        // Add HTTP Response Caching
+        services.AddHttpResponseCaching(configuration);
+
         // Add Caching Services
         if (!string.IsNullOrEmpty(redisConnectionString))
         {
@@ -256,11 +260,14 @@ public static class ServiceCollectionExtensions
 
         app.UseAuthentication();
         app.UseAuthorization();
-        
+
         // Security Audit (after authentication to track user actions)
         app.UseMiddleware<SecurityAuditMiddleware>();
-        
+
         app.UsePermissionMiddleware();
+
+        // HTTP Response Caching (after authentication to properly handle user-specific caching)
+        app.UseHttpResponseCachingHeaders();
 
         return app;
     }

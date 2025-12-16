@@ -20,20 +20,20 @@ export interface AdminDashboardData {
     responseTime: number;
     uptime: number;
   };
-  topCategories: Array<{
+  topCategories: {
     name: string;
     count: number;
     growth: number;
-  }>;
-  userGrowth: Array<{
+  }[];
+  userGrowth: {
     date: string;
     count: number;
-  }>;
-  appointmentStats: Array<{
+  }[];
+  appointmentStats: {
     date: string;
     completed: number;
     cancelled: number;
-  }>;
+  }[];
 }
 
 export interface AdminUser {
@@ -162,18 +162,18 @@ export interface AdminAnalytics {
   avgRating?: string;
 
   // Top skills data
-  topSkills?: Array<{
+  topSkills?: {
     name: string;
     count: number;
-  }>;
+  }[];
 
   // Recent activity data
-  recentActivity?: Array<{
+  recentActivity?: {
     date: string;
     newUsers: number;
     newMatches: number;
     newAppointments: number;
-  }>;
+  }[];
 
   // Nested structure (optional for backend compatibility)
   userMetrics?: {
@@ -188,16 +188,16 @@ export interface AdminAnalytics {
   skillMetrics?: {
     totalSkills: number;
     skillsPerUser: number;
-    topCategories: Array<{
+    topCategories: {
       name: string;
       count: number;
       percentage: number;
-    }>;
-    skillDistribution: Array<{
+    }[];
+    skillDistribution: {
       proficiencyLevel: string;
       count: number;
       percentage: number;
-    }>;
+    }[];
   };
   appointmentMetrics?: {
     totalAppointments: number;
@@ -206,10 +206,10 @@ export interface AdminAnalytics {
     completionRate: number;
     averageDuration: number;
     averageRating: number;
-    busyHours: Array<{
+    busyHours: {
       hour: number;
       count: number;
-    }>;
+    }[];
   };
   matchingMetrics?: {
     totalMatches: number;
@@ -225,26 +225,26 @@ export interface AdminAnalytics {
     apiCallsPerHour: number;
   };
   trends?: {
-    userGrowth: Array<{
+    userGrowth: {
       date: string;
       count: number;
-    }>;
-    skillGrowth: Array<{
+    }[];
+    skillGrowth: {
       date: string;
       count: number;
-    }>;
-    appointmentTrends: Array<{
+    }[];
+    appointmentTrends: {
       date: string;
       scheduled: number;
       completed: number;
       cancelled: number;
-    }>;
-    matchingTrends: Array<{
+    }[];
+    matchingTrends: {
       date: string;
       requested: number;
       accepted: number;
       rejected: number;
-    }>;
+    }[];
   };
 }
 
@@ -272,14 +272,14 @@ export interface SystemHealth {
   uptime?: string;
 
   // Nested structure (optional for backend compatibility)
-  services?: Array<{
+  services?: {
     name: string;
     status: 'online' | 'offline' | 'degraded';
     responseTime: number;
     uptime: number;
     lastCheck: string;
     errorRate: number;
-  }>;
+  }[];
   infrastructure?: {
     database: {
       status: 'connected' | 'disconnected' | 'slow';
@@ -309,14 +309,14 @@ export interface SystemHealth {
       outbound: number;
     };
   };
-  alerts?: Array<{
+  alerts?: {
     id: string;
     severity: 'info' | 'warning' | 'error' | 'critical';
     message: string;
     timestamp: string;
     service?: string;
     resolved: boolean;
-  }>;
+  }[];
 }
 
 export interface AuditLog {
@@ -355,8 +355,26 @@ export interface AuditLog {
 
 export interface ModerationReport {
   id: string;
-  type: 'inappropriate-content' | 'spam' | 'harassment' | 'fake-profile' | 'copyright' | 'other' | 'User' | 'Skill' | 'Comment' | 'Review';
-  status: 'pending' | 'approved' | 'rejected' | 'escalated' | 'Pending' | 'Approved' | 'Rejected' | 'Flagged';
+  type:
+    | 'inappropriate-content'
+    | 'spam'
+    | 'harassment'
+    | 'fake-profile'
+    | 'copyright'
+    | 'other'
+    | 'User'
+    | 'Skill'
+    | 'Comment'
+    | 'Review';
+  status:
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'escalated'
+    | 'Pending'
+    | 'Approved'
+    | 'Rejected'
+    | 'Flagged';
   priority?: 'low' | 'medium' | 'high' | 'critical';
 
   // Flat properties for easier access (admin page compatibility)
@@ -387,11 +405,11 @@ export interface ModerationReport {
     };
   };
   description?: string;
-  evidence?: Array<{
+  evidence?: {
     type: 'screenshot' | 'text' | 'url' | 'other';
     content: string;
     url?: string;
-  }>;
+  }[];
   createdAt: string;
   updatedAt?: string;
   handledBy?: {
@@ -402,12 +420,12 @@ export interface ModerationReport {
   };
   handledAt?: string;
   resolution?: string;
-  actions?: Array<{
+  actions?: {
     action: 'warning' | 'temporary-ban' | 'permanent-ban' | 'content-removal' | 'no-action';
     reason: string;
     timestamp: string;
     actor: string;
-  }>;
+  }[];
 }
 
 export interface AdminSettings {

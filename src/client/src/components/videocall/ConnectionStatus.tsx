@@ -1,4 +1,3 @@
-// src/components/videocall/ConnectionStatus.tsx
 import React from 'react';
 import { Box, Chip, CircularProgress, useTheme } from '@mui/material';
 import {
@@ -9,13 +8,7 @@ import {
   SignalCellularConnectedNoInternet0Bar as NoInternetIcon,
 } from '@mui/icons-material';
 
-type ConnectionQuality =
-  | 'connecting'
-  | 'poor'
-  | 'fair'
-  | 'good'
-  | 'excellent'
-  | 'disconnected';
+type ConnectionQuality = 'connecting' | 'poor' | 'fair' | 'good' | 'excellent' | 'disconnected';
 
 interface ConnectionStatusProps {
   quality: ConnectionQuality;
@@ -25,10 +18,7 @@ interface ConnectionStatusProps {
 /**
  * Komponente zur Anzeige des Verbindungsstatus in einem Videoanruf
  */
-const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
-  quality,
-  hideWhenGood = false,
-}) => {
+const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ quality, hideWhenGood = false }) => {
   const theme = useTheme();
 
   // Wenn Verbindung gut ist und hideWhenGood aktiviert ist, nichts anzeigen
@@ -41,14 +31,7 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     ConnectionQuality,
     {
       label: string;
-      color:
-        | 'default'
-        | 'primary'
-        | 'secondary'
-        | 'error'
-        | 'info'
-        | 'success'
-        | 'warning';
+      color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
       icon: React.ReactNode;
     }
   > = {
@@ -100,10 +83,7 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         color={config.color}
         size="small"
         icon={
-          <Box
-            component="span"
-            sx={{ display: 'flex', alignItems: 'center', height: '100%' }}
-          >
+          <Box component="span" sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
             {config.icon}
           </Box>
         }

@@ -52,7 +52,7 @@ const MaintenanceMode: React.FC<MaintenanceModeProps> = ({
   onGoHome,
   maintenanceFeatures = defaultMaintenanceFeatures,
 }) => {
-  const handleRefresh = () => {
+  const handleRefresh = (): void => {
     if (onRefresh) {
       onRefresh();
     } else {
@@ -60,7 +60,7 @@ const MaintenanceMode: React.FC<MaintenanceModeProps> = ({
     }
   };
 
-  const handleGoHome = () => {
+  const handleGoHome = (): void => {
     if (onGoHome) {
       onGoHome();
     } else {
@@ -111,20 +111,8 @@ const MaintenanceMode: React.FC<MaintenanceModeProps> = ({
               variant="outlined"
             />
           )}
-          {startTime && (
-            <Chip
-              label={`Beginn: ${startTime}`}
-              color="info"
-              variant="outlined"
-            />
-          )}
-          {endTime && (
-            <Chip
-              label={`Ende: ${endTime}`}
-              color="success"
-              variant="outlined"
-            />
-          )}
+          {startTime && <Chip label={`Beginn: ${startTime}`} color="info" variant="outlined" />}
+          {endTime && <Chip label={`Ende: ${endTime}`} color="success" variant="outlined" />}
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
@@ -165,10 +153,7 @@ const MaintenanceMode: React.FC<MaintenanceModeProps> = ({
                 <ListItemIcon sx={{ minWidth: 32 }}>
                   <CheckIcon color="success" fontSize="small" />
                 </ListItemIcon>
-                <ListItemText 
-                  primary={feature}
-                  primaryTypographyProps={{ variant: 'body2' }}
-                />
+                <ListItemText primary={feature} slotProps={{ primary: { variant: 'body2' } }} />
               </ListItem>
             ))}
           </List>
@@ -181,10 +166,9 @@ const MaintenanceMode: React.FC<MaintenanceModeProps> = ({
             Vielen Dank für Ihr Verständnis
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Wir entschuldigen uns für die Unannehmlichkeiten. Unsere Wartungsarbeiten 
-            sorgen dafür, dass SkillSwap für Sie noch schneller und zuverlässiger wird.
-            Sie können diese Seite jederzeit aktualisieren, um zu prüfen, ob die 
-            Wartung abgeschlossen ist.
+            Wir entschuldigen uns für die Unannehmlichkeiten. Unsere Wartungsarbeiten sorgen dafür,
+            dass SkillSwap für Sie noch schneller und zuverlässiger wird. Sie können diese Seite
+            jederzeit aktualisieren, um zu prüfen, ob die Wartung abgeschlossen ist.
           </Typography>
         </CardContent>
       </Card>

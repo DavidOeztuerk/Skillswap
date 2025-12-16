@@ -69,6 +69,7 @@ export const PermissionCategories = {
   MESSAGES: 'Messages',
   PROFILE: 'Profile',
   SYSTEM: 'System',
+  SECURITY: 'Security',
   VIDEO_CALL: 'VideoCall',
   APPOINTMENTS: 'Appointments',
   MODERATION: 'Moderation',
@@ -87,8 +88,8 @@ export const Permissions = {
   // Users
   // ─────────────────────────────────────────────────────────────────────────
   Users: {
-    VIEW: 'users.view',           // Legacy system permission
-    MANAGE: 'users.manage',       // Legacy system permission
+    VIEW: 'users.view', // Legacy system permission
+    MANAGE: 'users.manage', // Legacy system permission
     VIEW_REPORTED: 'users:view_reported',
     VIEW_ALL: 'users:view_all',
     DELETE: 'users:delete',
@@ -106,8 +107,8 @@ export const Permissions = {
   // Skills
   // ─────────────────────────────────────────────────────────────────────────
   Skills: {
-    VIEW: 'skills.view',          // Legacy system permission
-    MANAGE: 'skills.manage',      // Legacy system permission
+    VIEW: 'skills.view', // Legacy system permission
+    MANAGE: 'skills.manage', // Legacy system permission
     MANAGE_CATEGORIES: 'skills:manage_categories',
     VIEW_ALL: 'skills:view_all',
     MANAGE_PROFICIENCY: 'skills:manage_proficiency',
@@ -166,6 +167,14 @@ export const Permissions = {
   },
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Security
+  // ─────────────────────────────────────────────────────────────────────────
+  Security: {
+    VIEW_ALERTS: 'security:view_alerts',
+    MANAGE_ALERTS: 'security:manage_alerts',
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Video Calls
   // ─────────────────────────────────────────────────────────────────────────
   VideoCalls: {
@@ -221,13 +230,14 @@ export const Permissions = {
 } as const;
 
 // Generate flat permission type
-type PermissionValues<T> = T extends Record<string, infer V>
-  ? V extends string
-    ? V
-    : V extends Record<string, string>
-      ? V[keyof V]
-      : never
-  : never;
+type PermissionValues<T> =
+  T extends Record<string, infer V>
+    ? V extends string
+      ? V
+      : V extends Record<string, string>
+        ? V[keyof V]
+        : never
+    : never;
 
 export type Permission = PermissionValues<typeof Permissions>;
 
@@ -238,9 +248,9 @@ export type Permission = PermissionValues<typeof Permissions>;
 /**
  * All permissions as flat array
  */
-export const AllPermissions: Permission[] = Object.values(Permissions).flatMap(
-  (category) => Object.values(category)
-) as Permission[];
+export const AllPermissions: Permission[] = Object.values(Permissions).flatMap((category) =>
+  Object.values(category)
+);
 
 /**
  * Permissions grouped by category (for UI)
@@ -253,6 +263,7 @@ export const PermissionsByCategory: Record<PermissionCategory, Permission[]> = {
   [PermissionCategories.MESSAGES]: Object.values(Permissions.Messages),
   [PermissionCategories.PROFILE]: Object.values(Permissions.Profile),
   [PermissionCategories.SYSTEM]: Object.values(Permissions.System),
+  [PermissionCategories.SECURITY]: Object.values(Permissions.Security),
   [PermissionCategories.VIDEO_CALL]: Object.values(Permissions.VideoCalls),
   [PermissionCategories.APPOINTMENTS]: Object.values(Permissions.Appointments),
   [PermissionCategories.MODERATION]: Object.values(Permissions.Moderation),
@@ -342,6 +353,9 @@ export const DefaultRolePermissions: Record<Role, Permission[]> = {
     // Admin
     Permissions.Admin.VIEW_STATISTICS,
     Permissions.Admin.ACCESS_DASHBOARD,
+    // Security
+    Permissions.Security.VIEW_ALERTS,
+    Permissions.Security.MANAGE_ALERTS,
     // Reviews
     Permissions.Reviews.CREATE,
     Permissions.Reviews.MODERATE,
@@ -582,46 +596,41 @@ export const RoutePermissions = {
 /**
  * Check if a role has higher or equal priority than another
  */
-export const hasHigherOrEqualPriority = (role: Role, thanRole: Role): boolean => {
-  return RolePriority[role] >= RolePriority[thanRole];
-};
+export const hasHigherOrEqualPriority = (role: Role, thanRole: Role): boolean =>
+  RolePriority[role] >= RolePriority[thanRole];
 
 /**
  * Check if a role is admin-level (Admin or SuperAdmin)
  */
-export const isAdminRole = (role: Role): boolean => {
-  return role === Roles.ADMIN || role === Roles.SUPER_ADMIN;
-};
+export const isAdminRole = (role: Role): boolean =>
+  role === Roles.ADMIN || role === Roles.SUPER_ADMIN;
 
 /**
  * Check if a role is moderator-level or higher
  */
-export const isModeratorOrHigher = (role: Role): boolean => {
-  return RolePriority[role] >= RolePriority[Roles.MODERATOR];
-};
+export const isModeratorOrHigher = (role: Role): boolean =>
+  RolePriority[role] >= RolePriority[Roles.MODERATOR];
 
 /**
  * Get all roles that include a specific permission by default
  */
-export const getRolesWithPermission = (permission: Permission): Role[] => {
-  return (Object.entries(DefaultRolePermissions) as [Role, Permission[]][])
+export const getRolesWithPermission = (permission: Permission): Role[] =>
+  (Object.entries(DefaultRolePermissions) as [Role, Permission[]][])
     .filter(([_, permissions]) => permissions.includes(permission))
     .map(([role]) => role);
-};
 
 /**
  * Check if a permission is a system permission
  */
-export const isSystemPermission = (permission: Permission): boolean => {
-  return SystemPermissions.includes(permission);
-};
+export const isSystemPermission = (permission: Permission): boolean =>
+  SystemPermissions.includes(permission);
 
 /**
  * Get the category of a permission
  */
 export const getPermissionCategory = (permission: Permission): PermissionCategory | null => {
   for (const [category, permissions] of Object.entries(PermissionsByCategory)) {
-    if ((permissions as Permission[]).includes(permission)) {
+    if (permissions.includes(permission)) {
       return category as PermissionCategory;
     }
   }
@@ -632,13 +641,15 @@ export const getPermissionCategory = (permission: Permission): PermissionCategor
  * Parse permission string to get resource and action
  * Handles both formats: "resource.action" and "resource:action"
  */
-export const parsePermission = (permission: string): { resource: string; action: string } | null => {
-  const dotMatch = permission.match(/^([a-z]+)\.([a-z_]+)$/);
+export const parsePermission = (
+  permission: string
+): { resource: string; action: string } | null => {
+  const dotMatch = /^([a-z]+)\.([a-z_]+)$/.exec(permission);
   if (dotMatch) {
     return { resource: dotMatch[1], action: dotMatch[2] };
   }
 
-  const colonMatch = permission.match(/^([a-z]+):([a-z_]+)$/);
+  const colonMatch = /^([a-z]+):([a-z_]+)$/.exec(permission);
   if (colonMatch) {
     return { resource: colonMatch[1], action: colonMatch[2] };
   }
@@ -649,16 +660,14 @@ export const parsePermission = (permission: string): { resource: string; action:
 /**
  * Validate if a permission string is valid
  */
-export const isValidPermission = (permission: string): permission is Permission => {
-  return AllPermissions.includes(permission as Permission);
-};
+export const isValidPermission = (permission: string): permission is Permission =>
+  AllPermissions.includes(permission as Permission);
 
 /**
  * Validate if a role string is valid
  */
-export const isValidRole = (role: string): role is Role => {
-  return Object.values(Roles).includes(role as Role);
-};
+export const isValidRole = (role: string): role is Role =>
+  Object.values(Roles).includes(role as Role);
 
 // ============================================================================
 // EXPORTS FOR ROUTER

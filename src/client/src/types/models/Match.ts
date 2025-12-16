@@ -1,5 +1,5 @@
-import { Skill } from './Skill';
-import { User } from './User';
+import type { Skill } from './Skill';
+import type { User } from './User';
 
 export interface Match {
   id: string;
@@ -28,5 +28,5 @@ export enum MatchStatus {
   Completed = 'Completed',
   Cancelled = 'Cancelled',
   Active = 'Active',
-  Dissolved = 'Dissolved'
+  Dissolved = 'Dissolved',
 }

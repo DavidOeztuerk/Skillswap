@@ -167,10 +167,10 @@ export class E2EEChatManager {
       createdAt: Date.now(),
       generation: 1,
       localFingerprint,
-      peerFingerprint: peerFingerprint || null,
+      peerFingerprint: peerFingerprint ?? null,
     });
 
-    console.log(`🔐 Chat E2EE: Initialized conversation ${conversationId} (generation 1)`);
+    console.debug(`🔐 Chat E2EE: Initialized conversation ${conversationId} (generation 1)`);
   }
 
   /**
@@ -201,7 +201,7 @@ export class E2EEChatManager {
     keyMaterial.peerVerificationKey = peerVerificationKey;
     keyMaterial.peerFingerprint = peerFingerprint;
 
-    console.log(`🔐 Chat E2EE: Updated peer verification key for ${conversationId}`);
+    console.debug(`🔐 Chat E2EE: Updated peer verification key for ${conversationId}`);
   }
 
   /**
@@ -259,7 +259,10 @@ export class E2EEChatManager {
   /**
    * Decrypt and verify a message
    */
-  async decryptMessage(conversationId: string, encryptedMessage: EncryptedMessage): Promise<DecryptedMessage> {
+  async decryptMessage(
+    conversationId: string,
+    encryptedMessage: EncryptedMessage
+  ): Promise<DecryptedMessage> {
     const keyMaterial = this.conversationKeys.get(conversationId);
     if (!keyMaterial) {
       throw new Error(`Conversation ${conversationId} not initialized`);
@@ -292,7 +295,9 @@ export class E2EEChatManager {
         isVerified = false;
       }
     } else {
-      console.warn('⚠️ Chat E2EE: Peer verification key not available, skipping signature verification');
+      console.warn(
+        '⚠️ Chat E2EE: Peer verification key not available, skipping signature verification'
+      );
     }
 
     // Decrypt message
@@ -328,10 +333,7 @@ export class E2EEChatManager {
   /**
    * Rotate conversation keys (for long conversations)
    */
-  async rotateConversationKey(
-    conversationId: string,
-    newEncryptionKey: CryptoKey
-  ): Promise<void> {
+  rotateConversationKey(conversationId: string, newEncryptionKey: CryptoKey): void {
     const keyMaterial = this.conversationKeys.get(conversationId);
     if (!keyMaterial) {
       throw new Error(`Conversation ${conversationId} not initialized`);
@@ -341,14 +343,16 @@ export class E2EEChatManager {
     keyMaterial.generation++;
     keyMaterial.createdAt = Date.now();
 
-    console.log(`🔄 Chat E2EE: Rotated keys for ${conversationId} (generation ${keyMaterial.generation})`);
+    console.debug(
+      `🔄 Chat E2EE: Rotated keys for ${conversationId} (generation ${keyMaterial.generation.toString()})`
+    );
   }
 
   /**
    * Get conversation key material
    */
   getConversationKeyMaterial(conversationId: string): ConversationKeyMaterial | null {
-    return this.conversationKeys.get(conversationId) || null;
+    return this.conversationKeys.get(conversationId) ?? null;
   }
 
   /**
@@ -363,7 +367,7 @@ export class E2EEChatManager {
    */
   removeConversation(conversationId: string): void {
     this.conversationKeys.delete(conversationId);
-    console.log(`🧹 Chat E2EE: Removed conversation ${conversationId}`);
+    console.debug(`🧹 Chat E2EE: Removed conversation ${conversationId}`);
   }
 
   /**
@@ -371,7 +375,7 @@ export class E2EEChatManager {
    */
   cleanup(): void {
     this.conversationKeys.clear();
-    console.log('🧹 Chat E2EE: Cleanup complete');
+    console.debug('🧹 Chat E2EE: Cleanup complete');
   }
 
   // --- Utility Methods ---

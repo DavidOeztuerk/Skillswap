@@ -10,15 +10,15 @@ import './styles/global.css';
 // Font Loading - Optimized with proper idle callback
 // ============================================================================
 
-const loadFonts = () => {
+const loadFonts = (): void => {
   // Load critical font weight immediately
-  import('@fontsource/roboto/400.css');
+  void import('@fontsource/roboto/400.css');
 
   // Schedule non-critical font weights during idle time
-  const loadRemainingFonts = () => {
-    import('@fontsource/roboto/300.css');
-    import('@fontsource/roboto/500.css');
-    import('@fontsource/roboto/700.css');
+  const loadRemainingFonts = (): void => {
+    void import('@fontsource/roboto/300.css');
+    void import('@fontsource/roboto/500.css');
+    void import('@fontsource/roboto/700.css');
   };
 
   if ('requestIdleCallback' in window) {
@@ -38,7 +38,9 @@ queueMicrotask(loadFonts);
 const container = document.getElementById('root');
 
 if (!container) {
-  throw new Error('Root element not found. Make sure there is a <div id="root"></div> in your HTML.');
+  throw new Error(
+    'Root element not found. Make sure there is a <div id="root"></div> in your HTML.'
+  );
 }
 
 const root = createRoot(container);

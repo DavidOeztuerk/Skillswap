@@ -1,4 +1,5 @@
-import React, { useEffect, useState, memo, useCallback } from 'react';
+import React, { useState, memo, useCallback } from 'react';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import {
   Box,
   Container,
@@ -9,7 +10,8 @@ import {
   Alert,
   Paper,
   IconButton,
-  Tooltip
+  Tooltip,
+  Grid,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -18,17 +20,16 @@ import {
   Category as CategoryIcon,
   Security as SecurityIcon,
   Analytics as AnalyticsIcon,
-  RefreshOutlined
+  RefreshOutlined,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Grid } from '../../components/common/GridCompat';
 import { unwrap, withDefault } from '../../utils/safeAccess';
 import { AdminErrorBoundary } from '../../components/error';
 import errorService from '../../services/errorService';
-import { AdminDashboardData } from '../../types/models/Admin';
-import { usePermissions } from '../../contexts/PermissionContext'
+import type { AdminDashboardData } from '../../types/models/Admin';
 import { apiClient } from '../../api/apiClient';
+import { usePermissions } from '@/contexts/permissionContextHook';
 
 interface DashboardStats {
   totalUsers: number;
@@ -55,10 +56,12 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onClick 
       height: '100%',
       cursor: onClick ? 'pointer' : 'default',
       transition: 'transform 0.2s',
-      '&:hover': onClick ? {
-        transform: 'translateY(-4px)',
-        boxShadow: 3
-      } : {}
+      '&:hover': onClick
+        ? {
+            transform: 'translateY(-4px)',
+            boxShadow: 3,
+          }
+        : {},
     }}
     onClick={onClick}
   >
@@ -81,9 +84,9 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, onClick 
             alignItems: 'center',
             justifyContent: 'center',
             '& svg': {
-              color: color,
-              fontSize: 32
-            }
+              color,
+              fontSize: 32,
+            },
           }}
         >
           {icon}
@@ -107,29 +110,29 @@ const AdminDashboard: React.FC = memo(() => {
     try {
       setRefreshing(true);
       errorService.addBreadcrumb('Fetching admin dashboard stats', 'admin');
-      
+
       const response = await apiClient.get<AdminDashboardData>('/api/admin/analytics/dashboard');
-      const statsData = unwrap<any>(response);
-      
+      const statsData = unwrap<AdminDashboardData>(response);
+
       setStats({
-        totalUsers: withDefault(statsData?.totalUsers, 0),
-        activeUsers: withDefault(statsData?.activeUsers, 0),
-        totalSkills: withDefault(statsData?.totalSkills, 0),
-        totalAppointments: withDefault(statsData?.totalAppointments, 0),
-        totalMatches: withDefault(statsData?.totalMatches, 0),
-        newUsersToday: withDefault(statsData?.newUsersToday, 0),
-        pendingReports: withDefault(statsData?.pendingReports, 0),
-        systemHealth: withDefault(statsData?.systemHealth, 'Unknown')
+        totalUsers: withDefault(statsData.overview.totalUsers, 0),
+        activeUsers: withDefault(statsData.overview.activeUsers, 0),
+        totalSkills: withDefault(statsData.overview.totalSkills, 0),
+        totalAppointments: withDefault(statsData.overview.totalAppointments, 0),
+        totalMatches: withDefault(statsData.overview.totalMatches, 0),
+        newUsersToday: withDefault(statsData.recentActivity.newUsers, 0),
+        pendingReports: withDefault(statsData.overview.pendingReports, 0),
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions
+        systemHealth: statsData.systemMetrics ? 'Healthy' : 'Unknown',
       });
       setError(null);
       errorService.addBreadcrumb('Dashboard stats loaded successfully', 'admin');
     } catch (err: unknown) {
       // Set default empty stats on error
-      const isAxiosError = (error: unknown): error is { response: { status: number } } => {
-        return typeof error === 'object' && error !== null && 'response' in error;
-      };
-      
-      if (isAxiosError(err) && err.response?.status === 404) {
+      const isAxiosError = (e: unknown): e is { response: { status: number } } =>
+        typeof e === 'object' && e !== null && 'response' in e;
+
+      if (isAxiosError(err) && err.response.status === 404) {
         const emptyStats: DashboardStats = {
           totalUsers: 0,
           activeUsers: 0,
@@ -138,7 +141,7 @@ const AdminDashboard: React.FC = memo(() => {
           totalMatches: 0,
           newUsersToday: 0,
           pendingReports: 0,
-          systemHealth: 'Unknown'
+          systemHealth: 'Unknown',
         };
         setStats(emptyStats);
         setError('Dashboard API endpoint nicht verfügbar. Die Statistiken werden nachgereicht.');
@@ -150,19 +153,19 @@ const AdminDashboard: React.FC = memo(() => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []); // ⚡ PERFORMANCE: No dependencies needed - all state setters are stable
+  }, []);
 
-  useEffect(() => {
+  useAsyncEffect(async () => {
     if (!hasPermission('admin:access_dashboard')) {
-      navigate('/');
+      await navigate('/');
       return;
     }
-    fetchDashboardStats();
-  }, [hasPermission, navigate, fetchDashboardStats]); // ⚡ PERFORMANCE: Updated dependencies
+    await fetchDashboardStats();
+  }, [hasPermission, navigate, fetchDashboardStats]);
 
   // ⚡ PERFORMANCE: Memoize handleRefresh
   const handleRefresh = useCallback(() => {
-    fetchDashboardStats();
+    void fetchDashboardStats();
   }, [fetchDashboardStats]);
 
   if (loading && !stats) {
@@ -193,9 +196,11 @@ const AdminDashboard: React.FC = memo(() => {
             Admin Dashboard
           </Typography>
           <Tooltip title="Refresh">
-            <IconButton onClick={handleRefresh} disabled={refreshing}>
-              <RefreshOutlined className={refreshing ? 'rotating' : ''} />
-            </IconButton>
+            <span>
+              <IconButton onClick={handleRefresh} disabled={refreshing}>
+                <RefreshOutlined className={refreshing ? 'rotating' : ''} />
+              </IconButton>
+            </span>
           </Tooltip>
         </Box>
         <Typography variant="body1" color="textSecondary">
@@ -205,186 +210,180 @@ const AdminDashboard: React.FC = memo(() => {
 
       <Grid container spacing={3}>
         {/* User Stats */}
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             title="Total Users"
-            value={stats?.totalUsers || 0}
+            value={stats?.totalUsers ?? 0}
             icon={<PeopleIcon />}
             color="#2196f3"
             onClick={() => hasPermission('users:view_all') && navigate('/admin/users')}
           />
         </Grid>
 
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             title="Active Users"
-            value={stats?.activeUsers || 0}
+            value={stats?.activeUsers ?? 0}
             icon={<TrendingUpIcon />}
             color="#4caf50"
           />
         </Grid>
 
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             title="Total Skills"
-            value={stats?.totalSkills || 0}
+            value={stats?.totalSkills ?? 0}
             icon={<CategoryIcon />}
             color="#ff9800"
             onClick={() => hasPermission('skills:view_all') && navigate('/admin/skills')}
           />
         </Grid>
 
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             title="Total Appointments"
-            value={stats?.totalAppointments || 0}
+            value={stats?.totalAppointments ?? 0}
             icon={<AssignmentIcon />}
             color="#9c27b0"
-            onClick={() => hasPermission('appointments:view_all') && navigate('/admin/appointments')}
+            onClick={() =>
+              hasPermission('appointments:view_all') && navigate('/admin/appointments')
+            }
           />
         </Grid>
 
         {/* Additional Stats */}
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             title="New Users Today"
-            value={stats?.newUsersToday || 0}
+            value={stats?.newUsersToday ?? 0}
             icon={<PeopleIcon />}
             color="#00bcd4"
           />
         </Grid>
 
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             title="Total Matches"
-            value={stats?.totalMatches || 0}
+            value={stats?.totalMatches ?? 0}
             icon={<AnalyticsIcon />}
             color="#673ab7"
           />
         </Grid>
 
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             title="Pending Reports"
-            value={stats?.pendingReports || 0}
+            value={stats?.pendingReports ?? 0}
             icon={<SecurityIcon />}
             color="#f44336"
             onClick={() => hasPermission('reports:handle') && navigate('/admin/reports')}
           />
         </Grid>
 
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             title="System Health"
-            value={stats?.systemHealth || 'Unknown'}
+            value={stats?.systemHealth ?? 'Unknown'}
             icon={<TrendingUpIcon />}
             color={stats?.systemHealth === 'Healthy' ? '#4caf50' : '#f44336'}
           />
         </Grid>
 
         {/* Quick Actions */}
-        <Grid xs={12}>
+        <Grid size={12}>
           <Paper sx={{ p: 3, mt: 2 }}>
             <Typography variant="h6" gutterBottom>
               Quick Actions
             </Typography>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1 }}>
               {hasPermission('users:create') && (
-                <Grid item>
-                  <Box
-                    component="button"
-                    onClick={() => navigate('/admin/users/create')}
-                    sx={{
-                      p: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      backgroundColor: 'background.paper',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        backgroundColor: 'action.hover'
-                      }
-                    }}
-                  >
-                    <PeopleIcon sx={{ fontSize: 32, mb: 1 }} />
-                    <Typography variant="body2">Create User</Typography>
-                  </Box>
-                </Grid>
+                <Box
+                  component="button"
+                  onClick={() => navigate('/admin/users/create')}
+                  sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    backgroundColor: 'background.paper',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                  }}
+                >
+                  <PeopleIcon sx={{ fontSize: 32, mb: 1 }} />
+                  <Typography variant="body2">Create User</Typography>
+                </Box>
               )}
 
               {hasPermission('skills:manage_categories') && (
-                <Grid item>
-                  <Box
-                    component="button"
-                    onClick={() => navigate('/admin/skills/categories')}
-                    sx={{
-                      p: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      backgroundColor: 'background.paper',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        backgroundColor: 'action.hover'
-                      }
-                    }}
-                  >
-                    <CategoryIcon sx={{ fontSize: 32, mb: 1 }} />
-                    <Typography variant="body2">Manage Categories</Typography>
-                  </Box>
-                </Grid>
+                <Box
+                  component="button"
+                  onClick={() => navigate('/admin/skills/categories')}
+                  sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    backgroundColor: 'background.paper',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                  }}
+                >
+                  <CategoryIcon sx={{ fontSize: 32, mb: 1 }} />
+                  <Typography variant="body2">Manage Categories</Typography>
+                </Box>
               )}
 
               {hasPermission('roles:view') && (
-                <Grid item>
-                  <Box
-                    component="button"
-                    onClick={() => navigate('/admin/roles')}
-                    sx={{
-                      p: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      backgroundColor: 'background.paper',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        backgroundColor: 'action.hover'
-                      }
-                    }}
-                  >
-                    <SecurityIcon sx={{ fontSize: 32, mb: 1 }} />
-                    <Typography variant="body2">Manage Roles</Typography>
-                  </Box>
-                </Grid>
+                <Box
+                  component="button"
+                  onClick={() => navigate('/admin/roles')}
+                  sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    backgroundColor: 'background.paper',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                  }}
+                >
+                  <SecurityIcon sx={{ fontSize: 32, mb: 1 }} />
+                  <Typography variant="body2">Manage Roles</Typography>
+                </Box>
               )}
 
               {hasPermission('system:view_logs') && (
-                <Grid item>
-                  <Box
-                    component="button"
-                    onClick={() => navigate('/admin/system/logs')}
-                    sx={{
-                      p: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      backgroundColor: 'background.paper',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        backgroundColor: 'action.hover'
-                      }
-                    }}
-                  >
-                    <AnalyticsIcon sx={{ fontSize: 32, mb: 1 }} />
-                    <Typography variant="body2">View Logs</Typography>
-                  </Box>
-                </Grid>
+                <Box
+                  component="button"
+                  onClick={() => navigate('/admin/system/logs')}
+                  sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    backgroundColor: 'background.paper',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                  }}
+                >
+                  <AnalyticsIcon sx={{ fontSize: 32, mb: 1 }} />
+                  <Typography variant="body2">View Logs</Typography>
+                </Box>
               )}
-            </Grid>
+            </Box>
           </Paper>
         </Grid>
       </Grid>

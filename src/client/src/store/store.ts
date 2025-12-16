@@ -8,6 +8,7 @@ import matchmaking from '../features/matchmaking/matchmakingSlice';
 import appointments from '../features/appointments/appointmentsSlice';
 import sessions from '../features/sessions/sessionsSlice';
 import videoCall from '../features/videocall/videoCallSlice';
+import preCall from '../features/videocall/preCallSlice';
 import notifications from '../features/notifications/notificationSlice';
 import admin from '../features/admin/adminSlice';
 
@@ -22,8 +23,9 @@ export const store = configureStore({
     appointments,
     sessions,
     videoCall,
+    preCall,
     notifications,
-    admin
+    admin,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

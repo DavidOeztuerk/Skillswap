@@ -1,16 +1,22 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAnnouncements } from './useAnnouncements';
+
+interface RouteAnnouncementsReturn {
+  currentPath: string;
+  currentPageName: string;
+  getPageName: (pathname: string) => string;
+}
 
 /**
  * Hook for announcing route changes to screen readers
  */
-export const useRouteAnnouncements = () => {
+export const useRouteAnnouncements = (): RouteAnnouncementsReturn => {
   const location = useLocation();
   const { announceNavigation } = useAnnouncements();
 
-  // Helper function defined before use
-  const getPageName = (pathname: string): string => {
+  // Helper function wrapped in useCallback
+  const getPageName = useCallback((pathname: string): string => {
     const safePath = pathname;
     const routes: Record<string, string> = {
       '/': 'Home',
@@ -35,13 +41,13 @@ export const useRouteAnnouncements = () => {
     }
 
     // Check for dynamic routes
-    if (safePath.startsWith('/skills/') && safePath?.includes('/edit')) {
+    if (safePath.startsWith('/skills/') && safePath.includes('/edit')) {
       return 'Edit Skill';
     }
-    if (safePath.startsWith('/skills/') && safePath.match(/\/skills\/[^/]+$/)) {
+    if (safePath.startsWith('/skills/') && /\/skills\/[^/]+$/.exec(safePath)) {
       return 'Skill Details';
     }
-    if (safePath.startsWith('/appointments/') && safePath.match(/\/appointments\/[^/]+$/)) {
+    if (safePath.startsWith('/appointments/') && /\/appointments\/[^/]+$/.exec(safePath)) {
       return 'Appointment Details';
     }
     if (safePath.startsWith('/videocall/')) {
@@ -57,12 +63,12 @@ export const useRouteAnnouncements = () => {
       const lastSegment = segments[segments.length - 1];
       return lastSegment
         .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
     }
 
     return 'Page';
-  };
+  }, []);
 
   useEffect(() => {
     // Update document title

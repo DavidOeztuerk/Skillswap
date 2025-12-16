@@ -1,10 +1,14 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { Box, Typography, Button, CircularProgress, SxProps, Theme } from '@mui/material';
+import React, { useEffect, useRef, useCallback, type JSX } from 'react';
+import { Box, Typography, Button, CircularProgress, type SxProps, type Theme } from '@mui/material';
 import SkeletonLoader from './SkeletonLoader';
 import useProgressiveLoading from '../../hooks/useProgressiveLoading';
 
 interface InfiniteScrollListProps<T> {
-  loadFn: (page: number, pageSize: number, ...args: unknown[]) => Promise<{
+  loadFn: (
+    page: number,
+    pageSize: number,
+    ...args: unknown[]
+  ) => Promise<{
     data: T[];
     totalCount: number;
     hasMore: boolean;
@@ -37,24 +41,16 @@ function InfiniteScrollList<T>({
   loadingMessage = 'Lade weitere Elemente...',
   deps = [],
   containerSx = {},
-}: InfiniteScrollListProps<T>) {
+}: InfiniteScrollListProps<T>): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  const {
-    items,
-    isLoading,
-    isLoadingMore,
-    hasMore,
-    error,
-    totalCount,
-    loadMore,
-    refresh,
-  } = useProgressiveLoading({
-    loadFn,
-    pageSize,
-    deps,
-  });
+  const { items, isLoading, isLoadingMore, hasMore, error, totalCount, loadMore, refresh } =
+    useProgressiveLoading({
+      loadFn,
+      pageSize,
+      deps,
+    });
 
   const handleScroll = useCallback(() => {
     if (!containerRef.current || isLoadingMore || !hasMore) return;
@@ -63,7 +59,7 @@ function InfiniteScrollList<T>({
     const remainingHeight = scrollHeight - scrollTop - clientHeight;
 
     if (remainingHeight <= threshold) {
-      loadMore();
+      void loadMore();
     }
   }, [isLoadingMore, hasMore, threshold, loadMore]);
 
@@ -72,7 +68,9 @@ function InfiniteScrollList<T>({
     if (!container || showLoadMoreButton) return;
 
     container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
   }, [handleScroll, showLoadMoreButton]);
 
   // Intersection Observer for automatic loading
@@ -83,7 +81,7 @@ function InfiniteScrollList<T>({
       (entries) => {
         const entry = entries[0];
         if (entry.isIntersecting && hasMore && !isLoadingMore) {
-          loadMore();
+          void loadMore();
         }
       },
       { threshold: 0.1 }
@@ -98,7 +96,7 @@ function InfiniteScrollList<T>({
     };
   }, [hasMore, isLoadingMore, loadMore, showLoadMoreButton]);
 
-  const defaultRenderEmpty = () => (
+  const defaultRenderEmpty = (): JSX.Element => (
     <Box sx={{ textAlign: 'center', py: 4 }}>
       <Typography variant="body1" color="text.secondary">
         {emptyMessage}
@@ -106,7 +104,7 @@ function InfiniteScrollList<T>({
     </Box>
   );
 
-  const defaultRenderError = (errorMsg: string, retry: () => void) => (
+  const defaultRenderError = (errorMsg: string, retry: () => void): JSX.Element => (
     <Box sx={{ textAlign: 'center', py: 4 }}>
       <Typography variant="body1" color="error" sx={{ mb: 2 }}>
         {errorMsg}
@@ -118,7 +116,7 @@ function InfiniteScrollList<T>({
   );
 
   // Initial loading
-  if (isLoading && items?.length === 0) {
+  if (isLoading && items.length === 0) {
     return (
       <Box sx={containerSx}>
         <SkeletonLoader variant={skeletonVariant} count={skeletonCount} />
@@ -127,37 +125,42 @@ function InfiniteScrollList<T>({
   }
 
   // Error state
-  if (error && items?.length === 0) {
+  if (error !== null && error !== '' && items.length === 0) {
     return (
       <Box sx={containerSx}>
-        {renderError ? renderError(error, refresh) : defaultRenderError(error, refresh)}
+        {renderError !== undefined
+          ? renderError(error, () => {
+              void refresh();
+            })
+          : defaultRenderError(error, () => {
+              void refresh();
+            })}
       </Box>
     );
   }
 
   // Empty state
-  if (!isLoading && items?.length === 0) {
+  if (!isLoading && items.length === 0) {
     return (
-      <Box sx={containerSx}>
-        {renderEmpty ? renderEmpty() : defaultRenderEmpty()}
-      </Box>
+      <Box sx={containerSx}>{renderEmpty !== undefined ? renderEmpty() : defaultRenderEmpty()}</Box>
     );
   }
 
   return (
     <Box
       ref={containerRef}
-      sx={{
-        height: '100%',
-        overflow: 'auto',
-        ...containerSx,
-      }}
+      sx={[
+        {
+          height: '100%',
+          overflow: 'auto',
+        },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        ...(Array.isArray(containerSx) ? containerSx : [containerSx]),
+      ]}
     >
       {/* Render items */}
       {items.map((item, index) => (
-        <Box key={index}>
-          {renderItem(item, index)}
-        </Box>
+        <Box key={index}>{renderItem(item, index)}</Box>
       ))}
 
       {/* Load more content */}
@@ -201,7 +204,7 @@ function InfiniteScrollList<T>({
       {totalCount > 0 && (
         <Box sx={{ textAlign: 'center', py: 1 }}>
           <Typography variant="caption" color="text.secondary">
-            {items?.length} von {totalCount} Elementen
+            {items.length} von {totalCount} Elementen
           </Typography>
         </Box>
       )}

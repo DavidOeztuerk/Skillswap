@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { type JSX } from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
 import SignalCellularAltIcon from '@mui/icons-material/SignalCellularAlt';
 import SignalCellular4BarIcon from '@mui/icons-material/SignalCellular4Bar';
 import SignalCellular3BarIcon from '@mui/icons-material/SignalCellular3Bar';
 import SignalCellular2BarIcon from '@mui/icons-material/SignalCellular2Bar';
 import SignalCellular1BarIcon from '@mui/icons-material/SignalCellular1Bar';
-import { NetworkQualityStats } from '../../hooks/useNetworkQuality';
+import type { NetworkQualityStats } from '../../hooks/useNetworkQuality';
 
 interface NetworkQualityIndicatorProps {
   stats: NetworkQualityStats;
@@ -22,7 +22,7 @@ export const NetworkQualityIndicator: React.FC<NetworkQualityIndicatorProps> = (
   stats,
   showDetails = false,
 }) => {
-  const getQualityIcon = () => {
+  const getQualityIcon = (): JSX.Element => {
     switch (stats.quality) {
       case 'excellent':
         return <SignalCellular4BarIcon sx={{ color: '#4caf50' }} />;
@@ -37,7 +37,7 @@ export const NetworkQualityIndicator: React.FC<NetworkQualityIndicatorProps> = (
     }
   };
 
-  const getQualityColor = () => {
+  const getQualityColor = (): string => {
     switch (stats.quality) {
       case 'excellent':
         return '#4caf50';
@@ -52,7 +52,7 @@ export const NetworkQualityIndicator: React.FC<NetworkQualityIndicatorProps> = (
     }
   };
 
-  const getQualityText = () => {
+  const getQualityText = (): string => {
     switch (stats.quality) {
       case 'excellent':
         return 'Ausgezeichnet';
@@ -84,7 +84,7 @@ export const NetworkQualityIndicator: React.FC<NetworkQualityIndicatorProps> = (
       <Typography variant="caption" display="block" sx={{ ml: 1 }}>
         Bandbreite: {stats.videoBandwidth}kbps
       </Typography>
-      
+
       <Typography variant="caption" display="block" fontWeight="bold" sx={{ mt: 0.5 }}>
         Audio:
       </Typography>
@@ -97,7 +97,7 @@ export const NetworkQualityIndicator: React.FC<NetworkQualityIndicatorProps> = (
       <Typography variant="caption" display="block" sx={{ ml: 1 }}>
         Bandbreite: {stats.audioBandwidth}kbps
       </Typography>
-      
+
       <Typography variant="caption" display="block" fontWeight="bold" sx={{ mt: 0.5 }}>
         Gesamt:
       </Typography>
@@ -107,7 +107,7 @@ export const NetworkQualityIndicator: React.FC<NetworkQualityIndicatorProps> = (
       <Typography variant="caption" display="block" sx={{ ml: 1 }}>
         Gesamt-Bandbreite: {stats.totalBandwidth}kbps
       </Typography>
-      
+
       <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.7 }}>
         Aktualisiert: {stats.lastUpdate.toLocaleTimeString()}
       </Typography>

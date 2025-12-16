@@ -1,7 +1,11 @@
 import React from 'react';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Alert, Button, Box, Typography, Chip } from '@mui/material';
-import { School as SchoolIcon, Refresh as RefreshIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  School as SchoolIcon,
+  Refresh as RefreshIcon,
+  Search as SearchIcon,
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 interface SkillErrorBoundaryProps {
@@ -12,20 +16,24 @@ interface SkillErrorBoundaryProps {
  * Specialized error boundary for skill-related components
  * Handles skill search, matching, and management errors
  */
-const SkillErrorFallback: React.FC<{ error: Error; onRetry: () => void }> = ({ error, onRetry }) => {
+const SkillErrorFallback: React.FC<{ error: Error; onRetry: () => void }> = ({
+  error,
+  onRetry,
+}) => {
   const navigate = useNavigate();
 
-  const isSearchError = error.message?.toLowerCase().includes('search') || 
-                        error.message?.toLowerCase().includes('filter');
-  
-  const isDataError = error.message?.toLowerCase().includes('fetch') || 
-                      error.message?.toLowerCase().includes('load');
+  const isSearchError =
+    error.message.toLowerCase().includes('search') ||
+    error.message.toLowerCase().includes('filter');
 
-  const handleNavigateToSkills = () => {
-    navigate('/skills');
-  };
+  const isDataError =
+    error.message.toLowerCase().includes('fetch') || error.message.toLowerCase().includes('load');
 
-  const getSuggestion = () => {
+  const handleNavigateToSkills = React.useCallback((): void => {
+    void navigate('/skills');
+  }, [navigate]);
+
+  const getSuggestion = (): string => {
     if (isSearchError) {
       return 'Try using different search terms or clearing filters.';
     }
@@ -37,17 +45,11 @@ const SkillErrorFallback: React.FC<{ error: Error; onRetry: () => void }> = ({ e
 
   return (
     <Box sx={{ p: 3 }}>
-      <Alert 
-        severity="error"
-        icon={<SchoolIcon />}
-        sx={{ mb: 2 }}
-      >
+      <Alert severity="error" icon={<SchoolIcon />} sx={{ mb: 2 }}>
         <Typography variant="h6" gutterBottom>
           Skills Error
         </Typography>
-        <Typography variant="body2">
-          {getSuggestion()}
-        </Typography>
+        <Typography variant="body2">{getSuggestion()}</Typography>
       </Alert>
 
       {isSearchError && (
@@ -64,17 +66,12 @@ const SkillErrorFallback: React.FC<{ error: Error; onRetry: () => void }> = ({ e
       )}
 
       <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-        <Button 
-          variant="contained" 
-          onClick={onRetry}
-          startIcon={<RefreshIcon />}
-          size="small"
-        >
+        <Button variant="contained" onClick={onRetry} startIcon={<RefreshIcon />} size="small">
           Try Again
         </Button>
         {isSearchError && (
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             startIcon={<SearchIcon />}
             onClick={() => {
               // Clear search filters and retry
@@ -86,11 +83,7 @@ const SkillErrorFallback: React.FC<{ error: Error; onRetry: () => void }> = ({ e
             Clear Filters & Retry
           </Button>
         )}
-        <Button 
-          variant="text" 
-          onClick={handleNavigateToSkills}
-          size="small"
-        >
+        <Button variant="text" onClick={handleNavigateToSkills} size="small">
           Go to Skills Page
         </Button>
       </Box>
@@ -106,27 +99,21 @@ const SkillErrorFallback: React.FC<{ error: Error; onRetry: () => void }> = ({ e
   );
 };
 
-export const SkillErrorBoundary: React.FC<SkillErrorBoundaryProps> = ({ children }) => {
-  return (
-    <ErrorBoundary
-      level="component"
-      onError={(error, errorInfo) => {
-        console.error('Skill Component Error:', error);
-        // Log skill-specific errors
-        if (error.message?.includes('skill')) {
-          console.warn('Skill-specific error detected:', errorInfo.componentStack);
-        }
-      }}
-    >
-      {(hasError, error, retry) => 
-        hasError ? (
-          <SkillErrorFallback error={error!} onRetry={retry} />
-        ) : (
-          children
-        )
+export const SkillErrorBoundary: React.FC<SkillErrorBoundaryProps> = ({ children }) => (
+  <ErrorBoundary
+    level="component"
+    onError={(error, errorInfo) => {
+      console.error('Skill Component Error:', error);
+      // Log skill-specific errors
+      if (error.message.includes('skill')) {
+        console.warn('Skill-specific error detected:', errorInfo.componentStack);
       }
-    </ErrorBoundary>
-  );
-};
+    }}
+  >
+    {(hasError, error, retry) =>
+      hasError && error !== null ? <SkillErrorFallback error={error} onRetry={retry} /> : children
+    }
+  </ErrorBoundary>
+);
 
 export default SkillErrorBoundary;

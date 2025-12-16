@@ -4,10 +4,10 @@
 export const API_BASE_URL = (() => {
   const env = import.meta.env.VITE_API_BASE_URL;
   const isDev = import.meta.env.DEV;
-  
+
   if (env) return env;
   if (isDev) return 'http://localhost:8080';
-  
+
   // Production fallback
   return window.location.origin;
 })();
@@ -16,7 +16,7 @@ export const API_BASE_URL = (() => {
  * API Versioning Support
  */
 export const API_VERSION = 'v1';
-export const getVersionedEndpoint = (endpoint: string) => 
+export const getVersionedEndpoint = (endpoint: string): string =>
   endpoint.replace('/api/', `/api/${API_VERSION}/`);
 
 /**
@@ -28,28 +28,28 @@ export const AUTH_ENDPOINTS = {
   REGISTER: '/api/users/register',
   LOGOUT: '/api/users/logout',
   REFRESH_TOKEN: '/api/users/refresh-token',
-  
+
   // Profile management
   PROFILE: '/api/users/profile',
   UPDATE_PROFILE: '/api/users/profile',
   UPLOAD_AVATAR: '/api/users/profile/avatar',
-  
+
   // Email verification
   VERIFY_EMAIL: '/api/users/verify-email',
   RESEND_VERIFICATION: '/api/users/resend-verification',
-  
+
   // Two-factor authentication
   GENERATE_2FA: '/api/users/2fa/generate',
   VERIFY_2FA: '/api/users/2fa/verify',
   DISABLE_2FA: '/api/users/2fa/disable',
   TWO_FACTOR_STATUS: '/api/users/2fa/status',
-  
+
   // Password management
   CHANGE_PASSWORD: '/api/users/change-password',
   FORGOT_PASSWORD: '/api/users/request-password-reset',
   RESET_PASSWORD: '/api/users/reset-password',
   VALIDATE_RESET_TOKEN: '/api/users/validate-reset-token',
-  
+
   // Session management
   GET_SESSIONS: '/api/users/sessions',
   REVOKE_SESSION: '/api/users/sessions',
@@ -94,13 +94,13 @@ export const MATCHMAKING_ENDPOINTS = {
   ACCEPT_MATCH: '/api/matches', // + /{matchId}/accept
   REJECT_MATCH: '/api/matches', // + /{matchId}/reject
   CANCEL_MATCH: '/api/matches', // + /{matchId}/cancel
-  
+
   // Advanced matching
   GET_SUGGESTIONS: '/api/matches/suggestions',
   GET_COMPATIBILITY: '/api/matches/compatibility', // + /{userId}
   SET_PREFERENCES: '/api/matches/preferences',
   GET_PREFERENCES: '/api/matches/preferences',
-  
+
   // Match requests
   REQUESTS: {
     CREATE: '/api/matches/requests',
@@ -114,15 +114,15 @@ export const MATCHMAKING_ENDPOINTS = {
     CANCEL: '/api/matches/requests', // + /{requestId}/cancel
   },
   MATCHES: {
-  USER: '/api/matches/my',
-  SEARCH: '/api/matches/search',
-  DETAILS: '/api/matches',
-},
-  
+    USER: '/api/matches/my',
+    SEARCH: '/api/matches/search',
+    DETAILS: '/api/matches',
+  },
+
   // Match analytics
   STATISTICS: '/api/matches/statistics',
   HISTORY: '/api/matches/history',
-  
+
   // Rating and feedback
   RATE_MATCH: '/api/matches', // + /{matchId}/rate
   REPORT_MATCH: '/api/matches', // + /{matchId}/report
@@ -181,26 +181,26 @@ export const VIDEOCALL_ENDPOINTS = {
   START: '/api/calls/start',
   END_CALL: '/api/calls/end',
   DETAILS: '/api/calls', // + /{roomId}
-  
+
   // Call history and user calls
   MY_CALLS: '/api/my/calls',
   CALL_HISTORY: '/api/calls/history',
-  
+
   // Recording features
   START_RECORDING: '/api/calls', // + /{roomId}/recording/start
   STOP_RECORDING: '/api/calls', // + /{roomId}/recording/stop
   GET_RECORDINGS: '/api/calls', // + /{roomId}/recordings
-  
+
   // Real-time features
   SIGNALING: '/api/videocall',
   CHAT: '/api/calls', // + /{roomId}/chat
   PARTICIPANTS: '/api/calls', // + /{roomId}/participants
-  
+
   // Quality and diagnostics
   STATISTICS: '/api/calls/statistics',
   CONNECTION_TEST: '/api/calls/test-connection',
   REPORT_ISSUE: '/api/calls', // + /{roomId}/report
-  
+
   // Settings and preferences
   UPDATE_SETTINGS: '/api/calls', // + /{roomId}/settings
   GET_FEATURES: '/api/calls/features',
@@ -224,28 +224,28 @@ export const NOTIFICATION_ENDPOINTS = {
   GET_ALL: '/api/notifications',
   GET_UNREAD: '/api/notifications/unread',
   GET_COUNT: '/api/notifications/count',
-  
+
   // Notification actions
   MARK_READ: '/api/notifications', // + /{notificationId}/read
   MARK_ALL_READ: '/api/notifications/read-all',
   DELETE: '/api/notifications', // + /{notificationId}
   CLEAR_ALL: '/api/notifications/clear-all',
-  
+
   // Real-time subscriptions
   SUBSCRIBE: '/api/notifications/subscribe',
   UNSUBSCRIBE: '/api/notifications/unsubscribe',
-  
+
   // Settings and preferences
   SETTINGS: '/api/notifications/preferences',
   UPDATE_SETTINGS: '/api/notifications/preferences',
   GET_PREFERENCES: '/api/notifications/preferences',
   UPDATE_PREFERENCES: '/api/notifications/preferences',
-  
+
   // Admin sending
   SEND: '/api/notifications/send',
   BULK_SEND: '/api/notifications/bulk-send',
   BROADCAST: '/api/notifications/broadcast',
-  
+
   // Templates and categories
   GET_TEMPLATES: '/api/notifications/templates',
   GET_CATEGORIES: '/api/notifications/categories',
@@ -305,9 +305,7 @@ export const SYSTEM_ENDPOINTS = {
  * @param endpoint - Der relative Endpunkt
  * @returns Der vollständige API-Pfad
  */
-export const getFullApiUrl = (endpoint: string): string => {
-  return `${API_BASE_URL}${endpoint}`;
-};
+export const getFullApiUrl = (endpoint: string): string => `${API_BASE_URL}${endpoint}`;
 
 /**
  * Erstellt einen Pfad mit URL-Parametern
@@ -353,12 +351,9 @@ export const getParameterizedEndpoint = (
  * @param cacheKey - Optional cache key für bessere Performance
  * @returns Cache-optimierte URL
  */
-export const getCachedEndpoint = (
-  endpoint: string,
-  cacheKey?: string
-): string => {
+export const getCachedEndpoint = (endpoint: string, cacheKey?: string): string => {
   if (!cacheKey) return endpoint;
-  const separator = endpoint?.includes('?') ? '&' : '?';
+  const separator = endpoint.includes('?') ? '&' : '?';
   return `${endpoint}${separator}_cache=${cacheKey}`;
 };
 
@@ -383,7 +378,7 @@ export const ENDPOINT_CONFIGS: Record<string, EndpointConfig> = {
     retries: 3,
     priority: 'high',
   },
-  
+
   // Static data endpoints
   static: {
     cacheStrategy: 'cache-first',
@@ -391,7 +386,7 @@ export const ENDPOINT_CONFIGS: Record<string, EndpointConfig> = {
     retries: 1,
     priority: 'medium',
   },
-  
+
   // User data endpoints
   user: {
     cacheStrategy: 'stale-while-revalidate',
@@ -399,7 +394,7 @@ export const ENDPOINT_CONFIGS: Record<string, EndpointConfig> = {
     retries: 2,
     priority: 'high',
   },
-  
+
   // Admin endpoints
   admin: {
     cacheStrategy: 'no-cache',
@@ -407,7 +402,7 @@ export const ENDPOINT_CONFIGS: Record<string, EndpointConfig> = {
     retries: 1,
     priority: 'medium',
   },
-  
+
   // Critical operations
   critical: {
     cacheStrategy: 'no-cache',
@@ -423,7 +418,7 @@ export const ENDPOINT_CONFIGS: Record<string, EndpointConfig> = {
 export const createOptimizedEndpoint = (
   endpoint: string,
   config: EndpointConfig = {}
-) => ({
+): { url: string; config: EndpointConfig } => ({
   url: endpoint,
   config: { ...ENDPOINT_CONFIGS.static, ...config },
 });

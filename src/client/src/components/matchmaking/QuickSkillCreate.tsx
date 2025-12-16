@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import LoadingButton from '../ui/LoadingButton';
-import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
+import type { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
 import { toast } from 'react-toastify';
 import skillService from '../../api/services/skillsService';
 import { isSuccessResponse } from '../../types/api/UnifiedResponse';
@@ -25,8 +25,8 @@ interface QuickSkillCreateProps {
   open: boolean;
   onClose: () => void;
   onSkillCreated: (skillId: string, skillName: string) => void;
-  categories: Array<{ categoryId: string; name: string }>;
-  proficiencyLevels: Array<{ levelId: string; level: string }>;
+  categories: { categoryId: string; name: string }[];
+  proficiencyLevels: { levelId: string; level: string }[];
 }
 
 const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
@@ -67,30 +67,7 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-
-    try {
-      setLoading(true);
-      const response = await skillService.createSkill(formData as CreateSkillRequest);
-      
-      if (isSuccessResponse(response))
-        if (response.success && response.data) {
-          toast.success('Skill erfolgreich erstellt');
-          onSkillCreated(response.data.skillId, response.data.name);
-          handleClose();
-        } else {
-          toast.error(response.message || 'Fehler beim Erstellen des Skills');
-        }
-    } catch (error: unknown) {
-      console.error('Error creating skill:', error);
-      toast.error('Fehler beim Erstellen des Skills');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClose = () => {
+  const handleClose = (): void => {
     if (!loading) {
       setFormData({
         name: '',
@@ -105,15 +82,37 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
     }
   };
 
-  const handleChange = (field: keyof CreateSkillRequest, value: string | boolean | string[]) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleSubmit = async (): Promise<void> => {
+    if (!validateForm()) return;
+
+    try {
+      setLoading(true);
+      const response = await skillService.createSkill(formData as CreateSkillRequest);
+
+      if (isSuccessResponse(response)) {
+        toast.success('Skill erfolgreich erstellt');
+        onSkillCreated(response.data.skillId, response.data.name);
+        handleClose();
+      } else {
+        toast.error(response.message ?? 'Fehler beim Erstellen des Skills');
+      }
+    } catch (error: unknown) {
+      console.error('Error creating skill:', error);
+      toast.error('Fehler beim Erstellen des Skills');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (
+    field: keyof CreateSkillRequest,
+    value: string | boolean | string[]
+  ): void => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error for this field
     if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
+      const { [field]: _, ...restErrors } = errors;
+      setErrors(restErrors);
     }
   };
 
@@ -129,7 +128,9 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
           <TextField
             label="Skill-Name"
             value={formData.name}
-            onChange={(e) => handleChange('name', e.target.value)}
+            onChange={(e) => {
+              handleChange('name', e.target.value);
+            }}
             error={!!errors.name}
             helperText={errors.name}
             fullWidth
@@ -141,7 +142,9 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
           <TextField
             label="Beschreibung"
             value={formData.description}
-            onChange={(e) => handleChange('description', e.target.value)}
+            onChange={(e) => {
+              handleChange('description', e.target.value);
+            }}
             error={!!errors.description}
             helperText={errors.description}
             multiline
@@ -156,7 +159,9 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
             <InputLabel>Kategorie</InputLabel>
             <Select
               value={formData.categoryId}
-              onChange={(e) => handleChange('categoryId', e.target.value)}
+              onChange={(e) => {
+                handleChange('categoryId', e.target.value);
+              }}
               label="Kategorie"
               disabled={loading}
             >
@@ -169,16 +174,16 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
                 </MenuItem>
               ))}
             </Select>
-            {errors.categoryId && (
-              <FormHelperText>{errors.categoryId}</FormHelperText>
-            )}
+            {errors.categoryId && <FormHelperText>{errors.categoryId}</FormHelperText>}
           </FormControl>
 
           <FormControl fullWidth required error={!!errors.proficiencyLevelId}>
             <InputLabel>Dein Kenntnisstand</InputLabel>
             <Select
               value={formData.proficiencyLevelId}
-              onChange={(e) => handleChange('proficiencyLevelId', e.target.value)}
+              onChange={(e) => {
+                handleChange('proficiencyLevelId', e.target.value);
+              }}
               label="Dein Kenntnisstand"
               disabled={loading}
             >
@@ -199,7 +204,15 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
           <TextField
             label="Tags (optional)"
             value={formData.tags?.join(', ')}
-            onChange={(e) => handleChange('tags', e.target.value.split(',').map(t => t.trim()).filter(t => t))}
+            onChange={(e) => {
+              handleChange(
+                'tags',
+                e.target.value
+                  .split(',')
+                  .map((t) => t.trim())
+                  .filter((t) => t)
+              );
+            }}
             helperText="Komma-getrennte Tags, z.B. Frontend, React, TypeScript"
             fullWidth
             disabled={loading}

@@ -1,9 +1,6 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { isDefined } from '../../utils/safeAccess';
-import {
-  initialMatchesState,
-  matchesAdapter,
-} from '../../store/adapters/matchmakingAdapter+State';
+import { initialMatchesState, matchesAdapter } from '../../store/adapters/matchmakingAdapter+State';
 import {
   createMatchRequest,
   fetchMatches,
@@ -51,7 +48,7 @@ const matchmakingSlice = createSlice({
       state.currentThread = null;
     },
 
-    setPagination: (state, action) => {
+    setPagination: (state, action: PayloadAction<Record<string, unknown>>) => {
       state.pagination = { ...state.pagination, ...action.payload };
     },
 
@@ -60,7 +57,7 @@ const matchmakingSlice = createSlice({
     /**
      * Optimistically accept match request (remove from incoming, don't update entities yet)
      */
-    acceptMatchRequestOptimistic: (state, action) => {
+    acceptMatchRequestOptimistic: (state, action: PayloadAction<string>) => {
       const id = action.payload;
       const req = state.incomingRequests.find((r) => r.id === id);
       if (!req) return;
@@ -73,7 +70,7 @@ const matchmakingSlice = createSlice({
     /**
      * Optimistically reject match request (update status)
      */
-    rejectMatchRequestOptimistic: (state, action) => {
+    rejectMatchRequestOptimistic: (state, action: PayloadAction<string>) => {
       const id = action.payload;
       const req = state.incomingRequests.find((r) => r.id === id);
       if (req) {
@@ -84,7 +81,7 @@ const matchmakingSlice = createSlice({
     /**
      * Mark request as read
      */
-    markRequestAsRead: (state, action) => {
+    markRequestAsRead: (state, action: PayloadAction<string>) => {
       const id = action.payload;
       const inReq = state.incomingRequests.find((r) => r.id === id);
       if (inReq) inReq.isRead = true;
@@ -119,7 +116,7 @@ const matchmakingSlice = createSlice({
       .addCase(fetchMatches.fulfilled, (state, action) => {
         state.isLoadingMatches = false;
 
-        if (isDefined(action.payload?.data)) {
+        if (isDefined(action.payload.data)) {
           // Replace all entities with fetched matches
           matchesAdapter.setAll(state, action.payload.data);
         } else {
@@ -127,17 +124,17 @@ const matchmakingSlice = createSlice({
         }
 
         state.pagination = {
-          pageNumber: action.payload?.pageNumber ?? 1,
-          pageSize: action.payload?.pageSize ?? 20,
-          totalRecords: action.payload?.totalRecords ?? 0,
-          totalPages: action.payload?.totalPages ?? 0,
-          hasNextPage: action.payload?.hasNextPage ?? false,
-          hasPreviousPage: action.payload?.hasPreviousPage ?? false,
+          pageNumber: action.payload.pageNumber,
+          pageSize: action.payload.pageSize,
+          totalRecords: action.payload.totalRecords,
+          totalPages: action.payload.totalPages,
+          hasNextPage: action.payload.hasNextPage,
+          hasPreviousPage: action.payload.hasPreviousPage,
         };
       })
       .addCase(fetchMatches.rejected, (state, action) => {
         state.isLoadingMatches = false;
-        state.errorMessage = action.error?.message || 'Failed to fetch matches';
+        state.errorMessage = action.error.message ?? 'Failed to fetch matches';
       })
 
       // ==================== FETCH USER MATCHES ====================
@@ -154,12 +151,12 @@ const matchmakingSlice = createSlice({
         }
 
         state.pagination = {
-          pageNumber: action.payload.pageNumber ?? 1,
-          pageSize: action.payload.pageSize ?? 20,
-          totalRecords: action.payload.totalRecords ?? 0,
-          totalPages: action.payload.totalPages ?? 0,
-          hasNextPage: action.payload.hasNextPage ?? false,
-          hasPreviousPage: action.payload.hasPreviousPage ?? false,
+          pageNumber: action.payload.pageNumber,
+          pageSize: action.payload.pageSize,
+          totalRecords: action.payload.totalRecords,
+          totalPages: action.payload.totalPages,
+          hasNextPage: action.payload.hasNextPage,
+          hasPreviousPage: action.payload.hasPreviousPage,
         };
       })
       .addCase(fetchUserMatches.rejected, (state, action) => {
@@ -182,12 +179,12 @@ const matchmakingSlice = createSlice({
         }
 
         state.pagination = {
-          pageNumber: action.payload.pageNumber ?? 1,
-          pageSize: action.payload.pageSize ?? 20,
-          totalRecords: action.payload.totalRecords ?? 0,
-          totalPages: action.payload.totalPages ?? 0,
-          hasNextPage: action.payload.hasNextPage ?? false,
-          hasPreviousPage: action.payload.hasPreviousPage ?? false,
+          pageNumber: action.payload.pageNumber,
+          pageSize: action.payload.pageSize,
+          totalRecords: action.payload.totalRecords,
+          totalPages: action.payload.totalPages,
+          hasNextPage: action.payload.hasNextPage,
+          hasPreviousPage: action.payload.hasPreviousPage,
         };
       })
       .addCase(fetchIncomingMatchRequests.rejected, (state, action) => {
@@ -210,12 +207,12 @@ const matchmakingSlice = createSlice({
         }
 
         state.pagination = {
-          pageNumber: action.payload.pageNumber ?? 1,
-          pageSize: action.payload.pageSize ?? 20,
-          totalRecords: action.payload.totalRecords ?? 0,
-          totalPages: action.payload.totalPages ?? 0,
-          hasNextPage: action.payload.hasNextPage ?? false,
-          hasPreviousPage: action.payload.hasPreviousPage ?? false,
+          pageNumber: action.payload.pageNumber,
+          pageSize: action.payload.pageSize,
+          totalRecords: action.payload.totalRecords,
+          totalPages: action.payload.totalPages,
+          hasNextPage: action.payload.hasNextPage,
+          hasPreviousPage: action.payload.hasPreviousPage,
         };
       })
       .addCase(fetchOutgoingMatchRequests.rejected, (state, action) => {
@@ -232,16 +229,13 @@ const matchmakingSlice = createSlice({
         state.isLoading = false;
 
         if (isDefined(action.payload.data)) {
-          const requestId = action.payload.data.requestId;
+          const { requestId } = action.payload.data;
 
           // Remove from incoming requests
           state.incomingRequests = state.incomingRequests.filter((r) => r.id !== requestId);
 
-          // Add new match to entities if returned
-          const match = (action.payload.data as any)?.match;
-          if (isDefined(match)) {
-            matchesAdapter.addOne(state, match);
-          }
+          // Note: AcceptMatchRequestResponse only contains requestId, matchId, acceptedAt
+          // Full match data should be refetched separately via fetchMatches
         }
       })
       .addCase(acceptMatchRequest.rejected, (state, action) => {
@@ -258,7 +252,7 @@ const matchmakingSlice = createSlice({
         state.isLoading = false;
 
         if (isDefined(action.payload.data)) {
-          const requestId = action.payload.data.requestId;
+          const { requestId } = action.payload.data;
           // Remove from incoming requests
           state.incomingRequests = state.incomingRequests.filter((r) => r.id !== requestId);
         }
@@ -305,38 +299,35 @@ const matchmakingSlice = createSlice({
                 avatar: undefined,
               },
             },
-            requests:
-              threadData.requests?.map((req) => {
-                // Derive sender name from requesterId - check if it matches requester or target
-                const isRequester = req.requesterId === requesterId;
-                const senderName = isRequester ? requesterName : targetUserName;
+            requests: threadData.requests.map((req) => {
+              // Derive sender name from requesterId - check if it matches requester or target
+              const isRequester = req.requesterId === requesterId;
+              const senderName = isRequester ? requesterName : targetUserName;
 
-                return {
-                  id: req.id,
-                  senderId: req.requesterId || '',
-                  senderName: senderName,
-                  message: req.message,
-                  type: req.type as 'initial' | 'counter' | 'acceptance' | 'rejection',
-                  status: req.status as 'pending' | 'accepted' | 'rejected' | 'countered',
-                  requesterId: req.requesterId,
-                  sessionDuration: req.sessionDuration,
-                  isSkillExchange: req.isSkillExchange ?? false,
-                  exchangeSkillName: req.exchangeSkillName,
-                  isMonetary: req.isMonetary ?? false,
-                  offeredAmount: req.offeredAmount,
-                  currency: req.currency,
-                  preferredDays: req.preferredDays || [],
-                  preferredTimes: req.preferredTimes || [],
-                  sessionDurationMinutes: req.sessionDuration || req.sessionDurationMinutes || 0,
-                  totalSessions: req.totalSessions || 1,
-                  createdAt: req.createdAt || '',
-                  isRead: req.isRead ?? false,
-                };
-              }) || [],
-            lastActivity: threadData.lastActivity || '',
-            status:
-              (threadData.status as 'active' | 'accepted' | 'rejected' | 'expired') ||
-              'active',
+              return {
+                id: req.id,
+                senderId: req.requesterId || '',
+                senderName,
+                message: req.message,
+                type: req.type,
+                status: req.status,
+                requesterId: req.requesterId,
+                sessionDuration: req.sessionDuration,
+                isSkillExchange: req.isSkillExchange,
+                exchangeSkillName: req.exchangeSkillName,
+                isMonetary: req.isMonetary,
+                offeredAmount: req.offeredAmount,
+                currency: req.currency,
+                preferredDays: req.preferredDays,
+                preferredTimes: req.preferredTimes,
+                sessionDurationMinutes: req.sessionDuration || req.sessionDurationMinutes || 0,
+                totalSessions: req.totalSessions || 1,
+                createdAt: req.createdAt,
+                isRead: req.isRead,
+              };
+            }),
+            lastActivity: threadData.lastActivity,
+            status: threadData.status,
           };
         } else {
           state.currentThread = null;

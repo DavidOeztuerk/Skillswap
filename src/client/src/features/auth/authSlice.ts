@@ -1,10 +1,10 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { removeToken } from '../../utils/authHelpers';
 import { withDefault, isDefined } from '../../utils/safeAccess';
 import errorService from '../../services/errorService';
-import { ErrorResponse } from '../../types/api/UnifiedResponse';
-import { initialUsersState, UsersEntityState } from '../../store/adapters/authAdapter+State';
-import { User } from '../../types/models/User';
+import type { ErrorResponse } from '../../types/api/UnifiedResponse';
+import { initialUsersState, type UsersEntityState } from '../../store/adapters/authAdapter+State';
+import type { User } from '../../types/models/User';
 import {
   login,
   register,
@@ -31,21 +31,23 @@ import {
  * Eliminates code duplication between login and register
  */
 const mapUserInfoToUser = (
-  userData: {
-    userId?: string;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-    userName?: string;
-    roles?: string[];
-    favoriteSkills?: string[];
-    emailVerified?: boolean;
-    accountStatus?: string;
-    twoFactorEnabled?: boolean;
-  } | undefined,
+  userData:
+    | {
+        userId?: string;
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        userName?: string;
+        roles?: string[];
+        favoriteSkills?: string[];
+        emailVerified?: boolean;
+        accountStatus?: string;
+        twoFactorEnabled?: boolean;
+      }
+    | undefined,
   defaults?: Partial<User>
-): User | null => {
-  if (!isDefined(userData)) return null;
+): User | undefined => {
+  if (!isDefined(userData)) return undefined;
 
   return {
     id: withDefault(userData.userId, ''),
@@ -65,7 +67,7 @@ const mapUserInfoToUser = (
 /**
  * Sets error service user context after successful auth
  */
-const setErrorServiceContext = (user: User | null, action: string): void => {
+const setErrorServiceContext = (user: User | undefined, action: string): void => {
   if (user) {
     errorService.setUserContext(user.id, user.email, user.userName);
     errorService.addBreadcrumb(`User ${action}`, 'auth', {
@@ -78,24 +80,22 @@ const setErrorServiceContext = (user: User | null, action: string): void => {
 /**
  * Extracts error message from rejected action payload
  */
-const extractErrorMessage = (payload: unknown): string | undefined => {
-  if (!payload) return undefined;
-  
+const extractErrorMessage = (payload: ErrorResponse | Error | undefined): string | undefined => {
   // Handle ErrorResponse type
-  if (typeof payload === 'object' && payload !== null) {
+  if (typeof payload === 'object') {
     const errorResponse = payload as ErrorResponse;
-    
+
     // Try message first
     if (errorResponse.message) {
       return errorResponse.message;
     }
-    
+
     // Try errors array
     if (Array.isArray(errorResponse.errors) && errorResponse.errors.length > 0) {
       return errorResponse.errors[0];
     }
   }
-  
+
   return 'Ein unbekannter Fehler ist aufgetreten';
 };
 
@@ -132,7 +132,7 @@ const authSlice = createSlice({
      * Clears pending 2FA login credentials
      */
     clearTwoFactorState: (state) => {
-      state.pendingLoginCredentials = null;
+      state.pendingLoginCredentials = undefined;
     },
 
     /**
@@ -165,7 +165,7 @@ const authSlice = createSlice({
         state.errorMessage = undefined;
 
         // Handle 2FA required
-        if (response.data?.requires2FA) {
+        if (response.data.requires2FA) {
           state.isAuthenticated = false;
           state.pendingLoginCredentials = action.meta.arg;
           return;
@@ -173,8 +173,8 @@ const authSlice = createSlice({
 
         // Successful login
         state.isAuthenticated = true;
-        state.pendingLoginCredentials = null;
-        state.user = mapUserInfoToUser(response.data?.userInfo);
+        state.pendingLoginCredentials = undefined;
+        state.user = mapUserInfoToUser(response.data.userInfo);
 
         setErrorServiceContext(state.user, 'logged in');
       })
@@ -197,7 +197,7 @@ const authSlice = createSlice({
         state.errorMessage = undefined;
         state.isAuthenticated = true;
 
-        state.user = mapUserInfoToUser(response.data?.userInfo, {
+        state.user = mapUserInfoToUser(response.data.userInfo, {
           roles: ['User'],
           accountStatus: 'PendingVerification',
         });
@@ -226,7 +226,7 @@ const authSlice = createSlice({
       .addCase(refreshToken.rejected, (state) => {
         state.isLoading = false;
         state.isAuthenticated = false;
-        state.user = null;
+        state.user = undefined;
         // Don't set error for silent refresh failure
       })
 
@@ -240,7 +240,7 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.errorMessage = undefined;
         const profileData = action.payload.data;
-        
+
         // Merge with existing user data to preserve fields not in profile response
         state.user = {
           ...state.user,
@@ -263,7 +263,7 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.errorMessage = undefined;
         const updateData = action.payload.data;
-        
+
         state.user = {
           id: updateData.userId,
           favoriteSkills: state.user?.favoriteSkills ?? [],
@@ -321,7 +321,7 @@ const authSlice = createSlice({
       .addCase(silentLogin.rejected, (state) => {
         state.isLoading = false;
         state.isAuthenticated = false;
-        state.user = null;
+        state.user = undefined;
         // Don't set error for silent login - it's expected to fail sometimes
       })
 
@@ -338,21 +338,21 @@ const authSlice = createSlice({
         errorService.addBreadcrumb('User logged out', 'auth');
 
         // Reset state
-        state.user = null;
+        state.user = undefined;
         state.isAuthenticated = false;
         state.isLoading = false;
         state.errorMessage = undefined;
-        state.pendingLoginCredentials = null;
+        state.pendingLoginCredentials = undefined;
 
         // Clear tokens
         removeToken();
       })
       .addCase(logout.rejected, (state) => {
         // Still clear state even if server logout fails
-        state.user = null;
+        state.user = undefined;
         state.isAuthenticated = false;
         state.isLoading = false;
-        state.pendingLoginCredentials = null;
+        state.pendingLoginCredentials = undefined;
         removeToken();
       })
 
@@ -398,8 +398,8 @@ const authSlice = createSlice({
       .addCase(verifyTwoFactorCode.fulfilled, (state) => {
         state.isLoading = false;
         state.errorMessage = undefined;
-        state.pendingLoginCredentials = null;
-        
+        state.pendingLoginCredentials = undefined;
+
         // Update user 2FA status
         if (state.user) {
           state.user.twoFactorEnabled = true;
@@ -434,7 +434,7 @@ const authSlice = createSlice({
       .addCase(disableTwoFactor.fulfilled, (state) => {
         state.isLoading = false;
         state.errorMessage = undefined;
-        
+
         if (state.user) {
           state.user.twoFactorEnabled = false;
         }

@@ -35,12 +35,12 @@ class ErrorService {
     window.addEventListener('offline', this.handleOffline);
   }
 
-  private handleOnline = () => {
+  private handleOnline = (): void => {
     this.isOnline = true;
-    this.processErrorQueue();
+    void this.processErrorQueue();
   };
 
-  private handleOffline = () => {
+  private handleOffline = (): void => {
     this.isOnline = false;
   };
 
@@ -48,26 +48,26 @@ class ErrorService {
    * Determines error type based on error object
    */
   private determineErrorType(error: unknown): ErrorDetails['type'] {
-    if (error instanceof TypeError && error.message?.includes('fetch')) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
       return 'NETWORK';
     }
-    
-    if (error && typeof error === 'object' && 'status' in error) {
-      const status = (error as { status: number }).status;
-      
+
+    if (error !== null && error !== undefined && typeof error === 'object' && 'status' in error) {
+      const { status } = error as { status: number };
+
       if (status === 401) return 'AUTH';
       if (status === 403) return 'PERMISSION';
       if (status >= 400 && status < 500) return 'CLIENT';
       if (status >= 500) return 'SERVER';
     }
-    
-    if (error && typeof error === 'object' && 'code' in error) {
-      const code = (error as { code: string }).code;
-      
+
+    if (error !== null && error !== undefined && typeof error === 'object' && 'code' in error) {
+      const { code } = error as { code: string };
+
       if (code === 'VALIDATION_ERROR') return 'VALIDATION';
       if (code === 'NETWORK_ERROR') return 'NETWORK';
     }
-    
+
     return 'UNKNOWN';
   }
 
@@ -100,10 +100,8 @@ class ErrorService {
     console.error('Error logged:', errorDetails);
 
     // Log to external service immediately if available
-    if (errorLogger) {
-      errorLogger.logError(errorDetails).catch(err => 
-        console.error('Failed to log to external service:', err)
-      );
+    if (errorLogger !== null) {
+      void Promise.resolve(errorLogger.logError(errorDetails));
     }
 
     // Add to queue for batch processing
@@ -111,7 +109,7 @@ class ErrorService {
 
     // Process queue if online
     if (this.isOnline) {
-      this.processErrorQueue();
+      void this.processErrorQueue();
     }
   }
 
@@ -119,20 +117,20 @@ class ErrorService {
    * Processes error queue and sends to external service
    */
   private async processErrorQueue(): Promise<void> {
-    if (!this.errorQueue || this.errorQueue.length === 0) return;
+    if (this.errorQueue.length === 0) return;
 
     const errors = [...this.errorQueue];
     this.errorQueue = [];
 
     try {
       // Send to error tracking service if available
-      if (errorLogger) {
+      if (errorLogger !== null) {
         await errorLogger.logErrors(errors);
-        console.log('Errors sent to tracking service:', errors.length);
+        console.debug('Errors sent to tracking service:', errors.length);
       } else {
-        console.log('No error logger configured, errors logged locally:', errors);
+        console.debug('No error logger configured, errors logged locally:', errors);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       // Re-add errors to queue if sending fails
       this.errorQueue.unshift(...errors);
       console.error('Failed to send errors to tracking service:', error);
@@ -156,17 +154,21 @@ class ErrorService {
    */
   public handleApiError(error: unknown, context?: string): void {
     const errorType = this.determineErrorType(error);
-    const originalMessage = error && typeof error === 'object' && 'message' in error 
-      ? String(error.message) 
-      : 'Unknown error';
+    const originalMessage =
+      error !== null && error !== undefined && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
 
     const errorDetails: ErrorDetails = {
       type: errorType,
       message: originalMessage,
-      code: error && typeof error === 'object' && 'code' in error ? error.code as string | number : undefined,
+      code:
+        error !== null && error !== undefined && typeof error === 'object' && 'code' in error
+          ? (error.code as string | number)
+          : undefined,
       details: {
         context,
-        ...(error && typeof error === 'object' ? error : {}),
+        ...(error !== null && error !== undefined && typeof error === 'object' ? error : {}),
       },
       timestamp: new Date().toISOString(),
       url: window.location.href,
@@ -176,27 +178,33 @@ class ErrorService {
     this.logError(errorDetails);
 
     // Show user notification for certain error types
-    if (['NETWORK', 'SERVER', 'AUTH']?.includes(errorType)) {
+    if (['NETWORK', 'SERVER', 'AUTH'].includes(errorType)) {
       const userMessage = this.getUserFriendlyMessage(errorType, originalMessage);
-      
-      store.dispatch(addNotification({
-        id: `error-${Date.now()}`,
-        userId: this.getCurrentUserId(),
-        type: NotificationType.System,
-        title: 'Error',
-        message: userMessage,
-        createdAt: new Date().toISOString(),
-        autoHide: errorType !== 'AUTH', // Keep auth errors visible
-        duration: errorType === 'NETWORK' ? 10000 : 5000,
-        isRead: false,
-      }));
+
+      store.dispatch(
+        addNotification({
+          id: `error-${String(Date.now())}`,
+          userId: this.getCurrentUserId(),
+          type: NotificationType.System,
+          title: 'Error',
+          message: userMessage,
+          createdAt: new Date().toISOString(),
+          autoHide: errorType !== 'AUTH', // Keep auth errors visible
+          duration: errorType === 'NETWORK' ? 10000 : 5000,
+          isRead: false,
+        })
+      );
     }
   }
 
   /**
    * Handles component errors from Error Boundaries
    */
-  public handleComponentError(error: Error, errorInfo: { componentStack: string }, context?: string): void {
+  public handleComponentError(
+    error: Error,
+    errorInfo: { componentStack: string },
+    context?: string
+  ): void {
     const errorDetails: ErrorDetails = {
       type: 'CLIENT',
       message: error.message,
@@ -211,17 +219,19 @@ class ErrorService {
     this.logError(errorDetails);
 
     // Show notification for component errors
-    store.dispatch(addNotification({
-      id: `component-error-${Date.now()}`,
-      userId: this.getCurrentUserId(),
-      type: NotificationType.System,
-      title: 'Component Error',
-      message: 'A component error occurred. The page may not work correctly.',
-      createdAt: new Date().toISOString(),
-      autoHide: true,
-      duration: 8000,
-      isRead: false,
-    }));
+    store.dispatch(
+      addNotification({
+        id: `component-error-${String(Date.now())}`,
+        userId: this.getCurrentUserId(),
+        type: NotificationType.System,
+        title: 'Component Error',
+        message: 'A component error occurred. The page may not work correctly.',
+        createdAt: new Date().toISOString(),
+        autoHide: true,
+        duration: 8000,
+        isRead: false,
+      })
+    );
   }
 
   /**
@@ -241,21 +251,24 @@ class ErrorService {
 
     // Show notification with validation errors
     const errorMessages = Object.values(errors).flat();
-    const message = errorMessages?.length > 0 
-      ? errorMessages.join(', ')
-      : 'Please check your input and try again.';
+    const message =
+      errorMessages.length > 0
+        ? errorMessages.join(', ')
+        : 'Please check your input and try again.';
 
-    store.dispatch(addNotification({
-      id: `validation-error-${Date.now()}`,
-      userId: this.getCurrentUserId(),
-      type: NotificationType.System,
-      title: 'Validation Error',
-      message,
-      createdAt: new Date().toISOString(),
-      autoHide: true,
-      duration: 6000,
-      isRead: false,
-    }));
+    store.dispatch(
+      addNotification({
+        id: `validation-error-${String(Date.now())}`,
+        userId: this.getCurrentUserId(),
+        type: NotificationType.System,
+        title: 'Validation Error',
+        message,
+        createdAt: new Date().toISOString(),
+        autoHide: true,
+        duration: 6000,
+        isRead: false,
+      })
+    );
   }
 
   /**
@@ -263,13 +276,14 @@ class ErrorService {
    */
   public handleError(error: unknown, message?: string, context?: string): void {
     const errorType = this.determineErrorType(error);
-    const originalMessage = error && typeof error === 'object' && 'message' in error 
-      ? String(error.message) 
-      : 'Unknown error';
+    const originalMessage =
+      error !== null && error !== undefined && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
 
     const errorDetails: ErrorDetails = {
       type: errorType,
-      message: message || originalMessage,
+      message: message ?? originalMessage,
       details: { context, originalError: error },
       timestamp: new Date().toISOString(),
       url: window.location.href,
@@ -279,19 +293,21 @@ class ErrorService {
     this.logError(errorDetails);
 
     // Show user notification
-    const userMessage = message || this.getUserFriendlyMessage(errorType, originalMessage);
-    
-    store.dispatch(addNotification({
-      id: `error-${Date.now()}`,
-      userId: this.getCurrentUserId(),
-      type: NotificationType.System,
-      title: 'Error',
-      message: userMessage,
-      createdAt: new Date().toISOString(),
-      autoHide: true,
-      duration: 5000,
-      isRead: false,
-    }));
+    const userMessage = message ?? this.getUserFriendlyMessage(errorType, originalMessage);
+
+    store.dispatch(
+      addNotification({
+        id: `error-${String(Date.now())}`,
+        userId: this.getCurrentUserId(),
+        type: NotificationType.System,
+        title: 'Error',
+        message: userMessage,
+        createdAt: new Date().toISOString(),
+        autoHide: true,
+        duration: 5000,
+        isRead: false,
+      })
+    );
   }
 
   /**
@@ -305,7 +321,7 @@ class ErrorService {
    * Add breadcrumb for error tracking
    */
   public addBreadcrumb(message: string, category?: string, data?: Record<string, unknown>): void {
-    if (errorLogger) {
+    if (errorLogger !== null) {
       errorLogger.addBreadcrumb(message, category, data);
     }
   }
@@ -314,7 +330,7 @@ class ErrorService {
    * Set user context for error tracking
    */
   public setUserContext(userId: string, email?: string, username?: string): void {
-    if (errorLogger) {
+    if (errorLogger !== null) {
       errorLogger.setUser(userId, email, username);
     }
   }
@@ -323,7 +339,7 @@ class ErrorService {
    * Clear all breadcrumbs
    */
   public clearBreadcrumbs(): void {
-    if (errorLogger) {
+    if (errorLogger !== null) {
       errorLogger.clearBreadcrumbs();
     }
   }

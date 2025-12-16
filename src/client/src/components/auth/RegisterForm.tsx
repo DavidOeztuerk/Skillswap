@@ -1,25 +1,30 @@
 import React, { useState } from 'react';
-import { Box, Typography, Link, IconButton, Stack, Grid } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Link,
+  IconButton,
+  Stack,
+  Grid,
+  TextField,
+  InputAdornment,
+} from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../hooks/useAuth';
-import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
-import { LoadingButton } from '../../components/common/LoadingButton';
-import { InputAdornment, TextField } from '@mui/material';
-import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
+import { LoadingButton } from '../ui/LoadingButton';
+import ErrorAlert from '../error/ErrorAlert';
+import { useLoading } from '../../contexts/loadingContextHooks';
+import { LoadingKeys } from '../../contexts/loadingContextValue';
 
 // Validierungsschema mit Zod
 const registerSchema = z
   .object({
-    firstName: z
-      .string()
-      .min(2, 'Der Vorname muss mindestens 2 Zeichen lang sein'),
-    lastName: z
-      .string()
-      .min(2, 'Der Nachname muss mindestens 2 Zeichen lang sein'),
+    firstName: z.string().min(2, 'Der Vorname muss mindestens 2 Zeichen lang sein'),
+    lastName: z.string().min(2, 'Der Nachname muss mindestens 2 Zeichen lang sein'),
     userName: z
       .string()
       .min(3, 'Der Benutzername muss mindestens 3 Zeichen lang sein')
@@ -28,7 +33,7 @@ const registerSchema = z
         /^[a-zA-Z0-9_-]+$/,
         'Der Benutzername darf nur Buchstaben, Zahlen, Unterstriche und Bindestriche enthalten'
       ),
-    email: z.string().email('Bitte geben Sie eine gültige E-Mail-Adresse ein'),
+    email: z.email('Bitte geben Sie eine gültige E-Mail-Adresse ein'),
     password: z
       .string()
       .min(8, 'Das Passwort muss mindestens 8 Zeichen lang sein')
@@ -52,16 +57,17 @@ interface RegisterFormProps {
 
 const RegisterForm: React.FC<RegisterFormProps> = ({
   onSuccess,
-  redirectPath = '/dashboard',
+  // redirectPath is handled by auth slice, kept for API compatibility
+  redirectPath: _redirectPath = '/dashboard',
 }) => {
   const { register: registerUser, errorMessage, dismissError } = useAuth();
   const { isLoading, withLoading } = useLoading();
-  
+
   // // Clear errors when component mounts
   // useEffect(() => {
   //   dismissError?.();
   //   return () => {
-  //     // Clear errors when component unmounts  
+  //     // Clear errors when component unmounts
   //     dismissError?.();
   //   };
   // }, [dismissError]);
@@ -74,8 +80,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    mode: 'onSubmit',  // Only validate on form submit, not on blur/change
-    shouldUnregister: true,  // Unregister fields on unmount
+    mode: 'onSubmit', // Only validate on form submit, not on blur/change
+    shouldUnregister: true, // Unregister fields on unmount
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -87,26 +93,32 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   });
 
   const onSubmit: SubmitHandler<RegisterFormValues> = async (data) => {
-    await withLoading(LoadingKeys.REGISTER, async () => {
-      try {
-        const { ...userData } = data;
-        const success = await registerUser(userData, redirectPath);
-        if (success && onSuccess) {
-          onSuccess();
-        }
-      } catch (err) {
-        console.error('Registration failed:', err);
-      }
+    await withLoading(LoadingKeys.REGISTER, () => {
+      // Register user (navigation is handled by the auth slice)
+      registerUser({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        userName: data.userName,
+        email: data.email,
+        password: data.password,
+      });
+      // Note: onSuccess callback can be called after successful registration
+      // but we can't easily detect success here since registerUser returns void
+      // The auth slice handles navigation on successful registration
+      onSuccess?.();
+      return Promise.resolve();
     });
   };
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Stack spacing={3}>
-        <EnhancedErrorAlert 
-          error={errorMessage || (errors.root && { message: errors.root.message })}
-          onDismiss={() => dismissError?.()}
-          compact={process.env.NODE_ENV === 'production'}
+        <ErrorAlert
+          error={errorMessage ?? (errors.root ? { message: errors.root.message } : undefined)}
+          onDismiss={() => {
+            dismissError();
+          }}
+          compact={import.meta.env.PROD}
         />
 
         {/* Vorname + Nachname */}
@@ -122,8 +134,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   variant="outlined"
                   fullWidth
                   autoComplete="given-name"
-                  error={!!errors?.firstName}
-                  helperText={errors?.firstName?.message}
+                  error={errors.firstName !== undefined}
+                  helperText={errors.firstName?.message}
                   disabled={isLoading(LoadingKeys.REGISTER)}
                 />
               )}
@@ -140,8 +152,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                   variant="outlined"
                   fullWidth
                   autoComplete="family-name"
-                  error={!!errors?.lastName}
-                  helperText={errors?.lastName?.message}
+                  error={errors.lastName !== undefined}
+                  helperText={errors.lastName?.message}
                   disabled={isLoading(LoadingKeys.REGISTER)}
                 />
               )}
@@ -160,8 +172,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="username"
-              error={!!errors?.userName}
-              helperText={errors?.userName?.message}
+              error={errors.userName !== undefined}
+              helperText={errors.userName?.message}
               disabled={isLoading(LoadingKeys.REGISTER)}
             />
           )}
@@ -178,8 +190,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="email"
-              error={!!errors?.email}
-              helperText={errors?.email?.message}
+              error={errors.email !== undefined}
+              helperText={errors.email?.message}
               disabled={isLoading(LoadingKeys.REGISTER)}
               slotProps={{
                 input: {
@@ -201,8 +213,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="new-password"
-              error={!!errors?.password}
-              helperText={errors?.password?.message}
+              error={errors.password !== undefined}
+              helperText={errors.password?.message}
               disabled={isLoading(LoadingKeys.REGISTER)}
               slotProps={{
                 input: {
@@ -211,7 +223,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                     <InputAdornment position="end">
                       <IconButton
                         aria-label="Passwort-Sichtbarkeit umschalten"
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={() => {
+                          setShowPassword(!showPassword);
+                        }}
                         edge="end"
                       >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -235,8 +249,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               variant="outlined"
               fullWidth
               autoComplete="new-password"
-              error={!!errors?.confirmPassword}
-              helperText={errors?.confirmPassword?.message}
+              error={errors.confirmPassword !== undefined}
+              helperText={errors.confirmPassword?.message}
               disabled={isLoading(LoadingKeys.REGISTER)}
               slotProps={{
                 input: {
@@ -245,16 +259,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
                     <InputAdornment position="end">
                       <IconButton
                         aria-label="Passwort-Bestätigung-Sichtbarkeit umschalten"
-                        onClick={() =>
-                          setShowConfirmPassword(!showConfirmPassword)
-                        }
+                        onClick={() => {
+                          setShowConfirmPassword(!showConfirmPassword);
+                        }}
                         edge="end"
                       >
-                        {showConfirmPassword ? (
-                          <VisibilityOff />
-                        ) : (
-                          <Visibility />
-                        )}
+                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -270,7 +280,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           variant="contained"
           color="primary"
           loading={isLoading(LoadingKeys.REGISTER)}
-          disabled={isLoading(LoadingKeys.REGISTER) || Object.keys(errors).filter(key => key !== 'root').length > 0}
+          disabled={
+            isLoading(LoadingKeys.REGISTER) ||
+            Object.keys(errors).filter((key) => key !== 'root').length > 0
+          }
           size="large"
           sx={{ mt: 2 }}
         >

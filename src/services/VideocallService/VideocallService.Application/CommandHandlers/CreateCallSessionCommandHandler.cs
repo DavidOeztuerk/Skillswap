@@ -5,19 +5,23 @@ using VideocallService.Domain.Entities;
 using VideocallService.Domain.Repositories;
 using EventSourcing;
 using Events.Domain.VideoCall;
+using Events.Integration.VideoCall;
 using CQRS.Models;
 using Contracts.VideoCall.Responses;
+using MassTransit;
 
 namespace VideocallService.Application.CommandHandlers;
 
 public class CreateCallSessionCommandHandler(
     IVideocallUnitOfWork unitOfWork,
     IDomainEventPublisher eventPublisher,
+    IPublishEndpoint publishEndpoint,
     ILogger<CreateCallSessionCommandHandler> logger)
     : BaseCommandHandler<CreateCallSessionCommand, CreateCallSessionResponse>(logger)
 {
     private readonly IVideocallUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
+    private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
 
     public override async Task<ApiResponse<CreateCallSessionResponse>> Handle(
         CreateCallSessionCommand request,
@@ -72,6 +76,7 @@ public class CreateCallSessionCommandHandler(
             RoomId = roomId,
             InitiatorUserId = request.UserId!,
             ParticipantUserId = request.ParticipantUserId,
+            HostUserId = request.UserId!,  // Host = Initiator (MatchRequester)
             AppointmentId = request.AppointmentId,
             MatchId = request.MatchId,
             IsRecorded = request.IsRecorded,
@@ -90,13 +95,30 @@ public class CreateCallSessionCommandHandler(
             session.ParticipantUserId,
             session.AppointmentId), cancellationToken);
 
-            return Success(new CreateCallSessionResponse(
-                session.Id,
-                session.RoomId,
-                session.Status,
-                session.CreatedAt,
-                session.InitiatorUserId,
-                session.ParticipantUserId,
-                session.AppointmentId));
+        // Publish integration event for NotificationService
+        await _publishEndpoint.Publish(new CallSessionCreatedIntegrationEvent(
+            session.Id,
+            session.RoomId,
+            session.InitiatorUserId,
+            null, // InitiatorName - could fetch from UserService if needed
+            null, // InitiatorEmail
+            session.ParticipantUserId,
+            null, // ParticipantName
+            null, // ParticipantEmail
+            session.AppointmentId,
+            session.MatchId,
+            session.CreatedAt,
+            DateTime.UtcNow), cancellationToken);
+
+        Logger.LogInformation("📤 [CreateCallSession] Integration event published for session {SessionId}", session.Id);
+
+        return Success(new CreateCallSessionResponse(
+            session.Id,
+            session.RoomId,
+            session.Status,
+            session.CreatedAt,
+            session.InitiatorUserId,
+            session.ParticipantUserId,
+            session.AppointmentId));
     }
 }

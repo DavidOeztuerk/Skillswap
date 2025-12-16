@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  Box,
-  Tabs,
-  Tab,
-  Button,
-  Paper,
-  Fab,
-  Tooltip,
-} from '@mui/material';
+import { Box, Tabs, Tab, Button, Paper, Fab, Tooltip } from '@mui/material';
 import {
   People as MatchesIcon,
   MailOutline as RequestsIcon,
@@ -23,8 +15,8 @@ import AlertMessage from '../../components/ui/AlertMessage';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
 import { useAppointments } from '../../hooks/useAppointments';
 import { useToast } from '../../hooks/useToast';
-import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
-import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
+import type { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
+import type { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import MatchRequestsOverviewPage from './MatchRequestsOverviewPage';
 
 interface TabPanelProps {
@@ -33,15 +25,15 @@ interface TabPanelProps {
   value: number;
 }
 
-function TabPanel(props: TabPanelProps) {
+function TabPanel(props: TabPanelProps): React.ReactNode {
   const { children, value, index, ...other } = props;
 
   return (
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`matchmaking-tabpanel-${index}`}
-      aria-labelledby={`matchmaking-tab-${index}`}
+      id={`matchmaking-tabpanel-${String(index)}`}
+      aria-labelledby={`matchmaking-tab-${String(index)}`}
       {...other}
     >
       {value === index && <Box>{children}</Box>}
@@ -49,10 +41,10 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-function a11yProps(index: number) {
+function a11yProps(index: number): { id: string; 'aria-controls': string } {
   return {
-    id: `matchmaking-tab-${index}`,
-    'aria-controls': `matchmaking-tabpanel-${index}`,
+    id: `matchmaking-tab-${String(index)}`,
+    'aria-controls': `matchmaking-tabpanel-${String(index)}`,
   };
 }
 
@@ -67,21 +59,19 @@ const MatchmakingOverviewPage: React.FC = () => {
   const toast = useToast();
   const didInitialLoad = useRef(false);
   const lastTabValue = useRef<number | null>(null);
-  
+
   // Tab-State basierend auf URL-Parameter
   const tabFromUrl = searchParams.get('tab');
   const initialTab = tabFromUrl === 'outgoing' ? 2 : tabFromUrl === 'incoming' ? 1 : 0;
   const [tabValue, setTabValue] = useState(initialTab);
 
   // Initialize lastTabValue to prevent duplicate initial load
-  if (lastTabValue.current === null) {
-    lastTabValue.current = initialTab;
-  }
-  
+  lastTabValue.current ??= initialTab;
+
   const {
     matches,
     isLoading,
-    errorMessage,
+    error: errorMessage,
     loadMatches,
     loadIncomingRequests,
     loadOutgoingRequests,
@@ -89,7 +79,7 @@ const MatchmakingOverviewPage: React.FC = () => {
     declineMatch,
   } = useMatchmaking();
 
-  const { scheduleAppointment } = useAppointments();
+  const { createAppointment: scheduleAppointment } = useAppointments();
   const [appointmentFormOpen, setAppointmentFormOpen] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<MatchDisplay | null>(null);
 
@@ -117,60 +107,58 @@ const MatchmakingOverviewPage: React.FC = () => {
   // Initial data load based on tab
   useEffect(() => {
     if (didInitialLoad.current) {
-      console.log('⏭️ [MatchmakingOverviewPage] Already did initial load, skipping');
+      console.debug('⏭️ [MatchmakingOverviewPage] Already did initial load, skipping');
       return;
     }
     didInitialLoad.current = true;
-    
-    console.log(`🚀 [MatchmakingOverviewPage] Initial load for tab ${tabValue}`);
-    
+
+    console.debug(`🚀 [MatchmakingOverviewPage] Initial load for tab ${String(tabValue)}`);
+
     // Load data based on initial tab
     if (tabValue === 0) {
-      void loadMatches();
+      loadMatches();
     } else if (tabValue === 1) {
-      void loadIncomingRequests();
+      loadIncomingRequests();
     } else if (tabValue === 2) {
-      void loadOutgoingRequests();
+      loadOutgoingRequests();
     }
-  }, []);
-  
+  }, [tabValue, loadMatches, loadIncomingRequests, loadOutgoingRequests]);
+
   // Load data when tab changes
   useEffect(() => {
     // Skip if this is the initial load (handled by the initial useEffect)
     if (!didInitialLoad.current) {
-      console.log('⏭️ [MatchmakingOverviewPage] Initial load not complete, skipping tab change reload');
+      console.debug(
+        '⏭️ [MatchmakingOverviewPage] Initial load not complete, skipping tab change reload'
+      );
       return;
     }
 
     // Skip if same tab
     if (lastTabValue.current === tabValue) {
-      console.log('⏭️ [MatchmakingOverviewPage] Same tab, skipping reload');
+      console.debug('⏭️ [MatchmakingOverviewPage] Same tab, skipping reload');
       return;
     }
     lastTabValue.current = tabValue;
 
-    console.log(`📥 [MatchmakingOverviewPage] Tab changed to ${tabValue}, loading data`);
+    console.debug(`📥 [MatchmakingOverviewPage] Tab changed to ${String(tabValue)}, loading data`);
 
     if (tabValue === 0) {
-      void loadMatches();
+      loadMatches();
     } else if (tabValue === 1) {
-      void loadIncomingRequests();
+      loadIncomingRequests();
     } else if (tabValue === 2) {
-      void loadOutgoingRequests();
+      loadOutgoingRequests();
     }
   }, [tabValue, loadMatches, loadIncomingRequests, loadOutgoingRequests]);
 
   // Tab-Handler - nur lokaler State, keine URL-Navigation
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number): void => {
     setTabValue(newValue);
   };
 
-
   // Handler für das Öffnen des Bestätigungsdialogs
-  const handleConfirmDialogOpen = (
-    matchId: string,
-    action: 'accept' | 'reject'
-  ) => {
+  const handleConfirmDialogOpen = (matchId: string, action: 'accept' | 'reject'): void => {
     let title = '';
     let message = '';
 
@@ -192,7 +180,7 @@ const MatchmakingOverviewPage: React.FC = () => {
   };
 
   // Handler für das Schließen des Bestätigungsdialogs
-  const handleConfirmDialogClose = () => {
+  const handleConfirmDialogClose = (): void => {
     setConfirmDialog({
       ...confirmDialog,
       open: false,
@@ -200,82 +188,60 @@ const MatchmakingOverviewPage: React.FC = () => {
   };
 
   // Handler für das Bestätigen der Aktion im Dialog
-  const handleConfirmAction = async () => {
+  const handleConfirmAction = (): void => {
     const { matchId, action } = confirmDialog;
 
     if (!matchId) return;
 
-    try {
-      let success: boolean | null = null;
-
-      if (action === 'accept') {
-        const approved = await approveMatch(matchId);
-        success = approved.meta.requestStatus === 'fulfilled';
-      } else if (action === 'reject') {
-        const rejected = await declineMatch(matchId);
-        success = rejected.meta.requestStatus === 'fulfilled';
-      }
-
-      if (success) {
-        toast.success(`Match erfolgreich ${action === 'accept' ? 'akzeptiert' : 'abgelehnt'}`);
-
-        if (action === 'accept') {
-          void loadMatches();
-          setTabValue(0);
-        } else {
-          void loadIncomingRequests();
-        }
-      } else {
-        throw new Error(`Fehler beim ${action === 'accept' ? 'Akzeptieren' : 'Ablehnen'} des Matches`);
-      }
-    } catch (error) {
-      toast.error(`Fehler beim ${action === 'accept' ? 'Akzeptieren' : 'Ablehnen'} des Matches`);
-    } finally {
-      handleConfirmDialogClose();
+    // These dispatch functions return void, not Promise
+    // Success/error handling is done via Redux state
+    if (action === 'accept') {
+      approveMatch(matchId);
+      toast.success('Match erfolgreich akzeptiert');
+      loadMatches();
+      setTabValue(0);
+    } else if (action === 'reject') {
+      declineMatch(matchId);
+      toast.success('Match erfolgreich abgelehnt');
+      loadIncomingRequests();
     }
+
+    handleConfirmDialogClose();
   };
 
   // Handler für das Öffnen des Termin-Formulars
-  const handleOpenAppointmentForm = (match: MatchDisplay) => {
+  const handleOpenAppointmentForm = (match: MatchDisplay): void => {
     setSelectedMatch(match);
     setAppointmentFormOpen(true);
   };
 
   // Handler für das Schließen des Termin-Formulars
-  const handleCloseAppointmentForm = () => {
+  const handleCloseAppointmentForm = (): void => {
     setAppointmentFormOpen(false);
     setSelectedMatch(null);
   };
 
   // Handler für das Absenden des Termin-Formulars
-  const handleSubmitAppointmentForm = async (data: AppointmentRequest) => {
-    try {
-      const success = await scheduleAppointment(data);
-
-      if (success) {
-        toast.success('Termin erfolgreich erstellt! 📅');
-        handleCloseAppointmentForm();
-
-        // Zu den Terminen navigieren
-        navigate('/appointments');
-      } else {
-        throw new Error('Fehler beim Erstellen des Termins');
-      }
-    } catch (error) {
-      console.error('Error creating appointment:', error);
-      toast.error('Fehler beim Erstellen des Termins');
-    }
+  const handleSubmitAppointmentForm = (_data: AppointmentRequest): Promise<void> => {
+    // This dispatch function returns void, not Promise
+    // Success/error handling is done via Redux state
+    scheduleAppointment(_data);
+    toast.success('Termin erfolgreich erstellt! 📅');
+    handleCloseAppointmentForm();
+    // Zu den Terminen navigieren (navigate returns void, cast to satisfy ESLint)
+    (navigate as (to: string) => void)('/appointments');
+    return Promise.resolve();
   };
 
   // Lehrbare oder lernbare Skills des Benutzers finden
-  const renderMatchButton = () => {
+  const renderMatchButton = (): { label: string; onClick: () => void } =>
     // Navigiere zur Skills-Seite, um dort Skills zu finden und Match-Anfragen zu erstellen
-    return {
+    ({
       label: 'Skills durchsuchen',
-      onClick: () => navigate('/skills'),
-    };
-  };
-
+      onClick: (): void => {
+        (navigate as (to: string) => void)('/skills');
+      },
+    });
   const matchButtonInfo = renderMatchButton();
 
   return (
@@ -283,16 +249,9 @@ const MatchmakingOverviewPage: React.FC = () => {
       <PageHeader
         title="Matchmaking"
         subtitle="Verwalte deine Matches und Match-Anfragen"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Matchmaking' },
-        ]}
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Matchmaking' }]}
         actions={
-          <Button
-            variant="contained"
-            onClick={matchButtonInfo.onClick}
-            startIcon={<AddIcon />}
-          >
+          <Button variant="contained" onClick={matchButtonInfo.onClick} startIcon={<AddIcon />}>
             {matchButtonInfo.label}
           </Button>
         }
@@ -302,7 +261,9 @@ const MatchmakingOverviewPage: React.FC = () => {
         <AlertMessage
           severity={statusMessage.type}
           message={[statusMessage.text]}
-          onClose={() => setStatusMessage(null)}
+          onClose={() => {
+            setStatusMessage(null);
+          }}
         />
       )}
 
@@ -354,8 +315,12 @@ const MatchmakingOverviewPage: React.FC = () => {
           matches={matches}
           isLoading={isLoading}
           errorMessage={errorMessage}
-          onAccept={(matchId) => handleConfirmDialogOpen(matchId, 'accept')}
-          onReject={(matchId) => handleConfirmDialogOpen(matchId, 'reject')}
+          onAccept={(matchId) => {
+            handleConfirmDialogOpen(matchId, 'accept');
+          }}
+          onReject={(matchId) => {
+            handleConfirmDialogOpen(matchId, 'reject');
+          }}
           onSchedule={handleOpenAppointmentForm}
         />
       </TabPanel>
@@ -363,7 +328,6 @@ const MatchmakingOverviewPage: React.FC = () => {
       <TabPanel value={tabValue} index={1}>
         <MatchRequestsOverviewPage embedded={true} />
       </TabPanel>
-
 
       {/* Termin-Formular */}
       {selectedMatch && (

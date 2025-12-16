@@ -9,7 +9,7 @@ import {
   acceptMatchRequest,
   rejectMatchRequest,
   createCounterOffer,
-  fetchMatchRequestThread
+  fetchMatchRequestThread,
 } from '../features/matchmaking/matchmakingThunks';
 import {
   selectAllMatches,
@@ -21,7 +21,7 @@ import {
   selectPendingMatches,
   selectActiveMatches,
   selectCompletedMatches,
-  selectMatchmakingStatistics
+  selectMatchmakingStatistics,
 } from '../store/selectors/matchmakingSelectors';
 import { clearError } from '../features/matchmaking/matchmakingSlice';
 import type { CreateMatchRequest } from '../types/contracts/requests/CreateMatchRequest';
@@ -41,8 +41,9 @@ interface MatchRequestParams {
   status?: string;
 }
 
+// Use type with Record<string, never> instead of empty interface
 interface AcceptMatchRequestPayload {
-  // Add properties as needed from backend contract
+  responseMessage?: string;
 }
 
 interface RejectMatchRequestPayload {
@@ -54,18 +55,51 @@ interface CounterOfferPayload extends CreateMatchRequest {
 }
 
 /**
- * 🚀 ROBUSTE USEMATCHMAKING HOOK 
- * 
+ * 🚀 ROBUSTE USEMATCHMAKING HOOK
+ *
  * ✅ KEINE useEffects - prevents infinite loops!
  * ✅ Stateless Design - nur Redux State + Actions
  * ✅ Memoized Functions - prevents unnecessary re-renders
- * 
+ *
  * CRITICAL: This hook is STATELESS and contains NO useEffects.
  * All data fetching must be initiated from Components!
  */
-export const useMatchmaking = () => {
+export const useMatchmaking = (): {
+  // === STATE DATA ===
+  matches: ReturnType<typeof selectAllMatches>;
+  userMatches: ReturnType<typeof selectUserMatches>;
+  incomingRequests: ReturnType<typeof selectIncomingRequests>;
+  outgoingRequests: ReturnType<typeof selectOutgoingRequests>;
+  pendingMatches: ReturnType<typeof selectPendingMatches>;
+  activeMatches: ReturnType<typeof selectActiveMatches>;
+  completedMatches: ReturnType<typeof selectCompletedMatches>;
+  recommendations: never[];
+  currentMatch: null;
+  statistics: ReturnType<typeof selectMatchmakingStatistics>;
+  isLoading: boolean;
+  error: string | undefined;
+  // === FETCH OPERATIONS ===
+  loadMatches: (params?: MatchQueryParams) => void;
+  loadIncomingRequests: (params?: MatchRequestParams) => void;
+  loadOutgoingRequests: (params?: MatchRequestParams) => void;
+  fetchRecommendations: (params?: MatchQueryParams) => void;
+  loadUserMatches: (params?: MatchQueryParams) => void;
+  loadRecommendations: (params?: MatchQueryParams) => void;
+  // === CRUD OPERATIONS ===
+  createMatchRequest: (data: CreateMatchRequest) => void;
+  acceptMatchRequest: (requestId: string, request?: AcceptMatchRequestPayload) => void;
+  rejectMatchRequest: (requestId: string, request?: RejectMatchRequestPayload) => void;
+  createCounterOffer: (data: CounterOfferPayload) => void;
+  getMatchRequestThread: (threadId: string) => void;
+  // === ADDITIONAL OPERATIONS ===
+  approveMatch: (matchId: string) => void;
+  declineMatch: (matchId: string) => void;
+  sendMatchRequest: (data: CreateMatchRequest) => void;
+  clearError: () => void;
+  dismissError: () => void;
+} => {
   const dispatch = useAppDispatch();
-  
+
   // ===== SELECTORS =====
   const matches = useAppSelector(selectAllMatches);
   const userMatches = useAppSelector(selectUserMatches);
@@ -79,64 +113,49 @@ export const useMatchmaking = () => {
   const statistics = useAppSelector(selectMatchmakingStatistics);
 
   // ===== MEMOIZED ACTIONS =====
-  const actions = useMemo(() => ({
+  const actions = useMemo(
+    () => ({
+      // === FETCH OPERATIONS ===
+      loadMatches: (
+        params: MatchQueryParams = { pageNumber: 1, pageSize: 12, includeCompleted: true }
+      ) => dispatch(fetchMatches(params)),
 
-    // === FETCH OPERATIONS ===
-    loadMatches: (params: MatchQueryParams = { pageNumber: 1, pageSize: 12, includeCompleted: true }) => {
-      return dispatch(fetchMatches(params));
-    },
+      loadIncomingRequests: (params: MatchRequestParams = { pageNumber: 1, pageSize: 12 }) =>
+        dispatch(fetchIncomingMatchRequests(params)),
 
-    loadIncomingRequests: (params: MatchRequestParams = { pageNumber: 1, pageSize: 12 }) => {
-      return dispatch(fetchIncomingMatchRequests(params));
-    },
+      loadOutgoingRequests: (params: MatchRequestParams = { pageNumber: 1, pageSize: 12 }) =>
+        dispatch(fetchOutgoingMatchRequests(params)),
 
-    loadOutgoingRequests: (params: MatchRequestParams = { pageNumber: 1, pageSize: 12 }) => {
-      return dispatch(fetchOutgoingMatchRequests(params));
-    },
+      fetchRecommendations: (params: MatchQueryParams = {}) => dispatch(fetchMatches(params)),
 
-    fetchRecommendations: (params: MatchQueryParams = {}) => {
-      return dispatch(fetchMatches(params));
-    },
+      loadUserMatches: (
+        params: MatchQueryParams = { pageNumber: 1, pageSize: 12, includeCompleted: true }
+      ) => dispatch(fetchUserMatches(params)),
 
-    loadUserMatches: (params: MatchQueryParams = { pageNumber: 1, pageSize: 12, includeCompleted: true }) => {
-      return dispatch(fetchUserMatches(params));
-    },
+      // === CRUD OPERATIONS ===
+      createMatchRequest: (data: CreateMatchRequest) => dispatch(createMatchRequest(data)),
 
-    // === CRUD OPERATIONS ===
-    createMatchRequest: (data: CreateMatchRequest) => {
-      return dispatch(createMatchRequest(data));
-    },
+      acceptMatchRequest: (requestId: string, request: AcceptMatchRequestPayload = {}) =>
+        dispatch(acceptMatchRequest({ requestId, request })),
 
-    acceptMatchRequest: (requestId: string, request: AcceptMatchRequestPayload = {}) => {
-      return dispatch(acceptMatchRequest({ requestId, request }));
-    },
+      rejectMatchRequest: (requestId: string, request: RejectMatchRequestPayload = {}) =>
+        dispatch(rejectMatchRequest({ requestId, request })),
 
-    rejectMatchRequest: (requestId: string, request: RejectMatchRequestPayload = {}) => {
-      return dispatch(rejectMatchRequest({ requestId, request }));
-    },
+      createCounterOffer: (data: CounterOfferPayload) => dispatch(createCounterOffer(data)),
 
-    createCounterOffer: (data: CounterOfferPayload) => {
-      return dispatch(createCounterOffer(data));
-    },
+      getMatchRequestThread: (threadId: string) => dispatch(fetchMatchRequestThread(threadId)),
 
-    getMatchRequestThread: (threadId: string) => {
-      return dispatch(fetchMatchRequestThread(threadId));
-    },
+      // === ADDITIONAL OPERATIONS ===
+      approveMatch: (matchId: string) =>
+        dispatch(acceptMatchRequest({ requestId: matchId, request: {} })),
 
-    // === ADDITIONAL OPERATIONS ===
-    approveMatch: (matchId: string) => {
-      return dispatch(acceptMatchRequest({ requestId: matchId, request: {} }));
-    },
+      declineMatch: (matchId: string) =>
+        dispatch(rejectMatchRequest({ requestId: matchId, request: {} })),
 
-    declineMatch: (matchId: string) => {
-      return dispatch(rejectMatchRequest({ requestId: matchId, request: {} }));
-    },
-
-    sendMatchRequest: (data: CreateMatchRequest) => {
-      return dispatch(createMatchRequest(data));
-    },
-
-  }), [dispatch]);
+      sendMatchRequest: (data: CreateMatchRequest) => dispatch(createMatchRequest(data)),
+    }),
+    [dispatch]
+  );
 
   // ===== RETURN OBJECT =====
   return {
@@ -148,29 +167,29 @@ export const useMatchmaking = () => {
     pendingMatches,
     activeMatches,
     completedMatches,
-    recommendations: [],
+    recommendations: [] as never[],
     currentMatch: null,
     statistics,
-    
+
     // === LOADING STATES ===
     isLoading,
-    
+
     // === ERROR STATES ===
     error,
-    
-    // === ACTIONS ===
+
+    // === ACTIONS (memoized) ===
     ...actions,
 
-    // === LEGACY COMPATIBILITY ===
-    loadMatches: actions.loadMatches,
-    loadIncomingRequests: actions.loadIncomingRequests,
-    loadOutgoingRequests: actions.loadOutgoingRequests,
-    loadRecommendations: actions.fetchRecommendations,
-    clearError: () => dispatch(clearError()),
-    dismissError: () => dispatch(clearError()),
-
-    // === PROPERTY COMPATIBILITY ===
-    errorMessage: error,
+    // === ADDITIONAL ACTIONS ===
+    loadRecommendations: (params?: MatchQueryParams) => {
+      void dispatch(fetchMatches(params ?? {}));
+    },
+    clearError: () => {
+      dispatch(clearError());
+    },
+    dismissError: () => {
+      dispatch(clearError());
+    },
   };
 };
 

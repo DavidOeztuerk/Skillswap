@@ -1,30 +1,45 @@
 import React, { useState } from 'react';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Button, 
-  Paper, 
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Paper,
   Alert,
   Divider,
   Stack,
-  Grid
+  Grid,
 } from '@mui/material';
-import { 
-  BugReport as BugIcon, 
+import {
+  BugReport as BugIcon,
   Error as ErrorIcon,
   Warning as WarningIcon,
-  Info as InfoIcon 
+  Info as InfoIcon,
 } from '@mui/icons-material';
-import { 
+import {
   AuthErrorBoundary,
   AdminErrorBoundary,
   AsyncErrorBoundary,
   SkillErrorBoundary,
   MatchingErrorBoundary,
-  AppointmentErrorBoundary
+  AppointmentErrorBoundary,
 } from '../../components/error';
 import errorService from '../../services/errorService';
+
+// Component that throws errors based on state - defined outside render
+const ErrorThrower: React.FC<{ errorType: string }> = ({ errorType }) => {
+  if (errorType === 'render') {
+    throw new Error('Test render error: Component failed to render');
+  }
+
+  if (errorType === 'async') {
+    setTimeout(() => {
+      throw new Error('Test async error: Async operation failed');
+    }, 100);
+  }
+
+  return <div>Component rendered successfully</div>;
+};
 
 /**
  * Test page for demonstrating and testing error boundaries
@@ -34,37 +49,22 @@ const ErrorTestPage: React.FC = () => {
   const [throwError, setThrowError] = useState<string | null>(null);
   const [asyncError, setAsyncError] = useState(false);
 
-  // Component that throws errors based on state
-  const ErrorThrower: React.FC<{ errorType: string }> = ({ errorType }) => {
-    if (errorType === 'render') {
-      throw new Error('Test render error: Component failed to render');
-    }
-    
-    if (errorType === 'async') {
-      setTimeout(() => {
-        throw new Error('Test async error: Async operation failed');
-      }, 100);
-    }
-
-    return <div>Component rendered successfully</div>;
-  };
-
   // Test different error types
-  const triggerApiError = () => {
+  const triggerApiError = (): void => {
     errorService.handleApiError(
       { status: 500, message: 'Internal server error' },
       'Test API Error'
     );
   };
 
-  const triggerAuthError = () => {
+  const triggerAuthError = (): void => {
     errorService.handleApiError(
       { status: 401, message: 'Unauthorized: Token expired' },
       'Test Auth Error'
     );
   };
 
-  const triggerValidationError = () => {
+  const triggerValidationError = (): void => {
     errorService.handleValidationError(
       {
         email: ['Email is required', 'Email must be valid'],
@@ -74,7 +74,7 @@ const ErrorTestPage: React.FC = () => {
     );
   };
 
-  const triggerNetworkError = () => {
+  const triggerNetworkError = (): void => {
     errorService.handleError(
       new TypeError('Failed to fetch'),
       'Network connection lost',
@@ -82,7 +82,7 @@ const ErrorTestPage: React.FC = () => {
     );
   };
 
-  const addBreadcrumb = () => {
+  const addBreadcrumb = (): void => {
     errorService.addBreadcrumb('User clicked test button', 'user-action', {
       timestamp: new Date().toISOString(),
       page: 'ErrorTestPage',
@@ -93,9 +93,7 @@ const ErrorTestPage: React.FC = () => {
   if (process.env.NODE_ENV !== 'development') {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <Alert severity="warning">
-          This page is only available in development mode.
-        </Alert>
+        <Alert severity="warning">This page is only available in development mode.</Alert>
       </Container>
     );
   }
@@ -120,10 +118,10 @@ const ErrorTestPage: React.FC = () => {
               Error Service Tests
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            
+
             <Stack spacing={2}>
-              <Button 
-                variant="outlined" 
+              <Button
+                variant="outlined"
                 color="error"
                 startIcon={<ErrorIcon />}
                 onClick={triggerApiError}
@@ -131,9 +129,9 @@ const ErrorTestPage: React.FC = () => {
               >
                 Trigger API Error (500)
               </Button>
-              
-              <Button 
-                variant="outlined" 
+
+              <Button
+                variant="outlined"
                 color="warning"
                 startIcon={<WarningIcon />}
                 onClick={triggerAuthError}
@@ -141,9 +139,9 @@ const ErrorTestPage: React.FC = () => {
               >
                 Trigger Auth Error (401)
               </Button>
-              
-              <Button 
-                variant="outlined" 
+
+              <Button
+                variant="outlined"
                 color="info"
                 startIcon={<InfoIcon />}
                 onClick={triggerValidationError}
@@ -151,20 +149,12 @@ const ErrorTestPage: React.FC = () => {
               >
                 Trigger Validation Error
               </Button>
-              
-              <Button 
-                variant="outlined" 
-                onClick={triggerNetworkError}
-                fullWidth
-              >
+
+              <Button variant="outlined" onClick={triggerNetworkError} fullWidth>
                 Trigger Network Error
               </Button>
-              
-              <Button 
-                variant="contained" 
-                onClick={addBreadcrumb}
-                fullWidth
-              >
+
+              <Button variant="contained" onClick={addBreadcrumb} fullWidth>
                 Add Breadcrumb
               </Button>
             </Stack>
@@ -178,28 +168,32 @@ const ErrorTestPage: React.FC = () => {
               Component Error Tests
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            
+
             <Stack spacing={2}>
-              <Button 
-                variant="outlined" 
+              <Button
+                variant="outlined"
                 color="error"
-                onClick={() => setThrowError('render')}
+                onClick={() => {
+                  setThrowError('render');
+                }}
                 fullWidth
               >
                 Throw Render Error
               </Button>
-              
-              <Button 
-                variant="outlined" 
+
+              <Button
+                variant="outlined"
                 color="error"
-                onClick={() => setAsyncError(true)}
+                onClick={() => {
+                  setAsyncError(true);
+                }}
                 fullWidth
               >
                 Throw Async Error
               </Button>
-              
-              <Button 
-                variant="contained" 
+
+              <Button
+                variant="contained"
                 color="success"
                 onClick={() => {
                   setThrowError(null);
@@ -234,9 +228,9 @@ const ErrorTestPage: React.FC = () => {
               Auth Error Boundary
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            
+
             <AuthErrorBoundary>
-              <Button 
+              <Button
                 variant="outlined"
                 onClick={() => {
                   throw new Error('Authentication token expired');
@@ -256,9 +250,9 @@ const ErrorTestPage: React.FC = () => {
               Admin Error Boundary
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            
+
             <AdminErrorBoundary>
-              <Button 
+              <Button
                 variant="outlined"
                 onClick={() => {
                   throw new Error('Permission denied: Admin access required');
@@ -278,9 +272,9 @@ const ErrorTestPage: React.FC = () => {
               Skill Error Boundary
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            
+
             <SkillErrorBoundary>
-              <Button 
+              <Button
                 variant="outlined"
                 onClick={() => {
                   throw new Error('Failed to load skill data');
@@ -300,9 +294,9 @@ const ErrorTestPage: React.FC = () => {
               Matching Error Boundary
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            
+
             <MatchingErrorBoundary>
-              <Button 
+              <Button
                 variant="outlined"
                 onClick={() => {
                   throw new Error('Matching algorithm calculation failed');
@@ -322,9 +316,9 @@ const ErrorTestPage: React.FC = () => {
               Appointment Error Boundary
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            
+
             <AppointmentErrorBoundary>
-              <Button 
+              <Button
                 variant="outlined"
                 onClick={() => {
                   throw new Error('Time slot conflict detected');
@@ -344,17 +338,19 @@ const ErrorTestPage: React.FC = () => {
               Async Error Boundary
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            
-            <AsyncErrorBoundary 
-              maxRetries={3} 
+
+            <AsyncErrorBoundary
+              maxRetries={3}
               fallbackRetryDelay={2000}
-              onRetryExhausted={() => alert('Retries exhausted!')}
+              onRetryExhausted={() => {
+                alert('Retries exhausted!');
+              }}
             >
-              <Button 
+              <Button
                 variant="outlined"
-                onClick={() => {
+                onClick={async () => {
                   // Simulate async error
-                  Promise.reject(new Error('Async operation failed'));
+                  await Promise.reject(new Error('Async operation failed'));
                 }}
                 fullWidth
               >
@@ -370,16 +366,25 @@ const ErrorTestPage: React.FC = () => {
         <Typography variant="h6" gutterBottom>
           Instructions
         </Typography>
-        <Typography variant="body2" paragraph>
+        <Typography variant="body2" component="p">
           This page allows you to test various error scenarios:
         </Typography>
         <ul>
-          <li>Error Service Tests: Trigger different types of errors that are handled by the error service</li>
-          <li>Component Error Tests: Throw errors directly in components to test error boundaries</li>
-          <li>Specific Error Boundaries: Test each specialized error boundary with relevant error types</li>
+          <li>
+            Error Service Tests: Trigger different types of errors that are handled by the error
+            service
+          </li>
+          <li>
+            Component Error Tests: Throw errors directly in components to test error boundaries
+          </li>
+          <li>
+            Specific Error Boundaries: Test each specialized error boundary with relevant error
+            types
+          </li>
         </ul>
         <Alert severity="info" sx={{ mt: 2 }}>
-          All errors are logged to the console. Check the browser console for detailed error information.
+          All errors are logged to the console. Check the browser console for detailed error
+          information.
         </Alert>
       </Paper>
     </Container>

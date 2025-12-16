@@ -19,11 +19,8 @@ const DEBUG = import.meta.env.DEV;
 /**
  * Store access token in session or local storage
  */
-export const setToken = (
-  token: string,
-  storageType: 'session' | 'permanent' = 'session'
-): void => {
-  if (!token?.trim()) return;
+export const setToken = (token: string, storageType: 'session' | 'permanent' = 'session'): void => {
+  if (token.trim() === '') return;
 
   try {
     const timestamp = String(Date.now());
@@ -34,13 +31,13 @@ export const setToken = (
       SessionStorage.setItem(REMEMBER_ME_KEY, 'false');
 
       // Clear from permanent storage
-      localStorage?.removeItem(TOKEN_KEY);
-      localStorage?.removeItem(TOKEN_TIMESTAMP_KEY);
-      localStorage?.removeItem(REMEMBER_ME_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
+      localStorage.removeItem(REMEMBER_ME_KEY);
     } else {
-      localStorage?.setItem(TOKEN_KEY, token);
-      localStorage?.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
-      localStorage?.setItem(REMEMBER_ME_KEY, 'true');
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(TOKEN_TIMESTAMP_KEY, timestamp);
+      localStorage.setItem(REMEMBER_ME_KEY, 'true');
 
       // Clear from session storage
       SessionStorage.removeItem(TOKEN_KEY);
@@ -63,9 +60,7 @@ export const getToken = (): string | null => {
   try {
     // Check session storage first
     let token = SessionStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      token = localStorage?.getItem(TOKEN_KEY) ?? null;
-    }
+    token ??= localStorage.getItem(TOKEN_KEY);
     return token;
   } catch (error) {
     console.error('Error retrieving token:', error);
@@ -80,14 +75,14 @@ export const setRefreshToken = (
   refreshToken: string,
   storageType: 'session' | 'permanent' = 'session'
 ): void => {
-  if (!refreshToken?.trim()) return;
+  if (refreshToken.trim() === '') return;
 
   try {
     if (storageType === 'session') {
       SessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-      localStorage?.removeItem(REFRESH_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
     } else {
-      localStorage?.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
       SessionStorage.removeItem(REFRESH_TOKEN_KEY);
     }
   } catch (error) {
@@ -101,9 +96,7 @@ export const setRefreshToken = (
 export const getRefreshToken = (): string | null => {
   try {
     let refreshToken = SessionStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!refreshToken) {
-      refreshToken = localStorage?.getItem(REFRESH_TOKEN_KEY) ?? null;
-    }
+    refreshToken ??= localStorage.getItem(REFRESH_TOKEN_KEY);
     return refreshToken;
   } catch (error) {
     console.error('Error retrieving refresh token:', error);
@@ -117,10 +110,10 @@ export const getRefreshToken = (): string | null => {
 export const removeToken = (): void => {
   try {
     // Clear from localStorage
-    localStorage?.removeItem(TOKEN_KEY);
-    localStorage?.removeItem(REFRESH_TOKEN_KEY);
-    localStorage?.removeItem(TOKEN_TIMESTAMP_KEY);
-    localStorage?.removeItem(REMEMBER_ME_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
+    localStorage.removeItem(REMEMBER_ME_KEY);
 
     // Clear from sessionStorage
     SessionStorage.removeItem(TOKEN_KEY);
@@ -145,9 +138,7 @@ export const removeToken = (): void => {
  */
 export const isRememberMeEnabled = (): boolean => {
   try {
-    const value =
-      localStorage?.getItem(REMEMBER_ME_KEY) ??
-      SessionStorage.getItem(REMEMBER_ME_KEY);
+    const value = localStorage.getItem(REMEMBER_ME_KEY) ?? SessionStorage.getItem(REMEMBER_ME_KEY);
     return value === 'true';
   } catch (error) {
     console.error('Error checking remember me status:', error);
@@ -170,9 +161,9 @@ export const getStorageInfo = (): {
     const isRemembered = isRememberMeEnabled();
 
     let storageType: 'localStorage' | 'sessionStorage' | 'none' = 'none';
-    if (SessionStorage.getItem(TOKEN_KEY)) {
+    if (SessionStorage.getItem(TOKEN_KEY) !== null) {
       storageType = 'sessionStorage';
-    } else if (localStorage?.getItem(TOKEN_KEY)) {
+    } else if (localStorage.getItem(TOKEN_KEY) !== null) {
       storageType = 'localStorage';
     }
 
@@ -222,9 +213,7 @@ const b64urlToUtf8 = (input: string): string => {
   const bin = atob(padded);
 
   try {
-    const bytes = Uint8Array.from({ length: bin.length }, (_, i) =>
-      bin.charCodeAt(i)
-    );
+    const bytes = Uint8Array.from({ length: bin.length }, (_, i) => bin.charCodeAt(i));
     return new TextDecoder().decode(bytes);
   } catch {
     return bin;
@@ -257,7 +246,7 @@ export const getTimeUntilExpiration = (token: string): number | null => {
   try {
     const decoded = decodeToken(token);
 
-    if (!decoded?.exp) {
+    if (decoded?.exp === undefined) {
       if (DEBUG) {
         console.debug('🔐 Token has no exp claim');
       }
@@ -298,10 +287,7 @@ export const isTokenExpired = (token: string): boolean => {
  * @param token - JWT token
  * @param bufferMs - Buffer time in milliseconds (default: 5 minutes)
  */
-export const isTokenExpiringSoon = (
-  token: string,
-  bufferMs: number = 5 * 60 * 1000
-): boolean => {
+export const isTokenExpiringSoon = (token: string, bufferMs: number = 5 * 60 * 1000): boolean => {
   try {
     const timeLeft = getTimeUntilExpiration(token);
     return timeLeft === null || timeLeft <= bufferMs;

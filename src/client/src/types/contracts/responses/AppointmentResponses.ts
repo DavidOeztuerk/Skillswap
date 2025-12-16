@@ -1,8 +1,8 @@
 // Additional Appointment Response Types
 
 export interface TimeSlot {
-  startTime: string;  // ISO date string
-  endTime: string;    // ISO date string
+  startTime: string; // ISO date string
+  endTime: string; // ISO date string
   isAvailable: boolean;
   durationMinutes?: number;
 }
@@ -37,8 +37,8 @@ export interface AvailabilityPreferences {
 
 export interface DayAvailability {
   enabled: boolean;
-  timeSlots: Array<{
-    startTime: string;  // HH:mm format
-    endTime: string;    // HH:mm format
-  }>;
+  timeSlots: {
+    startTime: string; // HH:mm format
+    endTime: string; // HH:mm format
+  }[];
 }

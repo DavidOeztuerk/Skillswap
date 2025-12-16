@@ -56,8 +56,6 @@ public class CreateAppointmentCommandHandler(
                 _logger.LogInformation(
                     "➕ No active Connection found. Creating new Connection for manual appointment (OneTimeSession)");
 
-                // For manual appointments, we create a simple "Free" connection type
-                // MatchRequestId is set to a generated value since this is a manual appointment
                 var matchRequestId = $"manual-{Guid.NewGuid()}";
 
                 connection = Connection.Create(
@@ -65,7 +63,7 @@ public class CreateAppointmentCommandHandler(
                     requesterId: request.UserId!,
                     targetUserId: request.ParticipantUserId,
                     connectionType: ConnectionType.Free,
-                    skillId: request.SkillId ?? "general", // Default to "general" if no skill specified
+                    skillId: request.SkillId ?? "general",
                     exchangeSkillId: null,
                     paymentRatePerHour: null,
                     currency: null
@@ -149,10 +147,20 @@ public class CreateAppointmentCommandHandler(
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex,
-                        "⚠️ Failed to generate meeting link for appointment {AppointmentId}. Will be generated later.",
+                    _logger.LogError(ex,
+                        "❌ Failed to generate meeting link for VideoCall appointment {AppointmentId}",
                         sessionAppointment.Id);
-                    // Don't fail the entire command if meeting link generation fails
+                    // For VideoCall, a meeting link is MANDATORY - fail the command
+                    return Error($"Failed to generate meeting link for VideoCall: {ex.Message}");
+                }
+
+                // Validate that MeetingLink was actually set for VideoCall
+                if (string.IsNullOrEmpty(sessionAppointment.MeetingLink))
+                {
+                    _logger.LogError(
+                        "❌ MeetingLink is NULL after generation for VideoCall appointment {AppointmentId}",
+                        sessionAppointment.Id);
+                    return Error("VideoCall appointments require a valid meeting link");
                 }
             }
 

@@ -27,6 +27,10 @@ namespace Contracts.Appointment.Responses;
 /// <param name="ConnectionId">Connection ID (for new session-based appointments)</param>
 /// <param name="ConnectionType">Type of connection (SkillExchange, Payment, Free)</param>
 /// <param name="ConnectionStatus">Status of the connection</param>
+/// <param name="MatchRequesterId">User ID of the original match requester (INITIATOR - constant through the chain)</param>
+/// <param name="MatchRequesterName">Name of the original match requester</param>
+/// <param name="MatchTargetUserId">User ID of the skill owner (PARTICIPANT - constant through the chain)</param>
+/// <param name="MatchTargetUserName">Name of the skill owner</param>
 /// <param name="SessionSeriesId">Session series ID (if part of a series)</param>
 /// <param name="SessionSeriesTitle">Title of the session series</param>
 /// <param name="SessionNumber">Session number within the series (1-based)</param>
@@ -64,6 +68,11 @@ public record GetAppointmentDetailsResponse(
     string? ConnectionId,
     string? ConnectionType,
     string? ConnectionStatus,
+    // Match/Connection Rollen - KONSTANT durch die gesamte Kette
+    string? MatchRequesterId,
+    string? MatchRequesterName,
+    string? MatchTargetUserId,
+    string? MatchTargetUserName,
     // Series-level data (NEW - for session series)
     string? SessionSeriesId,
     string? SessionSeriesTitle,

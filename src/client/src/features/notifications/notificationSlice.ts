@@ -1,17 +1,17 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { Notification } from '../../types/models/Notification';
 import { withDefault, isDefined } from '../../utils/safeAccess';
 import { initialNotificationsState } from '../../store/adapters/notificationsAdapter+State';
-import { 
-  fetchNotifications, 
-  markNotificationAsRead, 
-  markAllNotificationsAsRead, 
-  fetchNotificationSettings, 
-  updateNotificationSettings, 
-  deleteNotification, 
-  subscribeToRealTimeNotifications, 
-  unsubscribeFromRealTimeNotifications, 
-  clearAllNotifications 
+import {
+  fetchNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  fetchNotificationSettings,
+  updateNotificationSettings,
+  deleteNotification,
+  subscribeToRealTimeNotifications,
+  unsubscribeFromRealTimeNotifications,
+  clearAllNotifications,
 } from './notificationThunks';
 
 const notificationSlice = createSlice({
@@ -23,11 +23,12 @@ const notificationSlice = createSlice({
       if (!action.payload.isRead) {
         state.unreadCount += 1;
       }
-      
+
       // Show desktop notification if enabled
       if (state.settings.desktopNotifications && 'Notification' in window) {
         if (Notification.permission === 'granted') {
-          new Notification(action.payload.title, {
+          // Use void to explicitly indicate side-effect intent
+          void new Notification(action.payload.title, {
             body: action.payload.message,
             icon: '/icons/notification.png',
             tag: action.payload.id,
@@ -35,53 +36,53 @@ const notificationSlice = createSlice({
         }
       }
     },
-    
+
     setConnectionStatus: (state, action: PayloadAction<boolean>) => {
       state.isConnected = action.payload;
     },
-    
+
     setConnectionId: (state, action: PayloadAction<string | null>) => {
       state.connectionId = action.payload;
     },
-    
-    setNotificationPreferences: (state, action) => {
+
+    setNotificationPreferences: (state, action: PayloadAction<Record<string, unknown>>) => {
       state.preferences = { ...state.preferences, ...action.payload };
     },
-    
-    setNotificationFilters: (state, action) => {
+
+    setNotificationFilters: (state, action: PayloadAction<Record<string, unknown>>) => {
       state.filters = { ...state.filters, ...action.payload };
     },
-    
-    setPagination: (state, action) => {
+
+    setPagination: (state, action: PayloadAction<Record<string, unknown>>) => {
       state.pagination = { ...state.pagination, ...action.payload };
     },
-    
+
     clearError: (state) => {
       state.errorMessage = undefined;
     },
-    
+
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
-    
+
     // Optimistic updates
     markAsReadOptimistic: (state, action: PayloadAction<string>) => {
-      const notification = state.notifications.find(n => n.id === action.payload);
+      const notification = state.notifications.find((n) => n.id === action.payload);
       if (notification && !notification.isRead) {
         notification.isRead = true;
         state.unreadCount = Math.max(0, withDefault(state.unreadCount, 0) - 1);
       }
     },
-    
+
     markAllAsReadOptimistic: (state) => {
-      state.notifications.forEach(n => {
+      state.notifications.forEach((n) => {
         n.isRead = true;
       });
       state.unreadCount = 0;
     },
-    
+
     deleteNotificationOptimistic: (state, action: PayloadAction<string>) => {
-      const index = state.notifications.findIndex(n => n.id === action.payload);
+      const index = state.notifications.findIndex((n) => n.id === action.payload);
       if (index !== -1) {
         const notification = state.notifications[index];
         if (!notification.isRead) {
@@ -90,12 +91,12 @@ const notificationSlice = createSlice({
         state.notifications.splice(index, 1);
       }
     },
-    
+
     // Rollback actions
     setNotifications: (state, action: PayloadAction<Notification[]>) => {
       state.notifications = action.payload;
     },
-    
+
     setUnreadCount: (state, action: PayloadAction<number>) => {
       state.unreadCount = action.payload;
     },
@@ -132,7 +133,7 @@ const notificationSlice = createSlice({
 
       // Mark as Read
       .addCase(markNotificationAsRead.fulfilled, (state, action) => {
-        const notification = state.notifications.find(n => n.id === action.meta.arg);
+        const notification = state.notifications.find((n) => n.id === action.meta.arg);
         if (notification && !notification.isRead) {
           notification.isRead = true;
           notification.readAt = new Date().toISOString();
@@ -146,7 +147,7 @@ const notificationSlice = createSlice({
       // Mark All as Read
       .addCase(markAllNotificationsAsRead.fulfilled, (state) => {
         const now = new Date().toISOString();
-        state.notifications.forEach(notification => {
+        state.notifications.forEach((notification) => {
           if (!notification.isRead) {
             notification.isRead = true;
             notification.readAt = now;
@@ -192,7 +193,7 @@ const notificationSlice = createSlice({
 
       // Delete Notification
       .addCase(deleteNotification.fulfilled, (state, action) => {
-        const index = state.notifications.findIndex(n => n.id === action.meta.arg);
+        const index = state.notifications.findIndex((n) => n.id === action.meta.arg);
         if (index !== -1) {
           const notification = state.notifications[index];
           if (!notification.isRead) {
@@ -204,7 +205,7 @@ const notificationSlice = createSlice({
       .addCase(deleteNotification.rejected, (state, action) => {
         state.errorMessage = action.payload?.message;
       })
-      
+
       // Subscribe to Real-time
       .addCase(subscribeToRealTimeNotifications.fulfilled, (_state, _action) => {
         // Real-time connection handled by middleware
@@ -213,12 +214,12 @@ const notificationSlice = createSlice({
         state.isConnected = false;
         state.errorMessage = action.payload?.message;
       })
-      
+
       // Unsubscribe from Real-time
       .addCase(unsubscribeFromRealTimeNotifications.fulfilled, (_state) => {
         // Real-time disconnection handled by middleware
       })
-      
+
       // Clear All Notifications
       .addCase(clearAllNotifications.fulfilled, (state) => {
         state.notifications = [];

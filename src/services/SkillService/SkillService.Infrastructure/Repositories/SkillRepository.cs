@@ -56,6 +56,18 @@ public class SkillRepository : ISkillRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<Skill>> GetUserSkillsWithRelationsAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Skills
+            .Include(s => s.SkillCategory)
+            .Include(s => s.ProficiencyLevel)
+            .AsSplitQuery()
+            .AsNoTracking()
+            .Where(s => s.UserId == userId && !s.IsDeleted)
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<List<Skill>> GetByCategoryAsync(string categoryId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Skills

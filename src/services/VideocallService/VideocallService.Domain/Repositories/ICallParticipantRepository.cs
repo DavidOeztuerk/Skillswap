@@ -15,6 +15,12 @@ public interface ICallParticipantRepository
     Task<CallParticipant?> GetActiveParticipantInSessionAsync(string sessionId, string userId, CancellationToken cancellationToken = default);
     Task<List<CallParticipant>> GetActiveParticipantsInSessionAsync(string sessionId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Gets the most recent participant record for a user in a session (including left participants).
+    /// Used for rejoin logic - allows reactivating a previous participant instead of creating a new one.
+    /// </summary>
+    Task<CallParticipant?> GetMostRecentParticipantInSessionAsync(string sessionId, string userId, CancellationToken cancellationToken = default);
+
     // Create operations
     Task<CallParticipant> CreateAsync(CallParticipant participant, CancellationToken cancellationToken = default);
 

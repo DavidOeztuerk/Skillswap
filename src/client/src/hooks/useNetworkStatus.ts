@@ -5,36 +5,44 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 // ============================================================================
 
 export type EffectiveConnectionType = 'slow-2g' | '2g' | '3g' | '4g' | 'unknown';
-export type ConnectionType = 'unknown' | '2g' | '3g' | '4g' | 'wifi' | 'ethernet' | 'cellular' | 'none';
+export type ConnectionType =
+  | 'unknown'
+  | '2g'
+  | '3g'
+  | '4g'
+  | 'wifi'
+  | 'ethernet'
+  | 'cellular'
+  | 'none';
 
 export interface NetworkStatus {
   /** Ist das Gerät online? */
   isOnline: boolean;
-  
+
   /** Ist die Verbindung langsam? */
   isSlowConnection: boolean;
-  
+
   /** Effektiver Verbindungstyp */
   connectionType: ConnectionType;
-  
+
   /** Effektive Verbindungsgeschwindigkeit (Network Information API) */
   effectiveType: EffectiveConnectionType;
-  
+
   /** Geschätzte Downstream-Bandbreite in Mbps */
   downlink?: number;
-  
+
   /** Round-Trip-Time in ms */
   rtt?: number;
-  
+
   /** Ist Datensparmodus aktiviert? */
   saveData?: boolean;
-  
+
   /** Qualitätsscore 0-100 für UI-Anzeige */
   qualityScore: number;
-  
+
   /** Empfohlene Video-Qualität basierend auf Netzwerk */
   recommendedVideoQuality: 'low' | 'medium' | 'hd' | '4k';
-  
+
   /** Timestamp des letzten Updates */
   lastUpdated: number;
 }
@@ -88,6 +96,10 @@ function calculateQualityScore(
     case 'slow-2g':
       score -= 30;
       break;
+    case 'unknown':
+    default:
+      // No score change for unknown connection type
+      break;
   }
 
   // Downlink Score (0-10 Mbps → 0-20 points)
@@ -108,7 +120,7 @@ function getRecommendedVideoQuality(
   saveData?: boolean
 ): 'low' | 'medium' | 'hd' | '4k' {
   if (saveData) return 'low';
-  
+
   if (qualityScore >= 80) return '4k';
   if (qualityScore >= 60) return 'hd';
   if (qualityScore >= 40) return 'medium';
@@ -117,7 +129,7 @@ function getRecommendedVideoQuality(
 
 function mapConnectionType(type?: string): ConnectionType {
   if (!type) return 'unknown';
-  
+
   switch (type.toLowerCase()) {
     case 'wifi':
       return 'wifi';
@@ -181,16 +193,16 @@ export function useNetworkStatus(): NetworkStatus {
         downlink = connection.downlink;
         rtt = connection.rtt;
         saveData = connection.saveData;
-        effectiveType = connection.effectiveType || 'unknown';
+        effectiveType = connection.effectiveType;
         connectionType = mapConnectionType(connection.type);
 
         // Bestimme ob Verbindung langsam ist
         isSlowConnection =
           effectiveType === '2g' ||
           effectiveType === 'slow-2g' ||
-          (downlink !== undefined && downlink < 1.5) ||
-          (rtt !== undefined && rtt > 400) ||
-          saveData === true;
+          downlink < 1.5 ||
+          rtt > 400 ||
+          saveData;
       }
 
       const qualityScore = calculateQualityScore(isOnline, effectiveType, downlink, rtt);
@@ -211,12 +223,12 @@ export function useNetworkStatus(): NetworkStatus {
 
       // Log für Debugging (nur in Development)
       if (process.env.NODE_ENV === 'development') {
-        console.log('🌐 Network Status Updated:', {
+        console.debug('🌐 Network Status Updated:', {
           isOnline,
           effectiveType,
           connectionType,
-          downlink: downlink?.toFixed(2) + ' Mbps',
-          rtt: rtt + ' ms',
+          downlink: `${downlink?.toFixed(2) ?? 'unknown'} Mbps`,
+          rtt: `${rtt !== undefined ? String(rtt) : 'unknown'} ms`,
           qualityScore,
           recommendedVideoQuality,
         });
@@ -229,13 +241,13 @@ export function useNetworkStatus(): NetworkStatus {
     updateNetworkStatus();
 
     // Online/Offline Events
-    const handleOnline = () => {
-      console.log('🟢 Network: Online');
+    const handleOnline = (): void => {
+      console.debug('🟢 Network: Online');
       updateNetworkStatus();
     };
 
-    const handleOffline = () => {
-      console.log('🔴 Network: Offline');
+    const handleOffline = (): void => {
+      console.debug('🔴 Network: Offline');
       updateNetworkStatus();
     };
 
@@ -277,19 +289,19 @@ export function useNetworkStatus(): NetworkStatus {
 export interface WebRTCNetworkRecommendations {
   /** Sollte Video aktiviert werden? */
   enableVideo: boolean;
-  
+
   /** Empfohlene Video-Auflösung */
   videoConstraints: MediaTrackConstraints;
-  
+
   /** Empfohlene Audio-Einstellungen */
   audioConstraints: MediaTrackConstraints;
-  
+
   /** Sollte simulcast verwendet werden? */
   useSimulcast: boolean;
-  
+
   /** Empfohlener Max-Bitrate für Video (kbps) */
   maxVideoBitrate: number;
-  
+
   /** Warnung für User? */
   userWarning: string | null;
 }

@@ -25,12 +25,8 @@ export const isValidPassword = (password: string): boolean => {
  * @param confirmPassword - Bestätigungspasswort
  * @returns true, wenn die Passwörter übereinstimmen
  */
-export const doPasswordsMatch = (
-  password: string,
-  confirmPassword: string
-): boolean => {
-  return password === confirmPassword;
-};
+export const doPasswordsMatch = (password: string, confirmPassword: string): boolean =>
+  password === confirmPassword;
 
 /**
  * Prüft, ob ein Benutzername gültig ist
@@ -48,9 +44,7 @@ export const isValidUsername = (username: string): boolean => {
  * @param text - Zu prüfender Text
  * @returns true, wenn der Text nicht leer ist
  */
-export const isNotEmpty = (text: string): boolean => {
-  return text?.trim().length > 0;
-};
+export const isNotEmpty = (text: string): boolean => text.trim().length > 0;
 
 /**
  * Prüft, ob ein Text eine bestimmte Mindestlänge hat
@@ -58,9 +52,8 @@ export const isNotEmpty = (text: string): boolean => {
  * @param minLength - Mindestlänge (default: 3)
  * @returns true, wenn der Text die Mindestlänge erreicht
  */
-export const hasMinLength = (text: string, minLength = 3): boolean => {
-  return text?.trim()?.length >= minLength;
-};
+export const hasMinLength = (text: string, minLength = 3): boolean =>
+  text.trim().length >= minLength;
 
 /**
  * Prüft, ob ein Text eine bestimmte Maximallänge nicht überschreitet
@@ -68,9 +61,8 @@ export const hasMinLength = (text: string, minLength = 3): boolean => {
  * @param maxLength - Maximallänge (default: 255)
  * @returns true, wenn der Text die Maximallänge nicht überschreitet
  */
-export const hasMaxLength = (text: string, maxLength = 255): boolean => {
-  return text?.trim()?.length <= maxLength;
-};
+export const hasMaxLength = (text: string, maxLength = 255): boolean =>
+  text.trim().length <= maxLength;
 
 /**
  * Prüft, ob ein Text zwischen einer Mindest- und Maximallänge liegt
@@ -79,12 +71,8 @@ export const hasMaxLength = (text: string, maxLength = 255): boolean => {
  * @param maxLength - Maximallänge (default: 255)
  * @returns true, wenn der Text im gültigen Bereich liegt
  */
-export const isValidLength = (
-  text: string,
-  minLength = 3,
-  maxLength = 255
-): boolean => {
-  const length = text?.trim()?.length;
+export const isValidLength = (text: string, minLength = 3, maxLength = 255): boolean => {
+  const { length } = text.trim();
   return length >= minLength && length <= maxLength;
 };
 
@@ -103,13 +91,4 @@ export const isValidDate = (dateStr: string): boolean => {
  * @param url - Zu prüfende URL
  * @returns true, wenn die URL gültig ist
  */
-export const isValidUrl = (url: string): boolean => {
-  try {
-    new URL(url);
-    return true;
-  } catch (error) {
-    console.log(error);
-
-    return false;
-  }
-};
+export const isValidUrl = (url: string): boolean => URL.canParse(url);

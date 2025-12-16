@@ -1,4 +1,4 @@
-import { MatchStatus } from './Match';
+import type { MatchStatus } from './Match';
 
 export interface MatchFilter {
   status?: MatchStatus;

@@ -1,12 +1,20 @@
-// src/components/admin/MetricsTable.tsx
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
+import { memo, useMemo } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+} from '@mui/material';
 
 interface MetricsTableProps {
   metrics: Record<string, unknown>;
 }
 
-const MetricsTable = ({ metrics }: MetricsTableProps) => {
-  const entries = Object.entries(metrics);
+const MetricsTable = memo(({ metrics }: MetricsTableProps) => {
+  const entries = useMemo(() => Object.entries(metrics), [metrics]);
 
   return (
     <TableContainer component={Paper} sx={{ mt: 2 }}>
@@ -28,6 +36,8 @@ const MetricsTable = ({ metrics }: MetricsTableProps) => {
       </Table>
     </TableContainer>
   );
-};
+});
+
+MetricsTable.displayName = 'MetricsTable';
 
 export default MetricsTable;

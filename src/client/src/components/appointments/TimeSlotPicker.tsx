@@ -59,11 +59,9 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
 
     const groups: Record<string, Date[]> = {};
 
-    availableSlots.forEach(slot => {
+    availableSlots.forEach((slot) => {
       const hour = format(slot, 'HH:00', { locale: de });
-      if (!groups[hour]) {
-        groups[hour] = [];
-      }
+      groups[hour] ??= [];
       groups[hour].push(slot);
     });
 
@@ -73,9 +71,7 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   // Check if a slot is available
   const isSlotAvailable = (slot: Date): boolean => {
     // Check if slot is blocked
-    const isBlocked = blockedSlots.some(blocked => 
-      blocked.getTime() === slot.getTime()
-    );
+    const isBlocked = blockedSlots.some((blocked) => blocked.getTime() === slot.getTime());
     if (isBlocked) return false;
 
     // Check min/max time constraints
@@ -88,26 +84,24 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   // Check if slot conflicts with duration
   const hasConflict = (slot: Date): boolean => {
     if (!duration) return false;
-    
+
     const slotEnd = addMinutes(slot, duration);
-    
+
     // Check if the duration extends into a blocked slot
-    return blockedSlots.some(blocked => {
+    return blockedSlots.some((blocked) => {
       const blockedTime = blocked.getTime();
       const slotTime = slot.getTime();
       const slotEndTime = slotEnd.getTime();
-      
+
       return blockedTime > slotTime && blockedTime < slotEndTime;
     });
   };
 
   // Format slot time for display
-  const formatSlotTime = (slot: Date): string => {
-    return format(slot, 'HH:mm', { locale: de });
-  };
+  const formatSlotTime = (slot: Date): string => format(slot, 'HH:mm', { locale: de });
 
   // Get slot status color
-  const getSlotColor = (slot: Date) => {
+  const getSlotColor = (slot: Date): 'inherit' | 'warning' | 'primary' => {
     if (!isSlotAvailable(slot)) {
       return 'inherit';
     }
@@ -121,7 +115,7 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   };
 
   // Get slot variant
-  const getSlotVariant = (slot: Date) => {
+  const getSlotVariant = (slot: Date): 'outlined' | 'contained' => {
     if (selectedSlot && slot.getTime() === selectedSlot.getTime()) {
       return 'contained';
     }
@@ -132,17 +126,21 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   };
 
   // Handle slot selection
-  const handleSlotClick = (slot: Date) => {
+  const handleSlotClick = (slot: Date): void => {
     if (!isSlotAvailable(slot)) {
       return;
     }
-    
+
     if (hasConflict(slot)) {
-      if (!window.confirm('Dieser Zeitslot hat Konflikte mit der gewählten Dauer. Trotzdem auswählen?')) {
+      if (
+        !window.confirm(
+          'Dieser Zeitslot hat Konflikte mit der gewählten Dauer. Trotzdem auswählen?'
+        )
+      ) {
         return;
       }
     }
-    
+
     onSelectSlot(slot);
   };
 
@@ -151,8 +149,9 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
     return (
       <Box>
         <Alert severity="info" icon={<EventIcon />}>
-          Keine verfügbaren Zeitslots für {format(selectedDate, 'EEEE, d. MMMM yyyy', { locale: de })}.
-          Bitte wählen Sie ein anderes Datum.
+          Keine verfügbaren Zeitslots für{' '}
+          {format(selectedDate, 'EEEE, d. MMMM yyyy', { locale: de })}. Bitte wählen Sie ein anderes
+          Datum.
         </Alert>
       </Box>
     );
@@ -189,12 +188,7 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
           variant="outlined"
         />
         {selectedSlot && (
-          <Chip
-            size="small"
-            icon={<CheckCircleIcon />}
-            label="Ausgewählt"
-            color="primary"
-          />
+          <Chip size="small" icon={<CheckCircleIcon />} label="Ausgewählt" color="primary" />
         )}
       </Stack>
 
@@ -204,9 +198,9 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
           <Box key={hour} sx={{ mb: 3 }}>
             {showGrouping && (
               <>
-                <Typography 
-                  variant="subtitle2" 
-                  color="text.secondary" 
+                <Typography
+                  variant="subtitle2"
+                  color="text.secondary"
                   sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}
                 >
                   <TimeIcon fontSize="small" />
@@ -215,21 +209,27 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
                 <Divider sx={{ mb: 2 }} />
               </>
             )}
-            
+
             <Grid container spacing={1}>
               {slots.map((slot) => {
                 const available = isSlotAvailable(slot);
                 const conflict = hasConflict(slot);
                 const selected = selectedSlot && slot.getTime() === selectedSlot.getTime();
-                
+
                 return (
                   <Grid key={slot.getTime()}>
                     <Button
                       variant={getSlotVariant(slot)}
                       color={getSlotColor(slot)}
-                      onClick={() => handleSlotClick(slot)}
-                      onMouseEnter={() => setHoveredSlot(slot)}
-                      onMouseLeave={() => setHoveredSlot(null)}
+                      onClick={() => {
+                        handleSlotClick(slot);
+                      }}
+                      onMouseEnter={() => {
+                        setHoveredSlot(slot);
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredSlot(null);
+                      }}
                       disabled={!available}
                       sx={{
                         minWidth: 80,
@@ -244,13 +244,14 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
                             backgroundColor: theme.palette.primary.dark,
                           },
                         }),
-                        ...(conflict && !selected && {
-                          borderColor: theme.palette.warning.main,
-                          color: theme.palette.warning.main,
-                          '&:hover': {
-                            backgroundColor: alpha(theme.palette.warning.main, 0.08),
-                          },
-                        }),
+                        ...(conflict &&
+                          !selected && {
+                            borderColor: theme.palette.warning.main,
+                            color: theme.palette.warning.main,
+                            '&:hover': {
+                              backgroundColor: alpha(theme.palette.warning.main, 0.08),
+                            },
+                          }),
                         ...(!available && {
                           textDecoration: 'line-through',
                           opacity: 0.5,
@@ -259,15 +260,15 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
                     >
                       {formatSlotTime(slot)}
                       {selected && (
-                        <CheckCircleIcon 
-                          sx={{ 
+                        <CheckCircleIcon
+                          sx={{
                             position: 'absolute',
                             top: -4,
                             right: -4,
                             fontSize: 16,
                             backgroundColor: 'white',
                             borderRadius: '50%',
-                          }} 
+                          }}
                         />
                       )}
                     </Button>
@@ -281,11 +282,11 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
 
       {/* Selected slot info */}
       {selectedSlot && (
-        <Paper 
-          variant="outlined" 
-          sx={{ 
-            mt: 3, 
-            p: 2, 
+        <Paper
+          variant="outlined"
+          sx={{
+            mt: 3,
+            p: 2,
             bgcolor: alpha(theme.palette.primary.main, 0.05),
             borderColor: theme.palette.primary.main,
           }}
@@ -298,7 +299,8 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
               </Typography>
               <Typography variant="body1">
                 {format(selectedSlot, 'HH:mm', { locale: de })} Uhr
-                {duration && ` - ${format(addMinutes(selectedSlot, duration), 'HH:mm', { locale: de })} Uhr`}
+                {duration &&
+                  ` - ${format(addMinutes(selectedSlot, duration), 'HH:mm', { locale: de })} Uhr`}
               </Typography>
             </Box>
           </Stack>
@@ -308,8 +310,8 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
       {/* Conflict warnings */}
       {selectedSlot && hasConflict(selectedSlot) && (
         <Alert severity="warning" sx={{ mt: 2 }}>
-          Die gewählte Zeit überschneidet sich mit anderen Terminen. 
-          Bitte überprüfen Sie die Verfügbarkeit.
+          Die gewählte Zeit überschneidet sich mit anderen Terminen. Bitte überprüfen Sie die
+          Verfügbarkeit.
         </Alert>
       )}
     </Box>

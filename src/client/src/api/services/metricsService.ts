@@ -1,4 +1,3 @@
-// src/api/services/metricsService.ts
 import { SYSTEM_ENDPOINTS } from '../../config/endpoints';
 import { apiClient } from '../apiClient';
 
@@ -10,7 +9,7 @@ const metricsService = {
    * Fetch metrics for a specific backend service
    */
   async getMetrics<T = Record<string, unknown>>(service: string): Promise<T> {
-    if (!service?.trim()) throw new Error('Service name is required');
+    if (!service.trim()) throw new Error('Service name is required');
     return apiClient.getAndExtract<T>(SYSTEM_ENDPOINTS.METRICS(service));
   },
 };

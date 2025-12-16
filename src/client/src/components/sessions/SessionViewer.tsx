@@ -14,22 +14,11 @@ import {
   Avatar,
   Button as MuiButton,
 } from '@mui/material';
-import {
-  PlayArrow,
-  Stop,
-  Close,
-  VideoCall,
-} from '@mui/icons-material';
+import { PlayArrow, Stop, Close, VideoCall } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-import { RootState } from '../../store/store';
-import {
-  completeSession,
-  startSession,
-} from '../../features/sessions/sessionsThunks';
-import {
-  setShowRatingForm,
-  clearCurrentSession,
-} from '../../features/sessions/sessionsSlice';
+import type { RootState } from '../../store/store';
+import { completeSession, startSession } from '../../features/sessions/sessionsThunks';
+import { setShowRatingForm, clearCurrentSession } from '../../features/sessions/sessionsSlice';
 
 interface SessionViewerProps {
   sessionId: string;
@@ -85,7 +74,9 @@ const SessionViewer: React.FC<SessionViewerProps> = ({
       }
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, [sessionStarted, timeRemaining]);
 
   // Format time display (MM:SS)
@@ -96,7 +87,7 @@ const SessionViewer: React.FC<SessionViewerProps> = ({
   };
 
   // Handle start session
-  const handleStartSession = async () => {
+  const handleStartSession = async (): Promise<void> => {
     try {
       const result = await dispatch(startSession(appointmentId));
       if (result.meta.requestStatus === 'fulfilled') {
@@ -109,7 +100,7 @@ const SessionViewer: React.FC<SessionViewerProps> = ({
   };
 
   // Handle complete session
-  const handleCompleteSession = async () => {
+  const handleCompleteSession = async (): Promise<void> => {
     try {
       const result = await dispatch(
         completeSession({
@@ -133,7 +124,7 @@ const SessionViewer: React.FC<SessionViewerProps> = ({
   };
 
   // Handle mark no-show
-  const handleMarkNoShow = async () => {
+  const handleMarkNoShow = async (): Promise<void> => {
     try {
       const result = await dispatch(
         completeSession({
@@ -154,7 +145,7 @@ const SessionViewer: React.FC<SessionViewerProps> = ({
     }
   };
 
-  const handleClose = () => {
+  const handleClose = (): void => {
     dispatch(clearCurrentSession());
     onClose?.();
   };
@@ -192,7 +183,7 @@ const SessionViewer: React.FC<SessionViewerProps> = ({
       <CardContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            {error.message || 'An error occurred during the session'}
+            {error.message ?? 'An error occurred during the session'}
           </Alert>
         )}
 
@@ -204,21 +195,14 @@ const SessionViewer: React.FC<SessionViewerProps> = ({
               color={getStatusColor(sessionStatus)}
               variant="outlined"
             />
-            <Chip
-              label={`Duration: ${durationMinutes} min`}
-              variant="outlined"
-            />
+            <Chip label={`Duration: ${String(durationMinutes)} min`} variant="outlined" />
           </Stack>
         </Box>
 
         {/* Participant Info */}
         <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
           <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar
-              alt={participantName}
-              src={participantAvatar}
-              sx={{ width: 56, height: 56 }}
-            >
+            <Avatar alt={participantName} src={participantAvatar} sx={{ width: 56, height: 56 }}>
               {participantName.charAt(0).toUpperCase()}
             </Avatar>
             <Box flex={1}>
@@ -269,7 +253,9 @@ const SessionViewer: React.FC<SessionViewerProps> = ({
               Join Video Call
             </MuiButton>
             <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
-              {!sessionStarted ? 'Start session to join video call' : 'Click to join video call with WebRTC'}
+              {!sessionStarted
+                ? 'Start session to join video call'
+                : 'Click to join video call with WebRTC'}
             </Typography>
           </Box>
         )}
@@ -317,9 +303,7 @@ const SessionViewer: React.FC<SessionViewerProps> = ({
           )}
 
           {sessionStatus === 'completed' && (
-            <Alert severity="success">
-              Session completed. You can now rate this session.
-            </Alert>
+            <Alert severity="success">Session completed. You can now rate this session.</Alert>
           )}
         </Stack>
       </CardContent>

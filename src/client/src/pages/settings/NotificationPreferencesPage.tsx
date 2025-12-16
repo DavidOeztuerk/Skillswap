@@ -26,7 +26,7 @@ import {
 } from '@mui/icons-material';
 import { useNotifications } from '../../hooks/useNotifications';
 import PageLoader from '../../components/ui/PageLoader';
-import { NotificationSettings } from '../../types/models/Notification';
+import type { NotificationSettings } from '../../types/models/Notification';
 
 const NotificationPreferencesPage: React.FC = () => {
   const { settings, isLoading, loadSettings, updateSettings } = useNotifications();
@@ -39,12 +39,10 @@ const NotificationPreferencesPage: React.FC = () => {
   }, [loadSettings]);
 
   useEffect(() => {
-    if (settings) {
-      setLocalSettings(settings);
-    }
+    setLocalSettings(settings);
   }, [settings]);
 
-  const handleToggle = (field: keyof NotificationSettings) => {
+  const handleToggle = (field: keyof NotificationSettings): void => {
     if (localSettings) {
       setLocalSettings({
         ...localSettings,
@@ -53,14 +51,17 @@ const NotificationPreferencesPage: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = (): void => {
     if (!localSettings) return;
 
     setIsSaving(true);
     try {
-      await updateSettings(localSettings);
+      // Fire-and-forget - updateSettings returns void
+      updateSettings(localSettings);
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
     } catch (error) {
       console.error('Failed to save notification preferences:', error);
     } finally {
@@ -68,10 +69,10 @@ const NotificationPreferencesPage: React.FC = () => {
     }
   };
 
-  const hasChanges = localSettings && settings &&
-    JSON.stringify(localSettings) !== JSON.stringify(settings);
+  const hasChanges =
+    localSettings !== null && JSON.stringify(localSettings) !== JSON.stringify(settings);
 
-  if (isLoading && !settings) {
+  if (isLoading && localSettings === null) {
     return <PageLoader variant="form" message="Lade Benachrichtigungseinstellungen..." />;
   }
 
@@ -128,7 +129,9 @@ const NotificationPreferencesPage: React.FC = () => {
                     control={
                       <Switch
                         checked={localSettings.emailNotifications}
-                        onChange={() => handleToggle('emailNotifications')}
+                        onChange={() => {
+                          handleToggle('emailNotifications');
+                        }}
                         color="primary"
                       />
                     }
@@ -139,7 +142,11 @@ const NotificationPreferencesPage: React.FC = () => {
                       </Stack>
                     }
                   />
-                  <Typography variant="caption" color="textSecondary" sx={{ ml: 4, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ ml: 4, display: 'block' }}
+                  >
                     Erhalte Benachrichtigungen per E-Mail
                   </Typography>
                 </Box>
@@ -149,7 +156,9 @@ const NotificationPreferencesPage: React.FC = () => {
                     control={
                       <Switch
                         checked={localSettings.pushNotifications}
-                        onChange={() => handleToggle('pushNotifications')}
+                        onChange={() => {
+                          handleToggle('pushNotifications');
+                        }}
                         color="primary"
                       />
                     }
@@ -160,7 +169,11 @@ const NotificationPreferencesPage: React.FC = () => {
                       </Stack>
                     }
                   />
-                  <Typography variant="caption" color="textSecondary" sx={{ ml: 4, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ ml: 4, display: 'block' }}
+                  >
                     Erhalte Push-Benachrichtigungen auf deinem Gerät
                   </Typography>
                 </Box>
@@ -170,7 +183,9 @@ const NotificationPreferencesPage: React.FC = () => {
                     control={
                       <Switch
                         checked={localSettings.desktopNotifications}
-                        onChange={() => handleToggle('desktopNotifications')}
+                        onChange={() => {
+                          handleToggle('desktopNotifications');
+                        }}
                         color="primary"
                       />
                     }
@@ -181,7 +196,11 @@ const NotificationPreferencesPage: React.FC = () => {
                       </Stack>
                     }
                   />
-                  <Typography variant="caption" color="textSecondary" sx={{ ml: 4, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ ml: 4, display: 'block' }}
+                  >
                     Zeige Desktop-Benachrichtigungen im Browser
                   </Typography>
                 </Box>
@@ -205,7 +224,9 @@ const NotificationPreferencesPage: React.FC = () => {
                     control={
                       <Switch
                         checked={localSettings.matchRequests}
-                        onChange={() => handleToggle('matchRequests')}
+                        onChange={() => {
+                          handleToggle('matchRequests');
+                        }}
                         color="primary"
                       />
                     }
@@ -216,7 +237,11 @@ const NotificationPreferencesPage: React.FC = () => {
                       </Stack>
                     }
                   />
-                  <Typography variant="caption" color="textSecondary" sx={{ ml: 4, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ ml: 4, display: 'block' }}
+                  >
                     Benachrichtigungen über neue Match-Anfragen und Antworten
                   </Typography>
                 </Box>
@@ -226,7 +251,9 @@ const NotificationPreferencesPage: React.FC = () => {
                     control={
                       <Switch
                         checked={localSettings.appointmentReminders}
-                        onChange={() => handleToggle('appointmentReminders')}
+                        onChange={() => {
+                          handleToggle('appointmentReminders');
+                        }}
                         color="primary"
                       />
                     }
@@ -237,7 +264,11 @@ const NotificationPreferencesPage: React.FC = () => {
                       </Stack>
                     }
                   />
-                  <Typography variant="caption" color="textSecondary" sx={{ ml: 4, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ ml: 4, display: 'block' }}
+                  >
                     Erinnerungen an bevorstehende Termine
                   </Typography>
                 </Box>
@@ -247,7 +278,9 @@ const NotificationPreferencesPage: React.FC = () => {
                     control={
                       <Switch
                         checked={localSettings.skillEndorsements}
-                        onChange={() => handleToggle('skillEndorsements')}
+                        onChange={() => {
+                          handleToggle('skillEndorsements');
+                        }}
                         color="primary"
                       />
                     }
@@ -258,7 +291,11 @@ const NotificationPreferencesPage: React.FC = () => {
                       </Stack>
                     }
                   />
-                  <Typography variant="caption" color="textSecondary" sx={{ ml: 4, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ ml: 4, display: 'block' }}
+                  >
                     Benachrichtigungen über neue Skill-Endorsements
                   </Typography>
                 </Box>
@@ -268,7 +305,9 @@ const NotificationPreferencesPage: React.FC = () => {
                     control={
                       <Switch
                         checked={localSettings.systemUpdates}
-                        onChange={() => handleToggle('systemUpdates')}
+                        onChange={() => {
+                          handleToggle('systemUpdates');
+                        }}
                         color="primary"
                       />
                     }
@@ -279,7 +318,11 @@ const NotificationPreferencesPage: React.FC = () => {
                       </Stack>
                     }
                   />
-                  <Typography variant="caption" color="textSecondary" sx={{ ml: 4, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ ml: 4, display: 'block' }}
+                  >
                     Wichtige System-Updates und Wartungshinweise
                   </Typography>
                 </Box>
@@ -334,9 +377,7 @@ const NotificationPreferencesPage: React.FC = () => {
                 <Button
                   variant="outlined"
                   onClick={() => {
-                    if (settings) {
-                      setLocalSettings(settings);
-                    }
+                    setLocalSettings(settings);
                   }}
                   disabled={!hasChanges}
                 >
@@ -365,9 +406,7 @@ const NotificationPreferencesPage: React.FC = () => {
           variant="outlined"
           sx={{ mr: 2 }}
           onClick={() => {
-            if (settings) {
-              setLocalSettings(settings);
-            }
+            setLocalSettings(settings);
           }}
           disabled={!hasChanges}
         >

@@ -1,6 +1,6 @@
 import { createSelector } from '@reduxjs/toolkit';
-import { RootState } from '../store';
-import {
+import type { RootState } from '../store';
+import type {
   VideoCallEntityState,
   CallParticipant,
   ConnectionQuality,
@@ -14,11 +14,9 @@ import {
 // Base Selectors
 // ============================================================================
 
-export const selectVideocallState = (state: RootState): VideoCallEntityState =>
-  state.videoCall;
+export const selectVideocallState = (state: RootState): VideoCallEntityState => state.videoCall;
 
-export const selectVideocallLoading = (state: RootState): boolean =>
-  state.videoCall.isLoading;
+export const selectVideocallLoading = (state: RootState): boolean => state.videoCall.isLoading;
 
 export const selectVideocallError = (state: RootState): string | undefined =>
   state.videoCall.errorMessage;
@@ -99,8 +97,7 @@ export const selectParticipantCount = createSelector(
 
 export const selectActiveParticipants = createSelector(
   [selectParticipants],
-  (participants): CallParticipant[] =>
-    participants.filter((p) => p.connectionQuality !== 'poor')
+  (participants): CallParticipant[] => participants.filter((p) => p.connectionQuality !== 'poor')
 );
 
 export const selectParticipantById = createSelector(
@@ -111,26 +108,21 @@ export const selectParticipantById = createSelector(
 
 export const selectRemoteParticipants = createSelector(
   [selectParticipants],
-  (participants): CallParticipant[] =>
-    participants.filter((p) => !p.isLocal)
+  (participants): CallParticipant[] => participants.filter((p) => !p.isLocal)
 );
 
 export const selectScreenSharingParticipant = createSelector(
   [selectParticipants],
-  (participants): CallParticipant | null =>
-    participants.find((p) => p.isScreenSharing) ?? null
+  (participants): CallParticipant | null => participants.find((p) => p.isScreenSharing) ?? null
 );
 
-export const selectParticipantStats = createSelector(
-  [selectParticipants],
-  (participants) => ({
-    total: participants.length,
-    withVideo: participants.filter((p) => p.isVideoEnabled).length,
-    withAudio: participants.filter((p) => !p.isMuted).length,
-    screenSharing: participants.filter((p) => p.isScreenSharing).length,
-    poorConnection: participants.filter((p) => p.connectionQuality === 'poor').length,
-  })
-);
+export const selectParticipantStats = createSelector([selectParticipants], (participants) => ({
+  total: participants.length,
+  withVideo: participants.filter((p) => p.isVideoEnabled).length,
+  withAudio: participants.filter((p) => !p.isMuted).length,
+  screenSharing: participants.filter((p) => p.isScreenSharing).length,
+  poorConnection: participants.filter((p) => p.connectionQuality === 'poor').length,
+}));
 
 // ============================================================================
 // Media Control Selectors
@@ -205,19 +197,15 @@ export const selectIsChatOpen = createSelector(
   (state): boolean => state.isChatOpen
 );
 
-export const selectChatMessages = createSelector(
-  [selectVideocallState],
-  (state) => state.messages
-);
+export const selectChatMessages = createSelector([selectVideocallState], (state) => state.messages);
 
 export const selectUnreadMessagesCount = createSelector(
   [selectVideocallState],
   (state): number => state.unreadMessageCount
 );
 
-export const selectLatestMessage = createSelector(
-  [selectChatMessages],
-  (messages) => (messages.length > 0 ? messages[messages.length - 1] : null)
+export const selectLatestMessage = createSelector([selectChatMessages], (messages) =>
+  messages.length > 0 ? messages[messages.length - 1] : null
 );
 
 export const selectChatMessageCount = createSelector(
@@ -246,7 +234,7 @@ export const selectFormattedCallDuration = createSelector(
     const minutes = Math.floor((duration % 3600) / 60);
     const seconds = duration % 60;
 
-    const pad = (n: number) => n.toString().padStart(2, '0');
+    const pad = (n: number): string => n.toString().padStart(2, '0');
 
     if (hours > 0) {
       return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
@@ -334,8 +322,7 @@ export const selectNoiseSuppression = createSelector(
 
 export const selectIsCallActive = createSelector(
   [selectIsConnected, selectRoomId],
-  (isConnected, roomId): boolean =>
-    isConnected && roomId !== null && roomId !== undefined
+  (isConnected, roomId): boolean => isConnected && roomId !== null
 );
 
 export const selectIsCallInProgress = createSelector(
@@ -365,7 +352,7 @@ export const selectOverallCallQuality = createSelector(
   (connectionQuality, networkQuality, packetsLost, jitter): ConnectionQuality => {
     const connectionScore = QUALITY_SCORES[connectionQuality];
     const networkScore = QUALITY_SCORES[networkQuality];
-    
+
     // Packet Loss Score
     let packetLossScore: number;
     if (packetsLost > 5) packetLossScore = 1;
@@ -398,10 +385,7 @@ export const selectE2EEState = createSelector(
   (state): E2EEState => state.e2ee
 );
 
-export const selectE2EEStatus = createSelector(
-  [selectE2EEState],
-  (e2ee) => e2ee.status
-);
+export const selectE2EEStatus = createSelector([selectE2EEState], (e2ee) => e2ee.status);
 
 export const selectE2EELocalFingerprint = createSelector(
   [selectE2EEState],
@@ -502,7 +486,16 @@ export const selectDebugInfo = createSelector(
     selectConnectionQuality,
     selectVideocallError,
   ],
-  (sessionId, roomId, isConnected, participantCount, e2eeActive, chatE2eeActive, quality, error) => ({
+  (
+    sessionId,
+    roomId,
+    isConnected,
+    participantCount,
+    e2eeActive,
+    chatE2eeActive,
+    quality,
+    error
+  ) => ({
     sessionId,
     roomId,
     isConnected,

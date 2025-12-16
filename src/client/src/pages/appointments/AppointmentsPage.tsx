@@ -1,32 +1,37 @@
-// src/pages/appointments/AppointmentsPage.tsx      
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box } from '@mui/material';
-import PageHeader, {
-  PageHeaderAction,
-} from '../../components/layout/PageHeader';
+import { Permissions } from '../../components/auth/permissions.constants';
+import PageHeader, { PageHeaderAction } from '../../components/layout/PageHeader';
 import PageContainer from '../../components/layout/PageContainer';
 import AppointmentList from '../../components/appointments/AppointmentList';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
 import { useAppointments } from '../../hooks/useAppointments';
-import { useLoading } from '../../contexts/LoadingContext';
 import AppointmentErrorBoundary from '../../components/error/AppointmentErrorBoundary';
 import errorService from '../../services/errorService';
+import { AppointmentStatus } from '../../types/models/Appointment';
+import { usePermissions } from '../../contexts/permissionContextHook';
 
 /**
  * Seite zur Verwaltung der Termine des Benutzers
  */
 const AppointmentsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { withLoading } = useLoading();
+  const { hasPermission } = usePermissions();
+
+  // Memoize permission checks for own appointments
+  const canCancelOwnAppointment = useMemo(
+    () => hasPermission(Permissions.Appointments.CANCEL_OWN),
+    [hasPermission]
+  );
+
   const {
     appointments,
     isLoading: appointmentsLoading,
-    errorMessage,
-    acceptAppointment,
-    declineAppointment,
+    error,
+    respondToAppointment,
     completeAppointment,
     loadAppointments,
   } = useAppointments();
@@ -57,17 +62,20 @@ const AppointmentsPage: React.FC = () => {
     // Beim Start immer den letzten Status löschen
     setStatusMessage(null);
 
-    console.log('🎯 AppointmentsPage: Loading appointments...');
+    console.debug('🎯 AppointmentsPage: Loading appointments...');
     loadAppointments({ pageNumber: 1, pageSize: 12, includePast: true });
-  }, []); // Leere deps - läuft nur beim Mount
+  }, [loadAppointments]);
 
   // Dialog-Handler
   const handleConfirmDialogOpen = (
     appointmentId: string,
     action: 'confirm' | 'cancel' | 'complete'
-  ) => {
-    errorService.addBreadcrumb('Opening appointment action dialog', 'ui', { appointmentId, action });
-    
+  ): void => {
+    errorService.addBreadcrumb('Opening appointment action dialog', 'ui', {
+      appointmentId,
+      action,
+    });
+
     let title = '';
     let message = '';
 
@@ -84,6 +92,8 @@ const AppointmentsPage: React.FC = () => {
         title = 'Termin abschließen';
         message = 'Möchtest du diesen Termin als abgeschlossen markieren?';
         break;
+      default:
+        return;
     }
 
     setConfirmDialog({
@@ -95,71 +105,66 @@ const AppointmentsPage: React.FC = () => {
     });
   };
 
-  const handleConfirmDialogClose = () => {
+  const handleConfirmDialogClose = (): void => {
     setConfirmDialog({
       ...confirmDialog,
       open: false,
     });
   };
 
-  // Aktions-Handler
-  const handleConfirmAction = async () => {
+  // Aktions-Handler (fire-and-forget pattern)
+  const handleConfirmAction = (): void => {
     const { appointmentId, action } = confirmDialog;
 
     if (!appointmentId) return;
 
-    const loadingKey = `appointment.${action}`;
-    
-    await withLoading(loadingKey, async () => {
-      try {
-        errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action });
+    try {
+      errorService.addBreadcrumb('Performing appointment action', 'action', {
+        appointmentId,
+        action,
+      });
 
-        let success = false;
-        let result: { meta: { requestStatus: string } };
-        let messageText = '';
+      let messageText = '';
 
-        switch (action) {
-          case 'confirm':
-            result = await acceptAppointment(appointmentId);
-            success = result.meta.requestStatus === 'fulfilled';
-            messageText = 'Termin wurde erfolgreich bestätigt';
-            break;
-          case 'cancel':
-            result = await declineAppointment(appointmentId);
-            success = result.meta.requestStatus === 'fulfilled';
-            messageText = 'Termin wurde abgesagt';
-            break;
-          case 'complete':
-            result = await completeAppointment(appointmentId);
-            success = result.meta.requestStatus === 'fulfilled';
-            messageText = 'Termin wurde als abgeschlossen markiert';
-            break;
-        }
-
-        if (success) {
-          errorService.addBreadcrumb('Appointment action completed successfully', 'action', { appointmentId, action });
-          setStatusMessage({
-            text: messageText,
-            type: 'success',
-          });
-        } else {
-          errorService.addBreadcrumb('Appointment action failed', 'error', { appointmentId, action });
-          throw new Error('Fehler bei der Terminverwaltung');
-        }
-      } catch (error) {
-        errorService.addBreadcrumb('Error performing appointment action', 'error', { 
-          appointmentId, 
-          action, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
-        });
-        setStatusMessage({
-          text: 'Fehler bei der Terminverwaltung' + ' ' + error,
-          type: 'error',
-        });
-      } finally {
-        handleConfirmDialogClose();
+      switch (action) {
+        case 'confirm':
+          respondToAppointment(appointmentId, AppointmentStatus.Confirmed);
+          messageText = 'Termin wurde erfolgreich bestätigt';
+          break;
+        case 'cancel':
+          respondToAppointment(appointmentId, AppointmentStatus.Cancelled);
+          messageText = 'Termin wurde abgesagt';
+          break;
+        case 'complete':
+          completeAppointment(appointmentId);
+          messageText = 'Termin wurde als abgeschlossen markiert';
+          break;
+        default:
+          return;
       }
-    });
+
+      errorService.addBreadcrumb('Appointment action dispatched', 'action', {
+        appointmentId,
+        action,
+      });
+      setStatusMessage({
+        text: messageText,
+        type: 'success',
+      });
+    } catch (actionError: unknown) {
+      const errorMessage = actionError instanceof Error ? actionError.message : 'Unknown error';
+      errorService.addBreadcrumb('Error performing appointment action', 'error', {
+        appointmentId,
+        action,
+        error: errorMessage,
+      });
+      setStatusMessage({
+        text: `Fehler bei der Terminverwaltung: ${errorMessage}`,
+        type: 'error',
+      });
+    } finally {
+      handleConfirmDialogClose();
+    }
   };
 
   return (
@@ -167,24 +172,27 @@ const AppointmentsPage: React.FC = () => {
       <PageHeader
         title="Meine Termine"
         subtitle="Verwalte deine Lehr- und Lerntermine"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Termine' },
-        ]}
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Termine' }]}
         actions={
           <>
             <PageHeaderAction
               label="Kalenderansicht"
               onClick={() => {
-                errorService.addBreadcrumb('Navigating to calendar from appointments', 'navigation');
-                navigate('/appointments/calendar');
+                errorService.addBreadcrumb(
+                  'Navigating to calendar from appointments',
+                  'navigation'
+                );
+                void navigate('/appointments/calendar');
               }}
             />
             <PageHeaderAction
               label="Zum Matchmaking"
               onClick={() => {
-                errorService.addBreadcrumb('Navigating to matchmaking from appointments', 'navigation');
-                navigate('/matchmaking');
+                errorService.addBreadcrumb(
+                  'Navigating to matchmaking from appointments',
+                  'navigation'
+                );
+                void navigate('/matchmaking');
               }}
             />
           </>
@@ -195,27 +203,33 @@ const AppointmentsPage: React.FC = () => {
         <AlertMessage
           severity={statusMessage.type}
           message={[statusMessage.text]}
-          onClose={() => setStatusMessage(null)}
+          onClose={() => {
+            setStatusMessage(null);
+          }}
         />
       )}
 
       <Box mt={3}>
-        {appointmentsLoading && (!appointments || appointments.length === 0) ? (
+        {appointmentsLoading && appointments.length === 0 ? (
           <SkeletonLoader variant="list" count={5} />
         ) : (
           <AppointmentList
             appointments={appointments}
             isLoading={appointmentsLoading}
-            error={errorMessage}
-            onConfirm={(appointmentId) =>
-              handleConfirmDialogOpen(appointmentId, 'confirm')
+            error={error}
+            onConfirm={(appointmentId) => {
+              handleConfirmDialogOpen(appointmentId, 'confirm');
+            }}
+            onCancel={
+              canCancelOwnAppointment
+                ? (appointmentId) => {
+                    handleConfirmDialogOpen(appointmentId, 'cancel');
+                  }
+                : undefined
             }
-            onCancel={(appointmentId) =>
-              handleConfirmDialogOpen(appointmentId, 'cancel')
-            }
-            onComplete={(appointmentId) =>
-              handleConfirmDialogOpen(appointmentId, 'complete')
-            }
+            onComplete={(appointmentId) => {
+              handleConfirmDialogOpen(appointmentId, 'complete');
+            }}
           />
         )}
       </Box>

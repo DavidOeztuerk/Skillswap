@@ -59,12 +59,8 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import AlertMessage from '../../components/ui/AlertMessage';
 import { useAppointments } from '../../hooks/useAppointments';
 import { useAuth } from '../../hooks/useAuth';
-import {
-  formatDateTimeRange,
-  formatDate,
-  isPastDate,
-} from '../../utils/dateUtils';
-import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
+import { formatDateTimeRange, formatDate, isPastDate } from '../../utils/dateUtils';
+import { type Appointment, AppointmentStatus } from '../../types/models/Appointment';
 import AppointmentErrorBoundary from '../../components/error/AppointmentErrorBoundary';
 import errorService from '../../services/errorService';
 import RescheduleDialog from '../../components/appointments/RescheduleDialog';
@@ -87,14 +83,8 @@ const AppointmentDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const { user } = useAuth();
-  const {
-    appointments,
-    acceptAppointment,
-    declineAppointment,
-    completeAppointment,
-    isLoading,
-    errorMessage,
-  } = useAppointments();
+  const { appointments, respondToAppointment, completeAppointment, isLoading, error } =
+    useAppointments();
 
   // Local state
   const [appointment, setAppointment] = useState<Appointment | null>(null);
@@ -122,17 +112,15 @@ const AppointmentDetailPage: React.FC = () => {
   useEffect(() => {
     if (appointmentId) {
       errorService.addBreadcrumb('Loading appointment detail', 'navigation', { appointmentId });
-      
-      const foundAppointment = appointments.find(
-        (apt) => apt.id === appointmentId
-      );
+
+      const foundAppointment = appointments.find((apt) => apt.id === appointmentId);
       if (foundAppointment) {
         setAppointment(foundAppointment);
-        errorService.addBreadcrumb('Appointment loaded successfully', 'data', { 
-          appointmentId, 
-          skillName: foundAppointment.skill?.name || 'Unknown' 
+        errorService.addBreadcrumb('Appointment loaded successfully', 'data', {
+          appointmentId,
+          skillName: foundAppointment.skill?.name ?? 'Unknown',
         });
-        
+
         // Inline mock messages laden um Function-Dependency zu vermeiden
         setMessages([
           {
@@ -142,7 +130,7 @@ const AppointmentDetailPage: React.FC = () => {
             content:
               'Hallo! Ich freue mich auf unsere Session. Haben Sie schon Erfahrungen mit React?',
             timestamp: '2024-01-15T09:00:00Z',
-            type: "message"
+            type: 'message',
           },
           {
             id: '2',
@@ -151,7 +139,7 @@ const AppointmentDetailPage: React.FC = () => {
             content:
               'Ja, ich habe schon einige kleine Projekte gemacht. Würde gerne mehr über Hooks lernen!',
             timestamp: '2024-01-15T09:05:00Z',
-            type: "message"
+            type: 'message',
           },
         ]);
       } else {
@@ -160,11 +148,12 @@ const AppointmentDetailPage: React.FC = () => {
     }
   }, [appointmentId, appointments]);
 
-  const handleConfirmDialogOpen = (
-    action: 'confirm' | 'cancel' | 'complete'
-  ) => {
-    errorService.addBreadcrumb('Opening appointment action dialog', 'ui', { appointmentId, action });
-    
+  const handleConfirmDialogOpen = (action: 'confirm' | 'cancel' | 'complete'): void => {
+    errorService.addBreadcrumb('Opening appointment action dialog', 'ui', {
+      appointmentId,
+      action,
+    });
+
     let title = '';
     let message = '';
 
@@ -185,6 +174,8 @@ const AppointmentDetailPage: React.FC = () => {
         title = 'Termin abschließen';
         message = 'Möchtest du diesen Termin als abgeschlossen markieren?';
         break;
+      default:
+        return;
     }
 
     setConfirmDialog({
@@ -195,28 +186,27 @@ const AppointmentDetailPage: React.FC = () => {
     });
   };
 
-  const handleConfirmAction = async () => {
+  const handleConfirmAction = (): void => {
     if (!appointmentId) return;
 
     try {
-      errorService.addBreadcrumb('Performing appointment action', 'action', { appointmentId, action: confirmDialog.action });
+      errorService.addBreadcrumb('Performing appointment action', 'action', {
+        appointmentId,
+        action: confirmDialog.action,
+      });
 
-      let success = false;
-      let result: { meta: { requestStatus: string } };
       const { action } = confirmDialog;
 
       switch (action) {
         case 'confirm':
-          result = await acceptAppointment(appointmentId);
-          success = result.meta.requestStatus === 'fulfilled';
+          respondToAppointment(appointmentId, AppointmentStatus.Confirmed);
           setStatusMessage({
             text: 'Termin wurde erfolgreich bestätigt',
             type: 'success',
           });
           break;
         case 'cancel':
-          result = await declineAppointment(appointmentId);
-          success = result.meta.requestStatus === 'fulfilled';
+          respondToAppointment(appointmentId, AppointmentStatus.Cancelled);
           setStatusMessage({
             text: 'Termin wurde abgesagt',
             type: 'success',
@@ -227,29 +217,29 @@ const AppointmentDetailPage: React.FC = () => {
             setStatusMessage({ text: 'Abschließen ist derzeit nicht verfügbar', type: 'info' });
             break;
           }
-          result = await completeAppointment(appointmentId);
-          success = result.meta.requestStatus === 'fulfilled';
+          completeAppointment(appointmentId);
           setStatusMessage({
             text: 'Termin wurde als abgeschlossen markiert',
             type: 'success',
           });
           break;
+        default:
+          break;
       }
 
-      if (success) {
-        errorService.addBreadcrumb('Appointment action completed successfully', 'action', { appointmentId, action });
-      } else {
-        errorService.addBreadcrumb('Appointment action failed', 'error', { appointmentId, action });
-        throw new Error('Aktion fehlgeschlagen');
-      }
-    } catch (error) {
-      errorService.addBreadcrumb('Error performing appointment action', 'error', { 
-        appointmentId, 
-        action: confirmDialog.action, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      errorService.addBreadcrumb('Appointment action completed', 'action', {
+        appointmentId,
+        action,
+      });
+    } catch (actionError: unknown) {
+      const errorMessage = actionError instanceof Error ? actionError.message : 'Unknown error';
+      errorService.addBreadcrumb('Error performing appointment action', 'error', {
+        appointmentId,
+        action: confirmDialog.action,
+        error: errorMessage,
       });
       setStatusMessage({
-        text: 'Fehler bei der Terminverwaltung' + ' ' + error,
+        text: `Fehler bei der Terminverwaltung: ${errorMessage}`,
         type: 'error',
       });
     } finally {
@@ -257,18 +247,17 @@ const AppointmentDetailPage: React.FC = () => {
     }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = (): void => {
     if (!newMessage.trim()) return;
 
     errorService.addBreadcrumb('Sending message in appointment detail', 'form', { appointmentId });
 
+    const firstName = user?.firstName ?? '';
+    const lastName = user?.lastName ?? '';
     const message: AppointmentMessage = {
       id: Date.now().toString(),
-      senderId: user?.id || '',
-      senderName:
-        user?.firstName || user?.lastName
-          ? `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()
-          : 'Du',
+      senderId: user?.id ?? 'unknown',
+      senderName: firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Du',
       content: newMessage,
       timestamp: new Date().toISOString(),
       type: 'message',
@@ -302,7 +291,8 @@ const AppointmentDetailPage: React.FC = () => {
       const response = await appointmentService.generateMeetingLink(appointmentId);
 
       if (!response.success) {
-        const errorMsg = 'errors' in response ? response.errors.join(', ') : 'Failed to generate meeting link';
+        const errorMsg =
+          'errors' in response ? response.errors.join(', ') : 'Failed to generate meeting link';
         throw new Error(errorMsg);
       }
 
@@ -310,17 +300,19 @@ const AppointmentDetailPage: React.FC = () => {
         throw new Error('No meeting link returned from server');
       }
 
-      errorService.addBreadcrumb('Meeting link generated successfully', 'action', { appointmentId });
+      errorService.addBreadcrumb('Meeting link generated successfully', 'action', {
+        appointmentId,
+      });
       setStatusMessage({
         text: 'Meeting-Link wurde erfolgreich generiert',
         type: 'success',
       });
 
       return response.data;
-    } catch (error) {
+    } catch (generateError) {
       errorService.addBreadcrumb('Error generating meeting link', 'error', {
         appointmentId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: generateError instanceof Error ? generateError.message : 'Unknown error',
       });
 
       setStatusMessage({
@@ -328,7 +320,7 @@ const AppointmentDetailPage: React.FC = () => {
         type: 'error',
       });
 
-      throw error;
+      throw generateError;
     }
   };
 
@@ -344,7 +336,8 @@ const AppointmentDetailPage: React.FC = () => {
       const response = await appointmentService.generateMeetingLink(appointmentId);
 
       if (!response.success) {
-        const errorMsg = 'errors' in response ? response.errors.join(', ') : 'Failed to refresh meeting link';
+        const errorMsg =
+          'errors' in response ? response.errors.join(', ') : 'Failed to refresh meeting link';
         throw new Error(errorMsg);
       }
 
@@ -352,17 +345,19 @@ const AppointmentDetailPage: React.FC = () => {
         throw new Error('No meeting link returned from server');
       }
 
-      errorService.addBreadcrumb('Meeting link refreshed successfully', 'action', { appointmentId });
+      errorService.addBreadcrumb('Meeting link refreshed successfully', 'action', {
+        appointmentId,
+      });
       setStatusMessage({
         text: 'Meeting-Link wurde aktualisiert',
         type: 'success',
       });
 
       return response.data;
-    } catch (error) {
+    } catch (refreshError) {
       errorService.addBreadcrumb('Error refreshing meeting link', 'error', {
         appointmentId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: refreshError instanceof Error ? refreshError.message : 'Unknown error',
       });
 
       setStatusMessage({
@@ -370,16 +365,23 @@ const AppointmentDetailPage: React.FC = () => {
         type: 'error',
       });
 
-      throw error;
+      throw refreshError;
     }
   };
 
-  const handleReschedule = async (newDateTime: Date, newDuration?: number, reason?: string) => {
+  const handleReschedule = async (
+    newDateTime: Date,
+    newDuration?: number,
+    reason?: string
+  ): Promise<void> => {
     if (!appointmentId) return;
-    
+
     try {
-      errorService.addBreadcrumb('Rescheduling appointment', 'action', { appointmentId, newDateTime: newDateTime.toISOString() });
-      
+      errorService.addBreadcrumb('Rescheduling appointment', 'action', {
+        appointmentId,
+        newDateTime: newDateTime.toISOString(),
+      });
+
       // Note: This will throw an error as the endpoint doesn't exist yet
       // We're setting it up for future backend implementation
       await appointmentService.rescheduleAppointment(
@@ -388,23 +390,23 @@ const AppointmentDetailPage: React.FC = () => {
         newDuration,
         reason
       );
-      
+
       setStatusMessage({
         text: 'Termin wurde erfolgreich verschoben',
         type: 'success',
       });
-      
+
       // Refresh appointment data
       // In real implementation, this would reload the appointment
       setRescheduleDialogOpen(false);
-    } catch (error) {
-      errorService.addBreadcrumb('Error rescheduling appointment', 'error', { 
-        appointmentId, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+    } catch (rescheduleError) {
+      errorService.addBreadcrumb('Error rescheduling appointment', 'error', {
+        appointmentId,
+        error: rescheduleError instanceof Error ? rescheduleError.message : 'Unknown error',
       });
-      
+
       // For now, show a success message since backend isn't ready
-      if (error instanceof Error && error.message.includes('not implemented')) {
+      if (rescheduleError instanceof Error && rescheduleError.message.includes('not implemented')) {
         setStatusMessage({
           text: 'Termin-Verschiebung wird bald verfügbar sein',
           type: 'info',
@@ -418,24 +420,28 @@ const AppointmentDetailPage: React.FC = () => {
     }
   };
 
-  const handleShare = async () => {
+  const handleShare = async (): Promise<void> => {
     const shareData = {
-      title: `Termin: ${appointment?.skill?.name || 'Unknown'}`,
+      title: `Termin: ${appointment?.skill?.name ?? 'Unknown'}`,
       text: `Termin am ${appointment ? formatDateTimeRange(appointment.startTime, appointment.endTime) : ''}`,
       url: window.location.href,
     };
 
-    if (navigator.share) {
+    if (typeof navigator.share === 'function') {
       try {
-        errorService.addBreadcrumb('Sharing appointment via native share', 'action', { appointmentId });
+        errorService.addBreadcrumb('Sharing appointment via native share', 'action', {
+          appointmentId,
+        });
         await navigator.share(shareData);
-      } catch (error) {
+      } catch (_error) {
         errorService.addBreadcrumb('Share cancelled by user', 'ui', { appointmentId });
-        console.log('Share canceled' + ' ' + error);
+        console.debug('Share canceled');
       }
     } else {
-      errorService.addBreadcrumb('Copying appointment link to clipboard', 'action', { appointmentId });
-      navigator.clipboard.writeText(window.location.href);
+      errorService.addBreadcrumb('Copying appointment link to clipboard', 'action', {
+        appointmentId,
+      });
+      void navigator.clipboard.writeText(window.location.href);
       setStatusMessage({
         text: 'Link in Zwischenablage kopiert',
         type: 'success',
@@ -449,12 +455,12 @@ const AppointmentDetailPage: React.FC = () => {
   }
 
   // Error or not found
-  if (errorMessage || !appointment) {
+  if (error || !appointment) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Termin nicht gefunden"
-          description={"Der angeforderte Termin existiert nicht oder ist nicht verfügbar."}
+          description={'Der angeforderte Termin existiert nicht oder ist nicht verfügbar.'}
           actionLabel="Zurück zu Terminen"
           actionHandler={() => navigate('/appointments')}
         />
@@ -463,27 +469,25 @@ const AppointmentDetailPage: React.FC = () => {
   }
 
   const isTeacher = appointment.teacherId === user?.id;
-  const otherUser = isTeacher
-    ? appointment.studentDetails
-    : appointment.teacherDetails;
+  const otherUser = isTeacher ? appointment.studentDetails : appointment.teacherDetails;
   const canConfirm = isTeacher && appointment.status === AppointmentStatus.Pending;
   const canCancel =
     appointment.status === AppointmentStatus.Pending ||
-    (appointment.status === AppointmentStatus.Accepted && !isPastDate(appointment.startTime));
+    (appointment.status === AppointmentStatus.Confirmed && !isPastDate(appointment.startTime));
   const canReschedule =
-    appointment.status === AppointmentStatus.Accepted &&
+    appointment.status === AppointmentStatus.Confirmed &&
     !isPastDate(appointment.startTime) &&
     isTeacher; // Only teacher can reschedule for now
   const canComplete =
     isTeacher &&
-    appointment.status === AppointmentStatus.Accepted &&
+    appointment.status === AppointmentStatus.Confirmed &&
     isPastDate(appointment.endTime);
 
-  const getStatusIcon = () => {
+  const getStatusIcon = (): React.ReactElement => {
     switch (appointment.status) {
       case AppointmentStatus.Pending:
         return <ScheduleIcon />;
-      case AppointmentStatus.Accepted:
+      case AppointmentStatus.Confirmed:
         return <EventAvailableIcon />;
       case AppointmentStatus.Cancelled:
         return <EventBusyIcon />;
@@ -494,11 +498,11 @@ const AppointmentDetailPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = () => {
+  const getStatusColor = (): 'warning' | 'success' | 'error' | 'info' | 'default' => {
     switch (appointment.status) {
       case AppointmentStatus.Pending:
         return 'warning';
-      case AppointmentStatus.Accepted:
+      case AppointmentStatus.Confirmed:
         return 'success';
       case AppointmentStatus.Cancelled:
         return 'error';
@@ -509,11 +513,11 @@ const AppointmentDetailPage: React.FC = () => {
     }
   };
 
-  const getStatusLabel = () => {
+  const getStatusLabel = (): string => {
     switch (appointment.status) {
       case AppointmentStatus.Pending:
         return 'Ausstehend';
-      case AppointmentStatus.Accepted:
+      case AppointmentStatus.Confirmed:
         return 'Bestätigt';
       case AppointmentStatus.Cancelled:
         return 'Abgesagt';
@@ -531,7 +535,9 @@ const AppointmentDetailPage: React.FC = () => {
         <AlertMessage
           message={[statusMessage.text]}
           severity={statusMessage.type}
-          onClose={() => setStatusMessage(null)}
+          onClose={() => {
+            setStatusMessage(null);
+          }}
         />
       )}
 
@@ -540,8 +546,10 @@ const AppointmentDetailPage: React.FC = () => {
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={() => {
-            errorService.addBreadcrumb('Navigating back to appointments', 'navigation', { appointmentId });
-            navigate('/appointments');
+            errorService.addBreadcrumb('Navigating back to appointments', 'navigation', {
+              appointmentId,
+            });
+            void navigate('/appointments');
           }}
           sx={{ mb: 2 }}
         >
@@ -563,9 +571,7 @@ const AppointmentDetailPage: React.FC = () => {
               }}
             >
               <Box sx={{ flex: 1 }}>
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
-                >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                   <Chip
                     icon={getStatusIcon()}
                     label={getStatusLabel()}
@@ -573,7 +579,7 @@ const AppointmentDetailPage: React.FC = () => {
                     size="small"
                   />
                   <Chip
-                    label={appointment.skill?.name || 'Skill'}
+                    label={appointment.skill?.name ?? 'Skill'}
                     variant="outlined"
                     size="small"
                     icon={<SkillIcon />}
@@ -581,18 +587,13 @@ const AppointmentDetailPage: React.FC = () => {
                 </Box>
 
                 <Typography variant="h4" component="h1" gutterBottom>
-                  Termin: {appointment.skill?.name || 'Skill'}
+                  Termin: {appointment.skill?.name ?? 'Skill'}
                 </Typography>
 
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
-                >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                   <TimeIcon color="action" />
                   <Typography variant="h6">
-                    {formatDateTimeRange(
-                      appointment.startTime,
-                      appointment.endTime
-                    )}
+                    {formatDateTimeRange(appointment.startTime, appointment.endTime)}
                   </Typography>
                 </Box>
               </Box>
@@ -600,7 +601,11 @@ const AppointmentDetailPage: React.FC = () => {
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {canReschedule && (
                   <Tooltip title="Termin verschieben">
-                    <IconButton onClick={() => setRescheduleDialogOpen(true)}>
+                    <IconButton
+                      onClick={() => {
+                        setRescheduleDialogOpen(true);
+                      }}
+                    >
                       <UpdateIcon />
                     </IconButton>
                   </Tooltip>
@@ -625,7 +630,7 @@ const AppointmentDetailPage: React.FC = () => {
               </Avatar>
               <Box>
                 <Typography variant="h6">
-                  {otherUser?.firstName || ''} {otherUser?.lastName || ''}
+                  {otherUser?.firstName ?? ''} {otherUser?.lastName ?? ''}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {isTeacher ? 'Lernende:r' : 'Lehrende:r'}
@@ -655,10 +660,7 @@ const AppointmentDetailPage: React.FC = () => {
                   <NotesIcon />
                   Notizen
                 </Typography>
-                <Paper
-                  variant="outlined"
-                  sx={{ p: 2, bgcolor: 'background.default' }}
-                >
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
                   <Typography variant="body2">{appointment.notes}</Typography>
                 </Paper>
               </Box>
@@ -672,7 +674,9 @@ const AppointmentDetailPage: React.FC = () => {
                   variant="outlined"
                   color="success"
                   startIcon={<CheckIcon />}
-                  onClick={() => handleConfirmDialogOpen('confirm')}
+                  onClick={() => {
+                    handleConfirmDialogOpen('confirm');
+                  }}
                 >
                   Bestätigen
                 </Button>
@@ -683,7 +687,9 @@ const AppointmentDetailPage: React.FC = () => {
                   variant="outlined"
                   color="error"
                   startIcon={<CancelIcon />}
-                  onClick={() => handleConfirmDialogOpen('cancel')}
+                  onClick={() => {
+                    handleConfirmDialogOpen('cancel');
+                  }}
                 >
                   Absagen
                 </Button>
@@ -694,7 +700,9 @@ const AppointmentDetailPage: React.FC = () => {
                   variant="outlined"
                   color="info"
                   startIcon={<DoneAllIcon />}
-                  onClick={() => handleConfirmDialogOpen('complete')}
+                  onClick={() => {
+                    handleConfirmDialogOpen('complete');
+                  }}
                 >
                   Abschließen
                 </Button>
@@ -704,7 +712,9 @@ const AppointmentDetailPage: React.FC = () => {
                 <Button
                   variant="outlined"
                   startIcon={<UpdateIcon />}
-                  onClick={() => setRescheduleDialogOpen(true)}
+                  onClick={() => {
+                    setRescheduleDialogOpen(true);
+                  }}
                 >
                   Verschieben
                 </Button>
@@ -713,7 +723,9 @@ const AppointmentDetailPage: React.FC = () => {
               <Button
                 variant="outlined"
                 startIcon={<MessageIcon />}
-                onClick={() => setMessageDialogOpen(true)}
+                onClick={() => {
+                  setMessageDialogOpen(true);
+                }}
               >
                 Nachricht senden
               </Button>
@@ -721,16 +733,26 @@ const AppointmentDetailPage: React.FC = () => {
           </Paper>
 
           {/* Meeting Link Section */}
-          {appointment.status === AppointmentStatus.Accepted && (
+          {appointment.status === AppointmentStatus.Confirmed && appointmentId && (
             <MeetingLinkSection
-              appointmentId={appointmentId!}
+              appointmentId={appointmentId}
               meetingUrl={appointment.videocallUrl}
               startTime={appointment.startTime || appointment.scheduledDate}
-              endTime={appointment.endTime || new Date(new Date(appointment.scheduledDate).getTime() + appointment.durationMinutes * 60000).toISOString()}
+              endTime={
+                appointment.endTime ||
+                new Date(
+                  new Date(appointment.scheduledDate).getTime() +
+                    appointment.durationMinutes * 60000
+                ).toISOString()
+              }
               status={appointment.status}
               isOrganizer={isTeacher}
-              onGenerateLink={!appointment.videocallUrl && isTeacher ? handleGenerateMeetingLink : undefined}
-              onRefreshLink={appointment.videocallUrl && isTeacher ? handleRefreshMeetingLink : undefined}
+              onGenerateLink={
+                !appointment.videocallUrl && isTeacher ? handleGenerateMeetingLink : undefined
+              }
+              onRefreshLink={
+                appointment.videocallUrl && isTeacher ? handleRefreshMeetingLink : undefined
+              }
               allowEarlyJoin={true}
               earlyJoinMinutes={5}
             />
@@ -742,34 +764,23 @@ const AppointmentDetailPage: React.FC = () => {
               Nachrichten & Aktivitäten
             </Typography>
 
-            {messages?.length > 0 ? (
+            {messages.length > 0 ? (
               <Timeline>
                 {messages.map((message, index) => (
                   <TimelineItem key={message.id}>
-                    <TimelineOppositeContent
-                      color="text.secondary"
-                      sx={{ flex: 0.3 }}
-                    >
+                    <TimelineOppositeContent color="text.secondary" sx={{ flex: 0.3 }}>
                       <Typography variant="caption">
                         {formatDate(message.timestamp, 'HH:mm')}
                       </Typography>
                     </TimelineOppositeContent>
                     <TimelineSeparator>
                       <TimelineDot
-                        color={
-                          message.type === 'system' ? 'primary' : 'secondary'
-                        }
-                        variant={
-                          message.senderId === user?.id ? 'filled' : 'outlined'
-                        }
+                        color={message.type === 'system' ? 'primary' : 'secondary'}
+                        variant={message.senderId === user?.id ? 'filled' : 'outlined'}
                       >
-                        {message.type === 'system' ? (
-                          <ScheduleIcon />
-                        ) : (
-                          <MessageIcon />
-                        )}
+                        {message.type === 'system' ? <ScheduleIcon /> : <MessageIcon />}
                       </TimelineDot>
-                      {index < messages?.length - 1 && <TimelineConnector />}
+                      {index < messages.length - 1 && <TimelineConnector />}
                     </TimelineSeparator>
                     <TimelineContent>
                       <Typography variant="subtitle2" gutterBottom>
@@ -802,10 +813,7 @@ const AppointmentDetailPage: React.FC = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Datum"
-                  secondary={formatDate(
-                    appointment.startTime,
-                    'EEEE, dd. MMMM yyyy'
-                  )}
+                  secondary={formatDate(appointment.startTime, 'EEEE, dd. MMMM yyyy')}
                 />
               </ListItem>
               <ListItem disablePadding>
@@ -823,9 +831,7 @@ const AppointmentDetailPage: React.FC = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Ort"
-                  secondary={
-                    appointment.videocallUrl ? 'Online (Videoanruf)' : 'Präsenz'
-                  }
+                  secondary={appointment.videocallUrl ? 'Online (Videoanruf)' : 'Präsenz'}
                 />
               </ListItem>
               <ListItem disablePadding>
@@ -878,26 +884,35 @@ const AppointmentDetailPage: React.FC = () => {
       {/* Message Dialog */}
       <Dialog
         open={messageDialogOpen}
-        onClose={() => setMessageDialogOpen(false)}
+        onClose={() => {
+          setMessageDialogOpen(false);
+        }}
         maxWidth="sm"
         fullWidth
       >
         <DialogTitle>Nachricht senden</DialogTitle>
         <DialogContent>
           <TextField
-            autoFocus
             fullWidth
             multiline
             rows={4}
             label="Nachricht"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={`Schreibe eine Nachricht an ${otherUser?.firstName || 'Teilnehmer'}...`}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+            }}
+            placeholder={`Schreibe eine Nachricht an ${otherUser?.firstName ?? 'Teilnehmer'}...`}
             sx={{ mt: 2 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setMessageDialogOpen(false)}>Abbrechen</Button>
+          <Button
+            onClick={() => {
+              setMessageDialogOpen(false);
+            }}
+          >
+            Abbrechen
+          </Button>
           <Button
             onClick={handleSendMessage}
             variant="contained"
@@ -915,17 +930,21 @@ const AppointmentDetailPage: React.FC = () => {
         title={confirmDialog.title}
         message={confirmDialog.message}
         onConfirm={handleConfirmAction}
-        onCancel={() => setConfirmDialog({ ...confirmDialog, open: false })}
+        onCancel={() => {
+          setConfirmDialog({ ...confirmDialog, open: false });
+        }}
         confirmLabel="Bestätigen"
         cancelLabel="Abbrechen"
         confirmColor={confirmDialog.action === 'cancel' ? 'error' : 'primary'}
       />
 
       {/* Reschedule Dialog */}
-      {appointment && (
+      {appointment.id && (
         <RescheduleDialog
           open={rescheduleDialogOpen}
-          onClose={() => setRescheduleDialogOpen(false)}
+          onClose={() => {
+            setRescheduleDialogOpen(false);
+          }}
           appointment={appointment}
           onReschedule={handleReschedule}
           // availableSlots would come from API in real implementation

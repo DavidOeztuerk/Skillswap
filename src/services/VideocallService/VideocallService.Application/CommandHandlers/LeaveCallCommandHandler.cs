@@ -6,18 +6,22 @@ using VideocallService.Domain.Repositories;
 using VideocallService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.VideoCall;
+using Events.Integration.VideoCall;
 using Core.Common.Exceptions;
+using MassTransit;
 
 namespace VideocallService.Application.CommandHandlers;
 
 public class LeaveCallCommandHandler(
     IVideocallUnitOfWork unitOfWork,
     IDomainEventPublisher eventPublisher,
+    IPublishEndpoint publishEndpoint,
     ILogger<LeaveCallCommandHandler> logger)
     : BaseCommandHandler<LeaveCallCommand, LeaveCallResponse>(logger)
 {
     private readonly IVideocallUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
+    private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
 
     public override async Task<ApiResponse<LeaveCallResponse>> Handle(
         LeaveCallCommand request,
@@ -64,12 +68,27 @@ public class LeaveCallCommandHandler(
                 sessionDurationMinutes = (int)(participant.LeftAt.Value - participant.JoinedAt).TotalMinutes;
             }
 
+            var leftAt = DateTime.UtcNow;
+
             // Publish domain event
             await _eventPublisher.Publish(new ParticipantLeftCallDomainEvent(
                 request.SessionId.ToString(),
                 request.UserId!,
-                DateTime.UtcNow,
+                leftAt,
                 sessionDurationMinutes), cancellationToken);
+
+            // Publish integration event
+            await _publishEndpoint.Publish(new ParticipantLeftCallIntegrationEvent(
+                request.SessionId,
+                session?.RoomId ?? string.Empty,
+                request.UserId!,
+                null, // UserName
+                leftAt,
+                "User left call",
+                DateTime.UtcNow), cancellationToken);
+
+            Logger.LogInformation("📤 [LeaveCall] Integration event published for user {UserId} leaving session {SessionId}",
+                request.UserId, request.SessionId);
 
             Logger.LogInformation("✅ [LeaveCall] User {UserId} successfully left session {SessionId}",
                 request.UserId, request.SessionId);

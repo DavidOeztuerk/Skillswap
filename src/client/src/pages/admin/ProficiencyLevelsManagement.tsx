@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import {
   Box,
   Container,
@@ -25,6 +26,7 @@ import {
   Card,
   CardContent,
   Slider,
+  Grid,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -35,13 +37,20 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Star as StarIcon,
-  StarBorder as StarBorderIcon
+  StarBorder as StarBorderIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { usePermissions } from '../../contexts/PermissionContext';
-import { Grid } from '../../components/common/GridCompat';
-import { ProficiencyLevel } from '../../types/models/Skill';
-import { useSkills } from '../../hooks/useSkills';
+import { usePermissions } from '../../contexts/permissionContextHook';
+import { Permissions } from '../../components/auth/permissions.constants';
+import type { ProficiencyLevel } from '../../types/models/Skill';
+import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
+import { selectProficiencyLevels } from '../../store/selectors/proficiencyLevelSelectors';
+import {
+  fetchProficiencyLevels,
+  createProficiencyLevel,
+  updateProficiencyLevel,
+  deleteProficiencyLevel,
+} from '../../features/skills/thunks/proficiencyLevelThunks';
 
 interface LevelFormData {
   level: string;
@@ -51,7 +60,15 @@ interface LevelFormData {
 
 const ProficiencyLevelsManagement: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { hasPermission } = usePermissions();
+
+  // Memoize permission checks
+  const canManageProficiency = useMemo(
+    () => hasPermission(Permissions.Skills.MANAGE_PROFICIENCY),
+    [hasPermission]
+  );
+
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -64,63 +81,48 @@ const ProficiencyLevelsManagement: React.FC = () => {
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof LevelFormData, string>>>({});
   const [saving, setSaving] = useState(false);
-  
-  // Use the useSkills hook
-  const { 
-    proficiencyLevels, 
-    fetchProficiencyLevels, 
-    createProficiencyLevel, 
-    updateProficiencyLevel, 
-    deleteProficiencyLevel 
-  } = useSkills();
 
-  useEffect(() => {
-    if (!hasPermission('skills:manage_proficiency')) {
-      navigate('/');
-      return;
-    }
-    
-    // Initial fetch of proficiency levels
-    const loadLevels = async () => {
-      setLoading(true);
-      try {
-        await fetchProficiencyLevels();
-        setError(null);
-      } catch (err: unknown) {
-        setError('Failed to load proficiency levels');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadLevels();
-  }, [hasPermission, navigate, fetchProficiencyLevels]);
+  // Get proficiency levels from Redux store
+  const proficiencyLevels = useAppSelector(selectProficiencyLevels);
 
-  const handleRefresh = async () => {
+  // Memoized fetch function
+  const loadProficiencyLevels = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
-      await fetchProficiencyLevels();
+      await dispatch(fetchProficiencyLevels()).unwrap();
       setError(null);
-    } catch (err: unknown) {
-      setError('Failed to refresh proficiency levels');
+    } catch (_err: unknown) {
+      setError('Failed to load proficiency levels');
     } finally {
       setLoading(false);
     }
-  };
+  }, [dispatch]);
 
-  const handleOpenDialog = (level?: ProficiencyLevel) => {
+  useAsyncEffect(async () => {
+    if (!canManageProficiency) {
+      await navigate('/');
+      return;
+    }
+
+    await loadProficiencyLevels();
+  }, [canManageProficiency, navigate, loadProficiencyLevels]);
+
+  const handleRefresh = useCallback(async (): Promise<void> => {
+    await loadProficiencyLevels();
+  }, [loadProficiencyLevels]);
+
+  const handleOpenDialog = (level?: ProficiencyLevel): void => {
     if (level) {
       setSelectedLevel(level);
       setFormData({
         level: level.level,
         rank: level.rank,
-        color: level.color || '#2196f3',
+        color: level.color ?? '#2196f3',
       });
     } else {
       setSelectedLevel(null);
-      const nextRank = proficiencyLevels && proficiencyLevels.length > 0 
-        ? Math.max(...proficiencyLevels.map(l => l.rank)) + 1 
-        : 1;
+      const nextRank =
+        proficiencyLevels.length > 0 ? Math.max(...proficiencyLevels.map((l) => l.rank)) + 1 : 1;
       setFormData({
         level: '',
         rank: nextRank,
@@ -131,7 +133,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = (): void => {
     setDialogOpen(false);
     setSelectedLevel(null);
     setFormData({
@@ -144,7 +146,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
 
   const validateForm = (): boolean => {
     const errors: Partial<Record<keyof LevelFormData, string>> = {};
-    
+
     if (!formData.level.trim()) {
       errors.level = 'Level name is required';
     } else if (formData.level.length < 2) {
@@ -161,81 +163,79 @@ const ProficiencyLevelsManagement: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSaveLevel = async () => {
+  const handleSaveLevel = async (): Promise<void> => {
     if (!validateForm()) return;
 
     setSaving(true);
     try {
-      let result: { meta: { requestStatus: string } };
-
       if (selectedLevel) {
-        // Update existing level using the hook
-        result = await updateProficiencyLevel(
-          selectedLevel.id,
-          {
+        // Update existing level
+        await dispatch(
+          updateProficiencyLevel({
+            id: selectedLevel.id,
             level: formData.level,
-            rank: formData.rank
-          }
-        );
+            rank: formData.rank,
+          })
+        ).unwrap();
       } else {
-        // Create new level using the hook
-        result = await createProficiencyLevel({
-          level: formData.level,
-          rank: formData.rank
-        });
+        // Create new level
+        await dispatch(
+          createProficiencyLevel({
+            level: formData.level,
+            rank: formData.rank,
+          })
+        ).unwrap();
       }
 
-      if (result.meta.requestStatus === 'fulfilled') {
-        await fetchProficiencyLevels(); // Refresh levels
-        handleCloseDialog();
-        setError(null);
-      } else {
-        setError('Failed to save proficiency level');
-      }
+      // Refresh levels and close dialog
+      await loadProficiencyLevels();
+      handleCloseDialog();
+      setError(null);
     } catch (err: unknown) {
-      const isAxiosError = (error: unknown): error is { response: { data: { message?: string } } } => {
-        return typeof error === 'object' && error !== null && 'response' in error;
-      };
-      
-      const errorMessage = isAxiosError(err) ? err.response?.data?.message || 'Failed to save proficiency level' :
-                          err instanceof Error ? err.message : 'Failed to save proficiency level';
+      const isAxiosError = (e: unknown): e is { response: { data: { message?: string } } } =>
+        typeof e === 'object' && e !== null && 'response' in e;
+
+      const errorMessage = isAxiosError(err)
+        ? (err.response.data.message ?? 'Failed to save proficiency level')
+        : err instanceof Error
+          ? err.message
+          : 'Failed to save proficiency level';
       setError(errorMessage);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteLevel = async () => {
+  const handleDeleteLevel = async (): Promise<void> => {
     if (!selectedLevel) return;
 
     try {
-      const success = await deleteProficiencyLevel(selectedLevel.id);
-      
-      if (success) {
-        await fetchProficiencyLevels(); // Refresh levels
-        setDeleteDialogOpen(false);
-        setSelectedLevel(null);
-        setError(null);
-      } else {
-        setError('Failed to delete proficiency level');
-      }
+      await dispatch(deleteProficiencyLevel(selectedLevel.id)).unwrap();
+
+      // Refresh levels and close dialog
+      await loadProficiencyLevels();
+      setDeleteDialogOpen(false);
+      setSelectedLevel(null);
+      setError(null);
     } catch (err: unknown) {
-      const isAxiosError = (error: unknown): error is { response: { data: { message?: string } } } => {
-        return typeof error === 'object' && error !== null && 'response' in error;
-      };
-      
-      const errorMessage = isAxiosError(err) ? err.response?.data?.message || 'Failed to delete proficiency level' :
-                          err instanceof Error ? err.message : 'Failed to delete proficiency level';
+      const isAxiosError = (e: unknown): e is { response: { data: { message?: string } } } =>
+        typeof e === 'object' && e !== null && 'response' in e;
+
+      const errorMessage = isAxiosError(err)
+        ? (err.response.data.message ?? 'Failed to delete proficiency level')
+        : err instanceof Error
+          ? err.message
+          : 'Failed to delete proficiency level';
       setError(errorMessage);
     }
   };
 
-  const handleOpenDeleteDialog = (level: ProficiencyLevel) => {
+  const handleOpenDeleteDialog = (level: ProficiencyLevel): void => {
     setSelectedLevel(level);
     setDeleteDialogOpen(true);
   };
 
-  const getLevelIcon = (rank: number) => {
+  const getLevelIcon = (rank: number): React.ReactNode => {
     const stars = [];
     for (let i = 0; i < 5; i++) {
       if (i < rank) {
@@ -248,10 +248,22 @@ const ProficiencyLevelsManagement: React.FC = () => {
   };
 
   const predefinedColors = [
-    '#f44336', '#e91e63', '#9c27b0', '#673ab7',
-    '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4',
-    '#009688', '#4caf50', '#8bc34a', '#cddc39',
-    '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'
+    '#f44336',
+    '#e91e63',
+    '#9c27b0',
+    '#673ab7',
+    '#3f51b5',
+    '#2196f3',
+    '#03a9f4',
+    '#00bcd4',
+    '#009688',
+    '#4caf50',
+    '#8bc34a',
+    '#cddc39',
+    '#ffeb3b',
+    '#ffc107',
+    '#ff9800',
+    '#ff5722',
   ];
 
   const predefinedLevelNames = [
@@ -262,7 +274,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
     { name: 'Expert', rank: 5, color: '#f44336' },
   ];
 
-  if (loading && (!proficiencyLevels || proficiencyLevels.length === 0)) {
+  if (loading && proficiencyLevels.length === 0) {
     return (
       <Container>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -284,14 +296,20 @@ const ProficiencyLevelsManagement: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => {
+            setError(null);
+          }}
+        >
           {error}
         </Alert>
       )}
 
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -299,33 +317,14 @@ const ProficiencyLevelsManagement: React.FC = () => {
                   <Typography color="textSecondary" gutterBottom variant="body2">
                     Total Levels
                   </Typography>
-                  <Typography variant="h4">
-                    {proficiencyLevels?.length || 0}
-                  </Typography>
+                  <Typography variant="h4">{proficiencyLevels.length}</Typography>
                 </Box>
                 <LevelIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.3 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        {/* <Grid xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom variant="body2">
-                    Active Levels
-                  </Typography>
-                  <Typography variant="h4">
-                    {proficiencyLevels?.filter(l => l.isActive).length || 0}
-                  </Typography>
-                </Box>
-                <LevelIcon sx={{ fontSize: 40, color: 'success.main', opacity: 0.3 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid> */}
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -334,7 +333,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                     Total Skills
                   </Typography>
                   <Typography variant="h4">
-                    {proficiencyLevels?.reduce((sum, l) => sum + (l.skillCount || 0), 0) || 0}
+                    {proficiencyLevels.reduce((sum, l) => sum + (l.skillCount ?? 0), 0)}
                   </Typography>
                 </Box>
                 <LevelIcon sx={{ fontSize: 40, color: 'info.main', opacity: 0.3 }} />
@@ -342,7 +341,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -350,9 +349,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                   <Typography color="textSecondary" gutterBottom variant="body2">
                     Rank Range
                   </Typography>
-                  <Typography variant="h4">
-                    1-10
-                  </Typography>
+                  <Typography variant="h4">1-10</Typography>
                 </Box>
                 <LevelIcon sx={{ fontSize: 40, color: 'warning.main', opacity: 0.3 }} />
               </Box>
@@ -364,13 +361,17 @@ const ProficiencyLevelsManagement: React.FC = () => {
       {/* Actions Bar */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-          >
-            Add Proficiency Level
-          </Button>
+          {canManageProficiency && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                handleOpenDialog();
+              }}
+            >
+              Add Proficiency Level
+            </Button>
+          )}
           <IconButton onClick={handleRefresh}>
             <RefreshIcon />
           </IconButton>
@@ -392,7 +393,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {proficiencyLevels?.map((level) => (
+            {proficiencyLevels.map((level) => (
               <TableRow key={level.id}>
                 <TableCell>
                   <Typography fontWeight="medium">{level.rank}</Typography>
@@ -404,7 +405,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                         width: 8,
                         height: 24,
                         borderRadius: 1,
-                        backgroundColor: level.color || '#2196f3'
+                        backgroundColor: level.color ?? '#2196f3',
                       }}
                     />
                     <Typography fontWeight="medium">{level.level}</Typography>
@@ -421,7 +422,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                           borderRadius: 1,
                           backgroundColor: level.color,
                           border: '1px solid',
-                          borderColor: 'divider'
+                          borderColor: 'divider',
                         }}
                       />
                       <Typography variant="caption">{level.color}</Typography>
@@ -429,7 +430,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                   )}
                 </TableCell>
                 <TableCell align="center">
-                  <Chip label={level.skillCount || 0} size="small" />
+                  <Chip label={level.skillCount ?? 0} size="small" />
                 </TableCell>
                 {/* <TableCell align="center">
                   <Chip
@@ -440,23 +441,31 @@ const ProficiencyLevelsManagement: React.FC = () => {
                 </TableCell> */}
                 <TableCell align="right">
                   <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenDialog(level)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenDeleteDialog(level)}
-                        disabled={(level.skillCount || 0) > 0}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
+                    {canManageProficiency && (
+                      <Tooltip title="Edit">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            handleOpenDialog(level);
+                          }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {canManageProficiency && (
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            handleOpenDeleteDialog(level);
+                          }}
+                          disabled={(level.skillCount ?? 0) > 0}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -483,12 +492,14 @@ const ProficiencyLevelsManagement: React.FC = () => {
                     <Chip
                       key={template.name}
                       label={template.name}
-                      onClick={() => setFormData({
-                        ...formData,
-                        level: template.name,
-                        rank: template.rank,
-                        color: template.color
-                      })}
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          level: template.name,
+                          rank: template.rank,
+                          color: template.color,
+                        });
+                      }}
                       variant={formData.level === template.name ? 'filled' : 'outlined'}
                       size="small"
                     />
@@ -500,20 +511,22 @@ const ProficiencyLevelsManagement: React.FC = () => {
             <TextField
               label="Level Name"
               value={formData.level}
-              onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, level: e.target.value });
+              }}
               error={!!formErrors.level}
               helperText={formErrors.level}
               fullWidth
               required
             />
-            
+
             <Box>
-              <Typography gutterBottom>
-                Rank: {formData.rank}
-              </Typography>
+              <Typography gutterBottom>Rank: {formData.rank}</Typography>
               <Slider
                 value={formData.rank}
-                onChange={(_, value) => setFormData({ ...formData, rank: value as number })}
+                onChange={(_, value) => {
+                  setFormData({ ...formData, rank: value });
+                }}
                 min={1}
                 max={10}
                 marks
@@ -525,7 +538,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                 </Typography>
               )}
             </Box>
-            
+
             <Box>
               <Typography gutterBottom variant="body2">
                 Level Color
@@ -534,11 +547,13 @@ const ProficiencyLevelsManagement: React.FC = () => {
                 {predefinedColors.map((color) => (
                   <IconButton
                     key={color}
-                    onClick={() => setFormData({ ...formData, color })}
+                    onClick={() => {
+                      setFormData({ ...formData, color });
+                    }}
                     sx={{
                       p: 0.5,
                       border: formData.color === color ? 2 : 0,
-                      borderColor: 'primary.main'
+                      borderColor: 'primary.main',
                     }}
                   >
                     <Box
@@ -546,7 +561,7 @@ const ProficiencyLevelsManagement: React.FC = () => {
                         width: 32,
                         height: 32,
                         backgroundColor: color,
-                        borderRadius: 1
+                        borderRadius: 1,
                       }}
                     />
                   </IconButton>
@@ -556,7 +571,9 @@ const ProficiencyLevelsManagement: React.FC = () => {
                 label="Custom Color"
                 type="color"
                 value={formData.color}
-                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, color: e.target.value });
+                }}
                 fullWidth
                 sx={{ mt: 2 }}
               />
@@ -579,23 +596,32 @@ const ProficiencyLevelsManagement: React.FC = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+        }}
+      >
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <Typography>
             Are you sure you want to delete the proficiency level "{selectedLevel?.level}"?
-            {selectedLevel?.skillCount ? (
+            {selectedLevel?.skillCount != null && (
               <Alert severity="warning" sx={{ mt: 2 }}>
-                This level has {selectedLevel.skillCount} skills associated with it.
-                You cannot delete it until all skills are removed or reassigned.
+                This level has {selectedLevel.skillCount} skills associated with it. You cannot
+                delete it until all skills are removed or reassigned.
               </Alert>
-            ) : (
-              ' This action cannot be undone.'
             )}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setDeleteDialogOpen(false);
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             onClick={handleDeleteLevel}
             color="error"

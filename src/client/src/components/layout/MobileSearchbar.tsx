@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Dialog,
@@ -23,6 +23,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useSkills } from '../../hooks/useSkills';
+import type { Skill } from '../../types/models/Skill';
 
 interface MobileSearchBarProps {
   open: boolean;
@@ -35,7 +36,9 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
   const debouncedQuery = useDebounce(searchQuery, 300);
 
   // Skills aus dem Hook holen
-  const { skills, searchSkillsByQuery, isLoading } = useSkills();
+  const { skills: skillsRaw, searchSkillsByQuery, isLoading } = useSkills();
+  // Type guard to ensure skills is an array of the correct type
+  const skills: Skill[] = Array.isArray(skillsRaw) ? skillsRaw : [];
 
   // Beliebte Suchvorschläge
   const popularSearches = [
@@ -46,36 +49,36 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
     'machine learning',
   ];
 
-  React.useEffect(() => {
-    if (debouncedQuery?.length > 2) {
-      searchSkillsByQuery(debouncedQuery);
+  useEffect(() => {
+    if (debouncedQuery.length > 2) {
+      void searchSkillsByQuery(debouncedQuery);
     }
   }, [debouncedQuery, searchSkillsByQuery]);
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchQuery(event.target.value);
   };
 
-  const handleClearSearch = () => {
+  const handleClearSearch = (): void => {
     setSearchQuery('');
   };
 
-  const handleSearchSubmit = (event: React.FormEvent) => {
+  const handleSearchSubmit = (event: React.FormEvent): void => {
     event.preventDefault();
     if (searchQuery.trim() !== '') {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+      void navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
       onClose();
     }
   };
 
-  const handleSkillClick = (skillId: string) => {
-    navigate(`/skills/${skillId}`);
+  const handleSkillClick = (skillId: string): void => {
+    void navigate(`/skills/${skillId}`);
     onClose();
   };
 
-  const handlePopularSearchClick = (search: string) => {
+  const handlePopularSearchClick = (search: string): void => {
     setSearchQuery(search);
-    navigate(`/search?q=${encodeURIComponent(search)}`);
+    void navigate(`/search?q=${encodeURIComponent(search)}`);
     onClose();
   };
 
@@ -95,12 +98,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
     >
       <AppBar position="sticky" elevation={0} color="inherit">
         <Toolbar>
-          <IconButton
-            edge="start"
-            color="inherit"
-            onClick={onClose}
-            aria-label="close"
-          >
+          <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
             <ArrowBackIcon />
           </IconButton>
 
@@ -119,6 +117,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
               placeholder="Skills, Personen oder Themen suchen..."
               value={searchQuery}
               onChange={handleSearchChange}
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
               sx={{
                 flexGrow: 1,
@@ -131,11 +130,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
               inputProps={{ 'aria-label': 'search' }}
             />
             {searchQuery && (
-              <IconButton
-                size="small"
-                onClick={handleClearSearch}
-                aria-label="Suche zurücksetzen"
-              >
+              <IconButton size="small" onClick={handleClearSearch} aria-label="Suche zurücksetzen">
                 <CloseIcon fontSize="small" />
               </IconButton>
             )}
@@ -155,7 +150,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
 
       <Box sx={{ p: 0 }}>
         {/* Suchergebnisse zeigen */}
-        {searchQuery?.length > 2 && (
+        {searchQuery.length > 2 && (
           <>
             {/* Gefundene Skills */}
             <Box sx={{ mb: 2 }}>
@@ -177,12 +172,14 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
                 </Box>
               ) : (
                 <>
-                  {skills && skills?.length > 0 ? (
+                  {skills.length > 0 ? (
                     <List disablePadding>
-                      {skills.slice(0, MAX_SUGGESTIONS).map((skill) => (
+                      {skills.slice(0, MAX_SUGGESTIONS).map((skill: Skill) => (
                         <ListItem
                           key={skill.id}
-                          onClick={() => handleSkillClick(skill.id)}
+                          onClick={() => {
+                            handleSkillClick(skill.id);
+                          }}
                           sx={{
                             py: 1.5,
                             borderBottom: '1px solid',
@@ -192,18 +189,12 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
                           <ListItemIcon sx={{ minWidth: 40 }}>
                             <SkillIcon color="primary" />
                           </ListItemIcon>
-                          <ListItemText
-                            primary={skill.name}
-                            secondary={skill.category?.name}
-                          />
+                          <ListItemText primary={skill.name} secondary={skill.category.name} />
                         </ListItem>
                       ))}
                     </List>
                   ) : (
-                    <Typography
-                      variant="body2"
-                      sx={{ px: 2, py: 2, color: 'text.secondary' }}
-                    >
+                    <Typography variant="body2" sx={{ px: 2, py: 2, color: 'text.secondary' }}>
                       Keine Skills gefunden für "{searchQuery}"
                     </Typography>
                   )}
@@ -226,10 +217,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
               </Typography>
 
               {/* Beispiel für Benutzersuche - ersetzt dies mit deiner tatsächlichen Implementierung */}
-              <Typography
-                variant="body2"
-                sx={{ px: 2, py: 2, color: 'text.secondary' }}
-              >
+              <Typography variant="body2" sx={{ px: 2, py: 2, color: 'text.secondary' }}>
                 Keine Benutzer gefunden für "{searchQuery}"
               </Typography>
             </Box>
@@ -237,7 +225,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
         )}
 
         {/* Beliebte Suchvorschläge anzeigen, wenn keine Ergebnisse oder am Anfang */}
-        {searchQuery?.length <= 2 && (
+        {searchQuery.length <= 2 && (
           <>
             <Typography
               variant="subtitle2"
@@ -254,7 +242,9 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
               {popularSearches.map((search, index) => (
                 <ListItem
                   key={index}
-                  onClick={() => handlePopularSearchClick(search)}
+                  onClick={() => {
+                    handlePopularSearchClick(search);
+                  }}
                   sx={{
                     py: 1.5,
                     borderBottom: '1px solid',
@@ -272,7 +262,7 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
         )}
 
         {/* Kürzlich gesuchte Begriffe - optionaler Abschnitt */}
-        {searchQuery?.length <= 2 && (
+        {searchQuery.length <= 2 && (
           <>
             <Divider sx={{ my: 2 }} />
             <Typography
@@ -288,24 +278,24 @@ const MobileSearchBar: React.FC<MobileSearchBarProps> = ({ open, onClose }) => {
             </Typography>
             <List disablePadding>
               {/* Hier könnten kürzlich gesuchte Begriffe angezeigt werden - als Beispiel nehmen wir einige an */}
-              {['javascript', 'soft skills', 'design thinking'].map(
-                (search, index) => (
-                  <ListItem
-                    key={index}
-                    onClick={() => handlePopularSearchClick(search)}
-                    sx={{
-                      py: 1.5,
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 40 }}>
-                      <SearchIcon />
-                    </ListItemIcon>
-                    <ListItemText primary={search} />
-                  </ListItem>
-                )
-              )}
+              {['javascript', 'soft skills', 'design thinking'].map((search, index) => (
+                <ListItem
+                  key={index}
+                  onClick={() => {
+                    handlePopularSearchClick(search);
+                  }}
+                  sx={{
+                    py: 1.5,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <SearchIcon />
+                  </ListItemIcon>
+                  <ListItemText primary={search} />
+                </ListItem>
+              ))}
             </List>
           </>
         )}

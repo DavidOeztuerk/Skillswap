@@ -1,4 +1,4 @@
-import { SkillCategory } from "./Skill";
+import type { SkillCategory } from './Skill';
 
 export interface SkillFilter {
   category?: SkillCategory;

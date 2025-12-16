@@ -1,7 +1,7 @@
-import { EntityState, EntityId, createEntityAdapter } from "@reduxjs/toolkit";
-import { Skill } from "../../types/models/Skill";
-import { RequestState } from "../../types/common/RequestState";
-import { SkillSearchParams } from "../../types/contracts/responses/SkillResponses";
+import { type EntityState, type EntityId, createEntityAdapter } from '@reduxjs/toolkit';
+import type { Skill } from '../../types/models/Skill';
+import type { RequestState } from '../../types/common/RequestState';
+import type { SkillSearchParams } from '../../types/contracts/responses/SkillResponses';
 
 export const searchAdapter = createEntityAdapter<Skill, EntityId>({
   selectId: (skill) => skill.id,
@@ -14,11 +14,11 @@ export interface SearchState extends EntityState<Skill, EntityId>, RequestState 
   allSkills: Skill[];
   userLoading: boolean;
   allSkillsLoading: boolean;
-  currentQuery: string; 
+  currentQuery: string;
   pagination: {
     page: number;
     pageSize: number;
-    totalItems: number; 
+    totalItems: number;
     totalPages: number;
   };
   userPagination: {
@@ -59,5 +59,3 @@ export const initialSearchState: SearchState = searchAdapter.getInitialState({
 });
 
 export const searchSelectors = searchAdapter.getSelectors();
-
-

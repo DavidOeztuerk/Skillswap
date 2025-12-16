@@ -1,26 +1,26 @@
-import axios, { 
-  AxiosInstance, 
-  AxiosRequestConfig, 
-  AxiosError,
-  AxiosProgressEvent,
-  InternalAxiosRequestConfig,
+import axios, {
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosError,
+  type AxiosProgressEvent,
+  type InternalAxiosRequestConfig,
   AxiosHeaders,
-  AxiosResponse
+  type AxiosResponse,
 } from 'axios';
-import { 
-  ApiResponse, 
-  PagedResponse, 
+import {
+  type ApiResponse,
+  type PagedResponse,
   extractData,
   isSuccessResponse,
-  ErrorResponse,
+  type ErrorResponse,
 } from '../types/api/UnifiedResponse';
-import { 
-  getToken, 
-  getRefreshToken, 
-  setToken, 
-  setRefreshToken, 
+import {
+  getToken,
+  getRefreshToken,
+  setToken,
+  setRefreshToken,
   removeToken,
-  isRememberMeEnabled
+  isRememberMeEnabled,
 } from '../utils/authHelpers';
 import { router } from '../routes/Router';
 import { toast } from 'react-toastify';
@@ -67,6 +67,47 @@ export interface RateLimiterConfig {
 }
 
 // ============================================
+// INTERNAL TYPES
+// ============================================
+
+interface RequestMetadata {
+  startTime: number;
+  requestId: string;
+}
+
+interface TokenResponse {
+  accessToken: string;
+  refreshToken?: string;
+}
+
+interface TokenResponseWrapper {
+  data?: TokenResponse;
+  accessToken?: string;
+  refreshToken?: string;
+}
+
+interface ErrorResponseData {
+  errors: string | string[];
+  errorCode?: string;
+  traceId?: string;
+  timestamp?: string;
+}
+
+interface EndpointMetrics {
+  endpoint: string;
+  count: number;
+  totalTime: number;
+  avgTime: number;
+}
+
+interface PerformanceReport {
+  endpoints: EndpointMetrics[];
+  totalRequests: number;
+  avgResponseTime: number;
+  circuitBreakerState?: string;
+}
+
+// ============================================
 // ERROR CLASSES
 // ============================================
 
@@ -79,7 +120,7 @@ export class ApiError extends Error {
     public readonly traceId?: string,
     public readonly timestamp?: string
   ) {
-    super(errors[0] || 'API Error');
+    super(errors[0] ?? 'API Error');
     this.name = 'ApiError';
     Object.setPrototypeOf(this, ApiError.prototype);
   }
@@ -87,7 +128,7 @@ export class ApiError extends Error {
 
 export class NetworkError extends Error {
   constructor(
-    message: string = 'Network error occurred',
+    message = 'Network error occurred',
     public readonly originalError?: Error
   ) {
     super(message);
@@ -98,8 +139,8 @@ export class NetworkError extends Error {
 
 export class TimeoutError extends Error {
   constructor(
-    message: string = 'Request timeout',
-    public readonly timeout: number = 0
+    message = 'Request timeout',
+    public readonly timeout = 0
   ) {
     super(message);
     this.name = 'TimeoutError';
@@ -108,7 +149,7 @@ export class TimeoutError extends Error {
 }
 
 export class AbortError extends Error {
-  constructor(message: string = 'Request aborted') {
+  constructor(message = 'Request aborted') {
     super(message);
     this.name = 'AbortError';
     Object.setPrototypeOf(this, AbortError.prototype);
@@ -125,9 +166,9 @@ class CircuitBreaker {
   private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
   private halfOpenAttempts = 0;
   private successCount = 0;
-  
+
   constructor(private config: CircuitBreakerConfig) {}
-  
+
   async execute<T>(fn: () => Promise<T>): Promise<T> {
     // Check if circuit should be opened
     if (this.state === 'OPEN') {
@@ -135,28 +176,30 @@ class CircuitBreaker {
       if (now - this.lastFailureTime > this.config.resetTimeout) {
         this.state = 'HALF_OPEN';
         this.halfOpenAttempts = 0;
-        console.log('Circuit breaker: HALF_OPEN');
+        console.debug('Circuit breaker: HALF_OPEN');
       } else {
-        throw new Error(`Circuit breaker is OPEN. Retry after ${
-          Math.ceil((this.config.resetTimeout - (now - this.lastFailureTime)) / 1000)
-        } seconds`);
+        const retryAfterSeconds = Math.ceil(
+          (this.config.resetTimeout - (now - this.lastFailureTime)) / 1000
+        );
+        throw new Error(
+          `Circuit breaker is OPEN. Retry after ${String(retryAfterSeconds)} seconds`
+        );
       }
     }
-    
+
     // Check half-open state
-    if (this.state === 'HALF_OPEN' && 
-        this.halfOpenAttempts >= this.config.halfOpenRequests) {
+    if (this.state === 'HALF_OPEN' && this.halfOpenAttempts >= this.config.halfOpenRequests) {
       if (this.successCount >= this.config.halfOpenRequests) {
         this.state = 'CLOSED';
         this.failures = 0;
-        console.log('Circuit breaker: CLOSED');
+        console.debug('Circuit breaker: CLOSED');
       } else {
         this.state = 'OPEN';
         this.lastFailureTime = Date.now();
         throw new Error('Circuit breaker is OPEN');
       }
     }
-    
+
     try {
       const result = await fn();
 
@@ -173,9 +216,9 @@ class CircuitBreaker {
     } catch (error: unknown) {
       // Only count specific errors
       const statusCode = this.getStatusCode(error);
-      const monitoredErrors = this.config.monitoredErrors || [500, 502, 503, 504];
+      const monitoredErrors = this.config.monitoredErrors ?? [500, 502, 503, 504];
 
-      if (statusCode && monitoredErrors.includes(statusCode)) {
+      if (statusCode !== undefined && monitoredErrors.includes(statusCode)) {
         this.failures++;
         this.lastFailureTime = Date.now();
 
@@ -185,24 +228,24 @@ class CircuitBreaker {
 
         if (this.failures >= this.config.failureThreshold) {
           this.state = 'OPEN';
-          console.error(`Circuit breaker opened after ${this.failures} failures`);
+          console.error(`Circuit breaker opened after ${String(this.failures)} failures`);
         }
       }
 
       throw error;
     }
   }
-  
+
   private getStatusCode(error: unknown): number | undefined {
-    if (error && typeof error === 'object') {
+    if (typeof error === 'object' && error !== null) {
       // Check for axios-style error (error.response.status)
       const axiosError = error as { response?: { status?: number } };
-      if (axiosError.response?.status) {
+      if (axiosError.response?.status !== undefined) {
         return axiosError.response.status;
       }
       // Check for direct statusCode property
       const statusError = error as { statusCode?: number };
-      if (statusError.statusCode) {
+      if (statusError.statusCode !== undefined) {
         return statusError.statusCode;
       }
     }
@@ -227,31 +270,31 @@ class CircuitBreaker {
 
 class RateLimiter {
   private requests: number[] = [];
-  
+
   constructor(private config: RateLimiterConfig) {}
-  
+
   canMakeRequest(): boolean {
     const now = Date.now();
     // Remove old requests outside the window
-    this.requests = this.requests.filter(
-      time => now - time < this.config.windowMs
-    );
-    
+    this.requests = this.requests.filter((time) => now - time < this.config.windowMs);
+
     if (this.requests.length < this.config.maxRequests) {
       this.requests.push(now);
       return true;
     }
-    
+
     return false;
   }
-  
+
   getNextAvailableTime(): number {
-    if (this.requests.length === 0) return 0;
-    
+    if (this.requests.length === 0) {
+      return 0;
+    }
+
     const oldestRequest = Math.min(...this.requests);
     return Math.max(0, this.config.windowMs - (Date.now() - oldestRequest));
   }
-  
+
   reset(): void {
     this.requests = [];
   }
@@ -262,26 +305,28 @@ class RateLimiter {
 // ============================================
 
 class DeduplicationManager {
-  private pending = new Map<string, Promise<any>>();
-  
+  private pending = new Map<string, Promise<unknown>>();
+
   getDedupKey(config: AxiosRequestConfig): string {
-    const { method = 'GET', url, params, data } = config;
-    return `${method}:${url}:${JSON.stringify(params)}:${JSON.stringify(data)}`;
+    const method = config.method ?? 'GET';
+    const url = config.url ?? '';
+    return `${method}:${url}:${JSON.stringify(config.params)}:${JSON.stringify(config.data)}`;
   }
-  
+
   getPending<T>(key: string): Promise<T> | null {
-    return this.pending.get(key) || null;
+    const pending = this.pending.get(key);
+    return pending ? (pending as Promise<T>) : null;
   }
-  
+
   setPending<T>(key: string, promise: Promise<T>): void {
     this.pending.set(key, promise);
-    
+
     // Remove from pending after completion
-    promise.finally(() => {
+    void promise.finally(() => {
       this.pending.delete(key);
     });
   }
-  
+
   clear(): void {
     this.pending.clear();
   }
@@ -296,35 +341,38 @@ export class ApiClient {
   private circuitBreaker?: CircuitBreaker;
   private rateLimiter?: RateLimiter;
   private deduplicationManager = new DeduplicationManager();
-  
+
   // Token refresh management
   private isRefreshing = false;
-  private refreshSubscribers: Array<(token: string) => void> = [];
-  
+  private refreshSubscribers: ((token: string) => void)[] = [];
+
   // Abort controllers
   private abortControllers = new Map<string, AbortController>();
-  
+
   // Performance monitoring
   private performanceMetrics = new Map<string, { count: number; totalTime: number }>();
-  
+
   constructor(private config: ApiClientConfig) {
     // Initialize axios instance
     this.axiosInstance = axios.create({
       baseURL: config.baseURL,
-      timeout: config.timeout || 30000,
+      timeout: config.timeout ?? 30000,
       headers: {
         'Content-Type': 'application/json',
-      }
+        // Force browser to always revalidate with server (no stale cache)
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache', // For older browsers
+      },
     });
 
     // Initialize optional features
     if (config.enableCircuitBreaker) {
       this.circuitBreaker = new CircuitBreaker(
-        config.circuitBreakerConfig || {
+        config.circuitBreakerConfig ?? {
           failureThreshold: 5,
           resetTimeout: 60000,
           halfOpenRequests: 3,
-          monitoredErrors: [500, 502, 503, 504]
+          monitoredErrors: [500, 502, 503, 504],
         }
       );
     }
@@ -332,17 +380,17 @@ export class ApiClient {
     if (config.enableRateLimiting) {
       this.rateLimiter = new RateLimiter({
         maxRequests: 100,
-        windowMs: 60000
+        windowMs: 60000,
       });
     }
 
     this.setupInterceptors();
   }
-  
+
   // ============================================
   // INTERCEPTORS SETUP
   // ============================================
-  
+
   private setupInterceptors(): void {
     // Request interceptor
     this.axiosInstance.interceptors.request.use(
@@ -353,53 +401,55 @@ export class ApiClient {
           config.headers = AxiosHeaders.from(config.headers);
           config.headers.set('Authorization', `Bearer ${token}`);
         }
-        
+
         // Add request ID for tracking
-        const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const requestId = `req_${String(Date.now())}_${Math.random().toString(36).substring(2, 11)}`;
         config.headers = AxiosHeaders.from(config.headers);
         config.headers.set('X-Request-ID', requestId);
-        
+
         // Add timestamp for performance monitoring
-        (config as any).metadata = {
+        (config as InternalAxiosRequestConfig & { metadata: RequestMetadata }).metadata = {
           startTime: performance.now(),
-          requestId
+          requestId,
         };
-        
+
         // Development logging
         if (import.meta.env.DEV) {
-          console.debug(`🚀 [${requestId}] ${config.method?.toUpperCase()} ${config.url}`, {
-            params: config.params,
-            data: config.data
-          });
+          console.debug(
+            `🚀 [${requestId}] ${config.method?.toUpperCase() ?? 'GET'} ${config.url ?? ''}`,
+            `params=${JSON.stringify(config.params)} data=${JSON.stringify(config.data)}`
+          );
         }
-        
+
         return config;
       },
-      (error) => {
+      (error: unknown) => {
         console.error('Request interceptor error:', error);
-        return Promise.reject(error);
+        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
     );
-    
+
     // Response interceptor
     this.axiosInstance.interceptors.response.use(
       (response: AxiosResponse) => {
         // Performance monitoring
-        const metadata = (response.config as any).metadata;
+        const { metadata } = response.config as InternalAxiosRequestConfig & {
+          metadata?: RequestMetadata;
+        };
         if (metadata) {
           const duration = performance.now() - metadata.startTime;
-          this.trackPerformance(response.config.url || '', duration);
-          
+          this.trackPerformance(response.config.url ?? '', duration);
+
           if (import.meta.env.DEV) {
             console.debug(`✅ [${metadata.requestId}] Response in ${duration.toFixed(2)}ms`);
           }
         }
-        
+
         return response;
       },
       async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & RequestConfig;
-        
+
         // Handle network errors
         if (!error.response) {
           if (error.code === 'ECONNABORTED') {
@@ -410,55 +460,62 @@ export class ApiClient {
           }
           throw new NetworkError('Network connection failed', error);
         }
-        
+
         const { status, data } = error.response;
-        
+
         // Performance monitoring for errors
-        const metadata = (originalRequest as any).metadata;
+        const { metadata } = originalRequest as InternalAxiosRequestConfig & {
+          metadata?: RequestMetadata;
+        };
         if (metadata) {
           const duration = performance.now() - metadata.startTime;
-          
+
           if (import.meta.env.DEV) {
-            console.error(`❌ [${metadata.requestId}] Error ${status} in ${duration.toFixed(2)}ms`);
+            console.error(
+              `❌ [${metadata.requestId}] Error ${String(status)} in ${duration.toFixed(2)}ms`
+            );
           }
         }
-        
+
         // Handle rate limiting
         if (status === 429) {
-          const retryAfter = error.response.headers?.['retry-after'];
-          const delay = retryAfter ? parseInt(retryAfter) * 1000 : 60000;
-          
-          console.warn(`Rate limited. Retry after ${delay}ms`);
-          
+          const headers = error.response.headers as Record<string, string | undefined> | undefined;
+          const retryAfterHeader = headers?.['retry-after'];
+          const delay = retryAfterHeader ? parseInt(retryAfterHeader, 10) * 1000 : 60000;
+
+          console.warn(`Rate limited. Retry after ${String(delay)}ms`);
+
           // Retry after delay
-          if (!originalRequest._retry && originalRequest.retries && originalRequest.retries > 0) {
+          const { retries } = originalRequest;
+          if (!originalRequest._retry && retries !== undefined && retries > 0) {
             originalRequest._retry = true;
-            originalRequest.retries--;
-            
-            await new Promise(resolve => setTimeout(resolve, delay));
+            originalRequest.retries = retries - 1;
+
+            await new Promise((resolve) => setTimeout(resolve, delay));
             return this.axiosInstance(originalRequest);
           }
         }
-        
+
         // Handle 401 Unauthorized - Token refresh
         if (status === 401 && !originalRequest._retry && !originalRequest.skipAuth) {
-          console.log('🔍 [apiClient] 401 Error detected!');
-          console.log('🔍 [apiClient] Request URL:', originalRequest.url);
-          console.log('🔍 [apiClient] Request retry flag:', originalRequest._retry);
+          console.debug('🔍 [apiClient] 401 Error detected!');
+          console.debug('🔍 [apiClient] Request URL:', originalRequest.url);
+          console.debug('🔍 [apiClient] Request retry flag:', originalRequest._retry);
 
           // Check if it's a login/register endpoint
-          const isAuthEndpoint = originalRequest.url?.includes('/login') ||
-                                originalRequest.url?.includes('/register') ||
-                                originalRequest.url?.includes('/refresh');
+          const isAuthEndpoint =
+            originalRequest.url?.includes('/login') === true ||
+            originalRequest.url?.includes('/register') === true ||
+            originalRequest.url?.includes('/refresh') === true;
 
-          console.log('🔍 [apiClient] Is auth endpoint:', isAuthEndpoint);
+          console.debug('🔍 [apiClient] Is auth endpoint:', isAuthEndpoint);
 
           // Only try to refresh token if we have tokens (user was authenticated)
           const hasTokens = getToken() && getRefreshToken();
-          console.log('🔍 [apiClient] Has tokens:', hasTokens);
+          console.debug('🔍 [apiClient] Has tokens:', hasTokens);
 
           if (!isAuthEndpoint && hasTokens) {
-            console.log('⚠️ [apiClient] Triggering token refresh due to 401!');
+            console.debug('⚠️ [apiClient] Triggering token refresh due to 401!');
             return this.handleTokenRefresh(originalRequest);
           }
 
@@ -468,45 +525,54 @@ export class ApiClient {
             console.debug('401 on unauthenticated request - not attempting token refresh');
           }
         }
-        
+
         // Handle 403 Forbidden
         if (status === 403) {
           // User doesn't have permission
           toast.error('Sie haben keine Berechtigung für diese Aktion');
         }
-        
+
         // Handle 500+ Server errors with retry
-        if (status >= 500 && !originalRequest._retry && originalRequest.retries) {
+        const { retries: serverRetries } = originalRequest;
+        if (status >= 500 && !originalRequest._retry && serverRetries !== undefined) {
           originalRequest._retry = true;
-          originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
-          
-          if (originalRequest._retryCount <= (originalRequest.retries || this.config.maxRetries || 3)) {
-            const delay = this.calculateRetryDelay(originalRequest._retryCount, originalRequest.retryDelay);
-            
-            console.warn(`Retrying request (${originalRequest._retryCount}/${originalRequest.retries}) after ${delay}ms`);
-            
-            await new Promise(resolve => setTimeout(resolve, delay));
+          const currentRetryCount = originalRequest._retryCount ?? 0;
+          originalRequest._retryCount = currentRetryCount + 1;
+
+          const maxRetries = serverRetries > 0 ? serverRetries : (this.config.maxRetries ?? 3);
+          if (originalRequest._retryCount <= maxRetries) {
+            const delay = this.calculateRetryDelay(
+              originalRequest._retryCount,
+              originalRequest.retryDelay
+            );
+
+            console.warn(
+              `Retrying request (${String(originalRequest._retryCount)}/${String(serverRetries)}) after ${String(delay)}ms`
+            );
+
+            await new Promise((resolve) => setTimeout(resolve, delay));
             return this.axiosInstance(originalRequest);
           }
         }
-        
+
         // Transform to ApiError
-        if (data && typeof data === 'object' && 'errors' in data) {
+        if (typeof data === 'object' && data !== null && 'errors' in data) {
+          const errorData = data as ErrorResponseData;
           throw new ApiError(
             false,
             status,
-            Array.isArray(data.errors) ? data.errors : [data.errors as string],
-            (data as any).errorCode,
-            (data as any).traceId,
-            (data as any).timestamp || new Date().toISOString()
+            Array.isArray(errorData.errors) ? errorData.errors : [errorData.errors],
+            errorData.errorCode,
+            errorData.traceId,
+            errorData.timestamp ?? new Date().toISOString()
           );
         }
-        
+
         // Fallback error
         throw new ApiError(
           false,
           status,
-          [`HTTP ${status}: ${error.message}`],
+          [`HTTP ${String(status)}: ${error.message}`],
           'UNKNOWN_ERROR',
           undefined,
           new Date().toISOString()
@@ -514,12 +580,14 @@ export class ApiClient {
       }
     );
   }
-  
+
   // ============================================
   // TOKEN REFRESH HANDLING
   // ============================================
-  
-  private async handleTokenRefresh(originalRequest: InternalAxiosRequestConfig & RequestConfig): Promise<any> {
+
+  private async handleTokenRefresh(
+    originalRequest: InternalAxiosRequestConfig & RequestConfig
+  ): Promise<AxiosResponse> {
     if (this.isRefreshing) {
       // Token is already being refreshed, queue this request
       return new Promise((resolve) => {
@@ -530,101 +598,107 @@ export class ApiClient {
         });
       });
     }
-    
+
     originalRequest._retry = true;
     this.isRefreshing = true;
-    
+
     try {
       const refreshToken = getRefreshToken();
       if (!refreshToken) {
         throw new Error('No refresh token available');
       }
-      
+
       // Make refresh request directly without interceptors
-      const refreshResponse = await axios.post(
+      const refreshResponse = await axios.post<TokenResponseWrapper>(
         `${this.config.baseURL}/api/users/refresh-token`,
         {
           accessToken: getToken(),
-          refreshToken
+          refreshToken,
         },
         {
           headers: { 'Content-Type': 'application/json' },
-          timeout: 10000
+          timeout: 10000,
         }
       );
-      
+
       const tokens = this.extractTokens(refreshResponse.data);
       const storage = isRememberMeEnabled() ? 'permanent' : 'session';
-      
+
       // Store new tokens
       setToken(tokens.accessToken, storage);
       if (tokens.refreshToken) {
         setRefreshToken(tokens.refreshToken, storage);
       }
-      
+
       // Update default header
       this.setAuthToken(tokens.accessToken);
-      
+
       // Notify all queued requests
       this.onTokenRefreshed(tokens.accessToken);
       this.isRefreshing = false;
-      
+
       // Retry original request with new token
       originalRequest.headers = AxiosHeaders.from(originalRequest.headers);
       originalRequest.headers.set('Authorization', `Bearer ${tokens.accessToken}`);
-      
-      return this.axiosInstance(originalRequest);
+
+      return await this.axiosInstance(originalRequest);
     } catch (refreshError) {
       this.isRefreshing = false;
       this.refreshSubscribers = [];
-      
+
       // Clear tokens and redirect to login
       removeToken();
       this.setAuthToken(null);
-      
+
       toast.error('Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.', {
         toastId: 'session-expired',
         autoClose: 5000,
       });
-      
-      router.navigate('/auth/login');
-      
-      return Promise.reject(refreshError);
+
+      void router.navigate('/auth/login');
+
+      return Promise.reject(
+        refreshError instanceof Error ? refreshError : new Error(String(refreshError))
+      );
     }
   }
-  
+
   private subscribeTokenRefresh(callback: (token: string) => void): void {
     this.refreshSubscribers.push(callback);
   }
-  
+
   private onTokenRefreshed(token: string): void {
-    this.refreshSubscribers.forEach(callback => callback(token));
+    this.refreshSubscribers.forEach((callback) => {
+      callback(token);
+    });
     this.refreshSubscribers = [];
   }
-  
-  private extractTokens(data: any): { accessToken: string; refreshToken?: string } {
+
+  private extractTokens(data: unknown): TokenResponse {
     // Handle different response formats
-    if (data?.data?.accessToken) {
+    const wrapper = data as TokenResponseWrapper;
+
+    if (wrapper.data?.accessToken) {
       return {
-        accessToken: data.data.accessToken,
-        refreshToken: data.data.refreshToken
+        accessToken: wrapper.data.accessToken,
+        refreshToken: wrapper.data.refreshToken,
       };
     }
-    
-    if (data?.accessToken) {
+
+    if (wrapper.accessToken) {
       return {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken
+        accessToken: wrapper.accessToken,
+        refreshToken: wrapper.refreshToken,
       };
     }
-    
+
     throw new Error('Invalid token response format');
   }
-  
+
   // ============================================
   // MAIN REQUEST METHODS
   // ============================================
-  
+
   async request<T>(config: RequestConfig): Promise<ApiResponse<T>> {
     // Check deduplication
     if (config.dedupe !== false && config.method === 'GET') {
@@ -637,7 +711,7 @@ export class ApiClient {
         return pending;
       }
     }
-    
+
     // Create abort controller
     // ✅ FIX: Use dedupKey to avoid aborting different requests to the same endpoint
     const abortKey = this.deduplicationManager.getDedupKey(config);
@@ -649,7 +723,7 @@ export class ApiClient {
     const controller = new AbortController();
     this.abortControllers.set(abortKey, controller);
     config.signal = controller.signal;
-    
+
     // Create request function
     const executeRequest = async (): Promise<ApiResponse<T>> => {
       try {
@@ -659,20 +733,20 @@ export class ApiClient {
           throw new ApiError(
             false,
             429,
-            [`Rate limit exceeded. Retry after ${Math.ceil(waitTime / 1000)} seconds`],
+            [`Rate limit exceeded. Retry after ${String(Math.ceil(waitTime / 1000))} seconds`],
             'RATE_LIMIT_EXCEEDED',
             undefined,
             new Date().toISOString()
           );
         }
-        
+
         // Execute with circuit breaker if enabled
         const response = await (this.circuitBreaker
           ? this.circuitBreaker.execute(() => this.axiosInstance(config))
           : this.axiosInstance(config));
-        
+
         const apiResponse = this.normalizeResponse<T>(response.data);
-        
+
         return apiResponse;
       } catch (error) {
         return this.handleError<T>(error);
@@ -680,7 +754,7 @@ export class ApiClient {
         this.abortControllers.delete(abortKey);
       }
     };
-    
+
     // Handle deduplication for GET requests
     if (config.dedupe !== false && config.method === 'GET') {
       const dedupKey = this.deduplicationManager.getDedupKey(config);
@@ -690,13 +764,13 @@ export class ApiClient {
     }
 
     return executeRequest();
-  } 
-  
+  }
+
   // ============================================
   // HTTP METHOD SHORTCUTS
   // ============================================
-  
-  async get<T>(url: string, params?: Record<string, any>, config?: RequestConfig): Promise<ApiResponse<T>> {
+
+  async get<T>(url: string, params?: object, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>({
       ...config,
       method: 'GET',
@@ -704,8 +778,8 @@ export class ApiClient {
       params,
     });
   }
-  
-  async post<T>(url: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+
+  async post<T>(url: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>({
       ...config,
       method: 'POST',
@@ -713,8 +787,8 @@ export class ApiClient {
       data,
     });
   }
-  
-  async put<T>(url: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+
+  async put<T>(url: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>({
       ...config,
       method: 'PUT',
@@ -722,8 +796,8 @@ export class ApiClient {
       data,
     });
   }
-  
-  async patch<T>(url: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+
+  async patch<T>(url: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return this.request<T>({
       ...config,
       method: 'PATCH',
@@ -731,7 +805,7 @@ export class ApiClient {
       data,
     });
   }
-  
+
   async delete<T>(url: string, config?: RequestConfig, data?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>({
       ...config,
@@ -740,25 +814,26 @@ export class ApiClient {
       data,
     });
   }
-  
+
   // ============================================
   // SPECIALIZED METHODS
   // ============================================
-  
+
   async uploadFile<T>(
     url: string,
     fileOrForm: File | FormData,
     onProgress?: (progress: number) => void,
     config?: RequestConfig
   ): Promise<ApiResponse<T>> {
-    const formData = fileOrForm instanceof FormData
-      ? fileOrForm
-      : (() => {
-          const fd = new FormData();
-          fd.append('file', fileOrForm);
-          return fd;
-        })();
-    
+    const formData =
+      fileOrForm instanceof FormData
+        ? fileOrForm
+        : (() => {
+            const fd = new FormData();
+            fd.append('file', fileOrForm);
+            return fd;
+          })();
+
     return this.request<T>({
       ...config,
       method: 'POST',
@@ -768,53 +843,53 @@ export class ApiClient {
         'Content-Type': 'multipart/form-data',
       },
       onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-        if (progressEvent.total && onProgress) {
+        if (progressEvent.total !== undefined && progressEvent.total > 0 && onProgress) {
           const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
           onProgress(progress);
         }
       },
     });
   }
-  
+
   async downloadFile(
     url: string,
     filename?: string,
     onProgress?: (progress: number) => void,
     config?: RequestConfig
   ): Promise<Blob> {
-    const response = await this.axiosInstance({
+    const response = await this.axiosInstance<Blob>({
       ...config,
       method: 'GET',
       url,
       responseType: 'blob',
       onDownloadProgress: (progressEvent: AxiosProgressEvent) => {
-        if (progressEvent.total && onProgress) {
+        if (progressEvent.total !== undefined && progressEvent.total > 0 && onProgress) {
           const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
           onProgress(progress);
         }
       },
     });
-    
+
     const blob = response.data;
-    
+
     // Auto-download if filename provided
     if (filename && typeof window !== 'undefined') {
-      const url = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
+      link.href = blobUrl;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(blobUrl);
     }
-    
+
     return blob;
   }
-  
+
   async getPaged<T>(
     url: string,
-    params?: Record<string, any>,
+    params?: object,
     config?: RequestConfig
   ): Promise<PagedResponse<T>> {
     const response = await this.request<T[]>({
@@ -823,7 +898,7 @@ export class ApiClient {
       url,
       params,
     });
-    
+
     // Check if response has pagination structure (flat structure)
     if ('pageNumber' in response && 'totalRecords' in response) {
       return response as PagedResponse<T>;
@@ -841,49 +916,49 @@ export class ApiClient {
         hasPreviousPage: false,
       } as PagedResponse<T>;
     }
-    
+
     return response as PagedResponse<T>;
   }
-  
+
   // ============================================
   // UTILITY METHODS
   // ============================================
-  
-  async getAndExtract<T>(url: string, params?: Record<string, any>): Promise<T> {
+
+  async getAndExtract<T>(url: string, params?: object): Promise<T> {
     const response = await this.get<T>(url, params);
     return extractData(response);
   }
-  
-  async postAndExtract<T>(url: string, data?: any): Promise<T> {
+
+  async postAndExtract<T>(url: string, data?: unknown): Promise<T> {
     const response = await this.post<T>(url, data);
     return extractData(response);
   }
-  
-  async putAndExtract<T>(url: string, data?: any): Promise<T> {
+
+  async putAndExtract<T>(url: string, data?: unknown): Promise<T> {
     const response = await this.put<T>(url, data);
     return extractData(response);
   }
-  
-  async patchAndExtract<T>(url: string, data?: any): Promise<T> {
+
+  async patchAndExtract<T>(url: string, data?: unknown): Promise<T> {
     const response = await this.patch<T>(url, data);
     return extractData(response);
   }
-  
+
   async deleteAndExtract<T>(url: string): Promise<T> {
     const response = await this.delete<T>(url);
     return extractData(response);
   }
-  
+
   // ============================================
   // HELPER METHODS
   // ============================================
-  
-  private normalizeResponse<T>(data: any): ApiResponse<T> {
+
+  private normalizeResponse<T>(data: unknown): ApiResponse<T> {
     // Already in correct format
     if (this.isApiResponseFormat(data)) {
       return data as ApiResponse<T>;
     }
-    
+
     // Wrap raw data in success response
     return {
       success: true,
@@ -891,8 +966,8 @@ export class ApiClient {
       timestamp: new Date().toISOString(),
     };
   }
-  
-  private handleError<T>(error: any): ApiResponse<T> {
+
+  private handleError<T>(error: unknown): ApiResponse<T> {
     if (error instanceof ApiError) {
       return {
         success: false,
@@ -903,7 +978,7 @@ export class ApiClient {
         timestamp: error.timestamp,
       } as ErrorResponse;
     }
-    
+
     if (error instanceof NetworkError) {
       return {
         success: false,
@@ -913,7 +988,7 @@ export class ApiClient {
         timestamp: new Date().toISOString(),
       } as ErrorResponse;
     }
-    
+
     if (error instanceof TimeoutError) {
       return {
         success: false,
@@ -923,7 +998,7 @@ export class ApiClient {
         timestamp: new Date().toISOString(),
       } as ErrorResponse;
     }
-    
+
     if (error instanceof AbortError) {
       return {
         success: false,
@@ -933,54 +1008,55 @@ export class ApiClient {
         timestamp: new Date().toISOString(),
       } as ErrorResponse;
     }
-    
+
+    const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return {
       success: false,
-      errors: [error?.message || 'An unknown error occurred'],
+      errors: [message],
       errorCode: 'UNKNOWN_ERROR',
       statusCode: 0,
       timestamp: new Date().toISOString(),
     } as ErrorResponse;
   }
-  
-  private isApiResponseFormat(data: any): boolean {
+
+  private isApiResponseFormat(data: unknown): data is { success: boolean } {
     return (
       typeof data === 'object' &&
       data !== null &&
       'success' in data &&
-      typeof data.success === 'boolean'
+      typeof (data as { success: unknown }).success === 'boolean'
     );
   }
-  
+
   private calculateRetryDelay(retryCount: number, baseDelay?: number): number {
-    const base = baseDelay || this.config.retryDelay || 1000;
+    const base = baseDelay ?? this.config.retryDelay ?? 1000;
     // Exponential backoff with jitter
     const exponentialDelay = base * Math.pow(2, retryCount - 1);
     const jitter = Math.random() * 1000;
     return Math.min(exponentialDelay + jitter, 30000); // Max 30 seconds
   }
-  
+
   private trackPerformance(endpoint: string, duration: number): void {
-    const current = this.performanceMetrics.get(endpoint) || { count: 0, totalTime: 0 };
+    const current = this.performanceMetrics.get(endpoint) ?? { count: 0, totalTime: 0 };
     this.performanceMetrics.set(endpoint, {
       count: current.count + 1,
-      totalTime: current.totalTime + duration
+      totalTime: current.totalTime + duration,
     });
   }
-  
+
   // ============================================
   // PUBLIC UTILITY METHODS
   // ============================================
-  
+
   setAuthToken(token: string | null): void {
     if (token) {
-      this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      this.axiosInstance.defaults.headers.common.Authorization = `Bearer ${token}`;
     } else {
-      delete this.axiosInstance.defaults.headers.common['Authorization'];
+      delete this.axiosInstance.defaults.headers.common.Authorization;
     }
   }
-  
-  cancelRequest(url: string, method: string = 'GET'): void {
+
+  cancelRequest(url: string, method = 'GET'): void {
     const key = `${method}:${url}`;
     const controller = this.abortControllers.get(key);
     if (controller) {
@@ -988,39 +1064,42 @@ export class ApiClient {
       this.abortControllers.delete(key);
     }
   }
-  
+
   cancelAllRequests(): void {
-    this.abortControllers.forEach(controller => controller.abort());
+    this.abortControllers.forEach((controller) => {
+      controller.abort();
+    });
     this.abortControllers.clear();
   }
-  
+
   resetCircuitBreaker(): void {
     this.circuitBreaker?.reset();
   }
-  
+
   resetRateLimiter(): void {
     this.rateLimiter?.reset();
   }
-  
-  getPerformanceReport(): any {
+
+  getPerformanceReport(): PerformanceReport {
     const report = Array.from(this.performanceMetrics.entries()).map(([endpoint, metrics]) => ({
       endpoint,
       ...metrics,
-      avgTime: metrics.totalTime / metrics.count
+      avgTime: metrics.totalTime / metrics.count,
     }));
-    
+
     return {
       endpoints: report.sort((a, b) => b.count - a.count),
       totalRequests: report.reduce((sum, item) => sum + item.count, 0),
-      avgResponseTime: report.reduce((sum, item) => sum + item.avgTime, 0) / report.length,
+      avgResponseTime:
+        report.length > 0 ? report.reduce((sum, item) => sum + item.avgTime, 0) / report.length : 0,
       circuitBreakerState: this.circuitBreaker?.getState(),
     };
   }
-  
+
   getAxiosInstance(): AxiosInstance {
     return this.axiosInstance;
   }
-  
+
   cleanup(): void {
     this.cancelAllRequests();
     this.deduplicationManager.clear();
@@ -1033,9 +1112,12 @@ export class ApiClient {
 // SINGLETON INSTANCE
 // ============================================
 
+const apiTimeout = import.meta.env.VITE_API_TIMEOUT;
+const timeoutValue = apiTimeout ? parseInt(apiTimeout, 10) : 30000;
+
 export const apiClient = new ApiClient({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
-  timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '30000'),
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
+  timeout: Number.isNaN(timeoutValue) ? 30000 : timeoutValue,
   maxRetries: 3,
   retryDelay: 1000,
   enableCircuitBreaker: true,
@@ -1045,8 +1127,8 @@ export const apiClient = new ApiClient({
     failureThreshold: 5,
     resetTimeout: 60000,
     halfOpenRequests: 3,
-    monitoredErrors: [500, 502, 503, 504]
-  }
+    monitoredErrors: [500, 502, 503, 504],
+  },
 });
 
 export const api = apiClient.getAxiosInstance();

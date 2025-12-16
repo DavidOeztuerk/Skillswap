@@ -16,10 +16,10 @@ import {
 } from '@mui/material';
 import { Star, Send } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-import { RootState } from '../../store/store';
+import type { RootState } from '../../store/store';
 import { rateSession } from '../../features/sessions/sessionsThunks';
 import { setShowRatingForm } from '../../features/sessions/sessionsSlice';
-import { RateSessionRequest } from '../../api/services/sessionService';
+import type { RateSessionRequest } from '../../api/services/sessionService';
 
 interface RatingFormProps {
   appointmentId: string;
@@ -56,26 +56,39 @@ const RatingForm: React.FC<RatingFormProps> = ({
   const [tags, setTags] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const handleRatingChange = (_event: React.SyntheticEvent, value: number | null) => {
+  const handleRatingChange = (_event: React.SyntheticEvent, value: number | null): void => {
     setRating(value);
     setValidationError(null);
   };
 
-  const handleFeedbackChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
+  const handleFeedbackChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+    const { value } = e.target;
     // Limit feedback to 2000 characters
     if (value.length <= 2000) {
       setFeedback(value);
     }
   };
 
-  const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setTags(e.target.value);
   };
 
-  const handleSubmit = async () => {
+  const handleClose = (): void => {
+    // Reset form
+    setRating(null);
+    setFeedback('');
+    setIsPublic(true);
+    setWouldRecommend(true);
+    setTags('');
+    setValidationError(null);
+
+    dispatch(setShowRatingForm(false));
+    onClose?.();
+  };
+
+  const handleSubmit = async (): Promise<void> => {
     // Validation
-    if (!rating || rating < 1 || rating > 5) {
+    if (rating === null || rating < 1 || rating > 5) {
       setValidationError('Please select a rating between 1 and 5');
       return;
     }
@@ -105,29 +118,12 @@ const RatingForm: React.FC<RatingFormProps> = ({
     }
   };
 
-  const handleClose = () => {
-    // Reset form
-    setRating(null);
-    setFeedback('');
-    setIsPublic(true);
-    setWouldRecommend(true);
-    setTags('');
-    setValidationError(null);
-
-    dispatch(setShowRatingForm(false));
-    onClose?.();
-  };
-
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Rate Your Session</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={3} sx={{ mt: 1 }}>
-          {error && (
-            <Alert severity="error">
-              {error.message || 'Failed to submit rating'}
-            </Alert>
-          )}
+          {error && <Alert severity="error">{error.message ?? 'Failed to submit rating'}</Alert>}
 
           {validationError && <Alert severity="warning">{validationError}</Alert>}
 
@@ -140,9 +136,7 @@ const RatingForm: React.FC<RatingFormProps> = ({
 
           {/* Star Rating */}
           <Box>
-            <Box sx={{ mb: 1, fontSize: '0.875rem', fontWeight: 600 }}>
-              Your Rating *
-            </Box>
+            <Box sx={{ mb: 1, fontSize: '0.875rem', fontWeight: 600 }}>Your Rating *</Box>
             <Rating
               value={rating}
               onChange={handleRatingChange}
@@ -151,7 +145,9 @@ const RatingForm: React.FC<RatingFormProps> = ({
               emptyIcon={<Star sx={{ fontSize: '2rem', opacity: 0.3 }} />}
             />
             <Box sx={{ mt: 1, fontSize: '0.75rem', color: 'textSecondary' }}>
-              {rating ? `You rated: ${rating} star${rating !== 1 ? 's' : ''}` : 'Please select a rating'}
+              {rating !== null
+                ? `You rated: ${String(rating)} star${rating !== 1 ? 's' : ''}`
+                : 'Please select a rating'}
             </Box>
           </Box>
 
@@ -166,7 +162,7 @@ const RatingForm: React.FC<RatingFormProps> = ({
               value={feedback}
               onChange={handleFeedbackChange}
               maxRows={6}
-              helperText={`${feedback.length}/2000 characters`}
+              helperText={`${String(feedback.length)}/2000 characters`}
               variant="outlined"
             />
           </Box>
@@ -177,7 +173,9 @@ const RatingForm: React.FC<RatingFormProps> = ({
               control={
                 <Checkbox
                   checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
+                  onChange={(e) => {
+                    setIsPublic(e.target.checked);
+                  }}
                 />
               }
               label="Make this rating public (visible to others)"
@@ -190,7 +188,9 @@ const RatingForm: React.FC<RatingFormProps> = ({
               control={
                 <Checkbox
                   checked={wouldRecommend}
-                  onChange={(e) => setWouldRecommend(e.target.checked)}
+                  onChange={(e) => {
+                    setWouldRecommend(e.target.checked);
+                  }}
                 />
               }
               label="I would recommend this person"
@@ -218,7 +218,7 @@ const RatingForm: React.FC<RatingFormProps> = ({
         <MuiButton
           variant="contained"
           onClick={handleSubmit}
-          disabled={!rating || isLoading}
+          disabled={rating === null || isLoading}
           endIcon={isLoading ? <CircularProgress size={20} /> : <Send />}
         >
           Submit Rating

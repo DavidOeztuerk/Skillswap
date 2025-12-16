@@ -1,4 +1,4 @@
-import { ErrorDetails } from './errorService';
+import type { ErrorDetails } from './errorService';
 
 /**
  * Error Logger Service for external monitoring integration
@@ -28,11 +28,16 @@ export interface ErrorLoggerService {
  */
 class SentryErrorLogger implements ErrorLoggerService {
   private config?: ErrorLoggerConfig;
-  private breadcrumbs: Array<{ message: string; category?: string; data?: Record<string, unknown>; timestamp: Date }> = [];
+  private breadcrumbs: {
+    message: string;
+    category?: string;
+    data?: Record<string, unknown>;
+    timestamp: Date;
+  }[] = [];
 
   initialize(config: ErrorLoggerConfig): void {
     this.config = config;
-    
+
     // In production, you would initialize Sentry here
     // import * as Sentry from '@sentry/react';
     // Sentry.init({
@@ -40,14 +45,14 @@ class SentryErrorLogger implements ErrorLoggerService {
     //   environment: config.environment,
     //   release: config.release,
     // });
-    
-    console.log('Sentry error logger initialized', config);
+
+    console.debug('Sentry error logger initialized', config);
   }
 
-  async logError(error: ErrorDetails): Promise<void> {
+  logError(error: ErrorDetails): Promise<void> {
     if (!this.config) {
       console.warn('Sentry not initialized');
-      return;
+      return Promise.resolve();
     }
 
     // In production:
@@ -67,7 +72,8 @@ class SentryErrorLogger implements ErrorLoggerService {
     //   },
     // });
 
-    console.log('Sentry: Logging error', error);
+    console.debug('Sentry: Logging error', error);
+    return Promise.resolve();
   }
 
   async logErrors(errors: ErrorDetails[]): Promise<void> {
@@ -78,13 +84,13 @@ class SentryErrorLogger implements ErrorLoggerService {
 
   setUser(userId: string, email?: string, username?: string): void {
     // Sentry.setUser({ id: userId, email, username });
-    console.log('Sentry: User set', { userId, email, username });
+    console.debug('Sentry: User set', { userId, email, username });
   }
 
   addBreadcrumb(message: string, category?: string, data?: Record<string, unknown>): void {
     const breadcrumb = { message, category, data, timestamp: new Date() };
     this.breadcrumbs.push(breadcrumb);
-    
+
     // Sentry.addBreadcrumb({
     //   message,
     //   category,
@@ -97,7 +103,6 @@ class SentryErrorLogger implements ErrorLoggerService {
     this.breadcrumbs = [];
     // Sentry.configureScope(scope => scope.clearBreadcrumbs());
   }
-
 }
 
 /**
@@ -108,25 +113,26 @@ class LogRocketErrorLogger implements ErrorLoggerService {
 
   initialize(config: ErrorLoggerConfig): void {
     this.config = config;
-    
+
     // In production:
     // import LogRocket from 'logrocket';
     // LogRocket.init(config.apiKey);
-    
-    console.log('LogRocket error logger initialized', config);
+
+    console.debug('LogRocket error logger initialized', config);
   }
 
-  async logError(error: ErrorDetails): Promise<void> {
+  logError(error: ErrorDetails): Promise<void> {
     if (!this.config) {
       console.warn('LogRocket not initialized');
-      return;
+      return Promise.resolve();
     }
 
     // LogRocket.captureException(new Error(error.message), {
     //   extra: error.details,
     // });
 
-    console.log('LogRocket: Logging error', error);
+    console.debug('LogRocket: Logging error', error);
+    return Promise.resolve();
   }
 
   async logErrors(errors: ErrorDetails[]): Promise<void> {
@@ -137,16 +143,16 @@ class LogRocketErrorLogger implements ErrorLoggerService {
 
   setUser(userId: string, email?: string, username?: string): void {
     // LogRocket.identify(userId, { email, username });
-    console.log('LogRocket: User identified', { userId, email, username });
+    console.debug('LogRocket: User identified', { userId, email, username });
   }
 
   addBreadcrumb(message: string, category?: string, data?: Record<string, unknown>): void {
     // LogRocket.track(category || 'breadcrumb', { message, ...data });
-    console.log('LogRocket: Breadcrumb added', { message, category, data });
+    console.debug('LogRocket: Breadcrumb added', { message, category, data });
   }
 
   clearBreadcrumbs(): void {
-    console.log('LogRocket: Breadcrumbs cleared');
+    console.debug('LogRocket: Breadcrumbs cleared');
   }
 }
 
@@ -155,11 +161,16 @@ class LogRocketErrorLogger implements ErrorLoggerService {
  */
 class CustomErrorLogger implements ErrorLoggerService {
   private config?: ErrorLoggerConfig;
-  private breadcrumbs: Array<{ message: string; category?: string; data?: Record<string, unknown>; timestamp: Date }> = [];
+  private breadcrumbs: {
+    message: string;
+    category?: string;
+    data?: Record<string, unknown>;
+    timestamp: Date;
+  }[] = [];
 
   initialize(config: ErrorLoggerConfig): void {
     this.config = config;
-    console.log('Custom error logger initialized', config);
+    console.debug('Custom error logger initialized', config);
   }
 
   async logError(error: ErrorDetails): Promise<void> {
@@ -173,7 +184,7 @@ class CustomErrorLogger implements ErrorLoggerService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Environment': this.config.environment || 'production',
+          'X-Environment': this.config.environment ?? 'production',
         },
         body: JSON.stringify({
           error,
@@ -201,7 +212,7 @@ class CustomErrorLogger implements ErrorLoggerService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Environment': this.config.environment || 'production',
+          'X-Environment': this.config.environment ?? 'production',
         },
         body: JSON.stringify({
           errors,
@@ -219,10 +230,11 @@ class CustomErrorLogger implements ErrorLoggerService {
   }
 
   setUser(userId: string, email?: string, username?: string): void {
+    if (!this.config) return;
     this.config = {
-      ...this.config!,
+      ...this.config,
       metadata: {
-        ...this.config?.metadata,
+        ...this.config.metadata,
         user: { id: userId, email, username },
       },
     };
@@ -250,8 +262,14 @@ class CustomErrorLogger implements ErrorLoggerService {
 /**
  * Error Logger Factory
  */
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class ErrorLoggerFactory {
   private static instance: ErrorLoggerService | null = null;
+
+  // Private constructor to prevent instantiation
+  private constructor() {
+    // Factory class - should not be instantiated
+  }
 
   static create(config: ErrorLoggerConfig): ErrorLoggerService {
     let logger: ErrorLoggerService;
@@ -295,7 +313,7 @@ export function initializeErrorLogger(): ErrorLoggerService | null {
     // VITE_ERROR_LOGGER_SERVICE=sentry
     // VITE_ERROR_LOGGER_API_KEY=your-api-key
     // VITE_ERROR_LOGGER_ENDPOINT=your-endpoint
-    
+
     // Uncomment this block when you have environment variables configured:
     /*
     const env = import.meta.env.MODE || 'production';
@@ -320,11 +338,11 @@ export function initializeErrorLogger(): ErrorLoggerService | null {
 
     return ErrorLoggerFactory.create(config);
     */
-    
+
     return null;
   } catch (error) {
     // If anything fails, just return null - error logging is optional
-    console.log('Error logger initialization skipped:', error);
+    console.debug('Error logger initialization skipped:', error);
     return null;
   }
 }

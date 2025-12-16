@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -33,97 +34,78 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { useAdmin } from '../../hooks/useAdmin';
+import { usePermissions } from '../../contexts/permissionContextHook';
+import { Permissions } from '../../components/auth/permissions.constants';
 import PageLoader from '../../components/ui/PageLoader';
 import EmptyState from '../../components/ui/EmptyState';
 import { formatDate } from '../../utils/dateUtils';
 
 interface ModerationItem {
   id: string;
-  type: 'inappropriate-content' | 'spam' | 'harassment' | 'fake-profile' | 'copyright' | 'other' | 'User' | 'Skill' | 'Comment' | 'Review';
+  type:
+    | 'inappropriate-content'
+    | 'spam'
+    | 'harassment'
+    | 'fake-profile'
+    | 'copyright'
+    | 'other'
+    | 'User'
+    | 'Skill'
+    | 'Comment'
+    | 'Review';
   reportedBy?: string;
   reportedByName?: string;
   reportedUser?: string;
   reportedUserName?: string;
   reason?: string;
   content?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'escalated' | 'Pending' | 'Approved' | 'Rejected' | 'Flagged';
+  status:
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'escalated'
+    | 'Pending'
+    | 'Approved'
+    | 'Rejected'
+    | 'Flagged';
   severity?: 'Low' | 'Medium' | 'High' | 'Critical';
   createdAt: string;
 }
 
 const AdminModerationPage: React.FC = () => {
   const { moderationReports, isLoadingReports, fetchModerationReports } = useAdmin();
+  const { hasPermission } = usePermissions();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<string>('Pending');
   const [typeFilter, setTypeFilter] = React.useState<string>('all');
   const [selectedItem, setSelectedItem] = React.useState<ModerationItem | null>(null);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
 
+  // Memoize permission checks
+  const canViewReports = useMemo(
+    () => hasPermission(Permissions.Moderation.VIEW_REPORTS),
+    [hasPermission]
+  );
+  const canHandleReports = useMemo(
+    () => hasPermission(Permissions.Moderation.HANDLE_REPORTS),
+    [hasPermission]
+  );
+  // Note: Permissions.Moderation.MODERATE_CONTENT available for future content moderation features
+
   useEffect(() => {
-    fetchModerationReports({ filters: { status: statusFilter === 'all' ? undefined : statusFilter } });
+    fetchModerationReports({
+      filters: { status: statusFilter === 'all' ? undefined : statusFilter },
+    });
   }, [fetchModerationReports, statusFilter]);
 
-  // Mock data if no moderationReports from backend
-  const mockQueue: ModerationItem[] = moderationReports || [
-    {
-      id: '1',
-      type: 'User',
-      reportedBy: 'user123',
-      reportedByName: 'Max Mustermann',
-      reportedUser: 'user456',
-      reportedUserName: 'Suspicious User',
-      reason: 'Spam-Verhalten',
-      content: 'Nutzer sendet wiederholt unangemessene Nachrichten',
-      status: 'Pending',
-      severity: 'High',
-      createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    },
-    {
-      id: '2',
-      type: 'Skill',
-      reportedBy: 'user789',
-      reportedByName: 'Erika Musterfrau',
-      reportedUser: 'user012',
-      reportedUserName: 'John Doe',
-      reason: 'Unangemessener Inhalt',
-      content: 'Skill-Beschreibung enthält unpassende Sprache',
-      status: 'Pending',
-      severity: 'Medium',
-      createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    },
-    {
-      id: '3',
-      type: 'Comment',
-      reportedBy: 'user345',
-      reportedByName: 'Anna Schmidt',
-      reportedUser: 'user678',
-      reportedUserName: 'Bob Johnson',
-      reason: 'Beleidigung',
-      content: 'Kommentar enthält beleidigende Aussagen',
-      status: 'Pending',
-      severity: 'Critical',
-      createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    },
-    {
-      id: '4',
-      type: 'Review',
-      reportedBy: 'user901',
-      reportedByName: 'Lisa Müller',
-      reportedUser: 'user234',
-      reportedUserName: 'Tom Brown',
-      reason: 'Falsche Bewertung',
-      content: 'Bewertung scheint gefälscht zu sein',
-      status: 'Flagged',
-      severity: 'Low',
-      createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    },
-  ];
+  // Use real data from backend
+  const queue: ModerationItem[] = moderationReports;
 
-  const filteredQueue = mockQueue.filter((item) => {
+  const filteredQueue = queue.filter((item) => {
     const matchesSearch =
-      searchQuery === '' ||
-      item.reportedUserName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (searchQuery === '' ||
+        item.reportedUserName?.toLowerCase().includes(searchQuery.toLowerCase())) ??
+      item.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ??
       item.content?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
@@ -133,14 +115,16 @@ const AdminModerationPage: React.FC = () => {
   });
 
   const stats = {
-    total: mockQueue.length,
-    pending: mockQueue.filter((i) => i.status === 'Pending').length,
-    approved: mockQueue.filter((i) => i.status === 'Approved').length,
-    rejected: mockQueue.filter((i) => i.status === 'Rejected').length,
-    flagged: mockQueue.filter((i) => i.status === 'Flagged').length,
+    total: queue.length,
+    pending: queue.filter((i) => i.status === 'Pending').length,
+    approved: queue.filter((i) => i.status === 'Approved').length,
+    rejected: queue.filter((i) => i.status === 'Rejected').length,
+    flagged: queue.filter((i) => i.status === 'Flagged').length,
   };
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (
+    severity: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (severity) {
       case 'Low':
         return 'info';
@@ -155,7 +139,9 @@ const AdminModerationPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (
+    status: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
       case 'Pending':
         return 'warning';
@@ -170,22 +156,22 @@ const AdminModerationPage: React.FC = () => {
     }
   };
 
-  const handleViewDetails = (item: ModerationItem) => {
+  const handleViewDetails = (item: ModerationItem): void => {
     setSelectedItem(item);
     setDetailsOpen(true);
   };
 
-  const handleApprove = (id: string) => {
-    console.log('Approving item:', id);
+  const handleApprove = (id: string): void => {
+    console.debug('Approving item:', id);
     // TODO: Implement approve action
   };
 
-  const handleReject = (id: string) => {
-    console.log('Rejecting item:', id);
+  const handleReject = (id: string): void => {
+    console.debug('Rejecting item:', id);
     // TODO: Implement reject action
   };
 
-  if (isLoadingReports && !moderationReports) {
+  if (isLoadingReports && moderationReports.length === 0) {
     return <PageLoader variant="list" message="Lade Moderationswarteschlange..." />;
   }
 
@@ -264,27 +250,35 @@ const AdminModerationPage: React.FC = () => {
             <TextField
               placeholder="Suche nach Nutzer, Grund oder Inhalt..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
               sx={{ flexGrow: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
             <TextField
               select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+              }}
               sx={{ minWidth: 150 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             >
               <MenuItem value="all">Alle Status</MenuItem>
@@ -296,14 +290,18 @@ const AdminModerationPage: React.FC = () => {
             <TextField
               select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+              }}
               sx={{ minWidth: 150 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             >
               <MenuItem value="all">Alle Typen</MenuItem>
@@ -354,30 +352,26 @@ const AdminModerationPage: React.FC = () => {
                           <PersonIcon />
                         </Avatar>
                         <Box>
-                          <Typography variant="body2">{item.reportedUserName || 'N/A'}</Typography>
+                          <Typography variant="body2">{item.reportedUserName ?? 'N/A'}</Typography>
                           <Typography variant="caption" color="textSecondary">
-                            {item.reportedUser?.substring(0, 8) || 'N/A'}
+                            {item.reportedUser?.substring(0, 8) ?? 'N/A'}
                           </Typography>
                         </Box>
                       </Stack>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{item.reportedByName || 'N/A'}</Typography>
+                      <Typography variant="body2">{item.reportedByName ?? 'N/A'}</Typography>
                     </TableCell>
-                    <TableCell>{item.reason || 'N/A'}</TableCell>
+                    <TableCell>{item.reason ?? 'N/A'}</TableCell>
                     <TableCell>
                       <Chip
-                        label={item.severity || 'N/A'}
-                        color={getSeverityColor(item.severity || 'Low') as any}
+                        label={item.severity ?? 'N/A'}
+                        color={getSeverityColor(item.severity ?? 'Low')}
                         size="small"
                       />
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={item.status}
-                        color={getStatusColor(item.status) as any}
-                        size="small"
-                      />
+                      <Chip label={item.status} color={getStatusColor(item.status)} size="small" />
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
@@ -386,29 +380,45 @@ const AdminModerationPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={1} justifyContent="center">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleViewDetails(item)}
-                        >
-                          <ViewIcon />
-                        </IconButton>
-                        {item.status === 'Pending' && (
+                        {/* View Details - requires VIEW_REPORTS permission */}
+                        {canViewReports && (
+                          <Tooltip title="Details anzeigen">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => {
+                                handleViewDetails(item);
+                              }}
+                            >
+                              <ViewIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {/* Approve/Reject - requires HANDLE_REPORTS permission */}
+                        {item.status === 'Pending' && canHandleReports && (
                           <>
-                            <IconButton
-                              size="small"
-                              color="success"
-                              onClick={() => handleApprove(item.id)}
-                            >
-                              <ApproveIcon />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleReject(item.id)}
-                            >
-                              <RejectIcon />
-                            </IconButton>
+                            <Tooltip title="Genehmigen">
+                              <IconButton
+                                size="small"
+                                color="success"
+                                onClick={() => {
+                                  handleApprove(item.id);
+                                }}
+                              >
+                                <ApproveIcon />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Ablehnen">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => {
+                                  handleReject(item.id);
+                                }}
+                              >
+                                <RejectIcon />
+                              </IconButton>
+                            </Tooltip>
                           </>
                         )}
                       </Stack>
@@ -422,7 +432,14 @@ const AdminModerationPage: React.FC = () => {
       </Card>
 
       {/* Details Dialog */}
-      <Dialog open={detailsOpen} onClose={() => setDetailsOpen(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={detailsOpen}
+        onClose={() => {
+          setDetailsOpen(false);
+        }}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>Moderationsdetails</DialogTitle>
         <DialogContent>
           {selectedItem && (
@@ -449,21 +466,21 @@ const AdminModerationPage: React.FC = () => {
                 <Typography variant="subtitle2" color="textSecondary">
                   Grund
                 </Typography>
-                <Typography>{selectedItem.reason || 'N/A'}</Typography>
+                <Typography>{selectedItem.reason ?? 'N/A'}</Typography>
               </Box>
               <Box>
                 <Typography variant="subtitle2" color="textSecondary">
                   Inhalt
                 </Typography>
-                <Typography>{selectedItem.content || 'N/A'}</Typography>
+                <Typography>{selectedItem.content ?? 'N/A'}</Typography>
               </Box>
               <Box>
                 <Typography variant="subtitle2" color="textSecondary">
                   Schweregrad
                 </Typography>
                 <Chip
-                  label={selectedItem.severity || 'N/A'}
-                  color={getSeverityColor(selectedItem.severity || 'Low') as any}
+                  label={selectedItem.severity ?? 'N/A'}
+                  color={getSeverityColor(selectedItem.severity ?? 'Low')}
                   size="small"
                 />
               </Box>
@@ -473,7 +490,7 @@ const AdminModerationPage: React.FC = () => {
                 </Typography>
                 <Chip
                   label={selectedItem.status}
-                  color={getStatusColor(selectedItem.status) as any}
+                  color={getStatusColor(selectedItem.status)}
                   size="small"
                 />
               </Box>
@@ -481,8 +498,15 @@ const AdminModerationPage: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDetailsOpen(false)}>Schließen</Button>
-          {selectedItem?.status === 'Pending' && (
+          <Button
+            onClick={() => {
+              setDetailsOpen(false);
+            }}
+          >
+            Schließen
+          </Button>
+          {/* Approve/Reject buttons - requires HANDLE_REPORTS permission */}
+          {selectedItem?.status === 'Pending' && canHandleReports && (
             <>
               <Button
                 variant="contained"

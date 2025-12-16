@@ -1,9 +1,14 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { SkillCategory } from '../../types/models/Skill';
-import { SkillCategoryResponse } from '../../types/contracts/responses/CreateSkillResponse';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import type { SkillCategory } from '../../types/models/Skill';
+import type { SkillCategoryResponse } from '../../types/contracts/responses/CreateSkillResponse';
 import { withDefault, isDefined } from '../../utils/safeAccess';
 import { initialCategoriesState } from '../../store/adapters/categoriesAdapter+State';
-import { fetchCategories, createCategory, updateCategory, deleteCategory } from './thunks/categoryThunks';
+import {
+  fetchCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} from './thunks/categoryThunks';
 
 const categoriesSlice = createSlice({
   name: 'categories',
@@ -13,10 +18,7 @@ const categoriesSlice = createSlice({
       state.errorMessage = undefined;
     },
 
-    setSelectedCategory: (
-      state,
-      action: PayloadAction<SkillCategory | null>
-    ) => {
+    setSelectedCategory: (state, action: PayloadAction<SkillCategory | null>) => {
       state.selectedCategory = action.payload;
     },
 
@@ -35,18 +37,14 @@ const categoriesSlice = createSlice({
       if (existingIndex === -1) {
         state.categories.push(action.payload);
         // Sort by sortOrder or name
-        state.categories.sort((a, b) => {
-          return a.name.localeCompare(b.name);
-        });
+        state.categories.sort((a, b) => a.name.localeCompare(b.name));
       } else {
         state.categories[existingIndex] = action.payload;
       }
     },
 
     removeCategory: (state, action: PayloadAction<string>) => {
-      state.categories = state.categories?.filter(
-        (category) => category?.id !== action.payload
-      );
+      state.categories = state.categories.filter((category) => category.id !== action.payload);
       if (state.selectedCategory?.id === action.payload) {
         state.selectedCategory = null;
       }
@@ -54,9 +52,7 @@ const categoriesSlice = createSlice({
 
     updateCategoryInState: (state, action: PayloadAction<SkillCategory>) => {
       const updatedCategory = action.payload;
-      const index = state.categories?.findIndex(
-        (category) => category?.id === updatedCategory?.id
-      );
+      const index = state.categories.findIndex((category) => category.id === updatedCategory.id);
       if (index !== -1) {
         state.categories[index] = updatedCategory;
       }
@@ -71,38 +67,30 @@ const categoriesSlice = createSlice({
       state.selectedCategory = null;
     },
 
-    setError: (state, action) => {
-      state.errorMessage = action.payload.message;
-    },
-
     // Optimistic updates
     createCategoryOptimistic: (state, action: PayloadAction<SkillCategory>) => {
       state.categories.push(action.payload);
-      state.categories.sort((a, b) => a?.name.localeCompare(b?.name));
+      state.categories.sort((a, b) => a.name.localeCompare(b.name));
     },
-    
+
     updateCategoryOptimistic: (state, action: PayloadAction<SkillCategory>) => {
-      const index = state.categories?.findIndex(
-        (cat) => cat?.id === action.payload?.id
-      );
+      const index = state.categories.findIndex((cat) => cat.id === action.payload.id);
       if (index !== -1) {
         state.categories[index] = action.payload;
-        state.categories.sort((a, b) => a?.name.localeCompare(b?.name));
+        state.categories.sort((a, b) => a.name.localeCompare(b.name));
       }
       if (state.selectedCategory?.id === action.payload.id) {
         state.selectedCategory = action.payload;
       }
     },
-    
+
     deleteCategoryOptimistic: (state, action: PayloadAction<string>) => {
-      state.categories = state.categories?.filter(
-        (category) => category?.id !== action.payload
-      );
+      state.categories = state.categories.filter((category) => category.id !== action.payload);
       if (state.selectedCategory?.id === action.payload) {
         state.selectedCategory = null;
       }
     },
-    
+
     // Rollback actions
     setCategories: (state, action: PayloadAction<SkillCategory[]>) => {
       state.categories = action.payload;
@@ -118,23 +106,21 @@ const categoriesSlice = createSlice({
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.isLoading = false;
 
-        const mapSkillResponseToSkill = (response: SkillCategoryResponse): SkillCategory => {
-          return {
-            id: response.categoryId,
-            name: response.name,
-            iconName: response.iconName,
-            color: response.color,
-            skillCount: response.skillCount
-          }
-        }
+        const mapSkillResponseToSkill = (response: SkillCategoryResponse): SkillCategory => ({
+          id: response.categoryId,
+          name: response.name,
+          iconName: response.iconName,
+          color: response.color,
+          skillCount: response.skillCount,
+        });
 
         if (isDefined(action.payload.data)) {
-          const categories = action.payload.data.map(x => mapSkillResponseToSkill(x));
+          const categories = action.payload.data.map((x) => mapSkillResponseToSkill(x));
           state.categories = categories;
           // Sort categories by name
-          state.categories.sort((a, b) => {
-            return withDefault(a?.name, '').localeCompare(withDefault(b?.name, ''));
-          });
+          state.categories.sort((a, b) =>
+            withDefault(a.name, '').localeCompare(withDefault(b.name, ''))
+          );
         } else {
           state.categories = [];
         }
@@ -157,9 +143,9 @@ const categoriesSlice = createSlice({
         if (isDefined(action.payload.data)) {
           state.categories.push(action.payload.data);
           // Re-sort after adding
-          state.categories.sort((a, b) => {
-            return withDefault(a?.name, '').localeCompare(withDefault(b?.name, ''));
-          });
+          state.categories.sort((a, b) =>
+            withDefault(a.name, '').localeCompare(withDefault(b.name, ''))
+          );
         }
         state.errorMessage = undefined;
       })
@@ -177,15 +163,13 @@ const categoriesSlice = createSlice({
         state.isUpdating = false;
         if (isDefined(action.payload.data)) {
           const categoryData = action.payload.data;
-          const index = state.categories?.findIndex(
-            (cat) => cat?.id === categoryData?.id
-          );
+          const index = state.categories.findIndex((cat) => cat.id === categoryData.id);
           if (index !== -1) {
             state.categories[index] = categoryData;
             // Re-sort after updating
-            state.categories.sort((a, b) => {
-              return withDefault(a?.name, '').localeCompare(withDefault(b?.name, ''));
-            });
+            state.categories.sort((a, b) =>
+              withDefault(a.name, '').localeCompare(withDefault(b.name, ''))
+            );
           }
 
           if (state.selectedCategory?.id === categoryData.id) {
@@ -226,7 +210,6 @@ export const {
   removeCategory,
   updateCategoryInState,
   clearAllCategories,
-  setError,
   createCategoryOptimistic,
   updateCategoryOptimistic,
   deleteCategoryOptimistic,

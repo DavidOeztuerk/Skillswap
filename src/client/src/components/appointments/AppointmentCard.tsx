@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback, memo } from 'react';
 import {
   Card,
   CardContent,
@@ -23,9 +23,9 @@ import {
   Edit as EditIcon,
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
-import { formatDateTimeRange } from '../../utils/dateUtils';
-import { isPastDate } from '../../utils/dateUtils';
-import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
+import { formatDateTimeRange, isPastDate } from '../../utils/dateUtils';
+import { type Appointment, AppointmentStatus } from '../../types/models/Appointment';
+import { spacing, componentSpacing, featureColors } from '../../styles/tokens';
 // import ProfileAvatar from '../ui/ProfilAvatar';
 
 interface AppointmentCardProps {
@@ -39,225 +39,270 @@ interface AppointmentCardProps {
 /**
  * Karte zur Anzeige eines Termins mit entsprechenden Aktionen
  */
-const AppointmentCard: React.FC<AppointmentCardProps> = ({
-  appointment,
-  isTeacher = false,
-  onConfirm,
-  onCancel,
-  onComplete,
-}) => {
-  const theme = useTheme();
-  //   const currentUserId = isTeacher
-  //     ? appointment.teacherId
-  //     : appointment.studentId;
-  const otherUser = isTeacher
-    ? appointment.studentDetails
-    : appointment.teacherDetails;
+const AppointmentCard: React.FC<AppointmentCardProps> = memo(
+  ({ appointment, isTeacher = false, onConfirm, onCancel, onComplete }) => {
+    const theme = useTheme();
 
-  const getStatusColor = (status: AppointmentStatus): string => {
-    switch (status) {
-      case AppointmentStatus.Pending:
-        return theme.palette.warning.main;
-      case AppointmentStatus.Accepted:
-        return theme.palette.success.main;
-      case AppointmentStatus.Cancelled:
-        return theme.palette.error.main;
-      case AppointmentStatus.Completed:
-        return theme.palette.info.main;
-      default:
-        return theme.palette.grey[500];
-    }
-  };
+    const otherUser = useMemo(
+      () => (isTeacher ? appointment.studentDetails : appointment.teacherDetails),
+      [isTeacher, appointment.studentDetails, appointment.teacherDetails]
+    );
 
-  const getStatusLabel = (status: AppointmentStatus): string => {
-    switch (status) {
-      case AppointmentStatus.Pending:
-        return 'Ausstehend';
-      case AppointmentStatus.Accepted:
-        return 'Bestätigt';
-      case AppointmentStatus.Cancelled:
-        return 'Abgesagt';
-      case AppointmentStatus.Completed:
-        return 'Abgeschlossen';
-      default:
-        return status;
-    }
-  };
+    const getStatusColor = useCallback(
+      (status: AppointmentStatus): string => {
+        switch (status) {
+          case AppointmentStatus.Pending:
+            return featureColors.appointmentStatus.scheduled;
+          case AppointmentStatus.Confirmed:
+            return featureColors.appointmentStatus.confirmed;
+          case AppointmentStatus.Cancelled:
+            return featureColors.appointmentStatus.cancelled;
+          case AppointmentStatus.Completed:
+            return featureColors.appointmentStatus.completed;
+          default:
+            return theme.palette.grey[500];
+        }
+      },
+      [theme.palette.grey]
+    );
 
-  const canJoinCall =
-    appointment.status === AppointmentStatus.Accepted &&
-    appointment.videocallUrl &&
-    appointment.endTime &&
-    !isPastDate(appointment.endTime);
+    const getStatusLabel = useCallback((status: AppointmentStatus): string => {
+      switch (status) {
+        case AppointmentStatus.Pending:
+          return 'Ausstehend';
+        case AppointmentStatus.Confirmed:
+          return 'Bestätigt';
+        case AppointmentStatus.Cancelled:
+          return 'Abgesagt';
+        case AppointmentStatus.Completed:
+          return 'Abgeschlossen';
+        default:
+          return status;
+      }
+    }, []);
 
-  // FIX: Only the PARTICIPANT (not the organizer) can accept the appointment
-  const canConfirm = !appointment.isOrganizer && appointment.status === AppointmentStatus.Pending;
+    const { canJoinCall, canConfirm, canCancel, canComplete } = useMemo(
+      () => ({
+        canJoinCall:
+          appointment.status === AppointmentStatus.Confirmed &&
+          appointment.videocallUrl &&
+          appointment.endTime &&
+          !isPastDate(appointment.endTime),
+        // FIX: Only the PARTICIPANT (not the organizer) can accept the appointment
+        canConfirm: !appointment.isOrganizer && appointment.status === AppointmentStatus.Pending,
+        canCancel:
+          appointment.status === AppointmentStatus.Pending ||
+          (appointment.status === AppointmentStatus.Confirmed &&
+            appointment.startTime &&
+            !isPastDate(appointment.startTime)),
+        canComplete:
+          isTeacher &&
+          appointment.status === AppointmentStatus.Confirmed &&
+          appointment.endTime &&
+          isPastDate(appointment.endTime) &&
+          !isPastDate(
+            new Date(
+              new Date(appointment.endTime).getTime() + 7 * 24 * 60 * 60 * 1000
+            ).toISOString()
+          ), // Innerhalb von 7 Tagen nach Ende
+      }),
+      [
+        appointment.status,
+        appointment.videocallUrl,
+        appointment.endTime,
+        appointment.isOrganizer,
+        appointment.startTime,
+        isTeacher,
+      ]
+    );
 
-  const canCancel =
-    appointment.status === AppointmentStatus.Pending ||
-    (appointment.status === AppointmentStatus.Accepted && appointment.startTime && !isPastDate(appointment.startTime));
+    // Memoized event handlers
+    const handleConfirm = useCallback(
+      () => onConfirm?.(appointment.id),
+      [onConfirm, appointment.id]
+    );
+    const handleCancel = useCallback(() => onCancel?.(appointment.id), [onCancel, appointment.id]);
+    const handleComplete = useCallback(
+      () => onComplete?.(appointment.id),
+      [onComplete, appointment.id]
+    );
 
-  const canComplete =
-    isTeacher &&
-    appointment.status === AppointmentStatus.Accepted &&
-    appointment.endTime &&
-    isPastDate(appointment.endTime) &&
-    !isPastDate(new Date(new Date(appointment.endTime).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()); // Innerhalb von 7 Tagen nach Ende
-
-  return (
-    <Card
-      elevation={2}
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: 6,
-        },
-      }}
-    >
-      <CardContent sx={{ flexGrow: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Chip
-            label={appointment.skill?.name || 'Skill'}
-            size="small"
-            color="primary"
-            sx={{ fontWeight: 'medium' }}
-          />
-          <Chip
-            label={getStatusLabel(appointment.status)}
-            size="small"
+    return (
+      <Card
+        elevation={2}
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          borderRadius: spacing[2] / 8,
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: 6,
+          },
+        }}
+      >
+        <CardContent sx={{ flexGrow: 1, p: componentSpacing.card.padding / 8 }}>
+          <Box
             sx={{
-              bgcolor: getStatusColor(appointment.status),
-              color: 'white',
-              fontWeight: 'medium',
+              display: 'flex',
+              justifyContent: 'space-between',
+              mb: componentSpacing.card.gap / 8,
             }}
-          />
-        </Box>
+          >
+            <Chip
+              label={appointment.skill?.name ?? 'Skill'}
+              size="small"
+              color="primary"
+              sx={{ fontWeight: 'medium' }}
+            />
+            <Chip
+              label={getStatusLabel(appointment.status)}
+              size="small"
+              sx={{
+                bgcolor: getStatusColor(appointment.status),
+                color: 'white',
+                fontWeight: 'medium',
+              }}
+            />
+          </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          {/* <ProfileAvatar
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: componentSpacing.card.gap / 8 }}>
+            {/* <ProfileAvatar
             src={otherUser.profilePicture || undefined}
             alt={`${otherUser.firstName} ${otherUser.lastName}`}
             size={40}
           /> */}
-          <Box sx={{ ml: 1.5 }}>
-            <Typography variant="subtitle1" fontWeight="medium">
-              {otherUser?.firstName || ''} {otherUser?.lastName || ''}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {isTeacher ? (
-                <>
-                  <StudentIcon
-                    fontSize="small"
-                    sx={{ verticalAlign: 'middle', mr: 0.5 }}
-                  />
-                  Lernende:r
-                </>
-              ) : (
-                <>
-                  <TeacherIcon
-                    fontSize="small"
-                    sx={{ verticalAlign: 'middle', mr: 0.5 }}
-                  />
-                  Lehrende:r
-                </>
-              )}
+            <Box sx={{ ml: componentSpacing.chip.paddingX / 8 }}>
+              <Typography variant="subtitle1" fontWeight="medium">
+                {otherUser?.firstName ?? ''} {otherUser?.lastName ?? ''}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {isTeacher ? (
+                  <>
+                    <StudentIcon
+                      fontSize="small"
+                      sx={{ verticalAlign: 'middle', mr: spacing[0.5] / 8 }}
+                    />
+                    Lernende:r
+                  </>
+                ) : (
+                  <>
+                    <TeacherIcon
+                      fontSize="small"
+                      sx={{ verticalAlign: 'middle', mr: spacing[0.5] / 8 }}
+                    />
+                    Lehrende:r
+                  </>
+                )}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: spacing[1] / 8 }}>
+            <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', mr: spacing[1] / 8 }} />
+            <Typography variant="body2">
+              {formatDateTimeRange(appointment.startTime, appointment.endTime)}
             </Typography>
           </Box>
-        </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <CalendarIcon
-            fontSize="small"
-            sx={{ color: 'text.secondary', mr: 1 }}
-          />
-          <Typography variant="body2">
-            {formatDateTimeRange(appointment.startTime, appointment.endTime)}
-          </Typography>
-        </Box>
-
-        {appointment.notes && (
-          <>
-            <Divider sx={{ my: 1.5 }} />
-            <Typography variant="body2" color="text.secondary">
-              <strong>Notizen:</strong> {appointment.notes}
-            </Typography>
-          </>
-        )}
-      </CardContent>
-
-      <CardActions sx={{ p: 2, pt: 0 }}>
-        <Box sx={{ width: '100%' }}>
-          {canJoinCall && (
-            <Button
-              fullWidth
-              variant="contained"
-              color="primary"
-              component={RouterLink}
-              to={`/videocall/${appointment.id}`}
-              startIcon={<VideoCallIcon />}
-              sx={{ mb: 1 }}
-            >
-              Videoanruf beitreten
-            </Button>
+          {appointment.notes && (
+            <>
+              <Divider sx={{ my: componentSpacing.chip.paddingX / 8 }} />
+              <Typography variant="body2" color="text.secondary">
+                <strong>Notizen:</strong> {appointment.notes}
+              </Typography>
+            </>
           )}
+        </CardContent>
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            {canConfirm && onConfirm && (
-              <Tooltip title="Termin bestätigen">
-                <IconButton
-                  color="success"
-                  onClick={() => onConfirm(appointment.id)}
-                >
-                  <CheckIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {canCancel && onCancel && (
-              <Tooltip title="Termin absagen">
-                <IconButton
-                  color="error"
-                  onClick={() => onCancel(appointment.id)}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {canComplete && onComplete && (
-              <Tooltip title="Termin als abgeschlossen markieren">
-                <IconButton
-                  color="info"
-                  onClick={() => onComplete(appointment.id)}
-                >
-                  <CompleteIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {!canConfirm && !canCancel && !canComplete && (
-              <Box /> // Leerer Platzhalter, um das Layout konsistent zu halten
-            )}
-
-            {/* Bearbeiten-Button immer auf der rechten Seite */}
-            <Tooltip title="Details anzeigen">
-              <IconButton
-                component={RouterLink}
-                to={`/appointments/${appointment.id}`}
+        <CardActions sx={{ p: componentSpacing.card.actionsPadding / 8, pt: 0 }}>
+          <Box sx={{ width: '100%' }}>
+            {canJoinCall === true && (
+              <Button
+                fullWidth
+                variant="contained"
                 color="primary"
+                component={RouterLink}
+                to={`/videocall/${appointment.id}`}
+                startIcon={<VideoCallIcon />}
+                sx={{ mb: 1 }}
               >
-                <EditIcon />
-              </IconButton>
-            </Tooltip>
+                Videoanruf beitreten
+              </Button>
+            )}
+
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: { xs: 0.5, sm: 1 },
+              }}
+            >
+              {canConfirm && onConfirm !== undefined && (
+                <Tooltip title="Termin bestätigen">
+                  <IconButton
+                    color="success"
+                    onClick={handleConfirm}
+                    size="medium"
+                    sx={{ minWidth: 44, minHeight: 44 }}
+                  >
+                    <CheckIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+
+              {canCancel === true && onCancel !== undefined && (
+                <Tooltip title="Termin absagen">
+                  <IconButton
+                    color="error"
+                    onClick={handleCancel}
+                    size="medium"
+                    sx={{ minWidth: 44, minHeight: 44 }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+
+              {canComplete === true && onComplete !== undefined && (
+                <Tooltip title="Termin als abgeschlossen markieren">
+                  <IconButton
+                    color="info"
+                    onClick={handleComplete}
+                    size="medium"
+                    sx={{ minWidth: 44, minHeight: 44 }}
+                  >
+                    <CompleteIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+
+              {!canConfirm && canCancel === false && canComplete === false && (
+                <Box /> // Leerer Platzhalter, um das Layout konsistent zu halten
+              )}
+
+              {/* Bearbeiten-Button immer auf der rechten Seite */}
+              <Tooltip title="Details anzeigen">
+                <IconButton
+                  component={RouterLink}
+                  to={`/appointments/${appointment.id}`}
+                  color="primary"
+                  size="medium"
+                  sx={{ minWidth: 44, minHeight: 44 }}
+                >
+                  <EditIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
-        </Box>
-      </CardActions>
-    </Card>
-  );
-};
+        </CardActions>
+      </Card>
+    );
+  }
+);
+
+AppointmentCard.displayName = 'AppointmentCard';
 
 export default AppointmentCard;

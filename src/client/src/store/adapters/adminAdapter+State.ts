@@ -1,27 +1,51 @@
-import { createEntityAdapter, EntityState, EntityId } from "@reduxjs/toolkit";
-import { AdminAnalytics, AdminAppointment, AdminDashboardData, AdminMatch, AdminSettings, AdminSkill, AdminUser, AuditLog, ModerationReport, SystemHealth } from "../../types/models/Admin";
-import { SecurityAlertResponse, SecurityAlertStatisticsResponse } from "../../types/models/SecurityAlert";
-import { RequestState } from "../../types/common/RequestState";
+import { createEntityAdapter, type EntityState, type EntityId } from '@reduxjs/toolkit';
+import type {
+  AdminAnalytics,
+  AdminAppointment,
+  AdminDashboardData,
+  AdminMatch,
+  AdminSettings,
+  AdminSkill,
+  AdminUser,
+  AuditLog,
+  ModerationReport,
+  SystemHealth,
+} from '../../types/models/Admin';
+import type {
+  SecurityAlertResponse,
+  SecurityAlertStatisticsResponse,
+} from '../../types/models/SecurityAlert';
+import type { RequestState } from '../../types/common/RequestState';
+import type {
+  AppointmentFilters,
+  AuditLogFilters,
+  MatchFilters,
+  ModerationReportFilters,
+  SecurityAlertFilters,
+  SkillFilters,
+  UserFilters,
+} from '../../types/filters/AdminFilters';
 
 export const adminUsersAdapter = createEntityAdapter<AdminUser, EntityId>({
   selectId: (user) => user.id,
-  sortComparer: (a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`),
+  sortComparer: (a, b) =>
+    `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`),
 });
 
 export interface AdminEntityState extends EntityState<AdminUser, EntityId>, RequestState {
-   // Data
-  dashboard: AdminDashboardData | null;
+  // Data
+  dashboard: AdminDashboardData | undefined;
   users: AdminUser[];
   skills: AdminSkill[];
   appointments: AdminAppointment[];
   matches: AdminMatch[];
-  analytics: AdminAnalytics | null;
-  systemHealth: SystemHealth | null;
+  analytics: AdminAnalytics | undefined;
+  systemHealth: SystemHealth | undefined;
   auditLogs: AuditLog[];
   moderationReports: ModerationReport[];
-  settings: AdminSettings | null;
+  settings: AdminSettings | undefined;
   securityAlerts: SecurityAlertResponse[];
-  securityAlertStatistics: SecurityAlertStatisticsResponse | null;
+  securityAlertStatistics: SecurityAlertStatisticsResponse | undefined;
 
   // Loading states
   isLoading: boolean;
@@ -48,7 +72,7 @@ export interface AdminEntityState extends EntityState<AdminUser, EntityId>, Requ
   reportError: string | undefined;
   settingsError: string | undefined;
   securityAlertError: string | undefined;
-  
+
   // Pagination
   pagination: {
     users: AdminPagination;
@@ -61,22 +85,22 @@ export interface AdminEntityState extends EntityState<AdminUser, EntityId>, Requ
   };
 
   // Filters
-  filters: AdminFilters;
+  filters: AdminFilters | undefined;
 }
 
 export const initialAdminState: AdminEntityState = adminUsersAdapter.getInitialState({
-   dashboard: null,
+  dashboard: undefined,
   users: [],
   skills: [],
   appointments: [],
   matches: [],
-  analytics: null,
-  systemHealth: null,
+  analytics: undefined,
+  systemHealth: undefined,
   auditLogs: [],
   moderationReports: [],
-  settings: null,
+  settings: undefined,
   securityAlerts: [],
-  securityAlertStatistics: null,
+  securityAlertStatistics: undefined,
 
   isLoading: false,
   isLoadingUsers: false,
@@ -112,21 +136,8 @@ export const initialAdminState: AdminEntityState = adminUsersAdapter.getInitialS
     reports: { page: 1, limit: 20, total: 0 },
     securityAlerts: { page: 1, limit: 20, total: 0 },
   },
-  
-  filters: {
-    users: { status: 'all', role: 'all', search: '' },
-    skills: { status: 'all', category: 'all', search: '' },
-    appointments: { status: 'all', dateRange: null },
-    matches: { status: 'all', dateRange: null },
-    auditLogs: { action: 'all', user: '', dateRange: null },
-    reports: { type: 'all', status: 'all' },
-    securityAlerts: {
-      minLevel: '',
-      type: '',
-      includeRead: true,
-      includeDismissed: false,
-    },
-  },
+
+  filters: undefined,
 });
 
 export const adminUsersSelectors = adminUsersAdapter.getSelectors();
@@ -138,37 +149,11 @@ export interface AdminPagination {
 }
 
 export interface AdminFilters {
-  users: {
-    status: 'all' | 'active' | 'suspended' | 'pending';
-    role: 'all' | 'user' | 'admin' | 'moderator';
-    search: string;
-  };
-  skills: {
-    status: 'all' | 'approved' | 'pending' | 'rejected' | 'quarantined';
-    category: string;
-    search: string;
-  };
-  appointments: {
-    status: 'all' | 'scheduled' | 'completed' | 'cancelled' | 'in-progress';
-    dateRange: { start: Date; end: Date } | null;
-  };
-  matches: {
-    status: 'all' | 'pending' | 'accepted' | 'rejected' | 'expired';
-    dateRange: { start: Date; end: Date } | null;
-  };
-  auditLogs: {
-    action: 'all' | 'login' | 'logout' | 'create' | 'update' | 'delete' | 'suspend' | 'unsuspend';
-    user: string;
-    dateRange: { start: Date; end: Date } | null;
-  };
-  reports: {
-    type: 'all' | 'inappropriate-content' | 'spam' | 'harassment' | 'other';
-    status: 'all' | 'pending' | 'approved' | 'rejected' | 'escalated';
-  };
-  securityAlerts: {
-    minLevel: string;
-    type: string;
-    includeRead: boolean;
-    includeDismissed: boolean;
-  };
+  users: UserFilters;
+  skills: SkillFilters;
+  matches: MatchFilters;
+  appointments: AppointmentFilters;
+  auditLogs: AuditLogFilters;
+  reports: ModerationReportFilters;
+  securityAlerts: SecurityAlertFilters;
 }

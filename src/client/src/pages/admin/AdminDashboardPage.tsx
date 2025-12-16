@@ -55,10 +55,12 @@ const AdminDashboardPage: React.FC = () => {
       fetchSystemHealth();
     }, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, [fetchAdminDashboard, fetchSystemHealth]);
 
-  const handleRefresh = () => {
+  const handleRefresh = (): void => {
     fetchAdminDashboard();
     fetchSystemHealth();
   };
@@ -70,15 +72,14 @@ const AdminDashboardPage: React.FC = () => {
   if (errorMessage && !dashboard) {
     return (
       <PageContainer>
-        <AlertMessage
-          severity="error"
-          message={[errorMessage]}
-        />
+        <AlertMessage severity="error" message={[errorMessage]} />
       </PageContainer>
     );
   }
 
-  const getHealthStatusColor = (status: string) => {
+  const getHealthStatusColor = (
+    status: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
       case 'healthy':
         return 'success';
@@ -91,7 +92,9 @@ const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  const getServiceStatusColor = (status: string) => {
+  const getServiceStatusColor = (
+    status: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
       case 'online':
         return 'success';
@@ -243,17 +246,17 @@ const AdminDashboardPage: React.FC = () => {
                   <Typography variant="h6" component="h3">
                     System Status
                   </Typography>
-                  {systemHealth && systemHealth.status && (
+                  {systemHealth?.status !== undefined && (
                     <Chip
                       label={systemHealth.status.toUpperCase()}
-                      color={getHealthStatusColor(systemHealth.status) as any}
+                      color={getHealthStatusColor(systemHealth.status)}
                       size="small"
                     />
                   )}
                 </Box>
 
                 {isLoadingSystemHealth && <LinearProgress sx={{ mb: 2 }} />}
-                
+
                 {systemHealthError && (
                   <Alert severity="error" sx={{ mb: 2 }}>
                     {systemHealthError}
@@ -270,13 +273,19 @@ const AdminDashboardPage: React.FC = () => {
                       <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                         <Typography variant="body2">CPU Auslastung</Typography>
                         <Typography variant="body2">
-                          {((systemHealth.performance?.cpuUsage || 0) * 100).toFixed(1)}%
+                          {((systemHealth.performance?.cpuUsage ?? 0) * 100).toFixed(1)}%
                         </Typography>
                       </Box>
                       <LinearProgress
                         variant="determinate"
-                        value={(systemHealth.performance?.cpuUsage || 0) * 100}
-                        color={(systemHealth.performance?.cpuUsage || 0) > 0.8 ? 'error' : (systemHealth.performance?.cpuUsage || 0) > 0.6 ? 'warning' : 'primary'}
+                        value={(systemHealth.performance?.cpuUsage ?? 0) * 100}
+                        color={
+                          (systemHealth.performance?.cpuUsage ?? 0) > 0.8
+                            ? 'error'
+                            : (systemHealth.performance?.cpuUsage ?? 0) > 0.6
+                              ? 'warning'
+                              : 'primary'
+                        }
                       />
                     </Box>
 
@@ -284,13 +293,19 @@ const AdminDashboardPage: React.FC = () => {
                       <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                         <Typography variant="body2">Speicher Auslastung</Typography>
                         <Typography variant="body2">
-                          {((systemHealth.performance?.memoryUsage || 0) * 100).toFixed(1)}%
+                          {((systemHealth.performance?.memoryUsage ?? 0) * 100).toFixed(1)}%
                         </Typography>
                       </Box>
                       <LinearProgress
                         variant="determinate"
-                        value={(systemHealth.performance?.memoryUsage || 0) * 100}
-                        color={(systemHealth.performance?.memoryUsage || 0) > 0.8 ? 'error' : (systemHealth.performance?.memoryUsage || 0) > 0.6 ? 'warning' : 'primary'}
+                        value={(systemHealth.performance?.memoryUsage ?? 0) * 100}
+                        color={
+                          (systemHealth.performance?.memoryUsage ?? 0) > 0.8
+                            ? 'error'
+                            : (systemHealth.performance?.memoryUsage ?? 0) > 0.6
+                              ? 'warning'
+                              : 'primary'
+                        }
                       />
                     </Box>
 
@@ -298,13 +313,19 @@ const AdminDashboardPage: React.FC = () => {
                       <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                         <Typography variant="body2">Festplatten Auslastung</Typography>
                         <Typography variant="body2">
-                          {((systemHealth.performance?.diskUsage || 0) * 100).toFixed(1)}%
+                          {((systemHealth.performance?.diskUsage ?? 0) * 100).toFixed(1)}%
                         </Typography>
                       </Box>
                       <LinearProgress
                         variant="determinate"
-                        value={(systemHealth.performance?.diskUsage || 0) * 100}
-                        color={(systemHealth.performance?.diskUsage || 0) > 0.8 ? 'error' : (systemHealth.performance?.diskUsage || 0) > 0.6 ? 'warning' : 'primary'}
+                        value={(systemHealth.performance?.diskUsage ?? 0) * 100}
+                        color={
+                          (systemHealth.performance?.diskUsage ?? 0) > 0.8
+                            ? 'error'
+                            : (systemHealth.performance?.diskUsage ?? 0) > 0.6
+                              ? 'warning'
+                              : 'primary'
+                        }
                       />
                     </Box>
 
@@ -313,15 +334,18 @@ const AdminDashboardPage: React.FC = () => {
                       Services
                     </Typography>
                     <List dense>
-                      {(systemHealth.services || []).map((service, index) => (
-                        <ListItem key={service.name} divider={index < (systemHealth.services?.length || 0) - 1}>
+                      {(systemHealth.services ?? []).map((service, index) => (
+                        <ListItem
+                          key={service.name}
+                          divider={index < (systemHealth.services?.length ?? 0) - 1}
+                        >
                           <ListItemText
                             primary={service.name}
-                            secondary={`Uptime: ${(service.uptime * 100).toFixed(1)}% | Response: ${service.responseTime}ms`}
+                            secondary={`Uptime: ${(service.uptime * 100).toFixed(1)}% | Response: ${String(service.responseTime)}ms`}
                           />
                           <Chip
                             label={service.status}
-                            color={getServiceStatusColor(service.status) as any}
+                            color={getServiceStatusColor(service.status)}
                             size="small"
                           />
                         </ListItem>
@@ -342,11 +366,12 @@ const AdminDashboardPage: React.FC = () => {
                 </Typography>
                 <List>
                   {dashboard.topCategories.map((category, index) => (
-                    <ListItem key={category.name} divider={index < dashboard.topCategories?.length - 1}>
+                    <ListItem
+                      key={category.name}
+                      divider={index < dashboard.topCategories.length - 1}
+                    >
                       <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'primary.main' }}>
-                          {index + 1}
-                        </Avatar>
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>{index + 1}</Avatar>
                       </ListItemAvatar>
                       <ListItemText
                         primary={category.name}
@@ -363,7 +388,8 @@ const AdminDashboardPage: React.FC = () => {
                           color={category.growth > 0 ? 'success.main' : 'error.main'}
                           sx={{ ml: 0.5 }}
                         >
-                          {category.growth > 0 ? '+' : ''}{(category.growth * 100).toFixed(1)}%
+                          {category.growth > 0 ? '+' : ''}
+                          {(category.growth * 100).toFixed(1)}%
                         </Typography>
                       </Box>
                     </ListItem>
@@ -379,52 +405,60 @@ const AdminDashboardPage: React.FC = () => {
               <Alert
                 severity="warning"
                 action={
-                  <Typography variant="body2" component="a" href="/admin/moderation" sx={{ textDecoration: 'none' }}>
+                  <Typography
+                    variant="body2"
+                    component="a"
+                    href="/admin/moderation"
+                    sx={{ textDecoration: 'none' }}
+                  >
                     Berichte anzeigen
                   </Typography>
                 }
               >
                 <Box display="flex" alignItems="center">
                   <WarningIcon sx={{ mr: 1 }} />
-                  Es gibt {dashboard.overview.pendingReports} ausstehende Moderationsberichte, die Ihre Aufmerksamkeit erfordern.
+                  Es gibt {dashboard.overview.pendingReports} ausstehende Moderationsberichte, die
+                  Ihre Aufmerksamkeit erfordern.
                 </Box>
               </Alert>
             </Box>
           )}
 
           {/* System Alerts */}
-          {systemHealth?.alerts && systemHealth.alerts.filter(alert => !alert.resolved)?.length > 0 && (
-            <Box>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" component="h3" gutterBottom>
-                    System Warnungen
-                  </Typography>
-                  {systemHealth.alerts
-                    .filter(alert => !alert.resolved)
-                    .map((alert) => (
-                      <Alert
-                        key={alert.id}
-                        severity={alert.severity as any}
-                        sx={{ mb: 1 }}
-                      >
-                        <Box>
-                          <Typography variant="body2" fontWeight="bold">
-                            {alert.service && `${alert.service}: `}{alert.message}
-                          </Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {formatDistanceToNow(new Date(alert.timestamp), { 
-                              addSuffix: true,
-                              locale: de 
-                            })}
-                          </Typography>
-                        </Box>
-                      </Alert>
-                    ))}
-                </CardContent>
-              </Card>
-            </Box>
-          )}
+          {systemHealth?.alerts !== undefined &&
+            systemHealth.alerts.filter((alert) => !alert.resolved).length > 0 && (
+              <Box>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" component="h3" gutterBottom>
+                      System Warnungen
+                    </Typography>
+                    {systemHealth.alerts
+                      .filter((alert) => !alert.resolved)
+                      .map((alert) => (
+                        <Alert
+                          key={alert.id}
+                          severity={alert.severity as 'error' | 'warning' | 'info' | 'success'}
+                          sx={{ mb: 1 }}
+                        >
+                          <Box>
+                            <Typography variant="body2" fontWeight="bold">
+                              {alert.service && `${alert.service}: `}
+                              {alert.message}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {formatDistanceToNow(new Date(alert.timestamp), {
+                                addSuffix: true,
+                                locale: de,
+                              })}
+                            </Typography>
+                          </Box>
+                        </Alert>
+                      ))}
+                  </CardContent>
+                </Card>
+              </Box>
+            )}
         </Box>
       )}
     </PageContainer>

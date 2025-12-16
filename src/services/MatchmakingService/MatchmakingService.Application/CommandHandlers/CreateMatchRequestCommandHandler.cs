@@ -86,7 +86,10 @@ public class CreateMatchRequestCommandHandler(
         }
 
             // Generate ThreadId for grouping requests between users for this skill
-            var threadId = $"{request.UserId}:{request.TargetUserId}:{request.SkillId}";
+            // Use sorted user IDs to ensure the same ThreadId regardless of who initiates the request
+            // This allows counter-offers to be grouped in the same thread
+            var sortedUserIds = new[] { request.UserId!, request.TargetUserId }.OrderBy(x => x).ToArray();
+            var threadId = $"{sortedUserIds[0]}:{sortedUserIds[1]}:{request.SkillId}";
             var hashedThreadId = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(threadId));
             var threadIdGuid = new Guid(hashedThreadId.Take(16).ToArray()).ToString();
 

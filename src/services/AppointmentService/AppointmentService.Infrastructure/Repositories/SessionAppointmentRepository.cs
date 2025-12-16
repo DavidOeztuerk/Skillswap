@@ -24,6 +24,7 @@ public class SessionAppointmentRepository : ISessionAppointmentRepository
         return await _dbContext.SessionAppointments
             .Include(a => a.SessionSeries)
             .ThenInclude(s => s.Connection)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == appointmentId, cancellationToken);
     }
 
@@ -46,6 +47,8 @@ public class SessionAppointmentRepository : ISessionAppointmentRepository
         return await _dbContext.SessionAppointments
             .Include(a => a.SessionSeries)
                 .ThenInclude(s => s.Connection)
+            .AsSplitQuery()
+            .AsNoTracking()
             .Where(a => a.OrganizerUserId == userId || a.ParticipantUserId == userId)
             .OrderByDescending(a => a.ScheduledDate)
             .ToListAsync(cancellationToken);
@@ -60,6 +63,8 @@ public class SessionAppointmentRepository : ISessionAppointmentRepository
         return await _dbContext.SessionAppointments
             .Include(a => a.SessionSeries)
                 .ThenInclude(s => s.Connection)
+            .AsSplitQuery()
+            .AsNoTracking()
             .Where(a => a.OrganizerUserId == userId || a.ParticipantUserId == userId)
             .OrderByDescending(a => a.ScheduledDate)
             .Skip((pageNumber - 1) * pageSize)

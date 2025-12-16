@@ -25,7 +25,7 @@ const SEO: React.FC<SEOProps> = ({
 }) => {
   const siteName = 'SkillSwap';
   const fullTitle = title.includes('SkillSwap') ? title : `${title} | ${siteName}`;
-  const keywordsContent = keywords?.length ? keywords.join(', ') : undefined;
+  const keywordsContent = keywords.length > 0 ? keywords.join(', ') : undefined;
 
   return (
     <>
@@ -57,7 +57,6 @@ const SEO: React.FC<SEOProps> = ({
       {/* Schema.org JSON-LD */}
       <script
         type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             '@context': 'https://schema.org',

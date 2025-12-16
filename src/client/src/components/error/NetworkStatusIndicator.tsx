@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  Alert,
-  AlertTitle,
-  Chip,
-  Typography,
-  Collapse,
-} from '@mui/material';
+import { Box, Alert, AlertTitle, Chip, Typography, Collapse } from '@mui/material';
 import {
   WifiOff as OfflineIcon,
   SignalWifi1Bar as SlowIcon,
@@ -27,7 +20,13 @@ const NetworkStatusIndicator: React.FC<NetworkStatusIndicatorProps> = ({
 }) => {
   const { isOnline, isSlowConnection, connectionType, downlink, rtt } = useNetworkStatus();
 
-  const getStatusInfo = () => {
+  const getStatusInfo = (): {
+    severity: 'error' | 'warning' | 'success';
+    icon: React.ReactElement;
+    title: string;
+    message: string;
+    color: string;
+  } => {
     if (!isOnline) {
       return {
         severity: 'error' as const,
@@ -62,14 +61,20 @@ const NetworkStatusIndicator: React.FC<NetworkStatusIndicatorProps> = ({
 
   if (!shouldShow) return null;
 
-  const getConnectionTypeLabel = () => {
+  const getConnectionTypeLabel = (): string => {
     switch (connectionType) {
-      case '2g': return '2G';
-      case '3g': return '3G';
-      case '4g': return '4G';
-      case 'wifi': return 'WiFi';
-      case 'ethernet': return 'Ethernet';
-      default: return 'Unbekannt';
+      case '2g':
+        return '2G';
+      case '3g':
+        return '3G';
+      case '4g':
+        return '4G';
+      case 'wifi':
+        return 'WiFi';
+      case 'ethernet':
+        return 'Ethernet';
+      default:
+        return 'Unbekannt';
     }
   };
 
@@ -97,7 +102,16 @@ const NetworkStatusIndicator: React.FC<NetworkStatusIndicatorProps> = ({
         <Chip
           icon={statusInfo.icon}
           label={statusInfo.title}
-          color={statusInfo.color as any}
+          color={
+            statusInfo.color as
+              | 'default'
+              | 'primary'
+              | 'secondary'
+              | 'error'
+              | 'info'
+              | 'success'
+              | 'warning'
+          }
           size="small"
           variant={!isOnline ? 'filled' : 'outlined'}
         />
@@ -108,41 +122,29 @@ const NetworkStatusIndicator: React.FC<NetworkStatusIndicatorProps> = ({
   return (
     <Box sx={positionStyles[position]}>
       <Collapse in={shouldShow}>
-        <Alert 
+        <Alert
           severity={statusInfo.severity}
           icon={statusInfo.icon}
           variant={!isOnline ? 'filled' : 'outlined'}
         >
           <AlertTitle>{statusInfo.title}</AlertTitle>
-          <Typography variant="body2">
-            {statusInfo.message}
-          </Typography>
-          
-          {(downlink || rtt || connectionType !== 'unknown') && (
+          <Typography variant="body2">{statusInfo.message}</Typography>
+
+          {(downlink !== undefined && downlink > 0) ||
+          (rtt !== undefined && rtt > 0) ||
+          connectionType !== 'unknown' ? (
             <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {connectionType !== 'unknown' && (
-                <Chip 
-                  label={`${getConnectionTypeLabel()}`}
-                  size="small"
-                  variant="outlined"
-                />
+                <Chip label={getConnectionTypeLabel()} size="small" variant="outlined" />
               )}
-              {downlink && (
-                <Chip 
-                  label={`${downlink.toFixed(1)} Mbps`}
-                  size="small"
-                  variant="outlined"
-                />
+              {downlink !== undefined && downlink > 0 && (
+                <Chip label={`${downlink.toFixed(1)} Mbps`} size="small" variant="outlined" />
               )}
-              {rtt && (
-                <Chip 
-                  label={`${rtt}ms`}
-                  size="small"
-                  variant="outlined"
-                />
+              {rtt !== undefined && rtt > 0 && (
+                <Chip label={`${String(rtt)}ms`} size="small" variant="outlined" />
               )}
             </Box>
-          )}
+          ) : null}
         </Alert>
       </Collapse>
     </Box>

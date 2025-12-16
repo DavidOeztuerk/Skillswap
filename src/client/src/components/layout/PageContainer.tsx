@@ -1,6 +1,5 @@
-// src/components/layout/PageContainer.tsx
 import React from 'react';
-import { Box, Container, Paper, SxProps, Theme } from '@mui/material';
+import { Box, Container, Paper, type SxProps, type Theme } from '@mui/material';
 
 interface PageContainerProps {
   children: React.ReactNode;
@@ -19,29 +18,27 @@ const PageContainer: React.FC<PageContainerProps> = ({
   maxWidth = 'lg',
   disablePadding = false,
   elevation = 0,
-  sx = {},
-}) => {
-  return (
-    <Container
-      maxWidth={maxWidth}
+  sx,
+}) => (
+  <Container
+    maxWidth={maxWidth}
+    sx={[
+      { mt: 2, mb: 4 },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      ...(Array.isArray(sx) ? sx : sx !== undefined ? [sx] : []),
+    ]}
+  >
+    <Paper
+      elevation={elevation}
       sx={{
-        mt: 2,
-        mb: 4,
-        ...sx,
+        width: '100%',
+        p: disablePadding ? 0 : 3,
+        borderRadius: 2,
       }}
     >
-      <Paper
-        elevation={elevation}
-        sx={{
-          width: '100%',
-          p: disablePadding ? 0 : 3,
-          borderRadius: 2,
-        }}
-      >
-        <Box>{children}</Box>
-      </Paper>
-    </Container>
-  );
-};
+      <Box>{children}</Box>
+    </Paper>
+  </Container>
+);
 
 export default PageContainer;

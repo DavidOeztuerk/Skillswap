@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import {
   Box,
   Container,
@@ -36,7 +37,7 @@ import { toast } from 'react-toastify';
 import PageHeader from '../../components/layout/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
 import { isSuccessResponse, isPagedResponse } from '../../types/api/UnifiedResponse';
-import { GetUserSkillResponse } from '../../types/contracts/responses/SkillResponses';
+import type { GetUserSkillResponse } from '../../types/contracts/responses/SkillResponses';
 
 const FavoriteSkillsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,40 +49,37 @@ const FavoriteSkillsPage: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 12;
 
-  useEffect(() => {
-    loadFavoriteSkills();
-  }, [page]);
-
-  const loadFavoriteSkills = async () => {
+  const loadFavoriteSkills = useCallback(async () => {
     try {
       setLoading(true);
       const response = await skillService.getFavoriteSkillsWithDetails(page, pageSize);
-      
+
       if (isSuccessResponse(response)) {
-        if (response.data) {
-          setFavoriteSkills(response.data);
-          if (isPagedResponse(response)) {
-            setTotalPages(response.totalPages || 1);
-            setTotalCount(response.totalRecords || 0);
-          }
+        setFavoriteSkills(response.data);
+        if (isPagedResponse(response)) {
+          setTotalPages(response.totalPages || 1);
+          setTotalCount(response.totalRecords);
         }
       }
-    } catch (error: unknown) {
-      console.error('Error loading favorite skills:', error);
-      toast.error('Fehler beim Laden der Favoriten');
+    } catch (err) {
+      console.error('Error loading favorite skills:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
 
-  const handleRemoveFavorite = async (skillId: string) => {
+  useAsyncEffect(async () => {
+    await loadFavoriteSkills();
+  }, [loadFavoriteSkills]);
+
+  const handleRemoveFavorite = async (skillId: string): Promise<void> => {
     try {
       setRemoving(skillId);
       const response = await skillService.removeFavoriteSkill(skillId);
-      
+
       if (response.success) {
-        setFavoriteSkills(prev => prev.filter(s => s.skillId !== skillId));
-        setTotalCount(prev => prev - 1);
+        setFavoriteSkills((prev) => prev.filter((s) => s.skillId !== skillId));
+        setTotalCount((prev) => prev - 1);
         toast.success('Skill aus Favoriten entfernt');
       }
     } catch (error: unknown) {
@@ -92,15 +90,15 @@ const FavoriteSkillsPage: React.FC = () => {
     }
   };
 
-  const handleViewDetails = (skillId: string) => {
-    navigate(`/skills/${skillId}`);
+  const handleViewDetails = async (skillId: string): Promise<void> => {
+    await navigate(`/skills/${skillId}`);
   };
 
-  const handleStartMatchRequest = (skillId: string) => {
-    navigate(`/skills/${skillId}`, { state: { openMatchDialog: true } });
+  const handleStartMatchRequest = async (skillId: string): Promise<void> => {
+    await navigate(`/skills/${skillId}`, { state: { openMatchDialog: true } });
   };
 
-  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
+  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number): void => {
     setPage(value);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -108,12 +106,9 @@ const FavoriteSkillsPage: React.FC = () => {
   if (loading && favoriteSkills.length === 0) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <PageHeader
-          title="Meine Favoriten"
-          subtitle="Skills die du als Favorit markiert hast"
-        />
+        <PageHeader title="Meine Favoriten" subtitle="Skills die du als Favorit markiert hast" />
         <Grid container spacing={3} sx={{ mt: 2 }}>
-          {[...Array(6)].map((_, index) => (
+          {Array.from({ length: 6 }, (_, index) => (
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
               <Card>
                 <Skeleton variant="rectangular" height={200} />
@@ -133,10 +128,7 @@ const FavoriteSkillsPage: React.FC = () => {
   if (!loading && favoriteSkills.length === 0) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <PageHeader
-          title="Meine Favoriten"
-          subtitle="Skills die du als Favorit markiert hast"
-        />
+        <PageHeader title="Meine Favoriten" subtitle="Skills die du als Favorit markiert hast" />
         <EmptyState
           icon={<FavoriteBorderIcon />}
           title="Keine Favoriten"
@@ -152,7 +144,7 @@ const FavoriteSkillsPage: React.FC = () => {
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <PageHeader
         title="Meine Favoriten"
-        subtitle={`${totalCount} Skills als Favorit markiert`}
+        subtitle={`${totalCount.toString()} Skills als Favorit markiert`}
       />
 
       <Grid container spacing={3} sx={{ mt: 2 }}>
@@ -248,10 +240,7 @@ const FavoriteSkillsPage: React.FC = () => {
 
                 {/* Owner Info */}
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                  <Avatar
-                    src={skill.ownerAvatarUrl}
-                    sx={{ width: 24, height: 24 }}
-                  >
+                  <Avatar src={skill.ownerAvatarUrl} sx={{ width: 24, height: 24 }}>
                     <PersonIcon sx={{ fontSize: 16 }} />
                   </Avatar>
                   <Typography variant="body2" color="text.secondary" noWrap>
@@ -295,12 +284,7 @@ const FavoriteSkillsPage: React.FC = () => {
                 <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
                   {/* Rating */}
                   <Stack direction="row" spacing={0.5} alignItems="center">
-                    <Rating
-                      value={skill.rating}
-                      readOnly
-                      size="small"
-                      precision={0.5}
-                    />
+                    <Rating value={skill.rating} readOnly size="small" precision={0.5} />
                     <Typography variant="body2" color="text.secondary">
                       ({skill.reviewCount})
                     </Typography>
@@ -313,7 +297,7 @@ const FavoriteSkillsPage: React.FC = () => {
                     <Stack direction="row" spacing={0.5} alignItems="center">
                       <HandshakeIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                       <Typography variant="body2" color="text.secondary">
-                        {skill.matchCount || 0} Matches
+                        {skill.matchCount ?? 0} Matches
                       </Typography>
                     </Stack>
                   </Tooltip>
@@ -333,7 +317,7 @@ const FavoriteSkillsPage: React.FC = () => {
                     ))}
                     {skill.tags.length > 3 && (
                       <Chip
-                        label={`+${skill.tags.length - 3}`}
+                        label={`+${String(skill.tags.length - 3)}`}
                         size="small"
                         sx={{ mb: 0.5 }}
                       />
@@ -342,7 +326,7 @@ const FavoriteSkillsPage: React.FC = () => {
                 )}
 
                 {/* Price if monetary */}
-                {skill.price && (
+                {skill.price != null && skill.price > 0 && (
                   <Paper
                     elevation={0}
                     sx={{
@@ -353,7 +337,7 @@ const FavoriteSkillsPage: React.FC = () => {
                     }}
                   >
                     <Typography variant="body2" fontWeight="bold" color="primary.main">
-                      {skill.price} {skill.currency || '€'}
+                      {skill.price} {skill.currency ?? '€'}
                     </Typography>
                   </Paper>
                 )}
@@ -362,7 +346,9 @@ const FavoriteSkillsPage: React.FC = () => {
               <CardActions sx={{ p: 2, pt: 0 }}>
                 <Button
                   size="small"
-                  onClick={() => handleViewDetails(skill.skillId)}
+                  onClick={async () => {
+                    await handleViewDetails(skill.skillId);
+                  }}
                   startIcon={<ViewIcon />}
                 >
                   Details
@@ -371,7 +357,9 @@ const FavoriteSkillsPage: React.FC = () => {
                   size="small"
                   color="primary"
                   variant="contained"
-                  onClick={() => handleStartMatchRequest(skill.skillId)}
+                  onClick={async () => {
+                    await handleStartMatchRequest(skill.skillId);
+                  }}
                   startIcon={<HandshakeIcon />}
                 >
                   Anfrage
@@ -381,7 +369,10 @@ const FavoriteSkillsPage: React.FC = () => {
               {/* Added to favorites date */}
               <Box sx={{ px: 2, pb: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Favorit seit: {skill.addedToFavoritesAt ? new Date(skill.addedToFavoritesAt).toLocaleDateString('de-DE') : 'Unbekannt'}
+                  Favorit seit:{' '}
+                  {skill.addedToFavoritesAt
+                    ? new Date(skill.addedToFavoritesAt).toLocaleDateString('de-DE')
+                    : 'Unbekannt'}
                 </Typography>
               </Box>
             </Card>

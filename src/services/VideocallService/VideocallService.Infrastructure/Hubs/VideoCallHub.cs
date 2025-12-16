@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -459,11 +460,117 @@ public class VideoCallHub : Hub
 
     // ===== Media Control Methods =====
 
-    public async Task ToggleCamera(string roomId, bool enabled)
-        => await Clients.OthersInGroup(roomId).SendAsync("CameraToggled", new { userId = GetUserId(), enabled });
+    /// <summary>
+    /// Generic media state change handler - used by frontend for audio/video/screen toggle
+    /// </summary>
+    public async Task MediaStateChanged(string roomId, string mediaType, bool enabled)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(roomId))
+        {
+            _logger.LogWarning("⚠️ [Hub.MediaStateChanged] Invalid parameters - userId or roomId missing");
+            return;
+        }
 
+        // Validate media type
+        var validMediaTypes = new[] { "audio", "video", "screen" };
+        if (!validMediaTypes.Contains(mediaType.ToLower()))
+        {
+            _logger.LogWarning("⚠️ [Hub.MediaStateChanged] Invalid media type: {MediaType}", mediaType);
+            return;
+        }
+
+        _logger.LogInformation("📹 [Hub.MediaStateChanged] User {UserId} changed {MediaType} to {Enabled} in room {RoomId}",
+            userId, mediaType, enabled, roomId);
+
+        // Notify other participants
+        await Clients.OthersInGroup(roomId).SendAsync("MediaStateChanged", new
+        {
+            userId,
+            type = mediaType.ToLower(),
+            enabled
+        });
+    }
+
+    /// <summary>
+    /// ToggleCamera - Aktualisiert DB UND broadcastet
+    /// </summary>
+    public async Task ToggleCamera(string roomId, bool enabled)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(roomId))
+        {
+            _logger.LogWarning("⚠️ [Hub.ToggleCamera] Invalid parameters");
+            return;
+        }
+
+        try
+        {
+            // DB Update - CallParticipant.CameraEnabled
+            var session = await _unitOfWork.VideoCallSessions.GetByRoomIdWithParticipantsAsync(roomId);
+            if (session != null)
+            {
+                var participant = session.Participants?.FirstOrDefault(p => p.UserId == userId && p.LeftAt == null);
+                if (participant != null)
+                {
+                    participant.CameraEnabled = enabled;
+                    participant.UpdatedAt = DateTime.UtcNow;
+                    participant.UpdatedBy = userId;
+                    await _unitOfWork.CallParticipants.UpdateAsync(participant);
+                    await _unitOfWork.SaveChangesAsync();
+                    _logger.LogDebug("📹 [Hub.ToggleCamera] Updated DB for user {UserId}, camera={Enabled}", userId, enabled);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [Hub.ToggleCamera] Error updating DB for user {UserId}", userId);
+            // Continue with broadcast even if DB fails
+        }
+
+        // Broadcast to other participants
+        await Clients.OthersInGroup(roomId).SendAsync("CameraToggled", new { userId, enabled });
+    }
+
+    /// <summary>
+    /// ToggleMicrophone - Aktualisiert DB UND broadcastet
+    /// </summary>
     public async Task ToggleMicrophone(string roomId, bool enabled)
-        => await Clients.OthersInGroup(roomId).SendAsync("MicrophoneToggled", new { userId = GetUserId(), enabled });
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(roomId))
+        {
+            _logger.LogWarning("⚠️ [Hub.ToggleMicrophone] Invalid parameters");
+            return;
+        }
+
+        try
+        {
+            // DB Update - CallParticipant.MicrophoneEnabled
+            var session = await _unitOfWork.VideoCallSessions.GetByRoomIdWithParticipantsAsync(roomId);
+            if (session != null)
+            {
+                var participant = session.Participants?.FirstOrDefault(p => p.UserId == userId && p.LeftAt == null);
+                if (participant != null)
+                {
+                    participant.MicrophoneEnabled = enabled;
+                    participant.UpdatedAt = DateTime.UtcNow;
+                    participant.UpdatedBy = userId;
+                    await _unitOfWork.CallParticipants.UpdateAsync(participant);
+                    await _unitOfWork.SaveChangesAsync();
+                    _logger.LogDebug("🎤 [Hub.ToggleMicrophone] Updated DB for user {UserId}, mic={Enabled}", userId, enabled);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [Hub.ToggleMicrophone] Error updating DB for user {UserId}", userId);
+            // Continue with broadcast even if DB fails
+        }
+
+        // Broadcast to other participants
+        await Clients.OthersInGroup(roomId).SendAsync("MicrophoneToggled", new { userId, enabled });
+    }
 
     public async Task StartScreenShare(string roomId)
         => await Clients.OthersInGroup(roomId).SendAsync("ScreenShareStarted", new { userId = GetUserId() });
@@ -471,19 +578,84 @@ public class VideoCallHub : Hub
     public async Task StopScreenShare(string roomId)
         => await Clients.OthersInGroup(roomId).SendAsync("ScreenShareStopped", new { userId = GetUserId() });
 
+    /// <summary>
+    /// SendChatMessage - Persistiert in DB UND broadcastet
+    /// Chat History wird gespeichert wie bei Microsoft Teams
+    /// </summary>
     public async Task SendChatMessage(string roomId, string message)
     {
-        if (string.IsNullOrEmpty(message) || message.Length > 10000)
+        var userId = GetUserId();
+        var timestamp = DateTime.UtcNow;
+
+        // Validation
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(roomId))
         {
-            _logger.LogWarning("⚠️ Invalid chat message from {UserId}", GetUserId());
+            _logger.LogWarning("⚠️ [Hub.SendChatMessage] Invalid parameters");
             return;
         }
 
+        if (string.IsNullOrEmpty(message) || message.Length > 2000)
+        {
+            _logger.LogWarning("⚠️ [Hub.SendChatMessage] Invalid message length from {UserId}", userId);
+            return;
+        }
+
+        string? messageId = null;
+        string senderName = userId; // Default fallback
+
+        try
+        {
+            // DB Speichern - ChatMessage Entity
+            var session = await _unitOfWork.VideoCallSessions.GetByRoomIdAsync(roomId);
+            if (session != null)
+            {
+                // Mark session as using chat
+                if (!session.ChatUsed)
+                {
+                    session.ChatUsed = true;
+                    session.UpdatedAt = timestamp;
+                    await _unitOfWork.VideoCallSessions.UpdateAsync(session);
+                }
+
+                // Get sender name from participants (if available)
+                var participant = session.Participants?.FirstOrDefault(p => p.UserId == userId);
+                // SenderName would ideally come from user service, but for now use userId
+                // In production, consider caching user names or storing them in CallParticipant
+
+                var chatMessage = new Domain.Entities.ChatMessage
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    SessionId = session.Id,
+                    SenderId = userId,
+                    SenderName = senderName, // TODO: Fetch from UserService or cache
+                    Message = message,
+                    SentAt = timestamp,
+                    MessageType = Domain.Entities.ChatMessageType.Text,
+                    CreatedAt = timestamp,
+                    CreatedBy = userId
+                };
+
+                await _unitOfWork.ChatMessages.AddAsync(chatMessage);
+                await _unitOfWork.SaveChangesAsync();
+
+                messageId = chatMessage.Id;
+                _logger.LogDebug("💬 [Hub.SendChatMessage] Saved to DB: {MessageId} from {UserId}", messageId, userId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [Hub.SendChatMessage] Error saving message to DB for user {UserId}", userId);
+            // Continue with broadcast even if DB save fails
+        }
+
+        // Broadcast to all participants in room (including sender for confirmation)
         await Clients.Group(roomId).SendAsync("ChatMessage", new
         {
-            userId = GetUserId(),
+            id = messageId,
+            userId,
+            senderName,
             message,
-            timestamp = DateTime.UtcNow
+            timestamp
         });
     }
 
@@ -496,11 +668,22 @@ public class VideoCallHub : Hub
 
     /// <summary>
     /// Input Validation für RoomId
+    /// Accepts both:
+    /// - 12-char hex format (from CreateCallSessionCommandHandler: Guid.NewGuid().ToString("N")[..12])
+    /// - Full GUID format (for backwards compatibility)
     /// </summary>
     private static bool IsValidRoomId(string roomId)
     {
         if (string.IsNullOrEmpty(roomId)) return false;
         if (roomId.Length > 100) return false;
+
+        // Accept 12-char hex format (e.g., "77fb5ef737c3")
+        if (roomId.Length == 12 && roomId.All(c => char.IsAsciiHexDigit(c)))
+        {
+            return true;
+        }
+
+        // Also accept full GUID format for backwards compatibility
         return Guid.TryParse(roomId, out _);
     }
 
@@ -594,13 +777,43 @@ public class VideoCallHub : Hub
     }
 
     /// <summary>
-    /// Get Room Participants von Redis
+    /// Get Room Participants - Echte DB-Abfrage
+    /// Gibt aktive Teilnehmer (LeftAt == null) aus der Datenbank zurück
     /// </summary>
-    private async Task<List<string>> GetRoomParticipantsAsync(string roomId)
+    private async Task<List<object>> GetRoomParticipantsAsync(string roomId)
     {
-        // In einer echten Implementierung würdest du hier die
-        // tatsächlichen Teilnehmer aus der DB oder Redis holen
-        // Für jetzt returnen wir eine leere Liste
-        return new List<string>();
+        try
+        {
+            var session = await _unitOfWork.VideoCallSessions.GetByRoomIdWithParticipantsAsync(roomId);
+            if (session == null)
+            {
+                _logger.LogDebug("📋 [Hub.GetRoomParticipants] No session found for room {RoomId}", roomId);
+                return new List<object>();
+            }
+
+            var activeParticipants = session.Participants?
+                .Where(p => p.LeftAt == null)
+                .Select(p => new
+                {
+                    userId = p.UserId,
+                    connectionId = p.ConnectionId,
+                    joinedAt = p.JoinedAt,
+                    cameraEnabled = p.CameraEnabled,
+                    microphoneEnabled = p.MicrophoneEnabled,
+                    screenShareEnabled = p.ScreenShareEnabled,
+                    isInitiator = p.IsInitiator
+                })
+                .ToList<object>() ?? new List<object>();
+
+            _logger.LogDebug("📋 [Hub.GetRoomParticipants] Found {Count} active participants in room {RoomId}",
+                activeParticipants.Count, roomId);
+
+            return activeParticipants;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [Hub.GetRoomParticipants] Error fetching participants for room {RoomId}", roomId);
+            return new List<object>();
+        }
     }
 }

@@ -1,7 +1,7 @@
-// src/components/ui/EmptyState.tsx
-import React from 'react';
-import { Box, Typography, Button, SxProps, Theme } from '@mui/material';
+import React, { memo } from 'react';
+import { Box, Typography, Button, type SxProps, type Theme } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import { spacing } from '../../styles/tokens';
 
 interface EmptyStateProps {
   title: string;
@@ -16,33 +16,28 @@ interface EmptyStateProps {
 /**
  * Komponente für den leeren Zustand, wenn keine Daten vorhanden sind
  */
-const EmptyState: React.FC<EmptyStateProps> = ({
-  title,
-  description,
-  icon,
-  actionLabel,
-  actionPath,
-  actionHandler,
-  sx = {},
-}) => {
-  return (
+const EmptyState: React.FC<EmptyStateProps> = memo(
+  ({ title, description, icon, actionLabel, actionPath, actionHandler, sx = {} }) => (
     <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-        py: 8,
-        px: 2,
-        ...sx,
-      }}
+      sx={[
+        {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          py: spacing[8] / 8,
+          px: spacing[2] / 8,
+        },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
     >
-      {icon && (
+      {icon !== undefined && (
         <Box
           sx={{
             fontSize: 64,
-            mb: 2,
+            mb: spacing[2] / 8,
             color: 'text.secondary',
             '& svg': {
               fontSize: 'inherit',
@@ -53,13 +48,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         </Box>
       )}
 
-      <Typography
-        variant="h5"
-        component="h2"
-        color="text.primary"
-        gutterBottom
-        fontWeight="medium"
-      >
+      <Typography variant="h5" component="h2" color="text.primary" gutterBottom fontWeight="medium">
         {title}
       </Typography>
 
@@ -67,7 +56,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         <Typography
           variant="body1"
           color="text.secondary"
-          sx={{ maxWidth: 450, mb: actionLabel ? 3 : 0 }}
+          sx={{ maxWidth: 450, mb: actionLabel ? spacing[3] / 8 : 0 }}
         >
           {description}
         </Typography>
@@ -80,13 +69,15 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           component={actionPath ? RouterLink : 'button'}
           to={actionPath}
           onClick={actionHandler}
-          sx={{ mt: description ? 0 : 3 }}
+          sx={{ mt: description ? 0 : spacing[3] / 8 }}
         >
           {actionLabel}
         </Button>
       )}
     </Box>
-  );
-};
+  )
+);
+
+EmptyState.displayName = 'EmptyState';
 
 export default EmptyState;

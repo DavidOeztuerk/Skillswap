@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import { ErrorResponse } from '../types/api/UnifiedResponse';
-import { AppDispatch, RootState } from './store';
+import type { ErrorResponse } from '../types/api/UnifiedResponse';
+import type { AppDispatch, RootState } from './store';
 
 export const createAppAsyncThunk = createAsyncThunk.withTypes<{
   rejectValue: ErrorResponse;

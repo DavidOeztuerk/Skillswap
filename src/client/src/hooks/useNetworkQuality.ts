@@ -39,6 +39,24 @@ interface PreviousStats {
   audioBytesReceived: number;
 }
 
+// WebRTC Stats Report types (typed subset of RTCStats)
+interface RTCInboundRtpStats {
+  type: 'inbound-rtp';
+  kind: 'video' | 'audio';
+  packetsLost?: number;
+  jitter?: number;
+  bytesReceived?: number;
+  timestamp: number;
+}
+
+interface RTCCandidatePairStats {
+  type: 'candidate-pair';
+  state: string;
+  currentRoundTripTime?: number;
+}
+
+type WebRTCStatsReport = RTCInboundRtpStats | RTCCandidatePairStats | { type: string };
+
 // ============================================================================
 // Initial State
 // ============================================================================
@@ -65,7 +83,7 @@ const initialStats: NetworkQualityStats = {
 /**
  * Network Quality Monitoring Hook
  * Monitors WebRTC connection quality and provides real-time feedback
- * 
+ *
  * @param peerConnection - The WebRTC peer connection to monitor
  * @param options - Configuration options
  * @returns NetworkQualityStats with current connection quality metrics
@@ -92,45 +110,48 @@ export const useNetworkQuality = (
   /**
    * Calculate quality score based on metrics
    */
-  const calculateQuality = useCallback((
-    videoPacketsLostPerSec: number,
-    audioPacketsLostPerSec: number,
-    videoJitter: number,
-    audioJitter: number,
-    rtt: number
-  ): NetworkQualityStats['quality'] => {
-    let score = 100;
+  const calculateQuality = useCallback(
+    (
+      videoPacketsLostPerSec: number,
+      audioPacketsLostPerSec: number,
+      videoJitter: number,
+      audioJitter: number,
+      rtt: number
+    ): NetworkQualityStats['quality'] => {
+      let score = 100;
 
-    // Audio Packet Loss (most critical for calls)
-    if (audioPacketsLostPerSec > 3) score -= 40;
-    else if (audioPacketsLostPerSec > 1) score -= 20;
-    else if (audioPacketsLostPerSec > 0) score -= 5;
+      // Audio Packet Loss (most critical for calls)
+      if (audioPacketsLostPerSec > 3) score -= 40;
+      else if (audioPacketsLostPerSec > 1) score -= 20;
+      else if (audioPacketsLostPerSec > 0) score -= 5;
 
-    // Video Packet Loss
-    if (videoPacketsLostPerSec > 5) score -= 30;
-    else if (videoPacketsLostPerSec > 2) score -= 15;
-    else if (videoPacketsLostPerSec > 0) score -= 5;
+      // Video Packet Loss
+      if (videoPacketsLostPerSec > 5) score -= 30;
+      else if (videoPacketsLostPerSec > 2) score -= 15;
+      else if (videoPacketsLostPerSec > 0) score -= 5;
 
-    // Audio Jitter (critical for voice clarity)
-    if (audioJitter > 50) score -= 25;
-    else if (audioJitter > 30) score -= 15;
-    else if (audioJitter > 15) score -= 5;
+      // Audio Jitter (critical for voice clarity)
+      if (audioJitter > 50) score -= 25;
+      else if (audioJitter > 30) score -= 15;
+      else if (audioJitter > 15) score -= 5;
 
-    // Video Jitter
-    if (videoJitter > 100) score -= 15;
-    else if (videoJitter > 50) score -= 10;
-    else if (videoJitter > 30) score -= 5;
+      // Video Jitter
+      if (videoJitter > 100) score -= 15;
+      else if (videoJitter > 50) score -= 10;
+      else if (videoJitter > 30) score -= 5;
 
-    // Round Trip Time
-    if (rtt > 400) score -= 25;
-    else if (rtt > 200) score -= 15;
-    else if (rtt > 100) score -= 5;
+      // Round Trip Time
+      if (rtt > 400) score -= 25;
+      else if (rtt > 200) score -= 15;
+      else if (rtt > 100) score -= 5;
 
-    if (score >= 80) return 'excellent';
-    if (score >= 60) return 'good';
-    if (score >= 40) return 'fair';
-    return 'poor';
-  }, []);
+      if (score >= 80) return 'excellent';
+      if (score >= 60) return 'good';
+      if (score >= 40) return 'fair';
+      return 'poor';
+    },
+    []
+  );
 
   /**
    * Analyze WebRTC stats
@@ -144,6 +165,7 @@ export const useNetworkQuality = (
     try {
       const statsReport = await peerConnection.getStats();
 
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ref can change between async operations
       if (!isMountedRef.current) return;
 
       let videoPacketsLost = 0;
@@ -155,26 +177,32 @@ export const useNetworkQuality = (
       let rtt = 0;
       let timestamp = Date.now();
 
-      statsReport.forEach((report) => {
+      statsReport.forEach((report: WebRTCStatsReport) => {
         // Video Inbound Stats
-        if (report.type === 'inbound-rtp' && report.kind === 'video') {
-          videoPacketsLost = report.packetsLost || 0;
-          videoJitter = (report.jitter || 0) * 1000; // Convert to ms
-          videoBytesReceived = report.bytesReceived || 0;
-          timestamp = report.timestamp;
-        }
-
-        if (report.type === 'inbound-rtp' && report.kind === 'audio') {
-          audioPacketsLost = report.packetsLost || 0;
-          audioJitter = (report.jitter || 0) * 1000;
-          audioBytesReceived = report.bytesReceived || 0;
+        if (report.type === 'inbound-rtp') {
+          const rtpStats = report as RTCInboundRtpStats;
+          if (rtpStats.kind === 'video') {
+            videoPacketsLost = rtpStats.packetsLost ?? 0;
+            videoJitter = (rtpStats.jitter ?? 0) * 1000; // Convert to ms
+            videoBytesReceived = rtpStats.bytesReceived ?? 0;
+            timestamp = rtpStats.timestamp;
+          }
+          if (rtpStats.kind === 'audio') {
+            audioPacketsLost = rtpStats.packetsLost ?? 0;
+            audioJitter = (rtpStats.jitter ?? 0) * 1000;
+            audioBytesReceived = rtpStats.bytesReceived ?? 0;
+          }
         }
 
         // RTT from candidate pair
-        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-          rtt = report.currentRoundTripTime
-            ? report.currentRoundTripTime * 1000
-            : 0;
+        if (report.type === 'candidate-pair') {
+          const pairStats = report as RTCCandidatePairStats;
+          if (pairStats.state === 'succeeded') {
+            rtt =
+              pairStats.currentRoundTripTime !== undefined
+                ? pairStats.currentRoundTripTime * 1000
+                : 0;
+          }
         }
       });
 
@@ -198,10 +226,8 @@ export const useNetworkQuality = (
           );
 
           // Bandwidth in kbps
-          const videoBytesDelta =
-            videoBytesReceived - previousStatsRef.current.videoBytesReceived;
-          const audioBytesDelta =
-            audioBytesReceived - previousStatsRef.current.audioBytesReceived;
+          const videoBytesDelta = videoBytesReceived - previousStatsRef.current.videoBytesReceived;
+          const audioBytesDelta = audioBytesReceived - previousStatsRef.current.audioBytesReceived;
 
           videoBandwidth = (videoBytesDelta * 8) / timeDiffSec / 1000;
           audioBandwidth = (audioBytesDelta * 8) / timeDiffSec / 1000;
@@ -240,6 +266,7 @@ export const useNetworkQuality = (
         lastUpdate: new Date(),
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ref can change between async operations
       if (isMountedRef.current) {
         setStats(newStats);
 
@@ -251,19 +278,19 @@ export const useNetworkQuality = (
       }
 
       if (enableLogging) {
-        console.log('📊 [NetworkQuality]', {
+        console.debug('📊 [NetworkQuality]', {
           quality,
           video: {
-            packetsLost: `${newStats.videoPacketsLostPerSecond}/s`,
-            jitter: `${newStats.videoJitter}ms`,
-            bandwidth: `${newStats.videoBandwidth}kbps`,
+            packetsLost: `${String(newStats.videoPacketsLostPerSecond)}/s`,
+            jitter: `${String(newStats.videoJitter)}ms`,
+            bandwidth: `${String(newStats.videoBandwidth)}kbps`,
           },
           audio: {
-            packetsLost: `${newStats.audioPacketsLostPerSecond}/s`,
-            jitter: `${newStats.audioJitter}ms`,
-            bandwidth: `${newStats.audioBandwidth}kbps`,
+            packetsLost: `${String(newStats.audioPacketsLostPerSecond)}/s`,
+            jitter: `${String(newStats.audioJitter)}ms`,
+            bandwidth: `${String(newStats.audioBandwidth)}kbps`,
           },
-          rtt: `${newStats.roundTripTime}ms`,
+          rtt: `${String(newStats.roundTripTime)}ms`,
         });
       }
 
@@ -272,6 +299,7 @@ export const useNetworkQuality = (
         console.warn('⚠️ [NetworkQuality] Poor connection quality detected');
       }
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ref can change between async operations
       if (isMountedRef.current && enableLogging) {
         console.error('❌ [NetworkQuality] Error analyzing stats:', error);
       }
@@ -286,20 +314,28 @@ export const useNetworkQuality = (
     isMountedRef.current = true;
 
     if (!peerConnection) {
-      setStats(initialStats);
-      return;
+      const resetTimer = setTimeout(() => {
+        setStats(initialStats);
+      }, 0);
+      return () => {
+        clearTimeout(resetTimer);
+      };
     }
 
-    console.log('📊 [NetworkQuality] Starting monitoring');
+    console.debug('📊 [NetworkQuality] Starting monitoring');
 
-    // Initial analysis
-    analyzeStats();
+    const initialTimer = setTimeout(() => {
+      void analyzeStats();
+    }, 0);
 
-    const intervalId = setInterval(analyzeStats, interval);
+    const intervalId = setInterval(() => {
+      void analyzeStats();
+    }, interval);
 
     return () => {
-      console.log('📊 [NetworkQuality] Stopping monitoring');
+      console.debug('📊 [NetworkQuality] Stopping monitoring');
       isMountedRef.current = false;
+      clearTimeout(initialTimer);
       clearInterval(intervalId);
       previousStatsRef.current = null;
     };

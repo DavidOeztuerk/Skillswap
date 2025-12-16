@@ -12,6 +12,7 @@ public interface IVideoCallSessionRepository
     Task<VideoCallSession?> GetByIdAsync(string sessionId, CancellationToken cancellationToken = default);
     Task<VideoCallSession?> GetByIdWithParticipantsAsync(string sessionId, CancellationToken cancellationToken = default);
     Task<VideoCallSession?> GetByRoomIdAsync(string roomId, CancellationToken cancellationToken = default);
+    Task<VideoCallSession?> GetByRoomIdWithParticipantsAsync(string roomId, CancellationToken cancellationToken = default);
     Task<List<VideoCallSession>> GetUserSessionsAsync(string userId, CancellationToken cancellationToken = default);
     Task<List<VideoCallSession>> GetActiveSessionsByUserAsync(string userId, CancellationToken cancellationToken = default);
     Task<VideoCallSession?> GetActiveSessionForUsersAsync(string userId1, string userId2, CancellationToken cancellationToken = default);

@@ -1,20 +1,14 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useRef,
-  useState,
-  useEffect,
-  useMemo,
-} from 'react';
+import React, { useCallback, useRef, useState, useEffect, useMemo } from 'react';
+import { useAsyncEffect } from '../hooks/useAsyncEffect';
 import { useAuth } from '../hooks/useAuth';
 import { withDefault } from '../utils/safeAccess';
 import { decodeToken, getToken } from '../utils/authHelpers';
 import { apiClient } from '../api/apiClient';
 import { isSuccessResponse } from '../types/api/UnifiedResponse';
+import { PermissionContext, type PermissionContextType } from './permissionContextValue';
 
 // ============================================================================
-// Types
+// Types (local)
 // ============================================================================
 
 interface Permission {
@@ -46,58 +40,12 @@ interface GrantPermissionOptions {
   reason?: string;
 }
 
-interface PermissionContextType {
-  permissions: string[];
-  roles: string[];
-  permissionDetails: Permission[];
-  permissionsByCategory: Record<string, string[]>;
-  loading: boolean;
-  error: string | null;
-
-  hasPermission: (permission: string, resourceId?: string) => boolean;
-  hasAnyPermission: (...permissions: string[]) => boolean;
-  hasAllPermissions: (...permissions: string[]) => boolean;
-  hasRole: (role: string) => boolean;
-  hasAnyRole: (...roles: string[]) => boolean;
-  hasAllRoles: (...roles: string[]) => boolean;
-  canAccessResource: (resourceType: string, resourceId: string, action: string) => boolean;
-
-  grantPermission: (userId: string, permission: string, options?: GrantPermissionOptions) => Promise<void>;
-  revokePermission: (userId: string, permission: string, reason?: string) => Promise<void>;
-  assignRole: (userId: string, role: string, reason?: string) => Promise<void>;
-  removeRole: (userId: string, role: string, reason?: string) => Promise<void>;
-
-  refreshPermissions: () => Promise<boolean>;
-
-  isAdmin: boolean;
-  isSuperAdmin: boolean;
-  isModerator: boolean;
-}
-
 // ============================================================================
 // Constants
 // ============================================================================
 
 const RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
-const DEBUG = import.meta.env.DEV;
-
-// ============================================================================
-// Context
-// ============================================================================
-
-const PermissionContext = createContext<PermissionContextType | undefined>(undefined);
-
-/**
- * Hook to access permission context
- * @throws Error if used outside PermissionProvider
- */
-export const usePermissions = (): PermissionContextType => {
-  const ctx = useContext(PermissionContext);
-  if (!ctx) {
-    throw new Error('usePermissions must be used within a PermissionProvider');
-  }
-  return ctx;
-};
+const DEBUG = import.meta.env.DEV && import.meta.env.VITE_VERBOSE_PERMISSIONS === 'true';
 
 // ============================================================================
 // Provider
@@ -123,105 +71,114 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
   const isFetchingRef = useRef(false);
   const lastUserIdRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
+  const prevAuthStateRef = useRef<{ isAuthenticated: boolean; userId: string | null }>({
+    isAuthenticated: false,
+    userId: null,
+  });
 
   // =========================================================================
   // Fetch Permissions
   // =========================================================================
-  const fetchPermissions = useCallback(async (force = false): Promise<boolean> => {
-    // Gate on authentication
-    if (!isAuthenticated || !getToken()) {
-      return false;
-    }
-
-    // Prevent concurrent fetches
-    if (isFetchingRef.current) {
-      if (DEBUG) console.log('⏳ PermissionContext: Already fetching, skipping...');
-      return true;
-    }
-
-    // Rate limiting (unless forced)
-    if (!force && lastFetchTimeRef.current) {
-      const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
-      if (timeSinceLastFetch < RATE_LIMIT_MS) {
-        if (DEBUG) {
-          console.log(`⏳ PermissionContext: Rate limited, ${Math.round((RATE_LIMIT_MS - timeSinceLastFetch) / 1000)}s remaining`);
-        }
-        return true;
+  const fetchPermissions = useCallback(
+    async (force = false): Promise<boolean> => {
+      // Gate on authentication
+      if (!isAuthenticated || !getToken()) {
+        return false;
       }
-    }
 
-    isFetchingRef.current = true;
-    setLoading(true);
-    setError(null);
-
-    try {
-      if (DEBUG) console.log('🚀 PermissionContext: Fetching permissions from API...');
-      
-      const resp = await apiClient.get<UserPermissions>('/api/users/permissions/my');
-
-      if (!mountedRef.current) return false;
-
-      if (isSuccessResponse(resp)) {
-        const permissionNames = withDefault(resp.data.permissionNames, []);
-        const fetchedRoles = withDefault(resp.data.roles, []);
-
-        if (DEBUG) {
-          console.log('✅ PermissionContext: API fetch successful', {
-            permissionCount: permissionNames.length,
-            roleCount: fetchedRoles.length,
-          });
-        }
-
-        setPermissions(permissionNames);
-        setRoles(fetchedRoles);
-        setPermissionDetails(withDefault(resp.data.permissions, []));
-        setPermissionsByCategory(withDefault(resp.data.permissionsByCategory, {}));
-        setError(null);
-        lastFetchTimeRef.current = Date.now();
+      // Prevent concurrent fetches
+      if (isFetchingRef.current) {
+        if (DEBUG) console.debug('⏳ PermissionContext: Already fetching, skipping...');
         return true;
       }
 
-      console.error('❌ PermissionContext: API returned failure', resp);
-      setError(resp?.message ?? 'Failed to load permissions');
-      return false;
-    } catch (e) {
-      if (!mountedRef.current) return false;
+      // Rate limiting (unless forced)
+      if (!force && lastFetchTimeRef.current !== null) {
+        const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+        if (timeSinceLastFetch < RATE_LIMIT_MS) {
+          if (DEBUG) {
+            console.debug(
+              `⏳ PermissionContext: Rate limited, ${String(Math.round((RATE_LIMIT_MS - timeSinceLastFetch) / 1000))}s remaining`
+            );
+          }
+          return true;
+        }
+      }
 
-      console.warn('⚠️ PermissionContext: API call failed, using token fallback', e);
+      isFetchingRef.current = true;
+      setLoading(true);
+      setError(null);
 
-      // Fallback to token-based permissions
-      const token = getToken();
-      const payload = token ? decodeToken(token) : null;
+      try {
+        if (DEBUG) console.debug('🚀 PermissionContext: Fetching permissions from API...');
 
-      if (payload) {
-        const tokenRoles = payload?.roles ?? payload?.authorities ?? [];
-        const tokenPerms = payload?.permissions ?? [];
+        const resp = await apiClient.get<UserPermissions>('/api/users/permissions/my');
 
-        if (DEBUG) {
-          console.log('🔄 PermissionContext: Token fallback', {
-            roles: tokenRoles.length,
-            permissions: tokenPerms.length,
-          });
+        if (!mountedRef.current) return false;
+
+        if (isSuccessResponse(resp)) {
+          const permissionNames = withDefault(resp.data.permissionNames, []);
+          const fetchedRoles = withDefault(resp.data.roles, []);
+
+          if (DEBUG) {
+            console.debug('✅ PermissionContext: API fetch successful', {
+              permissionCount: permissionNames.length,
+              roleCount: fetchedRoles.length,
+            });
+          }
+
+          setPermissions(permissionNames);
+          setRoles(fetchedRoles);
+          setPermissionDetails(withDefault(resp.data.permissions, []));
+          setPermissionsByCategory(withDefault(resp.data.permissionsByCategory, {}));
+          setError(null);
+          lastFetchTimeRef.current = Date.now();
+          return true;
         }
 
-        setRoles(Array.isArray(tokenRoles) ? tokenRoles : []);
-        setPermissions(Array.isArray(tokenPerms) ? tokenPerms : []);
-        setError(`API unavailable, using token fallback (${tokenRoles.length} roles)`);
-      } else {
-        console.error('❌ PermissionContext: No valid token for fallback');
-        setRoles([]);
-        setPermissions([]);
-        setError('Failed to load permissions - no valid token');
-      }
+        console.error('❌ PermissionContext: API returned failure', resp);
+        setError(resp.message ?? 'Failed to load permissions');
+        return false;
+      } catch (e) {
+        if (!mountedRef.current) return false;
 
-      return false;
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
+        console.warn('⚠️ PermissionContext: API call failed, using token fallback', e);
+
+        // Fallback to token-based permissions
+        const token = getToken();
+        const payload = token ? decodeToken(token) : null;
+
+        if (payload) {
+          const tokenRoles = payload.roles ?? payload.authorities ?? [];
+          const tokenPerms = payload.permissions ?? [];
+
+          if (DEBUG) {
+            console.debug('🔄 PermissionContext: Token fallback', {
+              roles: tokenRoles.length,
+              permissions: tokenPerms.length,
+            });
+          }
+
+          setRoles(Array.isArray(tokenRoles) ? tokenRoles : []);
+          setPermissions(Array.isArray(tokenPerms) ? tokenPerms : []);
+          setError(`API unavailable, using token fallback (${String(tokenRoles.length)} roles)`);
+        } else {
+          console.error('❌ PermissionContext: No valid token for fallback');
+          setRoles([]);
+          setPermissions([]);
+          setError('Failed to load permissions - no valid token');
+        }
+
+        return false;
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+        isFetchingRef.current = false;
       }
-      isFetchingRef.current = false;
-    }
-  }, [isAuthenticated]);
+    },
+    [isAuthenticated]
+  );
 
   // =========================================================================
   // Cleanup on unmount
@@ -236,19 +193,31 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
   // =========================================================================
   // Auto-fetch on Authentication Change
   // =========================================================================
-  useEffect(() => {
+  useAsyncEffect(async () => {
+    const currentUserId = user?.id ?? null;
+    const prevState = prevAuthStateRef.current;
+
+    // Skip if nothing actually changed
+    if (prevState.isAuthenticated === isAuthenticated && prevState.userId === currentUserId) {
+      return;
+    }
+
+    // Update ref before processing
+    prevAuthStateRef.current = { isAuthenticated, userId: currentUserId };
+
     // User logged in
-    if (isAuthenticated && user?.id) {
+    if (isAuthenticated && currentUserId) {
       // Only fetch if user changed or first time
-      if (lastUserIdRef.current !== user.id) {
-        if (DEBUG) console.log('🔑 PermissionContext: User changed, fetching permissions');
-        lastUserIdRef.current = user.id;
-        void fetchPermissions(true); // Force fetch for new user
+      if (lastUserIdRef.current !== currentUserId) {
+        if (DEBUG) console.debug('🔑 PermissionContext: User changed, fetching permissions');
+        lastUserIdRef.current = currentUserId;
+        await fetchPermissions(true); // Force fetch for new user
       }
     }
     // User logged out
-    else if (!isAuthenticated) {
-      if (DEBUG) console.log('🧹 PermissionContext: User logged out, clearing permissions');
+    else if (!isAuthenticated && prevState.isAuthenticated) {
+      // Only clear if we were previously authenticated (actual logout)
+      if (DEBUG) console.debug('🧹 PermissionContext: User logged out, clearing permissions');
       setPermissions([]);
       setRoles([]);
       setPermissionDetails([]);
@@ -262,27 +231,30 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
   // =========================================================================
   // Permission Checks (memoized)
   // =========================================================================
-  const hasPermission = useCallback((perm: string, resourceId?: string): boolean => {
-    if (!perm) return false;
+  const hasPermission = useCallback(
+    (perm: string, resourceId?: string): boolean => {
+      if (!perm) return false;
 
-    // Direct match
-    if (permissions.includes(perm)) return true;
+      // Direct match
+      if (permissions.includes(perm)) return true;
 
-    // Scoped permission check
-    if (resourceId) {
-      const scoped = `${perm}:${resourceId}`;
-      if (permissions.includes(scoped)) return true;
-    }
+      // Scoped permission check
+      if (resourceId) {
+        const scoped = `${perm}:${resourceId}`;
+        if (permissions.includes(scoped)) return true;
+      }
 
-    // Wildcard check (e.g., "users.*" matches "users.read")
-    const parts = perm.split('.');
-    for (let i = parts.length - 1; i > 0; i--) {
-      const wildcard = parts.slice(0, i).join('.') + '.*';
-      if (permissions.includes(wildcard)) return true;
-    }
+      // Wildcard check (e.g., "users.*" matches "users.read")
+      const parts = perm.split('.');
+      for (let i = parts.length - 1; i > 0; i--) {
+        const wildcard = `${parts.slice(0, i).join('.')}.*`;
+        if (permissions.includes(wildcard)) return true;
+      }
 
-    return false;
-  }, [permissions]);
+      return false;
+    },
+    [permissions]
+  );
 
   const hasAnyPermission = useCallback(
     (...perms: string[]) => perms.some((p) => hasPermission(p)),
@@ -297,25 +269,21 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
   // =========================================================================
   // Role Checks (memoized)
   // =========================================================================
-  const hasRole = useCallback((role: string): boolean => {
-    const normalizedRole = role.toLowerCase();
-    return roles.some((r) => r.toLowerCase() === normalizedRole);
-  }, [roles]);
-
-  const hasAnyRole = useCallback(
-    (...rs: string[]) => rs.some((r) => hasRole(r)),
-    [hasRole]
+  const hasRole = useCallback(
+    (role: string): boolean => {
+      const normalizedRole = role.toLowerCase();
+      return roles.some((r) => r.toLowerCase() === normalizedRole);
+    },
+    [roles]
   );
 
-  const hasAllRoles = useCallback(
-    (...rs: string[]) => rs.every((r) => hasRole(r)),
-    [hasRole]
-  );
+  const hasAnyRole = useCallback((...rs: string[]) => rs.some((r) => hasRole(r)), [hasRole]);
+
+  const hasAllRoles = useCallback((...rs: string[]) => rs.every((r) => hasRole(r)), [hasRole]);
 
   const canAccessResource = useCallback(
-    (resourceType: string, resourceId: string, action: string) => {
-      return hasPermission(`${resourceType}.${action}`, resourceId);
-    },
+    (resourceType: string, resourceId: string, action: string) =>
+      hasPermission(`${resourceType}.${action}`, resourceId),
     [hasPermission]
   );
 
@@ -460,11 +428,7 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
     ]
   );
 
-  return (
-    <PermissionContext.Provider value={value}>
-      {children}
-    </PermissionContext.Provider>
-  );
+  return <PermissionContext.Provider value={value}>{children}</PermissionContext.Provider>;
 };
 
 export default PermissionContext;

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { processApiError, getUserFriendlyMessage, ProcessedError } from '../utils/errorUtils';
+import { processApiError, getUserFriendlyMessage, type ProcessedError } from '../utils/errorUtils';
 
 export interface FormErrorState {
   hasError: boolean;
@@ -14,21 +14,33 @@ export interface FormErrorState {
 /**
  * Enhanced hook for handling form errors with API integration
  */
-export const useFormError = (error: unknown) => {
+export const useFormError = (
+  error: unknown
+): {
+  hasError: boolean;
+  errorMessage: string;
+  errorCode?: string;
+  traceId?: string;
+  isRetryable: boolean;
+  isAuthError: boolean;
+  showRetry: boolean;
+  processedError: ProcessedError | null;
+  resetError: () => void;
+} => {
   // Process the error into standardized format
   const processedError = useMemo((): ProcessedError | null => {
-    if (!error) return null;
+    if (error === null || error === undefined) return null;
     return processApiError(error);
   }, [error]);
 
   // Get user-friendly error message
   const errorMessage = useMemo((): string => {
     if (!processedError) return '';
-    
+
     // Try to get user-friendly message based on ErrorCode first
     const friendlyMessage = getUserFriendlyMessage(processedError.errorCode);
     if (friendlyMessage) return friendlyMessage;
-    
+
     // Fall back to original message
     return processedError.message;
   }, [processedError]);
@@ -48,7 +60,7 @@ export const useFormError = (error: unknown) => {
     return {
       hasError: true,
       errorMessage,
-      errorCode: processedError.errorCode || String(processedError.code), // Prefer semantic error code from backend
+      errorCode: processedError.errorCode ?? String(processedError.code), // Prefer semantic error code from backend
       traceId: processedError.traceId,
       isRetryable: processedError.type === 'NETWORK' || processedError.type === 'SERVER',
       isAuthError: processedError.type === 'AUTH' && processedError.code === 401,

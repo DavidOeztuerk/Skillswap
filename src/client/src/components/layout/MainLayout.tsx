@@ -1,5 +1,6 @@
-import React, { useState, memo, useCallback, useEffect } from 'react';
-import { Box, useMediaQuery, Theme } from '@mui/material';
+import React, { useState, memo, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Box, useMediaQuery, type Theme } from '@mui/material';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import MobileTabbar from './Tabbar';
@@ -13,35 +14,54 @@ interface MainLayoutProps {
 
 const DRAWER_WIDTH = 240;
 
-const MainLayout: React.FC<MainLayoutProps> = ({
-  children,
-  onToggleTheme,
-  darkMode,
-}) => {
-  const isMobile = useMediaQuery((theme: Theme) =>
-    theme.breakpoints.down('sm')
-  );
-  const [mobileOpen, setMobileOpen] = useState(false);
+// Routes die ohne Sidebar/Header gerendert werden (Fullscreen)
+const FULLSCREEN_ROUTES = ['/videocall'];
 
-  /**
-   * Auto-close mobile drawer when switching from mobile to desktop view
-   * Only watches isMobile to prevent infinite loops
-   */
-  useEffect(() => {
-    if (!isMobile) {
-      setMobileOpen(false);
-    }
-  }, [isMobile]);
+const MainLayout: React.FC<MainLayoutProps> = ({ children, onToggleTheme, darkMode }) => {
+  const location = useLocation();
+  const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
+  const [mobileOpenState, setMobileOpenState] = useState(false);
+
+  // Derived state: mobileOpen is only true when on mobile AND state is true
+  // This avoids useEffect setState when switching between mobile/desktop
+  const mobileOpen = useMemo(() => isMobile && mobileOpenState, [isMobile, mobileOpenState]);
+
+  // Prüfe ob aktuelle Route Fullscreen sein soll (ohne Sidebar/Header)
+  const isFullscreenRoute = FULLSCREEN_ROUTES.some((route) => location.pathname.startsWith(route));
 
   const handleDrawerToggle = useCallback(() => {
-    setMobileOpen(prev => !prev);
+    setMobileOpenState((prev) => !prev);
   }, []);
+
+  // Fullscreen-Modus für VideoCall: Nur Content, kein Layout-Chrome
+  if (isFullscreenRoute) {
+    return (
+      <Box
+        component="main"
+        role="main"
+        id="main-content"
+        sx={{
+          minHeight: '100vh',
+          width: '100vw',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1300, // Über anderen UI-Elementen
+          bgcolor: 'black',
+        }}
+      >
+        {children}
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
       {/* Navigation Progress Indicator */}
       <NavigationProgress />
-      
+
       {/* Header with banner landmark */}
       <Box component="header" role="banner">
         <Header
@@ -53,9 +73,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       </Box>
 
       {/* Navigation landmark */}
-      <Box 
-        component="nav" 
-        role="navigation" 
+      <Box
+        component="nav"
+        role="navigation"
         aria-label="Primary navigation"
         id="primary-navigation"
       >
@@ -68,11 +88,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
       {/* Mobile navigation */}
       {isMobile && (
-        <Box 
-          component="nav" 
-          role="navigation" 
-          aria-label="Mobile navigation"
-        >
+        <Box component="nav" role="navigation" aria-label="Mobile navigation">
           <MobileTabbar />
         </Box>
       )}
@@ -85,7 +101,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         aria-label="Main content"
         sx={{
           flexGrow: 1,
-          width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
+          width: { sm: `calc(100% - ${String(DRAWER_WIDTH)}px)` },
           p: { xs: 2, sm: 3 },
           mt: { xs: '56px', sm: '64px' },
           pb: { xs: '72px', sm: 3 },

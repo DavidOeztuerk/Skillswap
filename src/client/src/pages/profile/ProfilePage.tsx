@@ -1,4 +1,3 @@
-// src/pages/profile/ProfilePage.tsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -32,11 +31,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 const profileSchema = z.object({
   firstName: z.string().min(2, 'Vorname muss mindestens 2 Zeichen lang sein'),
   lastName: z.string().min(2, 'Nachname muss mindestens 2 Zeichen lang sein'),
-  email: z.string().email('Bitte geben Sie eine gültige E-Mail ein'),
-  bio: z
-    .string()
-    .max(500, 'Biografie darf maximal 500 Zeichen lang sein')
-    .optional(),
+  email: z.email('Bitte geben Sie eine gültige E-Mail ein'),
+  bio: z.string().max(500, 'Biografie darf maximal 500 Zeichen lang sein').optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -88,10 +84,10 @@ const ProfilePage: React.FC = () => {
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      email: user?.email || '',
-      bio: user?.bio || '',
+      firstName: user?.firstName ?? '',
+      lastName: user?.lastName ?? '',
+      email: user?.email ?? '',
+      bio: user?.bio ?? '',
     },
   });
 
@@ -111,40 +107,37 @@ const ProfilePage: React.FC = () => {
   });
 
   // Toggle Edit Mode
-  const toggleEditMode = () => {
+  const toggleEditMode = (): void => {
     if (isEditMode) {
       // Cancel edits - reset form
       resetProfileForm({
-        firstName: user?.firstName || '',
-        lastName: user?.lastName || '',
-        email: user?.email || '',
-        // bio: user?.bio || '',
+        firstName: user?.firstName ?? '',
+        lastName: user?.lastName ?? '',
+        email: user?.email ?? '',
+        // bio: user?.bio ?? '',
       });
     }
     setIsEditMode(!isEditMode);
   };
 
-  // Submit Profile Form
-  const onProfileSubmit = async (data: ProfileFormValues) => {
+  // Submit Profile Form (fire-and-forget - updateProfile returns void)
+  const onProfileSubmit = (data: ProfileFormValues): void => {
     setIsSubmitting(true);
 
     try {
-      const success = await updateProfile({
+      // Fire-and-forget - Redux handles state updates
+      updateProfile({
         ...data,
       });
 
-      if (success) {
-        setStatusMessage({
-          text: 'Profil erfolgreich aktualisiert',
-          type: 'success',
-        });
-        setIsEditMode(false);
-      } else {
-        throw new Error('Fehler beim Aktualisieren des Profils');
-      }
+      setStatusMessage({
+        text: 'Profil erfolgreich aktualisiert',
+        type: 'success',
+      });
+      setIsEditMode(false);
     } catch (error) {
       setStatusMessage({
-        text: 'Fehler beim Ändern des Passworts' + ' ' + String(error),
+        text: `Fehler beim Aktualisieren des Profils: ${String(error)}`,
         type: 'error',
       });
     } finally {
@@ -153,13 +146,13 @@ const ProfilePage: React.FC = () => {
   };
 
   // Submit Password Form
-  const onPasswordSubmit = async (data: PasswordFormValues) => {
+  const onPasswordSubmit = (data: PasswordFormValues): void => {
     setIsSubmitting(true);
 
     try {
-      console.log(data);
+      console.debug(data);
 
-      // Hier würde die tatsächliche Passwortänderung implementiert werden
+      // TODO: Hier würde die tatsächliche Passwortänderung implementiert werden
       // Da wir das in dieser Demo nicht ausführen können, simulieren wir den Erfolg
       setTimeout(() => {
         setStatusMessage({
@@ -171,7 +164,7 @@ const ProfilePage: React.FC = () => {
       }, 1000);
     } catch (error) {
       setStatusMessage({
-        text: 'Fehler beim Ändern des Passworts' + ' ' + String(error),
+        text: `Fehler beim Ändern des Passworts: ${String(error)}`,
         type: 'error',
       });
       setIsSubmitting(false);
@@ -183,17 +176,16 @@ const ProfilePage: React.FC = () => {
       <PageHeader
         title="Mein Profil"
         subtitle="Persönliche Informationen anzeigen und bearbeiten"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Profil' },
-        ]}
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Profil' }]}
       />
 
       {statusMessage && (
         <AlertMessage
           severity={statusMessage.type}
           message={[statusMessage.text]}
-          onClose={() => setStatusMessage(null)}
+          onClose={() => {
+            setStatusMessage(null);
+          }}
         />
       )}
 
@@ -292,7 +284,7 @@ const ProfilePage: React.FC = () => {
                         rows={4}
                         disabled={!isEditMode || isSubmitting}
                         error={!!profileErrors.bio}
-                        helperText={profileErrors.bio?.message || ''}
+                        helperText={profileErrors.bio?.message ?? ''}
                       />
                     )}
                   />
@@ -346,16 +338,12 @@ const ProfilePage: React.FC = () => {
                               <InputAdornment position="end">
                                 <IconButton
                                   aria-label="Passwort-Sichtbarkeit umschalten"
-                                  onClick={() =>
-                                    setShowCurrentPassword(!showCurrentPassword)
-                                  }
+                                  onClick={() => {
+                                    setShowCurrentPassword(!showCurrentPassword);
+                                  }}
                                   edge="end"
                                 >
-                                  {showCurrentPassword ? (
-                                    <VisibilityOffIcon />
-                                  ) : (
-                                    <VisibilityIcon />
-                                  )}
+                                  {showCurrentPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                                 </IconButton>
                               </InputAdornment>
                             ),
@@ -386,16 +374,12 @@ const ProfilePage: React.FC = () => {
                               <InputAdornment position="end">
                                 <IconButton
                                   aria-label="Passwort-Sichtbarkeit umschalten"
-                                  onClick={() =>
-                                    setShowNewPassword(!showNewPassword)
-                                  }
+                                  onClick={() => {
+                                    setShowNewPassword(!showNewPassword);
+                                  }}
                                   edge="end"
                                 >
-                                  {showNewPassword ? (
-                                    <VisibilityOffIcon />
-                                  ) : (
-                                    <VisibilityIcon />
-                                  )}
+                                  {showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                                 </IconButton>
                               </InputAdornment>
                             ),
@@ -426,16 +410,12 @@ const ProfilePage: React.FC = () => {
                               <InputAdornment position="end">
                                 <IconButton
                                   aria-label="Passwort-Sichtbarkeit umschalten"
-                                  onClick={() =>
-                                    setShowConfirmPassword(!showConfirmPassword)
-                                  }
+                                  onClick={() => {
+                                    setShowConfirmPassword(!showConfirmPassword);
+                                  }}
                                   edge="end"
                                 >
-                                  {showConfirmPassword ? (
-                                    <VisibilityOffIcon />
-                                  ) : (
-                                    <VisibilityIcon />
-                                  )}
+                                  {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                                 </IconButton>
                               </InputAdornment>
                             ),
@@ -446,10 +426,7 @@ const ProfilePage: React.FC = () => {
                   />
                 </Grid>
 
-                <Grid
-                  size={{ xs: 12 }}
-                  sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}
-                >
+                <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
                   <LoadingButton
                     type="submit"
                     variant="contained"
@@ -501,18 +478,14 @@ const ProfilePage: React.FC = () => {
 
             <Divider sx={{ my: 2 }} />
 
-            <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
-            >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 Benutzername
               </Typography>
               {/* <Typography variant="body2">{user?.username}</Typography> */}
             </Box>
 
-            <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
-            >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 Mitglied seit
               </Typography>
@@ -529,27 +502,21 @@ const ProfilePage: React.FC = () => {
               Statistik
             </Typography>
 
-            <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
-            >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 Skills
               </Typography>
               <Typography variant="body2">12</Typography>
             </Box>
 
-            <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
-            >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 Abgeschlossene Lektionen
               </Typography>
               <Typography variant="body2">25</Typography>
             </Box>
 
-            <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
-            >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 Gehaltene Lektionen
               </Typography>

@@ -44,7 +44,7 @@ const OfflineFallback: React.FC<OfflineFallbackProps> = ({
   showTips = true,
   onRefresh,
 }) => {
-  const handleRefresh = () => {
+  const handleRefresh = (): void => {
     if (onRefresh) {
       onRefresh();
     } else {
@@ -190,10 +190,7 @@ const OfflineFallback: React.FC<OfflineFallbackProps> = ({
                     <ListItemIcon sx={{ minWidth: 32 }}>
                       <CheckIcon color="success" fontSize="small" />
                     </ListItemIcon>
-                    <ListItemText 
-                      primary={tip}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                    />
+                    <ListItemText primary={tip} slotProps={{ primary: { variant: 'body2' } }} />
                   </ListItem>
                 ))}
               </List>
@@ -212,10 +209,7 @@ const OfflineFallback: React.FC<OfflineFallbackProps> = ({
                     <ListItemIcon sx={{ minWidth: 32 }}>
                       <CheckIcon color="success" fontSize="small" />
                     </ListItemIcon>
-                    <ListItemText 
-                      primary={tip}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                    />
+                    <ListItemText primary={tip} slotProps={{ primary: { variant: 'body2' } }} />
                   </ListItem>
                 ))}
               </List>

@@ -62,7 +62,8 @@ public class AppointmentDataEnrichmentService : IAppointmentDataEnrichmentServic
             $"{enrichedData.Participant.FirstName} {enrichedData.Participant.LastName}");
 
         // Fetch skill data if available (from SessionSeries)
-        var skillId = appointment.SessionSeries?.Connection?.SkillId;
+        var connection = appointment.SessionSeries?.Connection;
+        var skillId = connection?.SkillId;
         _logger.LogDebug("🎯 [EnrichmentService] SkillId from SessionSeries: {SkillId}", skillId ?? "NULL");
 
         if (!string.IsNullOrEmpty(skillId))
@@ -73,6 +74,52 @@ public class AppointmentDataEnrichmentService : IAppointmentDataEnrichmentServic
         else
         {
             _logger.LogWarning("⚠️ [EnrichmentService] No SkillId found in SessionSeries - Skill data will be NULL");
+        }
+
+        // Fetch Match/Connection Rollen (INITIATOR und PARTICIPANT)
+        // Diese Rollen sind KONSTANT durch die gesamte Kette Match → Appointment → VideoCall
+        var requesterId = connection?.RequesterId;
+        var targetUserId = connection?.TargetUserId;
+
+        if (!string.IsNullOrEmpty(requesterId) && !string.IsNullOrEmpty(targetUserId))
+        {
+            _logger.LogInformation("👥 [EnrichmentService] Fetching Match requester/target data - RequesterId: {RequesterId}, TargetUserId: {TargetUserId}",
+                requesterId, targetUserId);
+
+            // Optimize: Reuse already fetched user data if IDs match
+            if (requesterId == appointment.OrganizerUserId)
+            {
+                enrichedData.MatchRequester = enrichedData.Organizer;
+            }
+            else if (requesterId == appointment.ParticipantUserId)
+            {
+                enrichedData.MatchRequester = enrichedData.Participant;
+            }
+            else
+            {
+                enrichedData.MatchRequester = await FetchUserDataAsync(requesterId, cancellationToken);
+            }
+
+            if (targetUserId == appointment.OrganizerUserId)
+            {
+                enrichedData.MatchTarget = enrichedData.Organizer;
+            }
+            else if (targetUserId == appointment.ParticipantUserId)
+            {
+                enrichedData.MatchTarget = enrichedData.Participant;
+            }
+            else
+            {
+                enrichedData.MatchTarget = await FetchUserDataAsync(targetUserId, cancellationToken);
+            }
+
+            _logger.LogInformation("✅ [EnrichmentService] Match roles enriched - Requester: {RequesterName}, Target: {TargetName}",
+                $"{enrichedData.MatchRequester?.FirstName} {enrichedData.MatchRequester?.LastName}",
+                $"{enrichedData.MatchTarget?.FirstName} {enrichedData.MatchTarget?.LastName}");
+        }
+        else
+        {
+            _logger.LogDebug("ℹ️ [EnrichmentService] No Connection data available - Match roles will be NULL");
         }
 
         _logger.LogInformation("✅ [EnrichmentService] Enrichment completed for appointment {AppointmentId}", appointment.Id);

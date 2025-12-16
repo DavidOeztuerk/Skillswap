@@ -3,8 +3,8 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   createTheme,
   responsiveFontSizes,
-  Theme,
-  PaletteMode,
+  type Theme,
+  type PaletteMode,
 } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { getThemeOptions } from '../styles/theme';
@@ -14,8 +14,19 @@ import { withDefault } from '../utils/safeAccess';
  * Hook für die Theme-Verwaltung
  * Ermöglicht das Umschalten zwischen Light und Dark Mode
  * und speichert die Präferenz im LocalStorage
+ *
+ * NOTE: Named `useThemeMode` to avoid confusion with MUI's `useTheme` hook.
+ * - MUI's `useTheme()` returns the Theme object
+ * - This hook returns { theme, mode, toggleTheme, setThemeMode }
  */
-export const useTheme = () => {
+interface ThemeModeReturn {
+  theme: Theme;
+  mode: PaletteMode;
+  toggleTheme: () => void;
+  setThemeMode: (newMode: PaletteMode) => void;
+}
+
+export const useThemeMode = (): ThemeModeReturn => {
   // Prüfen, ob der Benutzer Dark Mode bevorzugt
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const THEME_STORAGE_KEY = 'skillswap_theme_mode';
@@ -65,3 +76,8 @@ export const useTheme = () => {
 
   return { theme, mode, toggleTheme, setThemeMode };
 };
+
+/**
+ * @deprecated Use `useThemeMode` instead to avoid confusion with MUI's `useTheme`
+ */
+export const useTheme = useThemeMode;

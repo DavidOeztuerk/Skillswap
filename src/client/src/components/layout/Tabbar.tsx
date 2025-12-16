@@ -1,5 +1,4 @@
-// src/components/layout/MobileTabbar.tsx
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -26,8 +25,9 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppSelector } from '../../store/store.hooks';
-import { usePermissions } from '../../contexts/PermissionContext';
+import { usePermissions } from '../../contexts/permissionContextHook';
 import { selectPendingMatches } from '../../store/selectors/matchmakingSelectors';
+import { Permissions } from '../auth/permissions.constants';
 
 // ============================================================================
 // Types
@@ -52,7 +52,7 @@ const MAX_VISIBLE_ITEMS = 4;
 // Component
 // ============================================================================
 
-const Tabbar: React.FC = () => {
+const Tabbar: React.FC = memo(() => {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -61,8 +61,9 @@ const Tabbar: React.FC = () => {
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
 
   // Get dynamic badge counts from Redux store
-  const pendingMatches = useAppSelector(selectPendingMatches);
-  const pendingMatchCount = pendingMatches?.length ?? 0;
+  const pendingMatchesRaw = useAppSelector(selectPendingMatches);
+  const pendingMatches = Array.isArray(pendingMatchesRaw) ? pendingMatchesRaw : [];
+  const pendingMatchCount = pendingMatches.length;
 
   // =========================================================================
   // Memoized Menu Items
@@ -109,13 +110,14 @@ const Tabbar: React.FC = () => {
     ];
 
     // Add admin menu item for admins
-    if (isAdmin || hasPermission('admin:access_dashboard')) {
+    const hasAdminPermission = hasPermission(Permissions.Admin.ACCESS_DASHBOARD);
+    if (isAdmin || hasAdminPermission) {
       items.push({
         label: 'Admin',
         icon: <AdminIcon />,
         path: '/admin/dashboard',
         authRequired: true,
-        permissions: ['admin:access_dashboard'],
+        permissions: [Permissions.Admin.ACCESS_DASHBOARD],
       });
     }
 
@@ -125,19 +127,24 @@ const Tabbar: React.FC = () => {
   // =========================================================================
   // Filtered Menu Items
   // =========================================================================
-  const filteredMenuItems = useMemo(() => {
-    return menuItems.filter((item) => {
-      // Check authentication
-      if (item.authRequired && !isAuthenticated) return false;
+  const filteredMenuItems = useMemo(
+    () =>
+      menuItems.filter((item) => {
+        // Check authentication
+        if (item.authRequired && !isAuthenticated) return false;
 
-      // Check permissions
-      if (item.permissions && item.permissions.length > 0) {
-        return item.permissions.some((permission) => hasPermission(permission));
-      }
+        // Check permissions
+        if (item.permissions !== undefined && item.permissions.length > 0) {
+          return item.permissions.some((permission) => {
+            const hasPerm = hasPermission(permission);
+            return hasPerm;
+          });
+        }
 
-      return true;
-    });
-  }, [menuItems, isAuthenticated, hasPermission]);
+        return true;
+      }),
+    [menuItems, isAuthenticated, hasPermission]
+  );
 
   // Split into visible and overflow
   const visibleMenuItems = useMemo(
@@ -159,7 +166,14 @@ const Tabbar: React.FC = () => {
     const path = location.pathname;
 
     // Exact path match first
-    const exactMatches = ['/', '/dashboard', '/skills', '/matchmaking', '/appointments', '/profile'];
+    const exactMatches = [
+      '/',
+      '/dashboard',
+      '/skills',
+      '/matchmaking',
+      '/appointments',
+      '/profile',
+    ];
     if (exactMatches.includes(path)) {
       return path;
     }
@@ -189,7 +203,7 @@ const Tabbar: React.FC = () => {
 
   const handleOverflowNavigation = useCallback(
     (path: string) => {
-      navigate(path);
+      void navigate(path);
       handleMoreClose();
     },
     [navigate, handleMoreClose]
@@ -198,7 +212,7 @@ const Tabbar: React.FC = () => {
   const handleNavigationChange = useCallback(
     (_: React.SyntheticEvent, newValue: string) => {
       if (newValue !== 'more') {
-        navigate(newValue);
+        void navigate(newValue);
       }
     },
     [navigate]
@@ -235,27 +249,30 @@ const Tabbar: React.FC = () => {
           sx={{
             height: { xs: 72, sm: 64 },
             '& .MuiBottomNavigationAction-root': {
-              minWidth: 'auto',
+              // Ensure minimum 48px touch target width
+              minWidth: { xs: 56, sm: 64 },
               minHeight: { xs: 72, sm: 64 },
-              padding: { xs: '8px 4px', sm: '6px 0' },
+              padding: { xs: '8px 6px', sm: '6px 8px' },
               color: theme.palette.text.secondary,
               transition: 'all 0.2s ease-in-out',
               '&.Mui-selected': {
                 color: theme.palette.primary.main,
-                transform: { xs: 'scale(1.05)', sm: 'scale(1)' },
+                transform: { xs: 'scale(1.02)', sm: 'scale(1)' },
               },
               '&:active': {
                 transform: 'scale(0.95)',
                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
               },
               '& .MuiSvgIcon-root': {
-                fontSize: { xs: '1.75rem', sm: '1.5rem' },
+                fontSize: { xs: '1.5rem', sm: '1.5rem' },
               },
               '& .MuiBottomNavigationAction-label': {
-                fontSize: { xs: '0.75rem', sm: '0.625rem' },
-                marginTop: { xs: '4px', sm: '2px' },
+                // Minimum readable font size: 0.75rem (12px)
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                marginTop: { xs: '3px', sm: '2px' },
+                fontWeight: 500,
                 '&.Mui-selected': {
-                  fontSize: { xs: '0.8rem', sm: '0.75rem' },
+                  fontSize: { xs: '0.75rem', sm: '0.8rem' },
                   fontWeight: 600,
                 },
               },
@@ -269,7 +286,7 @@ const Tabbar: React.FC = () => {
               label={item.label}
               value={item.path}
               icon={
-                item.badge ? (
+                item.badge !== undefined && item.badge > 0 ? (
                   <Badge badgeContent={item.badge} color="error">
                     {item.icon}
                   </Badge>
@@ -309,7 +326,8 @@ const Tabbar: React.FC = () => {
           paper: {
             elevation: 8,
             sx: {
-              minWidth: 200,
+              minWidth: { xs: 180, sm: 200 },
+              maxWidth: { xs: 'calc(100vw - 32px)', sm: 'auto' },
               '&::before': {
                 content: '""',
                 display: 'block',
@@ -335,7 +353,9 @@ const Tabbar: React.FC = () => {
           return (
             <MuiMenuItem
               key={item.path}
-              onClick={() => handleOverflowNavigation(item.path)}
+              onClick={() => {
+                handleOverflowNavigation(item.path);
+              }}
               selected={isActive}
               sx={{
                 py: 1.5,
@@ -358,7 +378,7 @@ const Tabbar: React.FC = () => {
                   minWidth: 40,
                 }}
               >
-                {item.badge ? (
+                {item.badge !== undefined && item.badge > 0 ? (
                   <Badge badgeContent={item.badge} color="error">
                     {item.icon}
                   </Badge>
@@ -368,9 +388,11 @@ const Tabbar: React.FC = () => {
               </ListItemIcon>
               <ListItemText
                 primary={item.label}
-                primaryTypographyProps={{
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? 'primary.main' : 'inherit',
+                slotProps={{
+                  primary: {
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? 'primary.main' : 'inherit',
+                  },
                 }}
               />
             </MuiMenuItem>
@@ -396,6 +418,8 @@ const Tabbar: React.FC = () => {
       </Menu>
     </Box>
   );
-};
+});
+
+Tabbar.displayName = 'Tabbar';
 
 export default Tabbar;

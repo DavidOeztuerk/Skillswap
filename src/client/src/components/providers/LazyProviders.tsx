@@ -1,20 +1,22 @@
 import React, { useState, useEffect, Suspense, memo } from 'react';
-import { ThemeProvider, Theme } from '@mui/material';
+import { ThemeProvider, type Theme } from '@mui/material';
 import LoadingSpinner from '../ui/LoadingSpinner';
 
 // Lazy loaded providers to improve initial startup time
 const AuthProvider = React.lazy(() => import('../../features/auth/AuthProvider'));
-const TwoFactorDialogProvider = React.lazy(() => 
-  import('../auth/TwoFactorDialog').then(m => ({ default: m.TwoFactorDialogProvider }))
+const TwoFactorDialogProvider = React.lazy(() =>
+  import('../auth/TwoFactorDialog').then((m) => ({ default: m.TwoFactorDialogProvider }))
 );
-const PermissionProvider = React.lazy(() => 
-  import('../../contexts/PermissionContext').then(m => ({ default: m.PermissionProvider }))
+const PermissionProvider = React.lazy(() =>
+  import('../../contexts/PermissionContext').then((m) => ({ default: m.PermissionProvider }))
 );
-const LoadingProvider = React.lazy(() => 
-  import('../../contexts/LoadingContext').then(m => ({ default: m.LoadingProvider }))
+const LoadingProvider = React.lazy(() =>
+  import('../../contexts/LoadingContext').then((m) => ({ default: m.LoadingProvider }))
 );
-const EmailVerificationProvider = React.lazy(() => 
-  import('../../contexts/EmailVerificationContext').then(m => ({ default: m.EmailVerificationProvider }))
+const EmailVerificationProvider = React.lazy(() =>
+  import('../../contexts/EmailVerificationContext').then((m) => ({
+    default: m.EmailVerificationProvider,
+  }))
 );
 
 interface LazyProvidersProps {
@@ -25,18 +27,26 @@ interface LazyProvidersProps {
 // Progressive loading of providers to avoid 333ms initial render
 const LazyProviders: React.FC<LazyProvidersProps> = memo(({ children, theme }) => {
   const [loadStage, setLoadStage] = useState(0);
-  
+
   useEffect(() => {
     // PERFORMANCE CRITICAL: Aggressive progressive loading to reduce startup time
     const stages = [
-      () => setLoadStage(1), // Load AuthProvider
-      () => setLoadStage(2), // Load LoadingProvider  
-      () => setLoadStage(3), // Load PermissionProvider
-      () => setLoadStage(4), // Load remaining providers
+      () => {
+        setLoadStage(1);
+      }, // Load AuthProvider
+      () => {
+        setLoadStage(2);
+      }, // Load LoadingProvider
+      () => {
+        setLoadStage(3);
+      }, // Load PermissionProvider
+      () => {
+        setLoadStage(4);
+      }, // Load remaining providers
     ];
-    
+
     let currentStage = 0;
-    const loadNext = () => {
+    const loadNext = (): void => {
       if (currentStage < stages.length) {
         stages[currentStage]();
         currentStage++;
@@ -47,7 +57,7 @@ const LazyProviders: React.FC<LazyProvidersProps> = memo(({ children, theme }) =
         }
       }
     };
-    
+
     // Start loading immediately
     requestAnimationFrame(loadNext);
   }, []);
@@ -56,14 +66,16 @@ const LazyProviders: React.FC<LazyProvidersProps> = memo(({ children, theme }) =
   if (loadStage === 0) {
     return (
       <ThemeProvider theme={theme}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
-          fontSize: '14px',
-          color: theme.palette.text.secondary
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100vh',
+            fontSize: '14px',
+            color: theme.palette.text.secondary,
+          }}
+        >
           Initializing...
         </div>
       </ThemeProvider>
@@ -71,11 +83,13 @@ const LazyProviders: React.FC<LazyProvidersProps> = memo(({ children, theme }) =
   }
 
   return (
-    <Suspense fallback={
-      <ThemeProvider theme={theme}>
-        <LoadingSpinner />
-      </ThemeProvider>
-    }>
+    <Suspense
+      fallback={
+        <ThemeProvider theme={theme}>
+          <LoadingSpinner />
+        </ThemeProvider>
+      }
+    >
       <ThemeProvider theme={theme}>
         {loadStage >= 1 && (
           <AuthProvider>
@@ -88,9 +102,7 @@ const LazyProviders: React.FC<LazyProvidersProps> = memo(({ children, theme }) =
                         {loadStage >= 4 && (
                           <Suspense fallback={<LoadingSpinner />}>
                             <EmailVerificationProvider>
-                              <TwoFactorDialogProvider>
-                                {children}
-                              </TwoFactorDialogProvider>
+                              <TwoFactorDialogProvider>{children}</TwoFactorDialogProvider>
                             </EmailVerificationProvider>
                           </Suspense>
                         )}

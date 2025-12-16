@@ -1,8 +1,16 @@
 import { createSelector } from '@reduxjs/toolkit';
-import { RootState } from '../store';
-import { selectUserUpcomingAppointments, selectUserAppointments, selectPendingAppointments } from './appointmentsSelectors';
+import type { RootState } from '../store';
+import {
+  selectUserUpcomingAppointments,
+  selectUserAppointments,
+  selectPendingAppointments,
+} from './appointmentsSelectors';
 import { selectUserSkills, selectOfferedSkills } from './skillsSelectors';
-import { selectPendingMatches, selectUserMatches, selectUnreadIncomingRequests } from './matchmakingSelectors';
+import {
+  selectPendingMatches,
+  selectUserMatches,
+  selectUnreadIncomingRequests,
+} from './matchmakingSelectors';
 import { selectUnreadCount } from './notificationsSelectors';
 import { selectAuthUser } from './authSelectors';
 import { AppointmentStatus } from '../../types/models/Appointment';
@@ -23,19 +31,27 @@ export const selectDashboardStatistics = createSelector(
     selectPendingMatches,
     selectUnreadCount,
   ],
-  (userSkills, offeredSkills, userAppointments, pendingAppointments, userMatches, pendingMatches, unreadCount) => ({
+  (
+    userSkills,
+    offeredSkills,
+    userAppointments,
+    pendingAppointments,
+    userMatches,
+    pendingMatches,
+    unreadCount
+  ) => ({
     // Skills statistics
     totalSkills: userSkills.length,
     teachingSkillsCount: offeredSkills.length,
-    
+
     // Appointments statistics
     totalAppointments: userAppointments.length,
     pendingAppointmentsCount: pendingAppointments.length,
-    
+
     // Matching statistics
     totalMatches: userMatches.length,
     pendingMatchesCount: pendingMatches.length,
-    
+
     // Notifications
     unreadNotificationsCount: unreadCount,
   })
@@ -44,26 +60,23 @@ export const selectDashboardStatistics = createSelector(
 // Next upcoming appointment
 export const selectNextAppointment = createSelector(
   [selectUserUpcomingAppointments],
-  (upcomingAppointments) => upcomingAppointments[0] || null
+  (upcomingAppointments) => upcomingAppointments[0]
 );
 
 // Dashboard cards data
 export const selectDashboardCards = createSelector(
-  [
-    selectDashboardStatistics,
-    selectUnreadIncomingRequests,
-  ],
+  [selectDashboardStatistics, selectUnreadIncomingRequests],
   (stats, unreadRequests) => [
     {
       title: 'Skills',
-      description: `${stats.totalSkills} Skills • ${stats.teachingSkillsCount} zum Lehren`,
+      description: `${stats.totalSkills.toString()} Skills • ${stats.teachingSkillsCount.toString()} zum Lehren`,
       count: stats.totalSkills,
       path: '/skills',
       color: '#4caf50',
     },
     {
       title: 'Matches',
-      description: `${stats.totalMatches} active matches${stats.pendingMatchesCount > 0 ? ` • ${stats.pendingMatchesCount} new requests` : ''}`,
+      description: `${stats.totalMatches.toString()} active matches${stats.pendingMatchesCount > 0 ? ` • ${stats.pendingMatchesCount.toString()} new requests` : ''}`,
       count: stats.totalMatches,
       badge: stats.pendingMatchesCount + unreadRequests.length,
       path: '/matchmaking',
@@ -71,7 +84,7 @@ export const selectDashboardCards = createSelector(
     },
     {
       title: 'Termine',
-      description: `${stats.totalAppointments} ${stats.totalAppointments === 1 ? 'Termin' : 'Termine'}${stats.pendingAppointmentsCount > 0 ? ` • ${stats.pendingAppointmentsCount} ausstehend` : ''}`,
+      description: `${stats.totalAppointments.toString()} ${stats.totalAppointments === 1 ? 'Termin' : 'Termine'}${stats.pendingAppointmentsCount > 0 ? ` • ${stats.pendingAppointmentsCount.toString()} ausstehend` : ''}`,
       count: stats.totalAppointments,
       badge: stats.pendingAppointmentsCount,
       path: '/appointments',
@@ -79,7 +92,7 @@ export const selectDashboardCards = createSelector(
     },
     {
       title: 'Benachrichtigungen',
-      description: `Notifications${stats.unreadNotificationsCount > 0 ? ` • ${stats.unreadNotificationsCount} unread` : ''}`,
+      description: `Notifications${stats.unreadNotificationsCount > 0 ? ` • ${stats.unreadNotificationsCount.toString()} unread` : ''}`,
       count: stats.unreadNotificationsCount,
       badge: stats.unreadNotificationsCount,
       path: '/notifications',
@@ -94,15 +107,12 @@ export const selectTeachingSkillsForDashboard = createSelector(
   (offeredSkills) => offeredSkills.slice(0, 5)
 );
 
-// Learning skills for sidebar display  
-export const selectLearningSkillsForDashboard = createSelector(
-  [selectUserSkills],
-  (userSkills) => {
-    // Skills the user wants to learn (not offered)
-    const learningSkills = userSkills.filter(skill => !skill.isOffered);
-    return learningSkills.slice(0, 5);
-  }
-);
+// Learning skills for sidebar display
+export const selectLearningSkillsForDashboard = createSelector([selectUserSkills], (userSkills) => {
+  // Skills the user wants to learn (not offered)
+  const learningSkills = userSkills.filter((skill) => !skill.isOffered);
+  return learningSkills.slice(0, 5);
+});
 
 // Upcoming appointments for dashboard display
 export const selectUpcomingAppointmentsForDashboard = createSelector(
@@ -110,10 +120,12 @@ export const selectUpcomingAppointmentsForDashboard = createSelector(
   (upcomingAppointments) => {
     const now = new Date();
     return upcomingAppointments
-      .filter(appointment => {
+      .filter((appointment) => {
         const appointmentDate = new Date(appointment.startTime);
         const isFuture = appointmentDate > now;
-        const isRelevantStatus = [AppointmentStatus.Pending, AppointmentStatus.Accepted].includes(appointment.status);
+        const isRelevantStatus = [AppointmentStatus.Pending, AppointmentStatus.Confirmed].includes(
+          appointment.status
+        );
         return isFuture && isRelevantStatus;
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
@@ -132,22 +144,30 @@ export const selectDashboardData = createSelector(
     selectUpcomingAppointmentsForDashboard,
     selectAuthUser,
   ],
-  (statistics, cards, nextAppointment, teachingSkills, learningSkills, upcomingAppointments, user) => ({
+  (
+    statistics,
+    cards,
+    nextAppointment,
+    teachingSkills,
+    learningSkills,
+    upcomingAppointments,
+    user
+  ) => ({
     // User info
     user,
-    
+
     // Statistics
     ...statistics,
-    
+
     // Dashboard cards
     cards,
-    
+
     // Detailed data for sections
     nextAppointment,
     teachingSkills,
     learningSkills,
     upcomingAppointments,
-    
+
     // Computed flags
     hasUpcomingAppointments: upcomingAppointments.length > 0,
     hasTeachingSkills: teachingSkills.length > 0,
@@ -165,7 +185,8 @@ export const selectDashboardLoadingStates = createSelector(
     (state: RootState) => state.notifications.isLoading,
   ],
   (skillsLoading, appointmentsLoading, matchmakingLoading, notificationsLoading) => ({
-    isAnyLoading: skillsLoading || appointmentsLoading || matchmakingLoading || notificationsLoading,
+    isAnyLoading:
+      skillsLoading || appointmentsLoading || matchmakingLoading || notificationsLoading,
     skillsLoading,
     appointmentsLoading,
     matchmakingLoading,
@@ -182,7 +203,9 @@ export const selectDashboardErrorStates = createSelector(
     (state: RootState) => state.notifications.errorMessage,
   ],
   (skillsError, appointmentsError, matchmakingError, notificationsError) => {
-    const errors = [skillsError, appointmentsError, matchmakingError, notificationsError].filter(Boolean);
+    const errors = [skillsError, appointmentsError, matchmakingError, notificationsError].filter(
+      Boolean
+    );
     return {
       hasErrors: errors.length > 0,
       errors,

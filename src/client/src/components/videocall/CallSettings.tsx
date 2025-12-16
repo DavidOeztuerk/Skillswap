@@ -1,4 +1,3 @@
-// src/components/videocall/CallSettings.tsx
 import {
   Dialog,
   DialogTitle,
@@ -18,7 +17,6 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  ListItemSecondaryAction,
   Divider,
 } from '@mui/material';
 import {
@@ -75,14 +73,14 @@ const CallSettings: React.FC<CallSettingsProps> = ({
 }) => {
   const [tabValue, setTabValue] = useState(0);
 
-  const handleSettingChange = (key: string, value: unknown) => {
+  const handleSettingChange = (key: string, value: unknown): void => {
     onSettingsChange({
       ...settings,
       [key]: value,
     });
   };
 
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number): void => {
     setTabValue(newValue);
   };
 
@@ -107,9 +105,9 @@ const CallSettings: React.FC<CallSettingsProps> = ({
             <FormLabel>Kamera</FormLabel>
             <Select
               value={settings.videoDevice}
-              onChange={(e) =>
-                handleSettingChange('videoDevice', e.target.value)
-              }
+              onChange={(e) => {
+                handleSettingChange('videoDevice', e.target.value);
+              }}
             >
               {availableDevices.videoDevices.map((device) => (
                 <MenuItem key={device.deviceId} value={device.deviceId}>
@@ -123,9 +121,9 @@ const CallSettings: React.FC<CallSettingsProps> = ({
             <FormLabel>Video-Qualität</FormLabel>
             <Select
               value={settings.videoQuality}
-              onChange={(e) =>
-                handleSettingChange('videoQuality', e.target.value)
-              }
+              onChange={(e) => {
+                handleSettingChange('videoQuality', e.target.value);
+              }}
             >
               <MenuItem value="low">Niedrig (360p)</MenuItem>
               <MenuItem value="medium">Mittel (720p)</MenuItem>
@@ -144,9 +142,9 @@ const CallSettings: React.FC<CallSettingsProps> = ({
             <FormLabel>Mikrofon</FormLabel>
             <Select
               value={settings.audioDevice}
-              onChange={(e) =>
-                handleSettingChange('audioDevice', e.target.value)
-              }
+              onChange={(e) => {
+                handleSettingChange('audioDevice', e.target.value);
+              }}
             >
               {availableDevices.audioDevices.map((device) => (
                 <MenuItem key={device.deviceId} value={device.deviceId}>
@@ -160,14 +158,13 @@ const CallSettings: React.FC<CallSettingsProps> = ({
             <FormLabel>Lautsprecher</FormLabel>
             <Select
               value={settings.outputDevice}
-              onChange={(e) =>
-                handleSettingChange('outputDevice', e.target.value)
-              }
+              onChange={(e) => {
+                handleSettingChange('outputDevice', e.target.value);
+              }}
             >
               {availableDevices.outputDevices.map((device) => (
                 <MenuItem key={device.deviceId} value={device.deviceId}>
-                  {device.label ||
-                    `Lautsprecher ${device.deviceId.slice(0, 8)}...`}
+                  {device.label || `Lautsprecher ${device.deviceId.slice(0, 8)}...`}
                 </MenuItem>
               ))}
             </Select>
@@ -177,9 +174,9 @@ const CallSettings: React.FC<CallSettingsProps> = ({
             <FormLabel>Audio-Qualität</FormLabel>
             <Select
               value={settings.audioQuality}
-              onChange={(e) =>
-                handleSettingChange('audioQuality', e.target.value)
-              }
+              onChange={(e) => {
+                handleSettingChange('audioQuality', e.target.value);
+              }}
             >
               <MenuItem value="low">Niedrig</MenuItem>
               <MenuItem value="medium">Mittel</MenuItem>
@@ -194,7 +191,16 @@ const CallSettings: React.FC<CallSettingsProps> = ({
           </Typography>
 
           <List>
-            <ListItem>
+            <ListItem
+              secondaryAction={
+                <Switch
+                  checked={settings.echoCancellation}
+                  onChange={(e) => {
+                    handleSettingChange('echoCancellation', e.target.checked);
+                  }}
+                />
+              }
+            >
               <ListItemIcon>
                 <MicIcon />
               </ListItemIcon>
@@ -202,17 +208,18 @@ const CallSettings: React.FC<CallSettingsProps> = ({
                 primary="Echo-Unterdrückung"
                 secondary="Reduziert Echo während des Anrufs"
               />
-              <ListItemSecondaryAction>
-                <Switch
-                  checked={settings.echoCancellation}
-                  onChange={(e) =>
-                    handleSettingChange('echoCancellation', e.target.checked)
-                  }
-                />
-              </ListItemSecondaryAction>
             </ListItem>
 
-            <ListItem>
+            <ListItem
+              secondaryAction={
+                <Switch
+                  checked={settings.noiseSuppression}
+                  onChange={(e) => {
+                    handleSettingChange('noiseSuppression', e.target.checked);
+                  }}
+                />
+              }
+            >
               <ListItemIcon>
                 <MicIcon />
               </ListItemIcon>
@@ -220,17 +227,18 @@ const CallSettings: React.FC<CallSettingsProps> = ({
                 primary="Rauschunterdrückung"
                 secondary="Filtert Hintergrundgeräusche"
               />
-              <ListItemSecondaryAction>
-                <Switch
-                  checked={settings.noiseSuppression}
-                  onChange={(e) =>
-                    handleSettingChange('noiseSuppression', e.target.checked)
-                  }
-                />
-              </ListItemSecondaryAction>
             </ListItem>
 
-            <ListItem>
+            <ListItem
+              secondaryAction={
+                <Switch
+                  checked={settings.autoGainControl}
+                  onChange={(e) => {
+                    handleSettingChange('autoGainControl', e.target.checked);
+                  }}
+                />
+              }
+            >
               <ListItemIcon>
                 <SpeakerIcon />
               </ListItemIcon>
@@ -238,19 +246,20 @@ const CallSettings: React.FC<CallSettingsProps> = ({
                 primary="Automatische Verstärkung"
                 secondary="Passt die Mikrofonlautstärke automatisch an"
               />
-              <ListItemSecondaryAction>
-                <Switch
-                  checked={settings.autoGainControl}
-                  onChange={(e) =>
-                    handleSettingChange('autoGainControl', e.target.checked)
-                  }
-                />
-              </ListItemSecondaryAction>
             </ListItem>
 
             <Divider />
 
-            <ListItem>
+            <ListItem
+              secondaryAction={
+                <Switch
+                  checked={settings.recordingEnabled}
+                  onChange={(e) => {
+                    handleSettingChange('recordingEnabled', e.target.checked);
+                  }}
+                />
+              }
+            >
               <ListItemIcon>
                 <SecurityIcon />
               </ListItemIcon>
@@ -258,14 +267,6 @@ const CallSettings: React.FC<CallSettingsProps> = ({
                 primary="Aufnahme aktiviert"
                 secondary="Erlaubt das Aufzeichnen von Anrufen"
               />
-              <ListItemSecondaryAction>
-                <Switch
-                  checked={settings.recordingEnabled}
-                  onChange={(e) =>
-                    handleSettingChange('recordingEnabled', e.target.checked)
-                  }
-                />
-              </ListItemSecondaryAction>
             </ListItem>
           </List>
         </TabPanel>
@@ -276,7 +277,16 @@ const CallSettings: React.FC<CallSettingsProps> = ({
           </Typography>
 
           <List>
-            <ListItem>
+            <ListItem
+              secondaryAction={
+                <Switch
+                  checked={settings.notifications}
+                  onChange={(e) => {
+                    handleSettingChange('notifications', e.target.checked);
+                  }}
+                />
+              }
+            >
               <ListItemIcon>
                 <NotificationsIcon />
               </ListItemIcon>
@@ -284,14 +294,6 @@ const CallSettings: React.FC<CallSettingsProps> = ({
                 primary="Benachrichtigungen aktiviert"
                 secondary="Zeigt Benachrichtigungen für Anrufe und Nachrichten"
               />
-              <ListItemSecondaryAction>
-                <Switch
-                  checked={settings.notifications}
-                  onChange={(e) =>
-                    handleSettingChange('notifications', e.target.checked)
-                  }
-                />
-              </ListItemSecondaryAction>
             </ListItem>
           </List>
         </TabPanel>

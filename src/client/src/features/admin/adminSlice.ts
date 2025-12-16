@@ -1,12 +1,37 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import {
-  AdminUser,
-  AdminSkill,
-  ModerationReport,
-} from '../../types/models/Admin';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import type { AdminUser, AdminSkill, ModerationReport } from '../../types/models/Admin';
 import { withDefault, isDefined } from '../../utils/safeAccess';
 import { initialAdminState } from '../../store/adapters/adminAdapter+State';
-import { fetchAdminDashboard, fetchAdminUsers, updateUserRole, suspendUser, unsuspendUser, deleteUser, fetchAdminSkills, moderateSkill, fetchAdminAppointments, fetchAdminMatches, fetchAdminAnalytics, fetchSystemHealth, fetchAuditLogs, fetchModerationReports, handleModerationReport, fetchAdminSettings, updateAdminSettings, fetchSecurityAlerts, fetchSecurityAlertStatistics } from './adminThunks';
+import {
+  fetchAdminDashboard,
+  fetchAdminUsers,
+  updateUserRole,
+  suspendUser,
+  unsuspendUser,
+  deleteUser,
+  fetchAdminSkills,
+  moderateSkill,
+  fetchAdminAppointments,
+  fetchAdminMatches,
+  fetchAdminAnalytics,
+  fetchSystemHealth,
+  fetchAuditLogs,
+  fetchModerationReports,
+  handleModerationReport,
+  fetchAdminSettings,
+  updateAdminSettings,
+  fetchSecurityAlerts,
+  fetchSecurityAlertStatistics,
+} from './adminThunks';
+import type {
+  AppointmentFilters,
+  AuditLogFilters,
+  MatchFilters,
+  ModerationReportFilters,
+  SecurityAlertFilters,
+  SkillFilters,
+  UserFilters,
+} from '../../types/filters/AdminFilters';
 
 const adminSlice = createSlice({
   name: 'admin',
@@ -45,26 +70,40 @@ const adminSlice = createSlice({
     clearSecurityAlertError: (state) => {
       state.securityAlertError = undefined;
     },
-    setUserFilters: (state, action: PayloadAction<any>) => {
-      state.filters.users = { ...state.filters.users, ...action.payload };
+    setUserFilters: (state, action: PayloadAction<Partial<UserFilters>>) => {
+      if (state.filters) {
+        state.filters.users = { ...state.filters.users, ...action.payload };
+      }
     },
-    setSkillFilters: (state, action: PayloadAction<any>) => {
-      state.filters.skills = { ...state.filters.skills, ...action.payload };
+    setSkillFilters: (state, action: PayloadAction<Partial<SkillFilters>>) => {
+      if (state.filters) {
+        state.filters.skills = { ...state.filters.skills, ...action.payload };
+      }
     },
-    setAppointmentFilters: (state, action: PayloadAction<any>) => {
-      state.filters.appointments = { ...state.filters.appointments, ...action.payload };
+    setAppointmentFilters: (state, action: PayloadAction<Partial<AppointmentFilters>>) => {
+      if (state.filters) {
+        state.filters.appointments = { ...state.filters.appointments, ...action.payload };
+      }
     },
-    setMatchFilters: (state, action: PayloadAction<any>) => {
-      state.filters.matches = { ...state.filters.matches, ...action.payload };
+    setMatchFilters: (state, action: PayloadAction<Partial<MatchFilters>>) => {
+      if (state.filters) {
+        state.filters.matches = { ...state.filters.matches, ...action.payload };
+      }
     },
-    setAuditLogFilters: (state, action: PayloadAction<any>) => {
-      state.filters.auditLogs = { ...state.filters.auditLogs, ...action.payload };
+    setAuditLogFilters: (state, action: PayloadAction<Partial<AuditLogFilters>>) => {
+      if (state.filters) {
+        state.filters.auditLogs = { ...state.filters.auditLogs, ...action.payload };
+      }
     },
-    setReportFilters: (state, action: PayloadAction<any>) => {
-      state.filters.reports = { ...state.filters.reports, ...action.payload };
+    setReportFilters: (state, action: PayloadAction<Partial<ModerationReportFilters>>) => {
+      if (state.filters) {
+        state.filters.reports = { ...state.filters.reports, ...action.payload };
+      }
     },
-    setSecurityAlertFilters: (state, action: PayloadAction<any>) => {
-      state.filters.securityAlerts = { ...state.filters.securityAlerts, ...action.payload };
+    setSecurityAlertFilters: (state, action: PayloadAction<Partial<SecurityAlertFilters>>) => {
+      if (state.filters) {
+        state.filters.securityAlerts = { ...state.filters.securityAlerts, ...action.payload };
+      }
     },
 
     setUserPagination: (state, action: PayloadAction<{ page?: number; limit?: number }>) => {
@@ -85,86 +124,103 @@ const adminSlice = createSlice({
     setReportPagination: (state, action: PayloadAction<{ page?: number; limit?: number }>) => {
       state.pagination.reports = { ...state.pagination.reports, ...action.payload };
     },
-    setSecurityAlertPagination: (state, action: PayloadAction<{ page?: number; limit?: number }>) => {
+    setSecurityAlertPagination: (
+      state,
+      action: PayloadAction<{ page?: number; limit?: number }>
+    ) => {
       state.pagination.securityAlerts = { ...state.pagination.securityAlerts, ...action.payload };
     },
 
     updateUserInList: (state, action: PayloadAction<AdminUser>) => {
-      const index = state.users.findIndex(user => user.id === action.payload.id);
+      const index = state.users.findIndex((user) => user.id === action.payload.id);
       if (index !== -1) {
         state.users[index] = action.payload;
       }
     },
-    
+
     removeUserFromList: (state, action: PayloadAction<string>) => {
-      state.users = state.users.filter(user => user.id !== action.payload);
+      state.users = state.users.filter((user) => user.id !== action.payload);
     },
-    
+
     updateSkillInList: (state, action: PayloadAction<AdminSkill>) => {
-      const index = state.skills.findIndex(skill => skill.id === action.payload.id);
+      const index = state.skills.findIndex((skill) => skill.id === action.payload.id);
       if (index !== -1) {
         state.skills[index] = action.payload;
       }
     },
-    
+
     updateReportInList: (state, action: PayloadAction<ModerationReport>) => {
-      const index = state.moderationReports.findIndex(report => report.id === action.payload.id);
+      const index = state.moderationReports.findIndex((report) => report.id === action.payload.id);
       if (index !== -1) {
         state.moderationReports[index] = action.payload;
       }
     },
-    
+
     // Optimistic updates
     updateUserRoleOptimistic: (state, action: PayloadAction<{ userId: string; role: string }>) => {
-      const user = state.users.find(u => u.id === action.payload.userId);
+      const user = state.users.find((u) => u.id === action.payload.userId);
       if (user) {
         user.roles.push(action.payload.role);
       }
     },
-    
+
     suspendUserOptimistic: (state, action: PayloadAction<string>) => {
-      const user = state.users.find(u => u.id === action.payload);
+      const user = state.users.find((u) => u.id === action.payload);
       if (user) {
         user.accountStatus = 'suspended';
       }
     },
-    
+
     unsuspendUserOptimistic: (state, action: PayloadAction<string>) => {
-      const user = state.users.find(u => u.id === action.payload);
+      const user = state.users.find((u) => u.id === action.payload);
       if (user) {
         user.accountStatus = 'active';
       }
     },
-    
+
     deleteUserOptimistic: (state, action: PayloadAction<string>) => {
-      state.users = state.users.filter(user => user.id !== action.payload);
+      state.users = state.users.filter((user) => user.id !== action.payload);
     },
-    
-    moderateSkillOptimistic: (state, action: PayloadAction<{ skillId: string; action: 'approve' | 'reject' | 'quarantine' }>) => {
-      const skill = state.skills.find(s => s.id === action.payload.skillId);
+
+    moderateSkillOptimistic: (
+      state,
+      action: PayloadAction<{ skillId: string; action: 'approve' | 'reject' | 'quarantine' }>
+    ) => {
+      const skill = state.skills.find((s) => s.id === action.payload.skillId);
       if (skill) {
-        skill.status = action.payload.action === 'approve' ? 'approved' : 
-                      action.payload.action === 'reject' ? 'rejected' : 'quarantined';
+        skill.status =
+          action.payload.action === 'approve'
+            ? 'approved'
+            : action.payload.action === 'reject'
+              ? 'rejected'
+              : 'quarantined';
       }
     },
-    
-    handleReportOptimistic: (state, action: PayloadAction<{ reportId: string; action: 'approve' | 'reject' | 'escalate' }>) => {
-      const report = state.moderationReports.find(r => r.id === action.payload.reportId);
+
+    handleReportOptimistic: (
+      state,
+      action: PayloadAction<{ reportId: string; action: 'approve' | 'reject' | 'escalate' }>
+    ) => {
+      const report = state.moderationReports.find((r) => r.id === action.payload.reportId);
       if (report) {
-        report.status = action.payload.action === 'approve' ? 'approved' : 
-                       action.payload.action === 'reject' ? 'rejected' : 'escalated';
+        report.status =
+          action.payload.action === 'approve'
+            ? 'approved'
+            : action.payload.action === 'reject'
+              ? 'rejected'
+              : 'escalated';
       }
     },
-    
+
     // Rollback actions
     setUsers: (state, action: PayloadAction<AdminUser[]>) => {
       state.users = action.payload;
     },
-    
+
     setSkills: (state, action: PayloadAction<AdminSkill[]>) => {
       state.skills = action.payload;
     },
-    
+
     setModerationReports: (state, action: PayloadAction<ModerationReport[]>) => {
       state.moderationReports = action.payload;
     },
@@ -185,7 +241,7 @@ const adminSlice = createSlice({
         state.isLoading = false;
         state.errorMessage = action.payload?.message;
       })
-      
+
       // Users
       .addCase(fetchAdminUsers.pending, (state) => {
         state.isLoadingUsers = true;
@@ -195,7 +251,10 @@ const adminSlice = createSlice({
         state.isLoadingUsers = false;
         if (isDefined(action.payload.data)) {
           state.users = action.payload.data;
-          state.pagination.users.total = withDefault(action.payload.totalRecords, action.payload.data?.length || 0);
+          state.pagination.users.total = withDefault(
+            action.payload.totalRecords,
+            action.payload.data.length
+          );
         }
         state.userError = undefined;
       })
@@ -203,38 +262,38 @@ const adminSlice = createSlice({
         state.isLoadingUsers = false;
         state.userError = action.payload?.message;
       })
-      
+
       .addCase(updateUserRole.fulfilled, (state, action) => {
         if (isDefined(action.payload.data)) {
-          const index = state.users.findIndex(user => user.id === action.payload.data.id);
+          const index = state.users.findIndex((user) => user.id === action.payload.data.id);
           if (index !== -1) {
             state.users[index] = action.payload.data;
           }
         }
       })
-      
+
       .addCase(suspendUser.fulfilled, (state, action) => {
         if (isDefined(action.payload.data)) {
-          const index = state.users.findIndex(user => user.id === action.payload.data.id);
+          const index = state.users.findIndex((user) => user.id === action.payload.data.id);
           if (index !== -1) {
             state.users[index] = action.payload.data;
           }
         }
       })
-      
+
       .addCase(unsuspendUser.fulfilled, (state, action) => {
         if (isDefined(action.payload.data)) {
-          const index = state.users.findIndex(user => user.id === action.payload.data.id);
+          const index = state.users.findIndex((user) => user.id === action.payload.data.id);
           if (index !== -1) {
             state.users[index] = action.payload.data;
           }
         }
       })
-      
+
       .addCase(deleteUser.fulfilled, (state, action) => {
-        state.users = state.users.filter(user => user.id !== action.meta.arg);
+        state.users = state.users.filter((user) => user.id !== action.meta.arg);
       })
-      
+
       // Skills
       .addCase(fetchAdminSkills.pending, (state) => {
         state.isLoadingSkills = true;
@@ -244,7 +303,10 @@ const adminSlice = createSlice({
         state.isLoadingSkills = false;
         if (isDefined(action.payload.data)) {
           state.skills = action.payload.data;
-          state.pagination.skills.total = withDefault(action.payload.totalRecords, action.payload.data?.length || 0);
+          state.pagination.skills.total = withDefault(
+            action.payload.totalRecords,
+            action.payload.data.length
+          );
         }
         state.skillError = undefined;
       })
@@ -252,16 +314,16 @@ const adminSlice = createSlice({
         state.isLoadingSkills = false;
         state.skillError = action.payload?.message;
       })
-      
+
       .addCase(moderateSkill.fulfilled, (state, action) => {
         if (isDefined(action.payload.data)) {
-          const index = state.skills.findIndex(skill => skill.id === action.payload.data.id);
+          const index = state.skills.findIndex((skill) => skill.id === action.payload.data.id);
           if (index !== -1) {
             state.skills[index] = action.payload.data;
           }
         }
       })
-      
+
       // Appointments
       .addCase(fetchAdminAppointments.pending, (state) => {
         state.isLoadingAppointments = true;
@@ -270,14 +332,14 @@ const adminSlice = createSlice({
       .addCase(fetchAdminAppointments.fulfilled, (state, action) => {
         state.isLoadingAppointments = false;
         state.appointments = action.payload.data;
-        state.pagination.appointments.total = action.payload.totalRecords || action.payload.data?.length || 0;
+        state.pagination.appointments.total = action.payload.totalRecords;
         state.appointmentError = undefined;
       })
       .addCase(fetchAdminAppointments.rejected, (state, action) => {
         state.isLoadingAppointments = false;
         state.appointmentError = action.payload?.message;
       })
-      
+
       // Matches
       .addCase(fetchAdminMatches.pending, (state) => {
         state.isLoadingMatches = true;
@@ -286,14 +348,15 @@ const adminSlice = createSlice({
       .addCase(fetchAdminMatches.fulfilled, (state, action) => {
         state.isLoadingMatches = false;
         state.matches = action.payload.data;
-        state.pagination.matches.total = action.payload.totalRecords || action.payload.data.length || 0;
+        state.pagination.matches.total =
+          action.payload.totalRecords || action.payload.data.length || 0;
         state.matchError = undefined;
       })
       .addCase(fetchAdminMatches.rejected, (state, action) => {
         state.isLoadingMatches = false;
         state.matchError = action.payload?.message;
       })
-      
+
       // Analytics
       .addCase(fetchAdminAnalytics.pending, (state) => {
         state.isLoadingAnalytics = true;
@@ -308,7 +371,7 @@ const adminSlice = createSlice({
         state.isLoadingAnalytics = false;
         state.analyticsError = action.payload?.message;
       })
-      
+
       // System Health
       .addCase(fetchSystemHealth.pending, (state) => {
         state.isLoadingSystemHealth = true;
@@ -323,7 +386,7 @@ const adminSlice = createSlice({
         state.isLoadingSystemHealth = false;
         state.systemHealthError = action.payload?.message;
       })
-      
+
       // Audit Logs
       .addCase(fetchAuditLogs.pending, (state) => {
         state.isLoadingAuditLogs = true;
@@ -332,14 +395,14 @@ const adminSlice = createSlice({
       .addCase(fetchAuditLogs.fulfilled, (state, action) => {
         state.isLoadingAuditLogs = false;
         state.auditLogs = action.payload.data;
-        state.pagination.auditLogs.total = action.payload.totalRecords || action.payload.data?.length || 0;
+        state.pagination.auditLogs.total = action.payload.totalRecords;
         state.auditLogError = undefined;
       })
       .addCase(fetchAuditLogs.rejected, (state, action) => {
         state.isLoadingAuditLogs = false;
         state.auditLogError = action.payload?.message;
       })
-      
+
       // Moderation Reports
       .addCase(fetchModerationReports.pending, (state) => {
         state.isLoadingReports = true;
@@ -348,21 +411,23 @@ const adminSlice = createSlice({
       .addCase(fetchModerationReports.fulfilled, (state, action) => {
         state.isLoadingReports = false;
         state.moderationReports = action.payload.data;
-        state.pagination.reports.total = action.payload.totalRecords || action.payload.data?.length || 0;
+        state.pagination.reports.total = action.payload.totalRecords;
         state.reportError = undefined;
       })
       .addCase(fetchModerationReports.rejected, (state, action) => {
         state.isLoadingReports = false;
         state.reportError = action.payload?.message;
       })
-      
+
       .addCase(handleModerationReport.fulfilled, (state, action) => {
-        const index = state.moderationReports.findIndex(report => report.id === action.payload.data.id);
+        const index = state.moderationReports.findIndex(
+          (report) => report.id === action.payload.data.id
+        );
         if (index !== -1) {
           state.moderationReports[index] = action.payload.data;
         }
       })
-      
+
       // Settings
       .addCase(fetchAdminSettings.pending, (state) => {
         state.isLoadingSettings = true;
@@ -377,7 +442,7 @@ const adminSlice = createSlice({
         state.isLoadingSettings = false;
         state.settingsError = action.payload?.message;
       })
-      
+
       .addCase(updateAdminSettings.fulfilled, (state, action) => {
         state.settings = action.payload.data;
       })
@@ -389,12 +454,13 @@ const adminSlice = createSlice({
       })
       .addCase(fetchSecurityAlerts.fulfilled, (state, action) => {
         state.isLoadingSecurityAlerts = false;
-        state.securityAlerts = action.payload.data || [];
-        state.pagination.securityAlerts.total = action.payload.totalRecords || 0;
+        state.securityAlerts = action.payload.data;
+        state.pagination.securityAlerts.total = action.payload.totalRecords;
       })
-      .addCase(fetchSecurityAlerts.rejected, (state, action: any) => {
+      .addCase(fetchSecurityAlerts.rejected, (state, action) => {
         state.isLoadingSecurityAlerts = false;
-        state.securityAlertError = action.payload?.message || 'Fehler beim Laden der Security Alerts';
+        const payload = action.payload as { message?: string } | undefined;
+        state.securityAlertError = payload?.message ?? 'Fehler beim Laden der Security Alerts';
       })
 
       .addCase(fetchSecurityAlertStatistics.pending, (state) => {
@@ -403,11 +469,12 @@ const adminSlice = createSlice({
       })
       .addCase(fetchSecurityAlertStatistics.fulfilled, (state, action) => {
         state.isLoadingSecurityStatistics = false;
-        state.securityAlertStatistics = action.payload.data || null;
+        state.securityAlertStatistics = action.payload.data;
       })
-      .addCase(fetchSecurityAlertStatistics.rejected, (state, action: any) => {
+      .addCase(fetchSecurityAlertStatistics.rejected, (state, action) => {
         state.isLoadingSecurityStatistics = false;
-        state.securityAlertError = action.payload?.message || 'Fehler beim Laden der Statistiken';
+        const payload = action.payload as { message?: string } | undefined;
+        state.securityAlertError = payload?.message ?? 'Fehler beim Laden der Statistiken';
       });
   },
 });

@@ -34,15 +34,17 @@ const AdminMatchesPage: React.FC = () => {
   const filteredMatches = matches.filter((match) => {
     const matchesSearch =
       searchQuery === '' ||
-      match.offeredSkill?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      match.requestedSkill?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      (match.offeredSkill?.name.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      (match.requestedSkill?.name.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
     const matchesStatus = statusFilter === 'all' || match.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (
+    status: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status.toLowerCase()) {
       case 'pending':
         return 'warning';
@@ -145,27 +147,35 @@ const AdminMatchesPage: React.FC = () => {
             <TextField
               placeholder="Suche nach Skills..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
               sx={{ flexGrow: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
             <TextField
               select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+              }}
               sx={{ minWidth: 200 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             >
               <MenuItem value="all">Alle Status</MenuItem>
@@ -207,10 +217,10 @@ const AdminMatchesPage: React.FC = () => {
                 filteredMatches.map((match) => (
                   <TableRow key={match.id}>
                     <TableCell>{match.id.substring(0, 8)}...</TableCell>
-                    <TableCell>{match.offeredSkill?.name || 'N/A'}</TableCell>
-                    <TableCell>{match.requestedSkill?.name || 'N/A'}</TableCell>
-                    <TableCell>{match.user1Id?.substring(0, 8) || 'N/A'}</TableCell>
-                    <TableCell>{match.user2Id?.substring(0, 8) || 'N/A'}</TableCell>
+                    <TableCell>{match.offeredSkill?.name ?? 'N/A'}</TableCell>
+                    <TableCell>{match.requestedSkill?.name ?? 'N/A'}</TableCell>
+                    <TableCell>{match.user1Id?.substring(0, 8) ?? 'N/A'}</TableCell>
+                    <TableCell>{match.user2Id?.substring(0, 8) ?? 'N/A'}</TableCell>
                     <TableCell>
                       <Chip
                         label={match.status}
@@ -219,7 +229,9 @@ const AdminMatchesPage: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {match.compatibilityScore ? `${match.compatibilityScore}%` : 'N/A'}
+                      {match.compatibilityScore !== undefined
+                        ? `${String(match.compatibilityScore)}%`
+                        : 'N/A'}
                     </TableCell>
                   </TableRow>
                 ))
