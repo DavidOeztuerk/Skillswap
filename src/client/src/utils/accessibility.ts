@@ -7,9 +7,8 @@
 /**
  * Generate a unique ID for accessibility attributes
  */
-export const generateA11yId = (prefix = 'a11y'): string => {
-  return `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
-};
+export const generateA11yId = (prefix = 'a11y'): string =>
+  `${prefix}-${Math.random().toString(36).substring(2, 11)}`;
 
 /**
  * Check if an element is visible to screen readers
@@ -41,8 +40,9 @@ export const getFocusableElements = (container: HTMLElement): HTMLElement[] => {
     'details[open] summary',
   ].join(', ');
 
-  return Array.from(container.querySelectorAll<HTMLElement>(focusableSelectors))
-    .filter(isVisibleToScreenReader);
+  return Array.from(container.querySelectorAll<HTMLElement>(focusableSelectors)).filter(
+    isVisibleToScreenReader
+  );
 };
 
 /**
@@ -50,7 +50,7 @@ export const getFocusableElements = (container: HTMLElement): HTMLElement[] => {
  */
 export const focusFirstElement = (container: HTMLElement): boolean => {
   const focusableElements = getFocusableElements(container);
-  if (focusableElements?.length > 0) {
+  if (focusableElements.length > 0) {
     focusableElements[0].focus();
     return true;
   }
@@ -62,8 +62,8 @@ export const focusFirstElement = (container: HTMLElement): boolean => {
  */
 export const focusLastElement = (container: HTMLElement): boolean => {
   const focusableElements = getFocusableElements(container);
-  if (focusableElements?.length > 0) {
-    focusableElements[focusableElements?.length - 1].focus();
+  if (focusableElements.length > 0) {
+    focusableElements[focusableElements.length - 1].focus();
     return true;
   }
   return false;
@@ -72,11 +72,8 @@ export const focusLastElement = (container: HTMLElement): boolean => {
 /**
  * Trap focus within a container (for modals, dialogs, etc.)
  */
-export const trapFocus = (
-  container: HTMLElement,
-  onEscape?: () => void
-): (() => void) => {
-  const handleKeyDown = (event: KeyboardEvent) => {
+export const trapFocus = (container: HTMLElement, onEscape?: () => void): (() => void) => {
+  const handleKeyDown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape' && onEscape) {
       onEscape();
       return;
@@ -85,21 +82,21 @@ export const trapFocus = (
     if (event.key !== 'Tab') return;
 
     const focusableElements = getFocusableElements(container);
-    if (focusableElements?.length === 0) return;
+    if (focusableElements.length === 0) return;
 
     const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements?.length - 1];
+    const lastElement = focusableElements[focusableElements.length - 1];
     const currentElement = document.activeElement as HTMLElement;
 
     if (event.shiftKey) {
       // Shift + Tab (backward)
-      if (currentElement === firstElement || !focusableElements?.includes(currentElement)) {
+      if (currentElement === firstElement || !focusableElements.includes(currentElement)) {
         event.preventDefault();
         lastElement.focus();
       }
     } else {
       // Tab (forward)
-      if (currentElement === lastElement || !focusableElements?.includes(currentElement)) {
+      if (currentElement === lastElement || !focusableElements.includes(currentElement)) {
         event.preventDefault();
         firstElement.focus();
       }
@@ -129,10 +126,10 @@ export const announceToScreenReader = (
   announcement.style.width = '1px';
   announcement.style.height = '1px';
   announcement.style.overflow = 'hidden';
-  
+
   document.body.appendChild(announcement);
   announcement.textContent = message;
-  
+
   // Remove after announcement
   setTimeout(() => {
     document.body.removeChild(announcement);
@@ -142,9 +139,8 @@ export const announceToScreenReader = (
 /**
  * Check if user prefers reduced motion
  */
-export const prefersReducedMotion = (): boolean => {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-};
+export const prefersReducedMotion = (): boolean =>
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
  * Check color contrast ratio
@@ -153,13 +149,13 @@ export const getContrastRatio = (color1: string, color2: string): number => {
   const getLuminance = (color: string): number => {
     // Simple approximation - in production, use a proper color library
     const rgb = color.match(/\d+/g);
-    if (!rgb || rgb?.length < 3) return 0;
-    
-    const [r, g, b] = rgb.map(val => {
+    if (rgb === null || rgb.length < 3) return 0;
+
+    const [r, g, b] = rgb.map((val) => {
       const num = parseInt(val, 10) / 255;
       return num <= 0.03928 ? num / 12.92 : Math.pow((num + 0.055) / 1.055, 2.4);
     });
-    
+
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
 
@@ -167,7 +163,7 @@ export const getContrastRatio = (color1: string, color2: string): number => {
   const lum2 = getLuminance(color2);
   const brightest = Math.max(lum1, lum2);
   const darkest = Math.min(lum1, lum2);
-  
+
   return (brightest + 0.05) / (darkest + 0.05);
 };
 
@@ -175,17 +171,17 @@ export const getContrastRatio = (color1: string, color2: string): number => {
  * Check if contrast ratio meets WCAG AA standards
  */
 export const meetsContrastRequirement = (
-  color1: string, 
-  color2: string, 
+  color1: string,
+  color2: string,
   level: 'AA' | 'AAA' = 'AA',
   isLargeText = false
 ): boolean => {
   const ratio = getContrastRatio(color1, color2);
-  
+
   if (level === 'AAA') {
     return isLargeText ? ratio >= 4.5 : ratio >= 7;
   }
-  
+
   return isLargeText ? ratio >= 3 : ratio >= 4.5;
 };
 
@@ -208,9 +204,7 @@ export const addAriaAttributes = (
 /**
  * Create a live region for announcements
  */
-export const createLiveRegion = (
-  priority: 'polite' | 'assertive' = 'polite'
-): HTMLElement => {
+export const createLiveRegion = (priority: 'polite' | 'assertive' = 'polite'): HTMLElement => {
   const liveRegion = document.createElement('div');
   liveRegion.setAttribute('aria-live', priority);
   liveRegion.setAttribute('aria-atomic', 'true');
@@ -219,9 +213,9 @@ export const createLiveRegion = (
   liveRegion.style.width = '1px';
   liveRegion.style.height = '1px';
   liveRegion.style.overflow = 'hidden';
-  liveRegion.style.clip = 'rect(0, 0, 0, 0)';
+  liveRegion.style.clipPath = 'inset(50%)';
   liveRegion.style.whiteSpace = 'nowrap';
-  
+
   document.body.appendChild(liveRegion);
   return liveRegion;
 };
@@ -240,12 +234,12 @@ export class ScreenReaderAnnouncer {
 
   announce(message: string, priority: 'polite' | 'assertive' = 'polite'): void {
     const region = priority === 'assertive' ? this.assertiveRegion : this.politeRegion;
-    
+
     // Clear and set new message
     region.textContent = '';
     setTimeout(() => {
       region.textContent = message;
-      
+
       // Auto-clear after 5 seconds
       setTimeout(() => {
         if (region.textContent === message) {
@@ -288,7 +282,7 @@ export const KeyboardNavigation = {
         break;
       case 'ArrowUp':
         event.preventDefault();
-        newIndex = currentIndex === 0 ? elements?.length - 1 : currentIndex - 1;
+        newIndex = currentIndex === 0 ? elements.length - 1 : currentIndex - 1;
         break;
       case 'Home':
         event.preventDefault();
@@ -296,7 +290,7 @@ export const KeyboardNavigation = {
         break;
       case 'End':
         event.preventDefault();
-        newIndex = elements?.length - 1;
+        newIndex = elements.length - 1;
         break;
       case 'Enter':
       case ' ':
@@ -305,9 +299,12 @@ export const KeyboardNavigation = {
           onSelect(currentIndex);
         }
         return currentIndex;
+      default:
+        // No action needed for other keys
+        break;
     }
 
-    if (newIndex !== currentIndex && elements[newIndex]) {
+    if (newIndex !== currentIndex) {
       elements[newIndex].focus();
     }
 
@@ -329,7 +326,7 @@ export const KeyboardNavigation = {
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
-        newRow = Math.min(currentRow + 1, gridElements?.length - 1);
+        newRow = Math.min(currentRow + 1, gridElements.length - 1);
         break;
       case 'ArrowUp':
         event.preventDefault();
@@ -337,18 +334,19 @@ export const KeyboardNavigation = {
         break;
       case 'ArrowRight':
         event.preventDefault();
-        newCol = Math.min(currentCol + 1, (gridElements[currentRow]?.length || 1) - 1);
+        newCol = Math.min(currentCol + 1, (gridElements[currentRow]?.length ?? 1) - 1);
         break;
       case 'ArrowLeft':
         event.preventDefault();
         newCol = Math.max(currentCol - 1, 0);
         break;
+      default:
+        // No action needed for other keys
+        break;
     }
 
     // Ensure the new position is valid
-    if (gridElements[newRow] && gridElements[newRow][newCol]) {
-      gridElements[newRow][newCol].focus();
-    }
+    gridElements[newRow][newCol].focus();
 
     return { row: newRow, col: newCol };
   },

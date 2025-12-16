@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import {
   Box,
   Container,
@@ -49,9 +49,8 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
   showDetails,
   level,
 }) => {
-
-  const getErrorMessage = (level: string) => {
-    switch (level) {
+  const getErrorMessage = (levelParam: string): string => {
+    switch (levelParam) {
       case 'page':
         return 'Diese Seite konnte nicht geladen werden.';
       case 'component':
@@ -63,8 +62,8 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
     }
   };
 
-  const getErrorTitle = (level: string) => {
-    switch (level) {
+  const getErrorTitle = (levelParam: string): string => {
+    switch (levelParam) {
       case 'page':
         return 'Seite nicht verfügbar';
       case 'component':
@@ -115,11 +114,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
           {getErrorTitle(level)}
         </Typography>
 
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{ mb: 3 }}
-        >
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
           {getErrorMessage(level)}
         </Typography>
 
@@ -128,7 +123,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
             <Typography variant="body2" component="div">
               <strong>Fehler:</strong> {error.message}
             </Typography>
-            {errorId && (
+            {errorId !== '' && (
               <Typography variant="caption" display="block" sx={{ mt: 1 }}>
                 Fehler-ID: {errorId}
               </Typography>
@@ -146,14 +141,9 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
         >
           Erneut versuchen
         </Button>
-        
+
         {isPageLevel && (
-          <Button
-            variant="outlined"
-            startIcon={<HomeIcon />}
-            onClick={onNavigateHome}
-            size="large"
-          >
+          <Button variant="outlined" startIcon={<HomeIcon />} onClick={onNavigateHome} size="large">
             Zur Startseite
           </Button>
         )}
@@ -189,33 +179,37 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return {
       hasError: true,
       error,
-      errorId: `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      errorId: `err_${String(Date.now())}_${Math.random().toString(36).substring(2, 11)}`,
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     const { onError, level = 'component' } = this.props;
-    
+
     this.setState({ errorInfo });
 
-    errorService.handleComponentError(error, { componentStack: errorInfo.componentStack || '' }, `ErrorBoundary-${level}`);
+    errorService.handleComponentError(
+      error,
+      { componentStack: errorInfo.componentStack ?? '' },
+      `ErrorBoundary-${level}`
+    );
 
     onError?.(error, errorInfo);
 
-    console.group('🚨 Error Boundary Caught Error');
-    console.error('Error:', error);
-    console.error('Error Info:', errorInfo);
-    console.error('Component Stack:', errorInfo.componentStack);
-    console.groupEnd();
+    console.error('🚨 Error Boundary Caught Error:', {
+      error,
+      errorInfo,
+      componentStack: errorInfo.componentStack,
+    });
   }
 
-  componentWillUnmount() {
-    if (this.retryTimeoutId) {
+  componentWillUnmount(): void {
+    if (this.retryTimeoutId !== null) {
       window.clearTimeout(this.retryTimeoutId);
     }
   }
 
-  handleRetry = () => {
+  handleRetry = (): void => {
     this.setState({
       hasError: false,
       error: null,
@@ -224,17 +218,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     });
   };
 
-  handleNavigateHome = () => {
+  handleNavigateHome = (): void => {
     window.location.href = '/';
   };
 
-  render() {
+  render(): React.ReactNode {
     const { hasError, error, errorInfo, errorId } = this.state;
-    const { 
-      children, 
-      fallback, 
+    const {
+      children,
+      fallback,
       showDetails = process.env.NODE_ENV === 'development',
-      level = 'component' 
+      level = 'component',
     } = this.props;
 
     // Support render prop pattern
@@ -242,15 +236,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return children(hasError, error, this.handleRetry);
     }
 
-    if (hasError && error) {
-      if (fallback) {
+    if (hasError && error !== null) {
+      if (fallback !== undefined) {
         return fallback;
       }
 
       return (
         <ErrorFallback
           error={error}
-          errorInfo={errorInfo!}
+          errorInfo={errorInfo ?? { componentStack: '' }}
           errorId={errorId}
           onRetry={this.handleRetry}
           onNavigateHome={this.handleNavigateHome}

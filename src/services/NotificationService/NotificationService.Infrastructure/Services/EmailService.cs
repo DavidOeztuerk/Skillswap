@@ -53,9 +53,10 @@ public class EmailService(
             using var client = new SmtpClient();
 
             // Determine secure socket options based on configuration
+            // Use None for local development (MailHog, MailDev) when both UseSsl and UseStartTls are false
             var secureSocketOptions = _config.UseSsl ? SecureSocketOptions.SslOnConnect :
                                      _config.UseStartTls ? SecureSocketOptions.StartTls :
-                                     SecureSocketOptions.Auto;
+                                     SecureSocketOptions.None;
             
             await client.ConnectAsync(_config.SmtpHost, _config.SmtpPort, secureSocketOptions);
 

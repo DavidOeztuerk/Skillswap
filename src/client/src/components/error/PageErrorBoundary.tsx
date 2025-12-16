@@ -1,5 +1,4 @@
-// src/components/error/PageErrorBoundary.tsx
-import { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Box, Button, Typography, Paper, Alert } from '@mui/material';
 import { Refresh, Home } from '@mui/icons-material';
 
@@ -32,18 +31,22 @@ class PageErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log error for debugging
-    console.error(`Page Error Boundary (${this.props.pageName || 'Unknown Page'}):`, error, errorInfo);
-    
+    console.error(
+      `Page Error Boundary (${this.props.pageName ?? 'Unknown Page'}):`,
+      error,
+      errorInfo
+    );
+
     // Log to error tracking service
     this.logError(error, errorInfo);
   }
 
-  private logError = (error: Error, errorInfo: ErrorInfo) => {
+  private logError = (error: Error, errorInfo: ErrorInfo): void => {
     const errorData = {
       type: 'PAGE_ERROR',
-      page: this.props.pageName || 'Unknown',
+      page: this.props.pageName ?? 'Unknown',
       message: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
@@ -54,21 +57,21 @@ class PageErrorBoundary extends Component<Props, State> {
     console.error('Page Error logged:', errorData);
   };
 
-  private handleRetry = () => {
+  private handleRetry = (): void => {
     this.setState({
       hasError: false,
       error: undefined,
     });
   };
 
-  private handleGoHome = () => {
+  private handleGoHome = (): void => {
     window.location.href = '/dashboard';
   };
 
-  render() {
+  render(): React.ReactNode {
     if (this.state.hasError) {
       // Use custom fallback if provided
-      if (this.props.fallback) {
+      if (this.props.fallback !== undefined) {
         return this.props.fallback;
       }
 
@@ -80,13 +83,18 @@ class PageErrorBoundary extends Component<Props, State> {
                 Page Error
               </Typography>
               <Typography variant="body2">
-                Something went wrong on this page. You can try refreshing or go back to the dashboard.
+                Something went wrong on this page. You can try refreshing or go back to the
+                dashboard.
               </Typography>
             </Alert>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {process.env.NODE_ENV === 'development' && this.state.error !== undefined && (
               <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-                <Typography variant="caption" component="pre" sx={{ textAlign: 'left', overflow: 'auto' }}>
+                <Typography
+                  variant="caption"
+                  component="pre"
+                  sx={{ textAlign: 'left', overflow: 'auto' }}
+                >
                   {this.state.error.message}
                   {'\n\n'}
                   {this.state.error.stack}
@@ -103,7 +111,7 @@ class PageErrorBoundary extends Component<Props, State> {
               >
                 Try Again
               </Button>
-              
+
               <Button
                 variant="outlined"
                 onClick={this.handleGoHome}

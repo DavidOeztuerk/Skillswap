@@ -11,7 +11,7 @@ import {
   Divider,
   Button,
   Pagination,
-  SelectChangeEvent,
+  type SelectChangeEvent,
   Tabs,
   Tab,
   OutlinedInput,
@@ -26,18 +26,18 @@ import {
 import MatchCard from './MatchCard';
 import SkeletonLoader from '../ui/SkeletonLoader';
 import EmptyState from '../ui/EmptyState';
-import { Match } from '../../types/models/Match';
+import type { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
 import { useAppSelector } from '../../store/store.hooks';
 import { selectAuthUser } from '../../store/selectors/authSelectors';
 
 interface MatchListProps {
-  matches: Match[] | any[];
+  matches: MatchDisplay[];
   isLoading?: boolean;
   errorMessage?: string | null;
   isRequesterView?: boolean;
   onAccept?: (matchId: string) => void;
   onReject?: (matchId: string) => void;
-  onSchedule?: (match: Match | any) => void;
+  onSchedule?: (match: MatchDisplay) => void;
 }
 
 /**
@@ -73,36 +73,34 @@ const MatchList: React.FC<MatchListProps> = ({
 
   // Match-Filterung
   const filteredMatches = useMemo(() => {
-    console.log('🔍 MatchList: Processing matches', {
-      matchesCount: matches?.length,
-      matches: matches,
+    console.debug('🔍 MatchList: Processing matches', {
+      matchesCount: matches.length,
+      matches,
       currentUserId,
       tabValue,
       searchTerm,
-      selectedStatus
+      selectedStatus,
     });
 
-    if (!matches) {
-      console.log('❌ MatchList: No matches provided');
+    if (matches.length === 0) {
+      console.debug('❌ MatchList: No matches provided');
       return [];
     }
 
     return matches.filter((match) => {
       // Suche - Use backend response format
-      const partnerName = match.partnerName || 'Unbekannt';
-      const skillName = match.skillName || 'Unbekannt';
-
       const matchesSearch =
-        !searchTerm ||
-        skillName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        partnerName.toLowerCase().includes(searchTerm.toLowerCase());
+        searchTerm.length === 0 ||
+        match.skillName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        match.partnerName.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Status - Case-insensitive matching
-      const matchesStatus = !selectedStatus || match.status?.toLowerCase() === selectedStatus.toLowerCase();
+      const matchesStatus =
+        selectedStatus.length === 0 || match.status.toLowerCase() === selectedStatus.toLowerCase();
 
       // Tab - Use new backend response format with case-insensitive status
       let matchesTab = true;
-      const status = match.status?.toLowerCase() || '';
+      const status = match.status.toLowerCase();
 
       if (tabValue === 1) {
         // "Von mir erstellt" / "Anfragen"
@@ -122,14 +120,14 @@ const MatchList: React.FC<MatchListProps> = ({
       const passesFilter = matchesSearch && matchesStatus && matchesTab;
 
       if (!passesFilter) {
-        console.log('🚫 MatchList: Match filtered out', {
+        console.debug('🚫 MatchList: Match filtered out', {
           matchId: match.id,
           matchesSearch,
           matchesStatus,
           matchesTab,
           status: match.status,
           requesterId: match.requesterId,
-          currentUserId
+          currentUserId,
         });
       }
 
@@ -138,45 +136,42 @@ const MatchList: React.FC<MatchListProps> = ({
   }, [matches, searchTerm, selectedStatus, tabValue, isRequesterView, currentUserId]);
 
   // Pagination
-  const pageCount = Math.ceil(filteredMatches?.length / matchesPerPage);
+  const pageCount = Math.ceil(filteredMatches.length / matchesPerPage);
   const displayedMatches = filteredMatches.slice(
     (currentPage - 1) * matchesPerPage,
     currentPage * matchesPerPage
   );
 
-  console.log('📊 MatchList: Final results', {
-    totalMatches: matches?.length || 0,
-    filteredMatches: filteredMatches?.length || 0,
-    displayedMatches: displayedMatches?.length || 0,
+  console.debug('📊 MatchList: Final results', {
+    totalMatches: matches.length,
+    filteredMatches: filteredMatches.length,
+    displayedMatches: displayedMatches.length,
     currentPage,
-    pageCount
+    pageCount,
   });
 
   // Handler
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(event.target.value);
     setCurrentPage(1);
   };
 
-  const handleStatusChange = (event: SelectChangeEvent<string>) => {
+  const handleStatusChange = (event: SelectChangeEvent): void => {
     setSelectedStatus(event.target.value);
     setCurrentPage(1);
   };
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number): void => {
     setTabValue(newValue);
     setCurrentPage(1);
   };
 
-  const handlePageChange = (
-    _event: React.ChangeEvent<unknown>,
-    value: number
-  ) => {
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number): void => {
     setCurrentPage(value);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const resetFilters = () => {
+  const resetFilters = (): void => {
     setSearchTerm('');
     setSelectedStatus('');
     setCurrentPage(1);
@@ -189,13 +184,15 @@ const MatchList: React.FC<MatchListProps> = ({
     return (
       <EmptyState
         title="Fehler beim Laden der Matches"
-        description={errorMessage || 'Ein unbekannter Fehler ist aufgetreten'}
+        description={errorMessage}
         actionLabel="Erneut versuchen"
-        actionHandler={() => window.location.reload()}
+        actionHandler={() => {
+          window.location.reload();
+        }}
       />
     );
   }
-  if (!matches || !matches.length) {
+  if (matches.length === 0) {
     return (
       <EmptyState
         title="Keine Matches gefunden"
@@ -221,8 +218,8 @@ const MatchList: React.FC<MatchListProps> = ({
             <Tab
               key={index}
               label={tab}
-              id={`match-tab-${index}`}
-              aria-controls={`match-tabpanel-${index}`}
+              id={`match-tab-${String(index)}`}
+              aria-controls={`match-tabpanel-${String(index)}`}
             />
           ))}
         </Tabs>
@@ -237,12 +234,14 @@ const MatchList: React.FC<MatchListProps> = ({
             variant="outlined"
             value={searchTerm}
             onChange={handleSearchChange}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              },
             }}
           />
         </Grid>
@@ -293,25 +292,20 @@ const MatchList: React.FC<MatchListProps> = ({
       </Grid>
 
       {/* Ergebnisanzahl */}
-      <Box
-        mb={2}
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-      >
+      <Box mb={2} display="flex" justifyContent="space-between" alignItems="center">
         <Typography variant="body2" color="text.secondary">
-          {filteredMatches?.length}{' '}
-          {filteredMatches?.length === 1 ? 'Match' : 'Matches'} gefunden
+          {String(filteredMatches.length)} {filteredMatches.length === 1 ? 'Match' : 'Matches'}{' '}
+          gefunden
         </Typography>
         {pageCount > 1 && (
           <Typography variant="body2" color="text.secondary">
-            Seite {currentPage} von {pageCount}
+            Seite {String(currentPage)} von {String(pageCount)}
           </Typography>
         )}
       </Box>
 
       {/* Matches-Grid */}
-      {displayedMatches?.length > 0 ? (
+      {displayedMatches.length > 0 ? (
         <Grid container columns={12} spacing={3}>
           {displayedMatches.map((match) => (
             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={match.id}>

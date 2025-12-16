@@ -1,23 +1,30 @@
 using MediatR;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using CQRS.Interfaces;
+using Infrastructure.Caching;
 using System.Text.Json;
 
 namespace CQRS.Behaviors;
 
 /// <summary>
 /// Caching behavior for queries
+/// Uses IDistributedCacheService (custom) instead of IDistributedCache (Microsoft)
+/// to ensure cache invalidation patterns work correctly.
+///
+/// IMPORTANT: Both CachingBehavior and CacheInvalidationBehavior MUST use
+/// the same cache interface (IDistributedCacheService) for pattern-based
+/// invalidation to work!
 /// </summary>
 /// <typeparam name="TRequest"></typeparam>
 /// <typeparam name="TResponse"></typeparam>
 public class CachingBehavior<TRequest, TResponse>(
-    IDistributedCache? cache,
-    ILogger<CachingBehavior<TRequest, TResponse>> logger) 
+    IDistributedCacheService? cache,
+    ILogger<CachingBehavior<TRequest, TResponse>> logger)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
+    where TResponse : class
 {
-    private readonly IDistributedCache? _cache = cache;
+    private readonly IDistributedCacheService? _cache = cache;
     private readonly ILogger<CachingBehavior<TRequest, TResponse>> _logger = logger;
 
     public async Task<TResponse> Handle(
@@ -33,17 +40,19 @@ public class CachingBehavior<TRequest, TResponse>(
 
         var cacheKey = cacheableQuery.CacheKey;
 
-        // Try to get from cache
-        var cachedResult = await _cache.GetStringAsync(cacheKey, cancellationToken);
-        if (cachedResult != null)
+        // Try to get from cache using IDistributedCacheService
+        try
         {
-            _logger.LogInformation("Cache hit for key {CacheKey}", cacheKey);
-
-            var deserializedResult = JsonSerializer.Deserialize<TResponse>(cachedResult);
-            if (deserializedResult != null)
+            var cachedResult = await _cache.GetAsync<TResponse>(cacheKey, cancellationToken);
+            if (cachedResult != null)
             {
-                return deserializedResult;
+                _logger.LogInformation("Cache hit for key {CacheKey}", cacheKey);
+                return cachedResult;
             }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve cached value for key {CacheKey}", cacheKey);
         }
 
         _logger.LogInformation("Cache miss for key {CacheKey}", cacheKey);
@@ -53,18 +62,23 @@ public class CachingBehavior<TRequest, TResponse>(
 
         if (response != null)
         {
-            var serializedResult = JsonSerializer.Serialize(response);
-            var cacheOptions = new DistributedCacheEntryOptions
+            try
             {
-                AbsoluteExpirationRelativeToNow = cacheableQuery.CacheDuration
-            };
+                await _cache.SetAsync(
+                    cacheKey,
+                    response,
+                    cacheableQuery.CacheDuration,
+                    cancellationToken: cancellationToken);
 
-            await _cache.SetStringAsync(cacheKey, serializedResult, cacheOptions, cancellationToken);
-
-            _logger.LogInformation("Cached result for key {CacheKey} with duration {Duration}",
-                cacheKey, cacheableQuery.CacheDuration);
+                _logger.LogInformation("Cached result for key {CacheKey} with duration {Duration}",
+                    cacheKey, cacheableQuery.CacheDuration);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cache result for key {CacheKey}", cacheKey);
+            }
         }
 
-        return response;
+        return response!;
     }
 }

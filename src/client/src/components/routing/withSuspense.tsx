@@ -1,25 +1,18 @@
-import { 
-  lazy, 
-  Suspense, 
-  ComponentType, 
-  ErrorInfo, 
-  ReactNode,
-  LazyExoticComponent,
-  FC,
+import {
+  lazy,
+  Suspense,
+  type ComponentType,
+  type ErrorInfo,
+  type ReactNode,
+  type LazyExoticComponent,
+  type FC,
   memo,
-  ReactElement
+  type ReactElement,
 } from 'react';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import PageLoader from '../ui/PageLoader';
 import { withPageErrorBoundary } from './withErrorBoundary';
-
-// ============================================================================
-// Route Component - Single unified route protection
-// ============================================================================
 import { PermissionRoute, type PermissionRouteConfig } from '../auth/PermissionRoute';
-
-// Re-export for convenience
-export type { PermissionRouteConfig };
 
 // ============================================================================
 // Types
@@ -55,17 +48,16 @@ interface ErrorBoundaryOptions {
  * Protected Route Configuration
  * Unified config using PermissionRoute for all protection scenarios
  */
-interface ProtectedRouteConfig extends PermissionRouteConfig {
-  // PermissionRouteConfig already includes:
-  // - roles?: string[]
-  // - permissions?: string[]
-  // - requireAll?: boolean
-  // - requireAuth?: boolean
-  // - redirectTo?: string
-  // - unauthorizedRedirect?: string
-  // - customCheck?: (permissions) => boolean
-  // - fallback?: ReactNode
-}
+type ProtectedRouteConfig = PermissionRouteConfig;
+// PermissionRouteConfig already includes:
+// - roles?: string[]
+// - permissions?: string[]
+// - requireAll?: boolean
+// - requireAuth?: boolean
+// - redirectTo?: string
+// - unauthorizedRedirect?: string
+// - customCheck?: (permissions) => boolean
+// - fallback?: ReactNode
 
 /**
  * Kombinierte Optionen für withSuspense
@@ -78,15 +70,11 @@ interface WithSuspenseOptions extends BaseLoadingOptions, ErrorBoundaryOptions {
 interface WithProtectedRouteOptions extends WithSuspenseOptions, ProtectedRouteConfig {}
 
 /**
- * Legacy alias for backwards compatibility
- * @deprecated Use WithProtectedRouteOptions instead
- */
-type WithPrivateRouteOptions = WithProtectedRouteOptions;
-
-/**
  * Typ für lazy-loaded Components
  */
-type LazyComponentModule<T> = { default: T };
+interface LazyComponentModule<T> {
+  default: T;
+}
 type ImportFunction<T> = () => Promise<LazyComponentModule<T>>;
 
 // ============================================================================
@@ -97,28 +85,23 @@ type ImportFunction<T> = () => Promise<LazyComponentModule<T>>;
  * Helper: Erstellt die Fallback-Komponente basierend auf Optionen
  */
 const createFallback = (options: BaseLoadingOptions): ReactNode => {
-  if (options.fallback) {
+  if (options.fallback !== undefined) {
     return options.fallback;
   }
 
-  const message = options.loadingMessage || "Seite wird geladen...";
-  
+  const message = options.loadingMessage ?? 'Seite wird geladen...';
+
   if (options.useSkeleton) {
-    return (
-      <PageLoader
-        variant={options.skeletonVariant || 'dashboard'}
-        message={message}
-      />
-    );
+    return <PageLoader variant={options.skeletonVariant ?? 'dashboard'} message={message} />;
   }
-  
+
   return <LoadingSpinner fullPage message={message} />;
 };
 
 /**
  * Helper: Wendet Error Boundary an, falls gewünscht
  */
-const applyErrorBoundary = <P extends object>(
+const applyErrorBoundary = <P extends Record<string, unknown>>(
   Component: ComponentType<P>,
   options: ErrorBoundaryOptions
 ): ComponentType<P> => {
@@ -128,22 +111,21 @@ const applyErrorBoundary = <P extends object>(
 
   const errorBoundaryOptions = {
     onError: options.onError,
-    ...(options.errorFallback && { fallback: options.errorFallback }),
+    ...(options.errorFallback !== undefined && { fallback: options.errorFallback }),
   };
 
-  return withPageErrorBoundary(Component, errorBoundaryOptions) as ComponentType<P>;
+  return withPageErrorBoundary(Component, errorBoundaryOptions);
 };
 
 /**
  * Helper: Determines if any route protection is needed
  */
 const hasProtectionRequirements = (options: ProtectedRouteConfig): boolean => {
-  return Boolean(
-    options.requireAuth ||
-    (options.roles && options.roles.length > 0) ||
-    (options.permissions && options.permissions.length > 0) ||
-    options.customCheck
-  );
+  const hasAuth = options.requireAuth === true;
+  const hasRoles = Array.isArray(options.roles) && options.roles.length > 0;
+  const hasPermissions = Array.isArray(options.permissions) && options.permissions.length > 0;
+  const hasCustomCheck = options.customCheck !== undefined;
+  return hasAuth || hasRoles || hasPermissions || hasCustomCheck;
 };
 
 // ============================================================================
@@ -152,20 +134,19 @@ const hasProtectionRequirements = (options: ProtectedRouteConfig): boolean => {
 
 /**
  * Basis HOC für lazy loading mit Suspense
- * 
+ *
  * @example
  * const LazyPage = withSuspense(
  *   () => import('./pages/MyPage'),
  *   { useSkeleton: true, skeletonVariant: 'dashboard' }
  * );
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withSuspense<T extends ComponentType<any>>(
+export function withSuspense<T extends ComponentType<Record<string, unknown>>>(
   importFn: ImportFunction<T>,
   options: WithSuspenseOptions = {}
 ): FC<React.ComponentProps<T>> {
   // Lazy load einmal erstellen (nicht bei jedem Render)
-  const LazyComponent = lazy(importFn) as LazyExoticComponent<T>;
+  const LazyComponent = lazy(importFn) as ComponentType<React.ComponentProps<T>>;
 
   // Wrapper-Komponente mit memo für Performance
   const SuspenseWrapper: FC<React.ComponentProps<T>> = memo((props) => {
@@ -182,10 +163,9 @@ export function withSuspense<T extends ComponentType<any>>(
   SuspenseWrapper.displayName = `withSuspense(LazyComponent)`;
 
   // Error Boundary anwenden mit korrekten Typen
-  return applyErrorBoundary<React.ComponentProps<T>>(
-    SuspenseWrapper,
-    options
-  ) as FC<React.ComponentProps<T>>;
+  return applyErrorBoundary<React.ComponentProps<T>>(SuspenseWrapper, options) as FC<
+    React.ComponentProps<T>
+  >;
 }
 
 // ============================================================================
@@ -194,28 +174,28 @@ export function withSuspense<T extends ComponentType<any>>(
 
 /**
  * HOC für lazy loading mit Route-Protection via PermissionRoute
- * 
+ *
  * @example
  * // Simple auth (any authenticated user)
  * const ProtectedPage = withProtectedRoute(
  *   () => import('./pages/MyPage'),
  *   { requireAuth: true }
  * );
- * 
+ *
  * @example
  * // Role-based
  * const AdminPage = withProtectedRoute(
  *   () => import('./pages/AdminPage'),
  *   { roles: ['Admin'] }
  * );
- * 
+ *
  * @example
  * // Permission-based
  * const UsersPage = withProtectedRoute(
  *   () => import('./pages/UsersPage'),
  *   { permissions: ['users:view_all'] }
  * );
- * 
+ *
  * @example
  * // Strict mode (ALL roles AND permissions required)
  * const ManagePage = withProtectedRoute(
@@ -223,13 +203,12 @@ export function withSuspense<T extends ComponentType<any>>(
  *   { permissions: ['users:view', 'users:edit'], requireAll: true }
  * );
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withProtectedRoute<T extends ComponentType<any>>(
+export function withProtectedRoute<T extends ComponentType<Record<string, unknown>>>(
   importFn: ImportFunction<T>,
   options: WithProtectedRouteOptions = {}
 ): FC<React.ComponentProps<T>> {
   // Lazy load einmal erstellen
-  const LazyComponent = lazy(importFn) as LazyExoticComponent<T>;
+  const LazyComponent = lazy(importFn) as ComponentType<React.ComponentProps<T>>;
 
   // Extrahiere die verschiedenen Option-Gruppen
   const {
@@ -286,8 +265,8 @@ export function withProtectedRoute<T extends ComponentType<any>>(
         roles={protectedConfig.roles}
         permissions={protectedConfig.permissions}
         requireAll={protectedConfig.requireAll}
-        redirectTo={protectedConfig.redirectTo || '/auth/login'}
-        unauthorizedRedirect={protectedConfig.unauthorizedRedirect || '/forbidden'}
+        redirectTo={protectedConfig.redirectTo ?? '/auth/login'}
+        unauthorizedRedirect={protectedConfig.unauthorizedRedirect ?? '/forbidden'}
         fallback={protectedConfig.fallback}
         customCheck={protectedConfig.customCheck}
       >
@@ -302,10 +281,9 @@ export function withProtectedRoute<T extends ComponentType<any>>(
   ProtectedRouteWrapper.displayName = `withProtectedRoute(LazyComponent)`;
 
   // Error Boundary anwenden mit korrekten Typen
-  return applyErrorBoundary<React.ComponentProps<T>>(
-    ProtectedRouteWrapper,
-    errorOptions
-  ) as FC<React.ComponentProps<T>>;
+  return applyErrorBoundary<React.ComponentProps<T>>(ProtectedRouteWrapper, errorOptions) as FC<
+    React.ComponentProps<T>
+  >;
 }
 
 /**
@@ -320,31 +298,30 @@ export const withPrivateRoute = withProtectedRoute;
 
 /**
  * Erweiterte Version mit Preloading-Support
- * 
+ *
  * @example
  * const PreloadablePage = withPreloadableSuspense(
  *   () => import('./pages/MyPage'),
  *   { useSkeleton: true }
  * );
- * 
+ *
  * // Preload on hover
  * <Link onMouseEnter={() => PreloadablePage.preload()}>
  *   Go to Page
  * </Link>
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withPreloadableSuspense<T extends ComponentType<any>>(
+export function withPreloadableSuspense<T extends ComponentType<Record<string, unknown>>>(
   importFn: ImportFunction<T>,
   options: WithSuspenseOptions = {}
-) {
+): FC<React.ComponentProps<T>> & { preload: () => Promise<LazyComponentModule<T>> } {
   // Preload-Funktion exponieren
-  const preload = () => importFn();
+  const preload = (): Promise<LazyComponentModule<T>> => importFn();
 
   const Component = withSuspense(importFn, options);
 
   // Preload-Methode an die Komponente anhängen
-  const PreloadableComponent = Component as FC<React.ComponentProps<T>> & { 
-    preload: () => Promise<LazyComponentModule<T>> 
+  const PreloadableComponent = Component as FC<React.ComponentProps<T>> & {
+    preload: () => Promise<LazyComponentModule<T>>;
   };
   PreloadableComponent.preload = preload;
 
@@ -358,7 +335,7 @@ export function withPreloadableSuspense<T extends ComponentType<any>>(
 /**
  * Route info returned by createLazyRoute
  */
-interface LazyRouteInfo<T extends ComponentType<unknown>> {
+interface LazyRouteInfo<T extends ComponentType<Record<string, unknown>>> {
   /** The wrapped component */
   component: FC<React.ComponentProps<T>>;
   /** Preload function */
@@ -372,28 +349,28 @@ interface LazyRouteInfo<T extends ComponentType<unknown>> {
 /**
  * Factory für Router-Konfiguration
  * Automatische Auswahl zwischen public und protected (PermissionRoute)
- * 
+ *
  * @example
  * // Public route (no protection)
  * const homeRoute = createLazyRoute(
  *   () => import('./pages/HomePage'),
  *   { useSkeleton: true }
  * );
- * 
+ *
  * @example
  * // Protected route (any authenticated user)
  * const dashboardRoute = createLazyRoute(
  *   () => import('./pages/Dashboard'),
  *   { roles: ['*'], useSkeleton: true }
  * );
- * 
+ *
  * @example
  * // Admin route with specific roles
  * const adminRoute = createLazyRoute(
  *   () => import('./pages/AdminDashboard'),
  *   { roles: ['Admin', 'SuperAdmin'], permissions: ['admin:access_dashboard'] }
  * );
- * 
+ *
  * @example
  * // Advanced permission route with requireAll
  * const manageRoute = createLazyRoute(
@@ -401,21 +378,20 @@ interface LazyRouteInfo<T extends ComponentType<unknown>> {
  *   { permissions: ['users:view', 'users:manage'], requireAll: true }
  * );
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createLazyRoute<T extends ComponentType<any>>(
+export function createLazyRoute<T extends ComponentType<Record<string, unknown>>>(
   importFn: ImportFunction<T>,
   options: WithProtectedRouteOptions = {}
 ): LazyRouteInfo<T> {
   // Handle special role '*' which means "any authenticated user"
   // This is a legacy pattern - prefer using requireAuth: true instead
   const hasWildcardRole = (options.roles as string[] | undefined)?.includes('*');
-  
+
   // Normalize options
   const normalizedOptions: WithProtectedRouteOptions = hasWildcardRole
-    ? { 
-        ...options, 
+    ? {
+        ...options,
         roles: [], // Clear the wildcard
-        requireAuth: true // Explicitly require auth
+        requireAuth: true, // Explicitly require auth
       }
     : options;
 
@@ -428,7 +404,7 @@ export function createLazyRoute<T extends ComponentType<any>>(
     : withSuspense(importFn, options);
 
   return {
-    component: component as FC<React.ComponentProps<T>>,
+    component,
     preload: () => importFn(),
     isProtected,
     config: options,
@@ -441,34 +417,41 @@ export function createLazyRoute<T extends ComponentType<any>>(
 
 /**
  * Batch-Import für mehrere lazy Components
- * 
+ *
  * @example
  * const errorPages = createLazyComponents({
  *   notFound: () => import('./pages/NotFound'),
  *   forbidden: () => import('./pages/Forbidden'),
  * }, { withErrorBoundary: false });
- * 
+ *
  * // Usage: <errorPages.notFound />
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createLazyComponents<
-  T extends Record<string, ImportFunction<ComponentType<any>>>
+  T extends Record<string, ImportFunction<ComponentType<Record<string, unknown>>>>,
 >(
   imports: T,
   defaultOptions?: WithSuspenseOptions
 ): {
-  [K in keyof T]: FC<React.ComponentProps<ReturnType<T[K]> extends Promise<infer U>
-    ? U extends LazyComponentModule<infer C>
-      ? C
-      : never
-    : never>>
+  [K in keyof T]: FC<
+    React.ComponentProps<
+      ReturnType<T[K]> extends Promise<infer U>
+        ? U extends LazyComponentModule<infer C>
+          ? C
+          : never
+        : never
+    >
+  >;
 } {
   type ResultType = {
-    [K in keyof T]: FC<React.ComponentProps<ReturnType<T[K]> extends Promise<infer U>
-      ? U extends LazyComponentModule<infer C>
-        ? C
-        : never
-      : never>>
+    [K in keyof T]: FC<
+      React.ComponentProps<
+        ReturnType<T[K]> extends Promise<infer U>
+          ? U extends LazyComponentModule<infer C>
+            ? C
+            : never
+          : never
+      >
+    >;
   };
 
   const components = {} as ResultType;
@@ -486,45 +469,26 @@ export function createLazyComponents<
 
 /**
  * Batch-Import für mehrere protected Routes
- * 
+ *
  * @example
  * const adminRoutes = createProtectedRoutes({
  *   dashboard: () => import('./pages/admin/Dashboard'),
  *   users: () => import('./pages/admin/Users'),
- * }, { 
+ * }, {
  *   roles: ['Admin', 'SuperAdmin'],
- *   useSkeleton: true 
+ *   useSkeleton: true
  * });
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createProtectedRoutes<
-  T extends Record<string, ImportFunction<ComponentType<any>>>
+  T extends Record<string, ImportFunction<ComponentType<Record<string, unknown>>>>,
 >(
   imports: T,
   defaultOptions: WithProtectedRouteOptions
-): {
-  [K in keyof T]: LazyRouteInfo<ReturnType<T[K]> extends Promise<infer U>
-    ? U extends LazyComponentModule<infer C>
-      ? C
-      : never
-    : never>
-} {
-  type ResultType = {
-    [K in keyof T]: LazyRouteInfo<ReturnType<T[K]> extends Promise<infer U>
-      ? U extends LazyComponentModule<infer C>
-        ? C
-        : never
-      : never>
-  };
-
-  const routes = {} as ResultType;
+): Record<keyof T, LazyRouteInfo<ComponentType<Record<string, unknown>>>> {
+  const routes = {} as Record<keyof T, LazyRouteInfo<ComponentType<Record<string, unknown>>>>;
 
   for (const [name, importFn] of Object.entries(imports)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (routes as Record<string, LazyRouteInfo<any>>)[name] = createLazyRoute(
-      importFn,
-      defaultOptions
-    );
+    routes[name as keyof T] = createLazyRoute(importFn, defaultOptions);
   }
 
   return routes;
@@ -539,23 +503,15 @@ export function createProtectedRoutes<
  */
 export const isLazyComponent = (
   component: unknown
-): component is LazyExoticComponent<ComponentType> => {
-  return (
-    component !== null &&
-    typeof component === 'object' &&
-    (component as { $$typeof?: symbol }).$$typeof === Symbol.for('react.lazy')
-  );
-};
+): component is LazyExoticComponent<ComponentType> =>
+  component !== null &&
+  typeof component === 'object' &&
+  (component as { $$typeof?: symbol }).$$typeof === Symbol.for('react.lazy');
 
-export const hasPreload = (
-  component: unknown
-): component is { preload: () => Promise<unknown> } => {
-  return (
-    component !== null &&
-    typeof component === 'object' &&
-    typeof (component as { preload?: unknown }).preload === 'function'
-  );
-};
+export const hasPreload = (component: unknown): component is { preload: () => Promise<unknown> } =>
+  component !== null &&
+  typeof component === 'object' &&
+  typeof (component as { preload?: unknown }).preload === 'function';
 
 // ============================================================================
 // Utilities
@@ -563,7 +519,7 @@ export const hasPreload = (
 
 /**
  * Utility: Preload multiple components
- * 
+ *
  * @example
  * await preloadComponents([
  *   dashboardRoute,
@@ -572,58 +528,49 @@ export const hasPreload = (
  * ]);
  */
 export const preloadComponents = async (
-  components: Array<{ preload: () => Promise<unknown> }>
+  components: { preload: () => Promise<unknown> }[]
 ): Promise<void> => {
-  await Promise.all(components.map(c => c.preload()));
+  await Promise.all(components.map((c) => c.preload()));
 };
 
 /**
  * Hook für Preloading on Hover/Focus
- * 
+ *
  * @example
  * const preloadHandlers = usePreloadOnInteraction(dashboardRoute);
  * <Link {...preloadHandlers} to="/dashboard">Dashboard</Link>
  */
+interface PreloadInteractionHandlers {
+  onMouseEnter: () => void;
+  onFocus: () => void;
+  onMouseLeave: () => void;
+  onBlur: () => void;
+}
+
 export const usePreloadOnInteraction = (
   component: unknown,
-  delay: number = 200
-) => {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  
-  const handleInteraction = () => {
+  delay = 200
+): PreloadInteractionHandlers => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  const handleInteraction = (): void => {
     timeoutId = setTimeout(() => {
       if (hasPreload(component)) {
-        component.preload();
+        void component.preload();
       }
     }, delay);
   };
-  
-  const handleClear = () => {
-    if (timeoutId) {
+
+  const handleClear = (): void => {
+    if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
     }
   };
-  
+
   return {
     onMouseEnter: handleInteraction,
     onFocus: handleInteraction,
     onMouseLeave: handleClear,
     onBlur: handleClear,
   };
-};
-
-// ============================================================================
-// Re-exports
-// ============================================================================
-
-export type { 
-  WithSuspenseOptions, 
-  WithProtectedRouteOptions,
-  WithPrivateRouteOptions, // Legacy
-  BaseLoadingOptions,
-  ErrorBoundaryOptions,
-  ProtectedRouteConfig,
-  ImportFunction,
-  LazyComponentModule,
-  LazyRouteInfo,
 };

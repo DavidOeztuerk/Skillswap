@@ -15,31 +15,30 @@ import {
   FormControlLabel,
   Divider,
   Chip,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 import {
   Security as SecurityIcon,
   CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import authService from '../../api/services/authService';
-import { useTwoFactorDialog } from './TwoFactorDialog';
+import { useTwoFactorDialog } from '../../hooks/useTwoFactorDialog';
 import axios from 'axios';
 import { isSuccessResponse } from '../../types/api/UnifiedResponse';
 
-
 const TwoFactorManagement: React.FC = React.memo(() => {
   const { showDialog, setHasSecret } = useTwoFactorDialog();
-  
+
   useEffect(() => {
-    console.log('🏁 TwoFactorManagement MOUNTED');
+    console.debug('🏁 TwoFactorManagement MOUNTED');
     return () => {
-      console.log('💀 TwoFactorManagement UNMOUNTED');
+      console.debug('💀 TwoFactorManagement UNMOUNTED');
     };
   }, []);
-  
+
   const globalLoading = false;
-  
+
   const [status, setStatus] = useState<{
     loading: boolean;
     enabled: boolean;
@@ -49,39 +48,45 @@ const TwoFactorManagement: React.FC = React.memo(() => {
     loading: true,
     enabled: false,
     hasSecret: false,
-    error: null
+    error: null,
   });
   const [showDisableDialog, setShowDisableDialog] = useState(false);
   const [password, setPassword] = useState('');
   const [disableError, setDisableError] = useState('');
   const [localLoading, setLocalLoading] = useState(false);
-  
+
   useEffect(() => {
     let mounted = true;
-    
-    const loadStatus = async () => {
+
+    const loadStatus = async (): Promise<void> => {
       try {
-        console.log('📱 Loading 2FA status...');
+        console.debug('📱 Loading 2FA status...');
         const result = await authService.getTwoFactorStatus();
-        console.log('📊 Full 2FA status response:', result);
+        console.debug('📊 Full 2FA status response:', result);
         if (mounted) {
           // Handle ApiResponse wrapper
-          if (isSuccessResponse(result) && result.data) {
+          if (isSuccessResponse(result)) {
+            const { data } = result;
             setStatus({
               loading: false,
-              enabled: result.data.isEnabled || false,
-              hasSecret: result.data.hasSecret || false,
-              error: null
+              enabled: data.isEnabled,
+              hasSecret: data.hasSecret,
+              error: null,
             });
             // Update dialog context with hasSecret status
-            setHasSecret(result.data.hasSecret || false);
-            console.log('✅ 2FA status loaded - isEnabled:', result.data.isEnabled, 'hasSecret:', result.data.hasSecret);
+            setHasSecret(data.hasSecret);
+            console.debug(
+              '✅ 2FA status loaded - isEnabled:',
+              data.isEnabled,
+              'hasSecret:',
+              data.hasSecret
+            );
           } else {
             setStatus({
               loading: false,
               enabled: false,
               hasSecret: false,
-              error: result.message || 'Failed to load 2FA status'
+              error: result.message ?? 'Failed to load 2FA status',
             });
           }
         }
@@ -92,24 +97,23 @@ const TwoFactorManagement: React.FC = React.memo(() => {
             loading: false,
             enabled: false,
             hasSecret: false,
-            error: 'Failed to load 2FA status'
+            error: 'Failed to load 2FA status',
           });
         }
       }
     };
-    
-    loadStatus();
-    
+
+    void loadStatus();
+
     return () => {
       mounted = false;
     };
-  }, []); // Only on mount
+  }, [setHasSecret]); // Only on mount
 
   const handleEnableClick = useCallback(() => {
-    console.log('✅ handleEnableClick called, opening setup dialog');
+    console.debug('✅ handleEnableClick called, opening setup dialog');
     showDialog(); // Use the global dialog
   }, [showDialog]);
-
 
   const handleDisableClick = useCallback(() => {
     setShowDisableDialog(true);
@@ -127,29 +131,31 @@ const TwoFactorManagement: React.FC = React.memo(() => {
     try {
       const disableResult = await authService.disableTwoFactor({ password });
       if (!disableResult.success) {
-        setDisableError(disableResult.message || 'Failed to disable 2FA. Please check your password.');
+        setDisableError(
+          disableResult.message ?? 'Failed to disable 2FA. Please check your password.'
+        );
         return;
       }
-      
+
       // Reload status after successful disable
       const result = await authService.getTwoFactorStatus();
-      if (isSuccessResponse(result) && result.data) {
+      if (isSuccessResponse(result)) {
+        const statusData = result.data;
         setStatus({
           loading: false,
-          enabled: result.data.isEnabled || false,
-          hasSecret: result.data.hasSecret || false,
-          error: null
+          enabled: statusData.isEnabled,
+          hasSecret: statusData.hasSecret,
+          error: null,
         });
       }
       setShowDisableDialog(false);
       setPassword('');
-    } catch (err) {
+    } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        console.error('❌ Axios error disabling 2FA:', err.response || err.message);
-        setDisableError(
-          err.response?.data?.message || 
-          'Failed to disable 2FA. Please check your password.'
-        );
+        console.error('❌ Axios error disabling 2FA:', err.response ?? err.message);
+        const responseData = err.response?.data as { message?: string } | undefined;
+        const apiErrorMsg = responseData?.message;
+        setDisableError(apiErrorMsg ?? 'Failed to disable 2FA. Please check your password.');
       } else {
         console.error('❌ Unexpected error disabling 2FA:', err);
         setDisableError('An unexpected error occurred. Please try again.');
@@ -159,21 +165,24 @@ const TwoFactorManagement: React.FC = React.memo(() => {
     }
   }, [password]);
 
-  const handleSwitchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    // Prevent default behavior and stop propagation
-    event.preventDefault();
-    event.stopPropagation();
-    
-    // If trying to enable (toggle is currently off)
-    if (!status.enabled) {
-      console.log('🔄 Opening 2FA setup dialog...');
-      handleEnableClick();
-    } else {
-      // If trying to disable (toggle is currently on)
-      console.log('🔄 Opening disable 2FA dialog...');
-      handleDisableClick();
-    }
-  }, [status.enabled, handleEnableClick, handleDisableClick]);
+  const handleSwitchChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      // Prevent default behavior and stop propagation
+      event.preventDefault();
+      event.stopPropagation();
+
+      // If trying to enable (toggle is currently off)
+      if (!status.enabled) {
+        console.debug('🔄 Opening 2FA setup dialog...');
+        handleEnableClick();
+      } else {
+        // If trying to disable (toggle is currently on)
+        console.debug('🔄 Opening disable 2FA dialog...');
+        handleDisableClick();
+      }
+    },
+    [status.enabled, handleEnableClick, handleDisableClick]
+  );
 
   const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
@@ -206,7 +215,12 @@ const TwoFactorManagement: React.FC = React.memo(() => {
         <CardContent>
           <Alert severity="error">
             {status.error}
-            <Button onClick={() => window.location.reload()} sx={{ ml: 2 }}>
+            <Button
+              onClick={() => {
+                window.location.reload();
+              }}
+              sx={{ ml: 2 }}
+            >
               Retry
             </Button>
           </Alert>
@@ -251,9 +265,7 @@ const TwoFactorManagement: React.FC = React.memo(() => {
               }
               label={
                 <Box>
-                  <Typography variant="body1">
-                    Enable Two-Factor Authentication
-                  </Typography>
+                  <Typography variant="body1">Enable Two-Factor Authentication</Typography>
                   <Typography variant="body2" color="textSecondary">
                     Require a verification code in addition to your password
                   </Typography>
@@ -266,16 +278,19 @@ const TwoFactorManagement: React.FC = React.memo(() => {
 
           {status.enabled ? (
             <Alert severity="success" sx={{ mb: 2 }}>
-              Your account is protected with two-factor authentication. You'll need your authenticator app to sign in.
+              Your account is protected with two-factor authentication. You'll need your
+              authenticator app to sign in.
             </Alert>
-          ) : status.hasSecret && !status.enabled ? (
+          ) : status.hasSecret ? (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              <strong>Setup incomplete!</strong> You have generated a 2FA secret but haven't verified it yet. 
-              Click the toggle again to complete the setup by scanning the QR code and entering the verification code.
+              <strong>Setup incomplete!</strong> You have generated a 2FA secret but haven't
+              verified it yet. Click the toggle again to complete the setup by scanning the QR code
+              and entering the verification code.
             </Alert>
           ) : (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Two-factor authentication is not enabled. We recommend enabling it for better account security.
+              Two-factor authentication is not enabled. We recommend enabling it for better account
+              security.
             </Alert>
           )}
 
@@ -283,13 +298,14 @@ const TwoFactorManagement: React.FC = React.memo(() => {
             <Typography variant="h6" gutterBottom>
               How it works
             </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              When two-factor authentication is enabled, you'll be prompted for a verification code 
-              from your authenticator app whenever you sign in. This ensures that only you can 
+            <Typography variant="body2" color="textSecondary" component="p" sx={{ mb: 2 }}>
+              When two-factor authentication is enabled, you'll be prompted for a verification code
+              from your authenticator app whenever you sign in. This ensures that only you can
               access your account, even if someone else knows your password.
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Supported apps: Google Authenticator, Microsoft Authenticator, Authy, and other TOTP-compatible apps.
+              Supported apps: Google Authenticator, Microsoft Authenticator, Authy, and other
+              TOTP-compatible apps.
             </Typography>
           </Box>
 
@@ -311,17 +327,12 @@ const TwoFactorManagement: React.FC = React.memo(() => {
       {/* Dialog is now handled globally by TwoFactorDialogProvider */}
 
       {/* Disable Dialog */}
-      <Dialog 
-        open={showDisableDialog} 
-        onClose={handleCloseDisableDialog} 
-        maxWidth="sm" 
-        fullWidth
-      >
+      <Dialog open={showDisableDialog} onClose={handleCloseDisableDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Disable Two-Factor Authentication</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            Disabling two-factor authentication will make your account less secure. 
-            You'll only need your password to sign in.
+            Disabling two-factor authentication will make your account less secure. You'll only need
+            your password to sign in.
           </Alert>
           <Typography variant="body2" sx={{ mb: 2 }}>
             Please enter your password to confirm:
@@ -334,7 +345,6 @@ const TwoFactorManagement: React.FC = React.memo(() => {
             onChange={handlePasswordChange}
             error={!!disableError}
             helperText={disableError}
-            autoFocus
           />
         </DialogContent>
         <DialogActions>

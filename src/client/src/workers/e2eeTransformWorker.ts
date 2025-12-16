@@ -1,239 +1,303 @@
 /**
- * E2EE Transform Worker for Insertable Streams
- *
- * This Web Worker processes WebRTC encoded frames in real-time:
- * - Encrypts outgoing media frames (video/audio)
- * - Decrypts incoming media frames from peer
- *
- * Runs in separate thread to avoid blocking main thread during crypto operations.
- * Performance: AES-GCM encryption adds ~1-2ms latency per frame (acceptable for real-time)
+ * Standard E2EE Worker für Chrome/Firefox/Edge
  */
 
-// Worker runs in its own context, so crypto is available as global
-declare const crypto: Crypto;
+let encryptionKey: CryptoKey | null = null;
+let generation = 1;
+const IV_LENGTH = 12;
+// WICHTIG: AUTH_TAG_LENGTH wird NICHT an Safari WebCrypto übergeben!
+// Safari akzeptiert tagLength nicht - verwendet automatisch 128-bit (Standard)
+// Wir verwenden es nur für Chrome/Firefox, aber mit gleichem Wert für Kompatibilität
+const AUTH_TAG_LENGTH = 128;
 
-const ALGORITHM = 'AES-GCM';
-const IV_LENGTH = 12; // bytes
-const AUTH_TAG_LENGTH = 128; // bits
+// Flag um zu steuern ob Encryption aktiv ist
+// Wenn false: Frames werden unverändert durchgeleitet (Passthrough)
+let encryptionEnabled = false;
 
-interface WorkerMessage {
-  type: 'init' | 'encrypt' | 'decrypt' | 'updateKey' | 'cleanup';
-  payload?: any;
+// NEU: Minimum Frame-Größe für verschlüsselte Frames
+// IV (12 bytes) + Auth Tag (16 bytes) + mindestens 1 byte Payload = 29 bytes
+const MIN_ENCRYPTED_FRAME_SIZE = IV_LENGTH + 16 + 1;
+
+// Type definitions for E2EE worker
+interface InitPayload {
+  encryptionKey?: JsonWebKey;
+  generation?: number;
 }
 
-interface InitPayload {
+interface KeyPayload {
   encryptionKey: JsonWebKey;
   generation: number;
 }
 
 interface FramePayload {
   frameData: ArrayBuffer;
-  frameMetadata?: any;
 }
 
-class E2EETransformWorker {
-  private encryptionKey: CryptoKey | null = null;
-  private keyGeneration = 0;
+type WorkerPayload =
+  | InitPayload
+  | KeyPayload
+  | FramePayload
+  | { encryptedData: ArrayBuffer; encryptionTime?: number }
+  | { decryptedData: ArrayBuffer; decryptionTime?: number }
+  | { error: string }
+  | undefined;
 
-  /**
-   * Initialize worker with encryption key
-   */
-  async init(payload: InitPayload): Promise<void> {
-    try {
-      // Import encryption key from main thread
-      this.encryptionKey = await crypto.subtle.importKey(
-        'jwk',
-        payload.encryptionKey,
-        {
-          name: ALGORITHM,
-          length: 256,
-        },
-        false,
-        ['encrypt', 'decrypt']
-      );
-
-      this.keyGeneration = payload.generation;
-
-      console.log(`[E2EE Worker] Initialized with key generation ${this.keyGeneration}`);
-
-      self.postMessage({
-        type: 'initSuccess',
-        payload: { generation: this.keyGeneration },
-      });
-    } catch (error) {
-      console.error('[E2EE Worker] Init error:', error);
-      self.postMessage({
-        type: 'error',
-        payload: { error: String(error), operation: 'init' },
-      });
-    }
-  }
-
-  /**
-   * Update encryption key (for key rotation)
-   */
-  async updateKey(payload: InitPayload): Promise<void> {
-    console.log(`[E2EE Worker] Updating key to generation ${payload.generation}`);
-    await this.init(payload); // Reuse init logic
-  }
-
-  /**
-   * Encrypt outgoing frame
-   */
-  async encrypt(payload: FramePayload): Promise<void> {
-    if (!this.encryptionKey) {
-      self.postMessage({
-        type: 'error',
-        payload: { error: 'Encryption key not initialized', operation: 'encrypt' },
-      });
-      return;
-    }
-
-    try {
-      const startTime = performance.now();
-
-      // Generate random IV
-      const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-
-      // Encrypt frame
-      const encryptedData = await crypto.subtle.encrypt(
-        {
-          name: ALGORITHM,
-          iv,
-          tagLength: AUTH_TAG_LENGTH,
-        },
-        this.encryptionKey,
-        payload.frameData
-      );
-
-      // Prepend IV to encrypted data
-      const result = new Uint8Array(IV_LENGTH + encryptedData.byteLength);
-      result.set(iv, 0);
-      result.set(new Uint8Array(encryptedData), IV_LENGTH);
-
-      const encryptionTime = performance.now() - startTime;
-
-      self.postMessage(
-        {
-          type: 'encryptSuccess',
-          payload: {
-            encryptedData: result.buffer,
-            metadata: payload.frameMetadata,
-            encryptionTime,
-          },
-        },
-        { transfer: [result.buffer] } // Transfer ownership for zero-copy
-      );
-    } catch (error) {
-      console.error('[E2EE Worker] Encryption error:', error);
-      self.postMessage({
-        type: 'error',
-        payload: { error: String(error), operation: 'encrypt' },
-      });
-    }
-  }
-
-  /**
-   * Decrypt incoming frame
-   */
-  async decrypt(payload: FramePayload): Promise<void> {
-    if (!this.encryptionKey) {
-      self.postMessage({
-        type: 'error',
-        payload: { error: 'Decryption key not initialized', operation: 'decrypt' },
-      });
-      return;
-    }
-
-    try {
-      const startTime = performance.now();
-
-      const data = new Uint8Array(payload.frameData);
-
-      // Extract IV
-      const iv = data.slice(0, IV_LENGTH);
-
-      // Extract encrypted data
-      const encryptedData = data.slice(IV_LENGTH);
-
-      // Decrypt frame
-      const decryptedData = await crypto.subtle.decrypt(
-        {
-          name: ALGORITHM,
-          iv,
-          tagLength: AUTH_TAG_LENGTH,
-        },
-        this.encryptionKey,
-        encryptedData
-      );
-
-      const decryptionTime = performance.now() - startTime;
-
-      self.postMessage(
-        {
-          type: 'decryptSuccess',
-          payload: {
-            decryptedData,
-            metadata: payload.frameMetadata,
-            decryptionTime,
-          },
-        },
-        { transfer: [decryptedData] } // Transfer ownership
-      );
-    } catch (error) {
-      console.error('[E2EE Worker] Decryption error:', error);
-      self.postMessage({
-        type: 'error',
-        payload: { error: String(error), operation: 'decrypt' },
-      });
-    }
-  }
-
-  /**
-   * Cleanup worker resources
-   */
-  cleanup(): void {
-    this.encryptionKey = null;
-    this.keyGeneration = 0;
-    console.log('[E2EE Worker] Cleanup complete');
-    self.postMessage({ type: 'cleanupSuccess' });
-  }
+interface WorkerMessage {
+  type:
+    | 'init'
+    | 'updateKey'
+    | 'encrypt'
+    | 'decrypt'
+    | 'cleanup'
+    | 'ready'
+    | 'keyUpdated'
+    | 'encryptSuccess'
+    | 'decryptSuccess'
+    | 'error'
+    | 'cleanupComplete'
+    | 'enableEncryption'
+    | 'disableEncryption';
+  payload?: WorkerPayload;
+  operationId?: number;
 }
 
-// Initialize worker instance
-const worker = new E2EETransformWorker();
-
-// Handle messages from main thread
 self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
-  const { type, payload } = event.data;
+  const { type, payload, operationId } = event.data;
 
   switch (type) {
     case 'init':
-      await worker.init(payload as InitPayload);
+      await initWorker(payload as InitPayload | undefined).then(() => {
+        self.postMessage({ type: 'ready', operationId });
+      });
       break;
 
     case 'updateKey':
-      await worker.updateKey(payload as InitPayload);
+      await updateKey(payload as KeyPayload).then(() => {
+        console.debug('🔑 E2EE Worker: Sending keyUpdated confirmation');
+        self.postMessage({ type: 'keyUpdated', operationId });
+      });
       break;
 
-    case 'encrypt':
-      await worker.encrypt(payload as FramePayload);
+    case 'encrypt': {
+      const framePayload = payload as FramePayload | undefined;
+      if (framePayload?.frameData) {
+        await encryptFrame(framePayload.frameData, operationId);
+      }
       break;
+    }
 
-    case 'decrypt':
-      await worker.decrypt(payload as FramePayload);
+    case 'decrypt': {
+      const framePayload = payload as FramePayload | undefined;
+      if (framePayload?.frameData) {
+        await decryptFrame(framePayload.frameData, operationId);
+      }
       break;
+    }
 
     case 'cleanup':
-      worker.cleanup();
+      cleanup();
+      self.postMessage({ type: 'cleanupComplete', operationId });
+      break;
+
+    case 'enableEncryption':
+      encryptionEnabled = true;
+      console.debug('🔐 E2EE Worker: Encryption enabled');
+      self.postMessage({ type: 'ready', operationId });
+      break;
+
+    case 'disableEncryption':
+      encryptionEnabled = false;
+      console.debug('🔓 E2EE Worker: Encryption disabled (passthrough mode)');
+      self.postMessage({ type: 'ready', operationId });
       break;
 
     default:
-      console.warn('[E2EE Worker] Unknown message type:', type);
+      console.debug(`E2EE Worker: Unknown message type: ${type}`);
+      break;
   }
 };
 
-// Signal worker is ready
-self.postMessage({ type: 'ready' });
+async function initWorker(payload: InitPayload | undefined): Promise<void> {
+  console.debug('🔧 E2EE Worker: Initializing');
+  if (payload?.encryptionKey) {
+    await updateKey(payload as KeyPayload);
+  }
+}
 
-export {};
+async function updateKey(payload: {
+  encryptionKey: JsonWebKey;
+  generation: number;
+}): Promise<void> {
+  try {
+    encryptionKey = await crypto.subtle.importKey(
+      'jwk',
+      payload.encryptionKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+    generation = payload.generation;
+    console.debug(`🔄 E2EE Worker: Key updated to generation ${String(generation)}`);
+  } catch (error) {
+    console.error('E2EE Worker: Failed to update key:', error);
+  }
+}
+
+async function encryptFrame(frameData: ArrayBuffer, operationId?: number): Promise<void> {
+  const startTime = performance.now();
+
+  try {
+    // NEU: Wenn Encryption nicht aktiviert ist, Daten unverändert zurückgeben (Passthrough)
+    if (!encryptionEnabled || !encryptionKey) {
+      const encryptionTime = performance.now() - startTime;
+      const response: WorkerMessage = {
+        type: 'encryptSuccess',
+        operationId,
+        payload: {
+          encryptedData: frameData,
+          encryptionTime,
+        },
+      };
+      self.postMessage(response, { transfer: [frameData] });
+      return;
+    }
+
+    const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+    const encryptedData = await crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv,
+        tagLength: AUTH_TAG_LENGTH,
+      },
+      encryptionKey,
+      frameData
+    );
+
+    const combined = new Uint8Array(IV_LENGTH + encryptedData.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(encryptedData), IV_LENGTH);
+
+    const encryptionTime = performance.now() - startTime;
+
+    const response: WorkerMessage = {
+      type: 'encryptSuccess',
+      operationId,
+      payload: {
+        encryptedData: combined.buffer,
+        encryptionTime,
+      },
+    };
+
+    // Korrektes postMessage mit Transfer
+    self.postMessage(response, { transfer: [combined.buffer] });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    self.postMessage({
+      type: 'error',
+      operationId,
+      payload: { error: errorMessage },
+    });
+  }
+}
+
+async function decryptFrame(encryptedData: ArrayBuffer, operationId?: number): Promise<void> {
+  const startTime = performance.now();
+
+  try {
+    // KRITISCH: Decryption sollte IMMER versucht werden wenn Key vorhanden!
+    // encryptionEnabled wird NICHT geprüft - der andere Peer könnte bereits
+    // verschlüsselt senden bevor wir unsere Encryption aktiviert haben.
+    if (!encryptionKey) {
+      // Kein Key → Passthrough
+      const decryptionTime = performance.now() - startTime;
+      const response: WorkerMessage = {
+        type: 'decryptSuccess',
+        operationId,
+        payload: {
+          decryptedData: encryptedData,
+          decryptionTime,
+        },
+      };
+      self.postMessage(response, { transfer: [encryptedData] });
+      return;
+    }
+
+    const data = new Uint8Array(encryptedData);
+
+    // NEU: Prüfe ob Frame wahrscheinlich verschlüsselt ist
+    if (data.byteLength < MIN_ENCRYPTED_FRAME_SIZE) {
+      // Frame ist zu klein um verschlüsselt zu sein - unverändert zurückgeben
+      const decryptionTime = performance.now() - startTime;
+      const response: WorkerMessage = {
+        type: 'decryptSuccess',
+        operationId,
+        payload: {
+          decryptedData: encryptedData,
+          decryptionTime,
+        },
+      };
+      self.postMessage(response, { transfer: [encryptedData] });
+      return;
+    }
+
+    const iv = data.slice(0, IV_LENGTH);
+    const ciphertext = data.slice(IV_LENGTH);
+
+    let decryptedData: ArrayBuffer;
+    try {
+      decryptedData = await crypto.subtle.decrypt(
+        {
+          name: 'AES-GCM',
+          iv,
+          tagLength: AUTH_TAG_LENGTH,
+        },
+        encryptionKey,
+        ciphertext
+      );
+    } catch (_decryptError) {
+      // NEU: Decryption fehlgeschlagen - Frame ist wahrscheinlich unverschlüsselt
+      // (Peer sendet noch im Passthrough-Modus)
+      // Gib Original-Daten zurück statt Error zu werfen
+      const decryptionTime = performance.now() - startTime;
+      const response: WorkerMessage = {
+        type: 'decryptSuccess',
+        operationId,
+        payload: {
+          decryptedData: encryptedData,
+          decryptionTime,
+        },
+      };
+      self.postMessage(response, { transfer: [encryptedData] });
+      return;
+    }
+
+    const decryptionTime = performance.now() - startTime;
+
+    const response: WorkerMessage = {
+      type: 'decryptSuccess',
+      operationId,
+      payload: {
+        decryptedData,
+        decryptionTime,
+      },
+    };
+
+    self.postMessage(response, { transfer: [decryptedData] });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    self.postMessage({
+      type: 'error',
+      operationId,
+      payload: { error: errorMessage },
+    });
+  }
+}
+
+function cleanup(): void {
+  encryptionKey = null;
+  generation = 1;
+  encryptionEnabled = false;
+}
+
+// Signal Worker ist bereit
+self.postMessage({ type: 'ready' });

@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import {
   startSession,
   completeSession,
@@ -153,7 +153,9 @@ const sessionsSlice = createSlice({
     },
 
     addPaymentToHistory: (state, action: PayloadAction<SessionPayment>) => {
-      const existingIndex = state.payments.findIndex((p) => p.paymentId === action.payload.paymentId);
+      const existingIndex = state.payments.findIndex(
+        (p) => p.paymentId === action.payload.paymentId
+      );
 
       if (existingIndex >= 0) {
         state.payments[existingIndex] = action.payload;
@@ -179,8 +181,8 @@ const sessionsSlice = createSlice({
       .addCase(startSession.fulfilled, (state, action) => {
         state.isLoading = false;
 
-        if (action.payload.success && 'data' in action.payload && action.payload.data) {
-          const data = action.payload.data;
+        if (action.payload.success && 'data' in action.payload) {
+          const { data } = action.payload;
           state.currentSession = data;
           // Add to history
           const existingIndex = state.sessionHistory.findIndex(
@@ -197,7 +199,7 @@ const sessionsSlice = createSlice({
         state.isLoading = false;
         state.error = {
           code: action.payload?.code,
-          message: action.payload?.message || 'Failed to start session',
+          message: action.payload?.message ?? 'Failed to start session',
           details: action.payload?.details,
         };
       })
@@ -210,8 +212,8 @@ const sessionsSlice = createSlice({
       .addCase(completeSession.fulfilled, (state, action) => {
         state.isLoading = false;
 
-        if (action.payload.success && 'data' in action.payload && action.payload.data) {
-          const data = action.payload.data;
+        if (action.payload.success && 'data' in action.payload) {
+          const { data } = action.payload;
           state.currentSession = data;
           // Add to history
           const existingIndex = state.sessionHistory.findIndex(
@@ -230,7 +232,7 @@ const sessionsSlice = createSlice({
         state.isLoading = false;
         state.error = {
           code: action.payload?.code,
-          message: action.payload?.message || 'Failed to complete session',
+          message: action.payload?.message ?? 'Failed to complete session',
           details: action.payload?.details,
         };
       })
@@ -243,13 +245,11 @@ const sessionsSlice = createSlice({
       .addCase(rateSession.fulfilled, (state, action) => {
         state.isLoading = false;
 
-        if (action.payload.success && 'data' in action.payload && action.payload.data) {
-          const data = action.payload.data;
+        if (action.payload.success && 'data' in action.payload) {
+          const { data } = action.payload;
           state.currentRating = data;
           // Add rating to history
-          const existingIndex = state.ratings.findIndex(
-            (r) => r.ratingId === data.ratingId
-          );
+          const existingIndex = state.ratings.findIndex((r) => r.ratingId === data.ratingId);
           if (existingIndex >= 0) {
             state.ratings[existingIndex] = data;
           } else {
@@ -262,7 +262,7 @@ const sessionsSlice = createSlice({
         state.isLoading = false;
         state.error = {
           code: action.payload?.code,
-          message: action.payload?.message || 'Failed to rate session',
+          message: action.payload?.message ?? 'Failed to rate session',
           details: action.payload?.details,
         };
       })
@@ -275,8 +275,8 @@ const sessionsSlice = createSlice({
       .addCase(rescheduleSession.fulfilled, (state, action) => {
         state.isLoading = false;
 
-        if (action.payload.success && 'data' in action.payload && action.payload.data) {
-          const data = action.payload.data;
+        if (action.payload.success && 'data' in action.payload) {
+          const { data } = action.payload;
           state.currentSession = data;
           // Add to history
           const existingIndex = state.sessionHistory.findIndex(
@@ -294,7 +294,7 @@ const sessionsSlice = createSlice({
         state.isLoading = false;
         state.error = {
           code: action.payload?.code,
-          message: action.payload?.message || 'Failed to reschedule session',
+          message: action.payload?.message ?? 'Failed to reschedule session',
           details: action.payload?.details,
         };
       })
@@ -307,8 +307,8 @@ const sessionsSlice = createSlice({
       .addCase(cancelSession.fulfilled, (state, action) => {
         state.isLoading = false;
 
-        if (action.payload.success && 'data' in action.payload && action.payload.data) {
-          const data = action.payload.data;
+        if (action.payload.success && 'data' in action.payload) {
+          const { data } = action.payload;
           state.currentSession = data;
           // Add to history
           const existingIndex = state.sessionHistory.findIndex(
@@ -325,7 +325,7 @@ const sessionsSlice = createSlice({
         state.isLoading = false;
         state.error = {
           code: action.payload?.code,
-          message: action.payload?.message || 'Failed to cancel session',
+          message: action.payload?.message ?? 'Failed to cancel session',
           details: action.payload?.details,
         };
       })
@@ -338,13 +338,11 @@ const sessionsSlice = createSlice({
       .addCase(processSessionPayment.fulfilled, (state, action) => {
         state.isLoadingPayment = false;
 
-        if (action.payload.success && 'data' in action.payload && action.payload.data) {
-          const data = action.payload.data;
+        if (action.payload.success && 'data' in action.payload) {
+          const { data } = action.payload;
           state.currentPayment = data;
           // Add payment to history
-          const existingIndex = state.payments.findIndex(
-            (p) => p.paymentId === data.paymentId
-          );
+          const existingIndex = state.payments.findIndex((p) => p.paymentId === data.paymentId);
           if (existingIndex >= 0) {
             state.payments[existingIndex] = data;
           } else {
@@ -357,7 +355,7 @@ const sessionsSlice = createSlice({
         state.isLoadingPayment = false;
         state.error = {
           code: action.payload?.code,
-          message: action.payload?.message || 'Failed to process payment',
+          message: action.payload?.message ?? 'Failed to process payment',
           details: action.payload?.details,
         };
       });

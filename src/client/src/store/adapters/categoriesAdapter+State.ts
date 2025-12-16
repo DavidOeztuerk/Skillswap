@@ -1,6 +1,6 @@
-import { createEntityAdapter, EntityState, EntityId } from "@reduxjs/toolkit";
-import { SkillCategory } from "../../types/models/Skill";
-import { RequestState } from "../../types/common/RequestState";
+import { createEntityAdapter, type EntityState, type EntityId } from '@reduxjs/toolkit';
+import type { SkillCategory } from '../../types/models/Skill';
+import type { RequestState } from '../../types/common/RequestState';
 
 export const categoriesAdapter = createEntityAdapter<SkillCategory, EntityId>({
   selectId: (category) => category.id,

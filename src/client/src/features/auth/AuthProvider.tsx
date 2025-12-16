@@ -1,4 +1,4 @@
-import React, { useEffect, useState, memo } from 'react';
+import React, { useEffect, useState, useRef, memo } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import tokenRefreshService from '../../services/tokenRefreshService';
@@ -9,6 +9,8 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
+const DEBUG = import.meta.env.DEV && import.meta.env.VITE_VERBOSE_AUTH === 'true';
+
 /**
  * AuthProvider - Handles authentication initialization and token refresh
  */
@@ -17,68 +19,84 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const [initializationComplete, setInitializationComplete] = useState(false);
 
+  // Ref to track previous auth state for token refresh service
+  const prevAuthStateRef = useRef<boolean | null>(null);
+
   // =========================================================================
   // Authentication Initialization - Einmalig beim Mount
   // =========================================================================
   useEffect(() => {
-    let mounted = true;
-    
-    const initializeAuth = async () => {
-      console.log('🔐 AuthProvider: Starting initialization...');
+    // Track if this effect instance is still active
+    let isActive = true;
+
+    const initializeAuth = async (): Promise<void> => {
+      if (DEBUG) console.debug('🔐 AuthProvider: Starting initialization...');
 
       const storedToken = getToken();
 
       if (!storedToken) {
-        console.log('ℹ️ AuthProvider: No stored token found');
-        if (mounted) {
+        if (DEBUG) console.debug('ℹ️ AuthProvider: No stored token found');
+        if (isActive) {
           setInitializationComplete(true);
         }
         return;
       }
 
       try {
-        console.log('🔄 AuthProvider: Token found, attempting silent login...');
+        if (DEBUG) console.debug('🔄 AuthProvider: Token found, attempting silent login...');
         const result = await dispatch(silentLogin());
 
+        if (!isActive) return; // Component unmounted during async operation
+
         if (result.meta.requestStatus === 'fulfilled') {
-          console.log('✅ AuthProvider: Silent login successful');
+          if (DEBUG) console.debug('✅ AuthProvider: Silent login successful');
         } else {
-          console.log('⚠️ AuthProvider: Silent login failed:', result.payload || 'Unknown error');
+          if (DEBUG)
+            console.debug(
+              '⚠️ AuthProvider: Silent login failed:',
+              result.payload ?? 'Unknown error'
+            );
           removeToken();
         }
       } catch (error: unknown) {
+        if (!isActive) return; // Component unmounted during async operation
+
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error('❌ AuthProvider: Silent login exception:', errorMessage);
         removeToken();
       } finally {
-        if (mounted) {
+        if (isActive) {
           setInitializationComplete(true);
-          console.log('✅ AuthProvider: Initialization complete');
+          if (DEBUG) console.debug('✅ AuthProvider: Initialization complete');
         }
       }
     };
 
-    initializeAuth();
+    void initializeAuth();
 
     return () => {
-      mounted = false;
+      isActive = false;
       tokenRefreshService.stop();
-      console.log('🧹 AuthProvider: Cleanup completed');
+      if (DEBUG) console.debug('🧹 AuthProvider: Cleanup completed');
     };
-  }, [dispatch]); // dispatch ist stabil, also sollte dieser Effect nur einmal laufen
+  }, [dispatch]); // dispatch is stable from Redux
 
   // =========================================================================
   // Token Refresh Service Management
   // =========================================================================
   useEffect(() => {
-    if (initializationComplete) {
-      if (isAuthenticated) {
-        console.log('🔑 AuthProvider: Starting token refresh service');
-        tokenRefreshService.start();
-      } else {
-        console.log('🔒 AuthProvider: Stopping token refresh service');
-        tokenRefreshService.stop();
-      }
+    // Only react to actual state changes, not initial render
+    if (!initializationComplete) return;
+    if (prevAuthStateRef.current === isAuthenticated) return;
+
+    prevAuthStateRef.current = isAuthenticated;
+
+    if (isAuthenticated) {
+      if (DEBUG) console.debug('🔑 AuthProvider: Starting token refresh service');
+      tokenRefreshService.start();
+    } else {
+      if (DEBUG) console.debug('🔒 AuthProvider: Stopping token refresh service');
+      tokenRefreshService.stop();
     }
   }, [isAuthenticated, initializationComplete]);
 
@@ -86,12 +104,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Render
   // =========================================================================
   if (!initializationComplete) {
-    return (
-      <LoadingSpinner
-        fullPage
-        message="Anwendung wird initialisiert..."
-      />
-    );
+    return <LoadingSpinner fullPage message="Anwendung wird initialisiert..." />;
   }
 
   return <>{children}</>;

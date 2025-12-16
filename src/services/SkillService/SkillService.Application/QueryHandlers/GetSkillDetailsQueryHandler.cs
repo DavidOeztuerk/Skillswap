@@ -37,13 +37,13 @@ public class GetSkillDetailsQueryHandler(
             var category = await _unitOfWork.SkillCategories.GetByIdAsync(skill.SkillCategoryId, cancellationToken);
             var proficiency = await _unitOfWork.ProficiencyLevels.GetByIdAsync(skill.ProficiencyLevelId, cancellationToken);
 
-            // TODO: Fetch owner details from UserService when IUserServiceClient is available
-            // var ownerProfile = await _userServiceClient.GetUserProfileAsync(skill.UserId, cancellationToken);
-            string? ownerUserName = null;
-            string? ownerFirstName = null;
-            string? ownerLastName = null;
-            double? ownerRating = null;
-            DateTime? ownerMemberSince = null;
+            // Fetch owner details from UserService
+            var ownerProfile = await _userServiceClient.GetUserProfileAsync(skill.UserId, cancellationToken);
+            string? ownerUserName = ownerProfile?.UserName;
+            string? ownerFirstName = ownerProfile?.FirstName;
+            string? ownerLastName = ownerProfile?.LastName;
+            double? ownerRating = ownerProfile?.AverageRating;
+            DateTime? ownerMemberSince = ownerProfile?.MemberSince;
 
             var response = new SkillDetailsResponse(
                 skill.Id,

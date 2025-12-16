@@ -25,7 +25,7 @@ interface ApiErrorRecoveryReturn extends ApiErrorRecoveryState {
   ) => Promise<T>;
   retry: () => Promise<void>;
   reset: () => void;
-  getErrorType: () => 'network' | 'server' | 'client' | 'unknown';
+  getErrorType: () => 'NETWORK' | 'SERVER' | 'CLIENT' | 'VALIDATION' | 'PERMISSION' | 'UNKNOWN';
   getRecoveryMessage: () => string;
   getSuggestedAction: () => string;
 }
@@ -39,37 +39,43 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
     lastAttempt: null,
   });
 
-  const [lastApiCall, setLastApiCall] = useState<(() => Promise<any>) | null>(null);
+  const [lastApiCall, setLastApiCall] = useState<(() => Promise<unknown>) | null>(null);
   const [lastOptions, setLastOptions] = useState<ApiErrorRecoveryOptions>({
     maxRetries: 3,
     retryDelay: 1000,
-    exponentialBackoff: true
+    exponentialBackoff: true,
   });
-  
+
   const { isOnline, isSlowConnection } = useNetworkStatus();
 
-  const getErrorType = useCallback((): 'network' | 'server' | 'client' | 'unknown' => {
-    if (!state.error) return 'unknown';
+  const getErrorType = useCallback(():
+    | 'NETWORK'
+    | 'SERVER'
+    | 'CLIENT'
+    | 'VALIDATION'
+    | 'PERMISSION'
+    | 'UNKNOWN' => {
+    if (!state.error) return 'UNKNOWN';
 
-    const errorMessage = state.error?.message;
-    if (!isOnline || errorMessage?.includes('fetch')) {
-      return 'network';
+    const errorMessage = state.error.message;
+    if (!isOnline || errorMessage.includes('fetch')) {
+      return 'NETWORK';
     }
 
     if ('status' in state.error) {
-      const status = withDefault((state.error as any).status, 0);
-      if (status >= 500) return 'server';
-      if (status >= 400) return 'client';
+      const status = withDefault((state.error as Error & { status?: number }).status, 0);
+      if (status >= 500) return 'SERVER';
+      if (status >= 400) return 'CLIENT';
     }
 
-    return 'unknown';
+    return 'UNKNOWN';
   }, [state.error, isOnline]);
 
   const getRecoveryMessage = useCallback((): string => {
     const errorType = getErrorType();
-    
+
     switch (errorType) {
-      case 'network':
+      case 'NETWORK':
         if (!isOnline) {
           return 'Keine Internetverbindung. Bitte überprüfen Sie Ihre Netzwerkeinstellungen.';
         }
@@ -77,13 +83,13 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
           return 'Langsame Verbindung erkannt. Der Vorgang kann länger dauern.';
         }
         return 'Netzwerkfehler. Bitte versuchen Sie es erneut.';
-      
-      case 'server':
+
+      case 'SERVER':
         return 'Server-Fehler. Der Service ist möglicherweise vorübergehend nicht verfügbar.';
-      
-      case 'client':
+
+      case 'CLIENT':
         return 'Anfrage-Fehler. Bitte überprüfen Sie Ihre Eingaben.';
-      
+
       default:
         return 'Ein unerwarteter Fehler ist aufgetreten.';
     }
@@ -91,121 +97,128 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
 
   const getSuggestedAction = useCallback((): string => {
     const errorType = getErrorType();
-    
+
     switch (errorType) {
-      case 'network':
+      case 'NETWORK':
         if (!isOnline) {
           return 'Stellen Sie eine Internetverbindung her und versuchen Sie es erneut.';
         }
         return 'Erneut versuchen oder später wiederholen.';
-      
-      case 'server':
+
+      case 'SERVER':
         return 'In wenigen Minuten erneut versuchen.';
-      
-      case 'client':
+
+      case 'CLIENT':
         return 'Eingaben überprüfen oder Support kontaktieren.';
-      
+
       default:
         return 'Seite aktualisieren oder später wiederholen.';
     }
   }, [getErrorType, isOnline]);
 
-  const calculateDelay = (attempt: number, baseDelay: number, exponentialBackoff: boolean): number => {
+  const calculateDelay = (
+    attempt: number,
+    baseDelay: number,
+    exponentialBackoff: boolean
+  ): number => {
     const safeAttempt = Math.max(1, withDefault(attempt, 1));
     const safeDelay = Math.max(0, withDefault(baseDelay, 1000));
-    
+
     if (!exponentialBackoff) return safeDelay;
     return Math.min(safeDelay * Math.pow(2, safeAttempt - 1), 30000); // Max 30 seconds
   };
 
-  const executeWithRecovery = useCallback(async <T>(
-    apiCall: () => Promise<T>,
-    options: ApiErrorRecoveryOptions = {}
-  ): Promise<T> => {
-    const {
-      maxRetries = withDefault(options.maxRetries, 3),
-      retryDelay = withDefault(options.retryDelay, 1000),
-      exponentialBackoff = withDefault(options.exponentialBackoff, true),
-      onRetry = options.onRetry,
-      onMaxRetriesReached = options.onMaxRetriesReached,
-    } = options;
+  const executeWithRecovery = useCallback(
+    async <T>(apiCall: () => Promise<T>, options: ApiErrorRecoveryOptions = {}): Promise<T> => {
+      const {
+        maxRetries = withDefault(options.maxRetries, 3),
+        retryDelay = withDefault(options.retryDelay, 1000),
+        exponentialBackoff = withDefault(options.exponentialBackoff, true),
+        onRetry = options.onRetry,
+        onMaxRetriesReached = options.onMaxRetriesReached,
+      } = options;
 
-    setLastApiCall(() => apiCall);
-    setLastOptions(options);
+      setLastApiCall(() => apiCall);
+      setLastOptions(options);
 
-    let lastError: Error;
-    
-    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      try {
-        setState(prev => ({
-          ...prev,
-          isRetrying: attempt > 1,
-          retryCount: attempt - 1,
-          lastAttempt: new Date(),
-        }));
+      let currentError: Error = new Error('Unknown error');
 
-        const result = await apiCall();
-        
-        // Success - reset error state
-        setState({
-          error: null,
-          isRetrying: false,
-          retryCount: 0,
-          canRetry: true,
-          lastAttempt: new Date(),
-        });
-
-        return result;
-        
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        
-        setState(prev => ({
-          ...prev,
-          error: lastError,
-          isRetrying: false,
-        }));
-
-        // Don't retry on client errors (4xx) unless it's a network issue
-        const isNetworkError = !isOnline || lastError.message?.includes('fetch');
-        const isServerError = 'status' in lastError && (lastError as any).status >= 500;
-        
-        if (!isNetworkError && !isServerError && attempt <= maxRetries) {
-          setState(prev => ({
+      for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+        try {
+          setState((prev) => ({
             ...prev,
-            canRetry: false,
+            isRetrying: attempt > 1,
+            retryCount: attempt - 1,
+            lastAttempt: new Date(),
           }));
-          break;
-        }
 
-        // If this was the last attempt, break
-        if (attempt > maxRetries) {
-          setState(prev => ({
+          const result = await apiCall();
+
+          // Success - reset error state
+          setState({
+            error: null,
+            isRetrying: false,
+            retryCount: 0,
+            canRetry: true,
+            lastAttempt: new Date(),
+          });
+
+          return result;
+        } catch (error) {
+          const caughtError = error instanceof Error ? error : new Error(String(error));
+          currentError = caughtError;
+
+          setState((prev) => ({
             ...prev,
-            canRetry: false,
+            error: caughtError,
+            isRetrying: false,
           }));
-          onMaxRetriesReached?.();
-          break;
-        }
 
-        // Wait before retry
-        if (attempt <= maxRetries) {
-          onRetry?.(attempt);
-          const delay = calculateDelay(attempt, retryDelay, exponentialBackoff);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          // Don't retry on client errors (4xx) unless it's a network issue
+          const errorMessage = currentError.message;
+          const isNetworkError = !isOnline || errorMessage.includes('fetch');
+          const isServerError =
+            'status' in currentError &&
+            ((currentError as Error & { status?: number }).status ?? 0) >= 500;
+
+          if (!isNetworkError && !isServerError && attempt <= maxRetries) {
+            setState((prev) => ({
+              ...prev,
+              canRetry: false,
+            }));
+            break;
+          }
+
+          // If this was the last attempt, break
+          if (attempt > maxRetries) {
+            setState((prev) => ({
+              ...prev,
+              canRetry: false,
+            }));
+            onMaxRetriesReached?.();
+            break;
+          }
+
+          // Wait before retry
+          if (attempt <= maxRetries) {
+            onRetry?.(attempt);
+            const delay = calculateDelay(attempt, retryDelay, exponentialBackoff);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
         }
       }
-    }
 
-    throw lastError!;
-  }, [isOnline]);
+      throw currentError;
+    },
+    [isOnline]
+  );
 
   const retry = useCallback(async (): Promise<void> => {
     if (!lastApiCall || !state.canRetry) return;
 
     try {
       await executeWithRecovery(lastApiCall, lastOptions);
-    } catch (error) {
+    } catch (_error) {
       // Error is already handled in executeWithRecovery
     }
   }, [lastApiCall, lastOptions, state.canRetry, executeWithRecovery]);
@@ -222,7 +235,7 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
     setLastOptions({
       maxRetries: 3,
       retryDelay: 1000,
-      exponentialBackoff: true
+      exponentialBackoff: true,
     });
   }, []);
 

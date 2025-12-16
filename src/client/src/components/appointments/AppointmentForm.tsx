@@ -1,40 +1,27 @@
 import React, { useEffect, useMemo } from 'react';
-import {
-  Button,
-  TextField,
-  Box,
-  Typography,
-  Divider,
-  Grid,
-  InputAdornment,
-} from '@mui/material';
+import { Button, TextField, Box, Typography, Divider, Grid, InputAdornment } from '@mui/material';
 import FormDialog from '../ui/FormDialog';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAfter, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
+import type { AppointmentRequest } from '../../types/contracts/requests/AppointmentRequest';
 import LoadingButton from '../ui/LoadingButton';
-import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
-import EnhancedErrorAlert from '../error/EnhancedErrorAlert';
+import type { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
+import ErrorAlert from '../error/ErrorAlert';
 
 // Zod-Schema
 const appointmentFormSchema = z.object({
   matchId: z.string(),
-  startDate: z
-    .date()
-    .refine((date) => isAfter(date, addDays(new Date(), -1)), {
-      message: 'Das Datum muss in der Zukunft liegen',
-    }),
+  startDate: z.date().refine((date) => isAfter(date, addDays(new Date(), -1)), {
+    message: 'Das Datum muss in der Zukunft liegen',
+  }),
   startTime: z.date(),
-  notes: z
-    .string()
-    .max(500, 'Notizen dürfen maximal 500 Zeichen enthalten')
-    .optional(),
+  notes: z.string().max(500, 'Notizen dürfen maximal 500 Zeichen enthalten').optional(),
 });
 
 type AppointmentFormValues = z.infer<typeof appointmentFormSchema>;
@@ -57,12 +44,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
   error,
 }) => {
   // Determine teacher vs. student based on match structure
-  const teacherName = match.isLearningMode
-    ? (match.partnerName || 'Unknown Teacher')
-    : 'You';
-  const studentName = match.isLearningMode
-    ? 'You'
-    : (match.partnerName || 'Unknown Student');
+  const teacherName = match.isLearningMode ? match.partnerName || 'Unknown Teacher' : 'You';
+  const studentName = match.isLearningMode ? 'You' : match.partnerName || 'Unknown Student';
 
   // Standardwerte
   const defaultValues = useMemo(
@@ -94,9 +77,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
     }
   }, [defaultValues, open, reset]);
 
-  const handleFormSubmit: SubmitHandler<AppointmentFormValues> = async (
-    data
-  ) => {
+  const handleFormSubmit: SubmitHandler<AppointmentFormValues> = async (data) => {
     try {
       const startDateTime = new Date(
         data.startDate.getFullYear(),
@@ -107,25 +88,27 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
       );
 
       // Generate meaningful title and description
-      const skillName = match.skillName || 'Unbekannter Skill';
-      const teacherName = match.isLearningMode ? (match.partnerName || 'Lehrer') : 'Du';
-      const studentName = match.isLearningMode ? 'Du' : (match.partnerName || 'Student');
+      const { skillName } = match;
+      // TODO: echte namen aus der Datenbank holen
+      const teacherDisplayName = match.isLearningMode ? match.partnerName : 'Du';
+      const studentDisplayName = match.isLearningMode ? 'Du' : match.partnerName;
 
       const appointmentRequest: AppointmentRequest = {
         matchId: data.matchId,
         scheduledDate: startDateTime.toISOString(),
         title: `Lerntermin: ${skillName}`,
-        description: data.notes || `${teacherName} lehrt ${studentName} in ${skillName}`,
+        description:
+          data.notes ?? `${teacherDisplayName} lehrt ${studentDisplayName} in ${skillName}`,
         durationMinutes: 60,
         participantUserId: match.partnerId,
-        skillId: match.skillId || undefined,
-        meetingType: 'VideoCall'
+        skillId: match.skillId,
+        meetingType: 'VideoCall',
       };
 
       await onSubmit(appointmentRequest);
       onClose();
-    } catch (error) {
-      console.error('❌ Failed to create appointment:', error);
+    } catch (err: unknown) {
+      console.error('❌ Failed to create appointment:', err);
     }
   };
 
@@ -147,7 +130,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
               color="primary"
               variant="contained"
               loading={isLoading}
-              disabled={isLoading || Object.keys(errors).filter(key => key !== 'root').length > 0}
+              disabled={isLoading || Object.keys(errors).filter((key) => key !== 'root').length > 0}
             >
               Termin erstellen
             </LoadingButton>
@@ -155,12 +138,15 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
         }
       >
         <form onSubmit={handleSubmit(handleFormSubmit)}>
-          <EnhancedErrorAlert 
-            error={error || (errors.root && { message: errors.root.message })}
+          <ErrorAlert
+            error={
+              error ??
+              (errors.root?.message !== undefined ? { message: errors.root.message } : undefined)
+            }
             onDismiss={() => {}}
             compact={process.env.NODE_ENV === 'production'}
           />
-          
+
           {/*
             Grid als Container:
             columns={12} => Wir haben ein 12-Spalten-Layout
@@ -197,7 +183,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
 
               <Box bgcolor="action.hover" p={2} borderRadius={1} mb={3}>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Skill:</strong> {match.skillName || 'Unknown Skill'}
+                  <strong>Skill:</strong> {match.skillName}
                 </Typography>
               </Box>
 
@@ -295,16 +281,14 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
                     placeholder="Füge hier optional Notizen oder eine Agenda für den Termin hinzu..."
                     slotProps={{
                       input: {
-                        endAdornment: field.value ? (
-                          <InputAdornment position="end">
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {field.value.length}/500
-                            </Typography>
-                          </InputAdornment>
-                        ) : null,
+                        endAdornment:
+                          field.value !== undefined && field.value !== '' ? (
+                            <InputAdornment position="end">
+                              <Typography variant="caption" color="text.secondary">
+                                {field.value.length}/500
+                              </Typography>
+                            </InputAdornment>
+                          ) : null,
                       },
                     }}
                   />

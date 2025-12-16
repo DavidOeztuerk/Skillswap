@@ -26,10 +26,11 @@ import {
 } from '@mui/icons-material';
 
 import { useAuth } from '../hooks/useAuth';
-import { withDefault } from '../utils/safeAccess';
 import { trackSkillView, trackRegistrationClick } from '../utils/analytics';
 import SEO from '../components/seo/SEO';
 import { useSkills } from '../hooks/useSkills';
+import { useAppSelector } from '../store/store.hooks';
+import { selectFeaturedSkills } from '../store/selectors/skillsSelectors';
 
 /**
  * Startseite der Anwendung
@@ -39,20 +40,21 @@ const HomePage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuthenticated } = useAuth();
-  const { skills, fetchAllSkills, isLoading: loadingSkills } = useSkills();
+  const { fetchAllSkills, isLoading: loadingSkills } = useSkills();
+  const featuredSkills = useAppSelector(selectFeaturedSkills);
 
   useEffect(() => {
     fetchAllSkills();
   }, [fetchAllSkills]);
 
-  const handleSkillClick = (skillId: string) => {
+  const handleSkillClick = (skillId: string): void => {
     trackSkillView(skillId, isAuthenticated);
-    navigate(`/skills/${skillId}`);
+    void navigate(`/skills/${skillId}`);
   };
 
-  const handleRegisterClick = (source: string) => {
+  const handleRegisterClick = (source: string): void => {
     trackRegistrationClick(source);
-    navigate('/auth/register');
+    void navigate('/auth/register');
   };
 
   // Features der Plattform
@@ -66,8 +68,7 @@ const HomePage: React.FC = () => {
     },
     {
       title: 'Teile dein Wissen',
-      description:
-        'Bringe anderen deine Fähigkeiten bei und hilf ihnen, sich zu verbessern.',
+      description: 'Bringe anderen deine Fähigkeiten bei und hilf ihnen, sich zu verbessern.',
       icon: <SkillsIcon fontSize="large" />,
       color: theme.palette.secondary.main,
     },
@@ -92,7 +93,14 @@ const HomePage: React.FC = () => {
       <SEO
         title="SkillSwap - Lerne und teile Fähigkeiten"
         description="Entdecke neue Fähigkeiten, teile dein Wissen und verbinde dich mit Lernenden und Lehrenden in unserer Community. Kostenlose Registrierung."
-        keywords={['Skills lernen', 'Online-Unterricht', 'Skill Exchange', 'Weiterbildung', 'Lehrer finden', 'Wissen teilen']}
+        keywords={[
+          'Skills lernen',
+          'Online-Unterricht',
+          'Skill Exchange',
+          'Weiterbildung',
+          'Lehrer finden',
+          'Wissen teilen',
+        ]}
       />
       {/* Hero-Bereich */}
       <Box
@@ -107,18 +115,13 @@ const HomePage: React.FC = () => {
         <Container maxWidth="lg">
           <Grid container columns={12} spacing={4} alignItems="center">
             <Grid size={{ xs: 12, md: 7 }}>
-              <Typography
-                variant="h2"
-                component="h1"
-                fontWeight="bold"
-                gutterBottom
-              >
+              <Typography variant="h2" component="h1" fontWeight="bold" gutterBottom>
                 Entdecke neue Fähigkeiten und teile dein Wissen
               </Typography>
 
               <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>
-                SkillSwap ist eine Plattform, die Menschen verbindet, die
-                Fähigkeiten lehren und lernen möchten
+                SkillSwap ist eine Plattform, die Menschen verbindet, die Fähigkeiten lehren und
+                lernen möchten
               </Typography>
 
               <Box
@@ -145,7 +148,9 @@ const HomePage: React.FC = () => {
                       variant="contained"
                       size="large"
                       color="secondary"
-                      onClick={() => handleRegisterClick('hero_section')}
+                      onClick={() => {
+                        handleRegisterClick('hero_section');
+                      }}
                       sx={{ px: 4, py: 1.5, fontWeight: 'bold' }}
                     >
                       Jetzt registrieren
@@ -227,11 +232,7 @@ const HomePage: React.FC = () => {
           </Button>
         </Box>
 
-        <Typography
-          variant="h6"
-          color="text.secondary"
-          sx={{ mb: 6, maxWidth: 800 }}
-        >
+        <Typography variant="h6" color="text.secondary" sx={{ mb: 6, maxWidth: 800 }}>
           Entdecke die beliebtesten Skills unserer Community und finde deinen nächsten Lehrer
         </Typography>
 
@@ -252,8 +253,8 @@ const HomePage: React.FC = () => {
                 </Card>
               </Grid>
             ))
-          ) : skills.length > 0 ? (
-            skills.slice(0, 6).map((skill) => (
+          ) : featuredSkills.length > 0 ? (
+            featuredSkills.map((skill) => (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={skill.id}>
                 <Card
                   elevation={2}
@@ -268,7 +269,9 @@ const HomePage: React.FC = () => {
                       boxShadow: 6,
                     },
                   }}
-                  onClick={() => handleSkillClick(skill.id)}
+                  onClick={() => {
+                    handleSkillClick(skill.id);
+                  }}
                 >
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Typography variant="h5" component="h3" fontWeight="bold" gutterBottom>
@@ -282,26 +285,31 @@ const HomePage: React.FC = () => {
                     )}
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                      <Rating value={skill.averageRating || 0} precision={0.5} size="small" readOnly />
+                      <Rating
+                        value={skill.averageRating ?? 0}
+                        precision={0.5}
+                        size="small"
+                        readOnly
+                      />
                       <Typography variant="body2" color="text.secondary">
-                        ({skill.reviewCount || 0})
+                        ({skill.reviewCount ?? 0})
                       </Typography>
                     </Box>
 
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {skill.description?.substring(0, 120)}
-                      {skill.description?.length > 120 ? '...' : ''}
+                      {skill.description.substring(0, 120)}
+                      {skill.description.length > 120 ? '...' : ''}
                     </Typography>
 
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Chip
-                        label={skill.category?.name || 'Kategorie'}
+                        label={skill.category.name}
                         size="small"
                         color="primary"
                         variant="outlined"
                       />
                       <Chip
-                        label={skill.proficiencyLevel?.level || 'Level'}
+                        label={skill.proficiencyLevel.level}
                         size="small"
                         color="secondary"
                         variant="outlined"
@@ -328,14 +336,15 @@ const HomePage: React.FC = () => {
             <Grid size={12}>
               <Box sx={{ textAlign: 'center', py: 6 }}>
                 <Typography variant="h6" color="text.secondary">
-                  Keine Skills gefunden. {!isAuthenticated && 'Registriere dich und erstelle den ersten Skill!'}
+                  Keine Skills gefunden.{' '}
+                  {!isAuthenticated && 'Registriere dich und erstelle den ersten Skill!'}
                 </Typography>
               </Box>
             </Grid>
           )}
         </Grid>
 
-        {!isAuthenticated && skills.length > 0 && (
+        {!isAuthenticated && featuredSkills.length > 0 && (
           <Box sx={{ textAlign: 'center', mt: 6 }}>
             <Typography variant="h5" gutterBottom fontWeight="bold">
               Bereit, deine Lernreise zu starten?
@@ -346,7 +355,9 @@ const HomePage: React.FC = () => {
             <Button
               variant="contained"
               size="large"
-              onClick={() => handleRegisterClick('featured_skills_section')}
+              onClick={() => {
+                handleRegisterClick('featured_skills_section');
+              }}
               sx={{ px: 6, py: 1.5, fontWeight: 'bold' }}
             >
               Jetzt kostenlos registrieren
@@ -359,13 +370,7 @@ const HomePage: React.FC = () => {
 
       {/* Features-Bereich */}
       <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Typography
-          variant="h3"
-          component="h2"
-          textAlign="center"
-          gutterBottom
-          fontWeight="bold"
-        >
+        <Typography variant="h3" component="h2" textAlign="center" gutterBottom fontWeight="bold">
           Unsere Features
         </Typography>
 
@@ -375,8 +380,8 @@ const HomePage: React.FC = () => {
           color="text.secondary"
           sx={{ mb: 8, maxWidth: 800, mx: 'auto' }}
         >
-          Entdecke, wie SkillSwap dir dabei helfen kann, neue Fähigkeiten zu
-          erlernen oder dein Wissen mit anderen zu teilen.
+          Entdecke, wie SkillSwap dir dabei helfen kann, neue Fähigkeiten zu erlernen oder dein
+          Wissen mit anderen zu teilen.
         </Typography>
 
         <Grid container columns={12} spacing={4}>
@@ -429,11 +434,7 @@ const HomePage: React.FC = () => {
                     {feature.title}
                   </Typography>
 
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    textAlign="center"
-                  >
+                  <Typography variant="body2" color="text.secondary" textAlign="center">
                     {feature.description}
                   </Typography>
                 </CardContent>
@@ -442,9 +443,7 @@ const HomePage: React.FC = () => {
                   <Button
                     variant="outlined"
                     color="primary"
-                    onClick={() =>
-                      navigate(isAuthenticated ? '/dashboard' : '/auth/register')
-                    }
+                    onClick={() => navigate(isAuthenticated ? '/dashboard' : '/auth/register')}
                   >
                     Mehr erfahren
                   </Button>
@@ -464,23 +463,12 @@ const HomePage: React.FC = () => {
         }}
       >
         <Container maxWidth="md">
-          <Typography
-            variant="h4"
-            component="h2"
-            textAlign="center"
-            gutterBottom
-            fontWeight="bold"
-          >
+          <Typography variant="h4" component="h2" textAlign="center" gutterBottom fontWeight="bold">
             Bereit, neue Fähigkeiten zu entdecken?
           </Typography>
 
-          <Typography
-            variant="h6"
-            textAlign="center"
-            sx={{ mb: 4, opacity: 0.9 }}
-          >
-            Tritt noch heute der SkillSwap-Community bei und beginne deine
-            Lernreise.
+          <Typography variant="h6" textAlign="center" sx={{ mb: 4, opacity: 0.9 }}>
+            Tritt noch heute der SkillSwap-Community bei und beginne deine Lernreise.
           </Typography>
 
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -488,12 +476,16 @@ const HomePage: React.FC = () => {
               variant="contained"
               size="large"
               color="primary"
-              onClick={() =>
-                isAuthenticated ? navigate('/dashboard') : handleRegisterClick('cta_section')
-              }
+              onClick={(): void => {
+                if (isAuthenticated) {
+                  void navigate('/dashboard');
+                } else {
+                  handleRegisterClick('cta_section');
+                }
+              }}
               sx={{ px: 6, py: 1.5, fontWeight: 'bold' }}
             >
-              {withDefault(isAuthenticated, false) ? 'Zum Dashboard' : 'Jetzt starten'}
+              {isAuthenticated ? 'Zum Dashboard' : 'Jetzt starten'}
             </Button>
           </Box>
         </Container>

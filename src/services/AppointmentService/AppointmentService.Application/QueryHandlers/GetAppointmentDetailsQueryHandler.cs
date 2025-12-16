@@ -70,6 +70,15 @@ public class GetAppointmentDetailsQueryHandler(
             ConnectionId: connection?.Id,
             ConnectionType: connectionType,
             ConnectionStatus: connection?.Status ?? "Active",
+            // Match/Connection Rollen - KONSTANT durch die gesamte Kette
+            MatchRequesterId: connection?.RequesterId,
+            MatchRequesterName: enrichedData.MatchRequester != null
+                ? $"{enrichedData.MatchRequester.FirstName} {enrichedData.MatchRequester.LastName}"
+                : null,
+            MatchTargetUserId: connection?.TargetUserId,
+            MatchTargetUserName: enrichedData.MatchTarget != null
+                ? $"{enrichedData.MatchTarget.FirstName} {enrichedData.MatchTarget.LastName}"
+                : null,
             // Series data
             SessionSeriesId: series?.Id,
             SessionSeriesTitle: series?.Title,

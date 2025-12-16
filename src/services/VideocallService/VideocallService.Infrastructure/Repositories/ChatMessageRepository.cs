@@ -48,6 +48,16 @@ public class ChatMessageRepository : IChatMessageRepository
         return message;
     }
 
+    /// <summary>
+    /// Alias for CreateAsync - used by VideoCallHub
+    /// </summary>
+    public async Task<ChatMessage> AddAsync(
+        ChatMessage message,
+        CancellationToken cancellationToken = default)
+    {
+        return await CreateAsync(message, cancellationToken);
+    }
+
     public async Task DeleteMessageAsync(
         string messageId,
         CancellationToken cancellationToken = default)

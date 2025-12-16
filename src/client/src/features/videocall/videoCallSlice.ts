@@ -1,6 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { VideoCallConfig } from '../../types/models/VideoCallConfig';
-import { ChatMessage } from '../../types/models/ChatMessage';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import type { VideoCallConfig } from '../../types/models/VideoCallConfig';
+import type { ChatMessage } from '../../types/models/ChatMessage';
 import { withDefault, isDefined } from '../../utils/safeAccess';
 import {
   getCallConfig,
@@ -17,15 +17,16 @@ import {
   initialE2EEState,
   initialChatE2EEState,
   initialCallStatistics,
-  CallParticipant,
-  ConnectionQuality,
-  E2EEStatus,
-  ChatE2EEStatus,
-  AddParticipantPayload,
-  UpdateParticipantPayload,
-  UpdateCallStatisticsPayload,
-  UpdateSettingsPayload,
-  EncryptionStats,
+  type CallParticipant,
+  type ConnectionQuality,
+  type E2EEStatus,
+  type ChatE2EEStatus,
+  type AddParticipantPayload,
+  type UpdateParticipantPayload,
+  type UpdateCallStatisticsPayload,
+  type UpdateSettingsPayload,
+  type EncryptionStats,
+  type LayoutMode,
 } from '../../store/adapters/videoCallAdapter+State';
 
 // ============================================================================
@@ -39,7 +40,7 @@ const videoCallSlice = createSlice({
     // ========================================================================
     // Session Management
     // ========================================================================
-    
+
     /**
      * Initialisiert einen neuen Call - räumt vorherigen State auf
      */
@@ -55,11 +56,13 @@ const videoCallSlice = createSlice({
       state.callDuration = 0;
       state.callStartTime = null;
       state.errorMessage = undefined;
-      
+      state.layoutMode = 'grid';
+      state.activeSpeakerId = null;
+
       // Setze neue Session-Daten
-      state.sessionId = action.payload?.sessionId ?? null;
-      state.roomId = action.payload?.roomId ?? null;
-      state.peerId = action.payload?.participantUserId ?? null;
+      state.sessionId = action.payload.sessionId;
+      state.roomId = action.payload.roomId;
+      state.peerId = action.payload.participantUserId ?? null;
       state.isConnected = false;
       state.isInitializing = true;
     },
@@ -67,9 +70,7 @@ const videoCallSlice = createSlice({
     /**
      * Setzt den kompletten State zurück
      */
-    resetCall: () => {
-      return initialVideoCalllState;
-    },
+    resetCall: () => initialVideoCalllState,
 
     // ========================================================================
     // Connection State
@@ -135,6 +136,18 @@ const videoCallSlice = createSlice({
     },
 
     // ========================================================================
+    // Layout
+    // ========================================================================
+
+    setLayoutMode: (state, action: PayloadAction<LayoutMode>) => {
+      state.layoutMode = action.payload;
+    },
+
+    setActiveSpeaker: (state, action: PayloadAction<string | null>) => {
+      state.activeSpeakerId = action.payload;
+    },
+
+    // ========================================================================
     // Chat
     // ========================================================================
 
@@ -154,12 +167,10 @@ const videoCallSlice = createSlice({
     },
 
     addMessage: (state, action: PayloadAction<ChatMessage>) => {
-      if (action.payload) {
-        state.messages.push(action.payload);
-        // Increment unread if chat is closed
-        if (!state.isChatOpen) {
-          state.unreadMessageCount += 1;
-        }
+      state.messages.push(action.payload);
+      // Increment unread if chat is closed
+      if (!state.isChatOpen) {
+        state.unreadMessageCount += 1;
       }
     },
 
@@ -173,16 +184,16 @@ const videoCallSlice = createSlice({
     // ========================================================================
 
     addParticipant: (state, action: PayloadAction<AddParticipantPayload>) => {
-      const payload = action.payload;
-      if (!payload?.id) return;
+      const { payload } = action;
+      if (payload.id === '') return;
 
       // Prüfe ob Participant bereits existiert
-      const exists = state.participants.some(p => p.id === payload.id);
+      const exists = state.participants.some((p) => p.id === payload.id);
       if (exists) return;
 
       const participant: CallParticipant = {
         id: payload.id,
-        name: payload.name || 'Unknown',
+        name: payload.name,
         avatar: payload.avatar,
         isMuted: !(payload.audioEnabled ?? true),
         isVideoEnabled: payload.videoEnabled ?? true,
@@ -198,14 +209,14 @@ const videoCallSlice = createSlice({
     },
 
     removeParticipant: (state, action: PayloadAction<string>) => {
-      state.participants = state.participants.filter(p => p.id !== action.payload);
+      state.participants = state.participants.filter((p) => p.id !== action.payload);
     },
 
     updateParticipant: (state, action: PayloadAction<UpdateParticipantPayload>) => {
-      const payload = action.payload;
-      if (!payload?.id) return;
+      const { payload } = action;
+      if (payload.id === '') return;
 
-      const index = state.participants.findIndex(p => p.id === payload.id);
+      const index = state.participants.findIndex((p) => p.id === payload.id);
       if (index === -1) return;
 
       const participant = state.participants[index];
@@ -214,7 +225,9 @@ const videoCallSlice = createSlice({
         ...(payload.isMuted !== undefined && { isMuted: payload.isMuted }),
         ...(payload.isVideoEnabled !== undefined && { isVideoEnabled: payload.isVideoEnabled }),
         ...(payload.isScreenSharing !== undefined && { isScreenSharing: payload.isScreenSharing }),
-        ...(payload.connectionQuality !== undefined && { connectionQuality: payload.connectionQuality }),
+        ...(payload.connectionQuality !== undefined && {
+          connectionQuality: payload.connectionQuality,
+        }),
         ...(payload.audioLevel !== undefined && { audioLevel: payload.audioLevel }),
         lastActiveAt: new Date().toISOString(),
       };
@@ -382,10 +395,10 @@ const videoCallSlice = createSlice({
       })
       .addCase(getCallConfig.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (isDefined(action.payload?.data)) {
-          state.roomId = withDefault(action.payload.data?.roomId, "");
-          state.peerId = withDefault(action.payload.data?.participantUserId, "");
-          state.sessionId = withDefault(action.payload.data?.sessionId, "");
+        if (isDefined(action.payload.data)) {
+          state.roomId = withDefault(action.payload.data.roomId, '');
+          state.peerId = withDefault(action.payload.data.participantUserId, '');
+          state.sessionId = withDefault(action.payload.data.sessionId, '');
         }
       })
       .addCase(getCallConfig.rejected, (state, action) => {
@@ -403,9 +416,7 @@ const videoCallSlice = createSlice({
       .addCase(joinVideoCall.fulfilled, (state) => {
         state.isInitializing = false;
         state.isConnected = true;
-        if (!state.callStartTime) {
-          state.callStartTime = new Date().toISOString();
-        }
+        state.callStartTime ??= new Date().toISOString();
       })
       .addCase(joinVideoCall.rejected, (state, action) => {
         state.isInitializing = false;
@@ -418,16 +429,15 @@ const videoCallSlice = createSlice({
       .addCase(leaveVideoCall.pending, (state) => {
         state.isLoading = true;
       })
-      .addCase(leaveVideoCall.fulfilled, () => {
-        return initialVideoCalllState;
-      })
+      .addCase(leaveVideoCall.fulfilled, () => initialVideoCalllState)
       .addCase(leaveVideoCall.rejected, (_, action) => {
-        console.error('Leave call API failed:', action.error?.message);
+        const errorMessage = action.error.message ?? 'Unknown error';
+        console.error('Leave call API failed:', errorMessage);
         // State trotzdem zurücksetzen - User will ja raus
         return {
           ...initialVideoCalllState,
           // Optional: Error beibehalten für Debugging
-          errorMessage: `Leave failed: ${action.error?.message}`,
+          errorMessage: `Leave failed: ${errorMessage}`,
         };
       })
 
@@ -437,9 +447,7 @@ const videoCallSlice = createSlice({
       .addCase(endVideoCall.pending, (state) => {
         state.isLoading = true;
       })
-      .addCase(endVideoCall.fulfilled, () => {
-        return initialVideoCalllState;
-      })
+      .addCase(endVideoCall.fulfilled, () => initialVideoCalllState)
       .addCase(endVideoCall.rejected, (state, action) => {
         state.isLoading = false;
         state.errorMessage = action.payload?.message ?? 'Failed to end call';
@@ -495,7 +503,7 @@ const videoCallSlice = createSlice({
       // getCallStatistics
       // ======================================================================
       .addCase(getCallStatistics.fulfilled, (state, action) => {
-        if (isDefined(action.payload?.data)) {
+        if (isDefined(action.payload.data)) {
           state.callStatistics = {
             ...state.callStatistics,
             ...action.payload.data,
@@ -513,16 +521,16 @@ export const {
   // Session
   initializeCall,
   resetCall,
-  
+
   // Connection
   setConnected,
   setPeerId,
   setConnectionQuality,
-  
+
   // Streams
   setLocalStreamId,
   setRemoteStreamId,
-  
+
   // Media
   toggleMic,
   setMicEnabled,
@@ -531,36 +539,40 @@ export const {
   toggleScreenShare,
   setScreenSharing,
   setRecording,
-  
+
+  // Layout
+  setLayoutMode,
+  setActiveSpeaker,
+
   // Chat
   toggleChat,
   setChatOpen,
   addMessage,
   clearMessages,
-  
+
   // Participants
   addParticipant,
   removeParticipant,
   updateParticipant,
   clearParticipants,
-  
+
   // Timing
   setCallDuration,
   setCallStartTime,
   incrementCallDuration,
-  
+
   // Stats & Settings
   updateCallStatistics,
   updateSettings,
-  
+
   // Error
   setError,
   clearError,
-  
+
   // Loading
   setLoading,
   setInitializing,
-  
+
   // E2EE Video
   setE2EEStatus,
   setE2EELocalFingerprint,
@@ -571,7 +583,7 @@ export const {
   setE2EEEncryptionStats,
   updateE2EEEncryptionStats,
   resetE2EE,
-  
+
   // E2EE Chat
   setChatE2EEStatus,
   setChatE2EELocalFingerprint,

@@ -1,14 +1,14 @@
-import { createAsyncThunk } from "@reduxjs/toolkit";
-import authService from "../../api/services/authService";
-import { createAppAsyncThunk } from "../../store/thunkHelpers";
-import { isSuccessResponse } from "../../types/api/UnifiedResponse";
-import { ChangePasswordRequest } from "../../types/contracts/requests/ChangePasswordRequest";
-import { DisableTwoFactorRequest } from "../../types/contracts/requests/DisableTwoFactorRequest";
-import { LoginRequest } from "../../types/contracts/requests/LoginRequest";
-import { RegisterRequest } from "../../types/contracts/requests/RegisterRequest";
-import { UpdateProfileRequest } from "../../types/contracts/requests/UpdateProfileRequest";
-import { VerifyEmailRequest } from "../../types/contracts/requests/VerifyEmailRequest";
-import { VerifyTwoFactorCodeRequest } from "../../types/contracts/requests/VerifyTwoFactorCodeRequest";
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import authService from '../../api/services/authService';
+import { createAppAsyncThunk } from '../../store/thunkHelpers';
+import { isSuccessResponse } from '../../types/api/UnifiedResponse';
+import type { ChangePasswordRequest } from '../../types/contracts/requests/ChangePasswordRequest';
+import type { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
+import type { LoginRequest } from '../../types/contracts/requests/LoginRequest';
+import type { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
+import type { UpdateProfileRequest } from '../../types/contracts/requests/UpdateProfileRequest';
+import type { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRequest';
+import type { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
 
 export const login = createAppAsyncThunk(
   'auth/login',
@@ -34,13 +34,10 @@ export const refreshToken = createAppAsyncThunk(
   }
 );
 
-export const getProfile = createAppAsyncThunk(
-  'auth/getProfile',
-  async (_, { rejectWithValue }) => {
-    const response = await authService.getProfile();
-    return isSuccessResponse(response) ? response : rejectWithValue(response);
-  }
-);
+export const getProfile = createAppAsyncThunk('auth/getProfile', async (_, { rejectWithValue }) => {
+  const response = await authService.getProfile();
+  return isSuccessResponse(response) ? response : rejectWithValue(response);
+});
 
 export const updateProfile = createAppAsyncThunk(
   'auth/updateProfile',

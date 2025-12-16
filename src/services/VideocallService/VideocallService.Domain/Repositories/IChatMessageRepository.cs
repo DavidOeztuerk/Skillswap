@@ -30,6 +30,13 @@ public interface IChatMessageRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Add a new chat message (alias for CreateAsync)
+    /// </summary>
+    Task<ChatMessage> AddAsync(
+        ChatMessage message,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Soft delete a message
     /// </summary>
     Task DeleteMessageAsync(

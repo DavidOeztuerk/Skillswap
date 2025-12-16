@@ -1,4 +1,4 @@
-import React, { useEffect, memo, useMemo } from 'react';
+import React, { useEffect, memo, useMemo, type JSX } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -30,17 +30,17 @@ import PageContainer from '../components/layout/PageContainer';
 import { SkeletonLoader } from '../components/ui/SkeletonLoader';
 import ApiErrorHandler from '../components/error/ApiErrorHandler';
 import { useApiErrorRecovery } from '../hooks/useApiErrorRecovery';
-import { useLoading, LoadingKeys } from '../contexts/LoadingContext';
+import { useLoading } from '../contexts/loadingContextHooks';
+import { LoadingKeys } from '../contexts/loadingContextValue';
 import { useDashboard } from '../hooks/useDashboard';
 import { formatDateTimeRange } from '../utils/dateUtils';
-import { withDefault } from '../utils/safeAccess';
 
 /**
  * Dashboard-Seite der Anwendung
  */
-const DashboardPage: React.FC = memo(() => {
+const DashboardPage: React.FC = memo((): JSX.Element => {
   const navigate = useNavigate();
-  const { 
+  const {
     user,
     cards,
     teachingSkills,
@@ -64,53 +64,75 @@ const DashboardPage: React.FC = memo(() => {
 
   useEffect(() => {
     // Load dashboard data once on mount
-    const loadData = async () => {
+    const loadData = async (): Promise<void> => {
       await withLoading(LoadingKeys.FETCH_DATA, async () => {
-        await executeWithRecovery(async () => {
-          await loadDashboardData();
-        }, {
-          maxRetries: 1,
-          retryDelay: 2000,
-          exponentialBackoff: false,
-        });
+        await executeWithRecovery(
+          async () => {
+            // loadDashboardData dispatches multiple actions synchronously
+            loadDashboardData();
+            // Return resolved promise since the function itself is sync
+            return Promise.resolve();
+          },
+          {
+            maxRetries: 1,
+            retryDelay: 2000,
+            exponentialBackoff: false,
+          }
+        );
       });
     };
 
     void loadData();
-    // Only run once on mount
-  }, []); 
+  }, [withLoading, executeWithRecovery, loadDashboardData]);
 
-  const dashboardCards = useMemo(() => cards.map(card => ({
-    ...card,
-    icon: card.title === 'Skills' ? <SkillsIcon fontSize="large" /> :
-          card.title === 'Matches' ? <MatchmakingIcon fontSize="large" /> :
-          card.title === 'Termine' ? <AppointmentsIcon fontSize="large" /> :
-          <PersonIcon fontSize="large" />,
-    action: () => navigate(card.path),
-  })), [cards, navigate]);
+  const dashboardCards = useMemo(
+    () =>
+      cards.map((card) => ({
+        ...card,
+        icon:
+          card.title === 'Skills' ? (
+            <SkillsIcon fontSize="large" />
+          ) : card.title === 'Matches' ? (
+            <MatchmakingIcon fontSize="large" />
+          ) : card.title === 'Termine' ? (
+            <AppointmentsIcon fontSize="large" />
+          ) : (
+            <PersonIcon fontSize="large" />
+          ),
+        action: (): void => {
+          void navigate(card.path);
+        },
+      })),
+    [cards, navigate]
+  );
 
-  const isDashboardLoading = useMemo(() => 
-    contextLoading(LoadingKeys.FETCH_DATA) || isLoading, 
+  const isDashboardLoading = useMemo(
+    () => contextLoading(LoadingKeys.FETCH_DATA) || isLoading,
     [contextLoading, isLoading]
   );
-  
-  const displayError = useMemo(() => 
-    hasErrors ? errors[0] : recoveryError, 
+
+  const displayError = useMemo(
+    () => (hasErrors ? (errors[0] ?? null) : (recoveryError ?? null)),
     [hasErrors, errors, recoveryError]
   );
 
   return (
     <PageContainer>
       <PageHeader
-        title={`Welcome, ${withDefault(user?.firstName, 'User')}!`}
+        title={`Welcome, ${user?.firstName ?? 'User'}!`}
         subtitle="Here you'll find an overview of your activities"
       />
 
-      {displayError && (
+      {displayError !== null && (
         <ApiErrorHandler
           error={{
-            type: getErrorType().toUpperCase() as any,
-            message: typeof displayError === 'string' ? displayError : displayError?.message || 'Unknown error',
+            type: getErrorType(),
+            message:
+              typeof displayError === 'string'
+                ? displayError
+                : displayError instanceof Error
+                  ? displayError.message
+                  : 'Unknown error',
           }}
           onRetry={retry}
           isRetrying={isRetrying}
@@ -120,19 +142,19 @@ const DashboardPage: React.FC = memo(() => {
         />
       )}
 
-      {!displayError && isDashboardLoading ? (
+      {displayError === null && isDashboardLoading ? (
         <Grid container columns={12} spacing={3}>
           {/* Dashboard Cards Skeleton */}
           <Grid size={{ xs: 12 }}>
             <Grid container columns={12} spacing={3}>
-              {[1, 2, 3, 4].map(i => (
+              {[1, 2, 3, 4].map((i) => (
                 <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
                   <SkeletonLoader variant="card" />
                 </Grid>
               ))}
             </Grid>
           </Grid>
-          
+
           {/* Content Skeleton */}
           <Grid size={{ xs: 12, lg: 6 }}>
             <SkeletonLoader variant="list" count={3} />
@@ -144,7 +166,7 @@ const DashboardPage: React.FC = memo(() => {
             <SkeletonLoader variant="list" count={5} />
           </Grid>
         </Grid>
-      ) : !displayError && (
+      ) : displayError === null ? (
         <Grid container columns={12} spacing={3}>
           {/* Übersichtskarten */}
           <Grid size={{ xs: 12 }}>
@@ -186,10 +208,12 @@ const DashboardPage: React.FC = memo(() => {
                             position: 'relative',
                           }}
                         >
-                          <Badge 
-                            badgeContent={(card as typeof card & { badge?: number }).badge || 0} 
+                          <Badge
+                            badgeContent={(card as typeof card & { badge?: number }).badge ?? 0}
                             color="error"
-                            invisible={!(card as typeof card & { badge?: number }).badge}
+                            invisible={
+                              ((card as typeof card & { badge?: number }).badge ?? 0) === 0
+                            }
                             sx={{
                               '& .MuiBadge-badge': {
                                 top: -8,
@@ -204,11 +228,7 @@ const DashboardPage: React.FC = memo(() => {
                           {card.title}
                         </Typography>
                       </Box>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        align="center"
-                      >
+                      <Typography variant="body2" color="text.secondary" align="center">
                         {card.description}
                       </Typography>
                     </CardContent>
@@ -235,7 +255,7 @@ const DashboardPage: React.FC = memo(() => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {upcomingAppointments?.length > 0 ? (
+              {upcomingAppointments.length > 0 ? (
                 <List disablePadding>
                   {upcomingAppointments.map((appointment) => (
                     <React.Fragment key={appointment.id}>
@@ -253,7 +273,7 @@ const DashboardPage: React.FC = memo(() => {
                               }}
                             >
                               <Typography variant="subtitle1">
-                                {appointment.skill?.name || 'Skill'}
+                                {appointment.skill?.name ?? 'Skill'}
                               </Typography>
                               <Chip
                                 label={formatDateTimeRange(
@@ -268,22 +288,18 @@ const DashboardPage: React.FC = memo(() => {
                           }
                           secondary={
                             <>
-                              <Typography
-                                component="span"
-                                variant="body2"
-                                color="text.primary"
-                              >
+                              <Typography component="span" variant="body2" color="text.primary">
                                 {appointment.organizerUserId === user?.id
                                   ? 'Teilnehmer:in'
                                   : 'Organisator:in'}
-                                :{' '}
-                                {appointment.otherPartyName || 'Unbekannt'}
+                                : {appointment.otherPartyName ?? 'Unbekannt'}
                               </Typography>
-                              {appointment.notes && (
+                              {(appointment.notes?.length ?? 0) > 0 && (
                                 <Typography
+                                  component="span"
                                   variant="body2"
                                   color="text.secondary"
-                                  sx={{ mt: 0.5 }}
+                                  sx={{ mt: 0.5, display: 'block' }}
                                 >
                                   {appointment.notes}
                                 </Typography>
@@ -307,7 +323,9 @@ const DashboardPage: React.FC = memo(() => {
                   variant="text"
                   color="primary"
                   endIcon={<ArrowForwardIcon />}
-                  onClick={() => navigate('/appointments')}
+                  onClick={(): void => {
+                    void navigate('/appointments');
+                  }}
                 >
                   Alle Termine anzeigen
                 </Button>
@@ -323,7 +341,7 @@ const DashboardPage: React.FC = memo(() => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {teachingSkills && teachingSkills?.length > 0 ? (
+              {teachingSkills.length > 0 ? (
                 <List disablePadding>
                   {teachingSkills.slice(0, 5).map((userSkill) => (
                     <React.Fragment key={userSkill.id}>
@@ -333,7 +351,7 @@ const DashboardPage: React.FC = memo(() => {
                         </ListItemIcon>
                         <ListItemText
                           primary={userSkill.name}
-                          secondary={`Level: ${userSkill.proficiencyLevel?.level}`}
+                          secondary={`Level: ${userSkill.proficiencyLevel.level}`}
                         />
                       </ListItem>
                       <Divider variant="inset" component="li" />
@@ -351,7 +369,9 @@ const DashboardPage: React.FC = memo(() => {
                   variant="text"
                   color="primary"
                   endIcon={<ArrowForwardIcon />}
-                  onClick={() => navigate('/skills')}
+                  onClick={(): void => {
+                    void navigate('/skills');
+                  }}
                 >
                   Alle Skills anzeigen
                 </Button>
@@ -367,7 +387,7 @@ const DashboardPage: React.FC = memo(() => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
-              {learningSkills && learningSkills.length > 0 ? (
+              {learningSkills.length > 0 ? (
                 <List disablePadding>
                   {learningSkills.slice(0, 5).map((userSkill) => (
                     <React.Fragment key={userSkill.id}>
@@ -377,7 +397,7 @@ const DashboardPage: React.FC = memo(() => {
                         </ListItemIcon>
                         <ListItemText
                           primary={userSkill.name}
-                          secondary={`Level: ${userSkill.proficiencyLevel?.level}`}
+                          secondary={`Level: ${userSkill.proficiencyLevel.level}`}
                         />
                       </ListItem>
                       <Divider variant="inset" component="li" />
@@ -395,7 +415,9 @@ const DashboardPage: React.FC = memo(() => {
                   variant="text"
                   color="primary"
                   endIcon={<ArrowForwardIcon />}
-                  onClick={() => navigate('/skills')}
+                  onClick={(): void => {
+                    void navigate('/skills');
+                  }}
                 >
                   Lernwünsche hinzufügen
                 </Button>
@@ -403,7 +425,7 @@ const DashboardPage: React.FC = memo(() => {
             </Paper>
           </Grid>
         </Grid>
-      )}
+      ) : null}
     </PageContainer>
   );
 });

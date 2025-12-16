@@ -1,5 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit';
-import { RootState } from '../store';
+import type { RootState } from '../store';
+import type { SearchState } from '../adapters/searchAdapter+State';
+import type { Skill } from '../../types/models/Skill';
 
 /**
  * Search Selectors
@@ -7,21 +9,22 @@ import { RootState } from '../store';
  */
 
 // Base selectors
-export const selectSearchState = (state: RootState) => state.search;
-export const selectSearchLoading = (state: RootState) => state.search.isLoading;
-export const selectSearchError = (state: RootState) => state.search.errorMessage;
-export const selectUserSearchLoading = (state: RootState) => state.search.userLoading;
-export const selectAllSkillsLoading = (state: RootState) => state.search.allSkillsLoading;
+export const selectSearchState = (state: RootState): SearchState => state.search;
+export const selectSearchLoading = (state: RootState): boolean => state.search.isLoading;
+export const selectSearchError = (state: RootState): string | undefined =>
+  state.search.errorMessage;
+export const selectUserSearchLoading = (state: RootState): boolean => state.search.userLoading;
+export const selectAllSkillsLoading = (state: RootState): boolean => state.search.allSkillsLoading;
 
 // Entity selectors - use results array directly
 export const selectAllSearchSkills = createSelector(
   [selectSearchState],
-  (searchState) => searchState.results || []
+  (searchState) => searchState.results
 );
 
 export const selectSearchSkillById = createSelector(
   [selectAllSearchSkills, (_: RootState, skillId: string) => skillId],
-  (skills, skillId) => skills.find(skill => skill.id === skillId) || null
+  (skills, skillId) => skills.find((skill) => skill.id === skillId) ?? null
 );
 
 // Direct array selectors
@@ -85,46 +88,66 @@ export const selectHasUserSearchResults = createSelector(
 // Results filtering and sorting
 export const selectSearchResultsByCategory = createSelector(
   [selectSearchResults, (_: RootState, categoryId: string) => categoryId],
-  (results, categoryId) => results.filter(skill => skill.category.id === categoryId)
+  (results, categoryId) => results.filter((skill) => skill.category.id === categoryId)
 );
 
 export const selectSearchResultsByProficiencyLevel = createSelector(
   [selectSearchResults, (_: RootState, levelId: string) => levelId],
-  (results, levelId) => results.filter(skill => skill.proficiencyLevel.id === levelId)
+  (results, levelId) => results.filter((skill) => skill.proficiencyLevel.id === levelId)
 );
 
-export const selectOfferedSearchResults = createSelector(
-  [selectSearchResults],
-  (results) => results.filter(skill => skill.isOffered)
+export const selectOfferedSearchResults = createSelector([selectSearchResults], (results) =>
+  results.filter((skill) => skill.isOffered)
 );
 
-export const selectWantedSearchResults = createSelector(
-  [selectSearchResults],
-  (results) => results.filter(skill => !skill.isOffered)
+export const selectWantedSearchResults = createSelector([selectSearchResults], (results) =>
+  results.filter((skill) => !skill.isOffered)
 );
 
 export const selectSearchResultsSorted = createSelector(
-  [selectSearchResults, (_: RootState, sortBy: 'relevance' | 'popularity' | 'rating' | 'createdAt' | 'updatedAt' | 'name' | 'category' | 'proficiencyLevel') => sortBy],
+  [
+    selectSearchResults,
+    (
+      _: RootState,
+      sortBy:
+        | 'relevance'
+        | 'popularity'
+        | 'rating'
+        | 'createdAt'
+        | 'updatedAt'
+        | 'name'
+        | 'category'
+        | 'proficiencyLevel'
+    ) => sortBy,
+  ],
   (results, sortBy) => {
     const sorted = [...results];
-    
+
     switch (sortBy) {
       case 'name':
-        return sorted.sort((a: any, b: any) => a.name.localeCompare(b.name));
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
       case 'category':
-        return sorted.sort((a: any, b: any) => a.category.name.localeCompare(b.category.name));
+        return sorted.sort((a, b) => a.category.name.localeCompare(b.category.name));
       case 'proficiencyLevel':
-        return sorted.sort((a: any, b: any) => a.proficiencyLevel.level.localeCompare(b.proficiencyLevel.level));
+        return sorted.sort((a, b) =>
+          a.proficiencyLevel.level.localeCompare(b.proficiencyLevel.level)
+        );
       case 'createdAt':
-        return sorted.sort((a: any, b: any) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime());
+        return sorted.sort(
+          (a, b) => new Date(b.createdAt ?? '').getTime() - new Date(a.createdAt ?? '').getTime()
+        );
       case 'updatedAt':
-        return sorted.sort((a: any, b: any) => new Date(b.updatedAt || '').getTime() - new Date(a.updatedAt || '').getTime());
+        return sorted.sort(
+          (a, b) =>
+            new Date(b.lastActiveAt ?? '').getTime() - new Date(a.lastActiveAt ?? '').getTime()
+        );
       case 'relevance':
-        return sorted.sort((a: any, b: any) => new Date(b.relevance || '').getTime() - new Date(a.relevance || '').getTime());
+        // For relevance, maintain original order (already sorted by backend)
+        return sorted;
       case 'popularity':
-        return sorted.sort((a: any, b: any) => new Date(b.popularity || '').getTime() - new Date(a.popularity || '').getTime());
+        return sorted.sort((a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0));
       case 'rating':
-        return sorted.sort((a: any, b: any) => new Date(b.rating || '').getTime() - new Date(a.rating || '').getTime());
+        return sorted.sort((a, b) => (b.averageRating ?? 0) - (a.averageRating ?? 0));
       default:
         return sorted;
     }
@@ -137,18 +160,15 @@ export const selectAllSearchResults = createSelector(
   (searchResults, userResults) => [...searchResults, ...userResults]
 );
 
-export const selectUniqueSearchResults = createSelector(
-  [selectAllSearchResults],
-  (allResults) => {
-    const uniqueResults = new Map();
-    allResults.forEach(skill => {
-      if (!uniqueResults.has(skill.id)) {
-        uniqueResults.set(skill.id, skill);
-      }
-    });
-    return Array.from(uniqueResults.values());
-  }
-);
+export const selectUniqueSearchResults = createSelector([selectAllSearchResults], (allResults) => {
+  const uniqueResults = new Map<string, Skill>();
+  allResults.forEach((skill) => {
+    if (!uniqueResults.has(skill.id)) {
+      uniqueResults.set(skill.id, skill);
+    }
+  });
+  return Array.from(uniqueResults.values());
+});
 
 // Search statistics
 export const selectSearchStatistics = createSelector(
@@ -158,42 +178,36 @@ export const selectSearchStatistics = createSelector(
     userResultsCount: userResults.length,
     totalResultsCount: searchResults.length + userResults.length,
     allSkillsCount: allSkills.length,
-    offeredCount: searchResults.filter((s: any) => s.isOffered).length,
-    wantedCount: searchResults.filter((s: any) => !s.isOffered).length
+    offeredCount: searchResults.filter((s) => s.isOffered).length,
+    wantedCount: searchResults.filter((s) => !s.isOffered).length,
   })
 );
 
 // Category distribution in search results
-export const selectSearchResultsByCategories = createSelector(
-  [selectSearchResults],
-  (results) => {
-    const categoryGroups: Record<string, typeof results> = {};
-    
-    results.forEach(skill => {
-      const categoryId = skill.category.id;
-      if (!categoryGroups[categoryId]) {
-        categoryGroups[categoryId] = [];
-      }
-      categoryGroups[categoryId].push(skill);
-    });
-    
-    return categoryGroups;
-  }
-);
+export const selectSearchResultsByCategories = createSelector([selectSearchResults], (results) => {
+  const categoryGroups: Record<string, typeof results> = {};
+
+  results.forEach((skill) => {
+    const categoryId = skill.category.id;
+    categoryGroups[categoryId] ??= [];
+    categoryGroups[categoryId].push(skill);
+  });
+
+  return categoryGroups;
+});
 
 // Popular categories from search results
 export const selectPopularCategoriesFromSearch = createSelector(
   [selectSearchResultsByCategories],
-  (categoryGroups) => {
-    return Object.entries(categoryGroups)
+  (categoryGroups) =>
+    Object.entries(categoryGroups)
       .map(([categoryId, skills]) => ({
         categoryId,
         categoryName: skills[0]?.category.name || 'Unknown',
-        count: skills.length
+        count: skills.length,
       }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }
+      .slice(0, 5)
 );
 
 // Proficiency level distribution
@@ -201,12 +215,12 @@ export const selectProficiencyLevelDistribution = createSelector(
   [selectSearchResults],
   (results) => {
     const levelGroups: Record<string, number> = {};
-    
-    results.forEach(skill => {
-      const level = skill.proficiencyLevel.level;
+
+    results.forEach((skill) => {
+      const { level } = skill.proficiencyLevel;
       levelGroups[level] = (levelGroups[level] || 0) + 1;
     });
-    
+
     return Object.entries(levelGroups)
       .map(([level, count]) => ({ level, count }))
       .sort((a, b) => b.count - a.count);
@@ -218,19 +232,20 @@ export const selectSearchRecommendations = createSelector(
   [selectSearchResults, selectSearchAllSkills],
   (searchResults, allSkills) => {
     if (searchResults.length === 0) return [];
-    
+
     // Get categories from search results
-    const searchCategories = new Set(searchResults.map((skill: any) => skill.category.id));
-    
+    const searchCategories = new Set(searchResults.map((skill) => skill.category.id));
+
     // Find other skills in the same categories
     const recommendations = allSkills
-      .filter((skill: any) => 
-        searchCategories.has(skill.category.id) && 
-        !searchResults.some((result: any) => result.id === skill.id)
+      .filter(
+        (skill) =>
+          searchCategories.has(skill.category.id) &&
+          !searchResults.some((result) => result.id === skill.id)
       )
-      .sort((a: any, b: any) => a.name.localeCompare(b.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 10);
-    
+
     return recommendations;
   }
 );
@@ -259,6 +274,6 @@ export const selectSearchQueryInfo = createSelector(
     hasQuery: query.trim().length > 0,
     queryLength: query.trim().length,
     lastParams,
-    hasFilters: !!(lastParams?.categoryId || lastParams?.proficiencyLevelId || lastParams?.isOffered !== undefined)
+    hasFilters: !!(lastParams?.categoryId ?? lastParams?.proficiencyLevelId),
   })
 );

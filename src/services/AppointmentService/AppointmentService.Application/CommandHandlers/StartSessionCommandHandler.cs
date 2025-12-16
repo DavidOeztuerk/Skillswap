@@ -4,6 +4,7 @@ using AppointmentService.Domain.Repositories;
 using CQRS.Handlers;
 using CQRS.Models;
 using Contracts.Appointment.Responses;
+using Contracts.User.Responses;
 using Infrastructure.Communication;
 using Events.Domain.Appointment;
 using EventSourcing;
@@ -77,26 +78,26 @@ public class StartSessionCommandHandler(
 
             try
             {
-                // Fetch organizer details
-                var organizerResponse = await _serviceCommunication.GetAsync<dynamic>(
+                // Fetch organizer details using typed contract (M2M internal endpoint)
+                var organizerResponse = await _serviceCommunication.GetAsync<UserProfileResponse>(
                     "UserService",
-                    $"/api/users/{appointment.OrganizerUserId}");
+                    $"/api/users/internal/{appointment.OrganizerUserId}");
 
                 if (organizerResponse != null)
                 {
-                    organizerName = organizerResponse["fullName"]?.ToString() ?? string.Empty;
-                    organizerEmail = organizerResponse["email"]?.ToString() ?? string.Empty;
+                    organizerName = $"{organizerResponse.FirstName} {organizerResponse.LastName}".Trim();
+                    organizerEmail = organizerResponse.Email ?? string.Empty;
                 }
 
-                // Fetch participant details
-                var participantResponse = await _serviceCommunication.GetAsync<dynamic>(
+                // Fetch participant details using typed contract (M2M internal endpoint)
+                var participantResponse = await _serviceCommunication.GetAsync<UserProfileResponse>(
                     "UserService",
-                    $"/api/users/{appointment.ParticipantUserId}");
+                    $"/api/users/internal/{appointment.ParticipantUserId}");
 
                 if (participantResponse != null)
                 {
-                    participantName = participantResponse["fullName"]?.ToString() ?? string.Empty;
-                    participantEmail = participantResponse["email"]?.ToString() ?? string.Empty;
+                    participantName = $"{participantResponse.FirstName} {participantResponse.LastName}".Trim();
+                    participantEmail = participantResponse.Email ?? string.Empty;
                 }
             }
             catch (Exception ex)

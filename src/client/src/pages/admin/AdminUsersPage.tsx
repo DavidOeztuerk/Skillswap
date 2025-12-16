@@ -42,27 +42,29 @@ const AdminUsersPage: React.FC = () => {
     fetchAdminUsers({ page: 1, limit: 100 });
   }, [fetchAdminUsers]);
 
-  const filteredUsers = (users || []).filter((user: any) => {
+  const filteredUsers = users.filter((user) => {
     const matchesSearch =
       searchQuery === '' ||
-      user.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+    const matchesRole = roleFilter === 'all' || user.roles.includes(roleFilter);
+    const matchesStatus = statusFilter === 'all' || user.accountStatus === statusFilter;
 
     return matchesSearch && matchesRole && matchesStatus;
   });
 
   const stats = {
-    total: users?.length || 0,
-    active: (users || []).filter((u: any) => u.status === 'Active').length,
-    suspended: (users || []).filter((u: any) => u.status === 'Suspended').length,
-    admins: (users || []).filter((u: any) => u.role === 'Admin').length,
+    total: users.length,
+    active: users.filter((u) => u.accountStatus === 'active').length,
+    suspended: users.filter((u) => u.accountStatus === 'suspended').length,
+    admins: users.filter((u) => u.roles.includes('Admin')).length,
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (
+    status: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
       case 'Active':
         return 'success';
@@ -75,7 +77,9 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
-  const getRoleColor = (role: string) => {
+  const getRoleColor = (
+    role: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (role) {
       case 'Admin':
         return 'error';
@@ -88,7 +92,7 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
-  if (isLoadingUsers && !users) {
+  if (isLoadingUsers) {
     return <PageLoader variant="list" message="Lade Benutzer..." />;
   }
 
@@ -155,27 +159,35 @@ const AdminUsersPage: React.FC = () => {
             <TextField
               placeholder="Suche nach Name oder E-Mail..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
               sx={{ flexGrow: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
             <TextField
               select
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => {
+                setRoleFilter(e.target.value);
+              }}
               sx={{ minWidth: 150 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             >
               <MenuItem value="all">Alle Rollen</MenuItem>
@@ -186,14 +198,18 @@ const AdminUsersPage: React.FC = () => {
             <TextField
               select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+              }}
               sx={{ minWidth: 150 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             >
               <MenuItem value="all">Alle Status</MenuItem>
@@ -231,23 +247,19 @@ const AdminUsersPage: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredUsers.map((user: any) => (
+                filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
                       <Stack direction="row" alignItems="center" spacing={2}>
                         <Avatar sx={{ width: 40, height: 40 }}>
-                          {user.avatarUrl ? (
-                            <img src={user.avatarUrl} alt={user.firstName} />
-                          ) : (
-                            <PersonIcon />
-                          )}
+                          <PersonIcon />
                         </Avatar>
                         <Box>
                           <Typography variant="body2" fontWeight="medium">
                             {user.firstName} {user.lastName}
                           </Typography>
                           <Typography variant="caption" color="textSecondary">
-                            ID: {user.id?.substring(0, 8)}
+                            ID: {user.id.substring(0, 8)}
                           </Typography>
                         </Box>
                       </Stack>
@@ -255,34 +267,30 @@ const AdminUsersPage: React.FC = () => {
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       <Chip
-                        label={user.role}
-                        color={getRoleColor(user.role) as any}
+                        label={user.roles[0] ?? 'User'}
+                        color={getRoleColor(user.roles[0] ?? 'user')}
                         size="small"
                       />
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={user.status}
-                        color={getStatusColor(user.status) as any}
+                        label={user.accountStatus}
+                        color={getStatusColor(user.accountStatus)}
                         size="small"
                       />
                     </TableCell>
                     <TableCell>
-                      {user.createdAt
-                        ? formatDate(user.createdAt, 'dd.MM.yyyy')
-                        : 'N/A'}
+                      {user.createdAt ? formatDate(user.createdAt, 'dd.MM.yyyy') : 'N/A'}
                     </TableCell>
                     <TableCell>
-                      {user.lastLoginAt
-                        ? formatDate(user.lastLoginAt, 'dd.MM.yyyy HH:mm')
-                        : 'Nie'}
+                      {user.lastLoginAt ? formatDate(user.lastLoginAt, 'dd.MM.yyyy HH:mm') : 'Nie'}
                     </TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={1} justifyContent="center">
                         <IconButton size="small" color="primary">
                           <EditIcon />
                         </IconButton>
-                        {user.status === 'Active' ? (
+                        {user.accountStatus === 'active' ? (
                           <IconButton size="small" color="error">
                             <BlockIcon />
                           </IconButton>

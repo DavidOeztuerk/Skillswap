@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { ToastContext } from '../contexts/ToastContext';
+import { ToastContext, type ToastContextType } from '../contexts/ToastContext';
 
 /**
  * 🔔 useToast Hook - Toast/Snackbar Management
@@ -9,7 +9,7 @@ import { ToastContext } from '../contexts/ToastContext';
  * toast.success('Match accepted!');
  * toast.error('Failed to accept match');
  */
-export const useToast = () => {
+export const useToast = (): ToastContextType => {
   const context = useContext(ToastContext);
 
   if (!context) {

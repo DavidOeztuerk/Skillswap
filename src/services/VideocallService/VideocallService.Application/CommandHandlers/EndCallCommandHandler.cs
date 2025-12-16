@@ -6,22 +6,26 @@ using VideocallService.Domain.Repositories;
 using VideocallService.Domain.Entities;
 using EventSourcing;
 using Events.Domain.VideoCall;
+using Events.Integration.VideoCall;
 using Contracts.VideoCall.Responses;
 using Core.Common.Exceptions;
 using Infrastructure.Communication;
 using Contracts.Appointment.Responses;
+using MassTransit;
 
 namespace VideocallService.Application.CommandHandlers;
 
 public class EndCallCommandHandler(
     IVideocallUnitOfWork unitOfWork,
     IDomainEventPublisher eventPublisher,
+    IPublishEndpoint publishEndpoint,
     IServiceCommunicationManager serviceCommunication,
     ILogger<EndCallCommandHandler> logger)
     : BaseCommandHandler<EndCallCommand, EndCallResponse>(logger)
 {
     private readonly IVideocallUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
+    private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
     private readonly IServiceCommunicationManager _serviceCommunication = serviceCommunication;
 
     public override async Task<ApiResponse<EndCallResponse>> Handle(
@@ -118,6 +122,27 @@ public class EndCallCommandHandler(
                 endedAt,
                 session.ActualDurationMinutes ?? 0,
                 session.EndReason), cancellationToken);
+
+            // Get message count for analytics
+            var messageCount = await _unitOfWork.ChatMessages.GetMessageCountAsync(session.Id, cancellationToken);
+
+            // Publish integration event for NotificationService and analytics
+            await _publishEndpoint.Publish(new CallSessionEndedIntegrationEvent(
+                session.Id,
+                session.RoomId,
+                session.AppointmentId,
+                session.MatchId,
+                session.InitiatorUserId,
+                session.ParticipantUserId,
+                request.DurationSeconds,
+                session.Participants.Count,
+                messageCount,
+                session.ScreenShareUsed,
+                session.StartedAt ?? session.CreatedAt,
+                endedAt,
+                DateTime.UtcNow), cancellationToken);
+
+            Logger.LogInformation("📤 [EndCall] Integration event published for session {SessionId}", session.Id);
 
             Logger.LogInformation("✅ [EndCall] Session {SessionId} ended successfully at {EndedAt}, Duration: {Duration}min",
                 request.SessionId, endedAt, session.ActualDurationMinutes);

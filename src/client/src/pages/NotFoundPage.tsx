@@ -1,11 +1,7 @@
-// src/pages/NotFoundPage.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Container, Paper } from '@mui/material';
-import {
-  SentimentDissatisfied as SadIcon,
-  ArrowBack as ArrowBackIcon,
-} from '@mui/icons-material';
+import { SentimentDissatisfied as SadIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 
 /**
  * 404 Nicht-gefunden-Seite
@@ -13,12 +9,12 @@ import {
 const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const handleGoBack = () => {
-    navigate(-1); // Zurück zur vorherigen Seite
+  const handleGoBack = (): void => {
+    void navigate(-1); // Zurück zur vorherigen Seite
   };
 
-  const handleGoHome = () => {
-    navigate('/'); // Zur Startseite
+  const handleGoHome = (): void => {
+    void navigate('/'); // Zur Startseite
   };
 
   return (
@@ -34,7 +30,7 @@ const NotFoundPage: React.FC = () => {
           Seite nicht gefunden
         </Typography>
 
-        <Typography variant="body1" color="text.secondary" paragraph>
+        <Typography variant="body1" color="text.secondary" component="p" sx={{ mb: 2 }}>
           Die angeforderte Seite existiert nicht oder ist nicht verfügbar.
         </Typography>
 

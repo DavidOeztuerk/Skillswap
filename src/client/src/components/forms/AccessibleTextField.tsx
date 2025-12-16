@@ -1,6 +1,5 @@
-// src/components/forms/AccessibleTextField.tsx
 import React, { useId } from 'react';
-import { TextField, TextFieldProps, FormHelperText, Box } from '@mui/material';
+import { TextField, type TextFieldProps, FormHelperText, Box } from '@mui/material';
 
 interface AccessibleTextFieldProps extends Omit<TextFieldProps, 'helperText'> {
   helperText?: string;
@@ -30,29 +29,28 @@ const AccessibleTextField: React.FC<AccessibleTextFieldProps> = ({
   const helperId = helperText ? `${fieldId}-helper` : undefined;
 
   // Build aria-describedby string
-  const ariaDescribedBy = [descriptionId, errorId, helperId]
-    .filter(Boolean)
-    .join(' ') || undefined;
+  const ariaDescribedBy = [descriptionId, errorId, helperId].filter(Boolean).join(' ') || undefined;
 
   // Enhanced label with required indicator
-  const enhancedLabel = label ? (
-    <Box component="span">
-      {label}
-      {required && showRequiredIndicator && (
-        <Box
-          component="span"
-          sx={{
-            color: 'error.main',
-            ml: 0.5,
-            fontWeight: 'bold',
-          }}
-          aria-label=" (required)"
-        >
-          *
-        </Box>
-      )}
-    </Box>
-  ) : undefined;
+  const enhancedLabel =
+    label !== undefined ? (
+      <Box component="span">
+        {label}
+        {required && showRequiredIndicator && (
+          <Box
+            component="span"
+            sx={{
+              color: 'error.main',
+              ml: 0.5,
+              fontWeight: 'bold',
+            }}
+            aria-label=" (required)"
+          >
+            *
+          </Box>
+        )}
+      </Box>
+    ) : undefined;
 
   return (
     <Box>
@@ -61,21 +59,22 @@ const AccessibleTextField: React.FC<AccessibleTextFieldProps> = ({
         id={fieldId}
         label={enhancedLabel}
         required={required}
-        error={error || !!errorText}
+        error={error ?? !!errorText}
         aria-describedby={ariaDescribedBy}
-        aria-invalid={error || !!errorText}
-        inputProps={{
-          ...props.inputProps,
-          'aria-required': required,
-          'aria-invalid': error || !!errorText,
+        aria-invalid={error ?? !!errorText}
+        slotProps={{
+          htmlInput: {
+            'aria-required': required,
+            'aria-invalid': error ?? !!errorText,
+          },
         }}
       />
-      
+
       {/* Description text */}
       {description && (
-        <FormHelperText 
+        <FormHelperText
           id={descriptionId}
-          sx={{ 
+          sx={{
             mt: 1,
             color: 'text.secondary',
             fontSize: '0.75rem',
@@ -84,13 +83,13 @@ const AccessibleTextField: React.FC<AccessibleTextFieldProps> = ({
           {description}
         </FormHelperText>
       )}
-      
+
       {/* Error message */}
       {errorText && (
-        <FormHelperText 
+        <FormHelperText
           id={errorId}
           error
-          sx={{ 
+          sx={{
             mt: 1,
             fontSize: '0.75rem',
           }}
@@ -100,12 +99,12 @@ const AccessibleTextField: React.FC<AccessibleTextFieldProps> = ({
           {errorText}
         </FormHelperText>
       )}
-      
+
       {/* Helper text */}
       {helperText && !errorText && (
-        <FormHelperText 
+        <FormHelperText
           id={helperId}
-          sx={{ 
+          sx={{
             mt: 1,
             color: 'text.secondary',
             fontSize: '0.75rem',

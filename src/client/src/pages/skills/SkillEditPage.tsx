@@ -1,4 +1,3 @@
-// src/pages/skills/SkillEditPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -12,21 +11,18 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  Cancel as CancelIcon,
-} from '@mui/icons-material';
-
+import { ArrowBack as ArrowBackIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import SkillForm from '../../components/skills/SkillForm';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
-import { LoadingButton } from '../../components/common/LoadingButton';
+import { LoadingButton } from '../../components/ui/LoadingButton';
 import EmptyState from '../../components/ui/EmptyState';
 import { useSkills } from '../../hooks/useSkills';
 import { useAuth } from '../../hooks/useAuth';
-import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
-import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+import type { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
 import errorService from '../../services/errorService';
+import { useLoading } from '../../contexts/loadingContextHooks';
+import { LoadingKeys } from '../../contexts/loadingContextValue';
 
 interface UpdateSkillFormData extends UpdateSkillRequest {
   tags?: string[];
@@ -37,7 +33,7 @@ const SkillEditPage: React.FC = () => {
   const { skillId } = useParams<{ skillId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { withLoading, isLoading } = useLoading();
+  const { isLoading } = useLoading();
 
   const {
     selectedSkill,
@@ -61,88 +57,42 @@ const SkillEditPage: React.FC = () => {
 
   // Load skill data and metadata
   useEffect(() => {
-    const loadData = async () => {
-      if (!skillId) {
-        errorService.addBreadcrumb('No skill ID provided, redirecting to my skills', 'navigation');
-        navigate('/skills/my-skills');
-        return;
-      }
+    if (!skillId) {
+      errorService.addBreadcrumb('No skill ID provided, redirecting to my skills', 'navigation');
+      void navigate('/skills/my-skills');
+      return;
+    }
 
-      await withLoading(LoadingKeys.FETCH_DATA, async () => {
-        try {
-          errorService.addBreadcrumb('Loading skill edit page data', 'data', { skillId });
-          
-          // Load skill, categories, and proficiency levels in parallel
-          const [skillSuccess, categoriesSuccess, proficiencySuccess] =
-            await Promise.all([
-              fetchSkillById(skillId),
-              fetchCategories(),
-              fetchProficiencyLevels(),
-            ]);
+    errorService.addBreadcrumb('Loading skill edit page data', 'data', { skillId });
 
-          if (!skillSuccess) {
-            errorService.addBreadcrumb('Failed to load skill', 'error', { skillId });
-            setNotification({
-              message: 'Skill konnte nicht geladen werden',
-              type: 'error',
-            });
-          }
-
-          if (!categoriesSuccess || !proficiencySuccess) {
-            errorService.addBreadcrumb('Failed to load metadata', 'error', { skillId });
-            setNotification({
-              message:
-                'Kategorien oder Fertigkeitsstufen konnten nicht geladen werden',
-              type: 'error',
-            });
-          }
-        } catch (error) {
-          errorService.addBreadcrumb('Error loading skill edit page data', 'error', { 
-            skillId, 
-            error: error instanceof Error ? error.message : 'Unknown error' 
-          });
-          console.error('❌ Error loading edit page data:', error);
-          setNotification({
-            message: 'Fehler beim Laden der Daten',
-            type: 'error',
-          });
-        }
-      });
-    };
-
-    loadData();
-  }, [
-    skillId,
-    fetchSkillById,
-    fetchCategories,
-    fetchProficiencyLevels,
-    navigate,
-    withLoading,
-  ]);
+    // Load skill, categories, and proficiency levels (fire-and-forget - Redux tracks loading)
+    fetchSkillById(skillId);
+    fetchCategories();
+    fetchProficiencyLevels();
+  }, [skillId, fetchSkillById, fetchCategories, fetchProficiencyLevels, navigate]);
 
   // Check ownership after skill is loaded
   useEffect(() => {
     if (selectedSkill && user) {
-      // TODO: Replace with actual ownership check from API
-      // For now, we assume ownership if the skill exists in the context
-      // In a real app, you'd check: selectedSkill.userId === user.id
-      const isOwner = true; // This should be: selectedSkill.userId === user.id
+      const isOwner = selectedSkill.userId === user.id;
 
       if (!isOwner) {
-        setNotification({
-          message: 'Du kannst nur deine eigenen Skills bearbeiten',
-          type: 'error',
+        queueMicrotask(() => {
+          setNotification({
+            message: 'Du kannst nur deine eigenen Skills bearbeiten',
+            type: 'error',
+          });
         });
         // Redirect to detail page instead
         setTimeout(() => {
-          navigate(`/skills/${skillId}`);
+          void navigate(`/skills/${skillId ?? ''}`);
         }, 2000);
       }
     }
   }, [selectedSkill, user, skillId, navigate]);
 
-  // Handle form submission
-  const handleSubmit = async (skillData: UpdateSkillFormData) => {
+  // Handle form submission (fire-and-forget - Redux tracks loading via isUpdating)
+  const handleSubmit = (skillData: UpdateSkillFormData): void => {
     if (!skillId) {
       errorService.addBreadcrumb('Skill update failed - missing ID', 'error');
       setNotification({
@@ -152,63 +102,42 @@ const SkillEditPage: React.FC = () => {
       return;
     }
 
-    await withLoading(LoadingKeys.UPDATE_SKILL, async () => {
-      try {
-        errorService.addBreadcrumb('Updating skill', 'form', { skillId, skillName: skillData.name });
-        console.log('📝 Updating skill:', skillId, skillData);
-        const success = await updateSkill(skillId, skillData);
+    errorService.addBreadcrumb('Updating skill', 'form', { skillId, skillName: skillData.name });
+    console.debug('📝 Updating skill:', skillId, skillData);
 
-        if (success) {
-          errorService.addBreadcrumb('Skill updated successfully', 'form', { skillId });
-          setNotification({
-            message: 'Skill erfolgreich aktualisiert',
-            type: 'success',
-          });
+    // Fire-and-forget - Redux handles loading state and error via isUpdating/errorMessage
+    updateSkill(skillId, skillData);
 
-          // Navigate back to skill details after a short delay
-          setTimeout(() => {
-            navigate(`/skills/${skillId}`);
-          }, 1500);
-        } else {
-          errorService.addBreadcrumb('Skill update failed', 'error', { skillId });
-          setNotification({
-            message: 'Fehler beim Aktualisieren des Skills',
-            type: 'error',
-          });
-        }
-      } catch (error) {
-        errorService.addBreadcrumb('Error updating skill', 'error', { 
-          skillId, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
-        });
-        console.error('❌ Update skill error:', error);
-        setNotification({
-          message: 'Ein unerwarteter Fehler ist aufgetreten',
-          type: 'error',
-        });
-      }
+    setNotification({
+      message: 'Skill wird aktualisiert...',
+      type: 'info',
     });
+
+    // Navigate back to skill details after a short delay
+    setTimeout(() => {
+      void navigate(`/skills/${skillId}`);
+    }, 1500);
   };
 
   // Handle cancel
-  const handleCancel = () => {
+  const handleCancel = (): void => {
     errorService.addBreadcrumb('Skill edit cancelled', 'navigation', { skillId });
     if (skillId) {
-      navigate(`/skills/${skillId}`);
+      void navigate(`/skills/${skillId}`);
     } else {
-      navigate('/skills/my-skills');
+      void navigate('/skills/my-skills');
     }
   };
 
   // Handle back navigation
-  const handleBack = () => {
+  const handleBack = (): void => {
     errorService.addBreadcrumb('Navigating back from skill edit', 'navigation', { skillId });
-    navigate(-1);
+    void navigate(-1);
   };
 
   // Loading state
   const isPageLoading = isLoading(LoadingKeys.FETCH_DATA) || (skillsLoading && !selectedSkill);
-  
+
   if (isPageLoading) {
     return (
       <Container maxWidth="md" sx={{ mt: 3, mb: 4 }}>
@@ -220,7 +149,9 @@ const SkillEditPage: React.FC = () => {
 
         {/* Header skeleton */}
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+          >
             <Box>
               <SkeletonLoader variant="text" width={180} height={40} sx={{ mb: 1 }} />
               <SkeletonLoader variant="text" width={300} height={20} />
@@ -253,9 +184,11 @@ const SkillEditPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description={"Der Skill konnte nicht geladen werden oder existiert nicht."}
+          description={'Der Skill konnte nicht geladen werden oder existiert nicht.'}
           actionLabel="Zurück zu meinen Skills"
-          actionHandler={() => navigate('/skills/my-skills')}
+          actionHandler={() => {
+            void navigate('/skills/my-skills');
+          }}
         />
       </Container>
     );
@@ -267,9 +200,11 @@ const SkillEditPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <EmptyState
           title="Skill nicht gefunden"
-          description={"Der Skill, den du bearbeiten möchtest, existiert nicht."}
+          description={'Der Skill, den du bearbeiten möchtest, existiert nicht.'}
           actionLabel="Zurück zu meinen Skills"
-          actionHandler={() => navigate('/skills/my-skills')}
+          actionHandler={() => {
+            void navigate('/skills/my-skills');
+          }}
         />
       </Container>
     );
@@ -279,11 +214,7 @@ const SkillEditPage: React.FC = () => {
     <Container maxWidth="md" sx={{ mt: 3, mb: 4 }}>
       {/* Navigation */}
       <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={handleBack}
-          sx={{ mb: 2 }}
-        >
+        <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mb: 2 }}>
           Zurück
         </Button>
 
@@ -293,7 +224,7 @@ const SkillEditPage: React.FC = () => {
             href="/skills/my-skills"
             onClick={(e) => {
               e.preventDefault();
-              navigate('/skills/my-skills');
+              void navigate('/skills/my-skills');
             }}
             sx={{ cursor: 'pointer' }}
           >
@@ -301,10 +232,10 @@ const SkillEditPage: React.FC = () => {
           </Link>
           <Link
             color="inherit"
-            href={`/skills/${skillId}`}
+            href={`/skills/${skillId ?? ''}`}
             onClick={(e) => {
               e.preventDefault();
-              navigate(`/skills/${skillId}`);
+              void navigate(`/skills/${skillId ?? ''}`);
             }}
             sx={{ cursor: 'pointer' }}
           >
@@ -349,7 +280,9 @@ const SkillEditPage: React.FC = () => {
         {notification && (
           <Alert
             severity={notification.type}
-            onClose={() => setNotification(null)}
+            onClose={() => {
+              setNotification(null);
+            }}
             sx={{ mb: 2 }}
           >
             {notification.message}
@@ -366,13 +299,13 @@ const SkillEditPage: React.FC = () => {
 
       {/* Edit Form */}
       <Paper sx={{ p: 3 }}>
-        {categories?.length > 0 && proficiencyLevels?.length > 0 ? (
+        {categories.length > 0 && proficiencyLevels.length > 0 ? (
           <SkillForm
             open={true} // Always open since it's embedded in the page
             onClose={handleCancel}
-            onSubmit={(skillData) =>
-              handleSubmit(skillData as UpdateSkillFormData)
-            }
+            onSubmit={(skillData) => {
+              handleSubmit(skillData as UpdateSkillFormData);
+            }}
             categories={categories}
             proficiencyLevels={proficiencyLevels}
             loading={isUpdating || isLoading(LoadingKeys.UPDATE_SKILL)}
@@ -405,7 +338,9 @@ const SkillEditPage: React.FC = () => {
         <Box sx={{ display: 'flex', gap: 2 }}>
           <LoadingButton
             variant="outlined"
-            onClick={() => navigate(`/skills/${skillId}`)}
+            onClick={() => {
+              void navigate(`/skills/${skillId ?? ''}`);
+            }}
             disabled={isUpdating || isLoading(LoadingKeys.UPDATE_SKILL)}
           >
             Vorschau anzeigen

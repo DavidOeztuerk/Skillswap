@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Alert, Stack, TextField } from '@mui/material';
-import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
-import { LoadingButton } from '../../components/common/LoadingButton';
+import { useLoading } from '../../contexts/loadingContextHooks';
+import { LoadingKeys } from '../../contexts/loadingContextValue';
+import { LoadingButton } from '../ui/LoadingButton';
 import authService from '../../api/services/authService';
-import { useAuth } from '../../hooks/useAuth';
+import { useAppDispatch } from '../../store/store.hooks';
+import { verifyEmail as verifyEmailAction } from '../../features/auth/authThunks';
 import axios from 'axios';
 
 const verifyEmailSchema = z.object({
@@ -25,21 +27,17 @@ interface VerifyEmailFormProps {
   onResendSuccess?: () => void;
 }
 
-const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({ 
-  email, 
-  onSuccess, 
-  onResendSuccess 
-}) => {
+const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({ email, onSuccess, onResendSuccess }) => {
   const [searchParams] = useSearchParams();
   const { isLoading, withLoading } = useLoading();
   const [error, setError] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
-  const { verifyEmail } = useAuth();
+  const dispatch = useAppDispatch();
 
   // Get email and token from URL params if available
-  const urlEmail = searchParams.get('email') || email;
+  const urlEmail = searchParams.get('email') ?? email;
   const urlToken = searchParams.get('token');
 
   const {
@@ -50,72 +48,90 @@ const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({
   } = useForm<VerifyEmailFormValues>({
     resolver: zodResolver(verifyEmailSchema),
     defaultValues: {
-      code: urlToken || '',
+      code: urlToken ?? '',
     },
   });
+
+  // Handle verification - defined before useEffect that uses it
+  const handleVerification = useCallback(
+    async (code: string): Promise<void> => {
+      await withLoading(LoadingKeys.VERIFY_EMAIL, async () => {
+        try {
+          setError(null);
+          const result = await dispatch(
+            verifyEmailAction({ email: urlEmail ?? '', verificationToken: code })
+          );
+          if (result.meta.requestStatus === 'fulfilled') {
+            setIsVerified(true);
+            if (onSuccess) {
+              onSuccess();
+            }
+          } else {
+            // Handle rejection
+            const errorPayload = result.payload as { message?: string } | undefined;
+            setError(
+              errorPayload?.message ??
+                'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code oder fordern Sie einen neuen an.'
+            );
+          }
+        } catch (err: unknown) {
+          console.error('Email verification failed:', err);
+          if (axios.isAxiosError(err)) {
+            const responseData = err.response?.data as { message?: string } | undefined;
+            setError(
+              responseData?.message ??
+                'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code oder fordern Sie einen neuen an.'
+            );
+          } else {
+            setError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+          }
+        }
+      });
+    },
+    [withLoading, dispatch, urlEmail, onSuccess]
+  );
 
   // Auto-verify if token is in URL
   useEffect(() => {
     if (urlToken && urlEmail) {
       setValue('code', urlToken);
-      handleVerification(urlToken);
+      void handleVerification(urlToken);
     }
-  }, [urlToken, urlEmail]);
+  }, [urlToken, urlEmail, setValue, handleVerification]);
 
   // Cooldown timer for resend button
   useEffect(() => {
     if (cooldown > 0) {
-      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
-      return () => clearTimeout(timer);
+      const timer = setTimeout(() => {
+        setCooldown(cooldown - 1);
+      }, 1000);
+      return () => {
+        clearTimeout(timer);
+      };
     }
   }, [cooldown]);
-
-  const handleVerification = async (code: string) => {
-    await withLoading(LoadingKeys.VERIFY_EMAIL, async () => {
-      try {
-        setError(null);
-        await verifyEmail({ email: urlEmail ?? "", verificationToken: code })
-        setIsVerified(true);
-        if (onSuccess) {
-          onSuccess();
-        }
-      } catch (err) {
-        console.error('Email verification failed:', err);
-        if (axios.isAxiosError(err)) {
-          setError(
-            err.response?.data?.message ||
-            'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code oder fordern Sie einen neuen an.'
-          );
-        } else {
-          setError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
-        }
-      }
-    });
-  };
 
   const onSubmit: SubmitHandler<VerifyEmailFormValues> = async (data) => {
     await handleVerification(data.code);
   };
 
-  const handleResendVerification = async (code: string) => {
+  const handleResendVerification = async (): Promise<void> => {
     if (cooldown > 0) return;
 
     await withLoading('resendVerification', async () => {
       try {
         setError(null);
         setResendMessage(null);
-        await authService.verifyEmail({ email: urlEmail || "", verificationToken: code});
+        await authService.resendEmailVerification(urlEmail ?? '');
         setResendMessage('Eine neue Verifizierungs-E-Mail wurde gesendet.');
         setCooldown(60);
         if (onResendSuccess) {
           onResendSuccess();
         }
-      } catch (err) {
+      } catch (err: unknown) {
         if (axios.isAxiosError(err)) {
-          setError(
-            err.response?.data?.message ||
-            'Fehler beim Senden der Verifizierungs-E-Mail.'
-          );
+          const responseData = err.response?.data as { message?: string } | undefined;
+          setError(responseData?.message ?? 'Fehler beim Senden der Verifizierungs-E-Mail.');
         } else {
           setError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
         }
@@ -135,11 +151,7 @@ const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({
           Ihre E-Mail-Adresse wurde erfolgreich verifiziert. Sie können sich jetzt anmelden.
         </Alert>
         <RouterLink to="/auth/login" style={{ textDecoration: 'none' }}>
-          <LoadingButton
-            variant="contained"
-            color="primary"
-            size="large"
-          >
+          <LoadingButton variant="contained" color="primary" size="large">
             Zur Anmeldung
           </LoadingButton>
         </RouterLink>
@@ -156,7 +168,9 @@ const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {urlEmail ? (
-              <>Wir haben einen Verifizierungscode an <strong>{urlEmail}</strong> gesendet.</>
+              <>
+                Wir haben einen Verifizierungscode an <strong>{urlEmail}</strong> gesendet.
+              </>
             ) : (
               'Geben Sie den Verifizierungscode aus Ihrer E-Mail ein.'
             )}
@@ -164,17 +178,24 @@ const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({
         </Box>
 
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             icon={<ErrorIcon />}
-            onClose={() => setError(null)}
+            onClose={() => {
+              setError(null);
+            }}
           >
             {error}
           </Alert>
         )}
 
         {resendMessage && (
-          <Alert severity="info" onClose={() => setResendMessage(null)}>
+          <Alert
+            severity="info"
+            onClose={() => {
+              setResendMessage(null);
+            }}
+          >
             {resendMessage}
           </Alert>
         )}
@@ -188,14 +209,15 @@ const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({
               label="Verifizierungscode"
               variant="outlined"
               fullWidth
-              autoFocus
               placeholder="Geben Sie den 6-stelligen Code ein"
-              error={!!errors?.code}
-              helperText={errors?.code?.message}
+              error={errors.code !== undefined}
+              helperText={errors.code?.message}
               disabled={isLoading(LoadingKeys.VERIFY_EMAIL)}
-              inputProps={{
-                maxLength: 10,
-                style: { textAlign: 'center', fontSize: '1.2rem', letterSpacing: '0.2em' }
+              slotProps={{
+                htmlInput: {
+                  maxLength: 10,
+                  style: { textAlign: 'center', fontSize: '1.2rem', letterSpacing: '0.2em' },
+                },
               }}
             />
           )}
@@ -214,21 +236,19 @@ const VerifyEmailForm: React.FC<VerifyEmailFormProps> = ({
 
         <Stack direction="row" spacing={2} justifyContent="center">
           <LoadingButton
-            onClick={() => handleResendVerification(urlToken ?? "")}
+            onClick={() => {
+              void handleResendVerification();
+            }}
             variant="text"
             startIcon={<RefreshIcon />}
             disabled={cooldown > 0 || !urlEmail}
             loading={isLoading('resendVerification')}
           >
-            {cooldown > 0 ? `Erneut senden (${cooldown}s)` : 'Code erneut senden'}
+            {cooldown > 0 ? `Erneut senden (${String(cooldown)}s)` : 'Code erneut senden'}
           </LoadingButton>
 
           <RouterLink to="/auth/login" style={{ textDecoration: 'none' }}>
-            <LoadingButton
-              variant="text"
-            >
-              Zurück zur Anmeldung
-            </LoadingButton>
+            <LoadingButton variant="text">Zurück zur Anmeldung</LoadingButton>
           </RouterLink>
         </Stack>
       </Stack>

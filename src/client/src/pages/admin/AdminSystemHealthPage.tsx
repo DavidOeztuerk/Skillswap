@@ -29,15 +29,19 @@ const AdminSystemHealthPage: React.FC = () => {
   useEffect(() => {
     fetchSystemHealth();
     const interval = setInterval(fetchSystemHealth, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, [fetchSystemHealth]);
 
   if (isLoading && !systemHealth) {
     return <PageLoader variant="dashboard" message="Lade Systemstatus..." />;
   }
 
-  const getHealthColor = (status: string) => {
-    switch (status?.toLowerCase()) {
+  const getHealthColor = (
+    status: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+    switch (status.toLowerCase()) {
       case 'healthy':
         return 'success';
       case 'degraded':
@@ -49,8 +53,8 @@ const AdminSystemHealthPage: React.FC = () => {
     }
   };
 
-  const getHealthIcon = (status: string) => {
-    switch (status?.toLowerCase()) {
+  const getHealthIcon = (status: string): React.ReactNode => {
+    switch (status.toLowerCase()) {
       case 'healthy':
         return <CheckIcon color="success" />;
       case 'degraded':
@@ -63,22 +67,34 @@ const AdminSystemHealthPage: React.FC = () => {
   };
 
   const services = [
-    { name: 'UserService', status: systemHealth?.userService || 'Unknown', port: 5001 },
-    { name: 'SkillService', status: systemHealth?.skillService || 'Unknown', port: 5002 },
-    { name: 'MatchmakingService', status: systemHealth?.matchmakingService || 'Unknown', port: 5003 },
-    { name: 'AppointmentService', status: systemHealth?.appointmentService || 'Unknown', port: 5004 },
-    { name: 'VideocallService', status: systemHealth?.videocallService || 'Unknown', port: 5005 },
-    { name: 'NotificationService', status: systemHealth?.notificationService || 'Unknown', port: 5006 },
-    { name: 'Gateway', status: systemHealth?.gateway || 'Unknown', port: 8080 },
+    { name: 'UserService', status: systemHealth?.userService ?? 'Unknown', port: 5001 },
+    { name: 'SkillService', status: systemHealth?.skillService ?? 'Unknown', port: 5002 },
+    {
+      name: 'MatchmakingService',
+      status: systemHealth?.matchmakingService ?? 'Unknown',
+      port: 5003,
+    },
+    {
+      name: 'AppointmentService',
+      status: systemHealth?.appointmentService ?? 'Unknown',
+      port: 5004,
+    },
+    { name: 'VideocallService', status: systemHealth?.videocallService ?? 'Unknown', port: 5005 },
+    {
+      name: 'NotificationService',
+      status: systemHealth?.notificationService ?? 'Unknown',
+      port: 5006,
+    },
+    { name: 'Gateway', status: systemHealth?.gateway ?? 'Unknown', port: 8080 },
   ];
 
   const infrastructure = [
-    { name: 'PostgreSQL', status: systemHealth?.database || 'Unknown', type: 'Database' },
-    { name: 'Redis', status: systemHealth?.cache || 'Unknown', type: 'Cache' },
-    { name: 'RabbitMQ', status: systemHealth?.messageBus || 'Unknown', type: 'Message Bus' },
+    { name: 'PostgreSQL', status: systemHealth?.database ?? 'Unknown', type: 'Database' },
+    { name: 'Redis', status: systemHealth?.cache ?? 'Unknown', type: 'Cache' },
+    { name: 'RabbitMQ', status: systemHealth?.messageBus ?? 'Unknown', type: 'Message Bus' },
   ];
 
-  const overallHealth = systemHealth?.status || 'Unknown';
+  const overallHealth = systemHealth?.status ?? 'Unknown';
   const healthyServices = services.filter((s) => s.status.toLowerCase() === 'healthy').length;
   const totalServices = services.length;
 
@@ -97,11 +113,7 @@ const AdminSystemHealthPage: React.FC = () => {
                 {getHealthIcon(overallHealth)}
                 <Box>
                   <Typography variant="h6">Gesamtstatus</Typography>
-                  <Chip
-                    label={overallHealth}
-                    color={getHealthColor(overallHealth)}
-                    size="small"
-                  />
+                  <Chip label={overallHealth} color={getHealthColor(overallHealth)} size="small" />
                 </Box>
               </Box>
             </Grid>
@@ -135,7 +147,7 @@ const AdminSystemHealthPage: React.FC = () => {
                     <ListItemIcon>{getHealthIcon(service.status)}</ListItemIcon>
                     <ListItemText
                       primary={service.name}
-                      secondary={`Port: ${service.port}`}
+                      secondary={`Port: ${service.port.toString()}`}
                     />
                     <Chip
                       label={service.status}
@@ -162,11 +174,7 @@ const AdminSystemHealthPage: React.FC = () => {
                   <ListItem key={infra.name}>
                     <ListItemIcon>{getHealthIcon(infra.status)}</ListItemIcon>
                     <ListItemText primary={infra.name} secondary={infra.type} />
-                    <Chip
-                      label={infra.status}
-                      color={getHealthColor(infra.status)}
-                      size="small"
-                    />
+                    <Chip label={infra.status} color={getHealthColor(infra.status)} size="small" />
                   </ListItem>
                 ))}
               </List>
@@ -187,24 +195,20 @@ const AdminSystemHealthPage: React.FC = () => {
                   <Typography color="textSecondary" variant="body2">
                     Durchschnittliche Response Time
                   </Typography>
-                  <Typography variant="h5">
-                    {systemHealth?.avgResponseTime || 'N/A'}
-                  </Typography>
+                  <Typography variant="h5">{systemHealth?.avgResponseTime ?? 'N/A'}</Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Typography color="textSecondary" variant="body2">
                     Requests/Minute
                   </Typography>
-                  <Typography variant="h5">
-                    {systemHealth?.requestsPerMinute || 'N/A'}
-                  </Typography>
+                  <Typography variant="h5">{systemHealth?.requestsPerMinute ?? 'N/A'}</Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Typography color="textSecondary" variant="body2">
                     Error Rate
                   </Typography>
                   <Typography variant="h5" color="error">
-                    {systemHealth?.errorRate || 'N/A'}
+                    {systemHealth?.errorRate ?? 'N/A'}
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -212,7 +216,7 @@ const AdminSystemHealthPage: React.FC = () => {
                     Uptime
                   </Typography>
                   <Typography variant="h5" color="success.main">
-                    {systemHealth?.uptime || 'N/A'}
+                    {systemHealth?.uptime ?? 'N/A'}
                   </Typography>
                 </Grid>
               </Grid>

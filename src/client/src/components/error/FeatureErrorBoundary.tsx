@@ -1,5 +1,5 @@
 // src/components/error/FeatureErrorBoundary.tsx
-import { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Box, Alert, AlertTitle, Button } from '@mui/material';
 import { Refresh } from '@mui/icons-material';
 
@@ -33,12 +33,16 @@ class FeatureErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log error for debugging
-    console.error(`Feature Error Boundary (${this.props.featureName || 'Unknown Feature'}):`, error, errorInfo);
-    
+    console.error(
+      `Feature Error Boundary (${this.props.featureName ?? 'Unknown Feature'}):`,
+      error,
+      errorInfo
+    );
+
     // Call custom error handler if provided
-    if (this.props.onError) {
+    if (this.props.onError !== undefined) {
       this.props.onError(error, errorInfo);
     }
 
@@ -46,10 +50,10 @@ class FeatureErrorBoundary extends Component<Props, State> {
     this.logError(error, errorInfo);
   }
 
-  private logError = (error: Error, errorInfo: ErrorInfo) => {
+  private logError = (error: Error, errorInfo: ErrorInfo): void => {
     const errorData = {
       type: 'FEATURE_ERROR',
-      feature: this.props.featureName || 'Unknown',
+      feature: this.props.featureName ?? 'Unknown',
       message: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
@@ -61,24 +65,24 @@ class FeatureErrorBoundary extends Component<Props, State> {
     // TODO: Send to error tracking service
   };
 
-  private handleRetry = () => {
+  private handleRetry = (): void => {
     this.setState({
       hasError: false,
       error: undefined,
     });
   };
 
-  render() {
+  render(): React.ReactNode {
     if (this.state.hasError) {
       // Use custom fallback if provided
-      if (this.props.fallback) {
+      if (this.props.fallback !== undefined) {
         return this.props.fallback;
       }
 
       return (
         <Box sx={{ my: 2 }}>
-          <Alert 
-            severity="warning" 
+          <Alert
+            severity="warning"
             action={
               <Button
                 color="inherit"
@@ -97,7 +101,7 @@ class FeatureErrorBoundary extends Component<Props, State> {
             Please try again or refresh the page.
           </Alert>
 
-          {process.env.NODE_ENV === 'development' && this.state.error && (
+          {process.env.NODE_ENV === 'development' && this.state.error !== undefined && (
             <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
               <details>
                 <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>

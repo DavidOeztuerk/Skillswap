@@ -23,7 +23,7 @@ public record SearchSkillsQuery(
 
     // Include UserId in cache key to ensure user-specific results are cached separately
     // This prevents users from getting cached results meant for other users
-    public string CacheKey => $"skills-search:{UserId}:{SearchTerm}:{CategoryId}:{ProficiencyLevelId}:{IsOffered}:{string.Join(",", Tags != null ? Tags : "")}:{PageNumber}:{PageSize}";
+    public string CacheKey => $"skills-search:{UserId}:{SearchTerm ?? ""}:{CategoryId ?? ""}:{ProficiencyLevelId ?? ""}:{IsOffered?.ToString() ?? ""}:{(Tags != null && Tags.Count > 0 ? string.Join(",", Tags) : "")}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 

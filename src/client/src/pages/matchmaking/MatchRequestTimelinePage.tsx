@@ -1,5 +1,5 @@
-// src/client/src/pages/matchmaking/MatchRequestTimelinePage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import {
   Box,
   Card,
@@ -9,13 +9,13 @@ import {
   Avatar,
   Chip,
   IconButton,
-//   Timeline,
-//   TimelineItem,
-//   TimelineSeparator,
-//   TimelineConnector,
-//   TimelineContent,
-//   TimelineDot,
-//   TimelineOppositeContent,
+  //   Timeline,
+  //   TimelineItem,
+  //   TimelineSeparator,
+  //   TimelineConnector,
+  //   TimelineContent,
+  //   TimelineDot,
+  //   TimelineOppositeContent,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -28,15 +28,15 @@ import {
   Grid,
   Paper,
   Divider,
-//   Tabs,
-//   Tab,
-//   Badge,
+  //   Tabs,
+  //   Tab,
+  //   Badge,
   Tooltip,
   Stack,
   Alert,
-//   Skeleton,
-//   FormControlLabel,
-//   Switch,
+  //   Skeleton,
+  //   FormControlLabel,
+  //   Switch,
   InputAdornment,
 } from '@mui/material';
 import {
@@ -46,8 +46,8 @@ import {
   Close as CloseIcon,
   SwapHoriz as SwapIcon,
   AttachMoney as MoneyIcon,
-//   Schedule as ScheduleIcon,
-//   Person as PersonIcon,
+  //   Schedule as ScheduleIcon,
+  //   Person as PersonIcon,
   Star as StarIcon,
   Visibility as ViewIcon,
   VisibilityOff as HideIcon,
@@ -65,8 +65,21 @@ import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { WEEKDAYS, TIME_SLOTS } from '../../config/constants';
-import { Timeline, TimelineConnector, TimelineContent, TimelineDot, TimelineItem, TimelineOppositeContent, TimelineSeparator } from '@mui/lab';
-import { fetchMatchRequestThread, acceptMatchRequest, rejectMatchRequest, createCounterOffer } from '../../features/matchmaking/matchmakingThunks';
+import {
+  Timeline,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+  TimelineItem,
+  TimelineOppositeContent,
+  TimelineSeparator,
+} from '@mui/lab';
+import {
+  fetchMatchRequestThread,
+  acceptMatchRequest,
+  rejectMatchRequest,
+  createCounterOffer,
+} from '../../features/matchmaking/matchmakingThunks';
 import type { MatchRequestInThreadDisplay } from '../../types/contracts/MatchmakingDisplay';
 import { selectAuthUser } from '../../store/selectors/authSelectors';
 import { selectUserSkills } from '../../store/selectors/skillsSelectors';
@@ -121,11 +134,11 @@ const MatchRequestTimelinePage: React.FC = () => {
   const { threadId } = useParams<{ threadId: string }>();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  
+
   const [counterOfferDialog, setCounterOfferDialog] = useState(false);
   const [viewMode, setViewMode] = useState<'timeline' | 'compact'>('timeline');
   const [showDetails, setShowDetails] = useState(true);
-  
+
   // Counter offer form state
   const [offerType, setOfferType] = useState<'exchange' | 'monetary'>('exchange');
   const [selectedExchangeSkill, setSelectedExchangeSkill] = useState('');
@@ -138,36 +151,39 @@ const MatchRequestTimelinePage: React.FC = () => {
 
   const user = useAppSelector(selectAuthUser);
   const userSkills = useAppSelector(selectUserSkills);
-  const { currentThread, isLoadingThread, errorMessage } = useAppSelector((state) => state.matchmaking);
+  const { currentThread, isLoadingThread, errorMessage } = useAppSelector(
+    (state) => state.matchmaking
+  );
 
   // Load thread data from API
-  useEffect(() => {
+  useAsyncEffect(async () => {
     if (threadId) {
-      dispatch(fetchMatchRequestThread(threadId))
-        .unwrap()
-        .catch((error) => {
-          if (error.code === 'THREAD_NOT_FOUND' && error.shouldRedirect) {
-            setTimeout(() => {
-              navigate('/matchmaking', { replace: true });
-            }, 3000); // 3 Sekunden Delay für Nutzer-Feedback
-          }
-        });
+      try {
+        await dispatch(fetchMatchRequestThread(threadId)).unwrap();
+      } catch (error: unknown) {
+        const err = error as { code?: string; shouldRedirect?: boolean };
+        if (err.code === 'THREAD_NOT_FOUND' && err.shouldRedirect === true) {
+          setTimeout(() => {
+            void navigate('/matchmaking', { replace: true });
+          }, 3000); // 3 Sekunden Delay für Nutzer-Feedback
+        }
+      }
     }
   }, [threadId, dispatch, navigate]);
 
-  const handleAcceptRequest = (requestId: string) => {
-    dispatch(acceptMatchRequest({ requestId, request: { } }));
+  const handleAcceptRequest = (requestId: string): void => {
+    void dispatch(acceptMatchRequest({ requestId, request: {} }));
   };
 
-  const handleRejectRequest = (requestId: string) => {
-    dispatch(rejectMatchRequest({ requestId, request: { } }));
+  const handleRejectRequest = (requestId: string): void => {
+    void dispatch(rejectMatchRequest({ requestId, request: {} }));
   };
 
-  const handleSendCounterOffer = () => {
-    if (!currentThread?.requests?.length) return;
-    
+  const handleSendCounterOffer = (): void => {
+    if (!currentThread || currentThread.requests.length === 0) return;
+
     const latestRequest = currentThread.requests[currentThread.requests.length - 1];
-    
+
     const counterOfferRequest = {
       originalRequestId: latestRequest.id,
       message,
@@ -179,12 +195,12 @@ const MatchRequestTimelinePage: React.FC = () => {
       preferredDays: selectedDays,
       preferredTimes: selectedTimes,
       sessionDurationMinutes: sessionDuration,
-      totalSessions: totalSessions,
+      totalSessions,
     };
 
-    dispatch(createCounterOffer(counterOfferRequest));
+    void dispatch(createCounterOffer(counterOfferRequest));
     setCounterOfferDialog(false);
-    
+
     // Reset form
     setMessage('');
     setSelectedDays([]);
@@ -193,14 +209,17 @@ const MatchRequestTimelinePage: React.FC = () => {
     setOfferedAmount('');
   };
 
-  const getTimelineDotColor = (status: string, type: string) => {
+  const getTimelineDotColor = (
+    status: string,
+    type: string
+  ): 'success' | 'error' | 'warning' | 'primary' => {
     if (status === 'accepted') return 'success';
     if (status === 'rejected') return 'error';
     if (type === 'counter') return 'warning';
     return 'primary';
   };
 
-  const getRequestIcon = (request: MatchRequestInThreadDisplay) => {
+  const getRequestIcon = (request: MatchRequestInThreadDisplay): React.ReactNode => {
     if (request.type === 'initial') return <SendIcon />;
     if (request.type === 'counter') return <ReplyIcon />;
     if (request.status === 'accepted') return <CheckIcon />;
@@ -217,11 +236,7 @@ const MatchRequestTimelinePage: React.FC = () => {
   if (errorMessage) {
     return (
       <PageContainer>
-        <Alert
-          severity="error"
-        >
-          {`Fehler beim Laden der Timeline: ${errorMessage}`}
-        </Alert>
+        <Alert severity="error">{`Fehler beim Laden der Timeline: ${errorMessage}`}</Alert>
       </PageContainer>
     );
   }
@@ -229,11 +244,11 @@ const MatchRequestTimelinePage: React.FC = () => {
   const latestRequest = currentThread.requests[currentThread.requests.length - 1];
   const isMyTurn = latestRequest.requesterId !== user?.id && latestRequest.status === 'pending';
 
-  const requester = currentThread.participants.requester;
-  const targetUser = currentThread.participants.targetUser;
+  const { requester } = currentThread.participants;
+  const { targetUser } = currentThread.participants;
 
-  const skillName = currentThread.skill?.name || 'Skill';
-  const targetUserName = currentThread.participants?.targetUser?.name || 'Benutzer';
+  const skillName = currentThread.skill.name;
+  const targetUserName = currentThread.participants.targetUser.name;
 
   return (
     <PageContainer>
@@ -244,7 +259,11 @@ const MatchRequestTimelinePage: React.FC = () => {
         actions={
           <Box display="flex" gap={1}>
             <Tooltip title={viewMode === 'timeline' ? 'Kompakte Ansicht' : 'Timeline-Ansicht'}>
-              <IconButton onClick={() => setViewMode(viewMode === 'timeline' ? 'compact' : 'timeline')}>
+              <IconButton
+                onClick={() => {
+                  setViewMode(viewMode === 'timeline' ? 'compact' : 'timeline');
+                }}
+              >
                 {viewMode === 'timeline' ? <ViewIcon /> : <HideIcon />}
               </IconButton>
             </Tooltip>
@@ -264,7 +283,7 @@ const MatchRequestTimelinePage: React.FC = () => {
                     <LearnIcon />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6">{currentThread.skill?.name}</Typography>
+                    <Typography variant="h6">{currentThread.skill.name}</Typography>
                     <Typography variant="body2" color="text.secondary">
                       Skill-Anfrage
                     </Typography>
@@ -291,7 +310,12 @@ const MatchRequestTimelinePage: React.FC = () => {
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h6">Anfrage-Verlauf</Typography>
-                <IconButton onClick={() => setShowDetails(!showDetails)} size="small">
+                <IconButton
+                  onClick={() => {
+                    setShowDetails(!showDetails);
+                  }}
+                  size="small"
+                >
                   {showDetails ? <CollapseIcon /> : <ExpandIcon />}
                 </IconButton>
               </Box>
@@ -316,24 +340,30 @@ const MatchRequestTimelinePage: React.FC = () => {
                       </TimelineSeparator>
                       <TimelineContent>
                         <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                              <Box flex={1}>
-                                <Box display="flex" alignItems="center" gap={1} mb={1}>
-                                  <Avatar
-                                  src={request.requesterId === user?.id ? undefined : targetUser?.avatar}
+                          <Box
+                            display="flex"
+                            justifyContent="space-between"
+                            alignItems="flex-start"
+                          >
+                            <Box flex={1}>
+                              <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                <Avatar
+                                  src={
+                                    request.requesterId === user?.id ? undefined : targetUser.avatar
+                                  }
                                   sx={{ width: 32, height: 32 }}
                                 >
-                                  {request.requesterId === user?.id ? 'Du' : (targetUser?.name?.[0] || 'U')}
+                                  {request.requesterId === user?.id ? 'Du' : targetUser.name[0]}
                                 </Avatar>
                                 <Typography variant="subtitle2">
-                                  {request.requesterId === user?.id ? 'Du' : (targetUser?.name || 'Unbekannt')}
+                                  {request.requesterId === user?.id ? 'Du' : targetUser.name}
                                 </Typography>
                                 {!request.isRead && request.requesterId !== user?.id && (
                                   <Chip label="Neu" size="small" color="primary" />
                                 )}
                               </Box>
 
-                              <Typography variant="body2" paragraph>
+                              <Typography variant="body2" component="p">
                                 {request.message}
                               </Typography>
 
@@ -349,7 +379,7 @@ const MatchRequestTimelinePage: React.FC = () => {
                                     </Box>
                                   )}
 
-                                  {request.isMonetary && request.offeredAmount && (
+                                  {request.isMonetary && request.offeredAmount !== undefined && (
                                     <Box display="flex" alignItems="center" gap={1} mb={1}>
                                       <MoneyIcon fontSize="small" color="success" />
                                       <Typography variant="body2" color="success.main">
@@ -367,7 +397,12 @@ const MatchRequestTimelinePage: React.FC = () => {
                                         </Typography>
                                         <Box display="flex" gap={0.5} flexWrap="wrap">
                                           {request.preferredDays.map((day) => (
-                                            <Chip key={day} label={day} size="small" variant="outlined" />
+                                            <Chip
+                                              key={day}
+                                              label={day}
+                                              size="small"
+                                              variant="outlined"
+                                            />
                                           ))}
                                         </Box>
                                       </Grid>
@@ -377,7 +412,12 @@ const MatchRequestTimelinePage: React.FC = () => {
                                         </Typography>
                                         <Box display="flex" gap={0.5} flexWrap="wrap">
                                           {request.preferredTimes.map((time) => (
-                                            <Chip key={time} label={time} size="small" variant="outlined" />
+                                            <Chip
+                                              key={time}
+                                              label={time}
+                                              size="small"
+                                              variant="outlined"
+                                            />
                                           ))}
                                         </Box>
                                       </Grid>
@@ -404,7 +444,9 @@ const MatchRequestTimelinePage: React.FC = () => {
                                   variant="contained"
                                   color="success"
                                   startIcon={<CheckIcon />}
-                                  onClick={() => handleAcceptRequest(request.id)}
+                                  onClick={() => {
+                                    handleAcceptRequest(request.id);
+                                  }}
                                 >
                                   Annehmen
                                 </Button>
@@ -413,7 +455,9 @@ const MatchRequestTimelinePage: React.FC = () => {
                                   variant="outlined"
                                   color="warning"
                                   startIcon={<ReplyIcon />}
-                                  onClick={() => setCounterOfferDialog(true)}
+                                  onClick={() => {
+                                    setCounterOfferDialog(true);
+                                  }}
                                 >
                                   Gegenangebot
                                 </Button>
@@ -422,7 +466,9 @@ const MatchRequestTimelinePage: React.FC = () => {
                                   variant="outlined"
                                   color="error"
                                   startIcon={<CloseIcon />}
-                                  onClick={() => handleRejectRequest(request.id)}
+                                  onClick={() => {
+                                    handleRejectRequest(request.id);
+                                  }}
                                 >
                                   Ablehnen
                                 </Button>
@@ -441,12 +487,12 @@ const MatchRequestTimelinePage: React.FC = () => {
                     <Paper key={request.id} variant="outlined" sx={{ p: 2 }}>
                       <Box display="flex" justifyContent="space-between" alignItems="center">
                         <Box display="flex" alignItems="center" gap={2}>
-                          <Avatar sx={{ width: 32, height: 32 }}>
-                            {getRequestIcon(request)}
-                          </Avatar>
+                          <Avatar sx={{ width: 32, height: 32 }}>{getRequestIcon(request)}</Avatar>
                           <Box>
                             <Typography variant="body2">
-                              {request.requesterId === user?.id ? 'Deine Anfrage' : 'Erhaltene Anfrage'}
+                              {request.requesterId === user?.id
+                                ? 'Deine Anfrage'
+                                : 'Erhaltene Anfrage'}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               {formatDistanceToNow(new Date(request.createdAt), {
@@ -459,7 +505,16 @@ const MatchRequestTimelinePage: React.FC = () => {
                         <Chip
                           label={request.status}
                           size="small"
-                          color={getTimelineDotColor(request.status, request.type) as 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'}
+                          color={
+                            getTimelineDotColor(request.status, request.type) as
+                              | 'default'
+                              | 'primary'
+                              | 'secondary'
+                              | 'error'
+                              | 'info'
+                              | 'success'
+                              | 'warning'
+                          }
                         />
                       </Box>
                     </Paper>
@@ -478,43 +533,31 @@ const MatchRequestTimelinePage: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Teilnehmer
               </Typography>
-              
+
               <Stack spacing={2}>
                 {/* Requester */}
                 <Box display="flex" alignItems="center" gap={2}>
-                  <Avatar>{(requester?.name?.[0] || 'U')}</Avatar>
+                  <Avatar>{requester.name[0]}</Avatar>
                   <Box flex={1}>
-                    <Typography variant="subtitle2">
-                      {requester?.name || 'Unbekannt'}
-                    </Typography>
+                    <Typography variant="subtitle2">{requester.name}</Typography>
                     <Box display="flex" alignItems="center" gap={0.5}>
                       <StarIcon fontSize="small" color="warning" />
-                      <Typography variant="caption">
-                        {requester?.rating ?? 0}
-                      </Typography>
+                      <Typography variant="caption">{requester.rating}</Typography>
                     </Box>
                   </Box>
-                  {requester?.id === user?.id && (
-                    <Chip label="Du" size="small" color="primary" />
-                  )}
+                  {requester.id === user?.id && <Chip label="Du" size="small" color="primary" />}
                 </Box>
 
                 <Divider />
 
                 {/* Target User */}
                 <Box display="flex" alignItems="center" gap={2}>
-                  <Avatar src={targetUser?.avatar}>
-                    {targetUser?.name?.[0] || 'U'}
-                  </Avatar>
+                  <Avatar src={targetUser.avatar}>{targetUser.name[0]}</Avatar>
                   <Box flex={1}>
-                    <Typography variant="subtitle2">
-                      {targetUser?.name || 'Unbekannt'}
-                    </Typography>
+                    <Typography variant="subtitle2">{targetUser.name}</Typography>
                     <Box display="flex" alignItems="center" gap={0.5}>
                       <StarIcon fontSize="small" color="warning" />
-                      <Typography variant="caption">
-                        {targetUser?.rating ?? 0}
-                      </Typography>
+                      <Typography variant="caption">{targetUser.rating}</Typography>
                     </Box>
                   </Box>
                   <Button size="small" variant="outlined">
@@ -532,249 +575,279 @@ const MatchRequestTimelinePage: React.FC = () => {
                 <Typography variant="h6" gutterBottom>
                   Schnellaktionen
                 </Typography>
-                
+
                 <Stack spacing={2}>
                   <Button
                     fullWidth
                     variant="contained"
                     color="success"
-                   startIcon={<CheckIcon />}
-                   onClick={() => handleAcceptRequest(latestRequest.id)}
-                 >
-                   Anfrage annehmen
-                 </Button>
-                 <Button
-                   fullWidth
-                   variant="contained"
-                   color="warning"
-                   startIcon={<ReplyIcon />}
-                   onClick={() => setCounterOfferDialog(true)}
-                 >
-                   Gegenangebot senden
-                 </Button>
-                 <Button
-                   fullWidth
-                   variant="outlined"
-                   color="error"
-                   startIcon={<CloseIcon />}
-                   onClick={() => handleRejectRequest(latestRequest.id)}
-                 >
-                   Anfrage ablehnen
-                 </Button>
-               </Stack>
-             </CardContent>
-           </Card>
-         )}
-       </Grid>
-     </Grid>
+                    startIcon={<CheckIcon />}
+                    onClick={() => {
+                      handleAcceptRequest(latestRequest.id);
+                    }}
+                  >
+                    Anfrage annehmen
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="warning"
+                    startIcon={<ReplyIcon />}
+                    onClick={() => {
+                      setCounterOfferDialog(true);
+                    }}
+                  >
+                    Gegenangebot senden
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    color="error"
+                    startIcon={<CloseIcon />}
+                    onClick={() => {
+                      handleRejectRequest(latestRequest.id);
+                    }}
+                  >
+                    Anfrage ablehnen
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+        </Grid>
+      </Grid>
 
-     {/* Counter Offer Dialog */}
-     <Dialog
-       open={counterOfferDialog}
-       onClose={() => setCounterOfferDialog(false)}
-       maxWidth="md"
-       fullWidth
-     >
-       <DialogTitle>
-         <Typography variant="h6">Gegenangebot erstellen</Typography>
-       </DialogTitle>
-       <DialogContent dividers>
-         <Grid container spacing={3}>
-           {/* Offer Type Selection */}
-           <Grid size={12}>
-             <FormControl fullWidth>
-               <InputLabel>Angebotstyp</InputLabel>
-               <Select
-                 value={offerType}
-                 onChange={(e) => setOfferType(e.target.value as 'exchange' | 'monetary')}
-                 label="Angebotstyp"
-               >
-                 <MenuItem value="exchange">
-                   <Box display="flex" alignItems="center" gap={1}>
-                     <SwapIcon />
-                     <span>Skill-Tausch</span>
-                   </Box>
-                 </MenuItem>
-                 <MenuItem value="monetary">
-                   <Box display="flex" alignItems="center" gap={1}>
-                     <MoneyIcon />
-                     <span>Bezahlung</span>
-                   </Box>
-                 </MenuItem>
-               </Select>
-             </FormControl>
-           </Grid>
+      {/* Counter Offer Dialog */}
+      <Dialog
+        open={counterOfferDialog}
+        onClose={() => {
+          setCounterOfferDialog(false);
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6">Gegenangebot erstellen</Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={3}>
+            {/* Offer Type Selection */}
+            <Grid size={12}>
+              <FormControl fullWidth>
+                <InputLabel>Angebotstyp</InputLabel>
+                <Select
+                  value={offerType}
+                  onChange={(e) => {
+                    setOfferType(e.target.value);
+                  }}
+                  label="Angebotstyp"
+                >
+                  <MenuItem value="exchange">
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <SwapIcon />
+                      <span>Skill-Tausch</span>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="monetary">
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <MoneyIcon />
+                      <span>Bezahlung</span>
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
 
-           {/* Exchange Skill Selection */}
-           {offerType === 'exchange' && (
-             <Grid size={12}>
-               <FormControl fullWidth>
-                 <InputLabel>Skill zum Tauschen</InputLabel>
-                 <Select
-                   value={selectedExchangeSkill}
-                   onChange={(e) => setSelectedExchangeSkill(e.target.value)}
-                   label="Skill zum Tauschen"
-                 >
-                   {userSkills
-                     .filter((skill) => skill.isOffered)
-                     .map(( skill) => (
-                       <MenuItem key={skill.id} value={skill.id}>
-                         <Box display="flex" alignItems="center" gap={1}>
-                           <Chip
-                             label={skill.category.name}
-                             size="small"
-                             variant="outlined"
-                           />
-                           <span>{skill.name}</span>
-                         </Box>
-                       </MenuItem>
-                     ))}
-                 </Select>
-                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                   Wähle einen deiner Skills, den du im Tausch anbieten möchtest
-                 </Typography>
-               </FormControl>
-             </Grid>
-           )}
+            {/* Exchange Skill Selection */}
+            {offerType === 'exchange' && (
+              <Grid size={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Skill zum Tauschen</InputLabel>
+                  <Select
+                    value={selectedExchangeSkill}
+                    onChange={(e) => {
+                      setSelectedExchangeSkill(e.target.value);
+                    }}
+                    label="Skill zum Tauschen"
+                  >
+                    {userSkills
+                      .filter((skill) => skill.isOffered)
+                      .map((skill) => (
+                        <MenuItem key={skill.id} value={skill.id}>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Chip label={skill.category.name} size="small" variant="outlined" />
+                            <span>{skill.name}</span>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                  </Select>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                    Wähle einen deiner Skills, den du im Tausch anbieten möchtest
+                  </Typography>
+                </FormControl>
+              </Grid>
+            )}
 
-           {/* Monetary Offer */}
-           {offerType === 'monetary' && (
-             <Grid size={12}>
-               <TextField
-                 fullWidth
-                 label="Betrag pro Session"
-                 value={offeredAmount}
-                 onChange={(e) => setOfferedAmount(e.target.value)}
-                 type="number"
-                 InputProps={{
-                   endAdornment: <InputAdornment position="end">€</InputAdornment>,
-                 }}
-                 helperText="Gib den Betrag an, den du pro Session zahlen möchtest"
-               />
-             </Grid>
-           )}
+            {/* Monetary Offer */}
+            {offerType === 'monetary' && (
+              <Grid size={12}>
+                <TextField
+                  fullWidth
+                  label="Betrag pro Session"
+                  value={offeredAmount}
+                  onChange={(e) => {
+                    setOfferedAmount(e.target.value);
+                  }}
+                  type="number"
+                  slotProps={{
+                    input: {
+                      endAdornment: <InputAdornment position="end">€</InputAdornment>,
+                    },
+                  }}
+                  helperText="Gib den Betrag an, den du pro Session zahlen möchtest"
+                />
+              </Grid>
+            )}
 
-           {/* Message */}
-           <Grid size={12}>
-             <TextField
-               fullWidth
-               multiline
-               rows={4}
-               label="Nachricht"
-               value={message}
-               onChange={(e) => setMessage(e.target.value)}
-               placeholder="Erkläre dein Gegenangebot..."
-               helperText="Erkläre, warum du dieses Gegenangebot machst"
-             />
-           </Grid>
+            {/* Message */}
+            <Grid size={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                label="Nachricht"
+                value={message}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                }}
+                placeholder="Erkläre dein Gegenangebot..."
+                helperText="Erkläre, warum du dieses Gegenangebot machst"
+              />
+            </Grid>
 
-           {/* Schedule Preferences */}
-           <Grid size={12}>
-             <Typography variant="h6" gutterBottom>
-               Zeitplanung
-             </Typography>
-           </Grid>
+            {/* Schedule Preferences */}
+            <Grid size={12}>
+              <Typography variant="h6" gutterBottom>
+                Zeitplanung
+              </Typography>
+            </Grid>
 
-           {/* Preferred Days */}
-           <Grid size={{ xs: 12, md: 6 }}>
-             <FormControl fullWidth>
-               <InputLabel>Bevorzugte Tage</InputLabel>
-               <Select
-                 multiple
-                 value={selectedDays}
-                 onChange={(e) => setSelectedDays(e.target.value as string[])}
-                 label="Bevorzugte Tage"
-                 renderValue={(selected) => (
-                   <Box display="flex" flexWrap="wrap" gap={0.5}>
-                     {selected.map((value) => (
-                       <Chip key={value} label={value} size="small" />
-                     ))}
-                   </Box>
-                 )}
-               >
-                 {WEEKDAYS.map((day) => (
-                   <MenuItem key={day} value={day}>
-                     {day}
-                   </MenuItem>
-                 ))}
-               </Select>
-             </FormControl>
-           </Grid>
+            {/* Preferred Days */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
+                <InputLabel>Bevorzugte Tage</InputLabel>
+                <Select
+                  multiple
+                  value={selectedDays}
+                  onChange={(e) => {
+                    setSelectedDays(e.target.value as string[]);
+                  }}
+                  label="Bevorzugte Tage"
+                  renderValue={(selected) => (
+                    <Box display="flex" flexWrap="wrap" gap={0.5}>
+                      {selected.map((value) => (
+                        <Chip key={value} label={value} size="small" />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {WEEKDAYS.map((day) => (
+                    <MenuItem key={day} value={day}>
+                      {day}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
 
-           {/* Preferred Times */}
-           <Grid size={{ xs: 12, md: 6 }}>
-             <FormControl fullWidth>
-               <InputLabel>Bevorzugte Zeiten</InputLabel>
-               <Select
-                 multiple
-                 value={selectedTimes}
-                 onChange={(e) => setSelectedTimes(e.target.value as string[])}
-                 label="Bevorzugte Zeiten"
-                 renderValue={(selected) => (
-                   <Box display="flex" flexWrap="wrap" gap={0.5}>
-                     {selected.map((value) => (
-                       <Chip key={value} label={value} size="small" />
-                     ))}
-                   </Box>
-                 )}
-               >
-                 {TIME_SLOTS.map((time) => (
-                   <MenuItem key={time} value={time}>
-                     {time}
-                   </MenuItem>
-                 ))}
-               </Select>
-             </FormControl>
-           </Grid>
+            {/* Preferred Times */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
+                <InputLabel>Bevorzugte Zeiten</InputLabel>
+                <Select
+                  multiple
+                  value={selectedTimes}
+                  onChange={(e) => {
+                    setSelectedTimes(e.target.value as string[]);
+                  }}
+                  label="Bevorzugte Zeiten"
+                  renderValue={(selected) => (
+                    <Box display="flex" flexWrap="wrap" gap={0.5}>
+                      {selected.map((value) => (
+                        <Chip key={value} label={value} size="small" />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {TIME_SLOTS.map((time) => (
+                    <MenuItem key={time} value={time}>
+                      {time}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
 
-           {/* Session Duration */}
-           <Grid size={{ xs: 12, md: 6 }}>
-             <TextField
-               fullWidth
-               label="Session-Dauer"
-               value={sessionDuration}
-               onChange={(e) => setSessionDuration(Number(e.target.value))}
-               type="number"
-               InputProps={{
-                 endAdornment: <InputAdornment position="end">Minuten</InputAdornment>,
-               }}
-             />
-           </Grid>
+            {/* Session Duration */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="Session-Dauer"
+                value={sessionDuration}
+                onChange={(e) => {
+                  setSessionDuration(Number(e.target.value));
+                }}
+                type="number"
+                slotProps={{
+                  input: {
+                    endAdornment: <InputAdornment position="end">Minuten</InputAdornment>,
+                  },
+                }}
+              />
+            </Grid>
 
-           {/* Total Sessions */}
-           <Grid size={{ xs: 12, md: 6 }}>
-             <TextField
-               fullWidth
-               label="Anzahl Sessions"
-               value={totalSessions}
-               onChange={(e) => setTotalSessions(Number(e.target.value))}
-               type="number"
-               helperText="Wie viele Sessions möchtest du insgesamt?"
-             />
-           </Grid>
-         </Grid>
-       </DialogContent>
-       <DialogActions>
-         <Button onClick={() => setCounterOfferDialog(false)}>Abbrechen</Button>
-         <Button
-           onClick={handleSendCounterOffer}
-           variant="contained"
-           color="primary"
-           startIcon={<SendIcon />}
-           disabled={
-             !message ||
-             selectedDays.length === 0 ||
-             selectedTimes.length === 0 ||
-             (offerType === 'exchange' && !selectedExchangeSkill) ||
-             (offerType === 'monetary' && !offeredAmount)
-           }
-         >
-           Gegenangebot senden
-         </Button>
-       </DialogActions>
-     </Dialog>
-   </PageContainer>
- );
+            {/* Total Sessions */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="Anzahl Sessions"
+                value={totalSessions}
+                onChange={(e) => {
+                  setTotalSessions(Number(e.target.value));
+                }}
+                type="number"
+                helperText="Wie viele Sessions möchtest du insgesamt?"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setCounterOfferDialog(false);
+            }}
+          >
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handleSendCounterOffer}
+            variant="contained"
+            color="primary"
+            startIcon={<SendIcon />}
+            disabled={
+              !message ||
+              selectedDays.length === 0 ||
+              selectedTimes.length === 0 ||
+              (offerType === 'exchange' && !selectedExchangeSkill) ||
+              (offerType === 'monetary' && !offeredAmount)
+            }
+          >
+            Gegenangebot senden
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </PageContainer>
+  );
 };
 
 export default MatchRequestTimelinePage;

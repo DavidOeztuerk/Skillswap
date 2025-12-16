@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { usePermissions } from '../../contexts/PermissionContext';
 import { useAuth } from '../../hooks/useAuth';
 import { Box, CircularProgress, Alert, Typography, Button } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import { getToken } from '../../utils/authHelpers';
 import type { Role, Permission } from './permissions.constants';
+import { usePermissions } from '../../contexts/permissionContextHook';
 
 // ============================================================================
 // Constants
@@ -23,25 +23,25 @@ const DEBUG = import.meta.env.DEV;
 export interface PermissionRouteConfig {
   /** Required roles (any match grants access unless requireAll is true) */
   roles?: Role[] | string[];
-  
+
   /** Required permissions (any match grants access unless requireAll is true) */
   permissions?: Permission[] | string[];
-  
+
   /** If true, ALL roles AND permissions must match */
   requireAll?: boolean;
-  
+
   /** Explicitly require authentication (no specific roles/permissions) */
   requireAuth?: boolean;
-  
+
   /** Redirect path for unauthenticated users */
   redirectTo?: string;
-  
+
   /** Redirect path for unauthorized users (missing roles/permissions) */
   unauthorizedRedirect?: string;
-  
+
   /** Custom fallback component when access is denied */
   fallback?: React.ReactNode;
-  
+
   /** Custom access check function */
   customCheck?: (permissions: ReturnType<typeof usePermissions>) => boolean;
 }
@@ -81,7 +81,7 @@ interface AuthStatusResult {
 const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult => {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const permissionContext = usePermissions();
-  
+
   const {
     roles: requiredRoles = [],
     permissions: requiredPermissions = [],
@@ -131,17 +131,20 @@ const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult
     }
 
     // Step 4: Wait for permissions to load if needed
-    const needsPermissionCheck = 
-      requiredRoles.length > 0 || 
-      requiredPermissions.length > 0 || 
-      customCheck;
-      
-    if (permissionContext.loading && needsPermissionCheck) {
+    const needsPermissionCheck =
+      requiredRoles.length > 0 || requiredPermissions.length > 0 || customCheck;
+
+    if (permissionContext.loading && needsPermissionCheck === true) {
       return { status: AuthStatus.LOADING, reason: 'Lade Berechtigungen...' };
     }
 
     // Step 5: If only requireAuth is set (no roles/permissions), we're done
-    if (requireAuth && requiredRoles.length === 0 && requiredPermissions.length === 0 && !customCheck) {
+    if (
+      requireAuth &&
+      requiredRoles.length === 0 &&
+      requiredPermissions.length === 0 &&
+      !customCheck
+    ) {
       return { status: AuthStatus.AUTHENTICATED };
     }
 
@@ -167,8 +170,8 @@ const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult
     let hasRequiredRoles = true;
     if (requiredRoles.length > 0) {
       hasRequiredRoles = requireAll
-        ? permissionContext.hasAllRoles(...(requiredRoles as string[]))
-        : permissionContext.hasAnyRole(...(requiredRoles as string[]));
+        ? permissionContext.hasAllRoles(...requiredRoles)
+        : permissionContext.hasAnyRole(...requiredRoles);
 
       if (!hasRequiredRoles && requireAll) {
         if (DEBUG) {
@@ -180,9 +183,9 @@ const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult
         return {
           status: AuthStatus.UNAUTHORIZED,
           reason: 'Fehlende Rolle',
-          details: { 
-            required: requiredRoles as string[], 
-            user: permissionContext.roles 
+          details: {
+            required: requiredRoles,
+            user: permissionContext.roles,
           },
         };
       }
@@ -192,8 +195,8 @@ const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult
     let hasRequiredPermissions = true;
     if (requiredPermissions.length > 0) {
       hasRequiredPermissions = requireAll
-        ? permissionContext.hasAllPermissions(...(requiredPermissions as string[]))
-        : permissionContext.hasAnyPermission(...(requiredPermissions as string[]));
+        ? permissionContext.hasAllPermissions(...requiredPermissions)
+        : permissionContext.hasAnyPermission(...requiredPermissions);
 
       if (!hasRequiredPermissions && requireAll) {
         if (DEBUG) {
@@ -205,9 +208,9 @@ const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult
         return {
           status: AuthStatus.UNAUTHORIZED,
           reason: 'Fehlende Berechtigung',
-          details: { 
-            required: requiredPermissions as string[], 
-            user: permissionContext.permissions 
+          details: {
+            required: requiredPermissions,
+            user: permissionContext.permissions,
           },
         };
       }
@@ -239,7 +242,7 @@ const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult
         status: AuthStatus.UNAUTHORIZED,
         reason: 'Zugriff verweigert',
         details: {
-          required: [...(requiredRoles as string[]), ...(requiredPermissions as string[])],
+          required: [...requiredRoles, ...requiredPermissions],
           user: [...permissionContext.roles, ...permissionContext.permissions],
         },
       };
@@ -260,12 +263,93 @@ const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult
 };
 
 // ============================================================================
+// Access Denied Component (defined before PermissionRoute to avoid use-before-define)
+// ============================================================================
+
+interface AccessDeniedProps {
+  roles: string[];
+  permissions: string[];
+  reason?: string;
+  details?: {
+    required: string[];
+    user: string[];
+  };
+}
+
+const AccessDenied: React.FC<AccessDeniedProps> = ({ roles, permissions, reason, details }) => (
+  <Box
+    display="flex"
+    flexDirection="column"
+    alignItems="center"
+    justifyContent="center"
+    minHeight="100vh"
+    gap={3}
+    p={3}
+  >
+    <LockIcon sx={{ fontSize: 80, color: 'error.main' }} />
+    <Typography variant="h4" color="error">
+      Zugriff verweigert
+    </Typography>
+
+    <Alert severity="error" sx={{ maxWidth: 600 }}>
+      <Typography variant="body1" gutterBottom>
+        {reason ?? 'Sie haben nicht die erforderlichen Berechtigungen für diese Seite.'}
+      </Typography>
+
+      {roles.length > 0 && (
+        <Box mt={2}>
+          <Typography variant="body2">
+            <strong>Erforderliche Rollen:</strong> {roles.join(', ')}
+          </Typography>
+        </Box>
+      )}
+
+      {permissions.length > 0 && (
+        <Box mt={1}>
+          <Typography variant="body2">
+            <strong>Erforderliche Berechtigungen:</strong> {permissions.join(', ')}
+          </Typography>
+        </Box>
+      )}
+
+      {DEBUG && details && (
+        <Box mt={2} sx={{ opacity: 0.7 }}>
+          <Typography variant="caption" component="div">
+            <strong>Debug Info:</strong>
+          </Typography>
+          <Typography variant="caption" component="div">
+            Required: {details.required.join(', ')}
+          </Typography>
+          <Typography variant="caption" component="div">
+            User has: {details.user.join(', ') || 'none'}
+          </Typography>
+        </Box>
+      )}
+    </Alert>
+
+    <Box display="flex" gap={2}>
+      <Button variant="contained" href="/">
+        Zur Startseite
+      </Button>
+      <Button
+        variant="outlined"
+        onClick={() => {
+          window.history.back();
+        }}
+      >
+        Zurück
+      </Button>
+    </Box>
+  </Box>
+);
+
+// ============================================================================
 // Component
 // ============================================================================
 
 /**
  * PermissionRoute - Unified route protection component
- * 
+ *
  * Replaces both PrivateRoute and the old AdminRoute.
  * Handles authentication, roles, and permissions in one component.
  *
@@ -289,8 +373,8 @@ const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult
  *
  * @example
  * // Strict mode (ALL roles AND permissions required)
- * <PermissionRoute 
- *   roles={['Admin']} 
+ * <PermissionRoute
+ *   roles={['Admin']}
  *   permissions={['users:manage', 'users:delete']}
  *   requireAll
  * >
@@ -299,7 +383,7 @@ const useAuthorizationStatus = (config: PermissionRouteConfig): AuthStatusResult
  *
  * @example
  * // Custom check
- * <PermissionRoute 
+ * <PermissionRoute
  *   customCheck={(perms) => perms.hasPermission('special') && someCondition}
  * >
  *   <SpecialPage />
@@ -319,11 +403,8 @@ export const PermissionRoute: React.FC<PermissionRouteProps> = ({
   const location = useLocation();
 
   // Determine if any protection is needed
-  const hasProtection = 
-    requireAuth || 
-    roles.length > 0 || 
-    permissions.length > 0 || 
-    customCheck !== undefined;
+  const hasProtection =
+    requireAuth || roles.length > 0 || permissions.length > 0 || customCheck !== undefined;
 
   // Get authorization status
   const authStatus = useAuthorizationStatus({
@@ -336,10 +417,7 @@ export const PermissionRoute: React.FC<PermissionRouteProps> = ({
 
   // Development logging
   if (DEBUG && authStatus.status === AuthStatus.UNAUTHORIZED) {
-    console.warn(
-      `[PermissionRoute] Access denied for ${location.pathname}`,
-      authStatus.details
-    );
+    console.warn(`[PermissionRoute] Access denied for ${location.pathname}`, authStatus.details);
   }
 
   // Render based on status
@@ -368,7 +446,7 @@ export const PermissionRoute: React.FC<PermissionRouteProps> = ({
 
     case AuthStatus.UNAUTHORIZED:
       // Use custom fallback if provided
-      if (fallback) {
+      if (fallback !== undefined) {
         return <>{fallback}</>;
       }
 
@@ -386,102 +464,19 @@ export const PermissionRoute: React.FC<PermissionRouteProps> = ({
       // Default: Show access denied page
       return (
         <AccessDenied
-          roles={roles as string[]}
-          permissions={permissions as string[]}
+          roles={roles}
+          permissions={permissions}
           reason={authStatus.reason}
           details={authStatus.details}
         />
       );
 
     case AuthStatus.AUTHENTICATED:
-      return children ? <>{children}</> : <Outlet />;
+      return children !== undefined ? <>{children}</> : <Outlet />;
 
     default:
       return null;
   }
-};
-
-// ============================================================================
-// Access Denied Component
-// ============================================================================
-
-interface AccessDeniedProps {
-  roles: string[];
-  permissions: string[];
-  reason?: string;
-  details?: {
-    required: string[];
-    user: string[];
-  };
-}
-
-const AccessDenied: React.FC<AccessDeniedProps> = ({
-  roles,
-  permissions,
-  reason,
-  details,
-}) => {
-  return (
-    <Box
-      display="flex"
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      minHeight="100vh"
-      gap={3}
-      p={3}
-    >
-      <LockIcon sx={{ fontSize: 80, color: 'error.main' }} />
-      <Typography variant="h4" color="error">
-        Zugriff verweigert
-      </Typography>
-      
-      <Alert severity="error" sx={{ maxWidth: 600 }}>
-        <Typography variant="body1" gutterBottom>
-          {reason || 'Sie haben nicht die erforderlichen Berechtigungen für diese Seite.'}
-        </Typography>
-        
-        {roles.length > 0 && (
-          <Box mt={2}>
-            <Typography variant="body2">
-              <strong>Erforderliche Rollen:</strong> {roles.join(', ')}
-            </Typography>
-          </Box>
-        )}
-        
-        {permissions.length > 0 && (
-          <Box mt={1}>
-            <Typography variant="body2">
-              <strong>Erforderliche Berechtigungen:</strong> {permissions.join(', ')}
-            </Typography>
-          </Box>
-        )}
-
-        {DEBUG && details && (
-          <Box mt={2} sx={{ opacity: 0.7 }}>
-            <Typography variant="caption" component="div">
-              <strong>Debug Info:</strong>
-            </Typography>
-            <Typography variant="caption" component="div">
-              Required: {details.required.join(', ')}
-            </Typography>
-            <Typography variant="caption" component="div">
-              User has: {details.user.join(', ') || 'none'}
-            </Typography>
-          </Box>
-        )}
-      </Alert>
-      
-      <Box display="flex" gap={2}>
-        <Button variant="contained" href="/">
-          Zur Startseite
-        </Button>
-        <Button variant="outlined" onClick={() => window.history.back()}>
-          Zurück
-        </Button>
-      </Box>
-    </Box>
-  );
 };
 
 // ============================================================================
@@ -495,13 +490,11 @@ const AccessDenied: React.FC<AccessDeniedProps> = ({
 export const PrivateRoute: React.FC<{
   children?: React.ReactNode;
   redirectTo?: string;
-}> = ({ children, redirectTo }) => {
-  return (
-    <PermissionRoute requireAuth redirectTo={redirectTo}>
-      {children}
-    </PermissionRoute>
-  );
-};
+}> = ({ children, redirectTo }) => (
+  <PermissionRoute requireAuth redirectTo={redirectTo}>
+    {children}
+  </PermissionRoute>
+);
 
 /**
  * Admin-only route (Admin or SuperAdmin)
@@ -510,17 +503,15 @@ export const AdminRoute: React.FC<{
   children?: React.ReactNode;
   redirectTo?: string;
   unauthorizedRedirect?: string;
-}> = ({ children, redirectTo, unauthorizedRedirect = '/forbidden' }) => {
-  return (
-    <PermissionRoute 
-      roles={['Admin', 'SuperAdmin']} 
-      redirectTo={redirectTo}
-      unauthorizedRedirect={unauthorizedRedirect}
-    >
-      {children}
-    </PermissionRoute>
-  );
-};
+}> = ({ children, redirectTo, unauthorizedRedirect = '/forbidden' }) => (
+  <PermissionRoute
+    roles={['Admin', 'SuperAdmin']}
+    redirectTo={redirectTo}
+    unauthorizedRedirect={unauthorizedRedirect}
+  >
+    {children}
+  </PermissionRoute>
+);
 
 /**
  * SuperAdmin-only route
@@ -529,17 +520,15 @@ export const SuperAdminRoute: React.FC<{
   children?: React.ReactNode;
   redirectTo?: string;
   unauthorizedRedirect?: string;
-}> = ({ children, redirectTo, unauthorizedRedirect = '/forbidden' }) => {
-  return (
-    <PermissionRoute 
-      roles={['SuperAdmin']} 
-      redirectTo={redirectTo}
-      unauthorizedRedirect={unauthorizedRedirect}
-    >
-      {children}
-    </PermissionRoute>
-  );
-};
+}> = ({ children, redirectTo, unauthorizedRedirect = '/forbidden' }) => (
+  <PermissionRoute
+    roles={['SuperAdmin']}
+    redirectTo={redirectTo}
+    unauthorizedRedirect={unauthorizedRedirect}
+  >
+    {children}
+  </PermissionRoute>
+);
 
 /**
  * Moderator-only route (includes Admin and SuperAdmin)
@@ -548,47 +537,15 @@ export const ModeratorRoute: React.FC<{
   children?: React.ReactNode;
   redirectTo?: string;
   unauthorizedRedirect?: string;
-}> = ({ children, redirectTo, unauthorizedRedirect = '/forbidden' }) => {
-  return (
-    <PermissionRoute
-      roles={['Moderator', 'Admin', 'SuperAdmin']}
-      redirectTo={redirectTo}
-      unauthorizedRedirect={unauthorizedRedirect}
-    >
-      {children}
-    </PermissionRoute>
-  );
-};
-
-// ============================================================================
-// HOC Version
-// ============================================================================
-
-/**
- * Higher-Order Component version of PermissionRoute
- *
- * @example
- * const ProtectedPage = withPermissionRoute(MyPage, { 
- *   roles: ['Admin'],
- *   permissions: ['users:manage']
- * });
- */
-export const withPermissionRoute = <P extends object>(
-  Component: React.ComponentType<P>,
-  config?: PermissionRouteConfig
-) => {
-  const WrappedComponent: React.FC<P> = (props) => (
-    <PermissionRoute {...(config || { requireAuth: true })}>
-      <Component {...props} />
-    </PermissionRoute>
-  );
-
-  WrappedComponent.displayName = `withPermissionRoute(${
-    Component.displayName || Component.name || 'Component'
-  })`;
-
-  return WrappedComponent;
-};
+}> = ({ children, redirectTo, unauthorizedRedirect = '/forbidden' }) => (
+  <PermissionRoute
+    roles={['Moderator', 'Admin', 'SuperAdmin']}
+    redirectTo={redirectTo}
+    unauthorizedRedirect={unauthorizedRedirect}
+  >
+    {children}
+  </PermissionRoute>
+);
 
 // ============================================================================
 // Exports

@@ -20,7 +20,7 @@ export const formatDate = (
   date: string | Date | null | undefined,
   formatStr = 'dd.MM.yyyy'
 ): string => {
-  if (!date) return '';
+  if (date === null || date === undefined) return '';
 
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
 
@@ -34,20 +34,16 @@ export const formatDate = (
  * @param date - ISO-Datumsstring oder Date-Objekt
  * @returns Formatierte Zeit (HH:mm) oder leer, wenn ungültiges Datum
  */
-export const formatTime = (date: string | Date | null | undefined): string => {
-  return formatDate(date, 'HH:mm');
-};
+export const formatTime = (date: string | Date | null | undefined): string =>
+  formatDate(date, 'HH:mm');
 
 /**
  * Formatiert Datum und Zeit zusammen
  * @param date - ISO-Datumsstring oder Date-Objekt
  * @returns Formatiertes Datum mit Zeit oder leer, wenn ungültiges Datum
  */
-export const formatDateTime = (
-  date: string | Date | null | undefined
-): string => {
-  return formatDate(date, 'dd.MM.yyyy HH:mm');
-};
+export const formatDateTime = (date: string | Date | null | undefined): string =>
+  formatDate(date, 'dd.MM.yyyy HH:mm');
 
 /**
  * Formatiert ein Datumsintervall
@@ -59,7 +55,8 @@ export const formatDateTimeRange = (
   startDate: string | Date | null | undefined,
   endDate: string | Date | null | undefined
 ): string => {
-  if (!startDate || !endDate) return '';
+  if (startDate === null || startDate === undefined || endDate === null || endDate === undefined)
+    return '';
 
   const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
   const end = typeof endDate === 'string' ? parseISO(endDate) : endDate;
@@ -85,7 +82,8 @@ export const calculateDuration = (
   startDate: string | Date | null | undefined,
   endDate: string | Date | null | undefined
 ): number => {
-  if (!startDate || !endDate) return 0;
+  if (startDate === null || startDate === undefined || endDate === null || endDate === undefined)
+    return 0;
 
   const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
   const end = typeof endDate === 'string' ? parseISO(endDate) : endDate;
@@ -101,7 +99,7 @@ export const calculateDuration = (
  * @returns true, wenn Datum in der Vergangenheit liegt
  */
 export const isPastDate = (date: string | Date | null | undefined): boolean => {
-  if (!date) return false;
+  if (date === null || date === undefined) return false;
 
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
 
@@ -115,10 +113,8 @@ export const isPastDate = (date: string | Date | null | undefined): boolean => {
  * @param date - ISO-Datumsstring oder Date-Objekt
  * @returns true, wenn Datum in der Zukunft liegt
  */
-export const isFutureDate = (
-  date: string | Date | null | undefined
-): boolean => {
-  if (!date) return false;
+export const isFutureDate = (date: string | Date | null | undefined): boolean => {
+  if (date === null || date === undefined) return false;
 
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
 
@@ -133,11 +129,8 @@ export const isFutureDate = (
  * @param minutes - Anzahl der hinzuzufügenden Minuten
  * @returns Neues Date-Objekt
  */
-export const addTime = (
-  date: string | Date | null | undefined,
-  minutes: number
-): Date | null => {
-  if (!date) return null;
+export const addTime = (date: string | Date | null | undefined, minutes: number): Date | null => {
+  if (date === null || date === undefined) return null;
 
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
 

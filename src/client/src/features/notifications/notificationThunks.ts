@@ -1,7 +1,9 @@
-import notificationService, { NotificationHistoryRequest } from "../../api/services/notificationService";
-import { createAppAsyncThunk } from "../../store/thunkHelpers";
-import { isPagedResponse, isSuccessResponse } from "../../types/api/UnifiedResponse";
-import { NotificationSettings } from "../../types/models/Notification";
+import notificationService, {
+  type NotificationHistoryRequest,
+} from '../../api/services/notificationService';
+import { createAppAsyncThunk } from '../../store/thunkHelpers';
+import { isPagedResponse, isSuccessResponse } from '../../types/api/UnifiedResponse';
+import type { NotificationSettings } from '../../types/models/Notification';
 
 // Async thunks
 export const fetchNotifications = createAppAsyncThunk(
@@ -14,14 +16,14 @@ export const fetchNotifications = createAppAsyncThunk(
 
 export const subscribeToRealTimeNotifications = createAppAsyncThunk(
   'notifications/subscribeRealTime',
-  async (userId: string, {}) => {
-   await notificationService.subscribeToRealTime(userId);
+  async (userId: string) => {
+    await notificationService.subscribeToRealTime(userId);
   }
 );
 
 export const unsubscribeFromRealTimeNotifications = createAppAsyncThunk(
   'notifications/unsubscribeRealTime',
-  async (_, {}) => {
+  async () => {
     await notificationService.unsubscribeFromRealTime();
   }
 );

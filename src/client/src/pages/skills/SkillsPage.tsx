@@ -1,50 +1,53 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Container,
-  Paper,
-  Alert,
-  Fab,
-  Tooltip
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Refresh as RefreshIcon,
-} from '@mui/icons-material';
+import { Box, Typography, Button, Container, Paper, Alert, Fab, Tooltip } from '@mui/material';
+import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { usePermissions } from '../../contexts/permissionContextHook';
+import { Permissions } from '../../components/auth/permissions.constants';
 import { useSkills } from '../../hooks/useSkills';
-import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
-import { LoadingButton } from '../../components/common/LoadingButton';
-import { Skill } from '../../types/models/Skill';
+import { LoadingButton } from '../../components/ui/LoadingButton';
+import type { Skill } from '../../types/models/Skill';
 import SkillForm from '../../components/skills/SkillForm';
 import SkillList from '../../components/skills/SkillList';
 import SkillErrorBoundary from '../../components/error/SkillErrorBoundary';
 import errorService from '../../services/errorService';
-import { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
-import { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
+import type { CreateSkillRequest } from '../../types/contracts/requests/CreateSkillRequest';
+import type { UpdateSkillRequest } from '../../types/contracts/requests/UpdateSkillRequest';
 
 interface SkillsPageProps {
-  showOnly: 'all' | 'mine' | 'favorite';
+  showOnly?: 'all' | 'mine' | 'favorite';
 }
 
 /**
- * 🚀 NEUE ROBUSTE SKILLSPAGE 
- * 
+ * 🚀 NEUE ROBUSTE SKILLSPAGE
+ *
  * ✅ Nutzt neue useSkills Hook ohne useEffect
  * ✅ Stabile dependencies - no infinite loops possible
  * ✅ Memoized functions - optimal performance
  * ✅ Granular loading states - better UX
  * ✅ Error boundaries - robust error handling
  */
-const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
+const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { withLoading } = useLoading();
-  
+  const { hasPermission } = usePermissions();
+
+  // Memoize permission checks for user skills
+  const canCreateOwnSkill = useMemo(
+    () => hasPermission(Permissions.Skills.CREATE_OWN),
+    [hasPermission]
+  );
+  const canUpdateOwnSkill = useMemo(
+    () => hasPermission(Permissions.Skills.UPDATE_OWN),
+    [hasPermission]
+  );
+  const canDeleteOwnSkill = useMemo(
+    () => hasPermission(Permissions.Skills.DELETE_OWN),
+    [hasPermission]
+  );
+
   // 🚀 NEW: Use the robust useSkills hook
   const {
     allSkills,
@@ -71,160 +74,164 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
     removeFavoriteSkill,
     isFavoriteSkill,
   } = useSkills();
-  
+
   // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<Skill | undefined>(undefined);
 
   // Determine view properties
   const isOwnerView = showOnly === 'mine';
-  const pageTitle = showOnly === 'all' ? 'Alle Skills' : showOnly === 'mine' ? 'Meine Skills' : 'Favoriten';
-  const pageDescription = showOnly === 'all' ? 'Entdecke Skills von anderen Nutzern' : showOnly === 'mine' ? 'Verwalte deine Skills' : 'Deine favorisierten Skills';
+  const pageTitle =
+    showOnly === 'all' ? 'Alle Skills' : showOnly === 'mine' ? 'Meine Skills' : 'Favoriten';
+  const pageDescription =
+    showOnly === 'all'
+      ? 'Entdecke Skills von anderen Nutzern'
+      : showOnly === 'mine'
+        ? 'Verwalte deine Skills'
+        : 'Deine favorisierten Skills';
 
   // Track fetch parameters to prevent unnecessary re-fetches
-  const lastFetchParams = useRef<{ showOnly: string; userId?: string }>({ showOnly: '', userId: undefined });
-  
+  const lastFetchParams = useRef<{ showOnly: string; userId?: string }>({
+    showOnly: '',
+    userId: undefined,
+  });
+
   // ===== MEMOIZED DATA LOADING FUNCTIONS =====
-  const loadMetadata = useCallback(async () => {
-    await Promise.all([
-      fetchCategories(),
-      fetchProficiencyLevels()
-    ]);
+  // Note: These functions return void (fire-and-forget dispatch)
+  const loadMetadata = useCallback((): void => {
+    fetchCategories();
+    fetchProficiencyLevels();
   }, [fetchCategories, fetchProficiencyLevels]);
 
-  const loadSkillsData = useCallback(async () => {
+  const loadSkillsData = useCallback((): void => {
     if (showOnly === 'mine') {
-      await fetchUserSkills();
+      fetchUserSkills();
     } else if (showOnly === 'favorite' && user?.id) {
-      await Promise.all([
-        fetchFavoriteSkills(),
-        fetchAllSkills() // Needed for favorite filtering
-      ]);
+      fetchFavoriteSkills();
+      fetchAllSkills(); // Needed for favorite filtering
     } else {
-      await fetchAllSkills();
+      fetchAllSkills();
     }
   }, [showOnly, user?.id, fetchUserSkills, fetchAllSkills, fetchFavoriteSkills]);
 
-  // ===== STABLE DATA LOADING useEffect =====  
+  // ===== STABLE DATA LOADING useEffect =====
   useEffect(() => {
-    const loadData = async () => {
-      // Prevent unnecessary re-fetches using ref comparison
-      const currentParams = { showOnly, userId: user?.id };
-      if (
-        lastFetchParams.current.showOnly === currentParams.showOnly && 
-        lastFetchParams.current.userId === currentParams.userId
-      ) {
-        return;
-      }
-      
-      lastFetchParams.current = currentParams;
-      
-      await withLoading(LoadingKeys.FETCH_SKILLS, async () => {
-        try {
-          errorService.addBreadcrumb(`Loading skills page: ${showOnly}`, 'navigation', { 
-            showOnly, 
-            userId: user?.id 
-          });
-          
-          // Load metadata first
-          errorService.addBreadcrumb('Fetching categories and proficiency levels', 'data');
-          await loadMetadata();
+    // Prevent unnecessary re-fetches using ref comparison
+    const currentParams = { showOnly, userId: user?.id };
+    if (
+      lastFetchParams.current.showOnly === currentParams.showOnly &&
+      lastFetchParams.current.userId === currentParams.userId
+    ) {
+      return;
+    }
 
-          // Load skills data based on view type
-          errorService.addBreadcrumb('Fetching skills data', 'data', { showOnly });
-          await loadSkillsData();
-          
-          errorService.addBreadcrumb(`Successfully loaded ${showOnly} skills`, 'data');
-        } catch (error) {
-          errorService.handleError(error, 'Error loading skills data', 'SkillsPage');
-          console.error('Error loading skills data:', error);
-        }
-      });
-    };
-    
-    loadData();
-    
+    lastFetchParams.current = currentParams;
+
+    // Note: Loading state is managed by Redux (isLoadingAll, isLoadingUser, etc.)
+    errorService.addBreadcrumb(`Loading skills page: ${showOnly}`, 'navigation', {
+      showOnly,
+      userId: user?.id,
+    });
+
+    // Load metadata (fire-and-forget - Redux tracks loading)
+    errorService.addBreadcrumb('Fetching categories and proficiency levels', 'data');
+    loadMetadata();
+
+    // Load skills data based on view type
+    errorService.addBreadcrumb('Fetching skills data', 'data', { showOnly });
+    loadSkillsData();
+
+    errorService.addBreadcrumb(`Successfully loaded ${showOnly} skills`, 'data');
+
     // loadMetadata and loadSkillsData are stable due to useCallback
-  }, [showOnly, user?.id, withLoading, loadMetadata, loadSkillsData]);
+  }, [showOnly, user?.id, loadMetadata, loadSkillsData]);
 
   // ===== MEMOIZED EVENT HANDLERS =====
   const handleCreateSkill = useCallback(() => {
     if (!isOwnerView) return;
-    
+
     errorService.addBreadcrumb('Opening skill creation form', 'ui');
     setSelectedSkill(undefined);
     setIsFormOpen(true);
   }, [isOwnerView]);
 
-  const handleEditSkill = useCallback((skill: Skill) => {
-    if (isOwnerView) {
-      errorService.addBreadcrumb('Opening skill edit form', 'ui', { skillId: skill.id });
-      setSelectedSkill(skill);
-      setIsFormOpen(true);
-    } else {
-      errorService.addBreadcrumb('Navigating to skill detail', 'navigation', { skillId: skill.id });
-      navigate(`/skills/${skill.id}`);
-    }
-  }, [isOwnerView, navigate]);
+  const handleEditSkill = useCallback(
+    (skill: Skill): void => {
+      if (isOwnerView) {
+        errorService.addBreadcrumb('Opening skill edit form', 'ui', { skillId: skill.id });
+        setSelectedSkill(skill);
+        setIsFormOpen(true);
+      } else {
+        errorService.addBreadcrumb('Navigating to skill detail', 'navigation', {
+          skillId: skill.id,
+        });
+        void navigate(`/skills/${skill.id}`);
+      }
+    },
+    [isOwnerView, navigate]
+  );
 
-  const handleCreate = useCallback(async (skillData: CreateSkillRequest) => {
-    const result = await createSkill(skillData);
-    if (result.meta.requestStatus === 'fulfilled') {
+  // Note: Hook functions return void (fire-and-forget dispatch), so we close the form immediately
+  // Success/error feedback is handled via Redux state changes
+  const handleCreate = useCallback(
+    (skillData: CreateSkillRequest): void => {
+      createSkill(skillData);
       setIsFormOpen(false);
       setSelectedSkill(undefined);
-      errorService.addBreadcrumb('Skill created successfully', 'success');
-    }
-  }, [createSkill]);
+      errorService.addBreadcrumb('Skill creation dispatched', 'action');
+    },
+    [createSkill]
+  );
 
-  const handleUpdate = useCallback(async (skillId: string, updateData: UpdateSkillRequest) => {
-    const result = await updateSkill(skillId, updateData);
-    if (result.meta.requestStatus === 'fulfilled') {
+  const handleUpdate = useCallback(
+    (skillId: string, updateData: UpdateSkillRequest): void => {
+      updateSkill(skillId, updateData);
       setIsFormOpen(false);
       setSelectedSkill(undefined);
-      errorService.addBreadcrumb('Skill updated successfully', 'success');
-    }
-  }, [updateSkill]);
+      errorService.addBreadcrumb('Skill update dispatched', 'action');
+    },
+    [updateSkill]
+  );
 
-  const handleDelete = useCallback(async (skillId: string, reason?: string) => {
-    const result = await deleteSkill(skillId, reason);
-    if (result.meta.requestStatus === 'fulfilled') {
+  const handleDelete = useCallback(
+    (skillId: string, reason?: string): void => {
+      deleteSkill(skillId, reason);
       setSelectedSkill(undefined);
-      errorService.addBreadcrumb('Skill deleted successfully', 'success');
-    }
-  }, [deleteSkill]);
+      errorService.addBreadcrumb('Skill deletion dispatched', 'action');
+    },
+    [deleteSkill]
+  );
 
-  const handleToggleFavorite = useCallback(async (skillId: string, currentlyFavorite: boolean) => {
-    if (!currentlyFavorite) {
-      await addFavoriteSkill(skillId);
-    } else {
-      await removeFavoriteSkill(skillId);
-    }
-  }, [addFavoriteSkill, removeFavoriteSkill]);
+  const handleToggleFavorite = useCallback(
+    (skillId: string, currentlyFavorite: boolean): void => {
+      if (!currentlyFavorite) {
+        addFavoriteSkill(skillId);
+      } else {
+        removeFavoriteSkill(skillId);
+      }
+    },
+    [addFavoriteSkill, removeFavoriteSkill]
+  );
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = useCallback((): void => {
     // Force refresh by resetting fetch params
     lastFetchParams.current = { showOnly: '', userId: undefined };
-    
-    await withLoading(LoadingKeys.FETCH_SKILLS, async () => {
-      try {
-        await loadMetadata();
-        await loadSkillsData();
-        errorService.addBreadcrumb('Data refreshed successfully', 'success');
-      } catch (error) {
-        errorService.handleError(error, 'Error refreshing skills data', 'SkillsPage');
-      }
-    });
-  }, [withLoading, loadMetadata, loadSkillsData, showOnly, user?.id]);
+
+    // Trigger data refresh (fire-and-forget - Redux tracks loading)
+    loadMetadata();
+    loadSkillsData();
+    errorService.addBreadcrumb('Data refresh dispatched', 'action');
+  }, [loadMetadata, loadSkillsData]);
 
   // ===== MEMOIZED DATA SELECTORS =====
   const displayedSkills = useMemo(() => {
     switch (showOnly) {
       case 'mine':
-        return userSkills || [];
+        return userSkills;
       case 'favorite':
-        return favoriteSkills || [];
+        return favoriteSkills;
       default:
-        return allSkills || [];
+        return allSkills;
     }
   }, [showOnly, userSkills, favoriteSkills, allSkills]);
 
@@ -233,11 +240,20 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
       case 'mine':
         return isLoadingUser || isLoadingCategories || isLoadingProficiencyLevels;
       case 'favorite':
-        return isLoadingFavorites || isLoadingAll || isLoadingCategories || isLoadingProficiencyLevels;
+        return (
+          isLoadingFavorites || isLoadingAll || isLoadingCategories || isLoadingProficiencyLevels
+        );
       default:
         return isLoadingAll || isLoadingCategories || isLoadingProficiencyLevels;
     }
-  }, [showOnly, isLoadingAll, isLoadingUser, isLoadingFavorites, isLoadingCategories, isLoadingProficiencyLevels]);
+  }, [
+    showOnly,
+    isLoadingAll,
+    isLoadingUser,
+    isLoadingFavorites,
+    isLoadingCategories,
+    isLoadingProficiencyLevels,
+  ]);
 
   // ===== RENDER =====
   return (
@@ -253,7 +269,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
                 {pageDescription}
               </Typography>
             </Box>
-            
+
             <Box display="flex" gap={1}>
               <LoadingButton
                 loading={isLoading}
@@ -264,8 +280,8 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
               >
                 Aktualisieren
               </LoadingButton>
-              
-              {isOwnerView && (
+
+              {isOwnerView && canCreateOwnSkill && (
                 <Button
                   variant="contained"
                   color="primary"
@@ -291,9 +307,17 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
             <SkillList
               skills={displayedSkills}
               loading={isLoading}
-              onEditSkill={handleEditSkill}
-              onDeleteSkill={(skillId: string) => handleDelete(skillId)}
-              onToggleFavorite={(skill: Skill) => handleToggleFavorite(skill.id, skill.isFavorite || false)}
+              onEditSkill={canUpdateOwnSkill ? handleEditSkill : undefined}
+              onDeleteSkill={
+                canDeleteOwnSkill
+                  ? (skillId: string) => {
+                      handleDelete(skillId);
+                    }
+                  : undefined
+              }
+              onToggleFavorite={(skill: Skill) => {
+                handleToggleFavorite(skill.id, skill.isFavorite ?? false);
+              }}
               isFavorite={isFavoriteSkill}
               isOwnerView={isOwnerView}
             />
@@ -313,15 +337,15 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
           }}
           onSubmit={(skillData, skillId) => {
             if (skillId) {
-              return handleUpdate(skillId, skillData as any);
+              handleUpdate(skillId, skillData as UpdateSkillRequest);
             } else {
-              return handleCreate(skillData);
+              handleCreate(skillData);
             }
           }}
         />
 
         {/* Floating Action Button for mobile */}
-        {isOwnerView && (
+        {isOwnerView && canCreateOwnSkill && (
           <Tooltip title="Neue Skill erstellen">
             <Fab
               color="primary"
@@ -329,7 +353,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly }) => {
                 position: 'fixed',
                 bottom: 16,
                 right: 16,
-                display: { xs: 'flex', sm: 'none' }
+                display: { xs: 'flex', sm: 'none' },
               }}
               onClick={handleCreateSkill}
             >

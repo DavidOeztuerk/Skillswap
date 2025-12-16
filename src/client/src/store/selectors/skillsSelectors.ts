@@ -1,6 +1,6 @@
 import { createSelector } from '@reduxjs/toolkit';
-import { RootState } from '../store';
-import { skillsAdapter } from '../adapters/skillsAdapter+State';
+import type { RootState } from '../store';
+import { skillsAdapter, type SkillsEntityState } from '../adapters/skillsAdapter+State';
 
 /**
  * Skills Selectors
@@ -8,12 +8,13 @@ import { skillsAdapter } from '../adapters/skillsAdapter+State';
  */
 
 // Base selectors
-export const selectSkillsState = (state: RootState) => state.skills;
-export const selectSkillsLoading = (state: RootState) => state.skills.isLoading;
-export const selectSkillsError = (state: RootState) => state.skills.errorMessage;
+export const selectSkillsState = (state: RootState): SkillsEntityState => state.skills;
+export const selectSkillsLoading = (state: RootState): boolean => state.skills.isLoading;
+export const selectSkillsError = (state: RootState): string | undefined =>
+  state.skills.errorMessage;
 
 // EntityAdapter selectors
-const adapterSelectors = skillsAdapter.getSelectors<RootState>(state => state.skills);
+const adapterSelectors = skillsAdapter.getSelectors<RootState>((state) => state.skills);
 
 // Export EntityAdapter's built-in selectors
 export const {
@@ -26,14 +27,12 @@ export const {
 // Collection-specific selectors using ID arrays
 export const selectAllSkills = createSelector(
   [selectSkillEntities, (state: RootState) => state.skills.allSkillIds],
-  (entities, allSkillIds) =>
-    allSkillIds.map(id => entities[id]).filter(Boolean)
+  (entities, allSkillIds) => allSkillIds.map((id) => entities[id]).filter(Boolean)
 );
 
 export const selectUserSkills = createSelector(
   [selectSkillEntities, (state: RootState) => state.skills.userSkillIds],
-  (entities, userSkillIds) =>
-    userSkillIds.map(id => entities[id]).filter(Boolean)
+  (entities, userSkillIds) => userSkillIds.map((id) => entities[id]).filter(Boolean)
 );
 
 export const selectSkillById = createSelector(
@@ -47,13 +46,19 @@ export const selectSelectedSkillId = createSelector(
 );
 
 export const selectSelectedSkill = createSelector(
-  [selectSkillsState, selectAllSkills, selectUserSkills],
-  (skillsState, allSkills, userSkills) => {
-    if (!skillsState.selectedSkillId) return null;
-    
-    return [...allSkills, ...userSkills].find(
-      skill => skill.id === skillsState.selectedSkillId
-    ) || null;
+  [selectSkillsState, selectSkillEntities, selectAllSkills, selectUserSkills],
+  (skillsState, entities, allSkills, userSkills) => {
+    if (skillsState.selectedSkillId === null) return null;
+
+    // First check in allSkills and userSkills (from ID arrays)
+    const fromLists = [...allSkills, ...userSkills].find(
+      (skill) => skill.id === skillsState.selectedSkillId
+    );
+    if (fromLists) return fromLists;
+
+    // Fallback: check directly in entities (for skills loaded via fetchSkillById)
+    // This handles the case when navigating directly to /skills/:skillId
+    return entities[skillsState.selectedSkillId] ?? null;
   }
 );
 
@@ -70,11 +75,10 @@ export const selectIsSearchActive = createSelector(
 
 export const selectSkillSearchResults = createSelector(
   [selectSkillsState, selectAllSkills],
-  (skillsState, allSkills) => {
-    return skillsState.searchResults
-      .map(id => allSkills.find(skill => skill.id === id))
-      .filter(Boolean);
-  }
+  (skillsState, allSkills) =>
+    skillsState.searchResults
+      .map((id) => allSkills.find((skill) => skill.id === id))
+      .filter(Boolean)
 );
 
 // Favorite skills
@@ -85,51 +89,48 @@ export const selectFavoriteSkillIds = createSelector(
 
 export const selectFavoriteSkills = createSelector(
   [selectAllSkills, selectFavoriteSkillIds],
-  (allSkills, favoriteIds) => 
-    allSkills.filter(skill => favoriteIds.includes(skill.id))
+  (allSkills, favoriteIds) => allSkills.filter((skill) => favoriteIds.includes(skill.id))
 );
 
 export const selectIsSkillFavorite = createSelector(
   [selectFavoriteSkillIds],
-  (favoriteIds) => (skillId: string): boolean => 
-    favoriteIds.includes(skillId)
+  (favoriteIds) =>
+    (skillId: string): boolean =>
+      favoriteIds.includes(skillId)
 );
 
 // Filtered and computed selectors
 export const selectSkillsByCategory = createSelector(
   [selectAllSkills, (_: RootState, categoryId: string) => categoryId],
-  (skills, categoryId) => 
-    skills.filter(skill => skill.category.id === categoryId)
+  (skills, categoryId) => skills.filter((skill) => skill.category.id === categoryId)
 );
 
 export const selectFilteredSkills = createSelector(
   [selectAllSkills, selectSearchQuery],
   (skills, searchQuery) => {
     if (!searchQuery.trim()) return skills;
-    
+
     const query = searchQuery.toLowerCase();
-    return skills.filter(skill => 
-      skill.name.toLowerCase().includes(query) ||
-      skill.description?.toLowerCase().includes(query) ||
-      skill.category.name.toLowerCase().includes(query)
+    return skills.filter(
+      (skill) =>
+        skill.name.toLowerCase().includes(query) ||
+        skill.description.toLowerCase().includes(query) ||
+        skill.category.name.toLowerCase().includes(query)
     );
   }
 );
 
 export const selectSkillsByProficiencyLevel = createSelector(
   [selectAllSkills, (_: RootState, levelId: string) => levelId],
-  (skills, levelId) => 
-    skills.filter(skill => skill.proficiencyLevel.id === levelId)
+  (skills, levelId) => skills.filter((skill) => skill.proficiencyLevel.id === levelId)
 );
 
-export const selectOfferedSkills = createSelector(
-  [selectAllSkills],
-  (skills) => skills.filter(skill => skill.isOffered)
+export const selectOfferedSkills = createSelector([selectAllSkills], (skills) =>
+  skills.filter((skill) => skill.isOffered)
 );
 
-export const selectWantedSkills = createSelector(
-  [selectAllSkills],
-  (skills) => skills.filter(skill => !skill.isOffered)
+export const selectWantedSkills = createSelector([selectAllSkills], (skills) =>
+  skills.filter((skill) => !skill.isOffered)
 );
 
 // Statistics and analytics
@@ -139,31 +140,29 @@ export const selectSkillsStatistics = createSelector(
     totalSkills: allSkills.length,
     userSkillsCount: userSkills.length,
     favoriteSkillsCount: favoriteSkills.length,
-    offeredSkillsCount: allSkills.filter(skill => skill.isOffered).length,
-    wantedSkillsCount: allSkills.filter(skill => !skill.isOffered).length
+    offeredSkillsCount: allSkills.filter((skill) => skill.isOffered).length,
+    wantedSkillsCount: allSkills.filter((skill) => !skill.isOffered).length,
   })
 );
 
-export const selectPopularTags = createSelector(
-  [selectAllSkills],
-  (skills) => {
-    const tagCounts: Record<string, number> = {};
-    
-    skills.forEach(skill => {
-      if (skill.tagsJson) {
-        const tags = skill.tagsJson.split(',').map(tag => tag.trim()).filter(Boolean);
-        tags.forEach(tag => {
-          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-        });
-      }
+export const selectPopularTags = createSelector([selectAllSkills], (skills) => {
+  const tagCounts: Record<string, number> = {};
+
+  skills.forEach((skill) => {
+    const tags = skill.tagsJson
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    tags.forEach((tag) => {
+      tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
     });
-    
-    return Object.entries(tagCounts)
-      .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-  }
-);
+  });
+
+  return Object.entries(tagCounts)
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+});
 
 // Pagination selectors
 export const selectAllSkillsPagination = createSelector(
@@ -195,4 +194,24 @@ export const selectSkillStatistics = createSelector(
 export const selectPopularTagsFromState = createSelector(
   [selectSkillsState],
   (skillsState) => skillsState.popularTags
+);
+
+/**
+ * Select top 6 featured skills for homepage display
+ * Sort by averageRating (descending), fallback to createdAt (newest first)
+ */
+export const selectFeaturedSkills = createSelector([selectAllSkills], (skills) =>
+  [...skills]
+    .sort((a, b) => {
+      // Primary: Sort by rating (descending) - higher ratings first
+      const ratingA = a.averageRating ?? 0;
+      const ratingB = b.averageRating ?? 0;
+      if (ratingA !== ratingB) return ratingB - ratingA;
+
+      // Fallback: Sort by createdAt (newest first)
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    })
+    .slice(0, 6)
 );

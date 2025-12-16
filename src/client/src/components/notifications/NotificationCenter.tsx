@@ -1,14 +1,13 @@
-// src/components/notifications/NotificationCenter.tsx
-import React, { useState } from 'react';
+import React, { type JSX, useState } from 'react';
 import {
   Drawer,
   Box,
   Typography,
   IconButton,
   List,
+  ListItem,
   ListItemText,
   ListItemIcon,
-  ListItemSecondaryAction,
   Chip,
   Button,
   Divider,
@@ -38,7 +37,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../hooks/useNotifications';
-import { Notification, NotificationType } from '../../types/models/Notification';
+import { type Notification, NotificationType } from '../../types/models/Notification';
 import EmptyState from '../ui/EmptyState';
 import SkeletonLoader from '../ui/SkeletonLoader';
 
@@ -47,7 +46,7 @@ interface NotificationCenterProps {
   onClose: () => void;
 }
 
-const getNotificationIcon = (type: NotificationType) => {
+const getNotificationIcon = (type: NotificationType): JSX.Element => {
   switch (type) {
     case NotificationType.MatchRequest:
       return <PersonAddIcon />;
@@ -70,7 +69,9 @@ const getNotificationIcon = (type: NotificationType) => {
   }
 };
 
-const getNotificationColor = (type: NotificationType) => {
+const getNotificationColor = (
+  type: NotificationType
+): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   switch (type) {
     case NotificationType.MatchAccepted:
       return 'success';
@@ -92,10 +93,7 @@ const getNotificationColor = (type: NotificationType) => {
 /**
  * Notification Center Component für die Anzeige aller Benachrichtigungen
  */
-const NotificationCenter: React.FC<NotificationCenterProps> = ({
-  open,
-  onClose,
-}) => {
+const NotificationCenter: React.FC<NotificationCenterProps> = ({ open, onClose }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
@@ -111,21 +109,21 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedNotification, setSelectedNotification] = useState<string | null>(null);
 
-  const handleMenuClick = (event: React.MouseEvent<HTMLElement>, notificationId: string) => {
+  const handleMenuClick = (event: React.MouseEvent<HTMLElement>, notificationId: string): void => {
     event.stopPropagation();
     setMenuAnchorEl(event.currentTarget);
     setSelectedNotification(notificationId);
   };
 
-  const handleMenuClose = () => {
+  const handleMenuClose = (): void => {
     setMenuAnchorEl(null);
     setSelectedNotification(null);
   };
 
-  const handleNotificationClick = async (notification: Notification) => {
+  const handleNotificationClick = (notification: Notification): void => {
     // Mark as read
     if (!notification.isRead) {
-      await markAsRead(notification.id);
+      markAsRead(notification.id);
     }
 
     // Navigate to the action URL if available
@@ -134,24 +132,24 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       onClose();
 
       // Use navigate for SPA routing (no page reload)
-      navigate(notification.actionUrl);
+      void navigate(notification.actionUrl);
     }
   };
 
-  const handleMarkAllAsRead = async () => {
-    await markAllAsRead();
+  const handleMarkAllAsRead = (): void => {
+    markAllAsRead();
   };
 
-  const handleDeleteNotification = async () => {
+  const handleDeleteNotification = (): void => {
     if (selectedNotification) {
-      await deleteNotificationById(selectedNotification);
+      deleteNotificationById(selectedNotification);
       handleMenuClose();
     }
   };
 
-  const handleMarkAsRead = async () => {
+  const handleMarkAsRead = (): void => {
     if (selectedNotification) {
-      await markAsRead(selectedNotification);
+      markAsRead(selectedNotification);
       handleMenuClose();
     }
   };
@@ -195,7 +193,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
           </Box>
 
           {/* Actions */}
-          {notifications?.length > 0 && (
+          {notifications.length > 0 && (
             <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
               <Button
                 startIcon={<DoneAllIcon />}
@@ -212,79 +210,88 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
           <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
             {isLoading ? (
               <SkeletonLoader variant="list" count={5} />
-            ) : notifications?.length === 0 ? (
+            ) : notifications.length === 0 ? (
               <EmptyState
                 icon={<NotificationsIcon />}
                 title="Keine Benachrichtigungen"
-                description={"Du hast momentan keine Benachrichtigungen."}
+                description={'Du hast momentan keine Benachrichtigungen.'}
               />
             ) : (
               <List disablePadding>
                 {notifications.map((notification, index) => (
                   <React.Fragment key={notification.id}>
-                    <ListItemButton
-  onClick={() => handleNotificationClick(notification)}
-  sx={{
-    backgroundColor: notification.isRead
-      ? 'transparent'
-      : theme.palette.action.hover,
-    '&:hover': {
-      backgroundColor: theme.palette.action.selected,
-    },
-  }}
->
-
-                      <ListItemIcon>
-                        {getNotificationIcon(notification.type)}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography
-                              variant="subtitle2"
-                              sx={{
-                                fontWeight: notification.isRead ? 'normal' : 'bold',
-                                flex: 1,
-                              }}
-                            >
-                              {notification.title}
-                            </Typography>
-                            <Chip
-                              size="small"
-                              label={notification.type}
-                              color={getNotificationColor(notification.type) as 
-                                'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'}
-                              variant="outlined"
-                            />
-                          </Box>
-                        }
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">
-                              {notification.message}
-                            </Typography>
-                            <Typography variant="caption" color="text.disabled">
-                              {formatDistanceToNow(new Date(notification.createdAt), {
-                                addSuffix: true,
-                                locale: de,
-                              })}
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                      <ListItemSecondaryAction>
+                    <ListItem
+                      disablePadding
+                      secondaryAction={
                         <Tooltip title="Optionen">
                           <IconButton
                             edge="end"
                             size="small"
-                            onClick={(e) => handleMenuClick(e, notification.id)}
+                            onClick={(e) => {
+                              handleMenuClick(e, notification.id);
+                            }}
                           >
                             <MoreVertIcon />
                           </IconButton>
                         </Tooltip>
-                      </ListItemSecondaryAction>
-                    </ListItemButton>
-                    {index < notifications?.length - 1 && <Divider />}
+                      }
+                    >
+                      <ListItemButton
+                        onClick={() => {
+                          handleNotificationClick(notification);
+                        }}
+                        sx={{
+                          backgroundColor: notification.isRead
+                            ? 'transparent'
+                            : theme.palette.action.hover,
+                          '&:hover': {
+                            backgroundColor: theme.palette.action.selected,
+                          },
+                        }}
+                      >
+                        <ListItemIcon>{getNotificationIcon(notification.type)}</ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography
+                                variant="subtitle2"
+                                sx={{
+                                  fontWeight: notification.isRead ? 'normal' : 'bold',
+                                  flex: 1,
+                                }}
+                              >
+                                {notification.title}
+                              </Typography>
+                              <Chip
+                                size="small"
+                                label={notification.type}
+                                color={getNotificationColor(notification.type)}
+                                variant="outlined"
+                              />
+                            </Box>
+                          }
+                          secondary={
+                            <>
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ display: 'block' }}
+                              >
+                                {notification.message}
+                              </Typography>
+                              <Typography component="span" variant="caption" color="text.disabled">
+                                {formatDistanceToNow(new Date(notification.createdAt), {
+                                  addSuffix: true,
+                                  locale: de,
+                                })}
+                              </Typography>
+                            </>
+                          }
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                    {index < notifications.length - 1 && <Divider />}
                   </React.Fragment>
                 ))}
               </List>
@@ -294,19 +301,16 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       </Drawer>
 
       {/* Context Menu */}
-      <Menu
-        anchorEl={menuAnchorEl}
-        open={Boolean(menuAnchorEl)}
-        onClose={handleMenuClose}
-      >
-        {selectedNotification && !notifications.find(n => n.id === selectedNotification)?.isRead && (
-          <MenuItem onClick={handleMarkAsRead}>
-            <ListItemIcon>
-              <CheckCircleIcon fontSize="small" />
-            </ListItemIcon>
-            Als gelesen markieren
-          </MenuItem>
-        )}
+      <Menu anchorEl={menuAnchorEl} open={Boolean(menuAnchorEl)} onClose={handleMenuClose}>
+        {selectedNotification &&
+          !notifications.find((n) => n.id === selectedNotification)?.isRead && (
+            <MenuItem onClick={handleMarkAsRead}>
+              <ListItemIcon>
+                <CheckCircleIcon fontSize="small" />
+              </ListItemIcon>
+              Als gelesen markieren
+            </MenuItem>
+          )}
         <MenuItem onClick={handleDeleteNotification}>
           <ListItemIcon>
             <DeleteIcon fontSize="small" />

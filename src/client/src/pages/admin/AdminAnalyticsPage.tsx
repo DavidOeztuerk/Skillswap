@@ -34,22 +34,22 @@ const AdminAnalyticsPage: React.FC = () => {
     fetchAdminAnalytics(timeRange as '7d' | '30d' | '90d' | '1y');
   }, [fetchAdminAnalytics, timeRange]);
 
-  if (isLoadingAnalytics && !analytics) {
+  if (isLoadingAnalytics && analytics === undefined) {
     return <PageLoader variant="dashboard" message="Lade Analytics..." />;
   }
 
   const metrics = {
-    totalUsers: analytics?.totalUsers || 0,
-    activeUsers: analytics?.activeUsers || 0,
-    totalSkills: analytics?.totalSkills || 0,
-    totalMatches: analytics?.totalMatches || 0,
-    totalAppointments: analytics?.totalAppointments || 0,
-    completedAppointments: analytics?.completedAppointments || 0,
-    userGrowthRate: analytics?.userGrowthRate || 0,
-    matchSuccessRate: analytics?.matchSuccessRate || 0,
+    totalUsers: analytics?.totalUsers ?? 0,
+    activeUsers: analytics?.activeUsers ?? 0,
+    totalSkills: analytics?.totalSkills ?? 0,
+    totalMatches: analytics?.totalMatches ?? 0,
+    totalAppointments: analytics?.totalAppointments ?? 0,
+    completedAppointments: analytics?.completedAppointments ?? 0,
+    userGrowthRate: analytics?.userGrowthRate ?? 0,
+    matchSuccessRate: analytics?.matchSuccessRate ?? 0,
   };
 
-  const topSkills: Array<{ name: string; count: number }> = analytics?.topSkills || [
+  const topSkills: { name: string; count: number }[] = analytics?.topSkills ?? [
     { name: 'JavaScript', count: 45 },
     { name: 'React', count: 38 },
     { name: 'Python', count: 32 },
@@ -57,7 +57,12 @@ const AdminAnalyticsPage: React.FC = () => {
     { name: 'Node.js', count: 25 },
   ];
 
-  const recentActivity: Array<{ date: string; newUsers: number; newMatches: number; newAppointments: number }> = analytics?.recentActivity || [
+  const recentActivity: {
+    date: string;
+    newUsers: number;
+    newMatches: number;
+    newAppointments: number;
+  }[] = analytics?.recentActivity ?? [
     { date: '2025-01-08', newUsers: 12, newMatches: 8, newAppointments: 15 },
     { date: '2025-01-07', newUsers: 15, newMatches: 10, newAppointments: 18 },
     { date: '2025-01-06', newUsers: 8, newMatches: 6, newAppointments: 12 },
@@ -72,7 +77,9 @@ const AdminAnalyticsPage: React.FC = () => {
         <TextField
           select
           value={timeRange}
-          onChange={(e) => setTimeRange(e.target.value)}
+          onChange={(e) => {
+            setTimeRange(e.target.value);
+          }}
           sx={{ minWidth: 150 }}
           size="small"
         >
@@ -96,13 +103,9 @@ const AdminAnalyticsPage: React.FC = () => {
                 {metrics.totalUsers}
               </Typography>
               <Box display="flex" alignItems="center" gap={1} mt={1}>
-                <Chip
-                  label={`${metrics.activeUsers} aktiv`}
-                  color="success"
-                  size="small"
-                />
+                <Chip label={`${String(metrics.activeUsers)} aktiv`} color="success" size="small" />
                 <Typography variant="caption" color="success.main">
-                  +{metrics.userGrowthRate}% Wachstum
+                  +{String(metrics.userGrowthRate)}% Wachstum
                 </Typography>
               </Box>
             </CardContent>
@@ -195,7 +198,12 @@ const AdminAnalyticsPage: React.FC = () => {
                           <TableCell>{skill.name}</TableCell>
                           <TableCell align="right">{skill.count}</TableCell>
                           <TableCell align="right">
-                            <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
+                            <Box
+                              display="flex"
+                              alignItems="center"
+                              justifyContent="flex-end"
+                              gap={1}
+                            >
                               <LinearProgress
                                 variant="determinate"
                                 value={Number(percentage)}
@@ -265,22 +273,20 @@ const AdminAnalyticsPage: React.FC = () => {
                   <Typography color="textSecondary" variant="body2">
                     Durchschnittliche Session-Dauer
                   </Typography>
-                  <Typography variant="h5">
-                    {analytics?.avgSessionDuration || '12m 34s'}
-                  </Typography>
+                  <Typography variant="h5">{analytics?.avgSessionDuration ?? '12m 34s'}</Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Typography color="textSecondary" variant="body2">
                     Sessions pro Nutzer
                   </Typography>
-                  <Typography variant="h5">{analytics?.sessionsPerUser || '3.2'}</Typography>
+                  <Typography variant="h5">{analytics?.sessionsPerUser ?? '3.2'}</Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Typography color="textSecondary" variant="body2">
                     Match-zu-Termin Conversion
                   </Typography>
                   <Typography variant="h5" color="success.main">
-                    {analytics?.matchToAppointmentRate || '68%'}
+                    {analytics?.matchToAppointmentRate ?? '68%'}
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -288,7 +294,7 @@ const AdminAnalyticsPage: React.FC = () => {
                     Durchschnittliche Bewertung
                   </Typography>
                   <Typography variant="h5" color="warning.main">
-                    {analytics?.avgRating || '4.6'} ⭐
+                    {analytics?.avgRating ?? '4.6'} ⭐
                   </Typography>
                 </Grid>
               </Grid>

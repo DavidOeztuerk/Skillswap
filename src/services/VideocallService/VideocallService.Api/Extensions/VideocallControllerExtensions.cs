@@ -34,23 +34,33 @@ public static class VideocallControllerExtensions
                 return Results.NotFound(new { error = "Appointment not found" });
             }
 
-            // Log user ID mapping
+            // KORRIGIERT: Match-Rollen verwenden (konstant über gesamte Session)
+            // - MatchRequesterId = Der User der die ursprüngliche Matchanfrage gestellt hat (INITIATOR)
+            // - MatchTargetUserId = Der Skill-Besitzer (PARTICIPANT)
+            var initiatorUserId = appointment.MatchRequesterId ?? appointment.OrganizerUserId;
+            var participantUserId = appointment.MatchTargetUserId ?? appointment.ParticipantUserId;
+
+            if (string.IsNullOrEmpty(initiatorUserId) || string.IsNullOrEmpty(participantUserId))
+            {
+                logger.LogWarning("⚠️ [CreateCallSession/Internal] Appointment {AppointmentId} has no Match data - falling back to Organizer/Participant roles",
+                    request.AppointmentId);
+            }
+
             logger.LogInformation(
-                "🔍 [CreateCallSession] Mapping user IDs from Appointment {AppointmentId}: " +
-                "OrganizerUserId={OrganizerUserId} → InitiatorUserId, " +
-                "ParticipantUserId={ParticipantUserId} → ParticipantUserId",
+                "🔍 [CreateCallSession/Internal] Mapping user IDs from Appointment {AppointmentId}: " +
+                "InitiatorUserId={InitiatorUserId} (MatchRequester), ParticipantUserId={ParticipantUserId} (MatchTarget)",
                 request.AppointmentId,
-                appointment.OrganizerUserId,
-                appointment.ParticipantUserId);
+                initiatorUserId,
+                participantUserId);
 
             var command = new CreateCallSessionCommand(
-                appointment.ParticipantUserId,
+                participantUserId,
                 request.AppointmentId,
                 appointment.MatchId,
                 false,
                 request.MaxParticipants)
             {
-                UserId = appointment.OrganizerUserId
+                UserId = initiatorUserId
             };
             return await mediator.SendCommand(command);
         })
@@ -61,12 +71,62 @@ public static class VideocallControllerExtensions
         // Grouped endpoints for calls
         RouteGroupBuilder calls = builder.MapGroup("/api/calls").WithTags("VideoCalls");
 
-        calls.MapPost("/create", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] CreateCallSessionRequest request) =>
+        calls.MapPost("/create", async (IMediator mediator, IServiceCommunicationManager serviceCommunication, ILogger<Program> logger, ClaimsPrincipal claims, [FromBody] CreateCallSessionRequest request) =>
         {
             var userId = claims.GetUserId();
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-            var command = new CreateCallSessionCommand(userId, request.AppointmentId, null, false, request.MaxParticipants) { UserId = userId };
+            // Fetch appointment details to get the Match roles
+            var appointment = await serviceCommunication.GetAsync<GetAppointmentDetailsResponse>(
+                "AppointmentService",
+                $"/api/appointments/{request.AppointmentId}");
+
+            if (appointment == null)
+            {
+                logger.LogWarning("❌ [CreateCallSession] Appointment not found: {AppointmentId}", request.AppointmentId);
+                return Results.NotFound(new { error = "Appointment not found" });
+            }
+
+            // Check if user is part of the appointment (via OrganizerUserId or ParticipantUserId)
+            var isPartOfAppointment = appointment.OrganizerUserId == userId || appointment.ParticipantUserId == userId;
+            if (!isPartOfAppointment)
+            {
+                logger.LogWarning("❌ [CreateCallSession] User {UserId} is not part of appointment {AppointmentId}", userId, request.AppointmentId);
+                return Results.Forbid();
+            }
+
+            // WICHTIG: Initiator/Participant kommen aus dem MATCH, nicht aus der Appointment-Session!
+            // - MatchRequesterId = Der User der die ursprüngliche Matchanfrage gestellt hat (INITIATOR)
+            // - MatchTargetUserId = Der Skill-Besitzer (PARTICIPANT)
+            // Diese Rollen sind KONSTANT durch die gesamte Kette und ändern sich NICHT
+            // basierend darauf, wer den Call startet!
+            var initiatorUserId = appointment.MatchRequesterId;
+            var participantUserId = appointment.MatchTargetUserId;
+
+            // Fallback für ältere Appointments ohne Match-Daten
+            if (string.IsNullOrEmpty(initiatorUserId) || string.IsNullOrEmpty(participantUserId))
+            {
+                logger.LogWarning("⚠️ [CreateCallSession] Appointment {AppointmentId} has no Match data - falling back to Organizer/Participant roles",
+                    request.AppointmentId);
+                initiatorUserId = appointment.OrganizerUserId;
+                participantUserId = appointment.ParticipantUserId;
+            }
+
+            logger.LogInformation(
+                "🔍 [CreateCallSession] Creating session for appointment {AppointmentId}: " +
+                "InitiatorUserId={InitiatorUserId} (MatchRequester), ParticipantUserId={ParticipantUserId} (MatchTarget), " +
+                "CurrentUser={CurrentUserId}",
+                request.AppointmentId, initiatorUserId, participantUserId, userId);
+
+            var command = new CreateCallSessionCommand(
+                participantUserId,
+                request.AppointmentId,
+                appointment.MatchId,
+                false,
+                request.MaxParticipants)
+            {
+                UserId = initiatorUserId  // IMMER der Match-Requester, NICHT der aktuelle User!
+            };
             return await mediator.SendCommand(command);
         })
         .WithName("CreateCallSession")
@@ -150,6 +210,20 @@ public static class VideocallControllerExtensions
         .WithName("GetCallSessionConfig")
         .WithSummary("Get call session configuration")
         .WithDescription("Retrieves configuration for a specific call session (alias for GetCallSession).");
+
+        // Chat history endpoint - retrieve chat messages for a session
+        calls.MapGet("/{sessionId}/chat-history", async (IMediator mediator, ClaimsPrincipal claims, string sessionId, int? limit) =>
+        {
+            var userId = claims.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new GetChatHistoryQuery(sessionId, limit ?? 50);
+            return await mediator.SendQuery(query);
+        })
+        .WithName("GetChatHistory")
+        .WithSummary("Get chat history for a call session")
+        .WithDescription("Retrieves chat message history for a video call session. Messages are persisted for later retrieval.")
+        .RequireAuthorization();
 
         // Grouped endpoints for user call history
         var myCalls = builder.MapGroup("/api/my/calls").WithTags("VideoCalls");

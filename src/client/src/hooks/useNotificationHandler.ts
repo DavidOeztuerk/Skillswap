@@ -1,6 +1,10 @@
 import { useState, useCallback } from 'react';
-import { AlertColor } from '@mui/material';
-import { extractErrorFromResponse, ErrorDetails } from '../utils/errorMessages';
+import type { AlertColor } from '@mui/material';
+import {
+  extractErrorFromResponse,
+  type ErrorDetails,
+  type ApiErrorResponse,
+} from '../utils/errorMessages';
 
 export interface NotificationState {
   title: string;
@@ -45,7 +49,14 @@ export interface NotificationState {
  * );
  * ```
  */
-export const useNotificationHandler = () => {
+export const useNotificationHandler = (): {
+  notification: NotificationState | null;
+  handleError: (apiResponse: ApiErrorResponse | null | undefined, fallbackMessage?: string) => void;
+  handleSuccess: (message: string, title?: string) => void;
+  handleWarning: (message: string, title?: string) => void;
+  handleInfo: (message: string, title?: string) => void;
+  clearNotification: () => void;
+} => {
   const [notification, setNotification] = useState<NotificationState | null>(null);
 
   /**
@@ -54,19 +65,22 @@ export const useNotificationHandler = () => {
    * @param apiResponse - Die API-Response oder ein Error-Objekt
    * @param fallbackMessage - Optional: Fallback-Nachricht, falls keine Details verfügbar
    */
-  const handleError = useCallback((apiResponse: any, fallbackMessage?: string) => {
-    const errorDetails: ErrorDetails = extractErrorFromResponse(apiResponse);
+  const handleError = useCallback(
+    (apiResponse: ApiErrorResponse | null | undefined, fallbackMessage?: string) => {
+      const errorDetails: ErrorDetails = extractErrorFromResponse(apiResponse);
 
-    setNotification({
-      title: errorDetails.title,
-      message: fallbackMessage || errorDetails.message,
-      severity: 'error',
-      code: errorDetails.code,
-    });
+      setNotification({
+        title: errorDetails.title,
+        message: fallbackMessage ?? errorDetails.message,
+        severity: 'error',
+        code: errorDetails.code,
+      });
 
-    // Log für Debugging
-    console.error('Error handled:', errorDetails);
-  }, []);
+      // Log für Debugging
+      console.error('Error handled:', errorDetails);
+    },
+    []
+  );
 
   /**
    * Zeigt eine Erfolgs-Nachricht an
@@ -74,7 +88,7 @@ export const useNotificationHandler = () => {
    * @param message - Die Erfolgs-Nachricht
    * @param title - Optional: Titel der Nachricht
    */
-  const handleSuccess = useCallback((message: string, title: string = 'Erfolg') => {
+  const handleSuccess = useCallback((message: string, title = 'Erfolg') => {
     setNotification({
       title,
       message,
@@ -88,7 +102,7 @@ export const useNotificationHandler = () => {
    * @param message - Die Warn-Nachricht
    * @param title - Optional: Titel der Nachricht
    */
-  const handleWarning = useCallback((message: string, title: string = 'Warnung') => {
+  const handleWarning = useCallback((message: string, title = 'Warnung') => {
     setNotification({
       title,
       message,
@@ -102,7 +116,7 @@ export const useNotificationHandler = () => {
    * @param message - Die Info-Nachricht
    * @param title - Optional: Titel der Nachricht
    */
-  const handleInfo = useCallback((message: string, title: string = 'Information') => {
+  const handleInfo = useCallback((message: string, title = 'Information') => {
     setNotification({
       title,
       message,

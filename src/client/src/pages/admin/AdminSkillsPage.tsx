@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -17,6 +17,7 @@ import {
   Grid,
   Stack,
   MenuItem,
+  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -24,15 +25,27 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   FilterList as FilterIcon,
+  VerifiedUser as VerifyIcon,
 } from '@mui/icons-material';
 import { useSkills } from '../../hooks/useSkills';
+import { usePermissions } from '../../contexts/permissionContextHook';
+import { Permissions } from '../../components/auth/permissions.constants';
 import PageLoader from '../../components/ui/PageLoader';
 import EmptyState from '../../components/ui/EmptyState';
 
 const AdminSkillsPage: React.FC = () => {
   const { allSkills, isLoading, fetchAllSkills } = useSkills();
+  const { hasPermission } = usePermissions();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [categoryFilter, setCategoryFilter] = React.useState<string>('all');
+
+  // Memoize permission checks
+  const canVerifySkills = useMemo(() => hasPermission(Permissions.Skills.VERIFY), [hasPermission]);
+  const canManageSkills = useMemo(() => hasPermission(Permissions.Skills.MANAGE), [hasPermission]);
+  const canViewAllSkills = useMemo(
+    () => hasPermission(Permissions.Skills.VIEW_ALL),
+    [hasPermission]
+  );
 
   useEffect(() => {
     fetchAllSkills({ pageNumber: 1, pageSize: 100 });
@@ -42,26 +55,27 @@ const AdminSkillsPage: React.FC = () => {
     const matchesSearch =
       searchQuery === '' ||
       skill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      skill.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      skill.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory =
-      categoryFilter === 'all' || skill.category.id === categoryFilter;
+    const matchesCategory = categoryFilter === 'all' || skill.category.id === categoryFilter;
 
     return matchesSearch && matchesCategory;
   });
 
-  const categories = Array.from(
-    new Set(allSkills.map((s) => s.category.id))
-  ).map((id) => allSkills.find((s) => s.category.id === id)?.category);
+  const categories = Array.from(new Set(allSkills.map((s) => s.category.id))).map(
+    (id) => allSkills.find((s) => s.category.id === id)?.category
+  );
 
   const stats = {
     total: allSkills.length,
     offered: allSkills.filter((s) => s.isOffered).length,
     wanted: allSkills.filter((s) => !s.isOffered).length,
-    averageRating: allSkills.length > 0 ? (
-      allSkills.reduce((acc, s) => acc + (s.averageRating || 0), 0) /
-      allSkills.length
-    ).toFixed(1) : '0.0',
+    averageRating:
+      allSkills.length > 0
+        ? (
+            allSkills.reduce((acc, s) => acc + (s.averageRating ?? 0), 0) / allSkills.length
+          ).toFixed(1)
+        : '0.0',
   };
 
   if (isLoading && allSkills.length === 0) {
@@ -131,35 +145,45 @@ const AdminSkillsPage: React.FC = () => {
             <TextField
               placeholder="Suche nach Skill..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
               sx={{ flexGrow: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
             <TextField
               select
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value);
+              }}
               sx={{ minWidth: 200 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             >
               <MenuItem value="all">Alle Kategorien</MenuItem>
-              {categories.filter(Boolean).map((cat) => (
-                <MenuItem key={cat!.id} value={cat!.id}>
-                  {cat!.name}
-                </MenuItem>
-              ))}
+              {categories
+                .filter((cat): cat is NonNullable<typeof cat> => Boolean(cat))
+                .map((cat) => (
+                  <MenuItem key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </MenuItem>
+                ))}
             </TextField>
           </Stack>
         </CardContent>
@@ -198,7 +222,7 @@ const AdminSkillsPage: React.FC = () => {
                         label={skill.category.name}
                         size="small"
                         sx={{
-                          backgroundColor: skill.category.color || undefined,
+                          backgroundColor: skill.category.color ?? undefined,
                         }}
                       />
                     </TableCell>
@@ -210,20 +234,42 @@ const AdminSkillsPage: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {skill.averageRating?.toFixed(1) || 'N/A'} ⭐ (
-                      {skill.reviewCount || 0})
+                      {skill.averageRating?.toFixed(1) ?? 'N/A'} ⭐ ({skill.reviewCount ?? 0})
                     </TableCell>
-                    <TableCell>{skill.endorsementCount || 0}</TableCell>
+                    <TableCell>{skill.endorsementCount}</TableCell>
                     <TableCell>
-                      <IconButton size="small" color="primary">
-                        <ViewIcon />
-                      </IconButton>
-                      <IconButton size="small" color="default">
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton size="small" color="error">
-                        <DeleteIcon />
-                      </IconButton>
+                      {/* View - available to anyone with VIEW_ALL permission */}
+                      {canViewAllSkills && (
+                        <Tooltip title="Details anzeigen">
+                          <IconButton size="small" color="primary">
+                            <ViewIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {/* Verify - requires VERIFY permission */}
+                      {canVerifySkills && (
+                        <Tooltip title="Skill verifizieren">
+                          <IconButton size="small" color="success">
+                            <VerifyIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {/* Edit - requires MANAGE permission */}
+                      {canManageSkills && (
+                        <Tooltip title="Bearbeiten">
+                          <IconButton size="small" color="default">
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {/* Delete - requires MANAGE permission */}
+                      {canManageSkills && (
+                        <Tooltip title="Löschen">
+                          <IconButton size="small" color="error">
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

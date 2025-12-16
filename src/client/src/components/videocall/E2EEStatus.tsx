@@ -9,7 +9,7 @@
  * - Key generation number
  */
 
-import React, { useState } from 'react';
+import React, { type JSX, useState } from 'react';
 import {
   Box,
   Chip,
@@ -33,7 +33,7 @@ import {
   Refresh as RefreshIcon,
   WarningAmber as WarningIcon,
 } from '@mui/icons-material';
-import { E2EEStatus } from '../../store/adapters/videoCallAdapter+State';
+import type { E2EEStatus } from '../../store/adapters/videoCallAdapter+State';
 
 interface E2EEStatusProps {
   status: E2EEStatus;
@@ -89,7 +89,7 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
   /**
    * Get status icon
    */
-  const getStatusIcon = () => {
+  const getStatusIcon = (): JSX.Element => {
     switch (status) {
       case 'active':
         return <LockIcon fontSize="small" />;
@@ -114,7 +114,7 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
       case 'key-exchange':
         return 'Exchanging Keys...';
       case 'active':
-        return `Encrypted (Gen ${keyGeneration})`;
+        return `Encrypted (Gen ${String(keyGeneration)})`;
       case 'key-rotation':
         return 'Rotating Keys...';
       case 'error':
@@ -161,7 +161,9 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
           label={getStatusLabel()}
           color={getStatusColor()}
           size="small"
-          onClick={() => setShowDetails(true)}
+          onClick={() => {
+            setShowDetails(true);
+          }}
           sx={{
             cursor: 'pointer',
             fontWeight: 'medium',
@@ -175,12 +177,16 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
       {/* Details Dialog */}
       <Dialog
         open={showDetails}
-        onClose={() => setShowDetails(false)}
+        onClose={() => {
+          setShowDetails(false);
+        }}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 2,
+            },
           },
         }}
       >
@@ -224,9 +230,13 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
             )}
 
             {/* Key Fingerprints */}
-            {(localFingerprint || remoteFingerprint) && (
+            {(localFingerprint !== null || remoteFingerprint !== null) && (
               <Box>
-                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography
+                  variant="subtitle2"
+                  gutterBottom
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                >
                   Security Verification
                   <Tooltip title="Compare these fingerprints with your peer to detect man-in-the-middle attacks">
                     <InfoIcon fontSize="small" color="action" />
@@ -351,13 +361,16 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
                       </Typography>
                     </Box>
 
-                    {(encryptionStats.encryptionErrors > 0 || encryptionStats.decryptionErrors > 0) && (
+                    {(encryptionStats.encryptionErrors > 0 ||
+                      encryptionStats.decryptionErrors > 0) && (
                       <Box>
                         <Typography variant="caption" color="text.secondary" display="block">
                           Errors
                         </Typography>
                         <Typography variant="body2" fontWeight="medium" color="error.main">
-                          {(encryptionStats.encryptionErrors + encryptionStats.decryptionErrors).toLocaleString()}
+                          {(
+                            encryptionStats.encryptionErrors + encryptionStats.decryptionErrors
+                          ).toLocaleString()}
                         </Typography>
                       </Box>
                     )}
@@ -404,7 +417,12 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
             </Button>
           )}
 
-          <Button onClick={() => setShowDetails(false)} color="primary">
+          <Button
+            onClick={() => {
+              setShowDetails(false);
+            }}
+            color="primary"
+          >
             Close
           </Button>
         </DialogActions>

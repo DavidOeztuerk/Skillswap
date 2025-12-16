@@ -1,6 +1,5 @@
-// src/components/forms/AccessibleButton.tsx
 import React from 'react';
-import { Button, ButtonProps, CircularProgress, Box } from '@mui/material';
+import { Button, type ButtonProps, CircularProgress, Box } from '@mui/material';
 
 interface AccessibleButtonProps extends ButtonProps {
   loading?: boolean;
@@ -28,10 +27,11 @@ const AccessibleButton: React.FC<AccessibleButtonProps> = ({
 }) => {
   // Determine current state
   const currentState = loading ? 'loading' : state;
-  const isDisabled = disabled || loading;
+  const isDisabled = disabled === true || loading;
+  const buttonId = props.id ?? 'button';
 
   // Get appropriate text and ARIA attributes based on state
-  const getButtonContent = () => {
+  const getButtonContent = (): React.ReactNode => {
     switch (currentState) {
       case 'loading':
         return (
@@ -41,28 +41,28 @@ const AccessibleButton: React.FC<AccessibleButtonProps> = ({
           </Box>
         );
       case 'success':
-        return successText || children;
+        return successText ?? children;
       case 'error':
-        return errorText || children;
+        return errorText ?? children;
       default:
         return children;
     }
   };
 
-  const getAriaLabel = () => {
+  const getAriaLabel = (): string | undefined => {
     switch (currentState) {
       case 'loading':
         return loadingText;
       case 'success':
-        return successText || (typeof children === 'string' ? children : undefined);
+        return successText ?? (typeof children === 'string' ? children : undefined);
       case 'error':
-        return errorText || (typeof children === 'string' ? children : undefined);
+        return errorText ?? (typeof children === 'string' ? children : undefined);
       default:
         return typeof children === 'string' ? children : undefined;
     }
   };
 
-  const getAriaDescription = () => {
+  const getAriaDescription = (): string | undefined => {
     switch (currentState) {
       case 'loading':
         return 'Please wait while the action is being processed';
@@ -75,30 +75,35 @@ const AccessibleButton: React.FC<AccessibleButtonProps> = ({
     }
   };
 
+  const ariaDescription = getAriaDescription();
+
   return (
     <Button
       {...props}
       disabled={isDisabled}
       aria-label={getAriaLabel()}
-      aria-describedby={getAriaDescription() ? `${props.id || 'button'}-description` : undefined}
+      aria-describedby={ariaDescription ? `${buttonId}-description` : undefined}
       aria-busy={currentState === 'loading'}
       aria-live={announce ? 'polite' : undefined}
-      sx={{
-        position: 'relative',
-        ...props.sx,
-        '&:focus-visible': {
-          outline: '3px solid',
-          outlineColor: 'primary.main',
-          outlineOffset: 2,
+      sx={[
+        {
+          position: 'relative',
+          '&:focus-visible': {
+            outline: '3px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: 2,
+          },
         },
-      }}
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        ...(Array.isArray(props.sx) ? props.sx : props.sx !== undefined ? [props.sx] : []),
+      ]}
     >
       {getButtonContent()}
-      
+
       {/* Screen reader only description */}
-      {getAriaDescription() && (
+      {ariaDescription && (
         <Box
-          id={`${props.id || 'button'}-description`}
+          id={`${buttonId}-description`}
           sx={{
             position: 'absolute',
             left: -10000,
@@ -107,7 +112,7 @@ const AccessibleButton: React.FC<AccessibleButtonProps> = ({
             overflow: 'hidden',
           }}
         >
-          {getAriaDescription()}
+          {ariaDescription}
         </Box>
       )}
     </Button>

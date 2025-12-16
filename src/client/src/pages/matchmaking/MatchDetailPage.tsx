@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -54,7 +54,7 @@ import { de } from 'date-fns/locale';
 import PageHeader from '../../components/layout/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
 import { useMatchmaking } from '../../hooks/useMatchmaking';
-import { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
+import type { MatchDisplay } from '../../types/contracts/MatchmakingDisplay';
 import { toast } from 'react-toastify';
 import RescheduleDialog from '../../components/appointments/RescheduleDialog';
 import matchmakingService from '../../api/services/matchmakingService';
@@ -79,27 +79,13 @@ const MatchDetailPage: React.FC = () => {
   const [dissolveDialogOpen, setDissolveDialogOpen] = useState(false);
   const [dissolveReason, setDissolveReason] = useState('');
 
-  useEffect(() => {
-    loadMatches({ pageNumber: 1, pageSize: 100 });
-  }, []);
-
-  useEffect(() => {
-    if (matchId && matches.length > 0) {
-      const foundMatch = matches.find(m => m.id === matchId);
-      if (foundMatch) {
-        // matches is already MatchDisplay[], no transformation needed
-        setMatch(foundMatch);
-        loadMatchHistory(foundMatch);
-      }
-    }
-  }, [matchId, matches]);
-
-  const loadMatchHistory = (match: MatchDisplay) => {
+  // Define loadMatchHistory before the useEffect that uses it
+  const loadMatchHistory = useCallback((matchData: MatchDisplay) => {
     // Mock history - in production this would come from an API
     const mockHistory: MatchHistoryEntry[] = [
       {
         id: '1',
-        timestamp: match.createdAt,
+        timestamp: matchData.createdAt,
         action: 'created',
         description: 'Match wurde erstellt',
         icon: <CheckIcon />,
@@ -107,27 +93,30 @@ const MatchDetailPage: React.FC = () => {
       },
       {
         id: '2',
-        timestamp: new Date(new Date(match.createdAt).getTime() + 3600000).toISOString(),
+        timestamp: new Date(new Date(matchData.createdAt).getTime() + 3600000).toISOString(),
         action: 'accepted',
         description: 'Match wurde akzeptiert',
-        userName: match.partnerName,
+        userName: matchData.partnerName,
         icon: <CheckIcon />,
         color: 'primary',
       },
     ];
 
-    if (match.sessionInfo?.completedSessions && match.sessionInfo.completedSessions > 0) {
+    if (
+      matchData.sessionInfo?.completedSessions != null &&
+      matchData.sessionInfo.completedSessions > 0
+    ) {
       mockHistory.push({
         id: '3',
         timestamp: new Date().toISOString(),
         action: 'session_completed',
-        description: `${match.sessionInfo.completedSessions} Session(s) abgeschlossen`,
+        description: `${String(matchData.sessionInfo.completedSessions)} Session(s) abgeschlossen`,
         icon: <VideoCallIcon />,
         color: 'info',
       });
     }
 
-    if (match.status === 'completed') {
+    if (matchData.status === 'completed') {
       mockHistory.push({
         id: '4',
         timestamp: new Date().toISOString(),
@@ -138,7 +127,7 @@ const MatchDetailPage: React.FC = () => {
       });
     }
 
-    if (match.status === 'dissolved' || match.status === 'cancelled') {
+    if (matchData.status === 'dissolved' || matchData.status === 'cancelled') {
       mockHistory.push({
         id: '5',
         timestamp: new Date().toISOString(),
@@ -150,9 +139,29 @@ const MatchDetailPage: React.FC = () => {
     }
 
     setHistory(mockHistory);
-  };
+  }, []);
 
-  const handleDissolveMatch = async () => {
+  useEffect(() => {
+    loadMatches({ pageNumber: 1, pageSize: 100 });
+  }, [loadMatches]);
+
+  useEffect(() => {
+    if (matchId && matches.length > 0) {
+      const foundMatch = matches.find((m) => m.id === matchId);
+      if (foundMatch) {
+        const timer = setTimeout(() => {
+          // matches is already MatchDisplay[], no transformation needed
+          setMatch(foundMatch);
+          loadMatchHistory(foundMatch);
+        }, 0);
+        return () => {
+          clearTimeout(timer);
+        };
+      }
+    }
+  }, [matchId, matches, loadMatchHistory]);
+
+  const handleDissolveMatch = async (): Promise<void> => {
     if (!match || !dissolveReason.trim()) {
       toast.error('Bitte gib einen Grund für die Auflösung an');
       return;
@@ -160,12 +169,12 @@ const MatchDetailPage: React.FC = () => {
 
     try {
       const response = await matchmakingService.dissolveMatch(match.id, dissolveReason);
-      
+
       if (response.success) {
         toast.success('Match wurde erfolgreich aufgelöst');
-        navigate('/matchmaking/matches');
+        void navigate('/matchmaking/matches');
       } else {
-        toast.error(response.message || 'Fehler beim Auflösen des Matches');
+        toast.error(response.message ?? 'Fehler beim Auflösen des Matches');
       }
     } catch (error) {
       console.error('Error dissolving match:', error);
@@ -173,33 +182,34 @@ const MatchDetailPage: React.FC = () => {
     }
   };
 
-  const handleCreateAppointment = () => {
+  const handleCreateAppointment = (): void => {
     if (match) {
-      navigate(`/appointments/create?matchId=${match.id}`);
+      void navigate(`/appointments/create?matchId=${match.id}`);
     }
   };
 
-  const handleViewAppointments = () => {
+  const handleViewAppointments = (): void => {
     if (match) {
-      navigate(`/appointments?matchId=${match.id}`);
+      void navigate(`/appointments?matchId=${match.id}`);
     }
   };
 
-  const handleShare = async () => {
+  const handleShare = async (): Promise<void> => {
+    const skillName = match?.skillName ?? 'Unknown';
     const shareData = {
-      title: `Match: ${match?.skillName}`,
-      text: `Skill-Match für ${match?.skillName}`,
+      title: `Match: ${skillName}`,
+      text: `Skill-Match für ${skillName}`,
       url: window.location.href,
     };
 
-    if (navigator.share) {
+    if (typeof navigator.share === 'function') {
       try {
         await navigator.share(shareData);
-      } catch (error) {
-        console.log('Share cancelled');
+      } catch (_error) {
+        console.debug('Share cancelled');
       }
     } else {
-      navigator.clipboard.writeText(window.location.href);
+      void navigator.clipboard.writeText(window.location.href);
       toast.success('Link in Zwischenablage kopiert');
     }
   };
@@ -207,15 +217,12 @@ const MatchDetailPage: React.FC = () => {
   if (isLoading && !match) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <PageHeader
-          title="Match Details"
-          subtitle="Details zu deinem Match"
-        />
+        <PageHeader title="Match Details" subtitle="Details zu deinem Match" />
         <Grid container spacing={3} sx={{ mt: 2 }}>
-          <Grid sx={{ xs:12, sm:8 }}>
+          <Grid sx={{ xs: 12, sm: 8 }}>
             <Skeleton variant="rectangular" height={400} />
           </Grid>
-          <Grid sx={{ xs:12, sm:4 }}>
+          <Grid sx={{ xs: 12, sm: 4 }}>
             <Skeleton variant="rectangular" height={200} sx={{ mb: 2 }} />
             <Skeleton variant="rectangular" height={300} />
           </Grid>
@@ -238,7 +245,7 @@ const MatchDetailPage: React.FC = () => {
     );
   }
 
-  const getStatusIcon = () => {
+  const getStatusIcon = (): React.ReactElement => {
     switch (match.status) {
       case 'active':
       case 'accepted':
@@ -253,7 +260,7 @@ const MatchDetailPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = () => {
+  const getStatusColor = (): 'success' | 'info' | 'error' | 'warning' => {
     switch (match.status) {
       case 'active':
       case 'accepted':
@@ -282,20 +289,20 @@ const MatchDetailPage: React.FC = () => {
 
       <PageHeader
         title={`Match: ${match.skillName}`}
-        subtitle={match.exchangeSkillName ? `Tausch gegen: ${match.exchangeSkillName}` : 'Skill-Sharing'}
+        subtitle={
+          match.exchangeSkillName ? `Tausch gegen: ${match.exchangeSkillName}` : 'Skill-Sharing'
+        }
       />
 
       <Grid container spacing={3} sx={{ mt: 2 }}>
         {/* Main Content */}
-        <Grid sx={{ xs:12, sm:8 }}>
+        <Grid sx={{ xs: 12, sm: 8 }}>
           <Paper sx={{ p: 3, mb: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}
+            >
               <Stack direction="row" spacing={2} alignItems="center">
-                <Chip
-                  icon={getStatusIcon()}
-                  label={match.status}
-                  color={getStatusColor()}
-                />
+                <Chip icon={getStatusIcon()} label={match.status} color={getStatusColor()} />
                 {match.isSkillExchange && (
                   <Chip
                     icon={<ExchangeIcon />}
@@ -307,7 +314,7 @@ const MatchDetailPage: React.FC = () => {
                 {match.isMonetary && (
                   <Chip
                     icon={<MoneyIcon />}
-                    label={`${match.offeredAmount} ${match.currency || '€'}`}
+                    label={`${String(match.offeredAmount ?? 0)} ${match.currency ?? '€'}`}
                     color="warning"
                     variant="outlined"
                   />
@@ -346,7 +353,8 @@ const MatchDetailPage: React.FC = () => {
                         </Stack>
                       )}
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Mitglied seit {format(new Date(match.createdAt), 'MMMM yyyy', { locale: de })}
+                        Mitglied seit{' '}
+                        {format(new Date(match.createdAt), 'MMMM yyyy', { locale: de })}
                       </Typography>
                     </Box>
                     <Button
@@ -368,7 +376,7 @@ const MatchDetailPage: React.FC = () => {
                   Session-Informationen
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid sx={{ xs:12, sm:6 }}>
+                  <Grid sx={{ xs: 12, sm: 6 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -387,7 +395,7 @@ const MatchDetailPage: React.FC = () => {
                     </Card>
                   </Grid>
                   {match.sessionInfo.nextSessionDate && (
-                    <Grid sx={{ xs:12, sm:6 }}>
+                    <Grid sx={{ xs: 12, sm: 6 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -397,10 +405,15 @@ const MatchDetailPage: React.FC = () => {
                             </Typography>
                           </Stack>
                           <Typography variant="h6">
-                            {format(new Date(match.sessionInfo.nextSessionDate), 'dd.MM.yyyy', { locale: de })}
+                            {format(new Date(match.sessionInfo.nextSessionDate), 'dd.MM.yyyy', {
+                              locale: de,
+                            })}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {format(new Date(match.sessionInfo.nextSessionDate), 'HH:mm', { locale: de })} Uhr
+                            {format(new Date(match.sessionInfo.nextSessionDate), 'HH:mm', {
+                              locale: de,
+                            })}{' '}
+                            Uhr
                           </Typography>
                         </CardContent>
                       </Card>
@@ -432,7 +445,9 @@ const MatchDetailPage: React.FC = () => {
                     variant="outlined"
                     color="error"
                     startIcon={<CancelIcon />}
-                    onClick={() => setDissolveDialogOpen(true)}
+                    onClick={() => {
+                      setDissolveDialogOpen(true);
+                    }}
                   >
                     Match auflösen
                   </Button>
@@ -463,15 +478,13 @@ const MatchDetailPage: React.FC = () => {
                     </Typography>
                   </TimelineOppositeContent>
                   <TimelineSeparator>
-                    <TimelineDot color={entry.color || 'grey'}>
-                      {entry.icon || <HistoryIcon />}
+                    <TimelineDot color={entry.color ?? 'grey'}>
+                      {entry.icon ?? <HistoryIcon />}
                     </TimelineDot>
                     {index < history.length - 1 && <TimelineConnector />}
                   </TimelineSeparator>
                   <TimelineContent>
-                    <Typography variant="subtitle2">
-                      {entry.description}
-                    </Typography>
+                    <Typography variant="subtitle2">{entry.description}</Typography>
                     {entry.userName && (
                       <Typography variant="body2" color="text.secondary">
                         von {entry.userName}
@@ -485,7 +498,7 @@ const MatchDetailPage: React.FC = () => {
         </Grid>
 
         {/* Sidebar */}
-        <Grid sx={{ xs:12, sm:4 }}>
+        <Grid sx={{ xs: 12, sm: 4 }}>
           {/* Match Details */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
@@ -496,20 +509,14 @@ const MatchDetailPage: React.FC = () => {
                 <ListItemIcon>
                   <SkillIcon />
                 </ListItemIcon>
-                <ListItemText
-                  primary="Skill"
-                  secondary={match.skillName}
-                />
+                <ListItemText primary="Skill" secondary={match.skillName} />
               </ListItem>
               {match.exchangeSkillName && (
                 <ListItem disablePadding sx={{ mb: 2 }}>
                   <ListItemIcon>
                     <ExchangeIcon />
                   </ListItemIcon>
-                  <ListItemText
-                    primary="Tausch-Skill"
-                    secondary={match.exchangeSkillName}
-                  />
+                  <ListItemText primary="Tausch-Skill" secondary={match.exchangeSkillName} />
                 </ListItem>
               )}
               <ListItem disablePadding sx={{ mb: 2 }}>
@@ -528,7 +535,7 @@ const MatchDetailPage: React.FC = () => {
                   </ListItemIcon>
                   <ListItemText
                     primary="Vergütung"
-                    secondary={`${match.offeredAmount} ${match.currency || '€'}`}
+                    secondary={`${String(match.offeredAmount ?? 0)} ${match.currency ?? '€'}`}
                   />
                 </ListItem>
               )}
@@ -537,10 +544,7 @@ const MatchDetailPage: React.FC = () => {
                   <ListItemIcon>
                     <LocationIcon />
                   </ListItemIcon>
-                  <ListItemText
-                    primary="Ort"
-                    secondary={match.location}
-                  />
+                  <ListItemText primary="Ort" secondary={match.location} />
                 </ListItem>
               )}
             </List>
@@ -558,9 +562,7 @@ const MatchDetailPage: React.FC = () => {
               <Alert severity="success">
                 Sei pünktlich und gut vorbereitet für vereinbarte Termine
               </Alert>
-              <Alert severity="warning">
-                Gib konstruktives Feedback nach jeder Session
-              </Alert>
+              <Alert severity="warning">Gib konstruktives Feedback nach jeder Session</Alert>
             </Stack>
           </Paper>
         </Grid>
@@ -569,13 +571,17 @@ const MatchDetailPage: React.FC = () => {
       {/* Dissolve Dialog */}
       <RescheduleDialog
         open={dissolveDialogOpen}
-        onClose={() => setDissolveDialogOpen(false)}
-        appointment={{
-          id: match.id,
-          skill: { name: match.skillName },
-          startTime: new Date().toISOString(),
-          endTime: new Date().toISOString(),
-        } as any}
+        onClose={() => {
+          setDissolveDialogOpen(false);
+        }}
+        appointment={
+          {
+            id: match.id,
+            skill: { name: match.skillName },
+            startTime: new Date().toISOString(),
+            endTime: new Date().toISOString(),
+          } as Parameters<typeof RescheduleDialog>[0]['appointment']
+        }
         onReschedule={async (_, __, reason) => {
           if (reason) {
             setDissolveReason(reason);

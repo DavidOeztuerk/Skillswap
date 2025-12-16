@@ -1,4 +1,4 @@
-import React, { ComponentType, ComponentProps, ErrorInfo } from 'react';
+import React, { type ErrorInfo } from 'react';
 import ErrorBoundary from '../error/ErrorBoundary';
 
 interface WithErrorBoundaryOptions {
@@ -8,47 +8,39 @@ interface WithErrorBoundaryOptions {
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withErrorBoundary<T extends ComponentType<any>>(
-  Component: T,
+// The simplest variant - should work in 99% of cases
+export function withErrorBoundary<P extends Record<string, unknown>>(
+  Component: React.ComponentType<P>,
   options: WithErrorBoundaryOptions = {}
-): T {
-  const WrappedComponent = ((props: ComponentProps<T>) => {
-    return (
-      <ErrorBoundary
-        fallback={options.fallback}
-        showDetails={options.showDetails}
-        level={options.level || 'component'}
-        onError={options.onError}
-      >
-        <Component {...props} />
-      </ErrorBoundary>
-    );
-  }) as unknown as T;
+): React.ComponentType<P> {
+  const WrappedComponent = (props: P): React.ReactElement => (
+    <ErrorBoundary {...options}>
+      <Component {...props} />
+    </ErrorBoundary>
+  );
 
-  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name || 'Component'})`;
+  const componentName = Component.displayName ?? Component.name;
+  WrappedComponent.displayName = `withErrorBoundary(${componentName})`;
 
   return WrappedComponent;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withPageErrorBoundary<T extends ComponentType<any>>(
-  Component: T,
+export function withPageErrorBoundary<P extends Record<string, unknown>>(
+  Component: React.ComponentType<P>,
   options: Omit<WithErrorBoundaryOptions, 'level'> = {}
-) {
+): React.ComponentType<P> {
   return withErrorBoundary(Component, {
     ...options,
-    level: 'page',
+    level: 'page' as const,
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withSectionErrorBoundary<T extends ComponentType<any>>(
-  Component: T,
+export function withSectionErrorBoundary<P extends Record<string, unknown>>(
+  Component: React.ComponentType<P>,
   options: Omit<WithErrorBoundaryOptions, 'level'> = {}
-) {
+): React.ComponentType<P> {
   return withErrorBoundary(Component, {
     ...options,
-    level: 'section',
+    level: 'section' as const,
   });
 }

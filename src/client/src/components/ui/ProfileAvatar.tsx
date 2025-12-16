@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Avatar, SxProps, Theme } from '@mui/material';
+import { Avatar, type SxProps, type Theme } from '@mui/material';
 import { stringToColor } from '../../utils/formatters';
 import { withDefault } from '../../utils/safeAccess';
 
@@ -27,7 +27,7 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
     const safeAlt = alt;
     if (!safeAlt) return '';
 
-    const nameParts = safeAlt?.split(' ')?.filter((part) => part && part.length > 0);
+    const nameParts = safeAlt.split(' ').filter((part) => part.length > 0);
     if (nameParts.length === 0) return '';
 
     if (nameParts.length === 1) {
@@ -35,7 +35,9 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
     }
 
     const first = withDefault(nameParts[0], '').charAt(0).toUpperCase();
-    const last = withDefault(nameParts[nameParts.length - 1], '').charAt(0).toUpperCase();
+    const last = withDefault(nameParts[nameParts.length - 1], '')
+      .charAt(0)
+      .toUpperCase();
     return first + last;
   }, [alt]);
 
@@ -47,15 +49,18 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
 
   return (
     <Avatar
-      src={src || undefined}
+      src={src ?? undefined}
       alt={alt}
-      sx={{
-        width: size,
-        height: size,
-        fontSize: size * 0.4,
-        bgcolor: backgroundColor,
-        ...sx,
-      }}
+      sx={[
+        {
+          width: size,
+          height: size,
+          fontSize: size * 0.4,
+          bgcolor: backgroundColor,
+        },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
     >
       {!src && showText ? initials : null}
     </Avatar>

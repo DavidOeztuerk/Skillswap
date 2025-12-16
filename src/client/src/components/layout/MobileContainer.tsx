@@ -1,4 +1,3 @@
-// src/components/layout/MobileContainer.tsx
 import React from 'react';
 import { Container, Box } from '@mui/material';
 import { useMobile, useMobileStyles } from '../../hooks/useMobile';

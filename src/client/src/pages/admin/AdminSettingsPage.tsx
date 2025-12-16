@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback, memo } from 'react';
 import {
   Box,
   Typography,
@@ -20,9 +20,19 @@ import {
   Email as EmailIcon,
   Notifications as NotificationsIcon,
   Save as SaveIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
+import { usePermissions } from '../../contexts/permissionContextHook';
+import { Permissions } from '../../components/auth/permissions.constants';
 
-const AdminSettingsPage: React.FC = () => {
+const AdminSettingsPage: React.FC = memo(() => {
+  const { hasPermission } = usePermissions();
+
+  // Permission checks
+  const canManageSettings = useMemo(
+    () => hasPermission(Permissions.System.MANAGE_SETTINGS),
+    [hasPermission]
+  );
   const [settings, setSettings] = React.useState({
     // General Settings
     siteName: 'Skillswap',
@@ -65,26 +75,50 @@ const AdminSettingsPage: React.FC = () => {
 
   const [saveSuccess, setSaveSuccess] = React.useState(false);
 
-  const handleChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
-    setSettings((prev) => ({ ...prev, [field]: value }));
-  };
+  const handleChange = useCallback(
+    (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (!canManageSettings) return; // Prevent changes without permission
+      const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+      setSettings((prev) => ({ ...prev, [field]: value }));
+    },
+    [canManageSettings]
+  );
 
-  const handleSave = () => {
-    console.log('Saving settings:', settings);
+  const handleSave = useCallback(() => {
+    if (!canManageSettings) return;
+    console.debug('Saving settings:', settings);
     // TODO: Implement save to backend
     setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
-  };
+    setTimeout(() => {
+      setSaveSuccess(false);
+    }, 3000);
+  }, [canManageSettings, settings]);
+
+  // Read-only mode indicator
+  const isReadOnly = !canManageSettings;
 
   return (
     <Box p={3}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Systemeinstellungen</Typography>
-        <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
-          Speichern
-        </Button>
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Typography variant="h4">Systemeinstellungen</Typography>
+          {isReadOnly && (
+            <Chip icon={<LockIcon />} label="Nur Lesezugriff" color="warning" size="small" />
+          )}
+        </Stack>
+        {canManageSettings && (
+          <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
+            Speichern
+          </Button>
+        )}
       </Stack>
+
+      {isReadOnly && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Sie haben nur Lesezugriff auf diese Einstellungen. Zum Bearbeiten benötigen Sie die
+          Berechtigung "system:manage_settings".
+        </Alert>
+      )}
 
       {saveSuccess && (
         <Alert severity="success" sx={{ mb: 3 }}>
@@ -108,6 +142,7 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.siteName}
                   onChange={handleChange('siteName')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <TextField
                   label="Seitenbeschreibung"
@@ -116,12 +151,14 @@ const AdminSettingsPage: React.FC = () => {
                   fullWidth
                   multiline
                   rows={2}
+                  disabled={isReadOnly}
                 />
                 <FormControlLabel
                   control={
                     <Switch
                       checked={settings.maintenanceMode}
                       onChange={handleChange('maintenanceMode')}
+                      disabled={isReadOnly}
                     />
                   }
                   label="Wartungsmodus"
@@ -131,6 +168,7 @@ const AdminSettingsPage: React.FC = () => {
                     <Switch
                       checked={settings.allowRegistration}
                       onChange={handleChange('allowRegistration')}
+                      disabled={isReadOnly}
                     />
                   }
                   label="Registrierung erlauben"
@@ -140,6 +178,7 @@ const AdminSettingsPage: React.FC = () => {
                     <Switch
                       checked={settings.requireEmailVerification}
                       onChange={handleChange('requireEmailVerification')}
+                      disabled={isReadOnly}
                     />
                   }
                   label="E-Mail-Verifizierung erforderlich"
@@ -165,6 +204,7 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.maxLoginAttempts}
                   onChange={handleChange('maxLoginAttempts')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <TextField
                   label="Session-Timeout (Minuten)"
@@ -172,6 +212,7 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.sessionTimeout}
                   onChange={handleChange('sessionTimeout')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <TextField
                   label="Minimale Passwortlänge"
@@ -179,19 +220,25 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.passwordMinLength}
                   onChange={handleChange('passwordMinLength')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <FormControlLabel
                   control={
                     <Switch
                       checked={settings.requireStrongPassword}
                       onChange={handleChange('requireStrongPassword')}
+                      disabled={isReadOnly}
                     />
                   }
                   label="Starkes Passwort erforderlich"
                 />
                 <FormControlLabel
                   control={
-                    <Switch checked={settings.enable2FA} onChange={handleChange('enable2FA')} />
+                    <Switch
+                      checked={settings.enable2FA}
+                      onChange={handleChange('enable2FA')}
+                      disabled={isReadOnly}
+                    />
                   }
                   label="2-Faktor-Authentifizierung aktivieren"
                 />
@@ -215,6 +262,7 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.smtpHost}
                   onChange={handleChange('smtpHost')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <TextField
                   label="SMTP Port"
@@ -222,18 +270,21 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.smtpPort}
                   onChange={handleChange('smtpPort')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <TextField
                   label="SMTP Benutzer"
                   value={settings.smtpUser}
                   onChange={handleChange('smtpUser')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <TextField
                   label="Absendername"
                   value={settings.smtpFromName}
                   onChange={handleChange('smtpFromName')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <Alert severity="info">
                   SMTP-Passwort wird aus Sicherheitsgründen in Umgebungsvariablen gespeichert.
@@ -258,6 +309,7 @@ const AdminSettingsPage: React.FC = () => {
                     <Switch
                       checked={settings.enableEmailNotifications}
                       onChange={handleChange('enableEmailNotifications')}
+                      disabled={isReadOnly}
                     />
                   }
                   label="E-Mail-Benachrichtigungen"
@@ -267,6 +319,7 @@ const AdminSettingsPage: React.FC = () => {
                     <Switch
                       checked={settings.enablePushNotifications}
                       onChange={handleChange('enablePushNotifications')}
+                      disabled={isReadOnly}
                     />
                   }
                   label="Push-Benachrichtigungen"
@@ -276,6 +329,7 @@ const AdminSettingsPage: React.FC = () => {
                     <Switch
                       checked={settings.enableSmsNotifications}
                       onChange={handleChange('enableSmsNotifications')}
+                      disabled={isReadOnly}
                     />
                   }
                   label="SMS-Benachrichtigungen"
@@ -287,6 +341,7 @@ const AdminSettingsPage: React.FC = () => {
                   onChange={handleChange('notificationBatchSize')}
                   fullWidth
                   helperText="Anzahl der Benachrichtigungen pro Verarbeitungszyklus"
+                  disabled={isReadOnly}
                 />
               </Stack>
             </CardContent>
@@ -308,6 +363,7 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.maxActiveMatches}
                   onChange={handleChange('maxActiveMatches')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <TextField
                   label="Match-Ablauf (Tage)"
@@ -315,12 +371,14 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.matchExpiryDays}
                   onChange={handleChange('matchExpiryDays')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <FormControlLabel
                   control={
                     <Switch
                       checked={settings.autoMatchEnabled}
                       onChange={handleChange('autoMatchEnabled')}
+                      disabled={isReadOnly}
                     />
                   }
                   label="Automatisches Matching aktivieren"
@@ -332,6 +390,7 @@ const AdminSettingsPage: React.FC = () => {
                   onChange={handleChange('minCompatibilityScore')}
                   fullWidth
                   helperText="Mindest-Kompatibilität für automatische Matches"
+                  disabled={isReadOnly}
                 />
               </Stack>
             </CardContent>
@@ -353,6 +412,7 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.maxAppointmentsPerUser}
                   onChange={handleChange('maxAppointmentsPerUser')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <TextField
                   label="Erinnerung (Stunden vorher)"
@@ -360,12 +420,14 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.appointmentReminderHours}
                   onChange={handleChange('appointmentReminderHours')}
                   fullWidth
+                  disabled={isReadOnly}
                 />
                 <FormControlLabel
                   control={
                     <Switch
                       checked={settings.allowCancellation}
                       onChange={handleChange('allowCancellation')}
+                      disabled={isReadOnly}
                     />
                   }
                   label="Stornierung erlauben"
@@ -376,7 +438,7 @@ const AdminSettingsPage: React.FC = () => {
                   value={settings.cancellationDeadlineHours}
                   onChange={handleChange('cancellationDeadlineHours')}
                   fullWidth
-                  disabled={!settings.allowCancellation}
+                  disabled={isReadOnly || !settings.allowCancellation}
                 />
               </Stack>
             </CardContent>
@@ -422,16 +484,20 @@ const AdminSettingsPage: React.FC = () => {
         </Grid>
       </Grid>
 
-      <Box mt={3} display="flex" justifyContent="flex-end">
-        <Button variant="outlined" sx={{ mr: 2 }}>
-          Zurücksetzen
-        </Button>
-        <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
-          Alle Einstellungen speichern
-        </Button>
-      </Box>
+      {canManageSettings && (
+        <Box mt={3} display="flex" justifyContent="flex-end">
+          <Button variant="outlined" sx={{ mr: 2 }}>
+            Zurücksetzen
+          </Button>
+          <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
+            Alle Einstellungen speichern
+          </Button>
+        </Box>
+      )}
     </Box>
   );
-};
+});
+
+AdminSettingsPage.displayName = 'AdminSettingsPage';
 
 export default AdminSettingsPage;

@@ -21,6 +21,6 @@ RUN dotnet publish -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENV ASPNETCORE_URLS=http://+:5002
-EXPOSE 5002
+ENV ASPNETCORE_URLS=http://+:5006
+EXPOSE 5006
 ENTRYPOINT ["dotnet", "NotificationService.dll"]

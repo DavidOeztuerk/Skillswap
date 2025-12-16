@@ -1,30 +1,29 @@
-import React from 'react';
-import {
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  Grid,
-  LinearProgress,
-  Chip,
-} from '@mui/material';
+import React, { memo, useMemo } from 'react';
+import { Card, CardContent, Typography, Box, Grid, LinearProgress, Chip } from '@mui/material';
 import {
   Error as ErrorIcon,
   Warning as WarningIcon,
   Info as InfoIcon,
   Shield as ShieldIcon,
 } from '@mui/icons-material';
-import { SecurityAlertStatisticsResponse } from '../../types/models/SecurityAlert';
+import type { SecurityAlertStatisticsResponse } from '../../types/models/SecurityAlert';
 
 interface SecurityStatisticsProps {
   statistics?: SecurityAlertStatisticsResponse;
   isLoading?: boolean;
 }
 
-const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
-  statistics,
-  isLoading,
-}) => {
+const SecurityStatistics: React.FC<SecurityStatisticsProps> = memo(({ statistics, isLoading }) => {
+  const { criticalPercentage, highPercentage, mediumPercentage } = useMemo(() => {
+    if (!statistics) return { criticalPercentage: 0, highPercentage: 0, mediumPercentage: 0 };
+    const total = statistics.totalAlerts;
+    return {
+      criticalPercentage: total > 0 ? (statistics.criticalAlerts / total) * 100 : 0,
+      highPercentage: total > 0 ? (statistics.highAlerts / total) * 100 : 0,
+      mediumPercentage: total > 0 ? (statistics.mediumAlerts / total) * 100 : 0,
+    };
+  }, [statistics]);
+
   if (isLoading) {
     return (
       <Card>
@@ -42,18 +41,6 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
     return null;
   }
 
-  const criticalPercentage = statistics.totalAlerts > 0
-    ? (statistics.criticalAlerts / statistics.totalAlerts) * 100
-    : 0;
-
-  const highPercentage = statistics.totalAlerts > 0
-    ? (statistics.highAlerts / statistics.totalAlerts) * 100
-    : 0;
-
-  const mediumPercentage = statistics.totalAlerts > 0
-    ? (statistics.mediumAlerts / statistics.totalAlerts) * 100
-    : 0;
-
   return (
     <Grid container spacing={2}>
       {/* Overview Card */}
@@ -62,9 +49,7 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
           <CardContent>
             <Box display="flex" alignItems="center" gap={1} mb={2}>
               <ShieldIcon color="primary" />
-              <Typography variant="h6">
-                Übersicht
-              </Typography>
+              <Typography variant="h6">Übersicht</Typography>
             </Box>
 
             <Box mb={3}>
@@ -155,9 +140,7 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
                     <InfoIcon color="info" fontSize="small" />
                     <Typography variant="body2">Niedrig</Typography>
                   </Box>
-                  <Typography variant="body2">
-                    {statistics.lowAlerts}
-                  </Typography>
+                  <Typography variant="body2">{statistics.lowAlerts}</Typography>
                 </Box>
               </Box>
 
@@ -167,9 +150,7 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
                     <InfoIcon color="success" fontSize="small" />
                     <Typography variant="body2">Info</Typography>
                   </Box>
-                  <Typography variant="body2">
-                    {statistics.infoAlerts}
-                  </Typography>
+                  <Typography variant="body2">{statistics.infoAlerts}</Typography>
                 </Box>
               </Box>
             </Box>
@@ -222,7 +203,7 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
       </Grid>
 
       {/* Top Affected Users */}
-      {statistics.topAffectedUsers && statistics.topAffectedUsers.length > 0 && (
+      {statistics.topAffectedUsers.length > 0 && (
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
@@ -239,7 +220,9 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
                     justifyContent="space-between"
                     mb={1}
                     pb={1}
-                    borderBottom={index < Math.min(statistics.topAffectedUsers.length - 1, 9) ? 1 : 0}
+                    borderBottom={
+                      index < Math.min(statistics.topAffectedUsers.length - 1, 9) ? 1 : 0
+                    }
                     borderColor="divider"
                   >
                     <Box flex={1} mr={2}>
@@ -253,7 +236,9 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
                     <Chip
                       label={user.alertCount}
                       size="small"
-                      color={user.alertCount > 10 ? 'error' : user.alertCount > 5 ? 'warning' : 'default'}
+                      color={
+                        user.alertCount > 10 ? 'error' : user.alertCount > 5 ? 'warning' : 'default'
+                      }
                     />
                   </Box>
                 ))}
@@ -264,7 +249,7 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
       )}
 
       {/* Top Affected IPs */}
-      {statistics.topAffectedIPs && statistics.topAffectedIPs.length > 0 && (
+      {statistics.topAffectedIPs.length > 0 && (
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
@@ -290,7 +275,9 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
                     <Chip
                       label={ip.alertCount}
                       size="small"
-                      color={ip.alertCount > 10 ? 'error' : ip.alertCount > 5 ? 'warning' : 'default'}
+                      color={
+                        ip.alertCount > 10 ? 'error' : ip.alertCount > 5 ? 'warning' : 'default'
+                      }
                     />
                   </Box>
                 ))}
@@ -301,6 +288,8 @@ const SecurityStatistics: React.FC<SecurityStatisticsProps> = ({
       )}
     </Grid>
   );
-};
+});
+
+SecurityStatistics.displayName = 'SecurityStatistics';
 
 export default SecurityStatistics;

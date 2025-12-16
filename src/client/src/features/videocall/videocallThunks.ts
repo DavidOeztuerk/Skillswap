@@ -1,11 +1,23 @@
 import videoCallService from '../../api/services/videoCallService';
 import { createAppAsyncThunk } from '../../store/thunkHelpers';
-import { SuccessResponse, isSuccessResponse } from '../../types/api/UnifiedResponse';
-import { VideoCallConfig } from '../../types/models/VideoCallConfig';
-import { ChatMessage, SendChatMessageRequest } from '../../types/models/ChatMessage';
+import {
+  type SuccessResponse,
+  isSuccessResponse,
+  createErrorResponse,
+} from '../../types/api/UnifiedResponse';
+import type { VideoCallConfig } from '../../types/models/VideoCallConfig';
+import type { SendChatMessageRequest } from '../../types/models/ChatMessage';
+import type {
+  JoinCallResponse,
+  LeaveCallResponse,
+  EndCallResponse,
+  SaveCallInfoResponse,
+  ReportIssueResponse,
+  ChatMessageResponse,
+} from '../../types/contracts/responses/VideoCallResponses';
 
 // ============================================================================
-// Types
+// Types - Request Payloads
 // ============================================================================
 
 export interface JoinCallPayload {
@@ -14,6 +26,13 @@ export interface JoinCallPayload {
   cameraEnabled?: boolean;
   microphoneEnabled?: boolean;
   deviceInfo?: string;
+}
+
+export interface EndCallPayload {
+  sessionId: string;
+  durationSeconds?: number;
+  rating?: number;
+  feedback?: string;
 }
 
 export interface SaveCallInfoPayload {
@@ -38,150 +57,162 @@ export interface GetChatHistoryPayload {
 
 /**
  * Get call configuration for an appointment
+ * Backend: GET /api/calls/{sessionId}/config
  */
 export const getCallConfig = createAppAsyncThunk<SuccessResponse<VideoCallConfig>, string>(
   'videoCall/getCallConfig',
   async (appointmentId: string, { rejectWithValue }) => {
-    const response = await videoCallService.getCallConfig(appointmentId);
-    return isSuccessResponse(response) ? response : rejectWithValue(response);
-  }
-);
-
-/**
- * Join a video call session
- */
-export const joinVideoCall = createAppAsyncThunk<void, JoinCallPayload>(
-  'videoCall/joinCall',
-  async (payload, { rejectWithValue }) => {
-    const {
-      sessionId,
-      connectionId,
-      cameraEnabled = true,
-      microphoneEnabled = true,
-      deviceInfo,
-    } = payload;
-
     try {
-      await videoCallService.joinCall(
-        sessionId,
-        connectionId,
-        cameraEnabled,
-        microphoneEnabled,
-        deviceInfo
-      );
+      const response = await videoCallService.getCallConfig(appointmentId);
+      return isSuccessResponse(response) ? response : rejectWithValue(response);
     } catch (error) {
-      console.error('❌ joinVideoCall error:', error);
-      return rejectWithValue({
-        success: false,
-        errors: [error instanceof Error ? error.message : 'Failed to join call'],
-        errorCode: 'JOIN_CALL_ERROR',
-      });
+      console.error('❌ getCallConfig error:', error);
+      return rejectWithValue(createErrorResponse(error));
     }
   }
 );
 
 /**
- * Leave a video call session
- * Note: Even if API fails, we still want to clean up local state
+ * Join a video call session
+ * Backend: POST /api/calls/join
+ * Returns: JoinCallResponse { sessionId, roomId, success, otherParticipants }
  */
-export const leaveVideoCall = createAppAsyncThunk<void, string>(
+export const joinVideoCall = createAppAsyncThunk<
+  SuccessResponse<JoinCallResponse>,
+  JoinCallPayload
+>('videoCall/joinCall', async (payload, { rejectWithValue }) => {
+  const {
+    sessionId,
+    connectionId,
+    cameraEnabled = true,
+    microphoneEnabled = true,
+    deviceInfo,
+  } = payload;
+
+  try {
+    const response = await videoCallService.joinCall(
+      sessionId,
+      connectionId,
+      cameraEnabled,
+      microphoneEnabled,
+      deviceInfo
+    );
+    return isSuccessResponse(response) ? response : rejectWithValue(response);
+  } catch (error) {
+    console.error('❌ joinVideoCall error:', error);
+    return rejectWithValue(createErrorResponse(error));
+  }
+});
+
+/**
+ * Leave a video call session
+ * Backend: POST /api/calls/leave
+ * Returns: LeaveCallResponse { sessionId, success }
+ */
+export const leaveVideoCall = createAppAsyncThunk<SuccessResponse<LeaveCallResponse>, string>(
   'videoCall/leaveCall',
   async (sessionId: string, { rejectWithValue }) => {
     try {
-      await videoCallService.leaveCall(sessionId);
+      const response = await videoCallService.leaveCall(sessionId);
+      return isSuccessResponse(response) ? response : rejectWithValue(response);
     } catch (error) {
       console.error('❌ leaveVideoCall error:', error);
-      // Still log but don't block - user needs to leave
-      return rejectWithValue({
-        success: false,
-        errors: [error instanceof Error ? error.message : 'Failed to leave call'],
-        errorCode: 'LEAVE_CALL_ERROR',
-      });
+      return rejectWithValue(createErrorResponse(error));
     }
   }
 );
 
 /**
  * End a video call (for host/initiator)
+ * Backend: POST /api/calls/end
+ * Returns: EndCallResponse { sessionId, endedAt, durationSeconds, rating }
  */
-export const endVideoCall = createAppAsyncThunk<void, string>(
+export const endVideoCall = createAppAsyncThunk<SuccessResponse<EndCallResponse>, EndCallPayload>(
   'videoCall/endVideoCall',
-  async (roomId: string, { rejectWithValue }) => {
+  async ({ sessionId, durationSeconds, rating, feedback }, { rejectWithValue }) => {
     try {
-      await videoCallService.endCall(roomId);
+      const response = await videoCallService.endCall(sessionId, durationSeconds, rating, feedback);
+      return isSuccessResponse(response) ? response : rejectWithValue(response);
     } catch (error) {
       console.error('❌ endVideoCall error:', error);
-      return rejectWithValue({
-        success: false,
-        errors: [error instanceof Error ? error.message : 'Failed to end call'],
-        errorCode: 'END_CALL_ERROR',
-      });
+      return rejectWithValue(createErrorResponse(error));
     }
   }
 );
 
 /**
  * Save call information after call ends
+ * Note: This functionality is now part of endCall - kept for backwards compatibility
+ * Returns: SaveCallInfoResponse { roomId, durationSaved, savedAt }
  */
-export const saveCallInfo = createAppAsyncThunk<void, SaveCallInfoPayload>(
-  'videoCall/saveCallInfo',
-  async ({ roomId, duration }, { rejectWithValue }) => {
-    try {
-      await videoCallService.saveCallInfo(roomId, duration);
-    } catch (error) {
-      console.error('❌ saveCallInfo error:', error);
-      return rejectWithValue({
-        success: false,
-        errors: [error instanceof Error ? error.message : 'Failed to save call info'],
-        errorCode: 'SAVE_INFO_ERROR',
-      });
-    }
+export const saveCallInfo = createAppAsyncThunk<
+  SuccessResponse<SaveCallInfoResponse>,
+  SaveCallInfoPayload
+>('videoCall/saveCallInfo', async ({ roomId, duration }, { rejectWithValue }) => {
+  try {
+    const response = await videoCallService.saveCallInfo(roomId, duration);
+    return isSuccessResponse(response) ? response : rejectWithValue(response);
+  } catch (error) {
+    console.error('❌ saveCallInfo error:', error);
+    return rejectWithValue(createErrorResponse(error));
   }
-);
+});
 
 /**
  * Report a technical issue during a call
+ * Note: Backend endpoint pending - returns synthetic response
+ * Returns: ReportIssueResponse { roomId, issue, reportedAt }
  */
-export const reportTechnicalIssue = createAppAsyncThunk<void, ReportIssuePayload>(
-  'videoCall/reportIssue',
-  async ({ roomId, issue, description }, { rejectWithValue }) => {
-    try {
-      await videoCallService.reportTechnicalIssue(roomId, issue, description);
-    } catch (error) {
-      console.error('❌ reportTechnicalIssue error:', error);
-      return rejectWithValue({
-        success: false,
-        errors: [error instanceof Error ? error.message : 'Failed to report issue'],
-        errorCode: 'REPORT_ISSUE_ERROR',
-      });
-    }
+export const reportTechnicalIssue = createAppAsyncThunk<
+  SuccessResponse<ReportIssueResponse>,
+  ReportIssuePayload
+>('videoCall/reportIssue', async ({ roomId, issue, description }, { rejectWithValue }) => {
+  try {
+    const response = await videoCallService.reportTechnicalIssue(roomId, issue, description);
+    return isSuccessResponse(response) ? response : rejectWithValue(response);
+  } catch (error) {
+    console.error('❌ reportTechnicalIssue error:', error);
+    return rejectWithValue(createErrorResponse(error));
   }
-);
+});
 
 /**
  * Start recording a call
+ * Backend: POST /api/calls/{roomId}/recording/start
  */
-export const startRecording = createAppAsyncThunk<SuccessResponse<unknown>, string>(
-  'videoCall/startRecording',
-  async (roomId: string, { rejectWithValue }) => {
+export const startRecording = createAppAsyncThunk<
+  SuccessResponse<{ recordingId: string; status: string }>,
+  string
+>('videoCall/startRecording', async (roomId: string, { rejectWithValue }) => {
+  try {
     const response = await videoCallService.startRecording(roomId);
     return isSuccessResponse(response) ? response : rejectWithValue(response);
+  } catch (error) {
+    console.error('❌ startRecording error:', error);
+    return rejectWithValue(createErrorResponse(error));
   }
-);
+});
 
 /**
  * Stop recording a call
+ * Backend: POST /api/calls/{roomId}/recording/stop
  */
-export const stopRecording = createAppAsyncThunk<SuccessResponse<unknown>, string>(
-  'videoCall/stopRecording',
-  async (roomId: string, { rejectWithValue }) => {
+export const stopRecording = createAppAsyncThunk<
+  SuccessResponse<{ recordingId: string; status: string; url?: string }>,
+  string
+>('videoCall/stopRecording', async (roomId: string, { rejectWithValue }) => {
+  try {
     const response = await videoCallService.stopRecording(roomId);
     return isSuccessResponse(response) ? response : rejectWithValue(response);
+  } catch (error) {
+    console.error('❌ stopRecording error:', error);
+    return rejectWithValue(createErrorResponse(error));
   }
-);
+});
 
 /**
  * Get call statistics
+ * Backend: GET /api/statistics
  */
 export const getCallStatistics = createAppAsyncThunk<
   SuccessResponse<{
@@ -191,54 +222,77 @@ export const getCallStatistics = createAppAsyncThunk<
     bandwidth: number;
   }>,
   string
->(
-  'videoCall/getStatistics',
-  async (roomId: string, { rejectWithValue }) => {
+>('videoCall/getStatistics', async (roomId: string, { rejectWithValue }) => {
+  try {
     const response = await videoCallService.getCallStatistics(roomId);
     return isSuccessResponse(response) ? response : rejectWithValue(response);
+  } catch (error) {
+    console.error('❌ getCallStatistics error:', error);
+    return rejectWithValue(createErrorResponse(error));
   }
-);
+});
 
 /**
  * Send a chat message (stored in database)
+ * Backend: POST /api/calls/chat/send
  */
-export const sendChatMessage = createAppAsyncThunk<boolean, SendChatMessageRequest>(
-  'videoCall/sendChatMessage',
-  async (request, { rejectWithValue }) => {
+export const sendChatMessage = createAppAsyncThunk<
+  SuccessResponse<boolean>,
+  SendChatMessageRequest
+>('videoCall/sendChatMessage', async (request, { rejectWithValue }) => {
+  try {
     const response = await videoCallService.sendChatMessage(request);
-    return isSuccessResponse(response) ? response.data! : rejectWithValue(response);
+    return isSuccessResponse(response) ? response : rejectWithValue(response);
+  } catch (error) {
+    console.error('❌ sendChatMessage error:', error);
+    return rejectWithValue(createErrorResponse(error));
   }
-);
+});
 
 /**
  * Get chat history for a session
+ * Backend: GET /api/calls/{sessionId}/chat-history
+ * Returns: ChatMessageResponse[]
  */
-export const getChatHistory = createAppAsyncThunk<ChatMessage[], GetChatHistoryPayload>(
-  'videoCall/getChatHistory',
-  async ({ sessionId, limit }, { rejectWithValue }) => {
+export const getChatHistory = createAppAsyncThunk<
+  SuccessResponse<ChatMessageResponse[]>,
+  GetChatHistoryPayload
+>('videoCall/getChatHistory', async ({ sessionId, limit }, { rejectWithValue }) => {
+  try {
     const response = await videoCallService.getChatHistory(sessionId, limit);
-    return isSuccessResponse(response) ? response.data! : rejectWithValue(response);
+    return isSuccessResponse(response) ? response : rejectWithValue(response);
+  } catch (error) {
+    console.error('❌ getChatHistory error:', error);
+    return rejectWithValue(createErrorResponse(error));
   }
-);
+});
 
 /**
  * Batch cleanup: Leave call and save info
  * Uses Promise.allSettled to ensure both complete even if one fails
  */
-export const cleanupVideoCall = createAppAsyncThunk<
-  { leaveResult: 'fulfilled' | 'rejected'; saveResult: 'fulfilled' | 'rejected' },
-  { sessionId: string; roomId: string; duration: number }
->(
-  'videoCall/cleanup',
-  async ({ sessionId, roomId, duration }, { dispatch }) => {
-    const results = await Promise.allSettled([
-      dispatch(leaveVideoCall(sessionId)),
-      dispatch(saveCallInfo({ roomId, duration })),
-    ]);
+export interface CleanupResult {
+  leaveResult: 'fulfilled' | 'rejected';
+  saveResult: 'fulfilled' | 'rejected';
+}
 
-    return {
-      leaveResult: results[0].status,
-      saveResult: results[1].status,
-    };
-  }
-);
+export const cleanupVideoCall = createAppAsyncThunk<
+  SuccessResponse<CleanupResult>,
+  { sessionId: string; roomId: string; duration: number }
+>('videoCall/cleanup', async ({ sessionId, roomId, duration }, { dispatch }) => {
+  const results = await Promise.allSettled([
+    dispatch(leaveVideoCall(sessionId)),
+    dispatch(saveCallInfo({ roomId, duration })),
+  ]);
+
+  const cleanupResult: CleanupResult = {
+    leaveResult: results[0].status,
+    saveResult: results[1].status,
+  };
+
+  return {
+    success: true,
+    data: cleanupResult,
+    message: 'Cleanup completed',
+  };
+});

@@ -17,6 +17,11 @@ public interface IVideocallUnitOfWork : IAsyncDisposable
     ICallParticipantRepository CallParticipants { get; }
 
     /// <summary>
+    /// Repository for ChatMessage entities
+    /// </summary>
+    IChatMessageRepository ChatMessages { get; }
+
+    /// <summary>
     /// Saves all changes across all repositories as a single transaction.
     /// </summary>
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

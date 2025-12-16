@@ -1,5 +1,5 @@
 import React from 'react';
-import { Snackbar, Alert, AlertTitle, AlertColor } from '@mui/material';
+import { Snackbar, Alert, AlertTitle, type AlertColor } from '@mui/material';
 
 export interface ErrorNotificationProps {
   open: boolean;
@@ -32,33 +32,31 @@ const ErrorNotification: React.FC<ErrorNotificationProps> = ({
   severity = 'error',
   autoHideDuration = 6000,
   onClose,
-}) => {
-  return (
-    <Snackbar
-      open={open}
-      autoHideDuration={autoHideDuration}
+}) => (
+  <Snackbar
+    open={open}
+    autoHideDuration={autoHideDuration}
+    onClose={onClose}
+    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+    sx={{ marginTop: '64px' }} // Offset for AppBar
+  >
+    <Alert
       onClose={onClose}
-      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      sx={{ marginTop: '64px' }} // Offset for AppBar
-    >
-      <Alert
-        onClose={onClose}
-        severity={severity}
-        variant="filled"
-        sx={{
+      severity={severity}
+      variant="filled"
+      sx={{
+        width: '100%',
+        minWidth: '300px',
+        maxWidth: '500px',
+        '& .MuiAlert-message': {
           width: '100%',
-          minWidth: '300px',
-          maxWidth: '500px',
-          '& .MuiAlert-message': {
-            width: '100%',
-          },
-        }}
-      >
-        {title && <AlertTitle>{title}</AlertTitle>}
-        {message}
-      </Alert>
-    </Snackbar>
-  );
-};
+        },
+      }}
+    >
+      {title && <AlertTitle>{title}</AlertTitle>}
+      {message}
+    </Alert>
+  </Snackbar>
+);
 
 export default ErrorNotification;

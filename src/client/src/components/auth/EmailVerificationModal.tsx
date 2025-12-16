@@ -21,14 +21,15 @@ import {
   Error as ErrorIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, type SubmitHandler, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '../../hooks/useAuth';
-import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
 import LoadingButton from '../ui/LoadingButton';
 import authService from '../../api/services/authService';
 import axios from 'axios';
+import { useLoading } from '../../contexts/loadingContextHooks';
+import { LoadingKeys } from '../../contexts/loadingContextValue';
 
 const emailVerificationSchema = z.object({
   code: z
@@ -61,22 +62,21 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 }) => {
   const { isLoading, withLoading } = useLoading();
   const { user, errorMessage, verifyEmail, clearError } = useAuth();
-  
+
   const [isVerified, setIsVerified] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
-  
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  
-  const userEmail = email || user?.email || '';
-  
+
+  const userEmail = email ?? user?.email ?? '';
+
   const {
     control,
     handleSubmit,
     formState: { errors },
     setValue,
-    watch,
     reset,
   } = useForm<EmailVerificationFormValues>({
     resolver: zodResolver(emailVerificationSchema),
@@ -84,135 +84,186 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       code: '',
     },
   });
-  
-  const codeValue = watch('code');
-  
+
+  const codeValue = useWatch({ control, name: 'code', defaultValue: '' });
+
   useEffect(() => {
     if (open && autoVerifyToken && userEmail) {
       setValue('code', autoVerifyToken);
-      handleVerification(autoVerifyToken);
+      // handleVerification is intentionally not in deps to avoid re-running on every render
+      // This effect should only run when dialog opens with a token
+      void withLoading(LoadingKeys.VERIFY_EMAIL, async () => {
+        try {
+          setLocalError(null);
+
+          verifyEmail({
+            email: userEmail,
+            verificationToken: autoVerifyToken,
+          });
+
+          setIsVerified(true);
+
+          setTimeout(() => {
+            if (onVerificationSuccess) {
+              onVerificationSuccess();
+            }
+            onClose();
+          }, 2000);
+        } catch (err: unknown) {
+          if (axios.isAxiosError(err)) {
+            const errorData = err.response?.data as { message?: string } | undefined;
+            setLocalError(
+              errorData?.message ?? 'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.'
+            );
+          } else {
+            setLocalError(
+              'Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.'
+            );
+          }
+        }
+        await Promise.resolve();
+      });
     }
-  }, [open, autoVerifyToken, userEmail]);
-  
+  }, [
+    open,
+    autoVerifyToken,
+    userEmail,
+    setValue,
+    withLoading,
+    verifyEmail,
+    onVerificationSuccess,
+    onClose,
+  ]);
+
   useEffect(() => {
     if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
-      return () => clearTimeout(timer);
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1);
+      }, 1000);
+      return () => {
+        clearTimeout(timer);
+      };
     }
   }, [resendCooldown]);
-  
+
+  // Handle dialog close reset - Use refs to track previous open state
+  const prevOpenRef = React.useRef(open);
   useEffect(() => {
-    if (!open) {
-      reset();
-      setLocalError(null);
-      setResendMessage(null);
-      setIsVerified(false);
-      clearError();
+    // Only run cleanup when dialog transitions from open to closed
+    if (prevOpenRef.current && !open) {
+      // Use requestAnimationFrame to defer setState until after React's render cycle
+      requestAnimationFrame(() => {
+        reset();
+        setLocalError(null);
+        setResendMessage(null);
+        setIsVerified(false);
+        clearError();
+      });
     }
+    prevOpenRef.current = open;
   }, [open, reset, clearError]);
-  
-  const handleVerification = async (code: string) => {
+
+  const handleVerification = async (code: string): Promise<void> => {
     await withLoading(LoadingKeys.VERIFY_EMAIL, async () => {
       try {
         setLocalError(null);
-        
-        await verifyEmail({ 
-          email: userEmail, 
-          verificationToken: code 
+
+        verifyEmail({
+          email: userEmail,
+          verificationToken: code,
         });
-        
+
         setIsVerified(true);
-        
+
         setTimeout(() => {
           if (onVerificationSuccess) {
             onVerificationSuccess();
           }
           onClose();
         }, 2000);
-      } catch (err) {
+      } catch (err: unknown) {
         if (axios.isAxiosError(err)) {
+          const errorData = err.response?.data as { message?: string } | undefined;
           setLocalError(
-            err.response?.data?.message || 
-            'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.'
+            errorData?.message ?? 'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.'
           );
         } else {
           setLocalError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
         }
       }
+      await Promise.resolve();
     });
   };
-  
+
   // Handle form submission
   const onSubmit: SubmitHandler<EmailVerificationFormValues> = async (data) => {
     await handleVerification(data.code);
   };
-  
+
   // Handle resend verification email
-  const handleResendVerification = async () => {
+  const handleResendVerification = async (): Promise<void> => {
     if (resendCooldown > 0 || !userEmail) return;
-    
+
     await withLoading('resendVerification', async () => {
       try {
         setLocalError(null);
         setResendMessage(null);
-        
+
         await authService.resendEmailVerification(userEmail);
-        
+
         setResendMessage('Eine neue Verifizierungs-E-Mail wurde gesendet.');
         setResendCooldown(60);
-        reset(); 
-      } catch (err) {
+        reset();
+      } catch (err: unknown) {
         if (axios.isAxiosError(err)) {
-          setLocalError(
-            err.response?.data?.message || 
-            'Fehler beim Senden der Verifizierungs-E-Mail.'
-          );
+          const errorData = err.response?.data as { message?: string } | undefined;
+          setLocalError(errorData?.message ?? 'Fehler beim Senden der Verifizierungs-E-Mail.');
         } else {
           setLocalError('Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
         }
       }
     });
   };
-  
+
   // Handle single digit input
-  const handleDigitInput = (index: number, value: string) => {
+  const handleDigitInput = (index: number, value: string): void => {
     if (!/^\d*$/.test(value)) return; // Only allow digits
-    
+
     const newCode = codeValue.split('');
     newCode[index] = value.slice(-1); // Take only last character
     const updatedCode = newCode.join('').slice(0, 6);
     setValue('code', updatedCode);
-    
+
     // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
-    
+
     // Auto-submit when all 6 digits are entered
     if (updatedCode.length === 6) {
-      handleSubmit(onSubmit)();
+      void handleSubmit(onSubmit)();
     }
   };
-  
+
   // Handle backspace
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+  const handleKeyDown = (index: number, e: React.KeyboardEvent): void => {
     if (e.key === 'Backspace' && !codeValue[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
-  
+
   // Handle paste
-  const handlePaste = (e: React.ClipboardEvent) => {
+  const handlePaste = (e: React.ClipboardEvent): void => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     setValue('code', pastedData);
-    
+
     // Auto-submit if 6 digits were pasted
     if (pastedData.length === 6) {
-      handleSubmit(onSubmit)();
+      void handleSubmit(onSubmit)();
     }
   };
-  
+
   // Success state content
   if (isVerified) {
     return (
@@ -221,18 +272,17 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         onClose={onClose}
         maxWidth="xs"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 2,
+            },
           },
         }}
       >
         <DialogContent>
           <Box sx={{ textAlign: 'center', py: 3 }}>
-            <CheckCircleIcon 
-              color="success" 
-              sx={{ fontSize: 64, mb: 2 }} 
-            />
+            <CheckCircleIcon color="success" sx={{ fontSize: 64, mb: 2 }} />
             <Typography variant="h5" sx={{ mb: 1, fontWeight: 'bold' }}>
               Erfolgreich verifiziert!
             </Typography>
@@ -244,16 +294,18 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       </Dialog>
     );
   }
-  
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2,
+          },
         },
       }}
     >
@@ -275,7 +327,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      
+
       <DialogContent dividers>
         <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
           <Stack spacing={3}>
@@ -291,55 +343,65 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                 gesendet. Bitte geben Sie den 6-stelligen Code ein.
               </Typography>
             </Box>
-            
+
             {/* Error Display */}
-            {(localError || errorMessage) && (
-              <Alert 
-                severity="error" 
+            {(localError ?? errorMessage) && (
+              <Alert
+                severity="error"
                 icon={<ErrorIcon />}
                 onClose={() => {
                   setLocalError(null);
                   clearError();
                 }}
               >
-                {localError || errorMessage}
+                {localError ?? errorMessage}
               </Alert>
             )}
-            
+
             {/* Success Message */}
             {resendMessage && (
-              <Alert 
+              <Alert
                 severity="success"
-                onClose={() => setResendMessage(null)}
+                onClose={() => {
+                  setResendMessage(null);
+                }}
               >
                 {resendMessage}
               </Alert>
             )}
-            
+
             {/* Code Input Fields */}
             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
               {[0, 1, 2, 3, 4, 5].map((index) => (
                 <TextField
                   key={index}
-                  inputRef={(el) => (inputRefs.current[index] = el)}
+                  inputRef={(el: HTMLInputElement | null) => {
+                    inputRefs.current[index] = el;
+                  }}
                   value={codeValue[index] || ''}
-                  onChange={(e) => handleDigitInput(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  onChange={(e) => {
+                    handleDigitInput(index, e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    handleKeyDown(index, e);
+                  }}
                   onPaste={index === 0 ? handlePaste : undefined}
                   disabled={isLoading(LoadingKeys.VERIFY_EMAIL)}
                   variant="outlined"
-                  inputProps={{
-                    maxLength: 1,
-                    style: {
-                      textAlign: 'center',
-                      fontSize: '1.5rem',
-                      fontWeight: 'bold',
-                      width: '50px',
-                      height: '50px',
-                      padding: 0,
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 1,
+                      style: {
+                        textAlign: 'center',
+                        fontSize: '1.5rem',
+                        fontWeight: 'bold',
+                        width: '50px',
+                        height: '50px',
+                        padding: 0,
+                      },
+                      'aria-label': `Ziffer ${String(index + 1)}`,
+                      autoComplete: 'off',
                     },
-                    'aria-label': `Ziffer ${index + 1}`,
-                    autoComplete: 'off',
                   }}
                   error={!!errors.code && codeValue.length === 6}
                   sx={{
@@ -354,27 +416,19 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                 />
               ))}
             </Box>
-            
+
             {/* Error message for code */}
             {errors.code && (
-              <Typography 
-                variant="caption" 
-                color="error" 
-                sx={{ textAlign: 'center' }}
-              >
+              <Typography variant="caption" color="error" sx={{ textAlign: 'center' }}>
                 {errors.code.message}
               </Typography>
             )}
-            
+
             {/* Hidden Controller for form validation */}
-            <Controller
-              name="code"
-              control={control}
-              render={() => <></>}
-            />
-            
+            <Controller name="code" control={control} render={() => <></>} />
+
             <Divider />
-            
+
             {/* Resend Section */}
             <Box sx={{ textAlign: 'center' }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -390,7 +444,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                 {isLoading('resendVerification') ? (
                   <CircularProgress size={20} />
                 ) : resendCooldown > 0 ? (
-                  `Erneut senden in ${resendCooldown}s`
+                  `Erneut senden in ${String(resendCooldown)}s`
                 ) : (
                   'Code erneut senden'
                 )}
@@ -399,17 +453,21 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
           </Stack>
         </Box>
       </DialogContent>
-      
+
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button 
+        <Button
           onClick={() => {
             // If context provides snooze, use it
-            const context = (window as any).emailVerificationContext;
+            const context = (
+              window as Window & {
+                emailVerificationContext?: { snoozeVerification?: (hours: number) => void };
+              }
+            ).emailVerificationContext;
             if (context?.snoozeVerification) {
               context.snoozeVerification(24);
             }
             onClose();
-          }} 
+          }}
           variant="outlined"
           disabled={isLoading(LoadingKeys.VERIFY_EMAIL)}
         >

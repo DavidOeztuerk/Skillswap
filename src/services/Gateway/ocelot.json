@@ -59,6 +59,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 10
       }
     },
     {
@@ -70,6 +77,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {
@@ -222,14 +236,28 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/refresh-token",
-      "UpstreamHttpMethod": ["POST"]
+      "UpstreamHttpMethod": ["POST"],
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
+      }
     },
     {
       "DownstreamPathTemplate": "/users/auth/verify-email",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/verify-email",
-      "UpstreamHttpMethod": ["POST"]
+      "UpstreamHttpMethod": ["POST"],
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 10
+      }
     },
     {
       "DownstreamPathTemplate": "/users/auth/resend-verification",
@@ -293,7 +321,14 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/reset-password",
-      "UpstreamHttpMethod": ["POST"]
+      "UpstreamHttpMethod": ["POST"],
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 5
+      }
     },
     {
       "DownstreamPathTemplate": "/users/auth/change-password",
@@ -303,6 +338,13 @@
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 5
       }
     },
     {
@@ -574,6 +616,13 @@
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 20
       }
     },
     {
@@ -584,6 +633,13 @@
       "UpstreamHttpMethod": ["PUT", "DELETE"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 30
       }
     },
     {
@@ -594,6 +650,13 @@
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 20
       }
     },
     {
@@ -604,6 +667,13 @@
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 20
       }
     },
     {
@@ -706,6 +776,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {
@@ -732,6 +809,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {
@@ -745,6 +829,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {
@@ -783,6 +874,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 50
       }
     },
     {
@@ -824,6 +922,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {
@@ -837,6 +942,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {
@@ -863,6 +975,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 30
       }
     },
     {
@@ -876,6 +995,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {
@@ -889,6 +1015,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 20
       }
     },
     {
@@ -902,6 +1035,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 10
       }
     },
     {
@@ -955,6 +1095,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {
@@ -968,6 +1115,13 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 5
       }
     },
     {
@@ -1243,7 +1397,14 @@
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/generate",
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
-      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 5
+      }
     },
     {
       "DownstreamPathTemplate": "/users/2fa/verify",
@@ -1251,7 +1412,14 @@
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/verify",
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
-      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 10
+      }
     },
     {
       "DownstreamPathTemplate": "/users/2fa/disable",
@@ -1259,7 +1427,14 @@
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
       "UpstreamPathTemplate": "/api/users/2fa/disable",
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
-      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1h",
+        "PeriodTimespan": 3600,
+        "Limit": 3
+      }
     },
     {
       "DownstreamPathTemplate": "/users/2fa/status",
@@ -1308,6 +1483,13 @@
       },
       "RouteClaimsRequirement": {
         "permission": "users:block"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 20
       }
     },
     {
@@ -1321,6 +1503,13 @@
       },
       "RouteClaimsRequirement": {
         "permission": "users:unblock"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 20
       }
     },
     {
@@ -1334,6 +1523,13 @@
       },
       "RouteClaimsRequirement": {
         "permission": "users:delete"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 10
       }
     },
     {
@@ -1368,6 +1564,13 @@
       },
       "RouteClaimsRequirement": {
         "permission": "permissions:manage"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {
@@ -1381,6 +1584,13 @@
       },
       "RouteClaimsRequirement": {
         "permission": "permissions:manage"
+      },
+      "RateLimitOptions": {
+        "ClientWhitelist": [],
+        "EnableRateLimiting": true,
+        "Period": "1m",
+        "PeriodTimespan": 60,
+        "Limit": 30
       }
     },
     {

@@ -1,28 +1,21 @@
-import { createEntityAdapter, EntityState, EntityId } from "@reduxjs/toolkit";
-import { RequestState } from "../../types/common/RequestState";
-import { MatchDisplay, MatchRequestDisplay, MatchRequestInThreadDisplay } from "../../types/contracts/MatchmakingDisplay";
-import { User } from "../../types/models/User";
+import { createEntityAdapter, type EntityState, type EntityId } from '@reduxjs/toolkit';
+import type { RequestState } from '../../types/common/RequestState';
+import type {
+  MatchDisplay,
+  MatchRequestDisplay,
+  MatchRequestInThreadDisplay,
+} from '../../types/contracts/MatchmakingDisplay';
+import type { User } from '../../types/models/User';
 
 /**
- * ✅ REFACTORED: Use MatchDisplay in EntityAdapter (not Match domain model)
  * Backend returns MatchDisplay, so we store that directly in normalized state
  */
 export const matchesAdapter = createEntityAdapter<MatchDisplay, EntityId>({
-  selectId: (match) => {
-    if (!match?.id) {
-      console.error('Match without ID detected:', match);
-      return `temp-${Date.now()}-${Math.random()}`;
-    }
-    return match.id;
-  },
+  selectId: (match) => match.id,
   sortComparer: (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 });
 
 /**
- * ✅ REFACTORED: Removed duplicate state arrays
- *
- * EntityAdapter provides: entities + ids (normalized state for matches)
- * No need for: matches[], matchHistory[], acceptedRequests[]
  *
  * Kept separate arrays for requests (incoming/outgoing) because:
  * - They're different entity types (MatchRequestDisplay vs MatchDisplay)

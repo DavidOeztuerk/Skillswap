@@ -71,3 +71,10 @@ export interface ModerationReportFilters {
   isResolved?: boolean;
   [key: string]: string | number | boolean | undefined;
 }
+
+export interface SecurityAlertFilters {
+  minLevel?: string;
+  type?: string;
+  includeRead?: boolean;
+  includeDismissed?: boolean;
+}

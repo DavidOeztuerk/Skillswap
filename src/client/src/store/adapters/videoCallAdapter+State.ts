@@ -1,7 +1,7 @@
-import { createEntityAdapter, EntityState, EntityId } from "@reduxjs/toolkit";
-import { RequestState } from "../../types/common/RequestState";
-import { VideoCallConfig } from "../../types/models/VideoCallConfig";
-import { ChatMessage } from "../../types/models/ChatMessage";
+import { createEntityAdapter, type EntityState, type EntityId } from '@reduxjs/toolkit';
+import type { RequestState } from '../../types/common/RequestState';
+import type { VideoCallConfig } from '../../types/models/VideoCallConfig';
+import type { ChatMessage } from '../../types/models/ChatMessage';
 
 // ============================================================================
 // Entity Adapter (optional - nur wenn mehrere Call-Configs benötigt werden)
@@ -16,42 +16,48 @@ export const videoCallAdapter = createEntityAdapter<VideoCallConfig, EntityId>({
 // Main State Interface
 // ============================================================================
 
+export type LayoutMode = 'grid' | 'spotlight' | 'screenShare' | 'pip';
+
 export interface VideoCallEntityState extends EntityState<VideoCallConfig, EntityId>, RequestState {
   // Session & Room
   sessionId: string | null;
   roomId: string | null;
   peerId: string | null;
-  
+
   // Connection State
   isConnected: boolean;
   isInitializing: boolean;
   connectionQuality: ConnectionQuality;
-  
+
   localStreamId: string | null;
   remoteStreamId: string | null;
-  
+
+  // Layout
+  layoutMode: LayoutMode;
+  activeSpeakerId: string | null;
+
   // Participants
   participants: CallParticipant[];
-  
+
   // Call Timing
   callDuration: number;
   callStartTime: string | null; // ISO string
-  
+
   // Media Controls
   isMicEnabled: boolean;
   isVideoEnabled: boolean;
   isScreenSharing: boolean;
   isRecording: boolean;
-  
+
   // Chat
   isChatOpen: boolean;
   messages: ChatMessage[];
   unreadMessageCount: number;
-  
+
   // Statistics & Settings
   callStatistics: CallStatistics;
   settings: CallSettings;
-  
+
   // E2EE State
   e2ee: E2EEState;
   chatE2EE: ChatE2EEState;
@@ -108,41 +114,45 @@ export const initialVideoCalllState: VideoCallEntityState = videoCallAdapter.get
   sessionId: null,
   roomId: null,
   peerId: null,
-  
+
   // Connection
   isConnected: false,
   isInitializing: false,
   connectionQuality: 'good',
-  
+
   localStreamId: null,
   remoteStreamId: null,
-  
+
+  // Layout
+  layoutMode: 'grid',
+  activeSpeakerId: null,
+
   // Participants
   participants: [],
-  
+
   // Timing
   callDuration: 0,
   callStartTime: null,
-  
+
   // Media Controls
   isMicEnabled: true,
   isVideoEnabled: true,
   isScreenSharing: false,
   isRecording: false,
-  
+
   // Chat
   isChatOpen: false,
   messages: [],
   unreadMessageCount: 0,
-  
+
   // Stats & Settings
   callStatistics: initialCallStatistics,
   settings: initialCallSettings,
-  
+
   // E2EE
   e2ee: initialE2EEState,
   chatE2EE: initialChatE2EEState,
-  
+
   // Request State
   isLoading: false,
   errorMessage: undefined,
@@ -207,32 +217,32 @@ export enum SignalRMessageType {
   // Room Management
   JoinRoom = 'JoinRoom',
   LeaveRoom = 'LeaveRoom',
-  
+
   // Signaling
   SendOffer = 'SendOffer',
   SendAnswer = 'SendAnswer',
   SendIceCandidate = 'SendIceCandidate',
-  
+
   // Legacy (für Kompatibilität)
   SendSignal = 'SendSignal',
   ReceiveSignal = 'ReceiveSignal',
-  
+
   // Chat
   SendChatMessage = 'SendChatMessage',
   ReceiveChatMessage = 'ReceiveChatMessage',
-  
+
   // Events
   UserJoined = 'UserJoined',
   UserLeft = 'UserLeft',
   CallEnded = 'CallEnded',
-  
+
   // E2EE
   SendKeyExchange = 'SendKeyExchange',
   ReceiveKeyExchange = 'ReceiveKeyExchange',
-  
+
   // Media State
   MediaStateChanged = 'MediaStateChanged',
-  
+
   // Health
   SendHeartbeat = 'SendHeartbeat',
 }
@@ -271,11 +281,7 @@ export type E2EEStatus =
   | 'error'
   | 'unsupported';
 
-export type ChatE2EEStatus =
-  | 'disabled'
-  | 'initializing'
-  | 'active'
-  | 'error';
+export type ChatE2EEStatus = 'disabled' | 'initializing' | 'active' | 'error';
 
 export interface E2EEState {
   status: E2EEStatus;

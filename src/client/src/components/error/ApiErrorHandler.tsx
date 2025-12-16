@@ -21,7 +21,7 @@ import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 export interface ApiErrorProps {
   error: {
-    type: 'NETWORK' | 'SERVER' | 'AUTH' | 'VALIDATION' | 'PERMISSION' | 'UNKNOWN';
+    type: 'NETWORK' | 'SERVER' | 'CLIENT' | 'VALIDATION' | 'PERMISSION' | 'UNKNOWN';
     message: string;
     code?: string | number;
     errorCode?: string;
@@ -47,14 +47,22 @@ const ApiErrorHandler: React.FC<ApiErrorProps> = ({
   showNetworkStatus = true,
 }) => {
   const { isOnline, isSlowConnection } = useNetworkStatus();
-  const getErrorConfig = (type: string) => {
+  const getErrorConfig = (
+    type: string
+  ): {
+    icon: React.ReactNode;
+    title: string;
+    message: string;
+    severity: 'error' | 'warning' | 'info';
+    showRetry: boolean;
+  } => {
     switch (type) {
       case 'NETWORK':
         return {
           icon: isOnline ? <WifiIcon /> : <WifiOffIcon />,
           title: isOnline ? 'Verbindungsfehler' : 'Offline',
-          message: isOnline 
-            ? 'Netzwerkfehler. Bitte versuchen Sie es erneut.' 
+          message: isOnline
+            ? 'Netzwerkfehler. Bitte versuchen Sie es erneut.'
             : 'Keine Internetverbindung. Bitte prüfen Sie Ihre Netzwerkeinstellungen.',
           severity: 'error' as const,
           showRetry: true,
@@ -103,32 +111,22 @@ const ApiErrorHandler: React.FC<ApiErrorProps> = ({
   };
 
   const config = getErrorConfig(error.type);
-  const displayMessage = error.message || config.message;
-  const canRetry = config.showRetry && retryCount < maxRetries && !isRetrying;
+  const displayMessage = config.message;
+  const canRetry = config.showRetry && retryCount < maxRetries;
 
   if (compact) {
     return (
-      <Alert 
+      <Alert
         severity={config.severity}
         action={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             {showNetworkStatus && !isOnline && (
-              <Chip 
-                icon={<WifiOffIcon />} 
-                label="Offline" 
-                size="small" 
-                color="error" 
-              />
+              <Chip icon={<WifiOffIcon />} label="Offline" size="small" color="error" />
             )}
             {showNetworkStatus && isSlowConnection && (
-              <Chip 
-                icon={<ScheduleIcon />} 
-                label="Langsam" 
-                size="small" 
-                color="warning" 
-              />
+              <Chip icon={<ScheduleIcon />} label="Langsam" size="small" color="warning" />
             )}
-            {canRetry && onRetry && (
+            {canRetry && onRetry !== undefined && (
               <Button
                 size="small"
                 startIcon={isRetrying ? <CircularProgress size={16} /> : <RefreshIcon />}
@@ -137,15 +135,11 @@ const ApiErrorHandler: React.FC<ApiErrorProps> = ({
                 color="inherit"
                 disabled={isRetrying}
               >
-                {isRetrying ? 'Versuche...' : `Retry (${retryCount}/${maxRetries})`}
+                {isRetrying ? 'Versuche...' : `Retry (${String(retryCount)}/${String(maxRetries)})`}
               </Button>
             )}
             {onDismiss && (
-              <Button
-                size="small"
-                onClick={onDismiss}
-                color="inherit"
-              >
+              <Button size="small" onClick={onDismiss} color="inherit">
                 Dismiss
               </Button>
             )}
@@ -200,45 +194,47 @@ const ApiErrorHandler: React.FC<ApiErrorProps> = ({
 
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
           {showNetworkStatus && !isOnline && (
-            <Chip 
-              icon={<WifiOffIcon />} 
-              label="Offline" 
-              size="small" 
-              color="error" 
+            <Chip
+              icon={<WifiOffIcon />}
+              label="Offline"
+              size="small"
+              color="error"
               variant="outlined"
             />
           )}
           {showNetworkStatus && isSlowConnection && (
-            <Chip 
-              icon={<ScheduleIcon />} 
-              label="Langsame Verbindung" 
-              size="small" 
-              color="warning" 
+            <Chip
+              icon={<ScheduleIcon />}
+              label="Langsame Verbindung"
+              size="small"
+              color="warning"
               variant="outlined"
             />
           )}
           {retryCount > 0 && (
-            <Chip 
-              label={`Versuch ${retryCount}/${maxRetries}`} 
-              size="small" 
+            <Chip
+              label={`Versuch ${String(retryCount)}/${String(maxRetries)}`}
+              size="small"
               variant="outlined"
             />
           )}
         </Box>
-        
-        {(error.errorCode || error.code || error.traceId) && (
+
+        {(error.errorCode !== undefined ||
+          error.code !== undefined ||
+          error.traceId !== undefined) && (
           <Box sx={{ mt: 1 }}>
-            {error.errorCode && (
+            {error.errorCode !== undefined && (
               <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
                 Error Code: {error.errorCode}
               </Typography>
             )}
-            {error.code && !error.errorCode && (
+            {error.code !== undefined && error.errorCode === undefined && (
               <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
                 Fehlercode: {error.code}
               </Typography>
             )}
-            {error.traceId && (
+            {error.traceId !== undefined && (
               <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
                 Trace ID: {error.traceId}
               </Typography>
@@ -248,7 +244,7 @@ const ApiErrorHandler: React.FC<ApiErrorProps> = ({
       </CardContent>
 
       <CardActions sx={{ justifyContent: 'center', pb: 2, gap: 1 }}>
-        {canRetry && onRetry && (
+        {canRetry && onRetry !== undefined && (
           <Button
             variant="contained"
             startIcon={isRetrying ? <CircularProgress size={16} /> : <RefreshIcon />}
@@ -264,12 +260,8 @@ const ApiErrorHandler: React.FC<ApiErrorProps> = ({
             Maximale Anzahl von Versuchen erreicht
           </Typography>
         )}
-        {onDismiss && (
-          <Button
-            variant="text"
-            onClick={onDismiss}
-            size="small"
-          >
+        {onDismiss !== undefined && (
+          <Button variant="text" onClick={onDismiss} size="small">
             Schließen
           </Button>
         )}

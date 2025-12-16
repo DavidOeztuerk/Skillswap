@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type JSX } from 'react';
 import { Box, Container, Typography } from '@mui/material';
 import SkeletonLoader from './SkeletonLoader';
 
@@ -15,7 +15,7 @@ const DashboardSkeleton: React.FC = () => (
       <SkeletonLoader variant="text" width="40%" height={32} />
       <SkeletonLoader variant="text" width="60%" height={20} />
     </Box>
-    
+
     {/* Stats Cards */}
     <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
       {Array.from({ length: 4 }).map((_, i) => (
@@ -24,7 +24,7 @@ const DashboardSkeleton: React.FC = () => (
         </Box>
       ))}
     </Box>
-    
+
     {/* Content Sections */}
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3 }}>
       <Box>
@@ -57,10 +57,10 @@ const ListSkeleton: React.FC = () => (
       <SkeletonLoader variant="text" width={120} height={40} />
       <SkeletonLoader variant="text" width={100} height={40} />
     </Box>
-    
+
     {/* List Items */}
     <SkeletonLoader variant="card" count={6} />
-    
+
     {/* Pagination */}
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
       <SkeletonLoader variant="text" width={200} height={32} />
@@ -80,7 +80,7 @@ const DetailsSkeleton: React.FC = () => (
         <SkeletonLoader variant="text" width={90} height={24} />
       </Box>
     </Box>
-    
+
     {/* Main Content */}
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3 }}>
       <Box>
@@ -100,7 +100,7 @@ const FormSkeleton: React.FC = () => (
       <SkeletonLoader variant="text" width="60%" height={32} />
       <SkeletonLoader variant="text" width="80%" height={20} />
     </Box>
-    
+
     {/* Form Fields */}
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {Array.from({ length: 6 }).map((_, i) => (
@@ -109,7 +109,7 @@ const FormSkeleton: React.FC = () => (
           <SkeletonLoader variant="text" width="100%" height={56} />
         </Box>
       ))}
-      
+
       {/* Submit Button */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
         <SkeletonLoader variant="text" width={100} height={36} />
@@ -124,7 +124,7 @@ const PageLoader: React.FC<PageLoaderProps> = ({
   message = 'Lade Inhalte...',
   showMessage = true,
 }) => {
-  const renderSkeleton = () => {
+  const renderSkeleton = (): JSX.Element => {
     switch (variant) {
       case 'dashboard':
         return <DashboardSkeleton />;

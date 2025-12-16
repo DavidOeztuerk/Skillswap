@@ -5,13 +5,13 @@ import {
   Typography,
   Breadcrumbs,
   Link,
-  SxProps,
-  Theme,
+  type SxProps,
+  type Theme,
   Button,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import { useBreadcrumbs, BreadcrumbItem } from '../../hooks/useBreadcrumbs';
+import { useBreadcrumbs, type BreadcrumbItem } from '../../hooks/useBreadcrumbs';
 
 interface PageHeaderProps {
   title?: string; // Now optional - will be auto-generated if not provided
@@ -35,46 +35,45 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   sx,
   showBreadcrumbs = true,
   useAutoBreadcrumbs = true,
-  icon
+  icon,
 }) => {
   const autoBreadcrumbs = useBreadcrumbs();
-  
+
   // Determine which breadcrumbs to use
-  const finalBreadcrumbs = useAutoBreadcrumbs 
-    ? (breadcrumbs || autoBreadcrumbs)
-    : breadcrumbs;
-    
+  const finalBreadcrumbs = useAutoBreadcrumbs ? (breadcrumbs ?? autoBreadcrumbs) : breadcrumbs;
+
   // Auto-generate title from breadcrumbs if not provided
-  const finalTitle = title || (finalBreadcrumbs && finalBreadcrumbs?.length > 0 
-    ? finalBreadcrumbs[finalBreadcrumbs?.length - 1]?.label 
-    : 'Page');
+  const finalTitle =
+    title ??
+    (finalBreadcrumbs !== undefined && finalBreadcrumbs.length > 0
+      ? finalBreadcrumbs[finalBreadcrumbs.length - 1]?.label
+      : 'Page');
   return (
     <Box
-      sx={{
-        mb: 4,
-        display: 'flex',
-        flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' },
-        justifyContent: 'space-between',
-        ...sx,
-      }}
+      sx={[
+        {
+          mb: 4,
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          justifyContent: 'space-between',
+        },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        ...(Array.isArray(sx) ? sx : sx !== undefined ? [sx] : []),
+      ]}
     >
       <Box>
-        {showBreadcrumbs && finalBreadcrumbs && finalBreadcrumbs?.length > 1 && (
+        {showBreadcrumbs && finalBreadcrumbs !== undefined && finalBreadcrumbs.length > 1 && (
           <Breadcrumbs
             separator={<NavigateNextIcon fontSize="small" />}
             aria-label="Breadcrumb"
             sx={{ mb: 1 }}
           >
             {finalBreadcrumbs.map((item, index) => {
-              const isLast = index === finalBreadcrumbs?.length - 1;
+              const isLast = index === finalBreadcrumbs.length - 1;
 
-              return isLast || !item.href ? (
-                <Typography
-                  key={item.label}
-                  color="text.primary"
-                  variant="body2"
-                >
+              return isLast || item.href === undefined ? (
+                <Typography key={item.label} color="text.primary" variant="body2">
                   {item.label}
                 </Typography>
               ) : (
@@ -94,30 +93,26 @@ const PageHeader: React.FC<PageHeaderProps> = ({
         )}
 
         <Box display="flex" alignItems="center" gap={2}>
-          {icon && (
-            <Box>
-              {icon}
-            </Box>
-          )}
+          {icon !== undefined && <Box>{icon}</Box>}
           <Typography
             variant="h4"
             component="h1"
             color="text.primary"
             fontWeight="medium"
-            sx={{ mb: subtitle ? 1 : 0 }}
+            sx={{ mb: subtitle !== undefined ? 1 : 0 }}
           >
             {finalTitle}
           </Typography>
         </Box>
 
-        {subtitle && (
+        {subtitle !== undefined && (
           <Typography variant="subtitle1" color="text.secondary">
             {subtitle}
           </Typography>
         )}
       </Box>
 
-      {actions && (
+      {actions !== undefined && (
         <Box
           sx={{
             mt: { xs: 2, sm: 0 },
@@ -139,32 +134,12 @@ export const PageHeaderAction: React.FC<{
   icon?: React.ReactNode;
   onClick?: () => void;
   to?: string;
-  color?:
-    | 'inherit'
-    | 'primary'
-    | 'secondary'
-    | 'success'
-    | 'error'
-    | 'info'
-    | 'warning';
+  color?: 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
   variant?: 'text' | 'outlined' | 'contained';
-}> = ({
-  label,
-  icon,
-  onClick,
-  to,
-  color = 'primary',
-  variant = 'contained',
-}) => {
+}> = ({ label, icon, onClick, to, color = 'primary', variant = 'contained' }) => {
   if (to) {
     return (
-      <Button
-        component={RouterLink}
-        to={to}
-        variant={variant}
-        color={color}
-        startIcon={icon}
-      >
+      <Button component={RouterLink} to={to} variant={variant} color={color} startIcon={icon}>
         {label}
       </Button>
     );

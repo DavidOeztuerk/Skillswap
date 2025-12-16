@@ -20,7 +20,24 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* REMOVE THIS SECTION */
+    /* Worker support - Alternative wenn WebWorker nicht funktioniert */
+    /* "types": ["webworker", "dom"], */
+
+    /* Paths */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+
+    /* TODO: Enable these gradually and fix violations */
+    "noImplicitReturns": false,
+    "noImplicitOverride": false,
+    "exactOptionalPropertyTypes": false,
+    "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["src"]
+  "include": ["src", "src/types/**/*.d.ts"]
 }

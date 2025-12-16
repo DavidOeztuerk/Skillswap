@@ -25,14 +25,14 @@ import {
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import LoadingButton from '../ui/LoadingButton';
-import { useLoading } from '../../contexts/LoadingContext';
 import authService from '../../api/services/authService';
 import axios from 'axios';
 import { isSuccessResponse } from '../../types/api/UnifiedResponse';
+import { useLoading } from '@/contexts/loadingContextHooks';
 
 // Country codes for phone number input
 const countryCodes = [
@@ -110,24 +110,34 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
     },
   });
 
-  const codeValue = codeForm.watch('code');
+  const codeValue = useWatch({ control: codeForm.control, name: 'code', defaultValue: '' });
 
-  // Reset forms when dialog opens/closes
+  // Reset forms when dialog opens/closes - Use refs to track previous open state
+  const prevOpenRef = useRef(open);
   useEffect(() => {
-    if (!open) {
-      setActiveStep(0);
-      setError(null);
-      phoneForm.reset();
-      codeForm.reset();
-      setResendCooldown(0);
+    // Only run cleanup when dialog transitions from open to closed
+    if (prevOpenRef.current && !open) {
+      // Use requestAnimationFrame to defer setState until after React's render cycle
+      requestAnimationFrame(() => {
+        setActiveStep(0);
+        setError(null);
+        phoneForm.reset();
+        codeForm.reset();
+        setResendCooldown(0);
+      });
     }
-  }, [open]);
+    prevOpenRef.current = open;
+  }, [open, phoneForm, codeForm]);
 
   // Cooldown timer for resend
   useEffect(() => {
     if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
-      return () => clearTimeout(timer);
+      const timer = setTimeout((): void => {
+        setResendCooldown(resendCooldown - 1);
+      }, 1000);
+      return (): void => {
+        clearTimeout(timer);
+      };
     }
   }, [resendCooldown]);
 
@@ -135,45 +145,46 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
   const steps = ['Telefonnummer eingeben', 'Code verifizieren', 'Fertig'];
 
   // Handle phone number submission
-  const handlePhoneSubmit = async (data: PhoneFormValues) => {
+  const handlePhoneSubmit = async (data: PhoneFormValues): Promise<void> => {
     await withLoading('sendPhoneVerification', async () => {
       try {
         setError(null);
         const fullNumber = `${data.countryCode}${data.phoneNumber}`;
         setFullPhoneNumber(fullNumber);
-        
+
         // Send verification code
         const response = await authService.sendPhoneVerificationCode(fullNumber);
-        
+
         if (!response.success) {
-          setError(response.message || 'Fehler beim Senden des Verifizierungscodes.');
+          setError(response.message ?? 'Fehler beim Senden des Verifizierungscodes.');
           return;
         }
-        
+
         if (isSuccessResponse(response)) {
-            // Check for cooldown
-        if (response.data?.cooldownUntil) {
-          const cooldownDate = new Date(response.data.cooldownUntil);
-          const now = new Date();
-          const cooldownSeconds = Math.max(0, Math.ceil((cooldownDate.getTime() - now.getTime()) / 1000));
-          setResendCooldown(cooldownSeconds);
-        } else {
-          setResendCooldown(60);
+          // Check for cooldown
+          if (response.data.cooldownUntil) {
+            const cooldownDate = new Date(response.data.cooldownUntil);
+            const now = new Date();
+            const cooldownSeconds = Math.max(
+              0,
+              Math.ceil((cooldownDate.getTime() - now.getTime()) / 1000)
+            );
+            setResendCooldown(cooldownSeconds);
+          } else {
+            setResendCooldown(60);
+          }
+
+          if (response.data.success) {
+            setActiveStep(1);
+          } else {
+            setError(response.data.message);
+          }
         }
-        
-        if (response.data?.success) {
-          setActiveStep(1);
-        } else {
-          setError(response.data?.message || 'Code konnte nicht gesendet werden.');
-        }
-        }
-      } catch (err) {
+      } catch (err: unknown) {
         if (axios.isAxiosError(err)) {
-          setError(
-            err.response?.data?.message ||
-            err.message ||
-            'Fehler beim Senden des Verifizierungscodes.'
-          );
+          const errorMessage =
+            (err.response?.data as { message?: string } | undefined)?.message ?? err.message;
+          setError(errorMessage);
         } else {
           setError('Fehler beim Senden des Verifizierungscodes.');
         }
@@ -181,39 +192,37 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
     });
   };
 
-  const handleCodeSubmit = async (data: CodeFormValues) => {
+  const handleCodeSubmit = async (data: CodeFormValues): Promise<void> => {
     await withLoading('verifyPhoneCode', async () => {
       try {
         setError(null);
-        
+
         const response = await authService.verifyPhoneCode(data.code);
-        
+
         if (!response.success) {
-          setError(response.message || 'Verifizierung fehlgeschlagen.');
+          setError(response.message ?? 'Verifizierung fehlgeschlagen.');
           return;
         }
-        
-       if (isSuccessResponse(response)) {
-         if (response.data?.phoneVerified) {
-          setActiveStep(2);
-          
-          setTimeout(() => {
-            if (onVerificationComplete) {
-              onVerificationComplete(response.data?.phoneNumber || fullPhoneNumber);
-            }
-            onClose();
-          }, 2000);
-        } else {
-          setError(response.data?.message || 'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.');
+
+        if (isSuccessResponse(response)) {
+          if (response.data.phoneVerified) {
+            setActiveStep(2);
+
+            setTimeout((): void => {
+              if (onVerificationComplete) {
+                onVerificationComplete(response.data.phoneNumber ?? fullPhoneNumber);
+              }
+              onClose();
+            }, 2000);
+          } else {
+            setError(response.data.message);
+          }
         }
-       }
-      } catch (err) {
+      } catch (err: unknown) {
         if (axios.isAxiosError(err)) {
-          setError(
-            err.response?.data?.message ||
-            err.message ||
-            'Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.'
-          );
+          const errorMessage =
+            (err.response?.data as { message?: string } | undefined)?.message ?? err.message;
+          setError(errorMessage);
         } else {
           setError('Verifizierung fehlgeschlagen. Bitte überprüfen Sie den Code.');
         }
@@ -222,42 +231,43 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
   };
 
   // Handle resend code
-  const handleResendCode = async () => {
+  const handleResendCode = async (): Promise<void> => {
     if (resendCooldown > 0) return;
-    
+
     await withLoading('resendPhoneCode', async () => {
       try {
         setError(null);
         const response = await authService.sendPhoneVerificationCode(fullPhoneNumber);
-        
-       if (isSuccessResponse(response)) {
-         if (!response.success) {
-          setError(response.message || 'Fehler beim erneuten Senden des Codes.');
-          return;
+
+        if (isSuccessResponse(response)) {
+          if (!response.success) {
+            setError(response.message ?? 'Fehler beim erneuten Senden des Codes.');
+            return;
+          }
+
+          if (response.data.cooldownUntil) {
+            const cooldownDate = new Date(response.data.cooldownUntil);
+            const now = new Date();
+            const cooldownSeconds = Math.max(
+              0,
+              Math.ceil((cooldownDate.getTime() - now.getTime()) / 1000)
+            );
+            setResendCooldown(cooldownSeconds);
+          } else {
+            setResendCooldown(60);
+          }
+
+          if (response.data.success) {
+            codeForm.reset();
+          } else {
+            setError(response.data.message || 'Code konnte nicht erneut gesendet werden.');
+          }
         }
-        
-        if (response.data?.cooldownUntil) {
-          const cooldownDate = new Date(response.data.cooldownUntil);
-          const now = new Date();
-          const cooldownSeconds = Math.max(0, Math.ceil((cooldownDate.getTime() - now.getTime()) / 1000));
-          setResendCooldown(cooldownSeconds);
-        } else {
-          setResendCooldown(60);
-        }
-        
-        if (response.data?.success) {
-          codeForm.reset();
-        } else {
-          setError(response.data?.message || 'Code konnte nicht erneut gesendet werden.');
-        }
-       }
-      } catch (err) {
-          if (axios.isAxiosError(err)) {
-          setError(
-            err.response?.data?.message ||
-            err.message ||
-            'Fehler beim erneuten Senden des Codes.'
-          );
+      } catch (err: unknown) {
+        if (axios.isAxiosError(err)) {
+          const errorMessage =
+            (err.response?.data as { message?: string } | undefined)?.message ?? err.message;
+          setError(errorMessage);
         } else {
           setError('Fehler beim erneuten Senden des Codes.');
         }
@@ -266,55 +276,54 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
   };
 
   // Handle single digit input for code
-  const handleDigitInput = (index: number, value: string) => {
+  const handleDigitInput = (index: number, value: string): void => {
     if (!/^\d*$/.test(value)) return;
-    
+
     const newCode = codeValue.split('');
     newCode[index] = value.slice(-1);
     const updatedCode = newCode.join('').slice(0, 6);
     codeForm.setValue('code', updatedCode);
-    
+
     // Auto-focus next input
-    if (value && index < 5) {
+    if (value.length > 0 && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
-    
+
     // Auto-submit when all 6 digits are entered
     if (updatedCode.length === 6) {
-      codeForm.handleSubmit(handleCodeSubmit)();
+      void codeForm.handleSubmit(handleCodeSubmit)();
     }
   };
 
   // Handle backspace
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !codeValue[index] && index > 0) {
+  const handleKeyDown = (index: number, e: React.KeyboardEvent): void => {
+    if (e.key === 'Backspace' && (codeValue[index] ?? '').length === 0 && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
   // Handle paste
-  const handlePaste = (e: React.ClipboardEvent) => {
+  const handlePaste = (e: React.ClipboardEvent): void => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     codeForm.setValue('code', pastedData);
-    
+
     if (pastedData.length === 6) {
-      codeForm.handleSubmit(handleCodeSubmit)();
+      void codeForm.handleSubmit(handleCodeSubmit)();
     }
   };
 
   // Render content based on step
-  const renderStepContent = () => {
+  const renderStepContent = (): React.ReactElement | null => {
     switch (activeStep) {
       case 0:
         return (
           <Box component="form" onSubmit={phoneForm.handleSubmit(handlePhoneSubmit)}>
             <Stack spacing={3}>
               <Typography variant="body1">
-                Geben Sie Ihre Telefonnummer ein. Wir senden Ihnen einen 
-                Verifizierungscode per SMS.
+                Geben Sie Ihre Telefonnummer ein. Wir senden Ihnen einen Verifizierungscode per SMS.
               </Typography>
-              
+
               <Stack direction="row" spacing={2}>
                 <Controller
                   name="countryCode"
@@ -339,7 +348,7 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
                     </TextField>
                   )}
                 />
-                
+
                 <Controller
                   name="phoneNumber"
                   control={phoneForm.control}
@@ -353,31 +362,38 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
                       error={!!phoneForm.formState.errors.phoneNumber}
                       helperText={phoneForm.formState.errors.phoneNumber?.message}
                       disabled={isLoading('sendPhoneVerification')}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <PhoneIcon />
-                          </InputAdornment>
-                        ),
-                      }}
-                      inputProps={{
-                        maxLength: 15,
-                        pattern: '[0-9]*',
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <PhoneIcon />
+                            </InputAdornment>
+                          ),
+                        },
+                        htmlInput: {
+                          maxLength: 15,
+                          pattern: '[0-9]*',
+                        },
                       }}
                     />
                   )}
                 />
               </Stack>
-              
-              {error && (
-                <Alert severity="error" onClose={() => setError(null)}>
+
+              {(error ?? null) !== null && (
+                <Alert
+                  severity="error"
+                  onClose={(): void => {
+                    setError(null);
+                  }}
+                >
                   {error}
                 </Alert>
               )}
             </Stack>
           </Box>
         );
-        
+
       case 1:
         return (
           <Box>
@@ -393,43 +409,56 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
                   gesendet. Bitte geben Sie den 6-stelligen Code ein.
                 </Typography>
               </Box>
-              
+
               {/* Code Input Fields */}
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                 {[0, 1, 2, 3, 4, 5].map((index) => (
                   <TextField
-                    key={index}
-                    inputRef={(el) => (inputRefs.current[index] = el)}
-                    value={codeValue[index] || ''}
-                    onChange={(e) => handleDigitInput(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    key={String(index)}
+                    inputRef={(el: HTMLInputElement | null): void => {
+                      inputRefs.current[index] = el;
+                    }}
+                    value={codeValue[index] ?? ''}
+                    onChange={(e): void => {
+                      handleDigitInput(index, e.target.value);
+                    }}
+                    onKeyDown={(e): void => {
+                      handleKeyDown(index, e);
+                    }}
                     onPaste={index === 0 ? handlePaste : undefined}
                     disabled={isLoading('verifyPhoneCode')}
                     variant="outlined"
-                    inputProps={{
-                      maxLength: 1,
-                      style: {
-                        textAlign: 'center',
-                        fontSize: '1.5rem',
-                        fontWeight: 'bold',
-                        width: '50px',
-                        height: '50px',
-                        padding: 0,
+                    slotProps={{
+                      htmlInput: {
+                        maxLength: 1,
+                        style: {
+                          textAlign: 'center',
+                          fontSize: '1.5rem',
+                          fontWeight: 'bold',
+                          width: '50px',
+                          height: '50px',
+                          padding: 0,
+                        },
+                        'aria-label': `Ziffer ${String(index + 1)}`,
+                        autoComplete: 'off',
                       },
-                      'aria-label': `Ziffer ${index + 1}`,
-                      autoComplete: 'off',
                     }}
-                    error={!!codeForm.formState.errors.code && codeValue.length === 6}
+                    error={codeForm.formState.errors.code !== undefined && codeValue.length === 6}
                   />
                 ))}
               </Box>
-              
-              {error && (
-                <Alert severity="error" onClose={() => setError(null)}>
+
+              {(error ?? null) !== null && (
+                <Alert
+                  severity="error"
+                  onClose={(): void => {
+                    setError(null);
+                  }}
+                >
                   {error}
                 </Alert>
               )}
-              
+
               {/* Resend Section */}
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -445,30 +474,27 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
                   {isLoading('resendPhoneCode') ? (
                     <CircularProgress size={20} />
                   ) : resendCooldown > 0 ? (
-                    `Erneut senden in ${resendCooldown}s`
+                    `Erneut senden in ${String(resendCooldown)}s`
                   ) : (
                     'Code erneut senden'
                   )}
                 </Button>
               </Box>
-              
+
               {/* Hidden Controller for form validation */}
               <Controller
                 name="code"
                 control={codeForm.control}
-                render={() => <></>}
+                render={(): React.ReactElement => <></>}
               />
             </Stack>
           </Box>
         );
-        
+
       case 2:
         return (
           <Box sx={{ textAlign: 'center', py: 3 }}>
-            <CheckCircleIcon 
-              color="success" 
-              sx={{ fontSize: 64, mb: 2 }} 
-            />
+            <CheckCircleIcon color="success" sx={{ fontSize: 64, mb: 2 }} />
             <Typography variant="h5" sx={{ mb: 1, fontWeight: 'bold' }}>
               Erfolgreich verifiziert!
             </Typography>
@@ -477,7 +503,7 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
             </Typography>
           </Box>
         );
-        
+
       default:
         return null;
     }
@@ -489,9 +515,11 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2,
+          },
         },
       }}
     >
@@ -515,7 +543,7 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      
+
       <DialogContent dividers>
         {/* Stepper */}
         <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
@@ -525,11 +553,11 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
             </Step>
           ))}
         </Stepper>
-        
+
         {/* Step Content */}
         {renderStepContent()}
       </DialogContent>
-      
+
       <DialogActions sx={{ px: 3, py: 2 }}>
         {activeStep === 0 && (
           <>
@@ -547,11 +575,13 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
             </LoadingButton>
           </>
         )}
-        
+
         {activeStep === 1 && (
           <>
-            <Button 
-              onClick={() => setActiveStep(0)} 
+            <Button
+              onClick={(): void => {
+                setActiveStep(0);
+              }}
               variant="outlined"
               startIcon={<ArrowBackIcon />}
               disabled={isLoading('verifyPhoneCode')}
@@ -569,13 +599,9 @@ const PhoneVerificationDialog: React.FC<PhoneVerificationDialogProps> = ({
             </LoadingButton>
           </>
         )}
-        
+
         {activeStep === 2 && (
-          <Button 
-            onClick={onClose} 
-            variant="contained"
-            color="primary"
-          >
+          <Button onClick={onClose} variant="contained" color="primary">
             Fertig
           </Button>
         )}

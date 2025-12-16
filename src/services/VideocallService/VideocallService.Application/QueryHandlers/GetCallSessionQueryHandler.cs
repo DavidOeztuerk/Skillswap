@@ -4,15 +4,18 @@ using Microsoft.Extensions.Logging;
 using VideocallService.Application.Queries;
 using VideocallService.Domain.Repositories;
 using VideocallService.Domain.Entities;
+using VideocallService.Domain.Services;
 
 namespace VideocallService.Application.QueryHandlers;
 
 public class GetCallSessionQueryHandler(
     IVideocallUnitOfWork unitOfWork,
+    IUserServiceClient userServiceClient,
     ILogger<GetCallSessionQueryHandler> logger)
     : BaseQueryHandler<GetCallSessionQuery, CallSessionResponse>(logger)
 {
     private readonly IVideocallUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IUserServiceClient _userServiceClient = userServiceClient;
 
     public override async Task<ApiResponse<CallSessionResponse>> Handle(
         GetCallSessionQuery request,
@@ -49,14 +52,40 @@ public class GetCallSessionQueryHandler(
                 var sessions = await _unitOfWork.VideoCallSessions
                     .GetSessionsByAppointmentIdAsync(request.SessionId, cancellationToken);
 
+                // KORRIGIERT: Auch "Completed" Sessions finden, damit User wieder beitreten können
+                // solange die Appointment-Zeit noch nicht abgelaufen ist.
+                // Priorisierung: Active > Pending > Completed (neueste zuerst)
                 callSession = sessions
-                    .Where(s => s.Status == CallStatus.Pending || s.Status == CallStatus.Active)
+                    .Where(s => s.Status == CallStatus.Active)
                     .OrderByDescending(s => s.CreatedAt)
                     .FirstOrDefault();
 
+                if (callSession == null)
+                {
+                    callSession = sessions
+                        .Where(s => s.Status == CallStatus.Pending)
+                        .OrderByDescending(s => s.CreatedAt)
+                        .FirstOrDefault();
+                }
+
+                // Fallback: Auch abgeschlossene Sessions (für Wiedereintritt während Appointment-Zeit)
+                if (callSession == null)
+                {
+                    callSession = sessions
+                        .Where(s => s.Status == CallStatus.Completed)
+                        .OrderByDescending(s => s.CreatedAt)
+                        .FirstOrDefault();
+
+                    if (callSession != null)
+                    {
+                        Logger.LogInformation("🔄 [GetCallSession] Found completed session by AppointmentId, allowing re-entry: {SessionId}", callSession.Id);
+                    }
+                }
+
                 if (callSession != null)
                 {
-                    Logger.LogInformation("✅ [GetCallSession] Found session by AppointmentId: {SessionId}", callSession.Id);
+                    Logger.LogInformation("✅ [GetCallSession] Found session by AppointmentId: {SessionId}, Status: {Status}",
+                        callSession.Id, callSession.Status);
                     // Reload with participants
                     callSession = await _unitOfWork.VideoCallSessions
                         .GetByIdWithParticipantsAsync(callSession.Id, cancellationToken);
@@ -69,20 +98,45 @@ public class GetCallSessionQueryHandler(
                 return NotFound("Call session not found");
             }
 
+            // Fetch user profiles from UserService
+            var userIds = new List<string> { callSession.InitiatorUserId, callSession.ParticipantUserId };
+            userIds.AddRange(callSession.Participants.Select(p => p.UserId));
+            userIds = userIds.Distinct().ToList();
+
+            var userProfiles = await _userServiceClient.GetUserProfilesBatchAsync(userIds, cancellationToken);
+            var userNameMap = userProfiles.ToDictionary(
+                p => p.UserId,
+                p => $"{p.FirstName} {p.LastName}".Trim()
+            );
+            var userAvatarMap = userProfiles.ToDictionary(
+                p => p.UserId,
+                p => p.ProfilePictureUrl
+            );
+
+            var initiatorName = userNameMap.GetValueOrDefault(callSession.InitiatorUserId, "Unbekannt");
+            var participantName = userNameMap.GetValueOrDefault(callSession.ParticipantUserId, "Unbekannt");
+            var initiatorAvatarUrl = userAvatarMap.GetValueOrDefault(callSession.InitiatorUserId);
+            var participantAvatarUrl = userAvatarMap.GetValueOrDefault(callSession.ParticipantUserId);
+
+            Logger.LogDebug("📋 [GetCallSession] User names: Initiator={InitiatorName}, Participant={ParticipantName}",
+                initiatorName, participantName);
+
             var response = new CallSessionResponse(
                 callSession.Id,
                 callSession.RoomId,
                 callSession.InitiatorUserId,
-                "Initiator User", // TODO: Fetch from UserService if needed
+                initiatorName,
+                initiatorAvatarUrl,
                 callSession.ParticipantUserId,
-                "Participant User", // TODO: Fetch from UserService if needed
+                participantName,
+                participantAvatarUrl,
                 callSession.Status,
                 callSession.StartedAt,
                 callSession.EndedAt,
                 callSession.ActualDurationMinutes,
                 callSession.Participants.Select(p => new CallParticipantResponse(
                     p.UserId,
-                    "User Name", // TODO: Fetch from UserService if needed
+                    userNameMap.GetValueOrDefault(p.UserId, "Teilnehmer"),
                     p.ConnectionId,
                     p.JoinedAt,
                     p.CameraEnabled,

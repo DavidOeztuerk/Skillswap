@@ -6,10 +6,7 @@ import { withDefault } from './safeAccess';
  * @param lastName - Nachname
  * @returns Vollständiger Name oder fallback, wenn keine Namen vorhanden
  */
-export const formatFullName = (
-  firstName?: string | null,
-  lastName?: string | null
-): string => {
+export const formatFullName = (firstName?: string | null, lastName?: string | null): string => {
   const first = firstName?.trim();
   const last = lastName?.trim();
 
@@ -59,7 +56,8 @@ export const formatPhoneNumber = (phone?: string | null): string => {
   // Einfache deutsche Formatierung
   if (cleaned.length === 10) {
     return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
-  } else if (cleaned.length === 11) {
+  }
+  if (cleaned.length === 11) {
     return cleaned.replace(/(\d{1})(\d{3})(\d{3})(\d{4})/, '+$1 ($2) $3-$4');
   }
 
@@ -74,11 +72,7 @@ export const formatPhoneNumber = (phone?: string | null): string => {
  * @param suffix - Anhang für gekürzte Texte (default: '...')
  * @returns Gekürzter Text mit Suffix oder original, wenn kurz genug
  */
-export const truncateText = (
-  text: string,
-  maxLength = 100,
-  suffix = '...'
-): string => {
+export const truncateText = (text: string, maxLength = 100, suffix = '...'): string => {
   const safeText = text;
   if (!safeText) return '';
 
@@ -169,8 +163,8 @@ export const formatDuration = (seconds: number): string => {
   const remainingSeconds = seconds % 60;
 
   if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${String(hours)}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
   }
-  
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+
+  return `${String(minutes)}:${String(remainingSeconds).padStart(2, '0')}`;
 };

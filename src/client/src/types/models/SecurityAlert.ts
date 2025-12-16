@@ -3,7 +3,7 @@ export enum SecurityAlertLevel {
   Low = 1,
   Medium = 2,
   High = 3,
-  Critical = 4
+  Critical = 4,
 }
 
 export enum SecurityAlertType {
@@ -36,7 +36,7 @@ export enum SecurityAlertType {
   // Application Security
   E2EEKeyExchangeFailure = 18,
   CertificateValidationFailed = 19,
-  IntegrityCheckFailed = 20
+  IntegrityCheckFailed = 20,
 }
 
 export interface SecurityAlertResponse {
@@ -72,33 +72,33 @@ export interface SecurityAlertStatisticsResponse {
   infoAlerts: number;
   unreadAlerts: number;
   dismissedAlerts: number;
-  alertsByType: Array<{
+  alertsByType: {
     type: SecurityAlertType;
     typeName: string;
     count: number;
-  }>;
-  alertsByLevel: Array<{
+  }[];
+  alertsByLevel: {
     level: SecurityAlertLevel;
     levelName: string;
     count: number;
-  }>;
-  recentTrends: Array<{
+  }[];
+  recentTrends: {
     date: string;
     critical: number;
     high: number;
     medium: number;
     low: number;
     info: number;
-  }>;
-  topAffectedUsers: Array<{
+  }[];
+  topAffectedUsers: {
     userId: string;
     userName: string;
     alertCount: number;
-  }>;
-  topAffectedIPs: Array<{
+  }[];
+  topAffectedIPs: {
     ipAddress: string;
     alertCount: number;
-  }>;
+  }[];
 }
 
 export interface SecurityAlertActionResponse {

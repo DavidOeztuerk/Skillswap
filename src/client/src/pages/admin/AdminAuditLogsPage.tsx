@@ -41,7 +41,7 @@ interface AuditLog {
   action: string;
   entityType?: string;
   entityId?: string;
-  severity?: 'Info' | 'Warning' | 'Error' | 'Success' | string;
+  severity?: string;
   ipAddress: string;
   userAgent: string;
   details?: string;
@@ -59,81 +59,15 @@ const AdminAuditLogsPage: React.FC = () => {
     fetchAuditLogs({ page, limit: pageSize });
   }, [fetchAuditLogs, page]);
 
-  // Mock data if no auditLogs from backend
-  const mockLogs: AuditLog[] = auditLogs || [
-    {
-      id: '1',
-      timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-      userId: 'user123',
-      userName: 'Max Mustermann',
-      action: 'Login',
-      entityType: 'User',
-      entityId: 'user123',
-      severity: 'Info',
-      ipAddress: '192.168.1.100',
-      userAgent: 'Mozilla/5.0',
-      details: 'Successful login',
-    },
-    {
-      id: '2',
-      timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-      userId: 'admin456',
-      userName: 'Admin User',
-      action: 'DeleteSkill',
-      entityType: 'Skill',
-      entityId: 'skill789',
-      severity: 'Warning',
-      ipAddress: '192.168.1.101',
-      userAgent: 'Mozilla/5.0',
-      details: 'Skill "JavaScript Advanced" deleted',
-    },
-    {
-      id: '3',
-      timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      userId: 'user789',
-      userName: 'Erika Musterfrau',
-      action: 'FailedLogin',
-      entityType: 'User',
-      entityId: 'user789',
-      severity: 'Error',
-      ipAddress: '192.168.1.102',
-      userAgent: 'Mozilla/5.0',
-      details: 'Invalid password attempt',
-    },
-    {
-      id: '4',
-      timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-      userId: 'user456',
-      userName: 'John Doe',
-      action: 'CreateMatch',
-      entityType: 'Match',
-      entityId: 'match123',
-      severity: 'Success',
-      ipAddress: '192.168.1.103',
-      userAgent: 'Mozilla/5.0',
-      details: 'Match created successfully',
-    },
-    {
-      id: '5',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-      userId: 'admin789',
-      userName: 'Super Admin',
-      action: 'UpdateSystemSettings',
-      entityType: 'Settings',
-      entityId: 'settings1',
-      severity: 'Warning',
-      ipAddress: '192.168.1.104',
-      userAgent: 'Mozilla/5.0',
-      details: 'System settings modified',
-    },
-  ];
+  // Use real data from backend
+  const logs: AuditLog[] = auditLogs;
 
-  const filteredLogs = mockLogs.filter((log) => {
+  const filteredLogs = logs.filter((log) => {
     const matchesSearch =
       searchQuery === '' ||
-      log.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
       log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.details?.toLowerCase().includes(searchQuery.toLowerCase());
+      (log.details?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
     const matchesSeverity = severityFilter === 'all' || log.severity === severityFilter;
     const matchesAction = actionFilter === 'all' || log.action === actionFilter;
@@ -141,7 +75,7 @@ const AdminAuditLogsPage: React.FC = () => {
     return matchesSearch && matchesSeverity && matchesAction;
   });
 
-  const getSeverityIcon = (severity: string) => {
+  const getSeverityIcon = (severity: string): React.ReactElement => {
     switch (severity) {
       case 'Info':
         return <InfoIcon color="info" />;
@@ -156,7 +90,9 @@ const AdminAuditLogsPage: React.FC = () => {
     }
   };
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (
+    severity: string
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (severity) {
       case 'Info':
         return 'info';
@@ -171,9 +107,9 @@ const AdminAuditLogsPage: React.FC = () => {
     }
   };
 
-  const uniqueActions = Array.from(new Set(mockLogs.map((log) => log.action)));
+  const uniqueActions = Array.from(new Set(logs.map((log) => log.action)));
 
-  if (isLoadingAuditLogs && !auditLogs) {
+  if (isLoadingAuditLogs && logs.length === 0) {
     return <PageLoader variant="list" message="Lade Audit Logs..." />;
   }
 
@@ -190,27 +126,35 @@ const AdminAuditLogsPage: React.FC = () => {
             <TextField
               placeholder="Suche nach Nutzer, Aktion oder Details..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
               sx={{ flexGrow: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
             <TextField
               select
               value={severityFilter}
-              onChange={(e) => setSeverityFilter(e.target.value)}
+              onChange={(e) => {
+                setSeverityFilter(e.target.value);
+              }}
               sx={{ minWidth: 150 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             >
               <MenuItem value="all">Alle Schweregrade</MenuItem>
@@ -222,14 +166,18 @@ const AdminAuditLogsPage: React.FC = () => {
             <TextField
               select
               value={actionFilter}
-              onChange={(e) => setActionFilter(e.target.value)}
+              onChange={(e) => {
+                setActionFilter(e.target.value);
+              }}
               sx={{ minWidth: 150 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             >
               <MenuItem value="all">Alle Aktionen</MenuItem>
@@ -282,25 +230,25 @@ const AdminAuditLogsPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        icon={getSeverityIcon(log.severity || 'Info')}
-                        label={log.severity || 'Info'}
-                        color={getSeverityColor(log.severity || 'Info') as any}
+                        icon={getSeverityIcon(log.severity ?? 'Info')}
+                        label={log.severity ?? 'Info'}
+                        color={getSeverityColor(log.severity ?? 'Info')}
                         size="small"
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{log.userName || 'N/A'}</Typography>
+                      <Typography variant="body2">{log.userName ?? 'N/A'}</Typography>
                       <Typography variant="caption" color="textSecondary">
-                        {log.userId?.substring(0, 8) || 'N/A'}
+                        {log.userId?.substring(0, 8) ?? 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip label={log.action} size="small" variant="outlined" />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{log.entityType || 'N/A'}</Typography>
+                      <Typography variant="body2">{log.entityType ?? 'N/A'}</Typography>
                       <Typography variant="caption" color="textSecondary">
-                        {log.entityId?.substring(0, 8) || 'N/A'}
+                        {log.entityId?.substring(0, 8) ?? 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -336,7 +284,9 @@ const AdminAuditLogsPage: React.FC = () => {
           <Pagination
             count={Math.ceil(filteredLogs.length / pageSize)}
             page={page}
-            onChange={(_, value) => setPage(value)}
+            onChange={(_, value) => {
+              setPage(value);
+            }}
             color="primary"
           />
         </Box>

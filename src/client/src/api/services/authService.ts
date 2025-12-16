@@ -1,20 +1,23 @@
 import { AUTH_ENDPOINTS, PROFILE_ENDPOINTS } from '../../config/endpoints';
-import { LoginRequest } from '../../types/contracts/requests/LoginRequest';
-import { RegisterResponse, LoginResponse } from '../../types/contracts/responses/AuthResponse';
-import { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
-import { User } from '../../types/models/User';
-import { UpdateProfileRequest, UpdateUserProfileResponse } from '../../types/contracts/requests/UpdateProfileRequest';
-import { ChangePasswordRequest } from '../../types/contracts/requests/ChangePasswordRequest';
-import { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRequest';
-import { GenerateTwoFactorSecretResponse } from '../../types/contracts/responses/GenerateTwoFactorSecretResponse';
-import { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
-import { VerifyTwoFactorCodeResponse } from '../../types/contracts/responses/VerifyTwoFactorCodeResponse';
-import { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
-import { GetTwoFactorStatusResponse } from '../../types/contracts/responses/GetTwoFactorStatusResponse';
-import { DisableTwoFactorResponse } from '../../types/contracts/responses/DisableTwoFactorResponse';
-import { RefreshTokenResponse } from '../../types/contracts/responses/RefreshTokenResponse';
-import { PhoneVerificationResponse } from '../../types/contracts/responses/PhoneVerificationResponse';
-import { VerifyPhoneResponse } from '../../types/contracts/responses/VerifyPhoneResponse';
+import type { LoginRequest } from '../../types/contracts/requests/LoginRequest';
+import type { RegisterResponse, LoginResponse } from '../../types/contracts/responses/AuthResponse';
+import type { RegisterRequest } from '../../types/contracts/requests/RegisterRequest';
+import type { User } from '../../types/models/User';
+import type {
+  UpdateProfileRequest,
+  UpdateUserProfileResponse,
+} from '../../types/contracts/requests/UpdateProfileRequest';
+import type { ChangePasswordRequest } from '../../types/contracts/requests/ChangePasswordRequest';
+import type { VerifyEmailRequest } from '../../types/contracts/requests/VerifyEmailRequest';
+import type { GenerateTwoFactorSecretResponse } from '../../types/contracts/responses/GenerateTwoFactorSecretResponse';
+import type { VerifyTwoFactorCodeRequest } from '../../types/contracts/requests/VerifyTwoFactorCodeRequest';
+import type { VerifyTwoFactorCodeResponse } from '../../types/contracts/responses/VerifyTwoFactorCodeResponse';
+import type { DisableTwoFactorRequest } from '../../types/contracts/requests/DisableTwoFactorRequest';
+import type { GetTwoFactorStatusResponse } from '../../types/contracts/responses/GetTwoFactorStatusResponse';
+import type { DisableTwoFactorResponse } from '../../types/contracts/responses/DisableTwoFactorResponse';
+import type { RefreshTokenResponse } from '../../types/contracts/responses/RefreshTokenResponse';
+import type { PhoneVerificationResponse } from '../../types/contracts/responses/PhoneVerificationResponse';
+import type { VerifyPhoneResponse } from '../../types/contracts/responses/VerifyPhoneResponse';
 import {
   getRefreshToken,
   getToken,
@@ -23,32 +26,29 @@ import {
   removeToken,
   isRememberMeEnabled,
 } from '../../utils/authHelpers';
-import { UserProfileResponse } from '../../types/contracts/responses/UserProfileResponse';
-import { ApiResponse, isSuccessResponse } from '../../types/api/UnifiedResponse';
-import { apiClient, ApiError } from '../apiClient';
+import type { UserProfileResponse } from '../../types/contracts/responses/UserProfileResponse';
+import { type ApiResponse, isSuccessResponse } from '../../types/api/UnifiedResponse';
+import { apiClient, type ApiError } from '../apiClient';
 import { isDefined, withDefault } from '../../utils/safeAccess';
 
-const isAuthStatus = (s?: number) => s === 401 || s === 403;
+const isAuthStatus = (s?: number): boolean => s === 401 || s === 403;
 
 const authService = {
   /**
    * Login
    */
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-    const response = await apiClient.post<LoginResponse>(
-      AUTH_ENDPOINTS.LOGIN, 
-      credentials
-    );
+    const response = await apiClient.post<LoginResponse>(AUTH_ENDPOINTS.LOGIN, credentials);
 
     if (isSuccessResponse(response)) {
       const loginData = response.data;
-      const storageType = withDefault(credentials?.rememberMe, false) ? 'permanent' : 'session';
+      const storageType = withDefault(credentials.rememberMe, false) ? 'permanent' : 'session';
 
-      if (isDefined(loginData?.accessToken)) {
+      if (isDefined(loginData.accessToken)) {
         setToken(loginData.accessToken, storageType);
         apiClient.setAuthToken(loginData.accessToken);
       }
-      if (isDefined(loginData?.refreshToken)) {
+      if (isDefined(loginData.refreshToken)) {
         setRefreshToken(loginData.refreshToken, storageType);
       }
     } else {
@@ -62,20 +62,17 @@ const authService = {
    * Register
    */
   async register(credentials: RegisterRequest): Promise<ApiResponse<RegisterResponse>> {
-    const response = await apiClient.post<RegisterResponse>(
-      AUTH_ENDPOINTS.REGISTER, 
-      credentials
-    );
+    const response = await apiClient.post<RegisterResponse>(AUTH_ENDPOINTS.REGISTER, credentials);
 
     // Handle token storage only on success
     if (isSuccessResponse(response)) {
       const registerData = response.data;
-      
-      if (isDefined(registerData?.accessToken)) {
+
+      if (isDefined(registerData.accessToken)) {
         setToken(registerData.accessToken, 'session');
         apiClient.setAuthToken(registerData.accessToken);
       }
-      if (isDefined(registerData?.refreshToken)) {
+      if (isDefined(registerData.refreshToken)) {
         setRefreshToken(registerData.refreshToken, 'session');
       }
     }
@@ -93,27 +90,16 @@ const authService = {
   /**
    * Update profile
    */
-  async updateProfile(profileData: UpdateProfileRequest): Promise<ApiResponse<UpdateUserProfileResponse>> {
-    return apiClient.put<UpdateUserProfileResponse>(
-      PROFILE_ENDPOINTS.UPDATE,
-      profileData
-    );
+  async updateProfile(
+    profileData: UpdateProfileRequest
+  ): Promise<ApiResponse<UpdateUserProfileResponse>> {
+    return apiClient.put<UpdateUserProfileResponse>(PROFILE_ENDPOINTS.UPDATE, profileData);
   },
 
   /**
    * Upload avatar
    */
   async uploadProfilePicture(file: File): Promise<ApiResponse<User>> {
-    if (!file) {
-      // Return error response instead of throwing
-      return {
-        success: false,
-        errors: ['Keine Datei ausgewählt'],
-        errorCode: 'FILE_MISSING',
-        timestamp: new Date().toISOString(),
-      };
-    }
-
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       return {
@@ -137,63 +123,57 @@ const authService = {
     const formData = new FormData();
     formData.append('avatar', file);
 
-    return apiClient.post<User>(
-      PROFILE_ENDPOINTS.UPLOAD_AVATAR,
-      formData,
-      {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      }
-    );
+    return apiClient.post<User>(PROFILE_ENDPOINTS.UPLOAD_AVATAR, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   },
 
   /**
    * Change password
    */
   async changePassword(passwordData: ChangePasswordRequest): Promise<ApiResponse<void>> {
-    return apiClient.post<void>(AUTH_ENDPOINTS.CHANGE_PASSWORD, passwordData);
+    return apiClient.post(AUTH_ENDPOINTS.CHANGE_PASSWORD, passwordData);
   },
 
   /**
    * Forgot / Reset password
    */
   async forgotPassword(email: string): Promise<ApiResponse<void>> {
-    return apiClient.post<void>(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email });
+    return apiClient.post(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email });
   },
 
   async resetPassword(token: string, password: string): Promise<ApiResponse<void>> {
-    return apiClient.post<void>(AUTH_ENDPOINTS.RESET_PASSWORD, { token, password });
+    return apiClient.post(AUTH_ENDPOINTS.RESET_PASSWORD, { token, password });
   },
 
   /**
    * Email verification
    */
   async verifyEmail(request: VerifyEmailRequest): Promise<ApiResponse<void>> {
-    return apiClient.post<void>(AUTH_ENDPOINTS.VERIFY_EMAIL, request);
+    return apiClient.post(AUTH_ENDPOINTS.VERIFY_EMAIL, request);
   },
 
   async resendEmailVerification(email: string): Promise<ApiResponse<void>> {
-    return apiClient.post<void>(AUTH_ENDPOINTS.RESEND_VERIFICATION, { email });
+    return apiClient.post(AUTH_ENDPOINTS.RESEND_VERIFICATION, { email });
   },
 
   /**
    * Phone verification
    */
-  async sendPhoneVerificationCode(phoneNumber: string): Promise<ApiResponse<PhoneVerificationResponse>> {
-    return apiClient.post<PhoneVerificationResponse>(
-      '/api/users/phone/send-verification',
-      { phoneNumber }
-    );
+  async sendPhoneVerificationCode(
+    phoneNumber: string
+  ): Promise<ApiResponse<PhoneVerificationResponse>> {
+    return apiClient.post<PhoneVerificationResponse>('/api/users/phone/send-verification', {
+      phoneNumber,
+    });
   },
 
   async verifyPhoneCode(code: string): Promise<ApiResponse<VerifyPhoneResponse>> {
-    return apiClient.post<VerifyPhoneResponse>(
-      '/api/users/phone/verify',
-      { code }
-    );
+    return apiClient.post<VerifyPhoneResponse>('/api/users/phone/verify', { code });
   },
 
   async removePhoneNumber(): Promise<ApiResponse<void>> {
-    return apiClient.delete<void>('/api/users/phone');
+    return apiClient.delete('/api/users/phone');
   },
 
   /**
@@ -203,22 +183,20 @@ const authService = {
     return apiClient.post<GenerateTwoFactorSecretResponse>(AUTH_ENDPOINTS.GENERATE_2FA);
   },
 
-  async verifyTwoFactorCode(request: VerifyTwoFactorCodeRequest): Promise<ApiResponse<VerifyTwoFactorCodeResponse>> {
-    return apiClient.post<VerifyTwoFactorCodeResponse>(
-      AUTH_ENDPOINTS.VERIFY_2FA,
-      request
-    );
+  async verifyTwoFactorCode(
+    request: VerifyTwoFactorCodeRequest
+  ): Promise<ApiResponse<VerifyTwoFactorCodeResponse>> {
+    return apiClient.post<VerifyTwoFactorCodeResponse>(AUTH_ENDPOINTS.VERIFY_2FA, request);
   },
 
   async getTwoFactorStatus(): Promise<ApiResponse<GetTwoFactorStatusResponse>> {
     return apiClient.get<GetTwoFactorStatusResponse>(AUTH_ENDPOINTS.TWO_FACTOR_STATUS);
   },
 
-  async disableTwoFactor(request: DisableTwoFactorRequest): Promise<ApiResponse<DisableTwoFactorResponse>> {
-    return apiClient.post<DisableTwoFactorResponse>(
-      AUTH_ENDPOINTS.DISABLE_2FA,
-      request
-    );
+  async disableTwoFactor(
+    request: DisableTwoFactorRequest
+  ): Promise<ApiResponse<DisableTwoFactorResponse>> {
+    return apiClient.post<DisableTwoFactorResponse>(AUTH_ENDPOINTS.DISABLE_2FA, request);
   },
 
   /**
@@ -239,6 +217,7 @@ const authService = {
 
   async logout(): Promise<void> {
     try {
+      await Promise.resolve();
       // await apiClient.post<void>('/api/auth/logout');
     } catch {
       // Ignore server errors during logout
@@ -266,7 +245,7 @@ const authService = {
     if (isSuccessResponse(response)) {
       const tokenData = response.data;
       const storageType = isRememberMeEnabled() ? 'permanent' : 'session';
-        
+
       // Update stored tokens
       if (tokenData.accessToken) {
         setToken(tokenData.accessToken, storageType);
@@ -277,11 +256,10 @@ const authService = {
       }
 
       return response;
-    } else {
-      removeToken();
-      apiClient.setAuthToken(null);
-      return response;  
     }
+    removeToken();
+    apiClient.setAuthToken(null);
+    return response;
   },
 
   /**
@@ -302,7 +280,7 @@ const authService = {
     try {
       return await tryGetProfile();
     } catch (e: unknown) {
-      const s = (e as ApiError)?.statusCode;
+      const s = (e as ApiError).statusCode;
       if (!isAuthStatus(s)) {
         // z.B. 400 -> kein Auth-Thema, kein Refresh erzwingen
         console.warn('⚠️ silentLogin: non-auth error on profile, skipping refresh', s);
@@ -313,7 +291,7 @@ const authService = {
         await this.refreshToken();
         return await tryGetProfile();
       } catch (e2: unknown) {
-        const s2 = (e2 as ApiError)?.statusCode;
+        const s2 = (e2 as ApiError).statusCode;
         if (isAuthStatus(s2)) removeToken(); // wirklich ausgeloggt
         return null;
       }
@@ -323,7 +301,9 @@ const authService = {
   /**
    * Get email verification status
    */
-  async getEmailVerificationStatus(): Promise<ApiResponse<{ isVerified: boolean; email?: string }>> {
+  async getEmailVerificationStatus(): Promise<
+    ApiResponse<{ isVerified: boolean; email?: string }>
+  > {
     return apiClient.get<{ isVerified: boolean; email?: string }>(
       '/api/auth/email/verification/status'
     );
@@ -344,7 +324,7 @@ const authService = {
    */
   getCurrentToken(): string | null {
     return getToken();
-  }
+  },
 };
 
 export default authService;

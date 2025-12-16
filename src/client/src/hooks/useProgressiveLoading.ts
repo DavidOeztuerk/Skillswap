@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { withDefault } from '../utils/safeAccess';
 
 interface UseProgressiveLoadingOptions<T> {
-  loadFn: (page: number, pageSize: number, ...args: unknown[]) => Promise<{
+  loadFn: (
+    page: number,
+    pageSize: number,
+    ...args: unknown[]
+  ) => Promise<{
     data: T[];
     totalCount: number;
     hasMore: boolean;
@@ -39,43 +43,49 @@ export function useProgressiveLoading<T>({
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
 
-  const loadPage = useCallback(async (page: number, isLoadingMore = false) => {
-    try {
-      if (!isLoadingMore) {
-        setIsLoading(true);
-      } else {
-        setIsLoadingMore(true);
-      }
-      
-      setError(null);
+  // Use a ref to store the latest deps without causing re-renders
+  const depsRef = useRef(deps);
+  depsRef.current = deps;
 
-      const result = await loadFn(page, pageSize, ...deps);
-      
-      const safeData = result?.data;
-      
-      if (page === 0) {
-        setItems(safeData);
-      } else {
-        setItems(prev => [...prev, ...safeData]);
+  const loadPage = useCallback(
+    async (page: number, loadMore = false) => {
+      try {
+        if (!loadMore) {
+          setIsLoading(true);
+        } else {
+          setIsLoadingMore(true);
+        }
+
+        setError(null);
+
+        const result = await loadFn(page, pageSize, ...depsRef.current);
+
+        const safeData = result.data;
+
+        if (page === 0) {
+          setItems(safeData);
+        } else {
+          setItems((prev) => [...prev, ...safeData]);
+        }
+
+        setTotalCount(withDefault(result.totalCount, 0));
+        setHasMore(withDefault(result.hasMore, false));
+        setCurrentPage(page);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Daten';
+        setError(errorMessage);
+        console.error('Progressive loading error:', err);
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
       }
-      
-      setTotalCount(withDefault(result?.totalCount, 0));
-      setHasMore(withDefault(result?.hasMore, false));
-      setCurrentPage(page);
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Daten';
-      setError(errorMessage);
-      console.error('Progressive loading error:', err);
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-    }
-  }, [loadFn, pageSize, ...deps]);
+    },
+    [loadFn, pageSize]
+  );
 
   const loadMore = useCallback(async () => {
     if (!hasMore || isLoading || isLoadingMore) return;
-    
+
     await loadPage(currentPage + 1, true);
   }, [hasMore, isLoading, isLoadingMore, currentPage, loadPage]);
 
@@ -97,32 +107,12 @@ export function useProgressiveLoading<T>({
 
   useEffect(() => {
     if (initialLoad) {
-      // Funktion inline aufrufen um Dependency-Probleme zu vermeiden
-      const performInitialLoad = async () => {
-        setIsLoading(true);
-        setError(null);
-        
-        try {
-          const result = await loadFn(0, pageSize, ...deps);
-          setItems(result?.data);
-          setTotalCount(withDefault(result?.totalCount, 0));
-          setHasMore(withDefault(result?.hasMore, false));
-          setCurrentPage(0);
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Daten';
-          setError(errorMessage);
-          console.error('Progressive loading error:', err);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      
-      void performInitialLoad();
+      void loadPage(0, false);
     }
-  }, [initialLoad, loadFn, pageSize, ...deps]); // Stabilere Dependencies
+  }, [initialLoad, loadPage]);
 
   return {
-    items: items,
+    items,
     isLoading: withDefault(isLoading, false),
     isLoadingMore: withDefault(isLoadingMore, false),
     hasMore: withDefault(hasMore, false),

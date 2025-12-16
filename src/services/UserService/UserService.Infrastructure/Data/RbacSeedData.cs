@@ -111,6 +111,10 @@ public static class RbacSeedData
             // Moderator
             (Permissions.ModeratorAccessPanel,   "Moderator","Access moderator panel"),
 
+            // Security
+            (Permissions.SecurityViewAlerts,     "Security","View security alerts"),
+            (Permissions.SecurityManageAlerts,   "Security","Manage security alerts"),
+
             // Roles / RBAC
             (Permissions.RolesCreate,            "Roles","Create roles"),
             (Permissions.RolesUpdate,            "Roles","Update roles"),

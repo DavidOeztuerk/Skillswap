@@ -7,6 +7,7 @@ public interface ISkillRepository
     Task<Skill?> GetByIdAsync(string skillId, CancellationToken cancellationToken = default);
     Task<Skill?> GetByIdAndUserIdAsync(string skillId, string userId, bool includeDeleted = false, CancellationToken cancellationToken = default);
     Task<List<Skill>> GetUserSkillsAsync(string userId, CancellationToken cancellationToken = default);
+    Task<List<Skill>> GetUserSkillsWithRelationsAsync(string userId, CancellationToken cancellationToken = default);
     Task<List<Skill>> GetByCategoryAsync(string categoryId, CancellationToken cancellationToken = default);
     Task<List<Skill>> SearchSkillsAsync(string searchTerm, CancellationToken cancellationToken = default);
     Task<Skill> CreateAsync(Skill skill, CancellationToken cancellationToken = default);

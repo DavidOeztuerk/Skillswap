@@ -1,12 +1,5 @@
-// src/components/videocall/RemoteVideo.tsx
 import React, { useRef, useEffect, useState } from 'react';
-import {
-  Box,
-  Typography,
-  Avatar,
-  CircularProgress,
-  useTheme,
-} from '@mui/material';
+import { Box, Typography, Avatar, CircularProgress, useTheme } from '@mui/material';
 import {
   Mic as MicIcon,
   MicOff as MicOffIcon,
@@ -40,6 +33,15 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
   const theme = useTheme();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoActive, setVideoActive] = useState<boolean>(false);
+  const isMountedRef = useRef<boolean>(true);
+
+  // Track mounted state to prevent play() during cleanup
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Wenn der Stream sich ändert, diesen dem Video-Element zuweisen
   useEffect(() => {
@@ -48,26 +50,23 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
 
       // Versuche das Video automatisch zu starten (kann durch Autoplay-Policy blockiert werden)
       // Fehler werden nur geloggt, damit die UI nicht abstürzt.
-      try {
+      // Only attempt play if component is still mounted
+      if (isMountedRef.current) {
         // play() gibt ein Promise zurück, handle mögliche Ablehnungen
-        const p = videoRef.current.play();
-        if (p && typeof p.catch === 'function') {
-          p.catch((e) => {
-            // Silent debug, hilft in Browser-Console zu sehen, ob Autoplay blockiert wurde
-            // eslint-disable-next-line no-console
-            console.debug('RemoteVideo: play() rejected', e);
-          });
-        }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.debug('RemoteVideo: play() threw', err);
+        const playPromise = videoRef.current.play();
+        void playPromise.catch((e: unknown) => {
+          // Don't log AbortError during unmount - this is expected behavior
+          if (!isMountedRef.current || (e instanceof Error && e.name === 'AbortError')) {
+            return; // Silent during cleanup
+          }
+          // Silent debug for other errors (e.g. autoplay policy)
+          console.debug('RemoteVideo: play() rejected', e);
+        });
       }
 
       // Überwache, ob Video-Tracks aktiv sind
-      const checkVideoTracks = () => {
-        const hasVideoTracks = stream
-          .getVideoTracks()
-          ?.some((track) => track.enabled);
+      const checkVideoTracks = (): void => {
+        const hasVideoTracks = stream.getVideoTracks().some((track) => track.enabled);
         setVideoActive(hasVideoTracks);
       };
 
@@ -75,7 +74,7 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
       checkVideoTracks();
 
       // Bei Track-Änderungen prüfen
-      const handleTrackChange = () => {
+      const handleTrackChange = (): void => {
         checkVideoTracks();
       };
 
@@ -86,21 +85,25 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
         stream.removeEventListener('addtrack', handleTrackChange);
         stream.removeEventListener('removetrack', handleTrackChange);
       };
-    } else {
-      if (videoRef.current) {
-        try {
-          videoRef.current.srcObject = null;
-          videoRef.current.pause();
-        } catch (e) {
-          // ignore
-        }
-      }
-      setVideoActive(false);
     }
+    if (videoRef.current) {
+      try {
+        videoRef.current.srcObject = null;
+        videoRef.current.pause();
+      } catch (_e) {
+        // ignore
+      }
+    }
+    const timer = setTimeout(() => {
+      setVideoActive(false);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [stream]);
 
   // Anzeige des Stream-Status
-  const renderStatus = () => {
+  const renderStatus = (): React.ReactElement | null => {
     if (!isConnected) {
       return (
         <Box
@@ -206,11 +209,13 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
       )}
 
       {/* Video-Element – immer gerendert, aber transparent wenn kein Bild */}
-      {stream && (
+      {stream !== null && (
+        // eslint-disable-next-line jsx-a11y/media-has-caption -- Live video call stream, captions not applicable
         <video
           ref={videoRef}
           autoPlay
           playsInline
+          aria-label={`Video von ${username}`}
           style={{
             position: 'absolute',
             top: 0,
@@ -218,7 +223,7 @@ const RemoteVideo: React.FC<RemoteVideoProps> = ({
             width: '100%',
             height: '100%',
             objectFit: isScreenSharing ? 'contain' : 'cover',
-            opacity: (videoActive && !isVideoOff) ? 1 : 0,
+            opacity: videoActive && !isVideoOff ? 1 : 0,
             transition: 'opacity 0.3s ease',
             zIndex: 0,
           }}

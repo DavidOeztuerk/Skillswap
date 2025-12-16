@@ -13,7 +13,7 @@ import {
   Button,
   Divider,
   Pagination,
-  SelectChangeEvent,
+  type SelectChangeEvent,
   Grid,
 } from '@mui/material';
 import {
@@ -29,7 +29,7 @@ import { startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
 import AppointmentCard from './AppointmentCard';
 import SkeletonLoader from '../ui/SkeletonLoader';
 import EmptyState from '../ui/EmptyState';
-import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
+import { type Appointment, AppointmentStatus } from '../../types/models/Appointment';
 
 /**
  * Props für die Terminliste
@@ -68,38 +68,37 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
 
   // Filterlogik
   const filteredAppointments = useMemo(() => {
-    if (!appointments) return [];
+    if (appointments.length === 0) return [];
     return appointments.filter((appointment) => {
       // Welcher Nutzer ist "der andere"?
       const otherUser =
-        userRole === 'teacher'
-          ? appointment.studentDetails
-          : appointment.teacherDetails;
+        userRole === 'teacher' ? appointment.studentDetails : appointment.teacherDetails;
 
       const otherUserName =
-        `${otherUser?.firstName} ${otherUser?.lastName}`.toLowerCase();
-      const skillName = appointment.skill?.name.toLowerCase();
+        `${otherUser?.firstName ?? ''} ${otherUser?.lastName ?? ''}`.toLowerCase();
+      const skillName = appointment.skill?.name.toLowerCase() ?? '';
 
       // Suche (Skill oder Personenname)
       const matchesSearch =
-        !searchTerm ||
-        skillName?.includes(searchTerm.toLowerCase()) ||
-        otherUserName?.includes(searchTerm.toLowerCase());
+        searchTerm === '' ||
+        skillName.includes(searchTerm.toLowerCase()) ||
+        otherUserName.includes(searchTerm.toLowerCase());
 
       // Status
       const matchesStatus =
-        !selectedStatus || appointment.status === selectedStatus;
+        selectedStatus === '' || appointment.status === (selectedStatus as AppointmentStatus);
 
       // Datum
       let matchesDate = true;
       if (selectedDate) {
-        const appointmentDate = appointment.startTime ? new Date(appointment.startTime) : new Date();
+        const appointmentDate = appointment.startTime
+          ? new Date(appointment.startTime)
+          : new Date();
         const filterStartDate = startOfDay(selectedDate);
         const filterEndDate = endOfDay(selectedDate);
 
         matchesDate =
-          isAfter(appointmentDate, filterStartDate) &&
-          isBefore(appointmentDate, filterEndDate);
+          isAfter(appointmentDate, filterStartDate) && isBefore(appointmentDate, filterEndDate);
       }
 
       // Tab-Filter
@@ -110,66 +109,54 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
       } else if (tabValue === 2) {
         // Bestätigt (noch in Zukunft)
         matchesTab =
-          appointment.status === AppointmentStatus.Accepted &&
+          appointment.status === AppointmentStatus.Confirmed &&
           isAfter(new Date(appointment.startTime), new Date());
       } else if (tabValue === 3) {
         // Vergangen: endTime < now ODER Cancelled/Completed
         matchesTab =
-          (appointment.endTime && isBefore(new Date(appointment.endTime), new Date())) ||
-          appointment.status === 'Cancelled' ||
-          appointment.status === 'Completed';
+          isBefore(new Date(appointment.endTime), new Date()) ||
+          appointment.status === AppointmentStatus.Cancelled ||
+          appointment.status === AppointmentStatus.Completed;
       }
 
       return matchesSearch && matchesStatus && matchesDate && matchesTab;
     });
-  }, [
-    appointments,
-    searchTerm,
-    selectedStatus,
-    selectedDate,
-    tabValue,
-    userRole,
-  ]);
+  }, [appointments, searchTerm, selectedStatus, selectedDate, tabValue, userRole]);
 
   // Pagination
-  const pageCount = Math.ceil(
-    filteredAppointments.length / appointmentsPerPage
-  );
+  const pageCount = Math.ceil(filteredAppointments.length / appointmentsPerPage);
   const displayedAppointments = filteredAppointments.slice(
     (currentPage - 1) * appointmentsPerPage,
     currentPage * appointmentsPerPage
   );
 
   // Handlers
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(event.target.value);
     setCurrentPage(1);
   };
 
-  const handleStatusChange = (event: SelectChangeEvent<string>) => {
+  const handleStatusChange = (event: SelectChangeEvent): void => {
     setSelectedStatus(event.target.value);
     setCurrentPage(1);
   };
 
-  const handleDateChange = (date: Date | null) => {
+  const handleDateChange = (date: Date | null): void => {
     setSelectedDate(date);
     setCurrentPage(1);
   };
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number): void => {
     setTabValue(newValue);
     setCurrentPage(1);
   };
 
-  const handlePageChange = (
-    _event: React.ChangeEvent<unknown>,
-    value: number
-  ) => {
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number): void => {
     setCurrentPage(value);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const resetFilters = () => {
+  const resetFilters = (): void => {
     setSearchTerm('');
     setSelectedStatus('');
     setSelectedDate(null);
@@ -180,21 +167,23 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
   if (isLoading) {
     return <SkeletonLoader variant="card" count={4} />;
   }
-  if (error) {
+  if (error !== null) {
     return (
       <EmptyState
         title="Fehler beim Laden der Termine"
         description={error}
         actionLabel="Erneut versuchen"
-        actionHandler={() => window.location.reload()}
+        actionHandler={() => {
+          window.location.reload();
+        }}
       />
     );
   }
-  if (!appointments || !appointments.length) {
+  if (appointments.length === 0) {
     return (
       <EmptyState
         title="Keine Termine gefunden"
-        description={"Du hast noch keine Termine vereinbart."}
+        description={'Du hast noch keine Termine vereinbart.'}
         actionLabel="Zur Matchmaking-Seite"
         actionPath="/matchmaking"
       />
@@ -217,8 +206,8 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
               <Tab
                 key={index}
                 label={tab}
-                id={`appointment-tab-${index}`}
-                aria-controls={`appointment-tabpanel-${index}`}
+                id={`appointment-tab-${index.toString()}`}
+                aria-controls={`appointment-tabpanel-${index.toString()}`}
               />
             ))}
           </Tabs>
@@ -311,28 +300,23 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         </Grid>
 
         {/* Ergebnisanzahl + Seite */}
-        <Box
-          mb={2}
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-        >
+        <Box mb={2} display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="body2" color="text.secondary">
-            {filteredAppointments.length}{' '}
-            {filteredAppointments?.length === 1 ? 'Termin' : 'Termine'} gefunden
+            {filteredAppointments.length} {filteredAppointments.length === 1 ? 'Termin' : 'Termine'}{' '}
+            gefunden
           </Typography>
           {pageCount > 1 && (
             <Typography variant="body2" color="text.secondary">
-              Seite {currentPage} von {pageCount}
+              Seite {String(currentPage)} von {String(pageCount)}
             </Typography>
           )}
         </Box>
 
         {/* Termine-Liste */}
-        {displayedAppointments?.length > 0 ? (
+        {displayedAppointments.length > 0 ? (
           <Grid container columns={12} spacing={3}>
-            {displayedAppointments.map((appointment, index) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={appointment.id || `appointment-${index}`}>
+            {displayedAppointments.map((appointment, _) => (
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={appointment.id}>
                 <AppointmentCard
                   appointment={appointment}
                   isTeacher={userRole === 'teacher'}
@@ -346,7 +330,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         ) : (
           <EmptyState
             title="Keine passenden Termine gefunden"
-            description={"Versuche deine Suche zu verfeinern."}
+            description={'Versuche deine Suche zu verfeinern.'}
             actionLabel="Filter zurücksetzen"
             actionHandler={resetFilters}
           />

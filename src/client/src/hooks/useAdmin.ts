@@ -19,7 +19,7 @@ import {
   fetchAdminSettings,
   updateAdminSettings,
 } from '../features/admin/adminThunks';
-import {
+import type {
   UserFilters,
   SkillFilters,
   AppointmentFilters,
@@ -86,15 +86,101 @@ import {
 
 /**
  * 🚀 ADMIN HOOK
- * 
+ *
  * ✅ KEINE useEffects - prevents infinite loops!
  * ✅ Stateless Design - nur Redux State + Actions
  * ✅ Memoized Functions - prevents unnecessary re-renders
- * 
+ *
  * CRITICAL: This hook is STATELESS and contains NO useEffects.
  * All data fetching must be initiated from Components!
  */
-export const useAdmin = () => {
+export const useAdmin = (): {
+  dashboard: ReturnType<typeof selectAdminDashboard>;
+  systemHealth: ReturnType<typeof selectSystemHealth>;
+  isLoading: boolean;
+  errorMessage: string | undefined;
+  isLoadingSystemHealth: boolean;
+  systemHealthError: string | undefined;
+  users: ReturnType<typeof selectAdminUsers>;
+  skills: ReturnType<typeof selectAdminSkills>;
+  appointments: ReturnType<typeof selectAdminAppointments>;
+  matches: ReturnType<typeof selectAdminMatches>;
+  auditLogs: ReturnType<typeof selectAuditLogs>;
+  moderationReports: ReturnType<typeof selectModerationReports>;
+  settings: ReturnType<typeof selectAdminSettings>;
+  analytics: ReturnType<typeof selectAdminAnalytics>;
+  isLoadingUsers: boolean;
+  isLoadingSkills: boolean;
+  isLoadingAppointments: boolean;
+  isLoadingMatches: boolean;
+  isLoadingAnalytics: boolean;
+  isLoadingAuditLogs: boolean;
+  isLoadingReports: boolean;
+  isLoadingSettings: boolean;
+  userError: string | undefined;
+  skillError: string | undefined;
+  appointmentError: string | undefined;
+  matchError: string | undefined;
+  analyticsError: string | undefined;
+  auditLogError: string | undefined;
+  reportError: string | undefined;
+  settingsError: string | undefined;
+  fetchAdminDashboard: () => void;
+  fetchSystemHealth: () => void;
+  fetchAdminUsers: (params?: { page?: number; limit?: number; filters?: UserFilters }) => void;
+  updateUserRole: (userId: string, role: string) => void;
+  suspendUser: (userId: string, reason: string) => void;
+  unsuspendUser: (userId: string) => void;
+  deleteUser: (userId: string) => void;
+  fetchAdminSkills: (params?: { page?: number; limit?: number; filters?: SkillFilters }) => void;
+  moderateSkill: (
+    skillId: string,
+    action: 'approve' | 'reject' | 'quarantine',
+    reason?: string
+  ) => void;
+  fetchAdminAppointments: (params?: {
+    page?: number;
+    limit?: number;
+    filters?: AppointmentFilters;
+  }) => void;
+  fetchAdminMatches: (params?: { page?: number; limit?: number; filters?: MatchFilters }) => void;
+  fetchAdminAnalytics: (dateRange?: '7d' | '30d' | '90d' | '1y') => void;
+  fetchAuditLogs: (params?: { page?: number; limit?: number; filters?: AuditLogFilters }) => void;
+  fetchModerationReports: (params?: {
+    page?: number;
+    limit?: number;
+    filters?: ModerationReportFilters;
+  }) => void;
+  handleModerationReport: (
+    reportId: string,
+    action: 'approve' | 'reject' | 'escalate',
+    reason?: string
+  ) => void;
+  fetchAdminSettings: () => void;
+  updateAdminSettings: (settingsData: Record<string, unknown>) => void;
+  clearError: () => void;
+  clearUserError: () => void;
+  clearSkillError: () => void;
+  clearAppointmentError: () => void;
+  clearMatchError: () => void;
+  clearAnalyticsError: () => void;
+  clearSystemHealthError: () => void;
+  clearAuditLogError: () => void;
+  clearReportError: () => void;
+  clearSettingsError: () => void;
+  setUserFilters: (filters: UserFilters) => void;
+  setSkillFilters: (filters: SkillFilters) => void;
+  setAppointmentFilters: (filters: AppointmentFilters) => void;
+  setMatchFilters: (filters: MatchFilters) => void;
+  setAuditLogFilters: (filters: AuditLogFilters) => void;
+  setReportFilters: (filters: ModerationReportFilters) => void;
+  setUserPagination: (pagination: { page?: number; limit?: number }) => void;
+  setSkillPagination: (pagination: { page?: number; limit?: number }) => void;
+  setAppointmentPagination: (pagination: { page?: number; limit?: number }) => void;
+  setMatchPagination: (pagination: { page?: number; limit?: number }) => void;
+  setAuditLogPagination: (pagination: { page?: number; limit?: number }) => void;
+  setReportPagination: (pagination: { page?: number; limit?: number }) => void;
+} => {
   const dispatch = useAppDispatch();
 
   // ===== SELECTORS =====
@@ -104,7 +190,7 @@ export const useAdmin = () => {
   const errorMessage = useAppSelector(selectAdminError);
   const isLoadingSystemHealth = useAppSelector(selectIsLoadingSystemHealth);
   const systemHealthError = useAppSelector(selectSystemHealthError);
-  
+
   const users = useAppSelector(selectAdminUsers);
   const skills = useAppSelector(selectAdminSkills);
   const appointments = useAppSelector(selectAdminAppointments);
@@ -133,177 +219,166 @@ export const useAdmin = () => {
   const settingsError = useAppSelector(selectSettingsError);
 
   // ===== MEMOIZED ACTIONS =====
-  const actions = useMemo(() => ({
-    
-    // === DASHBOARD OPERATIONS ===
-    fetchAdminDashboard: () => {
-      return dispatch(fetchAdminDashboard());
-    },
+  const actions = useMemo(
+    () => ({
+      // === DASHBOARD OPERATIONS ===
+      fetchAdminDashboard: () => dispatch(fetchAdminDashboard()),
 
-    fetchSystemHealth: () => {
-      return dispatch(fetchSystemHealth());
-    },
+      fetchSystemHealth: () => dispatch(fetchSystemHealth()),
 
-    // === USER MANAGEMENT ===
-    fetchAdminUsers: (params?: { page?: number; limit?: number; filters?: UserFilters }) => {
-      return dispatch(fetchAdminUsers(params || {}));
-    },
+      // === USER MANAGEMENT ===
+      fetchAdminUsers: (params?: { page?: number; limit?: number; filters?: UserFilters }) =>
+        dispatch(fetchAdminUsers(params ?? {})),
 
-    updateUserRole: (userId: string, role: string) => {
-      return dispatch(updateUserRole({ userId, role }));
-    },
+      updateUserRole: (userId: string, role: string) => dispatch(updateUserRole({ userId, role })),
 
-    suspendUser: (userId: string, reason: string) => {
-      return dispatch(suspendUser({ userId, reason }));
-    },
+      suspendUser: (userId: string, reason: string) => dispatch(suspendUser({ userId, reason })),
 
-    unsuspendUser: (userId: string) => {
-      return dispatch(unsuspendUser(userId));
-    },
+      unsuspendUser: (userId: string) => dispatch(unsuspendUser(userId)),
 
-    deleteUser: (userId: string) => {
-      return dispatch(deleteUser(userId));
-    },
+      deleteUser: (userId: string) => dispatch(deleteUser(userId)),
 
-    // === SKILL MANAGEMENT ===
-    fetchAdminSkills: (params?: { page?: number; limit?: number; filters?: SkillFilters }) => {
-      return dispatch(fetchAdminSkills(params || {}));
-    },
+      // === SKILL MANAGEMENT ===
+      fetchAdminSkills: (params?: { page?: number; limit?: number; filters?: SkillFilters }) =>
+        dispatch(fetchAdminSkills(params ?? {})),
 
-    moderateSkill: (skillId: string, action: 'approve' | 'reject' | 'quarantine', reason?: string) => {
-      return dispatch(moderateSkill({ skillId, action, reason }));
-    },
+      moderateSkill: (
+        skillId: string,
+        action: 'approve' | 'reject' | 'quarantine',
+        reason?: string
+      ) => dispatch(moderateSkill({ skillId, action, reason })),
 
-    // === APPOINTMENT MANAGEMENT ===
-    fetchAdminAppointments: (params?: { page?: number; limit?: number; filters?: AppointmentFilters }) => {
-      return dispatch(fetchAdminAppointments(params || {}));
-    },
+      // === APPOINTMENT MANAGEMENT ===
+      fetchAdminAppointments: (params?: {
+        page?: number;
+        limit?: number;
+        filters?: AppointmentFilters;
+      }) => dispatch(fetchAdminAppointments(params ?? {})),
 
-    // === MATCH MANAGEMENT ===
-    fetchAdminMatches: (params?: { page?: number; limit?: number; filters?: MatchFilters }) => {
-      return dispatch(fetchAdminMatches(params || {}));
-    },
+      // === MATCH MANAGEMENT ===
+      fetchAdminMatches: (params?: { page?: number; limit?: number; filters?: MatchFilters }) =>
+        dispatch(fetchAdminMatches(params ?? {})),
 
-    // === ANALYTICS ===
-    fetchAdminAnalytics: (dateRange?: "7d" | "30d" | "90d" | "1y") => {
-      return dispatch(fetchAdminAnalytics(dateRange || "30d"));
-    },
+      // === ANALYTICS ===
+      fetchAdminAnalytics: (dateRange?: '7d' | '30d' | '90d' | '1y') =>
+        dispatch(fetchAdminAnalytics(dateRange ?? '30d')),
 
-    // === AUDIT LOGS ===
-    fetchAuditLogs: (params?: { page?: number; limit?: number; filters?: AuditLogFilters }) => {
-      return dispatch(fetchAuditLogs(params || {}));
-    },
+      // === AUDIT LOGS ===
+      fetchAuditLogs: (params?: { page?: number; limit?: number; filters?: AuditLogFilters }) =>
+        dispatch(fetchAuditLogs(params ?? {})),
 
-    // === MODERATION ===
-    fetchModerationReports: (params?: { page?: number; limit?: number; filters?: ModerationReportFilters }) => {
-      return dispatch(fetchModerationReports(params || {}));
-    },
+      // === MODERATION ===
+      fetchModerationReports: (params?: {
+        page?: number;
+        limit?: number;
+        filters?: ModerationReportFilters;
+      }) => dispatch(fetchModerationReports(params ?? {})),
 
-    handleModerationReport: (reportId: string, action: 'approve' | 'reject' | 'escalate', reason?: string) => {
-      return dispatch(handleModerationReport({ reportId, action, reason }));
-    },
+      handleModerationReport: (
+        reportId: string,
+        action: 'approve' | 'reject' | 'escalate',
+        reason?: string
+      ) => dispatch(handleModerationReport({ reportId, action, reason })),
 
-    // === SETTINGS ===
-    fetchAdminSettings: () => {
-      return dispatch(fetchAdminSettings());
-    },
+      // === SETTINGS ===
+      fetchAdminSettings: () => dispatch(fetchAdminSettings()),
 
-    updateAdminSettings: (settings: Record<string, unknown>) => {
-      return dispatch(updateAdminSettings(settings));
-    },
+      updateAdminSettings: (settingsData: Record<string, unknown>) =>
+        dispatch(updateAdminSettings(settingsData)),
 
-    // === ERROR CLEARING ===
-    clearError: () => {
-      dispatch(clearError());
-    },
+      // === ERROR CLEARING ===
+      clearError: () => {
+        dispatch(clearError());
+      },
 
-    clearUserError: () => {
-      dispatch(clearUserError());
-    },
+      clearUserError: () => {
+        dispatch(clearUserError());
+      },
 
-    clearSkillError: () => {
-      dispatch(clearSkillError());
-    },
+      clearSkillError: () => {
+        dispatch(clearSkillError());
+      },
 
-    clearAppointmentError: () => {
-      dispatch(clearAppointmentError());
-    },
+      clearAppointmentError: () => {
+        dispatch(clearAppointmentError());
+      },
 
-    clearMatchError: () => {
-      dispatch(clearMatchError());
-    },
+      clearMatchError: () => {
+        dispatch(clearMatchError());
+      },
 
-    clearAnalyticsError: () => {
-      dispatch(clearAnalyticsError());
-    },
+      clearAnalyticsError: () => {
+        dispatch(clearAnalyticsError());
+      },
 
-    clearSystemHealthError: () => {
-      dispatch(clearSystemHealthError());
-    },
+      clearSystemHealthError: () => {
+        dispatch(clearSystemHealthError());
+      },
 
-    clearAuditLogError: () => {
-      dispatch(clearAuditLogError());
-    },
+      clearAuditLogError: () => {
+        dispatch(clearAuditLogError());
+      },
 
-    clearReportError: () => {
-      dispatch(clearReportError());
-    },
+      clearReportError: () => {
+        dispatch(clearReportError());
+      },
 
-    clearSettingsError: () => {
-      dispatch(clearSettingsError());
-    },
+      clearSettingsError: () => {
+        dispatch(clearSettingsError());
+      },
 
-    // === FILTER OPERATIONS ===
-    setUserFilters: (filters: UserFilters) => {
-      dispatch(setUserFilters(filters));
-    },
+      // === FILTER OPERATIONS ===
+      setUserFilters: (filters: UserFilters) => {
+        dispatch(setUserFilters(filters));
+      },
 
-    setSkillFilters: (filters: SkillFilters) => {
-      dispatch(setSkillFilters(filters));
-    },
+      setSkillFilters: (filters: SkillFilters) => {
+        dispatch(setSkillFilters(filters));
+      },
 
-    setAppointmentFilters: (filters: AppointmentFilters) => {
-      dispatch(setAppointmentFilters(filters));
-    },
+      setAppointmentFilters: (filters: AppointmentFilters) => {
+        dispatch(setAppointmentFilters(filters));
+      },
 
-    setMatchFilters: (filters: MatchFilters) => {
-      dispatch(setMatchFilters(filters));
-    },
+      setMatchFilters: (filters: MatchFilters) => {
+        dispatch(setMatchFilters(filters));
+      },
 
-    setAuditLogFilters: (filters: AuditLogFilters) => {
-      dispatch(setAuditLogFilters(filters));
-    },
+      setAuditLogFilters: (filters: AuditLogFilters) => {
+        dispatch(setAuditLogFilters(filters));
+      },
 
-    setReportFilters: (filters: ModerationReportFilters) => {
-      dispatch(setReportFilters(filters));
-    },
+      setReportFilters: (filters: ModerationReportFilters) => {
+        dispatch(setReportFilters(filters));
+      },
 
-    // === PAGINATION OPERATIONS ===
-    setUserPagination: (pagination: { page?: number; limit?: number }) => {
-      dispatch(setUserPagination(pagination));
-    },
+      // === PAGINATION OPERATIONS ===
+      setUserPagination: (pagination: { page?: number; limit?: number }) => {
+        dispatch(setUserPagination(pagination));
+      },
 
-    setSkillPagination: (pagination: { page?: number; limit?: number }) => {
-      dispatch(setSkillPagination(pagination));
-    },
+      setSkillPagination: (pagination: { page?: number; limit?: number }) => {
+        dispatch(setSkillPagination(pagination));
+      },
 
-    setAppointmentPagination: (pagination: { page?: number; limit?: number }) => {
-      dispatch(setAppointmentPagination(pagination));
-    },
+      setAppointmentPagination: (pagination: { page?: number; limit?: number }) => {
+        dispatch(setAppointmentPagination(pagination));
+      },
 
-    setMatchPagination: (pagination: { page?: number; limit?: number }) => {
-      dispatch(setMatchPagination(pagination));
-    },
+      setMatchPagination: (pagination: { page?: number; limit?: number }) => {
+        dispatch(setMatchPagination(pagination));
+      },
 
-    setAuditLogPagination: (pagination: { page?: number; limit?: number }) => {
-      dispatch(setAuditLogPagination(pagination));
-    },
+      setAuditLogPagination: (pagination: { page?: number; limit?: number }) => {
+        dispatch(setAuditLogPagination(pagination));
+      },
 
-    setReportPagination: (pagination: { page?: number; limit?: number }) => {
-      dispatch(setReportPagination(pagination));
-    },
-
-  }), [dispatch]);
+      setReportPagination: (pagination: { page?: number; limit?: number }) => {
+        dispatch(setReportPagination(pagination));
+      },
+    }),
+    [dispatch]
+  );
 
   // ===== RETURN OBJECT =====
   return {

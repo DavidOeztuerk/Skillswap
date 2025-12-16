@@ -1,5 +1,5 @@
-import { Skill } from './Skill';
-import { User } from './User';
+import type { Skill } from './Skill';
+import type { User } from './User';
 
 export interface Appointment {
   id: string;
@@ -11,49 +11,40 @@ export interface Appointment {
   studentDetails?: User;
   organizerUserId?: string;
   participantUserId?: string;
-  otherPartyUserId?: string; // From list endpoint
-  otherPartyName?: string;   // From list endpoint
-  otherPartyAvatarUrl?: string; // From list endpoint
+  otherPartyUserId?: string;
+  otherPartyName?: string;
+  otherPartyAvatarUrl?: string;
   skillId?: string;
   matchId?: string;
   skill?: Skill;
   scheduledDate: string;
-  startTime: string;  // Always required for display
-  endTime: string;    // Always required for display
+  startTime: string;
+  endTime: string;
   durationMinutes: number;
   status: AppointmentStatus;
   notes?: string;
   videocallUrl?: string;
   meetingLink?: string;
   meetingType?: string;
-  isOrganizer?: boolean; // Whether current user is organizer
+  isOrganizer?: boolean;
 
-  // Connection-level data (NEW MODEL)
   connectionId?: string;
-  connectionType?: string; // "SkillExchange" | "Payment" | "Free"
+  connectionType?: string;
   connectionStatus?: string;
 
-  // Series-level data (NEW MODEL)
   sessionSeriesId?: string;
   sessionSeriesTitle?: string;
   sessionNumber?: number;
   totalSessionsInSeries?: number;
   completedSessionsInSeries?: number;
 
-  // Derived flags (for backward compatibility)
-  isSkillExchange?: boolean; // true if connectionType === "SkillExchange"
-  isMonetary?: boolean;      // true if connectionType === "Payment"
+  isSkillExchange?: boolean;
+  isMonetary?: boolean;
 
-  // Session-specific data
   isConfirmed?: boolean;
   isPaymentCompleted?: boolean;
   paymentAmount?: number;
   currency?: string;
-
-  // Legacy compatibility
-  exchangeSkillId?: string;
-  amount?: number; // @deprecated use paymentAmount
-  totalSessions?: number; // @deprecated use totalSessionsInSeries
 
   createdAt: string;
   updatedAt?: string;
@@ -61,9 +52,8 @@ export interface Appointment {
 
 export enum AppointmentStatus {
   Pending = 'Pending',
-  Confirmed = 'Confirmed', // NEW: Backend uses "Confirmed" for SessionAppointments
-  Accepted = 'Accepted',   // LEGACY: Old appointments may still use "Accepted"
+  Confirmed = 'Confirmed',
   Cancelled = 'Cancelled',
   Completed = 'Completed',
-  Rescheduled = 'Rescheduled'
+  Rescheduled = 'Rescheduled',
 }

@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { Visibility, Download } from '@mui/icons-material';
 import { useAppSelector } from '../../store/store.hooks';
-import { SessionStatus } from '../../features/sessions/sessionsSlice';
+import type { SessionStatus } from '../../features/sessions/sessionsSlice';
 
 interface SessionHistoryTableProps {
   onViewDetails?: (session: SessionStatus) => void;
@@ -36,10 +36,7 @@ interface SessionHistoryTableProps {
  * - Export functionality
  * - Status badges
  */
-const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({
-  onViewDetails,
-  onExport,
-}) => {
+const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({ onViewDetails, onExport }) => {
   const { sessionHistory } = useAppSelector((state) => state.sessions);
 
   const [page, setPage] = useState(0);
@@ -51,10 +48,8 @@ const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({
   const filteredSessions = sessionHistory.filter((session: SessionStatus) => {
     const matchesSearch =
       session.sessionAppointmentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (session.timestamp &&
-        new Date(session.timestamp)
-          .toLocaleDateString()
-          .includes(searchTerm.toLowerCase()));
+      ((session.timestamp ?? null) !== null &&
+        new Date(session.timestamp ?? '').toLocaleDateString().includes(searchTerm.toLowerCase()));
 
     const matchesStatus = statusFilter === 'All' || session.status === statusFilter;
 
@@ -70,16 +65,18 @@ const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({
     page * rowsPerPage + rowsPerPage
   );
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number): void => {
     setPage(newPage);
   };
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
-  const getStatusColor = (status: string): 'default' | 'primary' | 'success' | 'error' | 'warning' => {
+  const getStatusColor = (
+    status: string
+  ): 'default' | 'primary' | 'success' | 'error' | 'warning' => {
     switch (status.toLowerCase()) {
       case 'pending':
       case 'inprogress':
@@ -95,14 +92,14 @@ const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({
     }
   };
 
-  const handleExport = () => {
+  const handleExport = (): void => {
     onExport?.(filteredSessions);
   };
 
   const formatDate = (dateString?: string | null): string => {
-    if (!dateString) return 'N/A';
+    if ((dateString ?? null) === null) return 'N/A';
     try {
-      return new Date(dateString).toLocaleString('en-DE');
+      return new Date(dateString ?? '').toLocaleString('en-DE');
     } catch {
       return 'Invalid date';
     }
@@ -119,22 +116,19 @@ const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({
   return (
     <Box>
       {/* Filters */}
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        sx={{ mb: 2 }}
-        alignItems="center"
-      >
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }} alignItems="center">
         <TextField
           size="small"
           placeholder="Search by ID or date..."
           value={searchTerm}
-          onChange={(e) => {
+          onChange={(e): void => {
             setSearchTerm(e.target.value);
             setPage(0);
           }}
-          InputProps={{
-            startAdornment: <InputAdornment position="start">🔍</InputAdornment>,
+          slotProps={{
+            input: {
+              startAdornment: <InputAdornment position="start">🔍</InputAdornment>,
+            },
           }}
           sx={{ flex: 1 }}
         />
@@ -142,7 +136,7 @@ const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({
         <Box>
           <select
             value={statusFilter}
-            onChange={(e) => {
+            onChange={(e): void => {
               setStatusFilter(e.target.value);
               setPage(0);
             }}
@@ -164,13 +158,15 @@ const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({
 
         {onExport && (
           <Tooltip title="Export sessions">
-            <IconButton
-              size="small"
-              onClick={handleExport}
-              disabled={filteredSessions.length === 0}
-            >
-              <Download fontSize="small" />
-            </IconButton>
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleExport}
+                disabled={filteredSessions.length === 0}
+              >
+                <Download fontSize="small" />
+              </IconButton>
+            </span>
           </Tooltip>
         )}
       </Stack>
@@ -206,7 +202,9 @@ const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({
                     <Tooltip title="View details">
                       <IconButton
                         size="small"
-                        onClick={() => onViewDetails(session)}
+                        onClick={() => {
+                          onViewDetails(session);
+                        }}
                       >
                         <Visibility fontSize="small" />
                       </IconButton>
@@ -241,9 +239,9 @@ const SessionHistoryTable: React.FC<SessionHistoryTableProps> = ({
       {/* Summary */}
       <Box sx={{ mt: 2, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
         <Typography variant="caption" color="textSecondary">
-          Showing {paginatedSessions.length > 0 ? page * rowsPerPage + 1 : 0}-
-          {Math.min((page + 1) * rowsPerPage, filteredSessions.length)} of{' '}
-          {filteredSessions.length} sessions
+          Showing {String(paginatedSessions.length > 0 ? page * rowsPerPage + 1 : 0)}-
+          {String(Math.min((page + 1) * rowsPerPage, filteredSessions.length))} of{' '}
+          {String(filteredSessions.length)} sessions
         </Typography>
       </Box>
     </Box>

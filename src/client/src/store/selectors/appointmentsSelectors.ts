@@ -1,7 +1,10 @@
 import { createSelector } from '@reduxjs/toolkit';
-import { RootState } from '../store';
+import type { RootState } from '../store';
 import { selectAuthUser } from './authSelectors';
-import { appointmentsAdapter } from '../adapters/appointmentsAdapter+State';
+import {
+  appointmentsAdapter,
+  type AppointmentsEntityState,
+} from '../adapters/appointmentsAdapter+State';
 import { AppointmentStatus } from '../../types/models/Appointment';
 
 /**
@@ -15,10 +18,14 @@ import { AppointmentStatus } from '../../types/models/Appointment';
 
 // ==================== BASE SELECTORS ====================
 
-export const selectAppointmentsState = (state: RootState) => state.appointments;
-export const selectAppointmentsLoading = (state: RootState) => state.appointments.isLoading;
-export const selectAppointmentsError = (state: RootState) => state.appointments.errorMessage;
-export const selectIsLoadingSlots = (state: RootState) => state.appointments.isLoadingSlots;
+export const selectAppointmentsState = (state: RootState): AppointmentsEntityState =>
+  state.appointments;
+export const selectAppointmentsLoading = (state: RootState): boolean =>
+  state.appointments.isLoading;
+export const selectAppointmentsError = (state: RootState): string | undefined =>
+  state.appointments.errorMessage;
+export const selectIsLoadingSlots = (state: RootState): boolean =>
+  state.appointments.isLoadingSlots;
 
 // ==================== ENTITY ADAPTER SELECTORS ====================
 
@@ -26,9 +33,7 @@ export const selectIsLoadingSlots = (state: RootState) => state.appointments.isL
  * Get adapter selectors scoped to appointments state
  * These provide efficient access to normalized entities
  */
-const adapterSelectors = appointmentsAdapter.getSelectors<RootState>(
-  (state) => state.appointments
-);
+const adapterSelectors = appointmentsAdapter.getSelectors<RootState>((state) => state.appointments);
 
 // Export adapter selectors
 export const {
@@ -72,9 +77,10 @@ export const selectUpcomingAppointments = createSelector(
   (appointments) => {
     const now = new Date();
     return appointments
-      .filter(appointment =>
-        new Date(appointment.startTime) > now &&
-        ([AppointmentStatus.Accepted, AppointmentStatus.Pending].includes(appointment.status))
+      .filter(
+        (appointment) =>
+          new Date(appointment.startTime) > now &&
+          [AppointmentStatus.Confirmed, AppointmentStatus.Pending].includes(appointment.status)
       )
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }
@@ -84,19 +90,17 @@ export const selectUpcomingAppointments = createSelector(
  * Select past appointments (past or completed)
  * REPLACES: state.pastAppointments
  */
-export const selectPastAppointments = createSelector(
-  [selectAllAppointments],
-  (appointments) => {
-    const now = new Date();
-    return appointments
-      .filter(appointment =>
+export const selectPastAppointments = createSelector([selectAllAppointments], (appointments) => {
+  const now = new Date();
+  return appointments
+    .filter(
+      (appointment) =>
         new Date(appointment.startTime) <= now ||
         appointment.status === AppointmentStatus.Completed ||
         appointment.status === AppointmentStatus.Cancelled
-      )
-      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-  }
-);
+    )
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+});
 
 // ==================== USER-SPECIFIC SELECTORS ====================
 
@@ -110,8 +114,9 @@ export const selectUserAppointments = createSelector(
       return [];
     }
 
-    return appointments.filter(appointment =>
-      appointment.organizerUserId === user.id || appointment.participantUserId === user.id
+    return appointments.filter(
+      (appointment) =>
+        appointment.organizerUserId === user.id || appointment.participantUserId === user.id
     );
   }
 );
@@ -123,9 +128,9 @@ export const selectUserUpcomingAppointments = createSelector(
   [selectUpcomingAppointments, selectAuthUser],
   (upcomingAppointments, user) => {
     if (!user?.id) return [];
-    return upcomingAppointments.filter(appointment =>
-      appointment.organizerUserId === user.id ||
-      appointment.participantUserId === user.id
+    return upcomingAppointments.filter(
+      (appointment) =>
+        appointment.organizerUserId === user.id || appointment.participantUserId === user.id
     );
   }
 );
@@ -137,9 +142,9 @@ export const selectUserPastAppointments = createSelector(
   [selectPastAppointments, selectAuthUser],
   (pastAppointments, user) => {
     if (!user?.id) return [];
-    return pastAppointments.filter(appointment =>
-      appointment.organizerUserId === user.id ||
-      appointment.participantUserId === user.id
+    return pastAppointments.filter(
+      (appointment) =>
+        appointment.organizerUserId === user.id || appointment.participantUserId === user.id
     );
   }
 );
@@ -151,9 +156,7 @@ export const selectTeachingAppointments = createSelector(
   [selectUserAppointments, selectAuthUser],
   (userAppointments, user) => {
     if (!user?.id) return [];
-    return userAppointments.filter(appointment =>
-      appointment.organizerUserId === user.id
-    );
+    return userAppointments.filter((appointment) => appointment.organizerUserId === user.id);
   }
 );
 
@@ -164,9 +167,7 @@ export const selectLearningAppointments = createSelector(
   [selectUserAppointments, selectAuthUser],
   (userAppointments, user) => {
     if (!user?.id) return [];
-    return userAppointments.filter(appointment =>
-      appointment.participantUserId === user.id
-    );
+    return userAppointments.filter((appointment) => appointment.participantUserId === user.id);
   }
 );
 
@@ -176,29 +177,24 @@ export const selectLearningAppointments = createSelector(
  * Select appointments by status
  */
 export const selectAppointmentsByStatus = createSelector(
-  [selectAllAppointments, (_: RootState, status: string) => status],
-  (appointments, status) =>
-    appointments.filter(appointment => appointment.status === status)
+  [selectAllAppointments, (_: RootState, status: AppointmentStatus) => status],
+  (appointments, status) => appointments.filter((appointment) => appointment.status === status)
 );
 
-export const selectPendingAppointments = createSelector(
-  [selectAllAppointments],
-  (appointments) => appointments.filter(appointment => appointment.status === AppointmentStatus.Pending)
+export const selectPendingAppointments = createSelector([selectAllAppointments], (appointments) =>
+  appointments.filter((appointment) => appointment.status === AppointmentStatus.Pending)
 );
 
-export const selectAcceptedAppointments = createSelector(
-  [selectAllAppointments],
-  (appointments) => appointments.filter(appointment => appointment.status === AppointmentStatus.Accepted)
+export const selectAcceptedAppointments = createSelector([selectAllAppointments], (appointments) =>
+  appointments.filter((appointment) => appointment.status === AppointmentStatus.Confirmed)
 );
 
-export const selectCancelledAppointments = createSelector(
-  [selectAllAppointments],
-  (appointments) => appointments.filter(appointment => appointment.status === AppointmentStatus.Cancelled)
+export const selectCancelledAppointments = createSelector([selectAllAppointments], (appointments) =>
+  appointments.filter((appointment) => appointment.status === AppointmentStatus.Cancelled)
 );
 
-export const selectCompletedAppointments = createSelector(
-  [selectAllAppointments],
-  (appointments) => appointments.filter(appointment => appointment.status === AppointmentStatus.Completed)
+export const selectCompletedAppointments = createSelector([selectAllAppointments], (appointments) =>
+  appointments.filter((appointment) => appointment.status === AppointmentStatus.Completed)
 );
 
 // ==================== DATE-BASED SELECTORS ====================
@@ -206,19 +202,16 @@ export const selectCompletedAppointments = createSelector(
 /**
  * Select today's appointments
  */
-export const selectTodaysAppointments = createSelector(
-  [selectAllAppointments],
-  (appointments) => {
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+export const selectTodaysAppointments = createSelector([selectAllAppointments], (appointments) => {
+  const today = new Date();
+  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-    return appointments.filter(appointment => {
-      const appointmentDate = new Date(appointment.startTime);
-      return appointmentDate >= startOfDay && appointmentDate < endOfDay;
-    });
-  }
-);
+  return appointments.filter((appointment) => {
+    const appointmentDate = new Date(appointment.startTime);
+    return appointmentDate >= startOfDay && appointmentDate < endOfDay;
+  });
+});
 
 /**
  * Select this week's appointments
@@ -234,7 +227,7 @@ export const selectThisWeeksAppointments = createSelector(
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 7);
 
-    return appointments.filter(appointment => {
+    return appointments.filter((appointment) => {
       const appointmentDate = new Date(appointment.startTime);
       return appointmentDate >= startOfWeek && appointmentDate < endOfWeek;
     });
@@ -250,12 +243,11 @@ export const selectAppointmentsByDateRange = createSelector(
     (_: RootState, startDate: Date) => startDate,
     (_: RootState, __: Date, endDate: Date) => endDate,
   ],
-  (appointments, startDate, endDate) => {
-    return appointments.filter(appointment => {
+  (appointments, startDate, endDate) =>
+    appointments.filter((appointment) => {
       const appointmentDate = new Date(appointment.startTime);
       return appointmentDate >= startDate && appointmentDate <= endDate;
-    });
-  }
+    })
 );
 
 // ==================== STATISTICS SELECTORS ====================
@@ -277,9 +269,10 @@ export const selectAppointmentsStatistics = createSelector(
     pending: pending.length,
     completed: completed.length,
     cancelled: cancelled.length,
-    completionRate: allAppointments.length > 0
-      ? Math.round((completed.length / allAppointments.length) * 100)
-      : 0,
+    completionRate:
+      allAppointments.length > 0
+        ? Math.round((completed.length / allAppointments.length) * 100)
+        : 0,
   })
 );
 
@@ -290,7 +283,7 @@ export const selectAppointmentsStatistics = createSelector(
  */
 export const selectNextAppointment = createSelector(
   [selectUserUpcomingAppointments],
-  (upcomingAppointments) => upcomingAppointments[0] || null
+  (upcomingAppointments) => upcomingAppointments[0] ?? null
 );
 
 /**
@@ -319,8 +312,6 @@ export const selectAppointmentsNeedingAction = createSelector(
   [selectPendingAppointments, selectAuthUser],
   (pendingAppointments, user) => {
     if (!user?.id) return [];
-    return pendingAppointments.filter(appointment =>
-      appointment.participantUserId === user.id
-    );
+    return pendingAppointments.filter((appointment) => appointment.participantUserId === user.id);
   }
 );

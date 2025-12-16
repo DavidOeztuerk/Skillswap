@@ -1,19 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-  Box,
-  Tabs,
-  Tab,
-  Alert,
-  Snackbar,
-} from '@mui/material';
-import {
-  Security as SecurityIcon,
-} from '@mui/icons-material';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { Box, Tabs, Tab, Alert, Snackbar } from '@mui/material';
+import { Security as SecurityIcon } from '@mui/icons-material';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import SecurityAlertList from '../../components/admin/SecurityAlertList';
 import SecurityStatistics from '../../components/admin/SecurityStatistics';
+import { usePermissions } from '../../contexts/permissionContextHook';
+import { Permissions } from '../../components/auth/permissions.constants';
 import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
 import {
   selectSecurityAlerts,
@@ -41,17 +35,24 @@ interface TabPanelProps {
   value: number;
 }
 
-const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
-  return (
-    <div hidden={value !== index}>
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-};
+const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
+  <div hidden={value !== index}>{value === index && <Box sx={{ pt: 3 }}>{children}</Box>}</div>
+);
 
 const AdminSecurityPage: React.FC = () => {
   const dispatch = useAppDispatch();
+  const { hasPermission } = usePermissions();
   const [tabValue, setTabValue] = useState(0);
+
+  // Memoize permission checks
+  const canViewAlerts = useMemo(
+    () => hasPermission(Permissions.Security.VIEW_ALERTS),
+    [hasPermission]
+  );
+  const canManageAlerts = useMemo(
+    () => hasPermission(Permissions.Security.MANAGE_ALERTS),
+    [hasPermission]
+  );
 
   // Redux state
   const alerts = useAppSelector(selectSecurityAlerts);
@@ -75,19 +76,21 @@ const AdminSecurityPage: React.FC = () => {
 
   // Fetch alerts using Redux
   const fetchAlerts = useCallback(() => {
-    dispatch(fetchSecurityAlerts({
-      pageNumber: pagination.page,
-      pageSize: pagination.limit,
-      minLevel: filters.minLevel || undefined,
-      type: filters.type || undefined,
-      includeRead: filters.includeRead,
-      includeDismissed: filters.includeDismissed,
-    }));
+    void dispatch(
+      fetchSecurityAlerts({
+        pageNumber: pagination.page,
+        pageSize: pagination.limit,
+        minLevel: filters?.minLevel ?? undefined,
+        type: filters?.type ?? undefined,
+        includeRead: filters?.includeRead,
+        includeDismissed: filters?.includeDismissed,
+      })
+    );
   }, [dispatch, pagination.page, pagination.limit, filters]);
 
   // Fetch statistics using Redux
   const fetchStatistics = useCallback(() => {
-    dispatch(fetchSecurityAlertStatistics({}));
+    void dispatch(fetchSecurityAlertStatistics({}));
   }, [dispatch]);
 
   // Initial load
@@ -97,17 +100,17 @@ const AdminSecurityPage: React.FC = () => {
   }, [fetchAlerts, fetchStatistics]);
 
   // Handle tab change
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number): void => {
     setTabValue(newValue);
   };
 
   // Handle page change using Redux
-  const handlePageChange = (page: number) => {
+  const handlePageChange = (page: number): void => {
     dispatch(setSecurityAlertPagination({ page }));
   };
 
   // Handle dismiss alert using Redux
-  const handleDismissAlert = async (alertId: string, reason: string) => {
+  const handleDismissAlert = async (alertId: string, reason: string): Promise<void> => {
     try {
       await dispatch(dismissSecurityAlert({ alertId, reason })).unwrap();
 
@@ -120,18 +123,20 @@ const AdminSecurityPage: React.FC = () => {
       // Refresh data
       fetchAlerts();
       fetchStatistics();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error dismissing alert:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Fehler beim Dismissing des Alerts';
       setSnackbar({
         open: true,
-        message: error?.message || 'Fehler beim Dismissing des Alerts',
+        message: errorMessage,
         severity: 'error',
       });
     }
   };
 
   // Handle mark as read using Redux
-  const handleMarkAlertAsRead = async (alertId: string) => {
+  const handleMarkAlertAsRead = async (alertId: string): Promise<void> => {
     try {
       await dispatch(markSecurityAlertAsRead(alertId)).unwrap();
 
@@ -144,50 +149,52 @@ const AdminSecurityPage: React.FC = () => {
       // Refresh data
       fetchAlerts();
       fetchStatistics();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error marking alert as read:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Fehler beim Markieren des Alerts';
       setSnackbar({
         open: true,
-        message: error?.message || 'Fehler beim Markieren des Alerts',
+        message: errorMessage,
         severity: 'error',
       });
     }
   };
 
   // Handle view details (could open modal/dialog)
-  const handleViewDetails = (alertId: string) => {
-    console.log('View details for alert:', alertId);
+  const handleViewDetails = (alertId: string): void => {
+    console.debug('View details for alert:', alertId);
     // TODO: Implement details view (modal/dialog)
   };
 
   // Handle refresh
-  const handleRefresh = () => {
+  const handleRefresh = (): void => {
     fetchAlerts();
     fetchStatistics();
   };
 
   // Handle filter changes using Redux
-  const handleMinLevelChange = (level: string) => {
+  const handleMinLevelChange = (level: string): void => {
     dispatch(setSecurityAlertFilters({ minLevel: level }));
     dispatch(setSecurityAlertPagination({ page: 1 })); // Reset to first page
   };
 
-  const handleAlertTypeChange = (type: string) => {
+  const handleAlertTypeChange = (type: string): void => {
     dispatch(setSecurityAlertFilters({ type }));
     dispatch(setSecurityAlertPagination({ page: 1 }));
   };
 
-  const handleIncludeReadChange = (include: boolean) => {
+  const handleIncludeReadChange = (include: boolean): void => {
     dispatch(setSecurityAlertFilters({ includeRead: include }));
     dispatch(setSecurityAlertPagination({ page: 1 }));
   };
 
-  const handleIncludeDismissedChange = (include: boolean) => {
+  const handleIncludeDismissedChange = (include: boolean): void => {
     dispatch(setSecurityAlertFilters({ includeDismissed: include }));
     dispatch(setSecurityAlertPagination({ page: 1 }));
   };
 
-  const handleCloseSnackbar = () => {
+  const handleCloseSnackbar = (): void => {
     setSnackbar({ ...snackbar, open: false });
   };
 
@@ -219,28 +226,25 @@ const AdminSecurityPage: React.FC = () => {
           currentPage={pagination.page}
           pageSize={pagination.limit}
           isLoading={isLoadingAlerts}
-          error={alertsError || undefined}
+          error={alertsError ?? undefined}
           onPageChange={handlePageChange}
-          onDismiss={handleDismissAlert}
-          onMarkRead={handleMarkAlertAsRead}
-          onViewDetails={handleViewDetails}
+          onDismiss={canManageAlerts ? handleDismissAlert : undefined}
+          onMarkRead={canManageAlerts ? handleMarkAlertAsRead : undefined}
+          onViewDetails={canViewAlerts ? handleViewDetails : undefined}
           onRefresh={handleRefresh}
-          minLevel={filters.minLevel}
+          minLevel={filters?.minLevel}
           onMinLevelChange={handleMinLevelChange}
-          alertType={filters.type}
+          alertType={filters?.type}
           onAlertTypeChange={handleAlertTypeChange}
-          includeRead={filters.includeRead}
+          includeRead={filters?.includeRead}
           onIncludeReadChange={handleIncludeReadChange}
-          includeDismissed={filters.includeDismissed}
+          includeDismissed={filters?.includeDismissed}
           onIncludeDismissedChange={handleIncludeDismissedChange}
         />
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <SecurityStatistics
-          statistics={statistics || undefined}
-          isLoading={isLoadingStatistics}
-        />
+        <SecurityStatistics statistics={statistics ?? undefined} isLoading={isLoadingStatistics} />
       </TabPanel>
 
       {/* Snackbar for notifications */}
@@ -250,11 +254,7 @@ const AdminSecurityPage: React.FC = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

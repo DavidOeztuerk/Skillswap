@@ -1,4 +1,3 @@
-// src/components/layout/ResponsiveGrid.tsx
 import React from 'react';
 import { Grid, Box } from '@mui/material';
 import { useMobile } from '../../hooks/useMobile';
@@ -76,24 +75,22 @@ const ResponsiveGrid: React.FC<ResponsiveGridProps> = ({
       sx={{
         width: '100%',
         margin: 0,
-        '& .MuiGrid2-item': {
-          paddingTop: `${spacing * 8}px !important`,
-          paddingLeft: `${spacing * 8}px !important`,
-        },
       }}
     >
       {React.Children.map(children, (child, index) => (
         <Grid
           key={index}
+          size={{
+            xs: 12 / (maxColumns.xs ?? 1),
+            sm: 12 / (maxColumns.sm ?? 2),
+            md: 12 / (maxColumns.md ?? 3),
+            lg: 12 / (maxColumns.lg ?? 4),
+            xl: 12 / (maxColumns.xl ?? 5),
+          }}
           sx={{
             minWidth: mobile.isTablet ? minItemWidth : 'auto',
             display: 'flex',
             flexDirection: 'column',
-            xs:12 / (maxColumns.xs || 1),
-            sm:12 / (maxColumns.sm || 2),
-            md: 12 / (maxColumns.md || 3),
-            lg: 12 / (maxColumns.lg || 4),
-            xl: 12 / (maxColumns.xl || 5),
           }}
         >
           {child}

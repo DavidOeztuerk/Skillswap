@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, type JSX } from 'react';
 import {
   Badge,
   IconButton,
@@ -42,11 +42,9 @@ interface NotificationBellProps {
   playSound?: boolean;
 }
 
-const NotificationBell: React.FC<NotificationBellProps> = ({
-  maxDisplayCount = 10,
-}) => {
+const NotificationBell: React.FC<NotificationBellProps> = ({ maxDisplayCount = 10 }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  
+
   const audioRef = useRef<HTMLAudioElement>(null);
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -62,28 +60,34 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
     deleteNotification,
   } = useNotifications();
 
-  const handleNotificationClick = useCallback((notificationId: string) => {
-    markAsRead(notificationId);
-    const notification = notifications.find(n => n.id === notificationId);
-    if (notification?.actionUrl) {
-      window.location.href = notification.actionUrl;
-    }
-  }, [notifications, markAsRead]);
+  const handleNotificationClick = useCallback(
+    (notificationId: string): void => {
+      markAsRead(notificationId);
+      const notification = notifications.find((n) => n.id === notificationId);
+      if (notification?.actionUrl) {
+        window.location.href = notification.actionUrl;
+      }
+    },
+    [notifications, markAsRead]
+  );
 
-  const handleMarkAllAsRead = useCallback(() => {
+  const handleMarkAllAsRead = useCallback((): void => {
     markAllAsRead();
   }, [markAllAsRead]);
 
-  const handleClearAll = useCallback(() => {
+  const handleClearAll = useCallback((): void => {
     clearAll();
     setAnchorEl(null);
   }, [clearAll]);
 
-  const handleDeleteNotification = useCallback((notificationId: string) => {
-    deleteNotification(notificationId);
-  }, [deleteNotification]);
+  const handleDeleteNotification = useCallback(
+    (notificationId: string): void => {
+      deleteNotification(notificationId);
+    },
+    [deleteNotification]
+  );
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: string): JSX.Element => {
     switch (type) {
       case 'appointment':
         return <StarIcon fontSize="small" color="primary" />;
@@ -97,11 +101,11 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
     }
   };
 
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleClick = (event: React.MouseEvent<HTMLElement>): void => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleClose = () => {
+  const handleClose = (): void => {
     setAnchorEl(null);
     if (previewTimeoutRef.current) {
       clearTimeout(previewTimeoutRef.current);
@@ -136,11 +140,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
               },
             }}
           >
-            {unreadCount > 0 ? (
-              <NotificationsIcon />
-            ) : (
-              <NotificationsNoneIcon />
-            )}
+            {unreadCount > 0 ? <NotificationsIcon /> : <NotificationsNoneIcon />}
           </Badge>
         </IconButton>
       </Tooltip>
@@ -175,12 +175,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
             <Typography variant="h6" component="div">
               Benachrichtigungen
               {unreadCount > 0 && (
-                <Chip 
-                  label={unreadCount} 
-                  size="small" 
-                  color="error" 
-                  sx={{ ml: 1 }}
-                />
+                <Chip label={unreadCount} size="small" color="error" sx={{ ml: 1 }} />
               )}
             </Typography>
             <Stack direction="row" spacing={1}>
@@ -229,12 +224,12 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                 <React.Fragment key={notification.id}>
                   <ListItem disablePadding>
                     <ListItemButton
-                      onClick={() => handleNotificationClick(notification.id)}
+                      onClick={() => {
+                        handleNotificationClick(notification.id);
+                      }}
                       sx={{
                         py: 1.5,
-                        backgroundColor: notification.isRead
-                          ? 'transparent'
-                          : 'action.hover',
+                        backgroundColor: notification.isRead ? 'transparent' : 'action.hover',
                         '&:hover': {
                           backgroundColor: 'action.selected',
                         },
@@ -258,17 +253,22 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                           </Typography>
                         }
                         secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                          <>
+                            <Typography
+                              component="span"
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ display: 'block', mb: 0.5 }}
+                            >
                               {notification.message}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography component="span" variant="caption" color="text.secondary">
                               {formatDistanceToNow(new Date(notification.createdAt), {
                                 addSuffix: true,
                                 locale: de,
                               })}
                             </Typography>
-                          </Box>
+                          </>
                         }
                       />
                       <Box sx={{ ml: 1 }}>
@@ -314,6 +314,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
       <audio ref={audioRef} preload="auto">
         <source src="/sounds/notification.mp3" type="audio/mpeg" />
         <source src="/sounds/notification.ogg" type="audio/ogg" />
+        <track kind="captions" />
       </audio>
     </>
   );

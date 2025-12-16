@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -17,6 +17,7 @@ import {
   InputAdornment,
   MenuItem,
   Grid,
+  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -24,17 +25,35 @@ import {
   Delete as DeleteIcon,
   Edit as EditIcon,
   FilterList as FilterIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { useAppointments } from '../../hooks/useAppointments';
+import { Permissions } from '../../components/auth/permissions.constants';
 import PageLoader from '../../components/ui/PageLoader';
 import EmptyState from '../../components/ui/EmptyState';
 import { AppointmentStatus } from '../../types/models/Appointment';
 import { formatDate } from '../../utils/dateUtils';
+import { usePermissions } from '../../contexts/permissionContextHook';
 
 const AdminAppointmentsPage: React.FC = () => {
   const { appointments, isLoading, loadAppointments } = useAppointments();
+  const { hasPermission } = usePermissions();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
+
+  // Memoize permission checks
+  const canViewAllAppointments: boolean = useMemo(
+    () => hasPermission(Permissions.Appointments.VIEW_ALL),
+    [hasPermission]
+  );
+  const canManageAppointments: boolean = useMemo(
+    () => hasPermission(Permissions.Appointments.MANAGE),
+    [hasPermission]
+  );
+  const canCancelAnyAppointment: boolean = useMemo(
+    () => hasPermission(Permissions.Appointments.CANCEL_ANY),
+    [hasPermission]
+  );
 
   useEffect(() => {
     loadAppointments({ pageNumber: 1, pageSize: 100 });
@@ -43,20 +62,21 @@ const AdminAppointmentsPage: React.FC = () => {
   const filteredAppointments = appointments.filter((apt) => {
     const matchesSearch =
       searchQuery === '' ||
-      apt.skill?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      apt.notes?.toLowerCase().includes(searchQuery.toLowerCase());
+      (apt.skill?.name.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      (apt.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
-    const matchesStatus =
-      statusFilter === 'all' || apt.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || apt.status.toString() === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusColor = (status: AppointmentStatus) => {
+  const getStatusColor = (
+    status: AppointmentStatus
+  ): 'warning' | 'success' | 'error' | 'info' | 'default' => {
     switch (status) {
       case AppointmentStatus.Pending:
         return 'warning';
-      case AppointmentStatus.Accepted:
+      case AppointmentStatus.Confirmed:
         return 'success';
       case AppointmentStatus.Cancelled:
         return 'error';
@@ -70,7 +90,7 @@ const AdminAppointmentsPage: React.FC = () => {
   const stats = {
     total: appointments.length,
     pending: appointments.filter((a) => a.status === AppointmentStatus.Pending).length,
-    accepted: appointments.filter((a) => a.status === AppointmentStatus.Accepted).length,
+    confirmed: appointments.filter((a) => a.status === AppointmentStatus.Confirmed).length,
     completed: appointments.filter((a) => a.status === AppointmentStatus.Completed).length,
     cancelled: appointments.filter((a) => a.status === AppointmentStatus.Cancelled).length,
   };
@@ -116,7 +136,7 @@ const AdminAppointmentsPage: React.FC = () => {
                 Bestätigt
               </Typography>
               <Typography variant="h4" color="success.main">
-                {stats.accepted}
+                {stats.confirmed}
               </Typography>
             </CardContent>
           </Card>
@@ -154,32 +174,41 @@ const AdminAppointmentsPage: React.FC = () => {
             <TextField
               placeholder="Suche nach Skill oder Notizen..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
               sx={{ flexGrow: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
             <TextField
               select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+              }}
               sx={{ minWidth: 200 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FilterIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FilterIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             >
               <MenuItem value="all">Alle Status</MenuItem>
+              {}
+              <MenuItem value={AppointmentStatus.Confirmed}>Bestätigt</MenuItem>
               <MenuItem value={AppointmentStatus.Pending}>Ausstehend</MenuItem>
-              <MenuItem value={AppointmentStatus.Accepted}>Bestätigt</MenuItem>
               <MenuItem value={AppointmentStatus.Completed}>Abgeschlossen</MenuItem>
               <MenuItem value={AppointmentStatus.Cancelled}>Abgesagt</MenuItem>
             </TextField>
@@ -216,7 +245,7 @@ const AdminAppointmentsPage: React.FC = () => {
                 filteredAppointments.map((appointment) => (
                   <TableRow key={appointment.id}>
                     <TableCell>{appointment.id.substring(0, 8)}...</TableCell>
-                    <TableCell>{appointment.skill?.name || 'N/A'}</TableCell>
+                    <TableCell>{appointment.skill?.name ?? 'N/A'}</TableCell>
                     <TableCell>
                       {formatDate(appointment.scheduledDate, 'dd.MM.yyyy HH:mm')}
                     </TableCell>
@@ -228,23 +257,50 @@ const AdminAppointmentsPage: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {appointment.teacherDetails?.firstName ||
-                        appointment.organizerUserId?.substring(0, 8) || 'N/A'}
+                      {appointment.teacherDetails?.firstName ??
+                        appointment.organizerUserId?.substring(0, 8) ??
+                        'N/A'}
                     </TableCell>
                     <TableCell>
-                      {appointment.studentDetails?.firstName ||
-                        appointment.participantUserId?.substring(0, 8) || 'N/A'}
+                      {appointment.studentDetails?.firstName ??
+                        appointment.participantUserId?.substring(0, 8) ??
+                        'N/A'}
                     </TableCell>
                     <TableCell>
-                      <IconButton size="small" color="primary">
-                        <ViewIcon />
-                      </IconButton>
-                      <IconButton size="small" color="default">
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton size="small" color="error">
-                        <DeleteIcon />
-                      </IconButton>
+                      {/* View - requires VIEW_ALL permission */}
+                      {canViewAllAppointments && (
+                        <Tooltip title="Details anzeigen">
+                          <IconButton size="small" color="primary">
+                            <ViewIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {/* Edit - requires MANAGE permission */}
+                      {canManageAppointments && (
+                        <Tooltip title="Bearbeiten">
+                          <IconButton size="small" color="default">
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {/* Cancel - requires CANCEL_ANY permission, only for non-cancelled/completed */}
+                      {canCancelAnyAppointment &&
+                        appointment.status !== AppointmentStatus.Cancelled &&
+                        appointment.status !== AppointmentStatus.Completed && (
+                          <Tooltip title="Termin absagen">
+                            <IconButton size="small" color="warning">
+                              <CancelIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      {/* Delete - requires MANAGE permission */}
+                      {canManageAppointments && (
+                        <Tooltip title="Löschen">
+                          <IconButton size="small" color="error">
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

@@ -40,14 +40,15 @@ import { useMatchmaking } from '../../hooks/useMatchmaking';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
-import { LoadingButton } from '../../components/common/LoadingButton';
-import { useLoading, LoadingKeys } from '../../contexts/LoadingContext';
+import { LoadingButton } from '../../components/ui/LoadingButton';
+import { useLoading } from '../../contexts/loadingContextHooks';
+import { LoadingKeys } from '../../contexts/loadingContextValue';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import MatchingErrorBoundary from '../../components/error/MatchingErrorBoundary';
 import errorService from '../../services/errorService';
 import { useSearchParams } from 'react-router-dom';
-import { MatchRequestDisplay } from '../../types/contracts/MatchmakingDisplay';
+import type { MatchRequestDisplay } from '../../types/contracts/MatchmakingDisplay';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -55,14 +56,14 @@ interface TabPanelProps {
   value: number;
 }
 
-function TabPanel(props: TabPanelProps) {
+function TabPanel(props: TabPanelProps): React.JSX.Element {
   const { children, value, index, ...other } = props;
   return (
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`matchmaking-tabpanel-${index}`}
-      aria-labelledby={`matchmaking-tab-${index}`}
+      id={`matchmaking-tabpanel-${String(index)}`}
+      aria-labelledby={`matchmaking-tab-${String(index)}`}
       {...other}
     >
       {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
@@ -82,7 +83,7 @@ interface RequestThread {
     name: string;
     category?: string;
   };
-  requests: Array<{
+  requests: {
     id: string;
     type: 'incoming' | 'outgoing';
     status: 'pending' | 'accepted' | 'rejected' | 'counter' | 'expired';
@@ -91,7 +92,7 @@ interface RequestThread {
     updatedAt?: string;
     isCounterOffer?: boolean;
     originalRequestId?: string;
-  }>;
+  }[];
   latestRequest: {
     id: string;
     status: 'pending' | 'accepted' | 'rejected' | 'counter' | 'expired';
@@ -118,9 +119,14 @@ const MatchmakingPage: React.FC = () => {
   useEffect(() => {
     const newTab = tabParam ? parseInt(tabParam, 10) : 0;
     if (newTab !== currentTab && (newTab === 0 || newTab === 1)) {
-      setCurrentTab(newTab);
+      const timer = setTimeout(() => {
+        setCurrentTab(newTab);
+      }, 0);
+      return () => {
+        clearTimeout(timer);
+      };
     }
-  }, [tabParam]);
+  }, [tabParam, currentTab]);
 
   const { withLoading, isLoading } = useLoading();
   const {
@@ -144,28 +150,32 @@ const MatchmakingPage: React.FC = () => {
 
   useEffect(() => {
     // Load initial data with loading context
-    withLoading(LoadingKeys.FETCH_MATCHES, async () => {
+    void withLoading(LoadingKeys.FETCH_MATCHES, (): Promise<void> => {
       errorService.addBreadcrumb('Loading matchmaking page data', 'navigation');
-      await Promise.all([
-        loadUserMatches({}),
-        loadIncomingRequests({}),
-        loadOutgoingRequests({})
-      ]);
+      // These are synchronous dispatch calls (return void, not Promise)
+      loadUserMatches({});
+      loadIncomingRequests({});
+      loadOutgoingRequests({});
+      // Return a resolved promise to satisfy withLoading's async signature
+      return Promise.resolve();
     });
   }, [loadUserMatches, loadIncomingRequests, loadOutgoingRequests, withLoading]);
 
   // Group requests into threads by user + skill
-  const groupRequestsIntoThreads = (incoming: MatchRequestDisplay[], outgoing: MatchRequestDisplay[]): RequestThread[] => {
+  const groupRequestsIntoThreads = (
+    incoming: MatchRequestDisplay[],
+    outgoing: MatchRequestDisplay[]
+  ): RequestThread[] => {
     const threadsMap = new Map<string, RequestThread>();
 
     // Process incoming requests
     incoming.forEach((request) => {
       // Verwende die tatsächlichen Felder aus MatchRequestDisplay
-      const threadId = request.threadId || `${request.otherUserId}-${request.skillId}`;
-      
+      const threadId = request.threadId ?? `${request.otherUserId}-${request.skillId}`;
+
       if (!threadsMap.has(threadId)) {
         threadsMap.set(threadId, {
-          threadId: threadId,
+          threadId,
           otherUser: {
             id: request.otherUserId,
             name: request.otherUserName || 'Unbekannter Nutzer',
@@ -187,7 +197,8 @@ const MatchmakingPage: React.FC = () => {
         });
       }
 
-      const thread = threadsMap.get(threadId)!;
+      const thread = threadsMap.get(threadId);
+      if (!thread) return;
       thread.requests.push({
         id: request.id,
         type: 'incoming',
@@ -215,10 +226,10 @@ const MatchmakingPage: React.FC = () => {
     // Process outgoing requests
     outgoing.forEach((request) => {
       // ✅ KORRIGIERT: Verwende echte ThreadId aus Backend anstatt generierte threadKey
-      const threadId = request.threadId || `${request.otherUserId}-${request.skillId}`;
+      const threadId = request.threadId ?? `${request.otherUserId}-${request.skillId}`;
       if (!threadsMap.has(threadId)) {
         threadsMap.set(threadId, {
-          threadId: threadId,
+          threadId,
           otherUser: {
             id: request.otherUserId,
             name: request.otherUserName || 'Unbekannter Nutzer',
@@ -238,7 +249,8 @@ const MatchmakingPage: React.FC = () => {
         });
       }
 
-      const thread = threadsMap.get(threadId)!;
+      const thread = threadsMap.get(threadId);
+      if (!thread) return;
       thread.requests.push({
         id: request.id,
         type: 'outgoing',
@@ -260,25 +272,29 @@ const MatchmakingPage: React.FC = () => {
 
     // Sort by latest activity
     return Array.from(threadsMap.values()).sort(
-      (a, b) => new Date(b.latestRequest.createdAt).getTime() - new Date(a.latestRequest.createdAt).getTime()
+      (a, b) =>
+        new Date(b.latestRequest.createdAt).getTime() -
+        new Date(a.latestRequest.createdAt).getTime()
     );
   };
 
   // Separate threads by type
   const allThreads = groupRequestsIntoThreads(incomingRequestsArray, outgoingRequestsArray);
-  const incomingThreads = allThreads.filter(thread => 
-    thread.latestRequest.type === 'incoming' && thread.latestRequest.status === 'pending'
+  const incomingThreads = allThreads.filter(
+    (thread) =>
+      thread.latestRequest.type === 'incoming' && thread.latestRequest.status === 'pending'
   );
-  const outgoingThreads = allThreads.filter(thread => 
-    thread.latestRequest.type === 'outgoing' || thread.latestRequest.status !== 'pending'
+  const outgoingThreads = allThreads.filter(
+    (thread) =>
+      thread.latestRequest.type === 'outgoing' || thread.latestRequest.status !== 'pending'
   );
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number): void => {
     errorService.addBreadcrumb('Changing matchmaking tab', 'ui', { tabIndex: newValue });
     setCurrentTab(newValue);
   };
 
-  const handleExpandThread = (threadId: string) => {
+  const handleExpandThread = (threadId: string): void => {
     errorService.addBreadcrumb('Expanding/collapsing match thread', 'ui', { threadId });
     const newExpanded = new Set(expandedThreads);
     if (newExpanded.has(threadId)) {
@@ -289,115 +305,108 @@ const MatchmakingPage: React.FC = () => {
     setExpandedThreads(newExpanded);
   };
 
-  const handleAcceptRequest = async (requestId: string, message?: string) => {
-    try {
-      errorService.addBreadcrumb('Accepting match request', 'action', { requestId });
-      await acceptMatchRequest(requestId, { responseMessage: message });
-      errorService.addBreadcrumb('Match request accepted successfully', 'action', { requestId });
-      setResponseDialogOpen(false);
-      setResponseMessage('');
-      setSelectedRequest(null);
-      // Refresh data
-      loadUserMatches({});
-      loadIncomingRequests({});
-      loadOutgoingRequests({});
-    } catch (error) {
-      errorService.addBreadcrumb('Error accepting match request', 'error', { 
-        requestId, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
-      console.error('Error accepting request:', error);
-    }
+  const handleAcceptRequest = (requestId: string, message?: string): void => {
+    errorService.addBreadcrumb('Accepting match request', 'action', { requestId });
+    acceptMatchRequest(requestId, { responseMessage: message });
+    errorService.addBreadcrumb('Match request accepted successfully', 'action', { requestId });
+    setResponseDialogOpen(false);
+    setResponseMessage('');
+    setSelectedRequest(null);
+    // Refresh data
+    loadUserMatches({});
+    loadIncomingRequests({});
+    loadOutgoingRequests({});
   };
 
-  const handleRejectRequest = async (requestId: string, message?: string) => {
-    try {
-      errorService.addBreadcrumb('Rejecting match request', 'action', { requestId });
-      await rejectMatchRequest(requestId, { responseMessage: message });
-      errorService.addBreadcrumb('Match request rejected successfully', 'action', { requestId });
-      setResponseDialogOpen(false);
-      setResponseMessage('');
-      setSelectedRequest(null);
-      // Refresh data
-      loadUserMatches({});
-      loadIncomingRequests({});
-      loadOutgoingRequests({});
-    } catch (error) {
-      errorService.addBreadcrumb('Error rejecting match request', 'error', { 
-        requestId, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
-      console.error('Error rejecting request:', error);
-    }
+  const handleRejectRequest = (requestId: string, message?: string): void => {
+    errorService.addBreadcrumb('Rejecting match request', 'action', { requestId });
+    rejectMatchRequest(requestId, { responseMessage: message });
+    errorService.addBreadcrumb('Match request rejected successfully', 'action', { requestId });
+    setResponseDialogOpen(false);
+    setResponseMessage('');
+    setSelectedRequest(null);
+    // Refresh data
+    loadUserMatches({});
+    loadIncomingRequests({});
+    loadOutgoingRequests({});
   };
 
-  const handleCounterOffer = async () => {
+  const handleCounterOffer = (): void => {
     if (selectedRequest && counterOfferMessage.trim()) {
-      try {
-        errorService.addBreadcrumb('Creating counter offer', 'action', { 
-          originalRequestId: selectedRequest.id,
-          skillId: selectedRequest.skillId 
-        });
-        // Create a new request as counter-offer
-        await createMatchRequest({
-          skillId: selectedRequest.skillId,
-          message: `Gegenangebot: ${counterOfferMessage.trim()}`,
-          targetUserId: selectedRequest.otherUserId, // Counter-offer zurück an den ursprünglichen Requester
-        });
-        errorService.addBreadcrumb('Counter offer created successfully', 'action', { 
-          originalRequestId: selectedRequest.id 
-        });
-        setCounterOfferDialog(false);
-        setCounterOfferMessage('');
-        setSelectedRequest(null);
-        // Refresh data
-        loadUserMatches({});
-        loadIncomingRequests({});
-        loadOutgoingRequests({});
-      } catch (error) {
-        errorService.addBreadcrumb('Error creating counter offer', 'error', { 
-          originalRequestId: selectedRequest.id,
-          error: error instanceof Error ? error.message : 'Unknown error' 
-        });
-        console.error('Error creating counter-offer:', error);
-      }
+      errorService.addBreadcrumb('Creating counter offer', 'action', {
+        originalRequestId: selectedRequest.id,
+        skillId: selectedRequest.skillId,
+      });
+      // Create a new request as counter-offer
+      createMatchRequest({
+        skillId: selectedRequest.skillId,
+        message: `Gegenangebot: ${counterOfferMessage.trim()}`,
+        targetUserId: selectedRequest.otherUserId, // Counter-offer zurück an den ursprünglichen Requester
+      });
+      errorService.addBreadcrumb('Counter offer created successfully', 'action', {
+        originalRequestId: selectedRequest.id,
+      });
+      setCounterOfferDialog(false);
+      setCounterOfferMessage('');
+      setSelectedRequest(null);
+      // Refresh data
+      loadUserMatches({});
+      loadIncomingRequests({});
+      loadOutgoingRequests({});
     }
   };
 
-  const getStatusColor = (status: string): "success" | "warning" | "error" | "info" | "default" => {
+  const getStatusColor = (status: string): 'success' | 'warning' | 'error' | 'info' | 'default' => {
     switch (status) {
-      case 'accepted': return 'success';
-      case 'pending': return 'warning';
-      case 'rejected': return 'error';
-      case 'counter': return 'info';
-      case 'expired': return 'default';
-      default: return 'default';
+      case 'accepted':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'rejected':
+        return 'error';
+      case 'counter':
+        return 'info';
+      case 'expired':
+        return 'default';
+      default:
+        return 'default';
     }
   };
 
-  const getStatusIcon = (status: string, type: 'incoming' | 'outgoing') => {
+  const getStatusIcon = (status: string, type: 'incoming' | 'outgoing'): React.JSX.Element => {
     switch (status) {
-      case 'accepted': return <CheckIcon color="success" />;
-      case 'rejected': return <CloseIcon color="error" />;
-      case 'pending': 
-        return type === 'incoming' ? <PersonAddIcon color="warning" /> : <SendIcon color="warning" />;
-      default: return <MessageIcon />;
+      case 'accepted':
+        return <CheckIcon color="success" />;
+      case 'rejected':
+        return <CloseIcon color="error" />;
+      case 'pending':
+        return type === 'incoming' ? (
+          <PersonAddIcon color="warning" />
+        ) : (
+          <SendIcon color="warning" />
+        );
+      default:
+        return <MessageIcon />;
     }
   };
 
-  const handleRefresh = async () => {
-    await withLoading('refreshMatches', async () => {
+  const handleRefresh = (): void => {
+    void withLoading('refreshMatches', (): Promise<void> => {
       errorService.addBreadcrumb('Refreshing matchmaking data', 'action');
-      await Promise.all([
-        loadUserMatches({}),
-        loadIncomingRequests({}),
-        loadOutgoingRequests({})
-      ]);
+      // These are synchronous dispatch calls (return void, not Promise)
+      loadUserMatches({});
+      loadIncomingRequests({});
+      loadOutgoingRequests({});
+      return Promise.resolve();
     });
   };
 
-  const isPageLoading = isLoading(LoadingKeys.FETCH_MATCHES) || 
-    (matchmakingLoading && incomingRequestsArray.length === 0 && outgoingRequestsArray.length === 0 && matchesArray.length === 0);
+  const isPageLoading =
+    isLoading(LoadingKeys.FETCH_MATCHES) ||
+    (matchmakingLoading &&
+      incomingRequestsArray.length === 0 &&
+      outgoingRequestsArray.length === 0 &&
+      matchesArray.length === 0);
 
   if (isPageLoading) {
     return (
@@ -415,7 +424,7 @@ const MatchmakingPage: React.FC = () => {
 
         {/* Statistics Cards Skeleton */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          {[1, 2, 3, 4].map(i => (
+          {[1, 2, 3, 4].map((i) => (
             <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
               <Card>
                 <CardContent sx={{ p: 2, textAlign: 'center' }}>
@@ -500,7 +509,7 @@ const MatchmakingPage: React.FC = () => {
           <Card>
             <CardContent sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h4" color="success.main">
-                {allThreads.filter(t => t.latestRequest.status === 'accepted').length}
+                {allThreads.filter((t) => t.latestRequest.status === 'accepted').length}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Akzeptiert
@@ -525,7 +534,12 @@ const MatchmakingPage: React.FC = () => {
       {/* Tabs */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Tabs value={currentTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
+          <Tabs
+            value={currentTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
             <Tab
               label={
                 <Box display="flex" alignItems="center">
@@ -588,31 +602,29 @@ const MatchmakingPage: React.FC = () => {
                           {thread.otherUser.name[0] || 'U'}
                         </Avatar>
                         <Box flex={1}>
-                          <Typography variant="h6">
-                            {thread.otherUser.name}
-                          </Typography>
+                          <Typography variant="h6">{thread.otherUser.name}</Typography>
                           <Typography variant="body2" color="text.secondary">
                             {thread.skill.name}
                           </Typography>
                           <Box display="flex" alignItems="center" gap={1} mt={0.5}>
                             <AccessTimeIcon fontSize="small" color="action" />
                             <Typography variant="caption" color="text.secondary">
-                              {formatDistanceToNow(new Date(thread.latestRequest.createdAt), { 
-                                addSuffix: true, 
-                                locale: de 
+                              {formatDistanceToNow(new Date(thread.latestRequest.createdAt), {
+                                addSuffix: true,
+                                locale: de,
                               })}
                             </Typography>
                             {thread.unreadCount > 0 && (
-                              <Chip 
-                                label={`${thread.unreadCount} neu`} 
-                                size="small" 
-                                color="warning" 
+                              <Chip
+                                label={`${String(thread.unreadCount)} neu`}
+                                size="small"
+                                color="warning"
                               />
                             )}
                           </Box>
                         </Box>
                       </Box>
-                      
+
                       <Box display="flex" alignItems="center" gap={1}>
                         <Chip
                           label={thread.latestRequest.status}
@@ -620,10 +632,16 @@ const MatchmakingPage: React.FC = () => {
                           size="small"
                         />
                         <IconButton
-                          onClick={() => handleExpandThread(thread.threadId)}
+                          onClick={() => {
+                            handleExpandThread(thread.threadId);
+                          }}
                           size="small"
                         >
-                          {expandedThreads.has(thread.threadId) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          {expandedThreads.has(thread.threadId) ? (
+                            <ExpandLessIcon />
+                          ) : (
+                            <ExpandMoreIcon />
+                          )}
                         </IconButton>
                       </Box>
                     </Box>
@@ -636,7 +654,9 @@ const MatchmakingPage: React.FC = () => {
                           variant="contained"
                           color="success"
                           startIcon={<CheckIcon />}
-                          onClick={() => handleAcceptRequest(thread.latestRequest.id)}
+                          onClick={(): void => {
+                            handleAcceptRequest(thread.latestRequest.id);
+                          }}
                           loading={matchmakingLoading}
                         >
                           Akzeptieren
@@ -646,7 +666,9 @@ const MatchmakingPage: React.FC = () => {
                           variant="outlined"
                           color="error"
                           startIcon={<CloseIcon />}
-                          onClick={() => handleRejectRequest(thread.latestRequest.id)}
+                          onClick={(): void => {
+                            handleRejectRequest(thread.latestRequest.id);
+                          }}
                           loading={matchmakingLoading}
                         >
                           Ablehnen
@@ -658,9 +680,10 @@ const MatchmakingPage: React.FC = () => {
                           startIcon={<ReplyIcon />}
                           onClick={() => {
                             // Find the full request object from the arrays
-                            const fullRequest = [...incomingRequestsArray, ...outgoingRequestsArray].find(
-                              r => r.id === thread.latestRequest.id
-                            );
+                            const fullRequest = [
+                              ...incomingRequestsArray,
+                              ...outgoingRequestsArray,
+                            ].find((r) => r.id === thread.latestRequest.id);
                             if (fullRequest) {
                               setSelectedRequest(fullRequest);
                               setCounterOfferDialog(true);
@@ -681,44 +704,49 @@ const MatchmakingPage: React.FC = () => {
                       </Typography>
                       <Stack spacing={2} sx={{ mt: 2 }}>
                         {thread.requests
-                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          .sort(
+                            (a, b) =>
+                              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                          )
                           .map((request) => (
-                          <Paper key={request.id} variant="outlined" sx={{ p: 2 }}>
-                            <Box display="flex" alignItems="center" gap={2}>
-                              <Avatar 
-                                sx={{ 
-                                  bgcolor: `${getStatusColor(request.status)}.main`,
-                                  width: 32,
-                                  height: 32 
-                                }}
-                              >
-                                {getStatusIcon(request.status, request.type)}
-                              </Avatar>
-                              <Box flex={1}>
-                                <Typography variant="subtitle2">
-                                  {request.type === 'incoming' ? 'Anfrage erhalten' : 'Antwort gesendet'}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  {request.message}
-                                </Typography>
-                                <Box display="flex" alignItems="center" gap={1} mt={0.5}>
-                                  <AccessTimeIcon fontSize="small" color="action" />
-                                  <Typography variant="caption" color="text.secondary">
-                                    {formatDistanceToNow(new Date(request.createdAt), { 
-                                      addSuffix: true, 
-                                      locale: de 
-                                    })}
+                            <Paper key={request.id} variant="outlined" sx={{ p: 2 }}>
+                              <Box display="flex" alignItems="center" gap={2}>
+                                <Avatar
+                                  sx={{
+                                    bgcolor: `${getStatusColor(request.status)}.main`,
+                                    width: 32,
+                                    height: 32,
+                                  }}
+                                >
+                                  {getStatusIcon(request.status, request.type)}
+                                </Avatar>
+                                <Box flex={1}>
+                                  <Typography variant="subtitle2">
+                                    {request.type === 'incoming'
+                                      ? 'Anfrage erhalten'
+                                      : 'Antwort gesendet'}
                                   </Typography>
-                                  <Chip 
-                                    label={request.status} 
-                                    size="small" 
-                                    color={getStatusColor(request.status)}
-                                  />
+                                  <Typography variant="body2" color="text.secondary">
+                                    {request.message}
+                                  </Typography>
+                                  <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                                    <AccessTimeIcon fontSize="small" color="action" />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {formatDistanceToNow(new Date(request.createdAt), {
+                                        addSuffix: true,
+                                        locale: de,
+                                      })}
+                                    </Typography>
+                                    <Chip
+                                      label={request.status}
+                                      size="small"
+                                      color={getStatusColor(request.status)}
+                                    />
+                                  </Box>
                                 </Box>
                               </Box>
-                            </Box>
-                          </Paper>
-                        ))}
+                            </Paper>
+                          ))}
                       </Stack>
                     </Collapse>
                   </CardContent>
@@ -754,24 +782,22 @@ const MatchmakingPage: React.FC = () => {
                           {thread.otherUser.name[0] || 'U'}
                         </Avatar>
                         <Box flex={1}>
-                          <Typography variant="h6">
-                            {thread.otherUser.name}
-                          </Typography>
+                          <Typography variant="h6">{thread.otherUser.name}</Typography>
                           <Typography variant="body2" color="text.secondary">
                             {thread.skill.name}
                           </Typography>
                           <Box display="flex" alignItems="center" gap={1} mt={0.5}>
                             <AccessTimeIcon fontSize="small" color="action" />
                             <Typography variant="caption" color="text.secondary">
-                              {formatDistanceToNow(new Date(thread.latestRequest.createdAt), { 
-                                addSuffix: true, 
-                                locale: de 
+                              {formatDistanceToNow(new Date(thread.latestRequest.createdAt), {
+                                addSuffix: true,
+                                locale: de,
                               })}
                             </Typography>
                           </Box>
                         </Box>
                       </Box>
-                      
+
                       <Box display="flex" alignItems="center" gap={1}>
                         <Chip
                           label={thread.latestRequest.status}
@@ -779,10 +805,16 @@ const MatchmakingPage: React.FC = () => {
                           size="small"
                         />
                         <IconButton
-                          onClick={() => handleExpandThread(thread.threadId)}
+                          onClick={() => {
+                            handleExpandThread(thread.threadId);
+                          }}
                           size="small"
                         >
-                          {expandedThreads.has(thread.threadId) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          {expandedThreads.has(thread.threadId) ? (
+                            <ExpandLessIcon />
+                          ) : (
+                            <ExpandMoreIcon />
+                          )}
                         </IconButton>
                       </Box>
                     </Box>
@@ -795,44 +827,49 @@ const MatchmakingPage: React.FC = () => {
                       </Typography>
                       <Stack spacing={2} sx={{ mt: 2 }}>
                         {thread.requests
-                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                          .sort(
+                            (a, b) =>
+                              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                          )
                           .map((request) => (
-                          <Paper key={request.id} variant="outlined" sx={{ p: 2 }}>
-                            <Box display="flex" alignItems="center" gap={2}>
-                              <Avatar 
-                                sx={{ 
-                                  bgcolor: `${getStatusColor(request.status)}.main`,
-                                  width: 32,
-                                  height: 32 
-                                }}
-                              >
-                                {getStatusIcon(request.status, request.type)}
-                              </Avatar>
-                              <Box flex={1}>
-                                <Typography variant="subtitle2">
-                                  {request.type === 'outgoing' ? 'Anfrage gesendet' : 'Antwort erhalten'}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  {request.message}
-                                </Typography>
-                                <Box display="flex" alignItems="center" gap={1} mt={0.5}>
-                                  <AccessTimeIcon fontSize="small" color="action" />
-                                  <Typography variant="caption" color="text.secondary">
-                                    {formatDistanceToNow(new Date(request.createdAt), { 
-                                      addSuffix: true, 
-                                      locale: de 
-                                    })}
+                            <Paper key={request.id} variant="outlined" sx={{ p: 2 }}>
+                              <Box display="flex" alignItems="center" gap={2}>
+                                <Avatar
+                                  sx={{
+                                    bgcolor: `${getStatusColor(request.status)}.main`,
+                                    width: 32,
+                                    height: 32,
+                                  }}
+                                >
+                                  {getStatusIcon(request.status, request.type)}
+                                </Avatar>
+                                <Box flex={1}>
+                                  <Typography variant="subtitle2">
+                                    {request.type === 'outgoing'
+                                      ? 'Anfrage gesendet'
+                                      : 'Antwort erhalten'}
                                   </Typography>
-                                  <Chip 
-                                    label={request.status} 
-                                    size="small" 
-                                    color={getStatusColor(request.status)}
-                                  />
+                                  <Typography variant="body2" color="text.secondary">
+                                    {request.message}
+                                  </Typography>
+                                  <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                                    <AccessTimeIcon fontSize="small" color="action" />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {formatDistanceToNow(new Date(request.createdAt), {
+                                        addSuffix: true,
+                                        locale: de,
+                                      })}
+                                    </Typography>
+                                    <Chip
+                                      label={request.status}
+                                      size="small"
+                                      color={getStatusColor(request.status)}
+                                    />
+                                  </Box>
                                 </Box>
                               </Box>
-                            </Box>
-                          </Paper>
-                        ))}
+                            </Paper>
+                          ))}
                       </Stack>
                     </Collapse>
                   </CardContent>
@@ -876,20 +913,20 @@ const MatchmakingPage: React.FC = () => {
                           <Box display="flex" alignItems="center" gap={1} mt={0.5}>
                             <AccessTimeIcon fontSize="small" color="action" />
                             <Typography variant="caption" color="text.secondary">
-                              {formatDistanceToNow(new Date(match.createdAt), { 
-                                addSuffix: true, 
-                                locale: de 
+                              {formatDistanceToNow(new Date(match.createdAt), {
+                                addSuffix: true,
+                                locale: de,
                               })}
                             </Typography>
                             {match.acceptedAt && (
                               <>
                                 <Typography variant="caption" color="text.secondary">
-                                  • Bestätigt 
+                                  • Bestätigt
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {formatDistanceToNow(new Date(match.acceptedAt), { 
-                                    addSuffix: true, 
-                                    locale: de 
+                                  {formatDistanceToNow(new Date(match.acceptedAt), {
+                                    addSuffix: true,
+                                    locale: de,
                                   })}
                                 </Typography>
                               </>
@@ -897,15 +934,11 @@ const MatchmakingPage: React.FC = () => {
                           </Box>
                         </Box>
                       </Box>
-                      
+
                       <Box display="flex" alignItems="center" gap={1}>
-                        <Chip
-                          label={match.status}
-                          color="success"
-                          size="small"
-                        />
+                        <Chip label={match.status} color="success" size="small" />
                         <Typography variant="body2" color="success.main">
-                          {((match.compatibilityScore || 0) * 100).toFixed(0)}% Match
+                          {((match.compatibilityScore ?? 0) * 100).toFixed(0)}% Match
                         </Typography>
                       </Box>
                     </Box>
@@ -919,11 +952,7 @@ const MatchmakingPage: React.FC = () => {
                       >
                         Nachricht senden
                       </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="primary"
-                      >
+                      <Button size="small" variant="outlined" color="primary">
                         Details ansehen
                       </Button>
                     </Box>
@@ -936,11 +965,19 @@ const MatchmakingPage: React.FC = () => {
       </TabPanel>
 
       {/* Counter Offer Dialog */}
-      <Dialog open={counterOfferDialog} onClose={() => setCounterOfferDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={counterOfferDialog}
+        onClose={() => {
+          setCounterOfferDialog(false);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Gegenangebot erstellen</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            Erstelle ein Gegenangebot mit deinen eigenen Vorschlägen für Zeit, Ort oder andere Details.
+            Erstelle ein Gegenangebot mit deinen eigenen Vorschlägen für Zeit, Ort oder andere
+            Details.
           </Typography>
           <TextField
             label="Dein Gegenangebot"
@@ -948,18 +985,24 @@ const MatchmakingPage: React.FC = () => {
             rows={4}
             fullWidth
             value={counterOfferMessage}
-            onChange={(e) => setCounterOfferMessage(e.target.value)}
+            onChange={(e) => {
+              setCounterOfferMessage(e.target.value);
+            }}
             placeholder="Z.B.: Ich würde gerne dienstags und donnerstags von 18-20 Uhr..."
             sx={{ mt: 2 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCounterOfferDialog(false)}>
+          <Button
+            onClick={() => {
+              setCounterOfferDialog(false);
+            }}
+          >
             Abbrechen
           </Button>
-          <Button 
-            onClick={handleCounterOffer} 
-            variant="contained" 
+          <Button
+            onClick={handleCounterOffer}
+            variant="contained"
             disabled={!counterOfferMessage.trim()}
             startIcon={<ReplyIcon />}
           >
@@ -969,7 +1012,14 @@ const MatchmakingPage: React.FC = () => {
       </Dialog>
 
       {/* Response Dialog */}
-      <Dialog open={responseDialogOpen} onClose={() => setResponseDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={responseDialogOpen}
+        onClose={() => {
+          setResponseDialogOpen(false);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Anfrage bearbeiten</DialogTitle>
         <DialogContent>
           <TextField
@@ -978,17 +1028,25 @@ const MatchmakingPage: React.FC = () => {
             rows={3}
             fullWidth
             value={responseMessage}
-            onChange={(e) => setResponseMessage(e.target.value)}
+            onChange={(e) => {
+              setResponseMessage(e.target.value);
+            }}
             placeholder="Füge eine persönliche Nachricht hinzu..."
             sx={{ mt: 2 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setResponseDialogOpen(false)}>
+          <Button
+            onClick={() => {
+              setResponseDialogOpen(false);
+            }}
+          >
             Abbrechen
           </Button>
           <Button
-            onClick={() => selectedRequest?.id && handleRejectRequest(selectedRequest.id, responseMessage)}
+            onClick={(): void => {
+              if (selectedRequest?.id) handleRejectRequest(selectedRequest.id, responseMessage);
+            }}
             color="error"
             startIcon={<CloseIcon />}
             disabled={!selectedRequest?.id}
@@ -996,7 +1054,9 @@ const MatchmakingPage: React.FC = () => {
             Ablehnen
           </Button>
           <Button
-            onClick={() => selectedRequest?.id && handleAcceptRequest(selectedRequest.id, responseMessage)}
+            onClick={(): void => {
+              if (selectedRequest?.id) handleAcceptRequest(selectedRequest.id, responseMessage);
+            }}
             variant="contained"
             color="success"
             startIcon={<CheckIcon />}

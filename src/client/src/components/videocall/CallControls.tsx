@@ -1,13 +1,5 @@
-// src/components/videocall/CallControls.tsx
 import React from 'react';
-import {
-  Box,
-  IconButton,
-  Tooltip,
-  Paper,
-  useTheme,
-  useMediaQuery,
-} from '@mui/material';
+import { Box, IconButton, Tooltip, Paper, useTheme, useMediaQuery } from '@mui/material';
 import {
   Mic as MicIcon,
   MicOff as MicOffIcon,
@@ -67,9 +59,7 @@ const CallControls: React.FC<CallControlsProps> = ({
       'aria-label': 'Kamera umschalten',
     },
     {
-      tooltip: isScreenSharing
-        ? 'Bildschirmfreigabe beenden'
-        : 'Bildschirm freigeben',
+      tooltip: isScreenSharing ? 'Bildschirmfreigabe beenden' : 'Bildschirm freigeben',
       icon: isScreenSharing ? <StopScreenShareIcon /> : <ScreenShareIcon />,
       color: isScreenSharing ? 'secondary' : 'primary',
       onClick: onToggleScreenShare,
@@ -134,18 +124,10 @@ const CallControls: React.FC<CallControlsProps> = ({
               size={isMobile ? 'medium' : 'large'}
               sx={{
                 backgroundColor:
-                  control.color === 'error'
-                    ? theme.palette.error.main
-                    : 'transparent',
-                color:
-                  control.color === 'error'
-                    ? theme.palette.error.contrastText
-                    : undefined,
+                  control.color === 'error' ? theme.palette.error.main : 'transparent',
+                color: control.color === 'error' ? theme.palette.error.contrastText : undefined,
                 '&:hover': {
-                  backgroundColor:
-                    control.color === 'error'
-                      ? theme.palette.error.dark
-                      : undefined,
+                  backgroundColor: control.color === 'error' ? theme.palette.error.dark : undefined,
                 },
                 ...(control.color === 'error' && {
                   width: isMobile ? 48 : 56,

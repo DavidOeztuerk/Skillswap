@@ -57,6 +57,19 @@ public class CallParticipantRepository : ICallParticipantRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<CallParticipant?> GetMostRecentParticipantInSessionAsync(string sessionId, string userId, CancellationToken cancellationToken = default)
+    {
+        // Returns the most recent participant record (active or left) for a user in a session
+        // Used for rejoin logic - allows reactivating a previous participant
+        return await _dbContext.CallParticipants
+            .Where(p =>
+                p.SessionId == sessionId &&
+                p.UserId == userId &&
+                !p.IsDeleted)
+            .OrderByDescending(p => p.JoinedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<CallParticipant> CreateAsync(CallParticipant participant, CancellationToken cancellationToken = default)
     {
         await _dbContext.CallParticipants.AddAsync(participant, cancellationToken);

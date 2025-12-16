@@ -22,6 +22,12 @@ export default defineConfig(({ mode }) => {
           template: 'treemap',
         }),
     ],
+
+    // Worker-Konfiguration für E2EE (Safari & Chrome)
+    worker: {
+      format: 'es',
+      plugins: () => [react()],
+    },
     resolve: {
       alias: {
         // Absolute Importpfade ermöglichen
@@ -56,25 +62,15 @@ export default defineConfig(({ mode }) => {
       // Produktionsbuild-Konfiguration
       outDir: 'dist',
       sourcemap: mode !== 'production',
+      target: 'es2020', // Required für top-level await in Workers
       // CSS-Chunks reduzieren
       cssCodeSplit: false,
       rollupOptions: {
         output: {
           manualChunks: {
             // Separate Chunks für große Abhängigkeiten
-            vendor: [
-              'react',
-              'react-dom',
-              'react-router-dom',
-              '@reduxjs/toolkit',
-              'react-redux',
-            ],
-            mui: [
-              '@mui/material',
-              '@mui/icons-material',
-              '@emotion/react',
-              '@emotion/styled',
-            ],
+            vendor: ['react', 'react-dom', 'react-router-dom', '@reduxjs/toolkit', 'react-redux'],
+            mui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
             webrtc: ['simple-peer', '@microsoft/signalr'],
           },
         },

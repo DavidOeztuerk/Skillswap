@@ -1,9 +1,9 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Appointment, AppointmentStatus } from '../../types/models/Appointment';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { type Appointment, AppointmentStatus } from '../../types/models/Appointment';
 import { isDefined } from '../../utils/safeAccess';
 import {
   initialAppointmentsState,
-  appointmentsAdapter
+  appointmentsAdapter,
 } from '../../store/adapters/appointmentsAdapter+State';
 import {
   fetchAppointments,
@@ -20,7 +20,7 @@ import {
   generateMeetingLink,
   rateAppointment,
   reportAppointment,
-  getAppointmentStatistics
+  getAppointmentStatistics,
 } from './appointmentsThunks';
 
 /**
@@ -45,11 +45,11 @@ const appointmentsSlice = createSlice({
       state.activeAppointment = action.payload;
     },
 
-    setFilters: (state, action) => {
+    setFilters: (state, action: PayloadAction<Record<string, unknown>>) => {
       state.filters = { ...state.filters, ...action.payload };
     },
 
-    setPagination: (state, action) => {
+    setPagination: (state, action: PayloadAction<Record<string, unknown>>) => {
       state.pagination = { ...state.pagination, ...action.payload };
     },
 
@@ -115,7 +115,10 @@ const appointmentsSlice = createSlice({
     /**
      * Optimistic update: Change appointment status immediately
      */
-    updateAppointmentStatusOptimistic: (state, action: PayloadAction<{ appointmentId: string; status: AppointmentStatus }>) => {
+    updateAppointmentStatusOptimistic: (
+      state,
+      action: PayloadAction<{ appointmentId: string; status: AppointmentStatus }>
+    ) => {
       const { appointmentId, status } = action.payload;
 
       appointmentsAdapter.updateOne(state, {
@@ -148,10 +151,10 @@ const appointmentsSlice = createSlice({
         }
 
         state.pagination = {
-          page: action.payload.pageNumber ?? 1,
-          limit: action.payload.pageSize ?? 10,
-          total: action.payload.totalRecords ?? 0,
-          totalPages: action.payload.totalPages ?? 0,
+          page: action.payload.pageNumber,
+          limit: action.payload.pageSize,
+          total: action.payload.totalRecords,
+          totalPages: action.payload.totalPages,
         };
       })
       .addCase(fetchAppointments.rejected, (state, action) => {
@@ -279,10 +282,10 @@ const appointmentsSlice = createSlice({
         }
 
         state.pagination = {
-          page: action.payload.pageNumber ?? 1,
-          limit: action.payload.pageSize ?? 10,
-          total: action.payload.totalRecords ?? 0,
-          totalPages: action.payload.totalPages ?? 0,
+          page: action.payload.pageNumber,
+          limit: action.payload.pageSize,
+          total: action.payload.totalRecords,
+          totalPages: action.payload.totalPages,
         };
       })
       .addCase(fetchPastAppointments.rejected, (state, action) => {
@@ -295,9 +298,10 @@ const appointmentsSlice = createSlice({
         state.isLoadingSlots = true;
         state.errorMessage = undefined;
       })
-      .addCase(fetchAvailableSlots.fulfilled, (state, action) => {
+      .addCase(fetchAvailableSlots.fulfilled, (state, _action) => {
         state.isLoadingSlots = false;
-        state.availableSlots = action.payload.data ?? [];
+        // TODO: Implement available slots handling
+        //state.availableSlots = action.payload.data;
       })
       .addCase(fetchAvailableSlots.rejected, (state, action) => {
         state.isLoadingSlots = false;
@@ -318,7 +322,7 @@ const appointmentsSlice = createSlice({
         state.isLoading = false;
 
         if (isDefined(action.payload.data)) {
-          const appointmentId = action.payload.data.appointmentId;
+          const { appointmentId } = action.payload.data;
 
           // Update status to Pending after reschedule
           appointmentsAdapter.updateOne(state, {

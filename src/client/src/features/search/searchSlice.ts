@@ -1,9 +1,12 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Skill } from '../../types/models/Skill';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import type { Skill } from '../../types/models/Skill';
 import { withDefault, isDefined } from '../../utils/safeAccess';
 import { initialPagination, initialSearchState } from '../../store/adapters/searchAdapter+State';
 import { fetchUserSearchResults, fetchAllSkills } from './searchThunks';
-import { mapSkillResponseToSkill, mapUserSkillsResponseToSkill } from '../../store/adapters/skillsAdapter+State';
+import {
+  mapSkillResponseToSkill,
+  mapUserSkillsResponseToSkill,
+} from '../../store/adapters/skillsAdapter+State';
 
 // Slice
 const searchSlice = createSlice({
@@ -48,7 +51,10 @@ const searchSlice = createSlice({
         state.userPagination.pageSize = action.payload.pageSize;
       }
     },
-    setAllSkillsPagination: (state, action: PayloadAction<{ page?: number; pageSize?: number }>) => {
+    setAllSkillsPagination: (
+      state,
+      action: PayloadAction<{ page?: number; pageSize?: number }>
+    ) => {
       if (action.payload.page !== undefined) {
         state.allSkillsPagination.page = action.payload.page;
       }
@@ -56,10 +62,10 @@ const searchSlice = createSlice({
         state.allSkillsPagination.pageSize = action.payload.pageSize;
       }
     },
-    setLoading: (state, action) => {
+    setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
-    setError: (state, action) => {
+    setError: (state, action: PayloadAction<{ message?: string }>) => {
       state.errorMessage = action.payload.message;
     },
     resetSearchState: () => initialSearchState,
@@ -75,7 +81,7 @@ const searchSlice = createSlice({
         state.userLoading = false;
         if (isDefined(action.payload.data)) {
           state.userResults = action.payload.data.map((skill) => {
-            if (skill && 'skillId' in skill) {
+            if ('skillId' in skill) {
               return mapUserSkillsResponseToSkill(skill);
             }
             return skill as Skill;

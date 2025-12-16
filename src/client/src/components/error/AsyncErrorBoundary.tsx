@@ -14,11 +14,11 @@ interface AsyncErrorBoundaryProps {
  * Error boundary with automatic retry logic for async operations
  * Useful for components that fetch data
  */
-export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({ 
-  children, 
+export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
+  children,
   fallbackRetryDelay = 3000,
   maxRetries = 3,
-  onRetryExhausted 
+  onRetryExhausted,
 }) => {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -31,7 +31,9 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
         setError(null);
       }, fallbackRetryDelay);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+      };
     }
 
     if (retryCount >= maxRetries && onRetryExhausted) {
@@ -39,16 +41,16 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
     }
   }, [isRetrying, retryCount, maxRetries, fallbackRetryDelay, onRetryExhausted]);
 
-  const handleError = (error: Error) => {
-    setError(error);
-    setRetryCount(prev => prev + 1);
-    
+  const handleError = (errorParam: Error): void => {
+    setError(errorParam);
+    setRetryCount((prev) => prev + 1);
+
     if (retryCount < maxRetries) {
       setIsRetrying(true);
     }
   };
 
-  const handleManualRetry = () => {
+  const handleManualRetry = (): void => {
     setRetryCount(0);
     setIsRetrying(true);
     setError(null);
@@ -56,14 +58,16 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
 
   if (isRetrying) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        minHeight: 200,
-        gap: 2
-      }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 200,
+          gap: 2,
+        }}
+      >
         <CircularProgress />
         <Alert severity="info" sx={{ maxWidth: 400 }}>
           Retrying... (Attempt {retryCount} of {maxRetries})
@@ -75,12 +79,12 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
   if (error && retryCount >= maxRetries) {
     return (
       <Box sx={{ p: 2 }}>
-        <Alert 
+        <Alert
           severity="error"
           action={
-            <Button 
-              color="inherit" 
-              size="small" 
+            <Button
+              color="inherit"
+              size="small"
               startIcon={<RefreshIcon />}
               onClick={handleManualRetry}
             >
@@ -95,10 +99,7 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
   }
 
   return (
-    <ErrorBoundary
-      level="component"
-      onError={handleError}
-    >
+    <ErrorBoundary level="component" onError={handleError}>
       {children}
     </ErrorBoundary>
   );

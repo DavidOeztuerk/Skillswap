@@ -1,4 +1,3 @@
-// src/hooks/useDebounce.ts
 import { useState, useEffect } from 'react';
 import { withDefault } from '../utils/safeAccess';
 

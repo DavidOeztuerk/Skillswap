@@ -1,5 +1,5 @@
 import {
-  HubConnection,
+  type HubConnection,
   HubConnectionBuilder,
   LogLevel,
   HubConnectionState,
@@ -12,25 +12,122 @@ import {
   setUnreadCount,
   setNotifications,
 } from '../../features/notifications/notificationSlice';
-import type { Notification as ClientNotification } from '../../types/models/Notification';
-import type { Appointment } from '../../types/models/Appointment';
+import {
+  NotificationType,
+  type Notification as ClientNotification,
+  type NotificationMetadata,
+} from '../../types/models/Notification';
+import { AppointmentStatus, type Appointment } from '../../types/models/Appointment';
 import { toast } from 'react-toastify';
+
+/**
+ * Helper to map string status to AppointmentStatus enum
+ */
+function mapToAppointmentStatus(status: string | undefined): AppointmentStatus {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (status === undefined || status === null) return AppointmentStatus.Pending;
+
+  const statusMap: Record<string, AppointmentStatus> = {
+    Pending: AppointmentStatus.Pending,
+    Confirmed: AppointmentStatus.Confirmed,
+    Cancelled: AppointmentStatus.Cancelled,
+    Completed: AppointmentStatus.Completed,
+    Rescheduled: AppointmentStatus.Rescheduled,
+  };
+
+  return statusMap[status] ?? AppointmentStatus.Pending;
+}
+
+/**
+ * SignalR payload types for type-safe event handling
+ */
+interface SignalRNotificationPayload {
+  id?: string;
+  Id?: string;
+  userId?: string;
+  tyoe?: string; // Note: typo from server
+  title?: string;
+  Subject?: string;
+  Title?: string;
+  message?: string;
+  Content?: string;
+  Message?: string;
+  isRead?: boolean;
+  IsRead?: boolean;
+  createdAt?: string;
+  CreatedAt?: string;
+  readAt?: string | null;
+  ReadAt?: string | null;
+  actionUrl?: string | null;
+  ActionUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
+  Metadata?: Record<string, unknown> | null;
+  metadataJson?: string | null;
+  MetadataJson?: string | null;
+}
+
+interface SignalRAppointmentPayload {
+  id: string;
+  title?: string;
+  description?: string;
+  scheduledDate: string;
+  durationMinutes: number;
+  status?: string;
+  organizerUserId?: string;
+  participantUserId?: string;
+  skillId?: string;
+  matchId?: string;
+  meetingLink?: string;
+  meetingType?: string;
+  isSkillExchange?: boolean;
+  exchangeSkillId?: string;
+  exchangeSkillName?: string;
+  isMonetary?: boolean;
+  amount?: number;
+  currency?: string;
+  sessionNumber?: number;
+  totalSessions?: number;
+  partnerName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 /**
  * Robustes Mapping: serverseitige Felder -> Client-Model
  */
-function mapToClientNotification(n: any): ClientNotification {
+function mapToClientNotification(n: SignalRNotificationPayload): ClientNotification {
+  // Map server type string to NotificationType enum, defaulting to System
+  const typeValue = n.tyoe ?? 'System';
+  const notificationType = Object.values(NotificationType).includes(typeValue as NotificationType)
+    ? (typeValue as NotificationType)
+    : NotificationType.System;
+
+  // Parse metadata if it's a string
+  let metadata: NotificationMetadata | undefined;
+  const rawMetadata = n.metadata ?? n.Metadata ?? n.metadataJson ?? n.MetadataJson;
+  if (rawMetadata !== null && rawMetadata !== undefined) {
+    if (typeof rawMetadata === 'string') {
+      try {
+        metadata = JSON.parse(rawMetadata) as NotificationMetadata;
+      } catch {
+        metadata = undefined;
+      }
+    } else {
+      metadata = rawMetadata as NotificationMetadata;
+    }
+  }
+
   return {
-    id: n.id ?? n.Id,
+    id: n.id ?? n.Id ?? '',
     userId: n.userId,
-    type: n.tyoe,
+    type: notificationType,
     title: n.title ?? n.Subject ?? n.Title ?? 'Notification',
     message: n.message ?? n.Content ?? n.Message ?? '',
-    isRead: (n.isRead ?? n.IsRead ?? false) as boolean,
+    isRead: n.isRead ?? n.IsRead ?? false,
     createdAt: n.createdAt ?? n.CreatedAt ?? new Date().toISOString(),
-    readAt: n.readAt ?? n.ReadAt ?? null,
-    actionUrl: n.actionUrl ?? n.ActionUrl ?? null,
-    metadata: n.metadata ?? n.Metadata ?? n.metadataJson ?? n.MetadataJson ?? null,
+    readAt: n.readAt ?? n.ReadAt ?? undefined,
+    actionUrl: n.actionUrl ?? n.ActionUrl ?? undefined,
+    metadata,
   };
 }
 
@@ -56,7 +153,7 @@ class NotificationHubService {
       return; // Return gracefully instead of throwing error
     }
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
     const hubUrl = `${baseUrl}/notification-service/hubs/notifications`;
 
     this.connection = new HubConnectionBuilder()
@@ -95,7 +192,7 @@ class NotificationHubService {
     if (!this.connection) return;
 
     // Neue Notification
-    this.connection.on('NewNotification', (payload: Record<string, unknown>) => {
+    this.connection.on('NewNotification', (payload: SignalRNotificationPayload) => {
       const n = mapToClientNotification(payload);
       store.dispatch(addNotification(n));
       this.showToast(n);
@@ -118,7 +215,8 @@ class NotificationHubService {
     });
 
     // Kürzlich (Liste)
-    this.connection.on('RecentNotifications', (list: Record<string, unknown>[]) => {
+    this.connection.on('RecentNotifications', (list: SignalRNotificationPayload[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       const mapped = (list ?? []).map(mapToClientNotification);
       // Wir überschreiben hier bewusst die Liste – dein Slice hat setNotifications
       store.dispatch(setNotifications(mapped));
@@ -133,23 +231,23 @@ class NotificationHubService {
     });
 
     // NEUE APPOINTMENTS (von Backend nach Match Accept)
-    this.connection.on('NewAppointments', (appointments: any[]) => {
-      console.log('SignalR: Received NewAppointments', appointments);
+    this.connection.on('NewAppointments', (appointments: SignalRAppointmentPayload[]) => {
+      console.debug('SignalR: Received NewAppointments', appointments);
 
       // Map to frontend Appointment format
-      const mappedAppointments: Appointment[] = appointments.map((apt: any) => {
+      const mappedAppointments: Appointment[] = appointments.map((apt) => {
         const scheduledDate = new Date(apt.scheduledDate);
         const endDate = new Date(scheduledDate.getTime() + apt.durationMinutes * 60000);
 
         return {
           id: apt.id,
           title: apt.title,
-          description: `Session ${apt.sessionNumber} von ${apt.totalSessions}`,
+          description: `Session ${String(apt.sessionNumber ?? 1)} von ${String(apt.totalSessions ?? 1)}`,
           scheduledDate: apt.scheduledDate,
           startTime: scheduledDate.toISOString(),
           endTime: endDate.toISOString(),
           durationMinutes: apt.durationMinutes,
-          status: apt.status || 'Confirmed',
+          status: mapToAppointmentStatus(apt.status ?? 'Confirmed'),
           organizerUserId: apt.organizerUserId,
           participantUserId: apt.participantUserId,
           skillId: apt.matchId, // Using matchId as skillId for now
@@ -175,16 +273,15 @@ class NotificationHubService {
       });
 
       // Show toast notification
-      const partnerName = appointments[0]?.partnerName || 'deinem Partner';
-      toast.success(
-        `🎉 ${appointments.length} neue Termine mit ${partnerName} erstellt!`,
-        { autoClose: 5000 }
-      );
+      const partnerName = appointments[0]?.partnerName ?? 'deinem Partner';
+      toast.success(`🎉 ${String(appointments.length)} neue Termine mit ${partnerName} erstellt!`, {
+        autoClose: 5000,
+      });
     });
 
     // EINZELNER APPOINTMENT UPDATE
-    this.connection.on('NewAppointment', (appointment: any) => {
-      console.log('SignalR: Received NewAppointment', appointment);
+    this.connection.on('NewAppointment', (appointment: SignalRAppointmentPayload) => {
+      console.debug('SignalR: Received NewAppointment', appointment);
 
       const scheduledDate = new Date(appointment.scheduledDate);
       const endDate = new Date(scheduledDate.getTime() + appointment.durationMinutes * 60000);
@@ -192,27 +289,27 @@ class NotificationHubService {
       const mappedAppointment: Appointment = {
         id: appointment.id,
         title: appointment.title,
-        description: appointment.description || '',
+        description: appointment.description ?? '',
         scheduledDate: appointment.scheduledDate,
         startTime: scheduledDate.toISOString(),
         endTime: endDate.toISOString(),
         durationMinutes: appointment.durationMinutes,
-        status: appointment.status || 'Pending',
+        status: mapToAppointmentStatus(appointment.status ?? 'Pending'),
         organizerUserId: appointment.organizerUserId,
         participantUserId: appointment.participantUserId,
         skillId: appointment.skillId,
         matchId: appointment.matchId,
         meetingLink: appointment.meetingLink,
-        meetingType: appointment.meetingType || 'Learning',
+        meetingType: appointment.meetingType ?? 'Learning',
         isSkillExchange: appointment.isSkillExchange,
-        exchangeSkillId: appointment.exchangeSkillId,
+        // exchangeSkillId: appointment.exchangeSkillId,
         isMonetary: appointment.isMonetary,
-        amount: appointment.amount,
+        // amount: appointment.amount,
         currency: appointment.currency,
         sessionNumber: appointment.sessionNumber,
-        totalSessions: appointment.totalSessions,
-        createdAt: appointment.createdAt || new Date().toISOString(),
-        updatedAt: appointment.updatedAt || new Date().toISOString(),
+        // totalSessions: appointment.totalSessions,
+        createdAt: appointment.createdAt ?? new Date().toISOString(),
+        updatedAt: appointment.updatedAt ?? new Date().toISOString(),
       };
 
       store.dispatch({
@@ -224,12 +321,24 @@ class NotificationHubService {
     });
 
     // APPOINTMENT UPDATE
-    this.connection.on('AppointmentUpdated', (appointment: any) => {
-      console.log('SignalR: Received AppointmentUpdated', appointment);
+    this.connection.on('AppointmentUpdated', (appointment: SignalRAppointmentPayload) => {
+      console.debug('SignalR: Received AppointmentUpdated', appointment);
+
+      const scheduledDate = new Date(appointment.scheduledDate);
+      const endDate = new Date(scheduledDate.getTime() + appointment.durationMinutes * 60000);
+
+      const mappedUpdate: Partial<Appointment> & { id: string } = {
+        id: appointment.id,
+        status: mapToAppointmentStatus(appointment.status),
+        scheduledDate: appointment.scheduledDate,
+        startTime: scheduledDate.toISOString(),
+        endTime: endDate.toISOString(),
+        updatedAt: appointment.updatedAt ?? new Date().toISOString(),
+      };
 
       store.dispatch({
         type: 'appointments/upsertOne',
-        payload: appointment,
+        payload: mappedUpdate,
       });
 
       toast.info('Termin wurde aktualisiert');
@@ -240,7 +349,7 @@ class NotificationHubService {
       store.dispatch(setConnectionStatus(false));
       if (!this.isIntentionalDisconnect) {
         const state = store.getState();
-        const uid = state.auth.user?.id as string | undefined;
+        const uid = state.auth.user?.id;
         if (uid) this.scheduleReconnect(uid);
       }
     });
@@ -254,7 +363,9 @@ class NotificationHubService {
       store.dispatch(setConnectionId(this.connection?.connectionId ?? null));
       this.reconnectAttempts = 0;
       // Nach Reconnect Notifications nachladen
-      void this.getRecentNotifications();
+      this.getRecentNotifications().catch((err: unknown) => {
+        console.error('Failed to get recent notifications after reconnect:', err);
+      });
     });
   }
 
@@ -262,11 +373,16 @@ class NotificationHubService {
    * Toast anzeigen (mit JSX → .tsx Datei)
    */
   private showToast(n: ClientNotification): void {
-    const t = n.type?.toLowerCase();
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    const t = n.type !== undefined ? n.type.toLowerCase() : undefined;
     const toastType =
-      t === 'success' || t === 'match' ? 'success' :
-      t === 'warning' ? 'warning' :
-      t === 'error' ? 'error' : 'info';
+      t === 'success' || t === 'match'
+        ? 'success'
+        : t === 'warning'
+          ? 'warning'
+          : t === 'error'
+            ? 'error'
+            : 'info';
 
     toast(
       <div>
@@ -300,14 +416,16 @@ class NotificationHubService {
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
     this.reconnectTimer = setTimeout(() => {
-      this.connect(userId).catch(() => {/* Fehler wird oben bereits geloggt */});
+      this.connect(userId).catch((_err: unknown) => {
+        /* Fehler wird oben bereits geloggt */
+      });
     }, delay);
   }
 
   /**
    * Letzte Notifications anfordern (ruft Hub-Methode)
    */
-  public async getRecentNotifications(count: number = 10): Promise<void> {
+  public async getRecentNotifications(count = 10): Promise<void> {
     if (this.connection?.state !== HubConnectionState.Connected) {
       throw new Error('NotificationHub not connected');
     }

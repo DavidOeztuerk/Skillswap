@@ -27,15 +27,11 @@ async function deriveKeyFromPassword(password: string, salt: Uint8Array): Promis
   const passwordBuffer = encoder.encode(password);
 
   // Importiere Passwort als Key Material
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    passwordBuffer,
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
+  const keyMaterial = await crypto.subtle.importKey('raw', passwordBuffer, 'PBKDF2', false, [
+    'deriveKey',
+  ]);
 
-  const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer;
+  const saltBuffer = new Uint8Array(salt).buffer;
 
   // Derive AES Key mit PBKDF2
   return crypto.subtle.deriveKey(
@@ -85,7 +81,7 @@ async function generateBrowserFingerprint(): Promise<string> {
     screen.height.toString(),
     screen.colorDepth.toString(),
     new Date().getTimezoneOffset().toString(),
-    navigator.hardwareConcurrency?.toString() ?? '0',
+    navigator.hardwareConcurrency,
     // Hinzufügen von mehr Entropie
     performance.timeOrigin.toString(),
   ];
@@ -131,7 +127,7 @@ export async function encryptData(data: string): Promise<string> {
     combined.set(new Uint8Array(encryptedBuffer), IV_LENGTH);
 
     // Version Prefix für zukünftige Kompatibilität
-    return 'v2:' + arrayBufferToBase64(combined.buffer as ArrayBuffer);
+    return `v2:${arrayBufferToBase64(combined.buffer)}`;
   } catch (error) {
     console.error('Encryption failed:', error);
     throw new Error('Failed to encrypt data');
@@ -174,7 +170,9 @@ export async function decryptData(encryptedData: string): Promise<string | null>
 
     // Legacy fallback für alte XOR-verschlüsselte Daten
     // WARNUNG: Dies sollte nur für Migration verwendet werden!
+
     console.warn('⚠️ Attempting to decrypt legacy XOR data - consider re-encrypting');
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     return decryptLegacyData(encryptedData);
   } catch (error) {
     console.error('Decryption failed:', error);
@@ -215,7 +213,7 @@ function decryptLegacyData(encryptedData: string): string | null {
 function getLegacyKey(): string {
   const fingerprint = [
     navigator.userAgent,
-    screen.width + 'x' + screen.height,
+    `${String(screen.width)}x${String(screen.height)}`,
     navigator.language,
     new Date().getTimezoneOffset().toString(),
   ].join('|');
@@ -233,10 +231,10 @@ function getLegacyKey(): string {
 /**
  * Generiert kryptographisch sicheren Random Token
  */
-export function generateSecureToken(length: number = 32): string {
+export function generateSecureToken(length = 32): string {
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
-  return arrayBufferToBase64(array.buffer as ArrayBuffer).replace(/[+/=]/g, (c) =>
+  return arrayBufferToBase64(array.buffer).replace(/[+/=]/g, (c) =>
     c === '+' ? '-' : c === '/' ? '_' : ''
   );
 }
@@ -276,7 +274,11 @@ export async function createHMAC(data: string, keyString: string): Promise<strin
 /**
  * Verifiziere HMAC
  */
-export async function verifyHMAC(data: string, signature: string, keyString: string): Promise<boolean> {
+export async function verifyHMAC(
+  data: string,
+  signature: string,
+  keyString: string
+): Promise<boolean> {
   const encoder = new TextEncoder();
 
   const key = await crypto.subtle.importKey(
@@ -358,7 +360,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
-  return bytes.buffer as ArrayBuffer;
+  return bytes.buffer;
 }
 
 function arrayBufferToHex(buffer: ArrayBuffer): string {
@@ -370,7 +372,7 @@ function arrayBufferToHex(buffer: ArrayBuffer): string {
 function hexToArrayBuffer(hex: string): ArrayBuffer {
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
   }
-  return bytes.buffer as ArrayBuffer;
+  return bytes.buffer;
 }

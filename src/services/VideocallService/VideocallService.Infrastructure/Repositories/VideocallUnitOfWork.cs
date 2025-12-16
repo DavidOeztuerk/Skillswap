@@ -15,6 +15,7 @@ public class VideocallUnitOfWork : IVideocallUnitOfWork
 
     private IVideoCallSessionRepository? _videoCallSessions;
     private ICallParticipantRepository? _callParticipants;
+    private IChatMessageRepository? _chatMessages;
 
     public VideocallUnitOfWork(VideoCallDbContext dbContext)
     {
@@ -32,6 +33,12 @@ public class VideocallUnitOfWork : IVideocallUnitOfWork
     /// </summary>
     public ICallParticipantRepository CallParticipants =>
         _callParticipants ??= new CallParticipantRepository(_dbContext);
+
+    /// <summary>
+    /// Gets or creates the ChatMessage repository
+    /// </summary>
+    public IChatMessageRepository ChatMessages =>
+        _chatMessages ??= new ChatMessageRepository(_dbContext);
 
     /// <summary>
     /// Saves all pending changes to the database.

@@ -25,6 +25,15 @@ public class PermissionMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // CRITICAL: Skip permission checks for WebSocket upgrade requests
+        // WebSocket handshakes cannot receive JSON responses - it terminates the connection
+        if (IsWebSocketUpgradeRequest(context))
+        {
+            _logger.LogDebug("Skipping permission check for WebSocket upgrade request: {Path}", context.Request.Path);
+            await _next(context);
+            return;
+        }
+
         // Skip authentication check for public endpoints
         if (IsPublicEndpoint(context.Request.Path))
         {
@@ -127,10 +136,48 @@ public class PermissionMiddleware
             "/login",          // Login endpoint (legacy)
             "/forgot-password", // Password reset endpoints (legacy)
             "/reset-password", // (legacy)
-            "/verify-email"    // Email verification endpoint (legacy)
+            "/verify-email",   // Email verification endpoint (legacy)
+
+            // SignalR/WebSocket Hubs - MUST be public for WebSocket handshake
+            // The Hub itself has [Authorize] attribute for actual authentication
+            "/api/videocall/hub",
+            "/hub/videocall",
+            "/hubs/"
         };
 
         return publicPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Checks if the request is a WebSocket upgrade request or SignalR negotiate.
+    /// These requests cannot receive JSON error responses - it would terminate the connection.
+    /// </summary>
+    private static bool IsWebSocketUpgradeRequest(HttpContext context)
+    {
+        // Check for WebSocket upgrade header (Connection: Upgrade, Upgrade: websocket)
+        var upgradeHeader = context.Request.Headers["Upgrade"].ToString();
+        if (string.Equals(upgradeHeader, "websocket", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Check for SignalR negotiate request (POST /hub/negotiate)
+        var path = context.Request.Path.Value ?? "";
+        if (path.Contains("/negotiate", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Check for SignalR hub paths
+        if (path.Contains("/hub", StringComparison.OrdinalIgnoreCase) &&
+            (path.Contains("videocall", StringComparison.OrdinalIgnoreCase) ||
+             path.Contains("notification", StringComparison.OrdinalIgnoreCase) ||
+             path.Contains("chat", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private string? GetRequiredPermission(HttpContext context)

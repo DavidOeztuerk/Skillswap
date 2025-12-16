@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 
 export interface AutoReconnectOptions {
   maxRetries?: number;
@@ -8,6 +8,12 @@ export interface AutoReconnectOptions {
   onReconnecting?: (attempt: number, delay: number) => void;
   onReconnected?: () => void;
   onReconnectFailed?: () => void;
+}
+
+interface UseAutoReconnectReturn {
+  isReconnecting: boolean;
+  attemptCount: number;
+  cancel: () => void;
 }
 
 /**
@@ -21,7 +27,7 @@ export const useAutoReconnect = (
   isConnected: boolean,
   reconnectFn: () => Promise<void>,
   options: AutoReconnectOptions = {}
-) => {
+): UseAutoReconnectReturn => {
   const {
     maxRetries = 5,
     retryDelay = 1000,
@@ -46,10 +52,7 @@ export const useAutoReconnect = (
 
   const calculateDelay = useCallback(
     (attempt: number): number => {
-      const delay = Math.min(
-        retryDelay * Math.pow(backoffMultiplier, attempt - 1),
-        maxRetryDelay
-      );
+      const delay = Math.min(retryDelay * Math.pow(backoffMultiplier, attempt - 1), maxRetryDelay);
       // Add jitter (±20%)
       const jitter = delay * 0.2 * (Math.random() - 0.5);
       return Math.round(delay + jitter);
@@ -57,9 +60,12 @@ export const useAutoReconnect = (
     [retryDelay, backoffMultiplier, maxRetryDelay]
   );
 
-  const attemptReconnect = useCallback(async () => {
+  // Use a ref to hold the reconnect function so it can call itself without dependency issues
+  const attemptReconnectRef = useRef<(() => void) | null>(null);
+
+  const attemptReconnect = useCallback(() => {
     if (isReconnectingRef.current) {
-      console.log('🔄 [AutoReconnect] Already reconnecting, skipping...');
+      console.debug('🔄 [AutoReconnect] Already reconnecting, skipping...');
       return;
     }
 
@@ -74,46 +80,58 @@ export const useAutoReconnect = (
     }
 
     const delay = calculateDelay(currentAttempt);
-    console.log(
-      `🔄 [AutoReconnect] Attempt ${currentAttempt}/${maxRetries} in ${delay}ms...`
+    console.debug(
+      `🔄 [AutoReconnect] Attempt ${String(currentAttempt)}/${String(maxRetries)} in ${String(delay)}ms...`
     );
 
     onReconnecting?.(currentAttempt, delay);
     isReconnectingRef.current = true;
 
-    timeoutRef.current = setTimeout(async () => {
-      try {
-        await reconnectFn();
-        console.log('✅ [AutoReconnect] Reconnection successful');
-        attemptCountRef.current = 0;
-        isReconnectingRef.current = false;
-        onReconnected?.();
-      } catch (error) {
-        console.error('❌ [AutoReconnect] Reconnection failed:', error);
-        isReconnectingRef.current = false;
-        // Try again
-        attemptReconnect();
-      }
+    timeoutRef.current = setTimeout(() => {
+      reconnectFn()
+        .then(() => {
+          console.debug('✅ [AutoReconnect] Reconnection successful');
+          attemptCountRef.current = 0;
+          isReconnectingRef.current = false;
+          onReconnected?.();
+        })
+        .catch((error: unknown) => {
+          console.error('❌ [AutoReconnect] Reconnection failed:', error);
+          isReconnectingRef.current = false;
+          // Try again using ref to avoid accessing before declaration
+          attemptReconnectRef.current?.();
+        });
     }, delay);
-  }, [
-    maxRetries,
-    calculateDelay,
-    reconnectFn,
-    onReconnecting,
-    onReconnected,
-    onReconnectFailed,
-  ]);
+  }, [maxRetries, calculateDelay, reconnectFn, onReconnecting, onReconnected, onReconnectFailed]);
+
+  // Keep the ref updated with the latest function - move to useEffect to avoid ref access during render
+  useEffect(() => {
+    attemptReconnectRef.current = attemptReconnect;
+  }, [attemptReconnect]);
+
+  // State for values that need to be returned to consumers
+  const [reconnectState, setReconnectState] = useState({
+    isReconnecting: false,
+    attemptCount: 0,
+  });
 
   useEffect(() => {
     // Track if we were previously connected
     if (isConnected) {
       wasConnectedRef.current = true;
-      attemptCountRef.current = 0; // Reset retry counter on successful connection
+      attemptCountRef.current = 0;
       clearReconnectTimeout();
       isReconnectingRef.current = false;
+      const timer = setTimeout(() => {
+        setReconnectState({ isReconnecting: false, attemptCount: 0 });
+      }, 0);
+      return () => {
+        clearTimeout(timer);
+      };
     }
 
     // If we lose connection and we were previously connected, start reconnecting
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- wasConnectedRef starts false, becomes true on first connect
     if (!isConnected && wasConnectedRef.current && !isReconnectingRef.current) {
       console.warn('⚠️ [AutoReconnect] Connection lost, starting auto-reconnect...');
       attemptReconnect();
@@ -124,9 +142,30 @@ export const useAutoReconnect = (
     };
   }, [isConnected, attemptReconnect, clearReconnectTimeout]);
 
+  // Sync state with refs when they change
+  useEffect(() => {
+    const syncInterval = setInterval(() => {
+      setReconnectState((prev) => {
+        if (
+          prev.isReconnecting !== isReconnectingRef.current ||
+          prev.attemptCount !== attemptCountRef.current
+        ) {
+          return {
+            isReconnecting: isReconnectingRef.current,
+            attemptCount: attemptCountRef.current,
+          };
+        }
+        return prev;
+      });
+    }, 100);
+    return () => {
+      clearInterval(syncInterval);
+    };
+  }, []);
+
   return {
-    isReconnecting: isReconnectingRef.current,
-    attemptCount: attemptCountRef.current,
+    isReconnecting: reconnectState.isReconnecting,
+    attemptCount: reconnectState.attemptCount,
     cancel: clearReconnectTimeout,
   };
 };

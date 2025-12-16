@@ -33,21 +33,23 @@ const ProgressiveLoader: React.FC<ProgressiveLoaderProps> = ({
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
-    
+
     if (isLoading && delay > 0) {
       timeoutId = setTimeout(() => {
         setShowSkeleton(true);
       }, delay);
     } else if (isLoading) {
-      setShowSkeleton(true);
+      timeoutId = setTimeout(() => {
+        setShowSkeleton(true);
+      }, 0);
     } else {
-      setShowSkeleton(false);
+      timeoutId = setTimeout(() => {
+        setShowSkeleton(false);
+      }, 0);
     }
 
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      clearTimeout(timeoutId);
     };
   }, [isLoading, delay]);
 
@@ -58,9 +60,9 @@ const ProgressiveLoader: React.FC<ProgressiveLoaderProps> = ({
           <Box sx={{ mb: 2 }}>
             <LinearProgress />
             {loadingText && (
-              <Typography 
-                variant="body2" 
-                color="text.secondary" 
+              <Typography
+                variant="body2"
+                color="text.secondary"
                 sx={{ mt: 1, textAlign: 'center' }}
               >
                 {loadingText}
@@ -68,10 +70,7 @@ const ProgressiveLoader: React.FC<ProgressiveLoaderProps> = ({
             )}
           </Box>
         )}
-        <SkeletonLoader 
-          variant={skeletonVariant} 
-          count={skeletonCount}
-        />
+        <SkeletonLoader variant={skeletonVariant} count={skeletonCount} />
       </Box>
     );
   }
