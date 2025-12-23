@@ -445,20 +445,20 @@ await _cacheService.RemoveByPatternAsync($"matches:user:{userId}:*");
 
 ## Testing Checklist
 
-- [ ] User accepts match request in UI
-- [ ] MatchAcceptedIntegrationEvent published by MatchmakingService
-- [ ] AppointmentService handler receives and processes event
-- [ ] SessionOrchestrationService creates all entities
-  - [ ] Connection created
-  - [ ] SessionSeries created (1 or 2 based on exchange)
-  - [ ] SessionAppointments created (N per series)
-  - [ ] Meeting links generated
-- [ ] AppointmentsCreatedIntegrationEvent published
-- [ ] NotificationService consumer receives event
-- [ ] Email sent to both users
-- [ ] SignalR notification received (if user connected)
-- [ ] Appointments appear in user dashboard
-- [ ] Cache properly invalidated
+- [x] User accepts match request in UI
+- [x] MatchAcceptedIntegrationEvent published by MatchmakingService
+- [x] AppointmentService handler receives and processes event
+- [x] SessionOrchestrationService creates all entities
+  - [x] Connection created
+  - [x] SessionSeries created (1 or 2 based on exchange)
+  - [x] SessionAppointments created (N per series)
+  - [x] Meeting links generated
+- [x] AppointmentsCreatedIntegrationEvent published
+- [x] NotificationService consumer receives event
+- [x] Email sent to both users
+- [x] SignalR notification received (if user connected)
+- [x] Appointments appear in user dashboard
+- [x] Cache properly invalidated
 
 ---
 
@@ -511,7 +511,7 @@ The **Match→Appointment automation** is a fully event-driven system that:
 
 ---
 
-## Bug Fixes (December 2024)
+## Bug Fixes (December 2025)
 
 ### Critical: EF Core Transaction/Retry Strategy Conflict
 
