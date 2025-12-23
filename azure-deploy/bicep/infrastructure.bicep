@@ -1,3 +1,14 @@
+// =============================================================================
+// DEPRECATED - Azure Bicep Templates
+// =============================================================================
+// Diese Datei wird nicht mehr aktiv verwendet.
+// Skillswap wurde auf Oracle Cloud Infrastructure (OCI) migriert.
+//
+// Neue Infrastruktur: /infrastructure/oracle/ (Terraform)
+//
+// Diese Dateien werden für eine mögliche spätere Azure-Migration aufbewahrt.
+// =============================================================================
+
 // Phase 1: Infrastructure Only (No Container Apps)
 // This deploys first, before Docker images exist
 
@@ -11,9 +22,9 @@ param environmentName string = 'staging'
 @description('PostgreSQL admin password')
 param postgresPassword string
 
-@secure()
-@description('JWT Secret for authentication')
-param jwtSecret string
+// @secure()
+// @description('JWT Secret for authentication')
+// param jwtSecret string
 
 // Variables
 var acrName = 'skillswap${environmentName}acr'
