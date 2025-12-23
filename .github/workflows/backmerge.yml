@@ -1,0 +1,100 @@
+name: Backmerge main → develop
+
+# Automatically creates a PR to merge main back into develop after every production deployment
+# This ensures hotfixes and release changes are always synced back to develop
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  backmerge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check for differences
+        id: diff-check
+        run: |
+          git fetch origin develop
+          DIFF_COUNT=$(git rev-list --count origin/develop..origin/main)
+          echo "diff_count=$DIFF_COUNT" >> $GITHUB_OUTPUT
+          if [ "$DIFF_COUNT" -eq "0" ]; then
+            echo "No differences between main and develop"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Found $DIFF_COUNT commits to backmerge"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create backmerge branch
+        id: create-branch
+        if: steps.diff-check.outputs.has_changes == 'true'
+        run: |
+          BRANCH_NAME="backmerge/main-to-develop-$(date +%Y%m%d-%H%M%S)"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          git checkout -b $BRANCH_NAME origin/main
+          git push origin $BRANCH_NAME
+
+      - name: Create Pull Request
+        if: steps.diff-check.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.create-branch.outputs.branch_name }}
+          base: develop
+          title: "🔄 Backmerge: main → develop"
+          body: |
+            ## Automatic Backmerge
+
+            This PR was automatically created to sync changes from `main` back to `develop`.
+
+            ### Why is this needed?
+            - Production hotfixes need to be in develop
+            - Release fixes must be synced back
+            - `main` is the source of truth for production
+
+            ### Changes included
+            - All commits that were merged to `main` since last sync
+            - Includes: hotfixes, release fixes, any direct main commits
+
+            ### Action required
+            - Review the changes
+            - Resolve any merge conflicts if present
+            - Merge this PR to keep `develop` in sync
+
+            ---
+            🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          labels: |
+            backmerge
+            automated
+          draft: false
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.diff-check.outputs.has_changes }}" == "true" ]; then
+            echo "## 🔄 Backmerge PR Created" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "A pull request has been created to merge \`main\` into \`develop\`." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Please review and merge the PR to keep branches in sync.**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ✅ Branches in Sync" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`main\` and \`develop\` are already in sync. No backmerge needed." >> $GITHUB_STEP_SUMMARY
+          fi
