@@ -16,6 +16,7 @@ public class VideocallUnitOfWork : IVideocallUnitOfWork
     private IVideoCallSessionRepository? _videoCallSessions;
     private ICallParticipantRepository? _callParticipants;
     private IChatMessageRepository? _chatMessages;
+    private IE2EEAuditLogRepository? _e2eeAuditLogs;
 
     public VideocallUnitOfWork(VideoCallDbContext dbContext)
     {
@@ -39,6 +40,12 @@ public class VideocallUnitOfWork : IVideocallUnitOfWork
     /// </summary>
     public IChatMessageRepository ChatMessages =>
         _chatMessages ??= new ChatMessageRepository(_dbContext);
+
+    /// <summary>
+    /// Gets or creates the E2EE Audit Log repository
+    /// </summary>
+    public IE2EEAuditLogRepository E2EEAuditLogs =>
+        _e2eeAuditLogs ??= new E2EEAuditLogRepository(_dbContext);
 
     /// <summary>
     /// Saves all pending changes to the database.

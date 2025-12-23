@@ -1,9 +1,13 @@
+using System.Diagnostics;
 using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
+using VideocallService.Application.DTOs;
+using VideocallService.Domain.Entities;
 using VideocallService.Domain.Repositories;
+using VideocallService.Domain.Services;
 using EventSourcing;
 using StackExchange.Redis;
 
@@ -26,22 +30,23 @@ public class VideoCallHub : Hub
     private readonly IDomainEventPublisher _eventPublisher;
     private readonly ILogger<VideoCallHub> _logger;
     private readonly IConnectionMultiplexer _redis;
+    private readonly IE2EERateLimiter _rateLimiter;
 
     private const string USER_CONNECTIONS_KEY = "videocall:connections";
-    private const string RATE_LIMIT_KEY_PREFIX = "videocall:ratelimit:";
-    private const int KEY_EXCHANGE_RATE_LIMIT = 10; // Max 10 Key Exchange pro Minute
-    private const int KEY_EXCHANGE_RATE_WINDOW = 60; // Sekunden
+    private const int MAX_E2EE_PAYLOAD_SIZE = 10000; // 10KB max for E2EE payloads
 
     public VideoCallHub(
         IVideocallUnitOfWork unitOfWork,
         IDomainEventPublisher eventPublisher,
         ILogger<VideoCallHub> logger,
-        IConnectionMultiplexer redis)
+        IConnectionMultiplexer redis,
+        IE2EERateLimiter rateLimiter)
     {
         _unitOfWork = unitOfWork;
         _eventPublisher = eventPublisher;
         _logger = logger;
         _redis = redis;
+        _rateLimiter = rateLimiter;
     }
 
     public override async Task OnConnectedAsync()
@@ -275,11 +280,219 @@ public class VideoCallHub : Hub
         _logger.LogInformation("✅ User {UserId} joined room {RoomId}", userId, roomId);
     }
 
-    // ===== E2EE Key Exchange Methods =====
+    // ===== E2EE Key Exchange Methods (NEW UNIFIED API) =====
 
     /// <summary>
+    /// Unified E2EE Message Forwarding
+    /// Replaces separate SendKeyOffer/SendKeyAnswer/SendKeyRotation methods
+    ///
+    /// Features:
+    /// - Sliding window rate limiting
+    /// - Audit logging (metadata only!)
+    /// - Typed message handling
+    /// - Consistent error responses
+    /// </summary>
+    public async Task<E2EEOperationResult> ForwardE2EEMessage(E2EEMessageDto message)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var fromUserId = GetUserId();
+
+        // Validate sender
+        if (string.IsNullOrEmpty(fromUserId))
+        {
+            return E2EEOperationResult.Fail(E2EEErrorCodes.Unauthorized, "User not authenticated");
+        }
+
+        // Validate message
+        var validationResult = ValidateE2EEMessage(message);
+        if (!validationResult.Success)
+        {
+            await LogE2EEOperationAsync(message, fromUserId, false, stopwatch.ElapsedMilliseconds,
+                validationResult.ErrorCode);
+            return validationResult;
+        }
+
+        // Check rate limit using sliding window
+        var rateLimitResult = await _rateLimiter.CheckRateLimitAsync(fromUserId, message.Type.ToString());
+        if (!rateLimitResult.IsAllowed)
+        {
+            await LogE2EEOperationAsync(message, fromUserId, false, stopwatch.ElapsedMilliseconds,
+                E2EEErrorCodes.RateLimitExceeded, wasRateLimited: true);
+
+            _logger.LogWarning(
+                "E2EE rate limit exceeded for {UserId}: {Current}/{Max}, reset in {ResetIn}s",
+                fromUserId, rateLimitResult.CurrentCount, rateLimitResult.MaxOperations,
+                rateLimitResult.ResetInSeconds);
+
+            return E2EEOperationResult.Fail(
+                E2EEErrorCodes.RateLimitExceeded,
+                $"Rate limit exceeded. Try again in {rateLimitResult.ResetInSeconds} seconds.");
+        }
+
+        // Record the operation for rate limiting
+        await _rateLimiter.RecordOperationAsync(fromUserId, message.Type.ToString());
+
+        try
+        {
+            var db = _redis.GetDatabase();
+            var targetConnectionId = await db.HashGetAsync(USER_CONNECTIONS_KEY, message.TargetUserId);
+
+            // Determine the SignalR event name based on message type
+            var eventName = GetE2EEEventName(message.Type);
+
+            // Forward the message
+            if (targetConnectionId.HasValue)
+            {
+                await Clients.Client(targetConnectionId.ToString()).SendAsync(eventName, new
+                {
+                    fromUserId,
+                    type = message.Type.ToString(),
+                    payload = message.EncryptedPayload,
+                    keyFingerprint = message.KeyFingerprint,
+                    keyGeneration = message.KeyGeneration,
+                    timestamp = DateTime.UtcNow
+                });
+
+                _logger.LogInformation(
+                    "E2EE {Type} sent from {FromUser} to {TargetUser} (direct)",
+                    message.Type, fromUserId, message.TargetUserId);
+            }
+            else
+            {
+                // Fallback to group broadcast if target not found in Redis
+                await Clients.OthersInGroup(message.RoomId).SendAsync(eventName, new
+                {
+                    fromUserId,
+                    type = message.Type.ToString(),
+                    payload = message.EncryptedPayload,
+                    keyFingerprint = message.KeyFingerprint,
+                    keyGeneration = message.KeyGeneration,
+                    timestamp = DateTime.UtcNow
+                });
+
+                _logger.LogWarning(
+                    "E2EE {Type} broadcast from {FromUser} (target {TargetUser} not in Redis)",
+                    message.Type, fromUserId, message.TargetUserId);
+            }
+
+            // Log successful operation
+            await LogE2EEOperationAsync(message, fromUserId, true, stopwatch.ElapsedMilliseconds);
+
+            return E2EEOperationResult.Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error forwarding E2EE message from {FromUser} to {TargetUser}",
+                fromUserId, message.TargetUserId);
+
+            await LogE2EEOperationAsync(message, fromUserId, false, stopwatch.ElapsedMilliseconds,
+                "INTERNAL_ERROR");
+
+            throw new HubException($"Failed to forward E2EE message: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Validates an E2EE message
+    /// </summary>
+    private E2EEOperationResult ValidateE2EEMessage(E2EEMessageDto message)
+    {
+        if (!IsValidRoomId(message.RoomId))
+        {
+            return E2EEOperationResult.Fail(E2EEErrorCodes.InvalidRoom, "Invalid room ID format");
+        }
+
+        if (string.IsNullOrEmpty(message.TargetUserId) || message.TargetUserId.Length > 100)
+        {
+            return E2EEOperationResult.Fail(E2EEErrorCodes.InvalidTarget, "Invalid target user ID");
+        }
+
+        if (string.IsNullOrEmpty(message.EncryptedPayload))
+        {
+            return E2EEOperationResult.Fail(E2EEErrorCodes.InvalidPayload, "Payload is required");
+        }
+
+        if (message.EncryptedPayload.Length > MAX_E2EE_PAYLOAD_SIZE)
+        {
+            return E2EEOperationResult.Fail(E2EEErrorCodes.MessageTooLarge,
+                $"Payload exceeds maximum size of {MAX_E2EE_PAYLOAD_SIZE} bytes");
+        }
+
+        return E2EEOperationResult.Ok();
+    }
+
+    /// <summary>
+    /// Gets the SignalR event name for an E2EE message type
+    /// </summary>
+    private static string GetE2EEEventName(E2EEMessageType type) => type switch
+    {
+        E2EEMessageType.KeyOffer => "ReceiveE2EEMessage",
+        E2EEMessageType.KeyAnswer => "ReceiveE2EEMessage",
+        E2EEMessageType.KeyRotation => "ReceiveE2EEMessage",
+        E2EEMessageType.KeyConfirmation => "ReceiveE2EEMessage",
+        E2EEMessageType.KeyRejection => "ReceiveE2EEMessage",
+        _ => "ReceiveE2EEMessage"
+    };
+
+    /// <summary>
+    /// Logs E2EE operations for audit (metadata only, NEVER key content!)
+    /// </summary>
+    private async Task LogE2EEOperationAsync(
+        E2EEMessageDto message,
+        string fromUserId,
+        bool success,
+        long processingTimeMs,
+        string? errorCode = null,
+        bool wasRateLimited = false)
+    {
+        try
+        {
+            var httpContext = Context.GetHttpContext();
+            var clientIp = httpContext?.Connection.RemoteIpAddress?.ToString();
+            var userAgent = httpContext?.Request.Headers.UserAgent.ToString();
+
+            var auditLog = E2EEAuditLog.Create(
+                roomId: message.RoomId,
+                fromUserId: fromUserId,
+                toUserId: message.TargetUserId,
+                messageType: message.Type.ToString(),
+                success: success,
+                payloadSize: message.EncryptedPayload?.Length ?? 0,
+                keyFingerprint: message.KeyFingerprint,
+                keyGeneration: message.KeyGeneration,
+                errorCode: errorCode,
+                clientIpAddress: clientIp,
+                userAgent: userAgent,
+                clientTimestamp: message.ClientTimestamp
+            );
+
+            auditLog.ProcessingTimeMs = (int)processingTimeMs;
+            auditLog.WasRateLimited = wasRateLimited;
+
+            // Find session ID if available
+            var session = await _unitOfWork.VideoCallSessions.GetByRoomIdAsync(message.RoomId);
+            if (session != null)
+            {
+                auditLog.SessionId = session.Id;
+            }
+
+            await _unitOfWork.E2EEAuditLogs.AddAsync(auditLog);
+            await _unitOfWork.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the operation if audit logging fails
+            _logger.LogError(ex, "Failed to log E2EE audit entry");
+        }
+    }
+
+    // ===== LEGACY E2EE Methods (Deprecated - use ForwardE2EEMessage instead) =====
+
+    /// <summary>
+    /// [DEPRECATED] Use ForwardE2EEMessage instead
     /// SendKeyOffer mit Rate Limiting
     /// </summary>
+    [Obsolete("Use ForwardE2EEMessage for unified E2EE handling")]
     public async Task SendKeyOffer(string roomId, string targetUserId, string keyExchangeData)
     {
         var fromUserId = GetUserId();
@@ -758,22 +971,17 @@ public class VideoCallHub : Hub
     }
 
     /// <summary>
-    /// Rate Limiting für Key Exchange
+    /// [DEPRECATED] Rate Limiting für Key Exchange
+    /// Uses the new sliding window rate limiter service
     /// </summary>
     private async Task<bool> CheckKeyExchangeRateLimitAsync(string userId)
     {
-        var db = _redis.GetDatabase();
-        var key = $"{RATE_LIMIT_KEY_PREFIX}{userId}";
-
-        var current = await db.StringIncrementAsync(key);
-
-        if (current == 1)
+        var result = await _rateLimiter.CheckRateLimitAsync(userId, "KeyExchange");
+        if (result.IsAllowed)
         {
-            // Setze Expiration beim ersten Request
-            await db.KeyExpireAsync(key, TimeSpan.FromSeconds(KEY_EXCHANGE_RATE_WINDOW));
+            await _rateLimiter.RecordOperationAsync(userId, "KeyExchange");
         }
-
-        return current <= KEY_EXCHANGE_RATE_LIMIT;
+        return result.IsAllowed;
     }
 
     /// <summary>
