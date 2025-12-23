@@ -22,6 +22,11 @@ public interface IVideocallUnitOfWork : IAsyncDisposable
     IChatMessageRepository ChatMessages { get; }
 
     /// <summary>
+    /// Repository for E2EE Audit Log entities
+    /// </summary>
+    IE2EEAuditLogRepository E2EEAuditLogs { get; }
+
+    /// <summary>
     /// Saves all changes across all repositories as a single transaction.
     /// </summary>
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
