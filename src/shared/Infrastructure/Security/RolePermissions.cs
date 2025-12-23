@@ -79,7 +79,11 @@ public static class RolePermissions
                 // Admin panel
                 Permissions.AdminAccessDashboard,
                 Permissions.AdminViewStatistics,
-                
+
+                // Security alerts
+                Permissions.SecurityViewAlerts,
+                Permissions.SecurityManageAlerts,
+
                 // Role viewing
                 Permissions.RolesView
             ],

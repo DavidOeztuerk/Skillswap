@@ -8,11 +8,24 @@ namespace UserService.Domain.Repositories;
 public interface IAuthRepository
 {
     Task<RegisterResponse> RegisterUserWithTokens(string email, string password, string firstName, string lastName, string userName, CancellationToken cancellationToken = default);
-    Task<LoginResponse> LoginUser(string email, string password, string? twoFactorCode = null, string? deviceId = null, string? deviceInfo = null, CancellationToken cancellationToken = default);
-    Task<RefreshTokenResponse> RefreshUserToken(string accessToken, string refreshToken, CancellationToken cancellationToken = default);
-    Task<bool> VerifyEmail(string email, string token, CancellationToken cancellationToken = default);
+    Task<LoginResponse> LoginUser(
+        string email,
+        string password,
+        string? twoFactorCode = null,
+        string? deviceId = null,
+        string? deviceInfo = null,
+        string? deviceFingerprint = null,
+        string? browser = null,
+        string? operatingSystem = null,
+        string? screenResolution = null,
+        string? timeZone = null,
+        string? language = null,
+        string? ipAddress = null,
+        CancellationToken cancellationToken = default);
+    Task<RefreshTokenResponse> RefreshUserToken(string accessToken, string refreshToken, string? sessionId = null, CancellationToken cancellationToken = default);
+    Task<(bool Success, string? UserId, string? Email, string? FirstName)> VerifyEmail(string email, string token, CancellationToken cancellationToken = default);
     Task ResendVerificationEmail(string email, CancellationToken cancellationToken = default);
-    Task RequestPasswordReset(string email, CancellationToken cancellationToken = default);
+    Task<(string UserId, string Email, string ResetToken, string FirstName)?> RequestPasswordReset(string email, CancellationToken cancellationToken = default);
     Task<bool> ResetPassword(string email, string token, string newPassword, CancellationToken cancellationToken = default);
     Task RevokeAllRefreshTokensAsync(string userId, CancellationToken cancellationToken = default);
     Task<ServiceTokenResponse> GenerateServiceToken(string serviceName, string servicePassword, CancellationToken cancellationToken = default);
@@ -35,7 +48,7 @@ public interface IUserProfileRepository
     Task<User?> GetUserProfile(string userId, CancellationToken cancellationToken = default);
     Task<User?> GetPublicUserProfile(string userId, string requestingUserId, CancellationToken cancellationToken = default);
     Task<User> UpdateUserProfile(string userId, string firstName, string lastName, string userName, string? bio, CancellationToken cancellationToken = default);
-    Task<bool> ChangePassword(string userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default);
+    Task<(bool Success, string? Email)> ChangePassword(string userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default);
     Task UploadAvatar(string userId, byte[] imageData, string fileName, string contentType, CancellationToken cancellationToken = default);
     Task DeleteAvatar(string userId, CancellationToken cancellationToken = default);
 }

@@ -3,7 +3,9 @@ using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using System.Text.Json;
 using Infrastructure.Security;
+using Infrastructure.Security.Monitoring;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Infrastructure.Middleware;
 
@@ -23,6 +25,15 @@ public class PermissionMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // CRITICAL: Skip permission checks for WebSocket upgrade requests
+        // WebSocket handshakes cannot receive JSON responses - it terminates the connection
+        if (IsWebSocketUpgradeRequest(context))
+        {
+            _logger.LogDebug("Skipping permission check for WebSocket upgrade request: {Path}", context.Request.Path);
+            await _next(context);
+            return;
+        }
+
         // Skip authentication check for public endpoints
         if (IsPublicEndpoint(context.Request.Path))
         {
@@ -57,11 +68,42 @@ public class PermissionMiddleware
         var userPermissions = GetUserPermissions(context.User);
         if (!HasPermission(userPermissions, requiredPermission))
         {
+            var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
             _logger.LogWarning(
                 "User {UserId} attempted to access {Path} without permission {Permission}",
-                context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                userId,
                 context.Request.Path,
                 requiredPermission);
+
+            // Send security alert
+            try
+            {
+                var securityAlertService = context.RequestServices.GetService<ISecurityAlertService>();
+                if (securityAlertService != null)
+                {
+                    await securityAlertService.SendAlertAsync(
+                        SecurityAlertLevel.High,
+                        SecurityAlertType.UnauthorizedAccessAttempt,
+                        "Unauthorized Access Attempt",
+                        $"User attempted to access {context.Request.Path} without required permission: {requiredPermission}",
+                        new Dictionary<string, object>
+                        {
+                            ["UserId"] = userId ?? "unknown",
+                            ["Endpoint"] = context.Request.Path.Value ?? "",
+                            ["Method"] = context.Request.Method,
+                            ["RequiredPermission"] = requiredPermission,
+                            ["UserPermissions"] = userPermissions,
+                            ["IpAddress"] = context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                            ["UserAgent"] = context.Request.Headers.UserAgent.ToString()
+                        },
+                        CancellationToken.None);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send security alert for unauthorized access attempt");
+            }
 
             await HandleForbidden(context, $"Missing required permission: {requiredPermission}");
             return;
@@ -94,10 +136,48 @@ public class PermissionMiddleware
             "/login",          // Login endpoint (legacy)
             "/forgot-password", // Password reset endpoints (legacy)
             "/reset-password", // (legacy)
-            "/verify-email"    // Email verification endpoint (legacy)
+            "/verify-email",   // Email verification endpoint (legacy)
+
+            // SignalR/WebSocket Hubs - MUST be public for WebSocket handshake
+            // The Hub itself has [Authorize] attribute for actual authentication
+            "/api/videocall/hub",
+            "/hub/videocall",
+            "/hubs/"
         };
 
         return publicPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Checks if the request is a WebSocket upgrade request or SignalR negotiate.
+    /// These requests cannot receive JSON error responses - it would terminate the connection.
+    /// </summary>
+    private static bool IsWebSocketUpgradeRequest(HttpContext context)
+    {
+        // Check for WebSocket upgrade header (Connection: Upgrade, Upgrade: websocket)
+        var upgradeHeader = context.Request.Headers["Upgrade"].ToString();
+        if (string.Equals(upgradeHeader, "websocket", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Check for SignalR negotiate request (POST /hub/negotiate)
+        var path = context.Request.Path.Value ?? "";
+        if (path.Contains("/negotiate", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Check for SignalR hub paths
+        if (path.Contains("/hub", StringComparison.OrdinalIgnoreCase) &&
+            (path.Contains("videocall", StringComparison.OrdinalIgnoreCase) ||
+             path.Contains("notification", StringComparison.OrdinalIgnoreCase) ||
+             path.Contains("chat", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private string? GetRequiredPermission(HttpContext context)
@@ -120,6 +200,18 @@ public class PermissionMiddleware
         // Admin endpoints
         if (path.Contains("/admin/"))
         {
+            // Dashboard, audit logs, and security pages
+            if (path.Contains("/dashboard"))
+                return Permissions.AdminAccessDashboard;
+            if (path.Contains("/audit-logs") || path.Contains("/logs"))
+                return Permissions.SystemViewLogs;
+            if (path.Contains("/security") || path.Contains("/security-alerts"))
+                return Permissions.SecurityViewAlerts;
+            if (path.Contains("/statistics") || path.Contains("/analytics"))
+                return Permissions.AdminViewStatistics;
+            if (path.Contains("/email-templates"))
+                return Permissions.SystemManageSettings;
+
             if (path.Contains("/users"))
             {
                 return method switch

@@ -1,112 +1,94 @@
-import React, { useEffect, useState, memo, useCallback, useRef } from 'react';
-import { useAppDispatch, useAppSelector } from '../../store/store.hooks';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import tokenRefreshService from '../../services/tokenRefreshService';
-import { silentLogin } from './authThunks';
-import { removeToken } from '../../utils/authHelpers';
+import React, { useEffect, useState, useRef, memo } from 'react';
+import tokenRefreshService from '../../core/services/tokenRefreshService';
+import { useAppDispatch, useAppSelector } from '../../core/store/store.hooks';
+import LoadingSpinner from '../../shared/components/ui/LoadingSpinner';
+import { getToken, removeToken } from '../../shared/utils/authHelpers';
+import { silentLogin } from './store/authThunks';
 
 interface AuthProviderProps {
   children: React.ReactNode;
 }
 
+const DEBUG = import.meta.env.DEV && import.meta.env.VITE_VERBOSE_AUTH === 'true';
+
+/** Debug logger that only logs in development with verbose auth enabled */
+function debugLog(message: string, ...args: unknown[]): void {
+  if (DEBUG) console.debug(message, ...args);
+}
+
+/**
+ * AuthProvider - Handles authentication initialization and token refresh
+ */
 const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   const [initializationComplete, setInitializationComplete] = useState(false);
-  
-  // ✅ STABLE REFS - prevent infinite loops
-  const initializationStartedRef = useRef(false);
-  const mountedRef = useRef(true);
+  const prevAuthStateRef = useRef<boolean | null>(null);
 
-  // ✅ ROBUST INITIALIZATION FUNCTION
-  const initializeAuth = useCallback(async () => {
-    // Prevent multiple initializations
-    if (initializationStartedRef.current) {
-      console.log('⚠️ AuthProvider: Initialization already started, skipping...');
-      return;
-    }
-    initializationStartedRef.current = true;
+  useEffect(() => {
+    let isActive = true;
 
-    console.log('🔐 AuthProvider: Starting secure initialization...');
+    const initializeAuth = async (): Promise<void> => {
+      debugLog('🔐 AuthProvider: Starting initialization...');
 
-    // Check for stored token before trying silent login
-    const storedToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+      const storedToken = getToken();
 
-    if (!storedToken?.trim()) {
-      console.log('ℹ️ AuthProvider: No stored token found, skipping silent login');
-      if (mountedRef.current) {
-        setInitializationComplete(true);
+      if (!storedToken) {
+        debugLog('ℹ️ AuthProvider: No stored token found');
+        if (isActive) setInitializationComplete(true);
+        return;
       }
-      return;
-    }
 
-    try {
-      console.log('🔄 AuthProvider: Token found, attempting silent login (backend will validate expiry)...');
-      
-      // Try silent login - this will validate token and load user data
-      const result = await dispatch(silentLogin());
-      
-      if (result.meta.requestStatus === 'fulfilled') {
-        console.log('✅ AuthProvider: Silent login successful, user authenticated');
-      } else {
-        console.log('⚠️ AuthProvider: Silent login rejected:', result.payload || 'Unknown error');
-        // Clear invalid tokens using helper
+      try {
+        debugLog('🔄 AuthProvider: Token found, attempting silent login...');
+        const result = await dispatch(silentLogin());
+
+        if (!isActive) return;
+
+        if (result.meta.requestStatus === 'fulfilled') {
+          debugLog('✅ AuthProvider: Silent login successful');
+        } else {
+          debugLog('⚠️ AuthProvider: Silent login failed:', result.payload ?? 'Unknown error');
+          removeToken();
+        }
+      } catch (error: unknown) {
+        if (!isActive) return;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('❌ AuthProvider: Silent login exception:', errorMessage);
         removeToken();
-        console.log('🧹 AuthProvider: Cleared invalid tokens from storage');
+      } finally {
+        if (isActive) {
+          setInitializationComplete(true);
+          debugLog('✅ AuthProvider: Initialization complete');
+        }
       }
-      
-    } catch (error: any) {
-      console.error('❌ AuthProvider: Silent login failed with exception:', error?.message || error);
-      // Clear invalid tokens on exception using helper
-      removeToken();
-      console.log('🧹 AuthProvider: Cleared invalid tokens after exception');
-    } finally {
-      // ✅ CRITICAL: ALWAYS set initialization complete, regardless of silent login success/failure
-      if (mountedRef.current) {
-        setInitializationComplete(true);
-        console.log('✅ AuthProvider: Initialization complete (success or failure)');
-      }
-    }
+    };
+
+    void initializeAuth();
+
+    return () => {
+      isActive = false;
+      tokenRefreshService.stop();
+      debugLog('🧹 AuthProvider: Cleanup completed');
+    };
   }, [dispatch]);
 
   useEffect(() => {
-    initializeAuth();
-    
-    return () => {
-      mountedRef.current = false;
-    };
-  }, [initializeAuth]);
+    if (!initializationComplete || prevAuthStateRef.current === isAuthenticated) return;
 
-  useEffect(() => {
+    prevAuthStateRef.current = isAuthenticated;
+
     if (isAuthenticated) {
-      console.log('🔐 Starting token refresh service (user authenticated)');
+      debugLog('🔑 AuthProvider: Starting token refresh service');
       tokenRefreshService.start();
     } else {
-      console.log('🔓 Stopping token refresh service (user not authenticated)');  
+      debugLog('🔒 AuthProvider: Stopping token refresh service');
       tokenRefreshService.stop();
     }
-    
-    return () => {
-      tokenRefreshService.stop();
-    };
-  }, [isAuthenticated]); // ✅ STABLE DEPENDENCY - only changes when auth status changes
+  }, [isAuthenticated, initializationComplete]);
 
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-      tokenRefreshService.stop();
-      console.log('🧹 AuthProvider: Cleanup completed');
-    };
-  }, []); // ✅ EMPTY DEPS - only on unmount
-
-  // Show loading screen during initialization
   if (!initializationComplete) {
-    return (
-      <LoadingSpinner 
-        fullPage 
-        message="Anwendung wird initialisiert..." 
-      />
-    );
+    return <LoadingSpinner fullPage message="Anwendung wird initialisiert..." />;
   }
 
   return <>{children}</>;

@@ -1,3 +1,5 @@
+using Contracts.Admin.Requests;
+using Contracts.Admin.Responses;
 using CQRS.Extensions;
 using CQRS.Models;
 using MediatR;
@@ -39,6 +41,9 @@ public static class AdminControllerExtensions
         {
             var query = new GetAdminUsersQuery
             {
+                // FIXED: PageNumber and PageSize were not being set, causing Skip(-1) error
+                PageNumber = page > 0 ? page : 1,
+                PageSize = limit > 0 ? limit : 20,
                 Status = status,
                 Role = role,
                 Search = search
@@ -246,6 +251,97 @@ public static class AdminControllerExtensions
         })
         .WithName("SendBulkNotification")
         .Produces<ApiResponse<object>>(200)
+        .Produces(400);
+
+        // Security Monitoring
+        adminGroup.MapGet("/security/alerts", async (
+            [FromQuery] int pageNumber,
+            [FromQuery] int pageSize,
+            [FromQuery] string? minLevel,
+            [FromQuery] string? type,
+            [FromQuery] bool includeRead,
+            [FromQuery] bool includeDismissed,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var query = new GetSecurityAlertsQuery
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                MinLevel = minLevel,
+                Type = type,
+                IncludeRead = includeRead,
+                IncludeDismissed = includeDismissed
+            };
+            return await mediator.SendQuery(query);
+        })
+        .WithName("GetSecurityAlerts")
+        .Produces<PagedResponse<SecurityAlertResponse>>(200);
+
+        adminGroup.MapGet("/security/alerts/{alertId}", async (
+            string alertId,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var query = new GetSecurityAlertByIdQuery { AlertId = alertId };
+            return await mediator.SendQuery(query);
+        })
+        .WithName("GetSecurityAlertById")
+        .Produces<ApiResponse<SecurityAlertResponse>>(200)
+        .Produces(404);
+
+        adminGroup.MapGet("/security/statistics", async (
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var query = new GetSecurityAlertStatisticsQuery
+            {
+                From = from,
+                To = to
+            };
+            return await mediator.SendQuery(query);
+        })
+        .WithName("GetSecurityAlertStatistics")
+        .Produces<ApiResponse<SecurityAlertStatisticsResponse>>(200);
+
+        adminGroup.MapPost("/security/alerts/{alertId}/dismiss", async (
+            string alertId,
+            [FromBody] DismissSecurityAlertRequest request,
+            HttpContext httpContext,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var adminUserId = httpContext.User.Claims.FirstOrDefault(c => c.Type == "sub")?.Value ?? "unknown";
+            var command = new DismissSecurityAlertCommand
+            {
+                AlertId = alertId,
+                AdminUserId = adminUserId,
+                Reason = request.Reason
+            };
+            return await mediator.SendCommand(command);
+        })
+        .WithName("DismissSecurityAlert")
+        .Produces<ApiResponse<SecurityAlertActionResponse>>(200)
+        .Produces(400);
+
+        adminGroup.MapPost("/security/alerts/{alertId}/mark-read", async (
+            string alertId,
+            HttpContext httpContext,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var adminUserId = httpContext.User.Claims.FirstOrDefault(c => c.Type == "sub")?.Value ?? "unknown";
+            var command = new MarkAlertAsReadCommand
+            {
+                AlertId = alertId,
+                AdminUserId = adminUserId
+            };
+            return await mediator.SendCommand(command);
+        })
+        .WithName("MarkAlertAsRead")
+        .Produces<ApiResponse<SecurityAlertActionResponse>>(200)
         .Produces(400);
 
         // Reports Generation

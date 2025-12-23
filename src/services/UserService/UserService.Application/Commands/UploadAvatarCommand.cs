@@ -8,10 +8,16 @@ public record UploadAvatarCommand(
     byte[] ImageData,
     string FileName,
     string ContentType)
-    : ICommand<UploadAvatarResponse>, IAuditableCommand
+    : ICommand<UploadAvatarResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns => new[]
+    {
+        "user-profile:{UserId}:*",
+        "public-profile:{UserId}:*"
+    };
 }
 
 public class UploadAvatarCommandValidator : AbstractValidator<UploadAvatarCommand>

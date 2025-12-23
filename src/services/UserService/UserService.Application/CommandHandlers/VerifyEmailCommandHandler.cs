@@ -4,35 +4,50 @@ using UserService.Application.Commands;
 using UserService.Domain.Repositories;
 using EventSourcing;
 using Events.Domain.User;
+using Events.Notification;
 using Contracts.User.Responses;
 using Contracts.User.Responses.Auth;
 using UserService.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
 using Core.Common.Exceptions;
+using MassTransit;
 
 namespace UserService.Application.CommandHandlers;
 
 public class VerifyEmailCommandHandler(
     IAuthRepository authRepository,
-    IDomainEventPublisher eventPublisher,
+    IPublishEndpoint publishEndpoint,
     ILogger<VerifyEmailCommandHandler> logger)
     : BaseCommandHandler<VerifyEmailCommand, VerifyEmailResponse>(logger)
 {
     private readonly IAuthRepository _authRepository = authRepository;
-    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
+    private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
 
     public override async Task<ApiResponse<VerifyEmailResponse>> Handle(
-        VerifyEmailCommand request, 
+        VerifyEmailCommand request,
         CancellationToken cancellationToken)
     {
         try
         {
             var result = await _authRepository.VerifyEmail(request.Email, request.VerificationToken, cancellationToken);
 
-            if (!result)
+            if (!result.Success)
             {
                 return Error("Invalid or expired verification token", ErrorCodes.TokenExpired);
+            }
+
+            // Publish Welcome Email event after successful verification
+            if (result.UserId != null && result.Email != null && result.FirstName != null)
+            {
+                await _publishEndpoint.Publish(
+                    new WelcomeEmailEvent(
+                        result.UserId,
+                        result.Email,
+                        result.FirstName),
+                    cancellationToken);
+
+                Logger.LogInformation("Welcome email event published for {Email}", request.Email);
             }
 
             Logger.LogInformation("Email verified for user {Email}", request.Email);

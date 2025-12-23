@@ -10,7 +10,7 @@ public record GetPublicUserProfileQuery(
     : IQuery<PublicUserProfileResponse>, ICacheableQuery
 {
     public string CacheKey => $"public-profile:{UserId}:{RequestingUserId}";
-    public TimeSpan CacheDuration => TimeSpan.FromMinutes(15);
+    public TimeSpan CacheDuration => TimeSpan.FromMinutes(5); // Reduced from 15 to 5 minutes
 }
 
 public class GetPublicUserProfileQueryValidator : AbstractValidator<GetPublicUserProfileQuery>

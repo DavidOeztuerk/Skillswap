@@ -1,10 +1,10 @@
 using Contracts.User.Responses;
 using UserService.Application.Commands;
-using MassTransit;
 using CQRS.Handlers;
 using UserService.Domain.Models;
 using UserService.Domain.Repositories;
 using Events.Domain.User;
+using EventSourcing;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
 using Core.Common.Exceptions;
@@ -14,13 +14,13 @@ namespace UserService.Application.CommandHandlers;
 public class BlockUserCommandHandler(
     IUserBlockingRepository userBlockingRepository,
     IUserRepository userRepository,
-    IPublishEndpoint eventPublisher,
+    IDomainEventPublisher eventPublisher,
     ILogger<BlockUserCommandHandler> logger)
     : BaseCommandHandler<BlockUserCommand, BlockUserResponse>(logger)
 {
     private readonly IUserBlockingRepository _userBlockingRepository = userBlockingRepository;
     private readonly IUserRepository _userRepository = userRepository;
-    private readonly IPublishEndpoint _eventPublisher = eventPublisher;
+    private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
     public override async Task<ApiResponse<BlockUserResponse>> Handle(BlockUserCommand request, CancellationToken cancellationToken)
     {

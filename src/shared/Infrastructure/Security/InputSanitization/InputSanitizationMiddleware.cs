@@ -544,12 +544,16 @@ public class InputSanitizationMiddleware
     private static bool ShouldSkipSanitization(HttpContext context)
     {
         var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
-        
-        // Skip for health checks, metrics, and static content
+
+        // Skip for health checks, metrics, static content, and auth endpoints
         if (path.Contains("/health") ||
             path.Contains("/metrics") ||
             path.Contains("/swagger") ||
             path.Contains("/favicon") ||
+            path.Contains("/auth/register") ||  // Skip auth - passwords may contain special chars
+            path.Contains("/auth/login") ||     // Skip auth - passwords may contain special chars
+            path.Contains("/hub") ||             // Skip SignalR hubs - JWT tokens in query string
+            path.Contains("/hubs/") ||           // Skip SignalR hubs - JWT tokens in query string
             path.EndsWith(".css") ||
             path.EndsWith(".js") ||
             path.EndsWith(".png") ||

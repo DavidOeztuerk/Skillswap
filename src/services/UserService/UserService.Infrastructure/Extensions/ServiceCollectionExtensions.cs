@@ -8,8 +8,13 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UserService.Domain.Repositories;
+using UserService.Domain.Services;
 using UserService.Infrastructure.Repositories;
 using UserService.Infrastructure.HttpClients;
+using UserService.Application.Services;
+using UserService.Infrastructure.Services;
+using UserService.Infrastructure.Services.Calendar;
+using UserService.Infrastructure.BackgroundServices;
 
 namespace UserService.Infrastructure.Extensions;
 
@@ -30,6 +35,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserBlockingRepository, UserBlockingRepository>();
         services.AddScoped<IUserActivityRepository, UserActivityRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
+        services.AddScoped<IUserCalendarConnectionRepository, UserCalendarConnectionRepository>();
+        services.AddScoped<IAppointmentCalendarEventRepository, AppointmentCalendarEventRepository>();
+
+        // Session Management - for concurrent session control
+        services.AddScoped<ISessionManager, SessionManager>();
+
+        // Calendar Integration Services
+        services.AddSingleton<ITokenEncryptionService, TokenEncryptionService>();
+        services.AddScoped<ICalendarServiceFactory, CalendarServiceFactory>();
+        services.AddHttpClient<GoogleCalendarService>();
+        services.AddHttpClient<MicrosoftCalendarService>();
+        services.AddHttpClient<AppleCalendarService>();
 
         // Register service clients that use IServiceCommunicationManager
         services.AddScoped<ISkillServiceClient, SkillServiceClient>();
@@ -40,7 +57,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSharedInfrastructure(configuration, environment, serviceName);
 
-        services.AddJwtAuthentication(configuration);
+        services.AddJwtAuthentication(configuration, environment);
 
         services.AddDatabaseContext<UserDbContext>(
             configuration,
@@ -61,6 +78,12 @@ public static class ServiceCollectionExtensions
         services.AddSkillSwapAuthorization();
         services.AddPermissionAuthorization();
         services.AddAuthorization(options => options.AddPermissionPolicies());
+
+        // Background Services for cleanup tasks
+        services.AddHostedService<SessionCleanupBackgroundService>();
+        services.AddHostedService<TokenCleanupBackgroundService>();
+        // NOTE: LoginAttemptsCleanupBackgroundService removed - rate limiting is now handled
+        // by DistributedRateLimitingMiddleware in Gateway with Redis-backed storage
 
         return services;
     }

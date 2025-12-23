@@ -70,6 +70,10 @@ public class SecureSecretManager : ISecretManager
         // Check for hardcoded secrets in configuration
         var suspiciousKeys = new[]
         {
+            "REPLACE_WITH_SECURE_SECRET_IN_PRODUCTION",
+            "SecretManager:EncryptionKey",
+            "SecretManager:EncryptionKeyBase64",
+            "JwtSettings:Secret",
             "Jwt:Secret",
             "ConnectionStrings:DefaultConnection",
             "Redis:Password",

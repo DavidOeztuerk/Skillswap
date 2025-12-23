@@ -1,40 +1,33 @@
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
-import { store } from './store/store.ts';
 import { RouterProvider } from 'react-router-dom';
-import { router } from './routes/Router.tsx';
-import { HelmetProvider } from 'react-helmet-async';
-import GlobalErrorBoundary from './components/error/GlobalErrorBoundary.tsx';
-
+import { router } from './core/router/Router';
+import { store } from './core/store/store';
+import { setStoreDispatch as setChatHubDispatch } from './features/chat/services/chatHub';
+import { setNotificationHubStore } from './features/notifications/services/notificationHub';
 import './styles/global.css';
+// Optimiert: Nur die meistgenutzten Font-Weights laden (spart ~400KB)
+import '@fontsource/roboto/400.css'; // Regular - Basis
+import '@fontsource/roboto/500.css'; // Medium - Buttons, Überschriften
 
-const loadFonts = () => {
-  import('@fontsource/roboto/400.css'); 
-  
-  const scheduleRemainingFonts = () => {
-    import('@fontsource/roboto/300.css');
-    import('@fontsource/roboto/500.css');
-    import('@fontsource/roboto/700.css');
-  };
-  
-  if (typeof window.requestIdleCallback === 'function') {
-    requestIdleCallback(scheduleRemainingFonts);
-  } else {
-    setTimeout(scheduleRemainingFonts, 100);
-  }
-};
+setChatHubDispatch(store.dispatch);
+setNotificationHubStore(store.dispatch, () => store.getState());
 
-setTimeout(loadFonts, 0);
+const container = document.querySelector('#root');
 
-const container = document.getElementById('root')!;
+if (!container) {
+  throw new Error(
+    'Root element not found. Make sure there is a <div id="root"></div> in your HTML.'
+  );
+}
+
 const root = createRoot(container);
 
 root.render(
-  <GlobalErrorBoundary>
-    <HelmetProvider>
-      <Provider store={store}>
-        <RouterProvider router={router} />
-      </Provider>
-    </HelmetProvider>
-  </GlobalErrorBoundary>
+  <StrictMode>
+    <Provider store={store}>
+      <RouterProvider router={router} />
+    </Provider>
+  </StrictMode>
 );

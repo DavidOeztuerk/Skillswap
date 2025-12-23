@@ -1,5 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 namespace Infrastructure.Security;
 
@@ -25,15 +28,21 @@ public static class SecurityExtensions
     /// </summary>
     public static IServiceCollection AddSecretManagement(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
-        // Register secret manager
-        services.AddSingleton<ISecretManager, SecretManager>();
-        
+        // Register secret manager with factory to inject IHostEnvironment
+        services.AddSingleton<ISecretManager>(provider =>
+        {
+            var connectionMultiplexer = provider.GetRequiredService<IConnectionMultiplexer>();
+            var logger = provider.GetRequiredService<ILogger<SecretManager>>();
+            return new SecretManager(connectionMultiplexer, configuration, environment, logger);
+        });
+
         // Configure secret rotation
         var rotationConfig = configuration.GetSection("SecretRotation");
         services.Configure<SecretRotationOptions>(rotationConfig);
-        
+
         // Add secret rotation background service
         services.AddHostedService<SecretRotationService>();
 

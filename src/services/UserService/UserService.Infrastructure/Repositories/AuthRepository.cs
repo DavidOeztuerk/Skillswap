@@ -9,6 +9,10 @@ using Contracts.User.Responses.Auth;
 using Contracts.User.Responses;
 using Core.Common.Exceptions;
 using Core.Common;
+using System.Security.Cryptography;
+using UserService.Application.Services;
+using Microsoft.Extensions.Logging;
+using Infrastructure.Security.Monitoring;
 
 namespace UserService.Infrastructure.Repositories;
 
@@ -17,7 +21,10 @@ public class AuthRepository(
     IJwtService jwtService,
     ITotpService totpService,
     IDomainEventPublisher eventPublisher,
-    IPermissionRepository permissionRepository)
+    IPermissionRepository permissionRepository,
+    ISessionManager sessionManager,
+    ISecurityAlertService securityAlertService,
+    ILogger<AuthRepository> logger)
     : IAuthRepository
 {
     private readonly UserDbContext _dbContext = userDbContext;
@@ -25,6 +32,9 @@ public class AuthRepository(
     private readonly ITotpService _totpService = totpService;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
     private readonly IPermissionRepository _permissionService = permissionRepository;
+    private readonly ISessionManager _sessionManager = sessionManager;
+    private readonly ISecurityAlertService _securityAlertService = securityAlertService;
+    private readonly ILogger<AuthRepository> _logger = logger;
 
     public async Task<RegisterResponse> RegisterUserWithTokens(
         string email, string password, string firstName, string lastName, string userName,
@@ -33,17 +43,21 @@ public class AuthRepository(
         if (await _dbContext.Users.AnyAsync(u => u.Email == email, cancellationToken))
             throw new ResourceAlreadyExistsException("User", "email", email);
 
+        // Generate 6-digit verification code
+        var verificationCode = GenerateVerificationCode();
+        var hashedCode = HashVerificationCode(verificationCode);
+
         var user = new User
         {
             Email = email,
-            UserName = userName,
+            UserName = string.IsNullOrWhiteSpace(userName) ? email : userName, // Use email as username if not provided
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
             FirstName = firstName,
             LastName = lastName,
             AccountStatus = AccountStatus.PendingVerification,
             EmailVerified = false,
             CreatedAt = DateTime.UtcNow,
-            EmailVerificationToken = Guid.NewGuid().ToString("N"),
+            EmailVerificationToken = hashedCode,
             EmailVerificationTokenExpiresAt = DateTime.UtcNow.AddDays(3)
         };
 
@@ -99,13 +113,9 @@ public class AuthRepository(
         });
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Events
+        // Events - Only publish domain event (integration event published by CommandHandler)
         await _eventPublisher.Publish(
             new UserRegisteredDomainEvent(user.Id, user.Email, user.FirstName, user.LastName),
-            cancellationToken);
-
-        await _eventPublisher.Publish(
-            new EmailVerificationRequestedDomainEvent(user.Id, user.Email, user.EmailVerificationToken!, user.FirstName),
             cancellationToken);
 
         var profileData = new UserInfo(
@@ -132,11 +142,24 @@ public class AuthRepository(
             tokens.ExpiresAt,
             profileData,
             true,
-            permissions);
+            permissions,
+            user.EmailVerificationToken,
+            verificationCode);
     }
 
     public async Task<LoginResponse> LoginUser(
-        string email, string password, string? twoFactorCode = null, string? deviceId = null, string? deviceInfo = null,
+        string email,
+        string password,
+        string? twoFactorCode = null,
+        string? deviceId = null,
+        string? deviceInfo = null,
+        string? deviceFingerprint = null,
+        string? browser = null,
+        string? operatingSystem = null,
+        string? screenResolution = null,
+        string? timeZone = null,
+        string? language = null,
+        string? ipAddress = null,
         CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users
@@ -162,7 +185,7 @@ public class AuthRepository(
                     roleNames2Fa, user.FavoriteSkillIds, user.EmailVerified, user.AccountStatus.ToString());
 
                 return new LoginResponse(
-                    string.Empty, string.Empty, TokenType.None, DateTime.UtcNow,
+                    string.Empty, string.Empty, string.Empty, DateTime.UtcNow,
                     userInfo2Fa, true, tempToken, null);
             }
 
@@ -177,6 +200,28 @@ public class AuthRepository(
 
         var userPermissionNames = await _permissionService.GetUserPermissionNamesAsync(user.Id, cancellationToken);
 
+        // Create session with concurrent session control (max 3 active sessions)
+        var finalDeviceFingerprint = deviceFingerprint ?? $"{browser}_{operatingSystem}_{ipAddress}";
+        var session = await _sessionManager.CreateSessionAsync(
+            userId: user.Id,
+            deviceFingerprint: finalDeviceFingerprint,
+            ipAddress: ipAddress,
+            userAgent: deviceInfo,
+            deviceType: deviceId,
+            browser: browser,
+            operatingSystem: operatingSystem,
+            screenResolution: screenResolution,
+            timeZone: timeZone,
+            language: language,
+            maxConcurrentSessions: 3,
+            cancellationToken: cancellationToken);
+
+        _logger.LogInformation(
+            "Created session {SessionId} for user {UserId} from device {DeviceFingerprint}",
+            session.SessionToken,
+            user.Id,
+            finalDeviceFingerprint);
+
         var userClaims = new UserClaims
         {
             UserId = user.Id,
@@ -186,17 +231,27 @@ public class AuthRepository(
             Roles = roleNames,
             Permissions = userPermissionNames.ToList(),
             EmailVerified = user.EmailVerified,
-            AccountStatus = user.AccountStatus.ToString()
+            AccountStatus = user.AccountStatus.ToString(),
+            SessionId = session.SessionToken,
+            DeviceFingerprint = finalDeviceFingerprint,
+            IpAddress = ipAddress
         };
 
         var tokens = await _jwtService.GenerateTokenAsync(userClaims);
 
+        // Create refresh token with session binding and token family
+        var tokenFamilyId = Guid.NewGuid().ToString();
         _dbContext.RefreshTokens.Add(new RefreshToken
         {
             Token = tokens.RefreshToken,
             UserId = user.Id,
             ExpiryDate = DateTime.UtcNow.AddDays(7),
-            IsRevoked = false
+            IsRevoked = false,
+            IsUsed = false,
+            SessionId = session.SessionToken,
+            TokenFamilyId = tokenFamilyId,
+            IpAddress = ipAddress,
+            UserAgent = deviceInfo
         });
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -216,35 +271,90 @@ public class AuthRepository(
             userPermissionNames.ToList(),
             permissionsByCategory);
 
-        var tokenType = string.Equals(tokens.TokenType, TokenType.Bearer.ToString(), StringComparison.OrdinalIgnoreCase)
-            ? TokenType.Bearer
-            : TokenType.None;
-
         return new LoginResponse(
             tokens.AccessToken, tokens.RefreshToken,
-            tokenType, tokens.ExpiresAt,
+            tokens.TokenType, tokens.ExpiresAt,
             profileData, false, string.Empty, permissions);
     }
 
     public async Task<RefreshTokenResponse> RefreshUserToken(
-        string accessToken, string refreshToken, CancellationToken cancellationToken = default)
+        string accessToken, string refreshToken, string? sessionId = null, CancellationToken cancellationToken = default)
     {
+        // Find the token (including revoked ones for theft detection)
         var storedToken = await _dbContext.RefreshTokens
             .Include(rt => rt.User)
-            .FirstOrDefaultAsync(rt => rt.Token == refreshToken && !rt.IsRevoked, cancellationToken);
+            .FirstOrDefaultAsync(rt => rt.Token == refreshToken, cancellationToken);
 
         if (storedToken == null)
+        {
+            _logger.LogWarning("Invalid refresh token attempt");
             throw new UnauthorizedAccessException("Invalid refresh token");
+        }
 
+        // THEFT DETECTION: If token was already used, revoke entire token family
+        if (storedToken.IsUsed && !string.IsNullOrEmpty(storedToken.TokenFamilyId))
+        {
+            _logger.LogWarning(
+                "TOKEN THEFT DETECTED: Reuse of token {TokenId} in family {FamilyId} for user {UserId}",
+                storedToken.Id,
+                storedToken.TokenFamilyId,
+                storedToken.UserId);
+
+            // Send security alert for token theft
+            await _securityAlertService.SendAlertAsync(
+                SecurityAlertLevel.Critical,
+                SecurityAlertType.TokenTheftDetected,
+                "Token Theft Detected",
+                $"Attempted reuse of refresh token in family {storedToken.TokenFamilyId}. All tokens in family have been revoked.",
+                new Dictionary<string, object>
+                {
+                    ["UserId"] = storedToken.UserId,
+                    ["TokenId"] = storedToken.Id,
+                    ["TokenFamilyId"] = storedToken.TokenFamilyId,
+                    ["IpAddress"] = storedToken.IpAddress ?? "unknown",
+                    ["UserAgent"] = storedToken.UserAgent ?? "unknown",
+                    ["TokensRevokedCount"] = await _dbContext.RefreshTokens
+                        .CountAsync(rt => rt.TokenFamilyId == storedToken.TokenFamilyId && !rt.IsRevoked, cancellationToken)
+                },
+                cancellationToken);
+
+            // Revoke entire token family
+            var tokensInFamily = await _dbContext.RefreshTokens
+                .Where(rt => rt.TokenFamilyId == storedToken.TokenFamilyId && !rt.IsRevoked)
+                .ToListAsync(cancellationToken);
+
+            foreach (var token in tokensInFamily)
+            {
+                token.IsRevoked = true;
+                token.RevokedAt = DateTime.UtcNow;
+                token.RevokedReason = "Token theft detected - token reuse";
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            throw new UnauthorizedAccessException("Token theft detected. All sessions have been revoked. Please login again.");
+        }
+
+        // Check if token is already revoked
+        if (storedToken.IsRevoked)
+        {
+            _logger.LogWarning("Attempt to use revoked token for user {UserId}", storedToken.UserId);
+            throw new UnauthorizedAccessException("Refresh token has been revoked");
+        }
+
+        // Check expiration
         if (storedToken.ExpiryDate < DateTime.UtcNow)
         {
             storedToken.IsRevoked = true;
             storedToken.RevokedAt = DateTime.UtcNow;
             storedToken.RevokedReason = "Expired";
             await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _logger.LogWarning("Expired token used for user {UserId}", storedToken.UserId);
             throw new UnauthorizedAccessException("Refresh token has expired");
         }
 
+        // Validate access token matches (if provided)
         if (!string.IsNullOrEmpty(accessToken))
         {
             try
@@ -252,7 +362,10 @@ public class AuthRepository(
                 var principal = await _jwtService.ValidateTokenAsync(accessToken);
                 var tokenUserId = principal?.FindFirst("user_id")?.Value ?? principal?.FindFirst("sub")?.Value;
                 if (!string.IsNullOrEmpty(tokenUserId) && tokenUserId != storedToken.UserId)
+                {
+                    _logger.LogWarning("Token mismatch for user {UserId}", storedToken.UserId);
                     throw new UnauthorizedAccessException("Token mismatch");
+                }
             }
             catch
             {
@@ -262,15 +375,40 @@ public class AuthRepository(
 
         var user = storedToken.User ?? throw new UnauthorizedAccessException("User not found for refresh token");
 
+        // User account validations
         if (user.IsDeleted)
+        {
+            _logger.LogWarning("Deleted user {UserId} attempted token refresh", user.Id);
             throw new UnauthorizedAccessException("User account has been deleted");
+        }
 
         if (user.IsAccountLocked)
+        {
+            _logger.LogWarning("Locked user {UserId} attempted token refresh", user.Id);
             throw new UnauthorizedAccessException($"User account is locked until {user.AccountLockedUntil}");
+        }
 
         if (user.AccountStatus is not (AccountStatus.Active or AccountStatus.PendingVerification))
+        {
+            _logger.LogWarning("User {UserId} with status {Status} attempted token refresh", user.Id, user.AccountStatus);
             throw new UnauthorizedAccessException($"User account status is {user.AccountStatus}, refresh not allowed");
+        }
 
+        // Validate session if sessionId provided
+        if (!string.IsNullOrEmpty(sessionId) && !string.IsNullOrEmpty(storedToken.SessionId))
+        {
+            var sessionValid = await _sessionManager.ValidateSessionAsync(storedToken.SessionId, cancellationToken);
+            if (!sessionValid)
+            {
+                _logger.LogWarning("Invalid session {SessionId} for user {UserId}", storedToken.SessionId, user.Id);
+                throw new UnauthorizedAccessException("Session is invalid or expired");
+            }
+
+            // Update session activity
+            await _sessionManager.UpdateSessionActivityAsync(storedToken.SessionId, cancellationToken);
+        }
+
+        // Get user roles and permissions
         var roleNames = await _dbContext.UserRoles
             .Where(ur => ur.UserId == user.Id && ur.RevokedAt == null)
             .Include(ur => ur.Role)
@@ -281,6 +419,7 @@ public class AuthRepository(
 
         var userPermissionNames = await _permissionService.GetUserPermissionNamesAsync(user.Id, cancellationToken);
 
+        // Preserve session claims from old token
         var claims = new UserClaims
         {
             UserId = user.Id,
@@ -290,16 +429,21 @@ public class AuthRepository(
             Roles = roleNames,
             Permissions = userPermissionNames.ToList(),
             EmailVerified = user.EmailVerified,
-            AccountStatus = user.AccountStatus.ToString()
+            AccountStatus = user.AccountStatus.ToString(),
+            SessionId = storedToken.SessionId,
+            IpAddress = storedToken.IpAddress
         };
 
+        // Generate new tokens
         var newTokens = await _jwtService.GenerateTokenAsync(claims);
 
-        storedToken.IsRevoked = true;
-        storedToken.RevokedAt = DateTime.UtcNow;
-        storedToken.RevokedReason = "Token refreshed";
+        // TOKEN ROTATION: Mark old token as used (NOT revoked)
+        storedToken.IsUsed = true;
+        storedToken.UsedAt = DateTime.UtcNow;
+        storedToken.ReplacedByToken = newTokens.RefreshToken;
 
-        _dbContext.RefreshTokens.Add(new RefreshToken
+        // Create new refresh token in same family (for theft detection chain)
+        var newRefreshToken = new RefreshToken
         {
             Token = newTokens.RefreshToken,
             UserId = user.Id,
@@ -307,10 +451,19 @@ public class AuthRepository(
             ExpiryDate = DateTime.UtcNow.AddDays(7),
             UserAgent = storedToken.UserAgent,
             IpAddress = storedToken.IpAddress,
-            IsRevoked = false
-        });
+            SessionId = storedToken.SessionId,
+            TokenFamilyId = storedToken.TokenFamilyId ?? storedToken.Id, // Inherit or start new family
+            IsRevoked = false,
+            IsUsed = false
+        };
 
+        _dbContext.RefreshTokens.Add(newRefreshToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Token refreshed successfully for user {UserId}. Family: {FamilyId}",
+            user.Id,
+            newRefreshToken.TokenFamilyId);
 
         return new RefreshTokenResponse(
             newTokens.AccessToken,
@@ -320,13 +473,16 @@ public class AuthRepository(
             newTokens.ExpiresAt);
     }
 
-    public async Task<bool> VerifyEmail(string email, string token, CancellationToken cancellationToken = default)
+    public async Task<(bool Success, string? UserId, string? Email, string? FirstName)> VerifyEmail(string email, string token, CancellationToken cancellationToken = default)
     {
+        // Hash the input token to compare with stored hash
+        var hashedToken = HashVerificationCode(token);
+
         var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == email && u.EmailVerificationToken == token, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email == email && u.EmailVerificationToken == hashedToken, cancellationToken);
 
         if (user == null || user.EmailVerificationTokenExpiresAt < DateTime.UtcNow)
-            return false;
+            return (false, null, null, null);
 
         user.EmailVerified = true;
         user.EmailVerificationToken = null;
@@ -335,7 +491,7 @@ public class AuthRepository(
         user.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return (true, user.Id, user.Email, user.FirstName);
     }
 
     public async Task ResendVerificationEmail(string email, CancellationToken cancellationToken = default)
@@ -354,10 +510,10 @@ public class AuthRepository(
             cancellationToken);
     }
 
-    public async Task RequestPasswordReset(string email, CancellationToken cancellationToken = default)
+    public async Task<(string UserId, string Email, string ResetToken, string FirstName)?> RequestPasswordReset(string email, CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
-        if (user == null) return;
+        if (user == null) return null;
 
         user.PasswordResetToken = Guid.NewGuid().ToString("N");
         user.PasswordResetTokenExpiresAt = DateTime.UtcNow.AddHours(1);
@@ -365,8 +521,8 @@ public class AuthRepository(
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Optional: Event publizieren
-        // await _eventPublisher.Publish(new PasswordResetRequestedDomainEvent(...), cancellationToken);
+        // Return user info for event publishing
+        return (user.Id, user.Email, user.PasswordResetToken, user.FirstName);
     }
 
     public async Task<bool> ResetPassword(string email, string token, string newPassword, CancellationToken cancellationToken = default)
@@ -453,5 +609,23 @@ public class AuthRepository(
             AccessToken: tokens.AccessToken,
             ExpiresIn: tokens.ExpiresIn,
             ServiceName: serviceName);
+    }
+
+    private string GenerateVerificationCode()
+    {
+        // Generate a 6-digit numeric code
+        using var rng = RandomNumberGenerator.Create();
+        var bytes = new byte[4];
+        rng.GetBytes(bytes);
+        var code = Math.Abs(BitConverter.ToInt32(bytes, 0)) % 1000000;
+        return code.ToString("D6");
+    }
+
+    private string HashVerificationCode(string code)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(code);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
     }
 }

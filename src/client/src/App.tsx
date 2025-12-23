@@ -1,84 +1,73 @@
-import { memo, useState, useCallback, useEffect, useMemo } from 'react';
-import { Outlet } from 'react-router-dom';
-import { CssBaseline, ThemeProvider } from '@mui/material';
-import { useTheme } from './hooks/useTheme';
-import MainLayout from './components/layout/MainLayout';
-import SkipLinks from './components/accessibility/SkipLinks';
-import NetworkStatusIndicator from './components/error/NetworkStatusIndicator';
-import AuthProvider from './features/auth/AuthProvider';
-import { TwoFactorDialogProvider } from './components/auth/TwoFactorDialog';
-import { PermissionProvider } from './contexts/PermissionContext';
-import { LoadingProvider } from './contexts/LoadingContext';
-import { EmailVerificationProvider } from './contexts/EmailVerificationContext';
-import GlobalErrorBoundary from './components/error/GlobalErrorBoundary';
-import GlobalLoadingIndicator from './components/common/GlobalLoadingIndicator';
+import { memo, useCallback, useEffect, lazy, Suspense, useState } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
+import { CssBaseline, ThemeProvider } from '@mui/material';
+import { authEvents } from './core/api/apiClient';
+import { EmailVerificationProvider } from './core/contexts/EmailVerificationContext';
+import { LoadingProvider } from './core/contexts/LoadingContext';
+import { PermissionProvider } from './core/contexts/PermissionContext';
+import { StreamProvider } from './core/contexts/StreamContext';
+import { ToastProvider } from './core/contexts/ToastContext';
+import AuthProvider from './features/auth/AuthProvider';
+import { TwoFactorDialogProvider } from './features/auth/components/TwoFactorDialog';
+import SkipLinks from './shared/components/accessibility/SkipLinks';
+import GlobalLoadingIndicator from './shared/components/common/GlobalLoadingIndicator';
+import GlobalErrorBoundary from './shared/components/error/GlobalErrorBoundary';
+import NetworkStatusIndicator from './shared/components/error/NetworkStatusIndicator';
+import MainLayout from './shared/components/layout/MainLayout';
+import { useThemeMode } from './shared/hooks/useTheme';
 import 'react-toastify/dist/ReactToastify.css';
-import { withDefault } from './utils/safeAccess';
-import PerformanceDashboard from './components/dev/PerformanceDashboard';
-import { usePerformance } from './hooks/usePerformance';
 
-if (import.meta.env.DEV) {
-  void import('./utils/debugHelpers');
-}
+const PerformanceDashboard = lazy(() => import('./shared/components/dev/PerformanceDashboard'));
 
 const App = memo(() => {
-  const themeData = useTheme();
-  const { mode, theme, toggleTheme } = themeData;
-  const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(process.env.NODE_ENV === 'development');
+  const { mode, theme, toggleTheme } = useThemeMode();
+  const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
+  const navigate = useNavigate();
 
-  // ✅ DISABLED - Performance tracking to prevent infinite loops
-  const stablePerformanceProps = useMemo(() => ({ mode, themeMode: mode }), [mode]);
-  usePerformance('App', stablePerformanceProps);
-  
-  const togglePerformanceDashboard = useCallback(() => {
-    if (process.env.NODE_ENV === 'development') {
-      setShowPerformanceDashboard(prev => !prev);
+  useEffect(() => {
+    authEvents.onAuthFailure = () => {
+      void navigate('/auth/login');
+    };
+    return () => {
+      authEvents.onAuthFailure = null;
+    };
+  }, [navigate]);
+
+  useEffect(() => {
+    // Set language attribute for accessibility
+    document.documentElement.lang = 'de';
+
+    // Set document title if not already set
+    if (!document.title.includes('SkillSwap')) {
+      document.title = document.title ? `SkillSwap - ${document.title}` : 'SkillSwap';
     }
   }, []);
-  
-  // ✅ FIXED - PREVENTING INFINITE LOOPS! Removed dispatch(clearError()) call
-  useEffect(() => {
-    let frameCount = 0;
-    const scheduleWork = () => {
-      requestAnimationFrame(() => {
-        frameCount++;
-        
-        if (frameCount === 1) {
-          document.documentElement.lang = 'de';
-        } else if (frameCount === 2) {
-          const originalTitle = withDefault(document.title, '');
-          if (originalTitle && !originalTitle?.includes('SkillSwap')) {
-            document.title = `SkillSwap - ${originalTitle}`;
-          }
-        }
-        // ✅ REMOVED: dispatch(clearError()) - was causing infinite loops
-        
-        if (frameCount < 2) { // Changed from 3 to 2
-          scheduleWork(); // Continue to next frame
-        }
-      });
-    };
-    
-    scheduleWork();
+
+  const togglePerformanceDashboard = useCallback(() => {
+    setShowPerformanceDashboard((prev) => !prev);
   }, []);
-  
-  // TEMPORARY DISABLE - PREVENTING INFINITE LOOPS!
+
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
+    if (!import.meta.env.DEV) return;
+
+    const handleKeyDown = (e: KeyboardEvent): void => {
       // Ctrl+Shift+P to toggle performance dashboard
       if (e.ctrlKey && e.shiftKey && e.key === 'P') {
         e.preventDefault();
         togglePerformanceDashboard();
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [togglePerformanceDashboard]);
 
+  // =========================================================================
+  // Render
+  // =========================================================================
   return (
     <GlobalErrorBoundary>
       <ThemeProvider theme={theme}>
@@ -86,36 +75,69 @@ const App = memo(() => {
         <AuthProvider>
           <LoadingProvider>
             <PermissionProvider>
-              <EmailVerificationProvider>
-                <TwoFactorDialogProvider>
-                  <SkipLinks />
-                  <GlobalLoadingIndicator position="top" />
-                  <NetworkStatusIndicator position="top" compact />
-                  <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
-                    <Outlet />
-                  </MainLayout>
-                  <ToastContainer
-                    position="bottom-right"
-                    autoClose={3000}
-                    hideProgressBar={false}
-                    newestOnTop={false}
-                    closeOnClick
-                    rtl={false}
-                    pauseOnFocusLoss
-                    draggable
-                    pauseOnHover
-                    theme={mode === 'dark' ? 'dark' : 'light'}
-                  />
-                </TwoFactorDialogProvider>
-              </EmailVerificationProvider>
+              <StreamProvider>
+                <EmailVerificationProvider>
+                  <ToastProvider>
+                    <TwoFactorDialogProvider>
+                      {/* Accessibility */}
+                      <SkipLinks />
+
+                      {/* Global UI Indicators */}
+                      <GlobalLoadingIndicator position="top" />
+                      <NetworkStatusIndicator position="top" compact />
+
+                      {/* Main Application Layout */}
+                      <MainLayout onToggleTheme={toggleTheme} darkMode={mode === 'dark'}>
+                        <Outlet />
+                      </MainLayout>
+
+                      {/* Toast Notifications */}
+                      <ToastContainer
+                        position="bottom-right"
+                        autoClose={3000}
+                        hideProgressBar={false}
+                        newestOnTop={false}
+                        closeOnClick
+                        rtl={false}
+                        pauseOnFocusLoss
+                        draggable
+                        pauseOnHover
+                        theme={mode === 'dark' ? 'dark' : 'light'}
+                        limit={5}
+                      />
+                    </TwoFactorDialogProvider>
+                  </ToastProvider>
+                </EmailVerificationProvider>
+              </StreamProvider>
             </PermissionProvider>
           </LoadingProvider>
         </AuthProvider>
-        
-        {/* ✅ DISABLED - Performance Dashboard - Development Only (causing infinite loops) */}
-        {process.env.NODE_ENV === 'development' && (
-          <PerformanceDashboard visible={showPerformanceDashboard} />
-        )}
+        {/* Development-only Performance Dashboard */}
+        // Optimierung: Suspense Boundary für Performance Dashboard
+        {import.meta.env.DEV && showPerformanceDashboard ? (
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0,0,0,0.8)',
+                  zIndex: 9999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Loading Performance Dashboard...
+              </div>
+            }
+          >
+            <PerformanceDashboard visible={showPerformanceDashboard} />
+          </Suspense>
+        ) : null}
       </ThemeProvider>
     </GlobalErrorBoundary>
   );

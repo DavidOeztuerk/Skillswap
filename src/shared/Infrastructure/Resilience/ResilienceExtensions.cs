@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 
 namespace Infrastructure.Resilience;
 
@@ -146,7 +147,7 @@ public class RetryPolicyFactory : IRetryPolicyFactory
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly IOptionsMonitor<RetryPolicyOptions> _optionsMonitor;
-    private readonly Dictionary<string, IRetryPolicy> _policies = new();
+    private readonly ConcurrentDictionary<string, IRetryPolicy> _policies = new();
 
     public RetryPolicyFactory(
         ILoggerFactory loggerFactory,
@@ -158,14 +159,7 @@ public class RetryPolicyFactory : IRetryPolicyFactory
 
     public IRetryPolicy GetRetryPolicy(string name)
     {
-        if (!_policies.ContainsKey(name))
-        {
-            var options = _optionsMonitor.Get(name);
-            var logger = _loggerFactory.CreateLogger<RetryPolicy>();
-            _policies[name] = new RetryPolicy(options, logger, name);
-        }
-
-        return _policies[name];
+        return _policies.GetOrAdd(name, CreateRetryPolicyInternal);
     }
 
     public IRetryPolicy CreateRetryPolicy(string name, RetryPolicyOptions options)
@@ -187,6 +181,13 @@ public class RetryPolicyFactory : IRetryPolicyFactory
         {
             policy.ResetStatistics();
         }
+    }
+
+    private IRetryPolicy CreateRetryPolicyInternal(string name)
+    {
+        var options = _optionsMonitor.Get(name);
+        var logger = _loggerFactory.CreateLogger<RetryPolicy>();
+        return new RetryPolicy(options, logger, name);
     }
 }
 

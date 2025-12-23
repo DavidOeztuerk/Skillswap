@@ -12,6 +12,8 @@ namespace Contracts.User.Responses.Auth;
 /// <param name="UserInfo">User details</param>
 /// <param name="EmailVerificationRequired">Whether email verification is required</param>
 /// <param name="Permissions">User permissions and roles</param>
+/// <param name="EmailVerificationToken">Email verification token (for internal use only)</param>
+/// <param name="VerificationCode">Email verification code for notification (internal use only)</param>
 public record RegisterResponse(
     string AccessToken,
     string RefreshToken,
@@ -19,7 +21,9 @@ public record RegisterResponse(
     DateTime ExpiresAt,
     UserInfo UserInfo,
     bool EmailVerificationRequired,
-    UserPermissions? Permissions = null)
+    UserPermissions? Permissions = null,
+    string? EmailVerificationToken = null,
+    string? VerificationCode = null)
     : IVersionedContract
 {
     /// <summary>

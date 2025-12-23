@@ -1,7 +1,11 @@
+using DotNetEnv;
 using Gateway.Extensions;
 using Infrastructure.Extensions;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
+
+// Load .env file before anything else
+Env.Load();
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -31,6 +35,8 @@ var app = builder.Build();
 
 // Use shared infrastructure middleware pipeline
 app.UseSharedInfrastructure(app.Environment, serviceName);
+
+app.UseWebSockets();
 
 // Use Ocelot middleware (must be last)
 await app.UseOcelot();
