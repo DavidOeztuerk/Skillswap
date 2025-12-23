@@ -1,0 +1,142 @@
+version: 2
+updates:
+  # Frontend (npm)
+  - package-ecosystem: "npm"
+    directory: "/src/client"
+    target-branch: "develop"  # PRs go to develop, not main
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      eslint:
+        patterns:
+          - "eslint*"
+          - "@typescript-eslint/*"
+      mui:
+        patterns:
+          - "@mui/*"
+          - "@emotion/*"
+      redux:
+        patterns:
+          - "redux*"
+          - "@reduxjs/*"
+      testing:
+        patterns:
+          - "vitest*"
+          - "@testing-library/*"
+    ignore:
+      # React 19 ignorieren wegen Server Components CVEs (CVE-2025-55182)
+      - dependency-name: "react"
+        versions: [">=19.0.0"]
+      - dependency-name: "react-dom"
+        versions: [">=19.0.0"]
+
+  # Backend (nuget) - Gateway
+  - package-ecosystem: "nuget"
+    directory: "/src/services/Gateway"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Backend (nuget) - UserService
+  - package-ecosystem: "nuget"
+    directory: "/src/services/UserService"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Backend (nuget) - SkillService
+  - package-ecosystem: "nuget"
+    directory: "/src/services/SkillService"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Backend (nuget) - MatchmakingService
+  - package-ecosystem: "nuget"
+    directory: "/src/services/MatchmakingService"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Backend (nuget) - AppointmentService
+  - package-ecosystem: "nuget"
+    directory: "/src/services/AppointmentService"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Backend (nuget) - NotificationService
+  - package-ecosystem: "nuget"
+    directory: "/src/services/NotificationService"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Backend (nuget) - ChatService
+  - package-ecosystem: "nuget"
+    directory: "/src/services/ChatService"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Backend (nuget) - VideoCallService
+  - package-ecosystem: "nuget"
+    directory: "/src/services/VideoCallService"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Shared Libraries
+  - package-ecosystem: "nuget"
+    directory: "/src/shared"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+
+  # Terraform (Oracle Cloud)
+  - package-ecosystem: "terraform"
+    directory: "/infrastructure/oracle"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"

@@ -1,0 +1,84 @@
+# =============================================================================
+# Terraform Variables Example
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in your values
+# NEVER commit terraform.tfvars to version control!
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# OCI Authentication
+# Get these values from your OCI Console -> Profile -> User Settings
+# -----------------------------------------------------------------------------
+
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxx"
+user_ocid        = "ocid1.user.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxx"
+fingerprint      = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+private_key_path = "~/.oci/oci_api_key.pem"
+compartment_ocid = "ocid1.compartment.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# -----------------------------------------------------------------------------
+# Region
+# See: https://docs.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm
+# -----------------------------------------------------------------------------
+
+region = "eu-frankfurt-1"
+
+# -----------------------------------------------------------------------------
+# Environment
+# -----------------------------------------------------------------------------
+
+environment = "staging"  # or "production"
+
+# -----------------------------------------------------------------------------
+# Compute Configuration
+# Free Tier: VM.Standard.A1.Flex with up to 4 OCPUs and 24GB RAM
+# -----------------------------------------------------------------------------
+
+use_free_tier = true
+vm_shape      = "VM.Standard.A1.Flex"
+vm_ocpus      = 4
+vm_memory_gb  = 24
+
+# -----------------------------------------------------------------------------
+# SSH Key
+# Generate with: ssh-keygen -t rsa -b 4096 -f ~/.ssh/skillswap_oci
+# -----------------------------------------------------------------------------
+
+ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAA... your-email@example.com"
+
+# -----------------------------------------------------------------------------
+# Container Registry
+# Use OCI Container Registry (OCIR) or GitHub Container Registry
+# OCIR format: <region>.ocir.io/<tenancy-namespace>/<repo-name>
+# -----------------------------------------------------------------------------
+
+container_registry = "fra.ocir.io/your-namespace/skillswap"
+registry_username  = "your-namespace/your-email"
+registry_password  = "your-auth-token"
+
+# -----------------------------------------------------------------------------
+# Database Credentials
+# Password requirements: min 12 chars, at least 1 uppercase, 1 lowercase, 1 number
+# -----------------------------------------------------------------------------
+
+db_admin_password = "YourSecurePassword123!"
+
+# -----------------------------------------------------------------------------
+# Application Secrets
+# -----------------------------------------------------------------------------
+
+jwt_secret          = "your-super-secure-jwt-secret-key-that-is-at-least-32-characters-long"
+superadmin_password = "AdminPassword123!"
+
+# -----------------------------------------------------------------------------
+# Docker Image Tag
+# -----------------------------------------------------------------------------
+
+docker_image_tag = "latest"
+
+# -----------------------------------------------------------------------------
+# Domain (Optional)
+# -----------------------------------------------------------------------------
+
+# domain_name  = "skillswap.example.com"
+# enable_https = true

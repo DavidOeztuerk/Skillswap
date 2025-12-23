@@ -1,11 +1,22 @@
+// =============================================================================
+// DEPRECATED - Azure Bicep Templates
+// =============================================================================
+// Diese Datei wird nicht mehr aktiv verwendet.
+// Skillswap wurde auf Oracle Cloud Infrastructure (OCI) migriert.
+//
+// Neue Infrastruktur: /infrastructure/oracle/ (Terraform)
+//
+// Diese Dateien werden für eine mögliche spätere Azure-Migration aufbewahrt.
+// =============================================================================
+
 // Phase 2: Container Apps (After Docker images are built)
 // This deploys after images exist in ACR
 
 @description('Container Registry Login Server')
 param containerRegistryLoginServer string
 
-@description('Container Registry Name')
-param containerRegistryName string
+// @description('Container Registry Name')
+// param containerRegistryName string
 
 @description('Container Registry Username')
 param containerRegistryUsername string
@@ -35,7 +46,7 @@ param jwtSecret string
 
 @secure()
 @description('Superadmin Password')
-param superadminPassword string = 'Admin123!@#'
+param superadminPassword string = ''
 
 @description('Image Tag')
 param imageTag string = 'latest'
@@ -266,7 +277,7 @@ resource serviceApps 'Microsoft.App/containerApps@2023-05-01' = [for service in 
         }
         {
           name: 'postgres-connection'
-          value: replace(postgresConnectionString, 'skillswap_users', service.database)
+          // value: replace(postgresConnectionString, 'skillswap_users', service.database)
         }
         {
           name: 'redis-connection'

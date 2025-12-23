@@ -1,12 +1,12 @@
-name: Deploy to Azure
+name: Deploy to Cloud
 
 on:
   push:
-    branches: 
-      - staging    # → Staging Environment
-      - main       # → Production Environment
+    branches:
+      - develop    # → Staging Environment (auto-deploy)
+      - main       # → Production Environment (requires approval)
   pull_request:
-    branches: [main, staging]
+    branches: [main, develop]
   workflow_dispatch:
     inputs:
       environment:
@@ -20,7 +20,7 @@ on:
 
 env:
   # Dynamic environment based on branch
-  ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || (github.ref == 'refs/heads/staging' && 'staging') || 'staging' }}
+  ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || (github.ref == 'refs/heads/develop' && 'staging') || 'staging' }}
   RESOURCE_GROUP: skillswap-rg  # Using existing resource group
   LOCATION: westeurope
 
@@ -181,7 +181,9 @@ jobs:
   deploy-apps:
     needs: [deploy-infrastructure, build-images]
     runs-on: ubuntu-latest
-    
+    # Environment approval: staging auto-deploys, production requires manual approval
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
