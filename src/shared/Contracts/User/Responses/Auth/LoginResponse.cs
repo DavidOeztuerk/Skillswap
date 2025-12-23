@@ -16,7 +16,7 @@ namespace Contracts.User.Responses.Auth;
 public record LoginResponse(
     string AccessToken,
     string RefreshToken,
-    TokenType TokenType,
+    string TokenType,
     DateTime ExpiresAt,
     UserInfo UserInfo,
     bool Requires2FA,

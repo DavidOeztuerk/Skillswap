@@ -1,0 +1,159 @@
+import React from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import {
+  Box,
+  Typography,
+  Breadcrumbs,
+  Link,
+  type SxProps,
+  type Theme,
+  Button,
+} from '@mui/material';
+import { useBreadcrumbs, type BreadcrumbItem } from '../../hooks/useBreadcrumbs';
+
+interface PageHeaderProps {
+  title?: string; // Now optional - will be auto-generated if not provided
+  subtitle?: string;
+  breadcrumbs?: BreadcrumbItem[]; // Optional - will be auto-generated if not provided
+  actions?: React.ReactNode;
+  sx?: SxProps<Theme>;
+  showBreadcrumbs?: boolean; // Control breadcrumb visibility
+  useAutoBreadcrumbs?: boolean; // Use automatic breadcrumb generation
+  icon?: React.ReactNode; // Icon for the header, if needed
+}
+
+/**
+ * Standard-Seitenkopf mit Titel, Untertitel, Breadcrumbs und optionaler Aktion
+ */
+const PageHeader: React.FC<PageHeaderProps> = ({
+  title,
+  subtitle,
+  breadcrumbs,
+  actions,
+  sx,
+  showBreadcrumbs = true,
+  useAutoBreadcrumbs = true,
+  icon,
+}) => {
+  const autoBreadcrumbs = useBreadcrumbs();
+
+  // Determine which breadcrumbs to use
+  const finalBreadcrumbs = useAutoBreadcrumbs ? (breadcrumbs ?? autoBreadcrumbs) : breadcrumbs;
+
+  // Auto-generate title from breadcrumbs if not provided
+  const getAutoTitle = (): string => {
+    if (finalBreadcrumbs !== undefined && finalBreadcrumbs.length > 0) {
+      const lastIndex = finalBreadcrumbs.length - 1;
+      const lastBreadcrumb = finalBreadcrumbs[lastIndex];
+      return lastBreadcrumb.label;
+    }
+    return 'Page';
+  };
+  const finalTitle = title ?? getAutoTitle();
+
+  // Base styles for the header
+  const baseStyles: SxProps<Theme> = {
+    mb: 4,
+    display: 'flex',
+    flexDirection: { xs: 'column', sm: 'row' },
+    alignItems: { xs: 'flex-start', sm: 'center' },
+    justifyContent: 'space-between',
+  };
+
+  // Combine base styles with custom sx prop
+  const combinedSx: SxProps<Theme> = sx === undefined ? baseStyles : [baseStyles, sx].flat();
+
+  return (
+    <Box sx={combinedSx}>
+      <Box>
+        {showBreadcrumbs && finalBreadcrumbs !== undefined && finalBreadcrumbs.length > 1 ? (
+          <Breadcrumbs
+            separator={<NavigateNextIcon fontSize="small" />}
+            aria-label="Breadcrumb"
+            sx={{ mb: 1 }}
+          >
+            {finalBreadcrumbs.map((item, index) => {
+              const isLast = index === finalBreadcrumbs.length - 1;
+
+              return isLast || item.href === undefined ? (
+                <Typography key={item.label} color="text.primary" variant="body2">
+                  {item.label}
+                </Typography>
+              ) : (
+                <Link
+                  key={item.label}
+                  component={RouterLink}
+                  to={item.href}
+                  underline="hover"
+                  color="inherit"
+                  variant="body2"
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </Breadcrumbs>
+        ) : null}
+
+        <Box display="flex" alignItems="center" gap={2}>
+          {icon !== undefined && <Box>{icon}</Box>}
+          <Typography
+            variant="h4"
+            component="h1"
+            color="text.primary"
+            fontWeight="medium"
+            sx={{ mb: subtitle === undefined ? 0 : 1 }}
+          >
+            {finalTitle}
+          </Typography>
+        </Box>
+
+        {subtitle !== undefined && (
+          <Typography variant="subtitle1" color="text.secondary">
+            {subtitle}
+          </Typography>
+        )}
+      </Box>
+
+      {actions !== undefined && (
+        <Box
+          sx={{
+            mt: { xs: 2, sm: 0 },
+            alignSelf: { xs: 'flex-start', sm: 'center' },
+          }}
+        >
+          {actions}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+/**
+ * Typisches Aktions-Button-Element für den PageHeader
+ */
+export const PageHeaderAction: React.FC<{
+  label: string;
+  icon?: React.ReactNode;
+  onClick?: () => void;
+  to?: string;
+  color?: 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
+  variant?: 'text' | 'outlined' | 'contained';
+}> = ({ label, icon, onClick, to, color = 'primary', variant = 'contained' }) => {
+  if (to) {
+    return (
+      <Button component={RouterLink} to={to} variant={variant} color={color} startIcon={icon}>
+        {label}
+      </Button>
+    );
+  }
+
+  return (
+    <Button variant={variant} color={color} startIcon={icon} onClick={onClick}>
+      {label}
+    </Button>
+  );
+};
+
+export default PageHeader;

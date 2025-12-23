@@ -1,10 +1,9 @@
 using MediatR;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using CQRS.Interfaces;
 using System.Reflection;
-using StackExchange.Redis;
+using Infrastructure.Caching;
+using Infrastructure.Caching.Http;
 
 namespace CQRS.Behaviors;
 
@@ -14,41 +13,23 @@ namespace CQRS.Behaviors;
 public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
-    private readonly IDistributedCache? _cache;
-    private readonly IConnectionMultiplexer? _redis;
+    private readonly IDistributedCacheService? _cacheService;
+    private readonly IETagGenerator? _etagGenerator;
     private readonly ILogger<CacheInvalidationBehavior<TRequest, TResponse>> _logger;
 
     public CacheInvalidationBehavior(
-        IDistributedCache? cache,
-        ILogger<CacheInvalidationBehavior<TRequest, TResponse>> logger,
-        IServiceProvider serviceProvider)
+        IDistributedCacheService? cacheService,
+        IETagGenerator? etagGenerator,
+        ILogger<CacheInvalidationBehavior<TRequest, TResponse>> logger)
     {
-        _cache = cache;
+        _cacheService = cacheService;
+        _etagGenerator = etagGenerator;
         _logger = logger;
-        
-        _logger.LogInformation("=== CacheInvalidationBehavior CONSTRUCTOR called for {RequestType} -> {ResponseType} ===", 
+
+        _logger.LogInformation("=== CacheInvalidationBehavior initialized for {RequestType} -> {ResponseType} ===",
             typeof(TRequest).Name, typeof(TResponse).Name);
-        
-        // Try to get IConnectionMultiplexer from DI if available
-        try
-        {
-            _redis = serviceProvider.GetService<IConnectionMultiplexer>();
-            if (_redis != null)
-            {
-                _logger.LogInformation("Redis connection available for cache invalidation in behavior");
-            }
-            else
-            {
-                _logger.LogWarning("Redis connection is NULL in CacheInvalidationBehavior");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Redis not available, cache invalidation will be limited");
-        }
-        
-        _logger.LogInformation("CacheInvalidationBehavior initialized - Cache: {CacheAvailable}, Redis: {RedisAvailable}", 
-            _cache != null, _redis != null);
+        _logger.LogInformation("Cache service available: {Available}, ETag generator available: {ETagAvailable}",
+            _cacheService != null, _etagGenerator != null);
     }
 
     public async Task<TResponse> Handle(
@@ -57,37 +38,32 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("=== CacheInvalidationBehavior.Handle called for {CommandType} ===", typeof(TRequest).Name);
-        
+
         // Check if this is a cache-invalidating command
-        var isInvalidatingCommand = request is ICacheInvalidatingCommand;
-        _logger.LogInformation("Is {CommandType} an ICacheInvalidatingCommand? {IsInvalidating}", 
-            typeof(TRequest).Name, isInvalidatingCommand);
-        
-        if (_cache == null && _redis == null)
-        {
-            _logger.LogWarning("No cache or Redis available, skipping cache invalidation");
-            return await next(cancellationToken);
-        }
-        
-        if (!isInvalidatingCommand)
+        if (request is not ICacheInvalidatingCommand invalidatingCommand)
         {
             _logger.LogDebug("{CommandType} is not a cache-invalidating command, skipping", typeof(TRequest).Name);
             return await next(cancellationToken);
         }
-        
-        var invalidatingCommand = (ICacheInvalidatingCommand)request;
-        _logger.LogInformation("Processing cache invalidation for {CommandType} with {PatternCount} patterns", 
+
+        _logger.LogInformation("Processing cache invalidation for {CommandType} with {PatternCount} patterns",
             typeof(TRequest).Name, invalidatingCommand.InvalidationPatterns?.Length ?? 0);
+
+        if (_cacheService == null)
+        {
+            _logger.LogWarning("Cache service not available, skipping cache invalidation for {CommandType}", typeof(TRequest).Name);
+            return await next(cancellationToken);
+        }
 
         // Execute the command
         TResponse response;
-        bool success = false;
+        bool success;
 
         try
         {
             _logger.LogInformation("Executing command {CommandType}", typeof(TRequest).Name);
             response = await next(cancellationToken);
-            
+
             // Check if the response indicates success
             success = IsSuccessResponse(response);
             _logger.LogInformation("Command {CommandType} executed, Success: {Success}", typeof(TRequest).Name, success);
@@ -122,18 +98,16 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
         {
             var invalidationTasks = new List<Task>();
 
-            // Invalidate patterns
+            // Invalidate patterns using IDistributedCacheService
             if (invalidatingCommand.InvalidationPatterns?.Any() == true)
             {
                 foreach (var pattern in invalidatingCommand.InvalidationPatterns)
                 {
                     var processedPattern = ProcessPattern(pattern, request);
-                    _logger.LogDebug("Invalidating cache pattern: {Pattern}", processedPattern);
-                    
-                    // Since IDistributedCache doesn't have pattern deletion,
-                    // we need to get all keys and delete matching ones
-                    // For Redis, we'd need a custom implementation
-                    invalidationTasks.Add(RemoveByPatternAsync(processedPattern, cancellationToken));
+                    _logger.LogInformation("Invalidating cache pattern: {Pattern}", processedPattern);
+
+                    // Use the IDistributedCacheService which has RemoveByPatternAsync
+                    invalidationTasks.Add(_cacheService!.RemoveByPatternAsync(processedPattern, cancellationToken));
                 }
             }
 
@@ -143,18 +117,55 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
                 foreach (var key in invalidatingCommand.InvalidationKeys)
                 {
                     var processedKey = ProcessPattern(key, request);
-                    _logger.LogDebug("Invalidating cache key: {Key}", processedKey);
-                    invalidationTasks.Add(_cache!.RemoveAsync(processedKey, cancellationToken));
+                    _logger.LogInformation("Invalidating cache key: {Key}", processedKey);
+                    invalidationTasks.Add(_cacheService!.RemoveAsync(processedKey, cancellationToken));
+                }
+            }
+
+            // Invalidate by tags
+            if (invalidatingCommand.InvalidationTags?.Any() == true)
+            {
+                foreach (var tag in invalidatingCommand.InvalidationTags)
+                {
+                    _logger.LogInformation("Invalidating cache by tag: {Tag}", tag);
+                    invalidationTasks.Add(_cacheService!.RemoveByTagAsync(tag, cancellationToken));
                 }
             }
 
             await Task.WhenAll(invalidationTasks);
 
+            // CRITICAL: Invalidate ETags to prevent 304 Not Modified with stale data
+            if (_etagGenerator != null)
+            {
+                var etagPatterns = invalidatingCommand.ETagInvalidationPatterns;
+
+                // If no explicit ETag patterns, derive from cache patterns
+                if (etagPatterns == null || !etagPatterns.Any())
+                {
+                    etagPatterns = DeriveETagPatternsFromCachePatterns(invalidatingCommand.InvalidationPatterns);
+                }
+
+                if (etagPatterns?.Any() == true)
+                {
+                    var etagTasks = new List<Task>();
+                    foreach (var pattern in etagPatterns)
+                    {
+                        var processedPattern = ProcessPattern(pattern, request);
+                        _logger.LogInformation("Invalidating ETag pattern: {Pattern}", processedPattern);
+                        etagTasks.Add(_etagGenerator.InvalidateETagsByPatternAsync(processedPattern, cancellationToken));
+                    }
+                    await Task.WhenAll(etagTasks);
+                    _logger.LogInformation("ETag invalidation completed for {CommandType} - {Count} patterns",
+                        typeof(TRequest).Name, etagPatterns.Length);
+                }
+            }
+
             _logger.LogInformation(
-                "Cache invalidation completed for {CommandType} - Patterns: {PatternCount}, Keys: {KeyCount}",
+                "Cache invalidation completed for {CommandType} - Patterns: {PatternCount}, Keys: {KeyCount}, Tags: {TagCount}",
                 typeof(TRequest).Name,
                 invalidatingCommand.InvalidationPatterns?.Length ?? 0,
-                invalidatingCommand.InvalidationKeys?.Length ?? 0);
+                invalidatingCommand.InvalidationKeys?.Length ?? 0,
+                invalidatingCommand.InvalidationTags?.Length ?? 0);
         }
         catch (Exception ex)
         {
@@ -163,50 +174,97 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
         }
     }
 
-    private async Task RemoveByPatternAsync(string pattern, CancellationToken cancellationToken)
+    /// <summary>
+    /// Derives ETag invalidation patterns from CQRS cache patterns.
+    /// Maps common cache key patterns to their corresponding API path patterns.
+    /// IMPORTANT: Must include ALL route patterns from ocelot.json that serve this data!
+    /// </summary>
+    private static string[]? DeriveETagPatternsFromCachePatterns(string[]? cachePatterns)
     {
-        if (_redis == null)
+        if (cachePatterns == null || !cachePatterns.Any())
+            return null;
+
+        var etagPatterns = new HashSet<string>();
+
+        foreach (var pattern in cachePatterns)
         {
-            _logger.LogWarning("Redis connection not available, cannot invalidate cache by pattern");
-            return;
+            var lowerPattern = pattern.ToLowerInvariant();
+
+            // IMPORTANT: Gateway rewrites URLs, so we need BOTH patterns:
+            // - /api/skills* (Gateway-level ETags)
+            // - /skills* (Service-level ETags, after Gateway URL rewrite)
+            //
+            // Check ocelot.json for ALL DownstreamPathTemplate values!
+
+            if (lowerPattern.Contains("skill"))
+            {
+                // SkillService routes (see ocelot.json lines 585-767)
+                etagPatterns.Add("/api/skills*");
+                etagPatterns.Add("/skills*");
+                etagPatterns.Add("/api/categories*");
+                etagPatterns.Add("/categories*");
+                etagPatterns.Add("/api/proficiency-levels*");
+                etagPatterns.Add("/proficiency-levels*");
+                // Analytics & recommendations (different downstream paths!)
+                etagPatterns.Add("/api/skills/analytics*");
+                etagPatterns.Add("/analytics*");
+                etagPatterns.Add("/api/skills/recommendations*");
+                etagPatterns.Add("/recommendations*");
+            }
+            if (lowerPattern.Contains("appointment"))
+            {
+                // AppointmentService routes (see ocelot.json lines 968-1086)
+                etagPatterns.Add("/api/appointments*");
+                etagPatterns.Add("/appointments*");
+                etagPatterns.Add("/api/my/appointments*");
+                etagPatterns.Add("/my/appointments*");
+            }
+            if (lowerPattern.Contains("user") || lowerPattern.Contains("profile"))
+            {
+                // UserService routes (see ocelot.json lines 154-583)
+                etagPatterns.Add("/api/users*");
+                etagPatterns.Add("/users*");
+                // Note: /api/users/profile does NOT get rewritten (stays /api/users/profile)
+            }
+            if (lowerPattern.Contains("favorite"))
+            {
+                // UserService favorites (downstream: /users/skills/favorites)
+                etagPatterns.Add("/api/users/favorites*");
+                etagPatterns.Add("/users/skills/favorites*");
+            }
+            if (lowerPattern.Contains("permission"))
+            {
+                // UserService permissions
+                etagPatterns.Add("/api/users/permissions*");
+                etagPatterns.Add("/users/permissions*");
+                etagPatterns.Add("/api/permission*");
+                etagPatterns.Add("/permission*");
+            }
+            if (lowerPattern.Contains("match"))
+            {
+                // MatchmakingService routes (see ocelot.json lines 768-966)
+                etagPatterns.Add("/api/matchmaking*");
+                etagPatterns.Add("/matchmaking*");
+                etagPatterns.Add("/api/matches*");
+                etagPatterns.Add("/matches*");
+                // Statistics has different downstream path
+                etagPatterns.Add("/analytics/statistics*");
+            }
+            // NOTE: VideoCall endpoints are EXCLUDED from caching (no-store)
+            if (lowerPattern.Contains("notification"))
+            {
+                // NotificationService routes (see ocelot.json lines 1087-1379)
+                etagPatterns.Add("/api/notifications*");
+                etagPatterns.Add("/notifications*");
+                // Preferences & templates have different downstream paths
+                etagPatterns.Add("/preferences*");
+                etagPatterns.Add("/templates*");
+            }
         }
 
-        try
-        {
-            var serviceName = GetServiceName();
-            var fullPattern = $"{serviceName}:{pattern}";
-            
-            _logger.LogDebug("Removing cache entries matching pattern: {Pattern}", fullPattern);
-            
-            var database = _redis.GetDatabase();
-            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
-            
-            // Use SCAN to find all keys matching the pattern
-            var keys = new List<RedisKey>();
-            
-            // KeysAsync needs database parameter for proper scanning
-            await foreach (var key in server.KeysAsync(database: database.Database, pattern: fullPattern))
-            {
-                keys.Add(key);
-                _logger.LogDebug("Found key to delete: {Key}", key);
-            }
-            
-            if (keys.Any())
-            {
-                // Delete all matching keys
-                await database.KeyDeleteAsync(keys.ToArray());
-                _logger.LogInformation("Deleted {Count} cache entries matching pattern: {Pattern}", keys.Count, fullPattern);
-            }
-            else
-            {
-                _logger.LogDebug("No cache entries found matching pattern: {Pattern}", fullPattern);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error removing cache by pattern: {Pattern}", pattern);
-        }
+        return etagPatterns.Count > 0 ? etagPatterns.ToArray() : null;
     }
+
 
     private string ProcessPattern(string pattern, TRequest request)
     {
@@ -256,19 +314,4 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
         return true;
     }
 
-    private string GetServiceName()
-    {
-        // Get service name from assembly or configuration
-        var assembly = Assembly.GetEntryAssembly();
-        var assemblyName = assembly?.GetName().Name ?? "UnknownService";
-
-        if (assemblyName.Contains("SkillService")) return "skillservice";
-        if (assemblyName.Contains("UserService")) return "userservice";
-        if (assemblyName.Contains("NotificationService")) return "notificationservice";
-        if (assemblyName.Contains("MatchmakingService")) return "matchmakingservice";
-        if (assemblyName.Contains("AppointmentService")) return "appointmentservice";
-        if (assemblyName.Contains("VideocallService")) return "videocallservice";
-
-        return assemblyName.ToLower();
-    }
 }

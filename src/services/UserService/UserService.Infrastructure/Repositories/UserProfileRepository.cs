@@ -63,14 +63,14 @@ public class UserProfileRepository(UserDbContext userDbContext) : IUserProfileRe
         return user;
     }
 
-    public async Task<bool> ChangePassword(string userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default)
+    public async Task<(bool Success, string? Email)> ChangePassword(string userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users.FindAsync([userId], cancellationToken);
         if (user == null)
-            return false;
+            return (false, null);
 
         if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
-            return false;
+            return (false, null);
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         user.UpdatedAt = DateTime.UtcNow;
@@ -87,7 +87,7 @@ public class UserProfileRepository(UserDbContext userDbContext) : IUserProfileRe
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return (true, user.Email);
     }
 
     public async Task UploadAvatar(string userId, byte[] imageData, string fileName, string contentType, CancellationToken cancellationToken = default)

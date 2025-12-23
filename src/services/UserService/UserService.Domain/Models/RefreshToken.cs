@@ -4,7 +4,7 @@ using Domain.Abstractions;
 namespace UserService.Domain.Models;
 
 /// <summary>
-/// Enhanced refresh token with additional security
+/// Enhanced refresh token with token rotation and theft detection
 /// </summary>
 public class RefreshToken : AuditableEntity
 {
@@ -31,10 +31,24 @@ public class RefreshToken : AuditableEntity
     [MaxLength(500)]
     public string? UserAgent { get; set; }
 
+    // Token Rotation & Theft Detection
+    [MaxLength(450)]
+    public string? TokenFamilyId { get; set; }
+
+    [MaxLength(450)]
+    public string? ReplacedByToken { get; set; }
+
+    public bool IsUsed { get; set; } = false;
+    public DateTime? UsedAt { get; set; }
+
+    // Session Binding
+    [MaxLength(450)]
+    public string? SessionId { get; set; }
+
     // Navigation properties
     public virtual User User { get; set; } = null!;
 
     // Helper properties
     public bool IsExpired => DateTime.UtcNow >= ExpiryDate;
-    public bool IsValid => !IsRevoked && !IsExpired && !IsDeleted;
+    public bool IsValid => !IsRevoked && !IsExpired && !IsDeleted && !IsUsed;
 }

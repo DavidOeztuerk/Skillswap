@@ -657,3 +657,5 @@ src/client/performance-test.js
 .gitignore
 src/client/performance-results.json
 src/client/MIGRATION_ROADMAP.md
+add-security-permissions.sql
+backup_before_security_migration_20251203_192925.sql

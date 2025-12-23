@@ -1,0 +1,128 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { withDefault } from '../utils/safeAccess';
+
+interface UseProgressiveLoadingOptions<T> {
+  loadFn: (
+    page: number,
+    pageSize: number,
+    ...args: unknown[]
+  ) => Promise<{
+    data: T[];
+    totalCount: number;
+    hasMore: boolean;
+  }>;
+  pageSize?: number;
+  initialLoad?: boolean;
+  deps?: readonly unknown[];
+}
+
+interface UseProgressiveLoadingReturn<T> {
+  items: T[];
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
+  error: string | null;
+  totalCount: number;
+  currentPage: number;
+  loadMore: () => Promise<void>;
+  refresh: () => Promise<void>;
+  reset: () => void;
+}
+
+export function useProgressiveLoading<T>({
+  loadFn,
+  pageSize = 10,
+  initialLoad = true,
+  deps = [],
+}: UseProgressiveLoadingOptions<T>): UseProgressiveLoadingReturn<T> {
+  const [items, setItems] = useState<T[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
+
+  // Use a ref to store the latest deps without causing re-renders
+  const depsRef = useRef(deps);
+  depsRef.current = deps;
+
+  const loadPage = useCallback(
+    async (page: number, loadMore: boolean) => {
+      try {
+        if (loadMore) {
+          setIsLoadingMore(true);
+        } else {
+          setIsLoading(true);
+        }
+
+        setError(null);
+
+        const result = await loadFn(page, pageSize, ...depsRef.current);
+
+        const safeData = result.data;
+
+        if (page === 0) {
+          setItems(safeData);
+        } else {
+          setItems((prev) => [...prev, ...safeData]);
+        }
+
+        setTotalCount(withDefault(result.totalCount, 0));
+        setHasMore(withDefault(result.hasMore, false));
+        setCurrentPage(page);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Daten';
+        setError(errorMessage);
+        console.error('Progressive loading error:', err);
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [loadFn, pageSize]
+  );
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || isLoading || isLoadingMore) return;
+
+    await loadPage(currentPage + 1, true);
+  }, [hasMore, isLoading, isLoadingMore, currentPage, loadPage]);
+
+  const refresh = useCallback(async () => {
+    setCurrentPage(0);
+    setHasMore(true);
+    await loadPage(0, false);
+  }, [loadPage]);
+
+  const reset = useCallback(() => {
+    setItems([]);
+    setIsLoading(false);
+    setIsLoadingMore(false);
+    setHasMore(true);
+    setError(null);
+    setTotalCount(0);
+    setCurrentPage(0);
+  }, []);
+
+  useEffect(() => {
+    if (initialLoad) {
+      void loadPage(0, false);
+    }
+  }, [initialLoad, loadPage]);
+
+  return {
+    items,
+    isLoading: withDefault(isLoading, false),
+    isLoadingMore: withDefault(isLoadingMore, false),
+    hasMore: withDefault(hasMore, false),
+    error,
+    totalCount: withDefault(totalCount, 0),
+    currentPage: withDefault(currentPage, 0),
+    loadMore,
+    refresh,
+    reset,
+  };
+}
+
+export default useProgressiveLoading;

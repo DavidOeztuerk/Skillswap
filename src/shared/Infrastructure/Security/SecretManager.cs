@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Security.Cryptography;
@@ -20,22 +21,40 @@ public class SecretManager : ISecretManager
     public SecretManager(
         IConnectionMultiplexer connectionMultiplexer,
         IConfiguration configuration,
+        IHostEnvironment environment,
         ILogger<SecretManager> logger)
     {
         _database = connectionMultiplexer.GetDatabase();
         _logger = logger;
         _keyPrefix = "secrets:";
-        
-        // Get encryption key from configuration or generate one
-        var encryptionKeyBase64 = configuration["SecretManager:EncryptionKey"];
+
+        // Get encryption key from environment variable first, then config
+        var encryptionKeyBase64 = Environment.GetEnvironmentVariable("SECRET_MANAGER_ENCRYPTION_KEY_BASE64")
+            ?? configuration["SecretManager:EncryptionKeyBase64"]
+            ?? configuration["SecretManager:EncryptionKey"]; // Legacy support
+
         if (string.IsNullOrEmpty(encryptionKeyBase64))
         {
-            _logger.LogWarning("No encryption key found in configuration. Generating a new one.");
+            if (environment.IsProduction())
+            {
+                throw new InvalidOperationException(
+                    "Persistent encryption key not configured. Set SECRET_MANAGER_ENCRYPTION_KEY_BASE64 " +
+                    "environment variable or SecretManager:EncryptionKeyBase64 in configuration. " +
+                    "All services MUST use the SAME key for proper authentication.");
+            }
+
+            // Development: Generate transient key and log it
             _encryptionKey = GenerateEncryptionKey();
+            var base64Key = Convert.ToBase64String(_encryptionKey);
+            _logger.LogWarning(
+                "No encryption key found in configuration. Generated transient key (DEV ONLY): {Key}. " +
+                "IMPORTANT: Set SECRET_MANAGER_ENCRYPTION_KEY_BASE64={KeyValue} for all services to share the same key.",
+                base64Key, base64Key);
         }
         else
         {
             _encryptionKey = Convert.FromBase64String(encryptionKeyBase64);
+            _logger.LogInformation("Encryption key loaded successfully from configuration");
         }
     }
 

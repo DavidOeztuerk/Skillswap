@@ -2,4 +2,5 @@ namespace Events.Notification;
 
 public record WelcomeEmailEvent(
     string UserId,
-    string Email);
+    string Email,
+    string FirstName);

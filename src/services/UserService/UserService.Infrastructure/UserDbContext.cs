@@ -17,6 +17,8 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
     public DbSet<UserActivity> UserActivities => Set<UserActivity>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<BlockedUser> BlockedUsers => Set<BlockedUser>();
+    public DbSet<UserCalendarConnection> UserCalendarConnections => Set<UserCalendarConnection>();
+    public DbSet<AppointmentCalendarEvent> AppointmentCalendarEvents => Set<AppointmentCalendarEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +34,8 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         ConfigureUserActivity(modelBuilder);
         ConfigureUserSession(modelBuilder);
         ConfigureBlockedUser(modelBuilder);
+        ConfigureUserCalendarConnection(modelBuilder);
+        ConfigureAppointmentCalendarEvent(modelBuilder);
 
         Seed(modelBuilder);
     }
@@ -289,7 +293,11 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.RevokedReason).HasMaxLength(200);
         e.Property(x => x.IpAddress).HasMaxLength(45);
         e.Property(x => x.UserAgent).HasMaxLength(500);
+        e.Property(x => x.TokenFamilyId).HasMaxLength(450);
+        e.Property(x => x.ReplacedByToken).HasMaxLength(450);
+        e.Property(x => x.SessionId).HasMaxLength(450);
         e.Property(x => x.IsRevoked).HasDefaultValue(false);
+        e.Property(x => x.IsUsed).HasDefaultValue(false);
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
         e.Property(x => x.IsDeleted).HasDefaultValue(false);
 
@@ -297,6 +305,11 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasIndex(x => x.UserId);
         e.HasIndex(x => x.ExpiryDate);
         e.HasIndex(x => x.IsRevoked);
+        e.HasIndex(x => x.IsUsed);
+        e.HasIndex(x => x.TokenFamilyId);
+        e.HasIndex(x => x.SessionId);
+        e.HasIndex(x => new { x.UserId, x.IsRevoked, x.IsUsed, x.ExpiryDate })
+            .HasDatabaseName("IX_RefreshTokens_Valid");
 
         e.HasOne(x => x.User)
          .WithMany(u => u.RefreshTokens)
@@ -340,17 +353,31 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.IpAddress).HasMaxLength(45);
         e.Property(x => x.UserAgent).HasMaxLength(500);
         e.Property(x => x.DeviceType).HasMaxLength(100);
+        e.Property(x => x.DeviceFingerprint).HasMaxLength(500);
+        e.Property(x => x.Browser).HasMaxLength(100);
+        e.Property(x => x.OperatingSystem).HasMaxLength(100);
+        e.Property(x => x.ScreenResolution).HasMaxLength(50);
+        e.Property(x => x.TimeZone).HasMaxLength(50);
+        e.Property(x => x.Language).HasMaxLength(100);
+        e.Property(x => x.RevokedReason).HasMaxLength(500);
         e.Property(x => x.StartedAt).HasDefaultValueSql("NOW()");
         e.Property(x => x.LastActivity).HasDefaultValueSql("NOW()");
+        e.Property(x => x.ExpiresAt).HasDefaultValueSql("NOW() + INTERVAL '24 hours'");
         e.Property(x => x.IsActive).HasDefaultValue(true);
+        e.Property(x => x.IsRevoked).HasDefaultValue(false);
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
         e.Property(x => x.IsDeleted).HasDefaultValue(false);
 
         e.HasIndex(x => x.UserId);
         e.HasIndex(x => x.SessionToken).IsUnique();
+        e.HasIndex(x => x.DeviceFingerprint);
         e.HasIndex(x => x.StartedAt);
         e.HasIndex(x => x.LastActivity);
+        e.HasIndex(x => x.ExpiresAt);
         e.HasIndex(x => x.IsActive);
+        e.HasIndex(x => x.IsRevoked);
+        e.HasIndex(x => new { x.UserId, x.IsActive, x.ExpiresAt })
+            .HasDatabaseName("IX_UserSessions_ActiveSessions");
 
         e.HasOne(x => x.User)
          .WithMany(u => u.Sessions)
@@ -383,6 +410,89 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
          .WithMany(u => u.BlockedByOthers)
          .HasForeignKey(x => x.BlockedUserId)
          .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static void ConfigureUserCalendarConnection(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserCalendarConnection>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.Provider).IsRequired().HasMaxLength(50);
+        e.Property(x => x.AccessToken).IsRequired().HasColumnType("text");
+        e.Property(x => x.RefreshToken).IsRequired().HasColumnType("text");
+        e.Property(x => x.CalendarId).HasMaxLength(450);
+        e.Property(x => x.ProviderEmail).HasMaxLength(256);
+        e.Property(x => x.SyncEnabled).HasDefaultValue(true);
+        e.Property(x => x.SyncCount).HasDefaultValue(0);
+        e.Property(x => x.LastSyncError).HasMaxLength(1000);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint: one connection per user per provider
+        e.HasIndex(x => new { x.UserId, x.Provider })
+            .IsUnique()
+            .HasDatabaseName("IX_UserCalendarConnections_UserProvider");
+
+        // Index for finding connections needing refresh
+        e.HasIndex(x => new { x.SyncEnabled, x.TokenExpiresAt, x.IsDeleted })
+            .HasDatabaseName("IX_UserCalendarConnections_TokenRefresh");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+
+        // Relationship to User
+        e.HasOne(x => x.User)
+         .WithMany()
+         .HasForeignKey(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static void ConfigureAppointmentCalendarEvent(ModelBuilder mb)
+    {
+        var e = mb.Entity<AppointmentCalendarEvent>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.AppointmentId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.Provider).IsRequired().HasMaxLength(50);
+        e.Property(x => x.ExternalEventId).IsRequired().HasMaxLength(1000);
+        e.Property(x => x.CalendarId).HasMaxLength(450);
+        e.Property(x => x.Status).IsRequired().HasMaxLength(50).HasDefaultValue(CalendarEventStatus.Created);
+        e.Property(x => x.ErrorMessage).HasMaxLength(1000);
+        e.Property(x => x.SyncedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint: one event per appointment per user per provider
+        e.HasIndex(x => new { x.AppointmentId, x.UserId, x.Provider })
+            .IsUnique()
+            .HasDatabaseName("IX_AppointmentCalendarEvents_Unique");
+
+        // Index for looking up by appointment
+        e.HasIndex(x => x.AppointmentId)
+            .HasDatabaseName("IX_AppointmentCalendarEvents_AppointmentId");
+
+        // Index for looking up by external event
+        e.HasIndex(x => new { x.ExternalEventId, x.Provider })
+            .HasDatabaseName("IX_AppointmentCalendarEvents_External");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+
+        // Relationship to User
+        e.HasOne(x => x.User)
+         .WithMany()
+         .HasForeignKey(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        // Relationship to CalendarConnection (optional - may be null if connection was deleted)
+        e.HasOne(x => x.CalendarConnection)
+         .WithMany()
+         .HasForeignKey(x => new { x.UserId, x.Provider })
+         .HasPrincipalKey(c => new { c.UserId, c.Provider })
+         .OnDelete(DeleteBehavior.SetNull)
+         .IsRequired(false);
     }
 
     private static void Seed(ModelBuilder mb)

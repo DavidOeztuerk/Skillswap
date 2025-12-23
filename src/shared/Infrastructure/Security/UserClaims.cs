@@ -10,5 +10,11 @@ public class UserClaims
     public List<string> Permissions { get; set; } = new();
     public bool EmailVerified { get; set; } = false;
     public string AccountStatus { get; set; } = "Active";
+
+    // Session management
+    public string? SessionId { get; set; }
+    public string? DeviceFingerprint { get; set; }
+    public string? IpAddress { get; set; }
+
     public Dictionary<string, string>? CustomClaims { get; set; }
 }

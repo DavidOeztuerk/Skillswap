@@ -26,21 +26,19 @@ public static class DatabaseExtensions
         {
             options.UseNpgsql(connectionString, npgsql =>
             {
-                // Enable retry on failure for resilience
-                npgsql.EnableRetryOnFailure(
-                    maxRetryCount: 5,
-                    maxRetryDelay: TimeSpan.FromSeconds(10),
-                    errorCodesToAdd: null);
-                
+                // NOTE: EnableRetryOnFailure removed - conflicts with MassTransit consumers
+                // and causes "NpgsqlRetryingExecutionStrategy does not support user-initiated transactions" errors
+                // Resilience is handled at the application level via MassTransit retry policies
+
                 // Set migration assembly if specified
                 if (!string.IsNullOrEmpty(migrationAssembly))
                 {
                     npgsql.MigrationsAssembly(migrationAssembly);
                 }
-                
+
                 // Enable command timeout for long-running queries
                 npgsql.CommandTimeout(30);
-                
+
                 // Use split queries for better performance with multiple includes
                 npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             });

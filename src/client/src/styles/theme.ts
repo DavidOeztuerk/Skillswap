@@ -1,41 +1,54 @@
-import { PaletteMode, ThemeOptions } from '@mui/material';
+import type { PaletteMode, ThemeOptions } from '@mui/material';
+import { brandColors, backgroundColors, textColors, semanticColors } from './tokens/colors';
 
+/**
+ * MUI Theme Options
+ *
+ * This theme uses design tokens as the single source of truth for colors.
+ * All color values are imported from ./tokens/colors.ts to ensure consistency.
+ */
 export const getThemeOptions = (mode: PaletteMode): ThemeOptions => ({
   palette: {
     mode,
     primary: {
-      main: '#4caf50',
-      light: '#80e27e',
-      dark: '#087f23',
+      main: brandColors.primary[500],
+      light: brandColors.primary[300],
+      dark: brandColors.primary[700],
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#ff9800',
-      light: '#ffc947',
-      dark: '#c66900',
+      main: brandColors.secondary[500],
+      light: brandColors.secondary[300],
+      dark: brandColors.secondary[700],
       contrastText: '#000000',
     },
     background: {
-      default: mode === 'light' ? '#f8f9fa' : '#121212',
-      paper: mode === 'light' ? '#ffffff' : '#1e1e1e',
+      default: mode === 'light' ? backgroundColors.light.default : backgroundColors.dark.default,
+      paper: mode === 'light' ? backgroundColors.light.paper : backgroundColors.dark.paper,
     },
     text: {
-      primary:
-        mode === 'light' ? 'rgba(0, 0, 0, 0.87)' : 'rgba(255, 255, 255, 0.87)',
-      secondary:
-        mode === 'light' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)',
+      primary: mode === 'light' ? textColors.light.primary : textColors.dark.primary,
+      secondary: mode === 'light' ? textColors.light.secondary : textColors.dark.secondary,
     },
     error: {
-      main: '#f44336',
+      main: semanticColors.error.main,
+      light: semanticColors.error.light,
+      dark: semanticColors.error.dark,
     },
     warning: {
-      main: '#ff9800',
+      main: semanticColors.warning.main,
+      light: semanticColors.warning.light,
+      dark: semanticColors.warning.dark,
     },
     info: {
-      main: '#2196f3',
+      main: semanticColors.info.main,
+      light: semanticColors.info.light,
+      dark: semanticColors.info.dark,
     },
     success: {
-      main: '#4caf50',
+      main: semanticColors.success.main,
+      light: semanticColors.success.light,
+      dark: semanticColors.success.dark,
     },
   },
   typography: {
@@ -242,10 +255,7 @@ export const getThemeOptions = (mode: PaletteMode): ThemeOptions => ({
         root: {
           boxShadow: 'none',
           borderBottom: '1px solid',
-          borderBottomColor:
-            mode === 'light'
-              ? 'rgba(0, 0, 0, 0.12)'
-              : 'rgba(255, 255, 255, 0.12)',
+          borderBottomColor: mode === 'light' ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.12)',
         },
       },
     },

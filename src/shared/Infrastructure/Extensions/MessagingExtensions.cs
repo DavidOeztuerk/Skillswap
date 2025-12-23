@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using System.Reflection;
 
 namespace Infrastructure.Extensions;
@@ -20,12 +21,29 @@ public static class MessagingExtensions
         params Assembly[] consumerAssemblies)
     {
         var rabbitMqSettings = GetRabbitMqSettings(configuration);
-        
+
+        // Log RabbitMQ connection details at startup
+        Console.WriteLine($"[MassTransit] Connecting to RabbitMQ at {rabbitMqSettings.Host}:{rabbitMqSettings.Port}");
+
         services.AddMassTransit(busConfig =>
         {
-            // Add consumers from specified assemblies
+            // Add consumers from specified assemblies and log them
             foreach (var assembly in consumerAssemblies)
             {
+                var consumerTypes = assembly.GetTypes()
+                    .Where(t => t.GetInterfaces().Any(i =>
+                        i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>)))
+                    .ToList();
+
+                Console.WriteLine($"[MassTransit] Found {consumerTypes.Count} consumers in {assembly.GetName().Name}:");
+                foreach (var consumerType in consumerTypes)
+                {
+                    var messageTypes = consumerType.GetInterfaces()
+                        .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IConsumer<>))
+                        .Select(i => i.GetGenericArguments()[0].Name);
+                    Console.WriteLine($"  - {consumerType.Name} (consumes: {string.Join(", ", messageTypes)})");
+                }
+
                 busConfig.AddConsumers(assembly);
             }
             
@@ -145,15 +163,29 @@ public interface IEventBus
 public class MassTransitEventBus : IEventBus
 {
     private readonly IPublishEndpoint _publishEndpoint;
-    
-    public MassTransitEventBus(IPublishEndpoint publishEndpoint)
+    private readonly ILogger<MassTransitEventBus> _logger;
+
+    public MassTransitEventBus(IPublishEndpoint publishEndpoint, ILogger<MassTransitEventBus> logger)
     {
         _publishEndpoint = publishEndpoint;
+        _logger = logger;
     }
-    
-    public async Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default) 
+
+    public async Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : class
     {
-        await _publishEndpoint.Publish(@event, cancellationToken);
+        var eventTypeName = typeof(TEvent).Name;
+        _logger.LogInformation("[EventBus] Publishing event: {EventType}", eventTypeName);
+
+        try
+        {
+            await _publishEndpoint.Publish(@event, cancellationToken);
+            _logger.LogInformation("[EventBus] Successfully published event: {EventType}", eventTypeName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[EventBus] Failed to publish event: {EventType}", eventTypeName);
+            throw;
+        }
     }
 }

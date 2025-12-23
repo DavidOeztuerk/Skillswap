@@ -156,6 +156,21 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
+    },
+    {
+      "Comment": "========== VIDEOCALL SIGNALR HUB (WebSocket/WebRTC Signaling) ==========",
+      "UpstreamPathTemplate": "/api/videocall/hub/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "OPTIONS" ],
+      "DownstreamPathTemplate": "/api/videocall/hub/{everything}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        { "Host": "videocallservice.victoriousocean-546beaa5.westeurope.azurecontainerapps.io", "Port": 443 }
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "LoadBalancerOptions": { "Type": "LeastConnection" }
     }
   ],
   "GlobalConfiguration": {
