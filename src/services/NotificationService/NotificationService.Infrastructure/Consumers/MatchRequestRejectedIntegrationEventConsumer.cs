@@ -80,22 +80,17 @@ public class MatchRequestRejectedIntegrationEventConsumer : IConsumer<MatchReque
                 await dbContext.SaveChangesAsync();
             }
 
-            // Build email content
-            var emailBody = BuildRejectionEmail(message);
-
-            // Send notification
-            await _notificationOrchestrator.SendNotificationAsync(
-                recipientUserId: message.RequesterId,
-                type: "EMAIL",
-                title: "Match-Anfrage abgelehnt",
-                message: emailBody,
-                priority: "Low",
-                metadata: new Dictionary<string, object>
-                {
-                    ["ActionUrl"] = "https://skillswap.app/skills"
-                });
-
-            _logger.LogInformation("Successfully sent rejection notification to user {UserId}", message.RequesterId);
+            // Send the saved notification with correct email recipient
+            var success = await _notificationOrchestrator.SendNotificationAsync(notification);
+            if (success)
+            {
+                _logger.LogInformation("Sent rejection notification to {UserId} at {Email}",
+                    message.RequesterId, requesterEmail);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to send rejection notification to {UserId}", message.RequesterId);
+            }
         }
         catch (Exception ex)
         {

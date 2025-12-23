@@ -16,6 +16,13 @@ public class NotificationDbContext(
     public DbSet<NotificationCampaign> NotificationCampaigns { get; set; }
     public DbSet<EmailTemplate> EmailTemplates { get; set; }
     public DbSet<NotificationDigestEntry> NotificationDigestEntries { get; set; }
+    public DbSet<ReminderSettings> ReminderSettings { get; set; }
+    public DbSet<ScheduledReminder> ScheduledReminders { get; set; }
+
+    // Chat entities
+    public DbSet<ChatThread> ChatThreads { get; set; }
+    public DbSet<ChatMessage> ChatMessages { get; set; }
+    public DbSet<ChatAttachment> ChatAttachments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -123,11 +130,153 @@ public class NotificationDbContext(
             entity.Property(e => e.UserId).HasMaxLength(450).IsRequired();
             entity.Property(e => e.Template).HasMaxLength(100).IsRequired();
             entity.Property(e => e.Variables).IsRequired();
-            
+
             // Indexes
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.IsProcessed);
             entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // Configure ReminderSettings entity
+        modelBuilder.Entity<ReminderSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(450);
+            entity.Property(e => e.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.ReminderMinutesBefore).HasMaxLength(100).IsRequired();
+
+            // Unique constraint on UserId
+            entity.HasIndex(e => e.UserId).IsUnique();
+        });
+
+        // Configure ScheduledReminder entity
+        modelBuilder.Entity<ScheduledReminder>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(450);
+            entity.Property(e => e.AppointmentId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.ReminderType).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Status).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
+            entity.Property(e => e.PartnerName).HasMaxLength(200);
+            entity.Property(e => e.SkillName).HasMaxLength(200);
+            entity.Property(e => e.MeetingLink).HasMaxLength(500);
+
+            // Indexes
+            entity.HasIndex(e => e.AppointmentId);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ScheduledFor);
+            entity.HasIndex(e => new { e.Status, e.ScheduledFor });
+        });
+
+        // Configure ChatThread entity
+        modelBuilder.Entity<ChatThread>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(450);
+            entity.Property(e => e.ThreadId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.Participant1Id).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.Participant2Id).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.Participant1Name).HasMaxLength(200);
+            entity.Property(e => e.Participant2Name).HasMaxLength(200);
+            entity.Property(e => e.Participant1AvatarUrl).HasMaxLength(500);
+            entity.Property(e => e.Participant2AvatarUrl).HasMaxLength(500);
+            entity.Property(e => e.SkillId).HasMaxLength(450);
+            entity.Property(e => e.SkillName).HasMaxLength(200);
+            entity.Property(e => e.MatchId).HasMaxLength(450);
+            entity.Property(e => e.LastMessagePreview).HasMaxLength(150);
+            entity.Property(e => e.LastMessageSenderId).HasMaxLength(450);
+            entity.Property(e => e.LockReason).HasMaxLength(100);
+
+            // Indexes
+            entity.HasIndex(e => e.ThreadId).IsUnique();
+            entity.HasIndex(e => e.Participant1Id);
+            entity.HasIndex(e => e.Participant2Id);
+            entity.HasIndex(e => e.MatchId);
+            entity.HasIndex(e => e.LastMessageAt);
+            entity.HasIndex(e => new { e.Participant1Id, e.LastMessageAt });
+            entity.HasIndex(e => new { e.Participant2Id, e.LastMessageAt });
+        });
+
+        // Configure ChatMessage entity
+        modelBuilder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(450);
+            entity.Property(e => e.ThreadId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.SenderId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.SenderName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.SenderAvatarUrl).HasMaxLength(500);
+            entity.Property(e => e.Content).HasMaxLength(10000).IsRequired();
+            entity.Property(e => e.MessageType).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Context).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.ContextReferenceId).HasMaxLength(450);
+            entity.Property(e => e.EncryptionKeyId).HasMaxLength(450);
+            entity.Property(e => e.EncryptionIV).HasMaxLength(100);
+            entity.Property(e => e.FileUrl).HasMaxLength(1000);
+            entity.Property(e => e.FileName).HasMaxLength(255);
+            entity.Property(e => e.FileMimeType).HasMaxLength(100);
+            entity.Property(e => e.ThumbnailUrl).HasMaxLength(1000);
+            entity.Property(e => e.CodeLanguage).HasMaxLength(50);
+            entity.Property(e => e.GiphyId).HasMaxLength(100);
+            entity.Property(e => e.GifUrl).HasMaxLength(1000);
+            entity.Property(e => e.ReplyToMessageId).HasMaxLength(450);
+            entity.Property(e => e.ReplyToPreview).HasMaxLength(200);
+            entity.Property(e => e.ReplyToSenderName).HasMaxLength(200);
+            entity.Property(e => e.ReactionsJson).HasMaxLength(4000);
+            entity.Property(e => e.MetadataJson).HasMaxLength(4000);
+
+            // Foreign key to ChatThread via ThreadId
+            entity.HasOne(e => e.Thread)
+                  .WithMany(t => t.Messages)
+                  .HasForeignKey(e => e.ThreadId)
+                  .HasPrincipalKey(t => t.ThreadId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes
+            entity.HasIndex(e => e.ThreadId);
+            entity.HasIndex(e => e.SenderId);
+            entity.HasIndex(e => e.SentAt);
+            entity.HasIndex(e => e.MessageType);
+            entity.HasIndex(e => new { e.ThreadId, e.SentAt });
+            entity.HasIndex(e => new { e.ThreadId, e.ReadAt });
+        });
+
+        // Configure ChatAttachment entity
+        modelBuilder.Entity<ChatAttachment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(450);
+            entity.Property(e => e.MessageId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.ThreadId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.UploaderId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.UploaderName).HasMaxLength(200);
+            entity.Property(e => e.FileName).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.OriginalFileName).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.MimeType).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.FileSizeDisplay).HasMaxLength(50);
+            entity.Property(e => e.StorageUrl).HasMaxLength(1000).IsRequired();
+            entity.Property(e => e.ThumbnailUrl).HasMaxLength(1000);
+            entity.Property(e => e.StorageContainer).HasMaxLength(100);
+            entity.Property(e => e.StorageBlobName).HasMaxLength(500);
+            entity.Property(e => e.ContentHash).HasMaxLength(64);
+            entity.Property(e => e.EncryptionKeyId).HasMaxLength(450);
+            entity.Property(e => e.EncryptionIV).HasMaxLength(100);
+            entity.Property(e => e.ScanResult).HasMaxLength(500);
+
+            // Foreign key to ChatMessage
+            entity.HasOne(e => e.Message)
+                  .WithMany(m => m.Attachments)
+                  .HasForeignKey(e => e.MessageId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes
+            entity.HasIndex(e => e.MessageId);
+            entity.HasIndex(e => e.ThreadId);
+            entity.HasIndex(e => e.UploaderId);
+            entity.HasIndex(e => e.ContentHash);
         });
 
         // Configure soft delete for all entities
@@ -136,6 +285,11 @@ public class NotificationDbContext(
         modelBuilder.Entity<NotificationEvent>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<NotificationCampaign>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<EmailTemplate>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ReminderSettings>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ScheduledReminder>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ChatThread>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ChatMessage>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ChatAttachment>().HasQueryFilter(e => !e.IsDeleted);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

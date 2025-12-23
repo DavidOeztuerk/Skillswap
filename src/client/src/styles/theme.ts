@@ -1,5 +1,5 @@
 import type { PaletteMode, ThemeOptions } from '@mui/material';
-import { brandColors, semanticColors, backgroundColors, textColors } from './tokens';
+import { brandColors, backgroundColors, textColors, semanticColors } from './tokens/colors';
 
 /**
  * MUI Theme Options

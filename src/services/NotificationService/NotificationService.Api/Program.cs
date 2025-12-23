@@ -3,6 +3,8 @@ using Infrastructure.Extensions;
 using NotificationService;
 using NotificationService.Extensions;
 using NotificationService.Hubs;
+using NotificationService.Infrastructure.Hubs;
+using NotificationService.Api.Extensions;
 using Microsoft.EntityFrameworkCore;
 using NotificationService.Infrastructure.Extensions;
 using NotificationService.Infrastructure.Data;
@@ -38,9 +40,10 @@ using (var scope = app.Services.CreateScope())
 app.UseSharedInfrastructure(app.Environment, serviceName);
 
 app.MapNotificationController();
+app.MapChatController();
 
 app.MapHub<NotificationHub>("/hubs/notifications");
-
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Logger.LogInformation("Starting {ServiceName} with comprehensive notification capabilities", serviceName);
 

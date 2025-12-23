@@ -137,7 +137,7 @@ async function updateKey(payload: {
       ['encrypt', 'decrypt']
     );
     generation = payload.generation;
-    console.debug(`🔄 E2EE Worker: Key updated to generation ${String(generation)}`);
+    console.debug(`🔄 E2EE Worker: Key updated to generation ${generation}`);
   } catch (error) {
     console.error('E2EE Worker: Failed to update key:', error);
   }

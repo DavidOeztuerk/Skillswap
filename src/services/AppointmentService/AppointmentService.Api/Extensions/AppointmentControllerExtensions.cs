@@ -110,10 +110,28 @@ public static class AppointmentControllerExtensions
             .WithDescription("Retrieves aggregated statistics for the current user's appointments.")
             .RequireAuthorization();
 
+        appointments.MapPost("/available-slots", HandleGetAvailableSlots)
+            .WithName("GetAvailableSlots")
+            .WithSummary("Get available time slots")
+            .WithDescription("Finds available time slots for scheduling between the current user and another user. Uses POST due to complex query parameters.")
+            .RequireAuthorization();
+
         appointments.MapGet("/{appointmentId}", HandleGetAppointmentDetails)
             .WithName("GetAppointmentDetails")
             .WithSummary("Get appointment details")
             .WithDescription("Retrieves details for a specific appointment.");
+
+        appointments.MapPut("/{appointmentId}", HandleUpdateAppointment)
+            .WithName("UpdateAppointment")
+            .WithSummary("Update appointment details")
+            .WithDescription("Updates the title, description, or meeting link of an appointment.")
+            .RequireAuthorization();
+
+        appointments.MapPost("/{appointmentId}/report", HandleReportAppointment)
+            .WithName("ReportAppointment")
+            .WithSummary("Report appointment")
+            .WithDescription("Reports a problematic appointment for moderation review.")
+            .RequireAuthorization();
 
         // Grouped endpoints for user appointments
         var myAppointments = builder.MapGroup("/my/appointments")
@@ -283,6 +301,68 @@ public static class AppointmentControllerExtensions
 
             var query = new GetAppointmentStatisticsQuery(userId);
             return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> HandleGetAvailableSlots(
+            IMediator mediator,
+            ClaimsPrincipal user,
+            [FromBody] GetAvailableSlotsRequest request)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new GetAvailableSlotsQuery(
+                request.OtherUserId,
+                request.PreferredDaysOfWeek,
+                request.PreferredTimeSlots,
+                request.SessionDurationMinutes,
+                request.NumberOfSlots)
+            {
+                UserId = userId
+            };
+
+            return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> HandleUpdateAppointment(
+            IMediator mediator,
+            ClaimsPrincipal user,
+            string appointmentId,
+            [FromBody] UpdateAppointmentRequest request)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new UpdateAppointmentCommand(
+                appointmentId,
+                request.Title,
+                request.Description,
+                request.MeetingLink)
+            {
+                UserId = userId
+            };
+
+            return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> HandleReportAppointment(
+            IMediator mediator,
+            ClaimsPrincipal user,
+            string appointmentId,
+            [FromBody] ReportAppointmentRequest request)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new ReportAppointmentCommand(
+                appointmentId,
+                request.Reason,
+                request.Details)
+            {
+                UserId = userId
+            };
+
+            return await mediator.SendCommand(command);
         }
 
         // ============================================================================

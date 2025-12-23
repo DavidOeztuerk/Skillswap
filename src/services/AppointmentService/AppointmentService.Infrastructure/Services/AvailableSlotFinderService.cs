@@ -250,6 +250,12 @@ public class AvailableSlotFinderService : IAvailableSlotFinderService
             }
         }
 
+        // Sort time ranges chronologically to ensure earliest times are checked first
+        timeRanges = timeRanges
+            .OrderBy(t => t.StartHour)
+            .ThenBy(t => t.StartMinute)
+            .ToList();
+
         // If no valid time slots provided, use default business hours
         if (timeRanges.Count == 0)
         {

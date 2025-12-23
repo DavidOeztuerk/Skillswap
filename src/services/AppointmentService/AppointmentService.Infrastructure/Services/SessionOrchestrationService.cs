@@ -128,7 +128,8 @@ public class SessionOrchestrationService(
         _logger.LogInformation("Generating appointment slots using preferences. Days: {Days}, Times: {Times}",
             string.Join(", ", preferredDays), string.Join(", ", preferredTimes));
 
-        var minimumBufferHours = 2;
+        // No buffer - appointments can be scheduled immediately
+        // Previously was 2 hours which prevented instant scheduling after match acceptance
         var schedulingRequest = new SchedulingRequest
         {
             RequesterId = requesterId,
@@ -138,7 +139,7 @@ public class SessionOrchestrationService(
             TotalSessions = totalSessions,
             SessionDurationMinutes = sessionDurationMinutes,
             IsSkillExchange = isSkillExchange,
-            EarliestStartDate = DateTime.UtcNow.AddHours(minimumBufferHours),
+            EarliestStartDate = DateTime.UtcNow,
             MinimumDaysBetweenSessions = 1,
             MaximumDaysBetweenSessions = 14,
             DistributeEvenly = true

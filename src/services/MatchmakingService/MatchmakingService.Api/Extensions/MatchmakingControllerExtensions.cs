@@ -303,7 +303,7 @@ public static class Matchmaking
             var userId = user.GetUserId();
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-            var query = new GetMatchDetailsQuery(matchId);
+            var query = new GetMatchDetailsQuery(matchId, userId);
 
             return await mediator.SendQuery(query);
         }

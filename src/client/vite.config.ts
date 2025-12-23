@@ -1,103 +1,136 @@
-// vite.config.ts
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react-swc';
-import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Lade Umgebungsvariablen
   const env = loadEnv(mode, process.cwd());
+  // const isProduction = mode === 'production';
+  const isAnalyze = mode === 'analyze';
 
   return {
     plugins: [
-      react(),
-      // Bundle-Analyse für Produktions- und Analysebuilds
-      (mode === 'production' || mode === 'analyze') &&
+      react({
+        jsxImportSource: 'react',
+        plugins: [],
+      }),
+      isAnalyze &&
         visualizer({
-          filename: './dist/stats.html',
-          open: mode === 'analyze',
+          filename: './dist/bundle-analysis.html',
+          open: true,
           gzipSize: true,
           brotliSize: true,
           template: 'treemap',
         }),
-    ],
-
-    // Worker-Konfiguration für E2EE (Safari & Chrome)
+    ].filter(Boolean),
     worker: {
       format: 'es',
       plugins: () => [react()],
     },
     resolve: {
-      alias: {
-        // Absolute Importpfade ermöglichen
-        '@': path.resolve(__dirname, './src'),
-        '@api': path.resolve(__dirname, './src/api'),
-        '@components': path.resolve(__dirname, './src/components'),
-        '@features': path.resolve(__dirname, './src/features'),
-        '@hooks': path.resolve(__dirname, './src/hooks'),
-        '@pages': path.resolve(__dirname, './src/pages'),
-        '@styles': path.resolve(__dirname, './src/styles'),
-        '@utils': path.resolve(__dirname, './src/utils'),
-        '@types': path.resolve(__dirname, './src/types'),
-        '@config': path.resolve(__dirname, './src/config'),
-      },
+      alias: {},
+      extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
     },
+
     server: {
-      // Entwicklungsserver-Konfiguration
       port: 3000,
       open: true,
+      cors: true,
+      host: true,
       proxy: env.VITE_API_BASE_URL
         ? {
-            // Proxy API-Anfragen im Entwicklungsmodus
             '/api': {
               target: env.VITE_API_BASE_URL,
               changeOrigin: true,
               secure: false,
+              rewrite: (path) => path.replace(/^\/api/, ''),
+            },
+            '/socket': {
+              target: env.VITE_API_BASE_URL,
+              changeOrigin: true,
+              ws: true,
             },
           }
         : undefined,
     },
+
+    // build: {
+    //   outDir: 'dist',
+    //   sourcemap: !isProduction,
+    //   target: 'es2022',
+    //   cssTarget: 'es2022',
+    //   rollupOptions: {
+    //     output: {
+    //       manualChunks: (id) => {
+    //         // Dynamisches Chunking basierend auf Pfaden
+    //         if (id.includes('node_modules')) {
+    //           if (id.includes('react')) return 'vendor-react';
+    //           if (id.includes('@mui')) return 'vendor-mui';
+    //           if (id.includes('redux')) return 'vendor-state';
+    //           if (id.includes('simple-peer') || id.includes('signalr')) return 'vendor-webrtc';
+    //           return 'vendor-other';
+    //         }
+
+    //         // Feature-based Chunks
+    //         if (id.includes('/features/')) {
+    //           const match = id.match(/\/features\/([^\/]+)/);
+    //           return match ? `feature-${match[1]}` : null;
+    //         }
+    //       },
+
+    //       // Bessere Dateinamen
+    //       entryFileNames: 'assets/[name]-[hash].js',
+    //       chunkFileNames: 'assets/[name]-[hash].js',
+    //       assetFileNames: 'assets/[name]-[hash].[ext]',
+    //     },
+    //   },
+
+    //   // Optimierungen
+    //   minify: isProduction ? 'terser' : false,
+    //   terserOptions: isProduction
+    //     ? {
+    //         compress: {
+    //           drop_console: true,
+    //           drop_debugger: true,
+    //           pure_funcs: ['console.debug'], // ← Nur debug entfernen
+    //         },
+    //       }
+    //     : undefined,
+
+    //   // Performance
+    //   reportCompressedSize: true,
+    //   chunkSizeWarningLimit: 1000, // ← Erhöht für größere Bundles
+    // },
+
+    // Optimize Dependencies
+
     build: {
-      // Produktionsbuild-Konfiguration
-      outDir: 'dist',
-      sourcemap: mode !== 'production',
-      target: 'es2020', // Required für top-level await in Workers
-      // CSS-Chunks reduzieren
-      cssCodeSplit: false,
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            // Separate Chunks für große Abhängigkeiten
-            vendor: ['react', 'react-dom', 'react-router-dom', '@reduxjs/toolkit', 'react-redux'],
-            mui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
-            webrtc: ['simple-peer', '@microsoft/signalr'],
-          },
-        },
-      },
-      // Optimierungen
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          drop_console: mode === 'production',
-          drop_debugger: mode === 'production',
-        },
-      },
+      // Warning-Limit erhöhen
+      chunkSizeWarningLimit: 1500,
+      // Rollup automatisch optimieren lassen (keine manualChunks - verhindert zirkuläre Abhängigkeiten)
     },
-    // TypeScript-Konfiguration
+
     optimizeDeps: {
       include: [
         'react',
         'react-dom',
         'react-router-dom',
-        '@reduxjs/toolkit',
-        'react-redux',
         '@mui/material',
+        '@mui/icons-material',
         '@emotion/react',
         '@emotion/styled',
-        'simple-peer',
-        '@microsoft/signalr',
       ],
+      exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util', 'simple-peer', '@microsoft/signalr'],
+    },
+
+    // Experimentelle Features
+    experimental: {
+      renderBuiltUrl(filename: string) {
+        // CDN Support
+        if (env.VITE_CDN_URL) {
+          return `${env.VITE_CDN_URL}/${filename}`;
+        }
+        return { relative: true };
+      },
     },
   };
 });

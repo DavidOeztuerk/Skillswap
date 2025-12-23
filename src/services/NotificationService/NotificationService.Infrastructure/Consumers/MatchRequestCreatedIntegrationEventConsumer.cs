@@ -5,6 +5,7 @@ using MassTransit;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Services;
 using NotificationService.Infrastructure.Data;
+using NotificationService.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace NotificationService.Infrastructure.Consumers;
@@ -13,12 +14,14 @@ public class MatchRequestCreatedIntegrationEventConsumer(
     INotificationOrchestrator notificationOrchestrator,
     IServiceScopeFactory serviceScopeFactory,
     IUserServiceClient userServiceClient,
+    IMutualAvailabilityService availabilityService,
     ILogger<MatchRequestCreatedIntegrationEventConsumer> logger)
     : IConsumer<MatchRequestCreatedIntegrationEvent>
 {
     private readonly INotificationOrchestrator _notificationOrchestrator = notificationOrchestrator;
     private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
     private readonly IUserServiceClient _userServiceClient = userServiceClient;
+    private readonly IMutualAvailabilityService _availabilityService = availabilityService;
     private readonly ILogger<MatchRequestCreatedIntegrationEventConsumer> _logger = logger;
 
     public async Task Consume(ConsumeContext<MatchRequestCreatedIntegrationEvent> context)
@@ -42,6 +45,13 @@ public class MatchRequestCreatedIntegrationEventConsumer(
                 return;
             }
 
+            // Get mutual availability from both users' connected calendars
+            var availableSlotsHtml = await GetMutualAvailabilityHtmlAsync(
+                message.RequesterId,
+                message.TargetUserId,
+                message.SessionDurationMinutes,
+                context.CancellationToken);
+
             // Create notification record for target user
             var notification = new Notification
             {
@@ -62,7 +72,8 @@ public class MatchRequestCreatedIntegrationEventConsumer(
                     ["SkillName"] = message.SkillName,
                     ["ThreadId"] = message.ThreadId,
                     ["IsSkillExchange"] = message.IsSkillExchange.ToString(),
-                    ["IsMonetary"] = message.IsMonetary.ToString()
+                    ["IsMonetary"] = message.IsMonetary.ToString(),
+                    ["AvailableSlotsHtml"] = availableSlotsHtml
                 }),
                 CreatedAt = DateTime.UtcNow,
                 ScheduledAt = DateTime.UtcNow
@@ -76,22 +87,17 @@ public class MatchRequestCreatedIntegrationEventConsumer(
                 await dbContext.SaveChangesAsync();
             }
 
-            // Build detailed email content
-            var emailBody = BuildMatchRequestEmail(message);
-
-            // Send notification via orchestrator
-            await _notificationOrchestrator.SendNotificationAsync(
-                recipientUserId: message.TargetUserId,
-                type: "EMAIL",
-                title: "Neue Match-Anfrage für " + message.SkillName,
-                message: emailBody,
-                priority: "High",
-                metadata: new Dictionary<string, object>
-                {
-                    ["ActionUrl"] = $"https://skillswap.app/matchmaking/timeline/{message.ThreadId}"
-                });
-
-            _logger.LogInformation("Successfully sent match request notification to user {UserId}", message.TargetUserId);
+            // Send the saved notification with correct email recipient
+            var success = await _notificationOrchestrator.SendNotificationAsync(notification);
+            if (success)
+            {
+                _logger.LogInformation("Sent match request notification to {UserId} at {Email}",
+                    message.TargetUserId, targetUserEmail);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to send match request notification to {UserId}", message.TargetUserId);
+            }
 
             // Send confirmation to requester
             if (!string.IsNullOrEmpty(requesterEmail))
@@ -143,6 +149,53 @@ public class MatchRequestCreatedIntegrationEventConsumer(
             await dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Sent confirmation notification to requester {UserId}", message.RequesterId);
+        }
+    }
+
+    private async Task<string> GetMutualAvailabilityHtmlAsync(
+        string requesterId,
+        string targetUserId,
+        int sessionDurationMinutes,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Look for availability in the next 14 days
+            var startTime = DateTime.UtcNow;
+            var endTime = startTime.AddDays(14);
+
+            var result = await _availabilityService.FindMutualAvailabilityAsync(
+                requesterId,
+                targetUserId,
+                startTime,
+                endTime,
+                sessionDurationMinutes,
+                5, // maxSlots
+                cancellationToken);
+
+            if (!result.Success || result.AvailableSlots.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var slotHtml = string.Join("", result.AvailableSlots.Select(slot =>
+                $"<li>{slot.Start:dddd, dd. MMMM yyyy} um {slot.Start:HH:mm} Uhr ({sessionDurationMinutes} Min.)</li>"));
+
+            return $@"
+    <div style='background-color: #e8f5e9; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+        <h4 style='margin-top: 0;'>📅 Verfügbare Termine (basierend auf euren Kalendern):</h4>
+        <p>Ihr seid beide frei zu folgenden Zeiten:</p>
+        <ul style='margin: 10px 0;'>
+            {slotHtml}
+        </ul>
+        <p style='font-size: 12px; color: #666;'>Diese Vorschläge basieren auf euren verbundenen Kalendern.</p>
+    </div>";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not determine mutual availability for users {RequesterId} and {TargetUserId}",
+                requesterId, targetUserId);
+            return string.Empty;
         }
     }
 

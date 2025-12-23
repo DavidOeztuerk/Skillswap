@@ -18,4 +18,11 @@ public class NotificationHistoryResponse
     public DateTime? ReadAt { get; set; }
     public int RetryCount { get; set; }
     public string? ErrorMessage { get; set; }
+
+    // Frontend-compatible fields
+    public string Title { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public bool IsRead { get; set; }
+    public string? ActionUrl { get; set; }
+    public Dictionary<string, object>? Metadata { get; set; }
 }

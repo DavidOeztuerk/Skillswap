@@ -35,10 +35,14 @@ public class AppointmentsCreatedIntegrationEventConsumer : IConsumer<Appointment
 
     public async Task Consume(ConsumeContext<AppointmentsCreatedIntegrationEvent> context)
     {
+        _logger.LogInformation(
+            "[Consumer Entry] AppointmentsCreatedIntegrationEvent received from RabbitMQ. MessageId: {MessageId}",
+            context.MessageId);
+
         var message = context.Message;
         _logger.LogInformation(
-            "Sending appointment notifications for match {MatchId} - {Count} appointments created",
-            message.MatchId, message.Appointments.Length);
+            "Processing appointment notifications for match {MatchId} - {Count} appointments. OrganizerEmail: {OrganizerEmail}, ParticipantEmail: {ParticipantEmail}",
+            message.MatchId, message.Appointments.Length, message.OrganizerEmail, message.ParticipantEmail);
 
         try
         {

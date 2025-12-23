@@ -2,40 +2,19 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { RouterProvider } from 'react-router-dom';
-import { store } from './store/store';
-import { router } from './routes/Router';
+import { router } from './core/router/Router';
+import { store } from './core/store/store';
+import { setStoreDispatch as setChatHubDispatch } from './features/chat/services/chatHub';
+import { setNotificationHubStore } from './features/notifications/services/notificationHub';
 import './styles/global.css';
+// Optimiert: Nur die meistgenutzten Font-Weights laden (spart ~400KB)
+import '@fontsource/roboto/400.css'; // Regular - Basis
+import '@fontsource/roboto/500.css'; // Medium - Buttons, Überschriften
 
-// ============================================================================
-// Font Loading - Optimized with proper idle callback
-// ============================================================================
+setChatHubDispatch(store.dispatch);
+setNotificationHubStore(store.dispatch, () => store.getState());
 
-const loadFonts = (): void => {
-  // Load critical font weight immediately
-  void import('@fontsource/roboto/400.css');
-
-  // Schedule non-critical font weights during idle time
-  const loadRemainingFonts = (): void => {
-    void import('@fontsource/roboto/300.css');
-    void import('@fontsource/roboto/500.css');
-    void import('@fontsource/roboto/700.css');
-  };
-
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(loadRemainingFonts, { timeout: 2000 });
-  } else {
-    setTimeout(loadRemainingFonts, 100);
-  }
-};
-
-// Load fonts after initial render
-queueMicrotask(loadFonts);
-
-// ============================================================================
-// App Mounting
-// ============================================================================
-
-const container = document.getElementById('root');
+const container = document.querySelector('#root');
 
 if (!container) {
   throw new Error(

@@ -45,6 +45,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationEventRepository, NotificationEventRepository>();
         services.AddScoped<INotificationCampaignRepository, NotificationCampaignRepository>();
         services.AddScoped<INotificationDigestEntryRepository, NotificationDigestEntryRepository>();
+        services.AddScoped<IReminderSettingsRepository, ReminderSettingsRepository>();
+        services.AddScoped<IScheduledReminderRepository, ScheduledReminderRepository>();
         services.Configure<EmailConfiguration>(configuration.GetSection("Email"));
         services.Configure<SmsConfiguration>(configuration.GetSection("SMS"));
         services.Configure<PushNotificationPreferences>(configuration.GetSection("PushNotifications"));
@@ -55,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITemplateEngine, HandlebarsTemplateEngine>();
         services.AddScoped<INotificationOrchestrator, NotificationOrchestrator>();
         services.AddScoped<ISmartNotificationRouter, SmartNotificationRouter>();
+        services.AddScoped<IMutualAvailabilityService, MutualAvailabilityService>();
 
         // Register service clients that use IServiceCommunicationManager
         services.AddScoped<IUserServiceClient, UserServiceClient>();
@@ -119,32 +122,33 @@ public static class ServiceCollectionExtensions
             Console.WriteLine("[INFO] Firebase is disabled. Push notifications will not be available.");
         }
 
-        // Configure Email settings from environment variables
+        // Configure Email settings from environment variables or appsettings
         services.Configure<EmailConfiguration>(options =>
         {
+            // Use PascalCase keys to match appsettings.json structure
             options.SmtpHost = Environment.GetEnvironmentVariable("SMTP_HOST")
-                ?? configuration["Email:smtpHost"]
-                ?? "smtp.gmail.com";
+                ?? configuration["Email:SmtpHost"]
+                ?? "localhost";
             options.SmtpPort = int.Parse(Environment.GetEnvironmentVariable("SMTP_PORT")
-                ?? configuration["Email:smtpPort"]
-                ?? "587");
+                ?? configuration["Email:SmtpPort"]
+                ?? "1025");
             options.Username = Environment.GetEnvironmentVariable("SMTP_USERNAME")
-                ?? configuration["Email:username"]
+                ?? configuration["Email:Username"]
                 ?? "";
             options.Password = Environment.GetEnvironmentVariable("SMTP_PASSWORD")
-                ?? configuration["Email:password"]
+                ?? configuration["Email:Password"]
                 ?? "";
             options.UseSsl = bool.Parse(Environment.GetEnvironmentVariable("SMTP_USE_SSL")
-                ?? configuration["Email:useSsl"]
+                ?? configuration["Email:UseSsl"]
                 ?? "false");
             options.UseStartTls = bool.Parse(Environment.GetEnvironmentVariable("SMTP_USE_STARTTLS")
-                ?? configuration["Email:useStartTls"]
-                ?? "true");
+                ?? configuration["Email:UseStartTls"]
+                ?? "false");
             options.FromAddress = Environment.GetEnvironmentVariable("SMTP_FROM_ADDRESS")
-                ?? configuration["Email:fromAddress"]
-                ?? "noreply@skillswap.com";
+                ?? configuration["Email:FromAddress"]
+                ?? "noreply@skillswap.local";
             options.FromName = Environment.GetEnvironmentVariable("SMTP_FROM_NAME")
-                ?? configuration["Email:fromName"]
+                ?? configuration["Email:FromName"]
                 ?? "SkillSwap";
         });
 
@@ -175,6 +179,7 @@ public static class ServiceCollectionExtensions
 
         services.AddHostedService<NotificationProcessorService>();
         services.AddHostedService<NotificationCleanupService>();
+        services.AddHostedService<ReminderProcessorService>();
 
         services.AddEventBus();
 
