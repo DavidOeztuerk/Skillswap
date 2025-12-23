@@ -14,11 +14,12 @@ import type { VideoCallConfig } from '../types/VideoCallConfig';
 // ============================================================================
 
 export type E2EEStatus =
-  | 'disabled'
+  | 'inactive'
   | 'initializing'
   | 'key-exchange'
   | 'key-rotation'
   | 'active'
+  | 'verified'
   | 'error'
   | 'unsupported';
 
