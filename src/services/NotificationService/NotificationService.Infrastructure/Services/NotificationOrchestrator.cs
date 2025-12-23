@@ -16,7 +16,8 @@ public class NotificationOrchestrator(
     IPushNotificationService pushService,
     ILogger<NotificationOrchestrator> logger,
     IServiceScopeFactory serviceScopeFactory,
-    IHubContext<NotificationHub> hubContext)
+    IHubContext<NotificationHub> hubContext,
+    IUserServiceClient userServiceClient)
     : INotificationOrchestrator
 {
     private readonly IEmailService _emailService = emailService;
@@ -25,6 +26,7 @@ public class NotificationOrchestrator(
     private readonly ILogger<NotificationOrchestrator> _logger = logger;
     private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
     private readonly IHubContext<NotificationHub> _hubContext = hubContext;
+    private readonly IUserServiceClient _userServiceClient = userServiceClient;
 
     public async Task<bool> SendNotificationAsync(Notification notification)
     {
@@ -45,10 +47,24 @@ public class NotificationOrchestrator(
             switch (notification.Type.ToUpperInvariant())
             {
                 case "EMAIL":
-                    success = await _emailService.SendTemplatedEmailAsync(
-                        notification.Recipient,
-                        notification.Template,
-                        metadata.Variables);
+                    // If notification has direct content, use it instead of template
+                    if (!string.IsNullOrEmpty(notification.Content) && !string.IsNullOrEmpty(notification.Subject))
+                    {
+                        _logger.LogDebug("Sending direct email to {Recipient}, Subject: {Subject}",
+                            notification.Recipient, notification.Subject);
+                        success = await _emailService.SendEmailAsync(
+                            notification.Recipient,
+                            notification.Subject,
+                            notification.Content,
+                            notification.Content);
+                    }
+                    else
+                    {
+                        success = await _emailService.SendTemplatedEmailAsync(
+                            notification.Recipient,
+                            notification.Template,
+                            metadata.Variables);
+                    }
                     break;
 
                 case "SMS":
@@ -264,13 +280,31 @@ public class NotificationOrchestrator(
     {
         try
         {
+            // Resolve email address from UserService
+            string recipient = recipientUserId;
+            if (type.Equals("EMAIL", StringComparison.OrdinalIgnoreCase))
+            {
+                var contactInfo = await _userServiceClient.GetUserContactInfoAsync(
+                    new List<string> { recipientUserId },
+                    CancellationToken.None);
+
+                var userEmail = contactInfo.FirstOrDefault()?.Email;
+                if (string.IsNullOrEmpty(userEmail))
+                {
+                    _logger.LogWarning("Could not resolve email for user {UserId}, cannot send email notification", recipientUserId);
+                    return false;
+                }
+                recipient = userEmail;
+                _logger.LogDebug("Resolved email {Email} for user {UserId}", userEmail, recipientUserId);
+            }
+
             // Create and save notification
             var notification = new Notification
             {
                 UserId = recipientUserId,
                 Type = type,
                 Template = type.ToLower().Replace(" ", "_"),
-                Recipient = recipientUserId, // Will be resolved to actual email/phone
+                Recipient = recipient, // Now resolved to actual email for EMAIL type
                 Subject = title,
                 Content = message,
                 Priority = priority,

@@ -59,6 +59,7 @@ app.MapTwoFactorController();
 app.MapPermissionController();
 app.MapAdminEndpoints();
 app.MapEventController();
+app.MapCalendarController();
 
 app.Logger.LogInformation("Starting {ServiceName}", serviceName);
 

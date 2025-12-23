@@ -250,10 +250,11 @@ export const getSpacing = (multiplier: keyof typeof spacing): number => spacing[
  * Get spacing value as CSS string
  */
 export const getSpacingPx = (multiplier: keyof typeof spacing): string =>
-  `${String(spacing[multiplier])}px`;
+  `${spacing[multiplier]}px`;
 
 /**
  * Create spacing shorthand (like CSS padding/margin)
+ * Follows CSS shorthand convention: top right bottom left
  */
 export const createSpacing = (
   top: keyof typeof spacing,
@@ -261,14 +262,12 @@ export const createSpacing = (
   bottom?: keyof typeof spacing,
   left?: keyof typeof spacing
 ): string => {
-  const values = [
-    spacing[top],
-    right !== undefined ? spacing[right] : spacing[top],
-    bottom !== undefined ? spacing[bottom] : spacing[top],
-    left !== undefined ? spacing[left] : right !== undefined ? spacing[right] : spacing[top],
-  ];
+  const topValue = spacing[top];
+  const rightValue = right === undefined ? topValue : spacing[right];
+  const bottomValue = bottom === undefined ? topValue : spacing[bottom];
+  const leftValue = left === undefined ? rightValue : spacing[left];
 
-  return values.map((v) => `${String(v)}px`).join(' ');
+  return [topValue, rightValue, bottomValue, leftValue].map((v) => `${v}px`).join(' ');
 };
 
 // ============================================================================

@@ -169,6 +169,32 @@ export const featureColors = {
     unencrypted: '#f44336',
     verifying: '#ff9800',
   },
+
+  // Network Quality Indicators
+  networkQuality: {
+    excellent: '#4caf50',
+    good: '#8bc34a',
+    fair: '#ff9800',
+    poor: '#f44336',
+    unknown: '#9e9e9e',
+  },
+
+  // Chat Reactions
+  reactions: {
+    like: '#4caf50',
+    love: '#e91e63',
+    laugh: '#ffeb3b',
+    surprised: '#ff9800',
+    sad: '#2196f3',
+    celebrate: '#9c27b0',
+  },
+
+  // Calendar Event Types
+  calendarEvent: {
+    skillExchange: '#ff9800',
+    monetary: '#2196f3',
+    default: '#9c27b0',
+  },
 } as const;
 
 // ============================================================================

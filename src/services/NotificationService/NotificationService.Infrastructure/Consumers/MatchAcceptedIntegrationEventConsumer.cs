@@ -96,22 +96,17 @@ public class MatchAcceptedIntegrationEventConsumer : IConsumer<MatchAcceptedInte
             await dbContext.SaveChangesAsync();
         }
 
-        // Build email content
-        var emailBodyForRequester = BuildAcceptanceEmailForRequester(message);
+        // Send the notification with the correct email recipient
+        var success = await _notificationOrchestrator.SendNotificationAsync(notification);
 
-        // Send notification
-        await _notificationOrchestrator.SendNotificationAsync(
-            recipientUserId: message.RequesterId,
-            type: "EMAIL",
-            title: "Match-Anfrage angenommen!",
-            message: emailBodyForRequester,
-            priority: "High",
-            metadata: new Dictionary<string, object>
-            {
-                ["ActionUrl"] = $"https://skillswap.app/matches/{message.MatchId}"
-            });
-
-        _logger.LogInformation("Sent acceptance notification to requester {UserId}", message.RequesterId);
+        if (success)
+        {
+            _logger.LogInformation("Sent acceptance notification to requester {UserId} at {Email}", message.RequesterId, requesterEmail);
+        }
+        else
+        {
+            _logger.LogWarning("Failed to send acceptance notification to requester {UserId} at {Email}", message.RequesterId, requesterEmail);
+        }
     }
 
     private async Task SendAcceptanceNotificationToTarget(MatchAcceptedIntegrationEvent message, string targetUserEmail)
@@ -148,22 +143,17 @@ public class MatchAcceptedIntegrationEventConsumer : IConsumer<MatchAcceptedInte
             await dbContext.SaveChangesAsync();
         }
 
-        // Build email content
-        var emailBodyForTarget = BuildAcceptanceEmailForTarget(message);
+        // Send the notification with the correct email recipient
+        var success = await _notificationOrchestrator.SendNotificationAsync(notification);
 
-        // Send notification
-        await _notificationOrchestrator.SendNotificationAsync(
-            recipientUserId: message.TargetUserId,
-            type: "EMAIL",
-            title: "Match bestätigt",
-            message: emailBodyForTarget,
-            priority: "Normal",
-            metadata: new Dictionary<string, object>
-            {
-                ["ActionUrl"] = $"https://skillswap.app/matches/{message.MatchId}"
-            });
-
-        _logger.LogInformation("Sent acceptance notification to target user {UserId}", message.TargetUserId);
+        if (success)
+        {
+            _logger.LogInformation("Sent confirmation notification to target user {UserId} at {Email}", message.TargetUserId, targetUserEmail);
+        }
+        else
+        {
+            _logger.LogWarning("Failed to send confirmation notification to target user {UserId} at {Email}", message.TargetUserId, targetUserEmail);
+        }
     }
 
     private string BuildAcceptanceEmailForRequester(MatchAcceptedIntegrationEvent message)

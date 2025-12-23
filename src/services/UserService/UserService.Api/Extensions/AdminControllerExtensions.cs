@@ -41,6 +41,9 @@ public static class AdminControllerExtensions
         {
             var query = new GetAdminUsersQuery
             {
+                // FIXED: PageNumber and PageSize were not being set, causing Skip(-1) error
+                PageNumber = page > 0 ? page : 1,
+                PageSize = limit > 0 ? limit : 20,
                 Status = status,
                 Role = role,
                 Search = search

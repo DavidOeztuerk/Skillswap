@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CQRS.Handlers;
 using Microsoft.Extensions.Logging;
 using CQRS.Models;
@@ -54,20 +55,30 @@ public class GetNotificationHistoryQueryHandler(
                 .OrderByDescending(n => n.CreatedAt)
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(n => new NotificationHistoryResponse
+                .Select(n =>
                 {
-                    Id = n.Id,
-                    Type = n.Type,
-                    Template = n.Template,
-                    Subject = n.Subject,
-                    Status = n.Status,
-                    Priority = n.Priority,
-                    CreatedAt = n.CreatedAt,
-                    SentAt = n.SentAt,
-                    DeliveredAt = n.DeliveredAt,
-                    ReadAt = n.ReadAt,
-                    RetryCount = n.RetryCount,
-                    ErrorMessage = n.ErrorMessage
+                    var metadata = DeserializeMetadata(n.MetadataJson);
+                    return new NotificationHistoryResponse
+                    {
+                        Id = n.Id,
+                        Type = n.Type,
+                        Template = n.Template,
+                        Subject = n.Subject,
+                        Status = n.Status,
+                        Priority = n.Priority,
+                        CreatedAt = n.CreatedAt,
+                        SentAt = n.SentAt,
+                        DeliveredAt = n.DeliveredAt,
+                        ReadAt = n.ReadAt,
+                        RetryCount = n.RetryCount,
+                        ErrorMessage = n.ErrorMessage,
+                        // Frontend-compatible fields
+                        Title = n.Subject,
+                        Message = n.Content ?? "",
+                        IsRead = n.ReadAt.HasValue,
+                        ActionUrl = ExtractActionUrl(metadata),
+                        Metadata = metadata
+                    };
                 })
                 .ToList();
 
@@ -78,5 +89,75 @@ public class GetNotificationHistoryQueryHandler(
             Logger.LogError(ex, "Error retrieving notification history for user {UserId}", request.UserId);
             return Error("An error occurred while retrieving notification history", ErrorCodes.InternalError);
         }
+    }
+
+    private static Dictionary<string, object>? DeserializeMetadata(string? metadataJson)
+    {
+        if (string.IsNullOrEmpty(metadataJson))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, object>>(metadataJson);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ExtractActionUrl(Dictionary<string, object>? metadata)
+    {
+        if (metadata == null)
+            return null;
+
+        // Try common action URL keys
+        string[] actionUrlKeys = ["ActionUrl", "actionUrl", "Url", "url", "Link", "link"];
+        foreach (var key in actionUrlKeys)
+        {
+            if (metadata.TryGetValue(key, out var value) && value is JsonElement element)
+            {
+                return element.GetString();
+            }
+            if (metadata.TryGetValue(key, out var stringValue) && stringValue is string url)
+            {
+                return url;
+            }
+        }
+
+        // Build action URL from common metadata patterns
+        // Match requests - use ThreadId for timeline view
+        if (metadata.TryGetValue("ThreadId", out var threadId))
+        {
+            var threadIdStr = threadId is JsonElement threadElement ? threadElement.GetString() : threadId?.ToString();
+            if (!string.IsNullOrEmpty(threadIdStr))
+                return $"/matchmaking/timeline/{threadIdStr}";
+        }
+
+        // Appointments
+        if (metadata.TryGetValue("AppointmentId", out var appointmentId))
+        {
+            var appointmentIdStr = appointmentId is JsonElement appElement ? appElement.GetString() : appointmentId?.ToString();
+            if (!string.IsNullOrEmpty(appointmentIdStr))
+                return $"/appointments/{appointmentIdStr}";
+        }
+
+        // Matches
+        if (metadata.TryGetValue("MatchId", out var matchId))
+        {
+            var matchIdStr = matchId is JsonElement matchElement ? matchElement.GetString() : matchId?.ToString();
+            if (!string.IsNullOrEmpty(matchIdStr))
+                return $"/matchmaking/{matchIdStr}";
+        }
+
+        // Skills
+        if (metadata.TryGetValue("SkillId", out var skillId))
+        {
+            var skillIdStr = skillId is JsonElement skillElement ? skillElement.GetString() : skillId?.ToString();
+            if (!string.IsNullOrEmpty(skillIdStr))
+                return $"/skills/{skillIdStr}";
+        }
+
+        return null;
     }
 }

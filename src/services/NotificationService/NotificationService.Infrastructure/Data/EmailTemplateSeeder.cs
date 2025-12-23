@@ -320,7 +320,99 @@ The SkillSwap Team",
             CreatedAt = DateTime.UtcNow
         });
 
+        // Appointment Reminder Template
+        templates.Add(new EmailTemplate
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "appointment-reminder",
+            Language = "en",
+            Subject = "Reminder: Your SkillSwap session starts in {{TimeUntil}}",
+            HtmlContent = GetDefaultAppointmentReminderHtml(),
+            TextContent = @"Hi {{RecipientFirstName}},
+
+This is a friendly reminder that your skill session is starting soon!
+
+Session Details:
+- Skill: {{SkillName}}
+- Partner: {{PartnerName}}
+- Date: {{ScheduledDate}}
+- Time: {{ScheduledTime}}
+- Starts in: {{TimeUntil}}
+
+Meeting Link: {{MeetingLink}}
+
+Make sure to join on time!
+
+Best regards,
+The SkillSwap Team",
+            IsActive = true,
+            Version = "1.0",
+            Description = "Appointment reminder notification",
+            VariablesSchema = JsonSerializer.Serialize(new
+            {
+                RecipientFirstName = "string",
+                PartnerName = "string",
+                SkillName = "string",
+                ScheduledDate = "string",
+                ScheduledTime = "string",
+                TimeUntil = "string",
+                MinutesUntil = "number",
+                MeetingLink = "string"
+            }),
+            CreatedAt = DateTime.UtcNow
+        });
+
         return templates;
+    }
+
+    private string GetDefaultAppointmentReminderHtml()
+    {
+        return @"<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: white; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 10px 10px; }
+        .details { background: #fff3e0; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ff6b6b; }
+        .countdown { font-size: 24px; color: #ff6b6b; font-weight: bold; text-align: center; padding: 15px; background: #ffebee; border-radius: 5px; margin: 20px 0; }
+        .button { display: inline-block; padding: 15px 40px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>⏰ Reminder!</h1>
+            <p>Your session is starting soon</p>
+        </div>
+        <div class='content'>
+            <p>Hi {{RecipientFirstName}},</p>
+
+            <div class='countdown'>
+                Starts in {{TimeUntil}}!
+            </div>
+
+            <p>Don't forget about your upcoming skill session:</p>
+
+            <div class='details'>
+                <p><strong>📚 Skill:</strong> {{SkillName}}</p>
+                <p><strong>👤 Partner:</strong> {{PartnerName}}</p>
+                <p><strong>📅 Date:</strong> {{ScheduledDate}}</p>
+                <p><strong>⏰ Time:</strong> {{ScheduledTime}}</p>
+            </div>
+
+            <div style='text-align: center; margin: 30px 0;'>
+                <a href='{{MeetingLink}}' class='button'>Join Now</a>
+            </div>
+
+            <p style='text-align: center; color: #666; font-size: 14px;'>
+                Make sure you have a stable internet connection and a quiet environment.
+            </p>
+        </div>
+    </div>
+</body>
+</html>";
     }
 
     private string GetDefaultEmailVerificationHtml()

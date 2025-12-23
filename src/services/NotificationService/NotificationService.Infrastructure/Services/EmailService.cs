@@ -26,6 +26,10 @@ public class EmailService(
 
     public async Task<bool> SendEmailAsync(string to, string subject, string htmlContent, string textContent, Dictionary<string, string>? headers = null)
     {
+        _logger.LogInformation(
+            "SendEmailAsync called - To: {Recipient}, Subject: {Subject}, SmtpHost: {SmtpHost}, SmtpPort: {SmtpPort}, UseSsl: {UseSsl}, UseStartTls: {UseStartTls}",
+            to, subject, _config.SmtpHost, _config.SmtpPort, _config.UseSsl, _config.UseStartTls);
+
         try
         {
             var message = new MimeMessage();
@@ -57,23 +61,33 @@ public class EmailService(
             var secureSocketOptions = _config.UseSsl ? SecureSocketOptions.SslOnConnect :
                                      _config.UseStartTls ? SecureSocketOptions.StartTls :
                                      SecureSocketOptions.None;
-            
+
+            _logger.LogDebug("Attempting SMTP connection to {Host}:{Port} with security: {Security}",
+                _config.SmtpHost, _config.SmtpPort, secureSocketOptions);
+
             await client.ConnectAsync(_config.SmtpHost, _config.SmtpPort, secureSocketOptions);
+            _logger.LogDebug("SMTP connection established successfully");
 
             if (!string.IsNullOrEmpty(_config.Username))
             {
+                _logger.LogDebug("Authenticating with username: {Username}", _config.Username);
                 await client.AuthenticateAsync(_config.Username, _config.Password);
+                _logger.LogDebug("SMTP authentication successful");
             }
 
+            _logger.LogDebug("Sending email message...");
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
 
-            _logger.LogInformation("Email sent successfully to {Recipient}", to);
+            _logger.LogInformation("Email sent successfully to {Recipient} via {SmtpHost}:{SmtpPort}",
+                to, _config.SmtpHost, _config.SmtpPort);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {Recipient}", to);
+            _logger.LogError(ex,
+                "Failed to send email to {Recipient}. SmtpHost: {SmtpHost}, SmtpPort: {SmtpPort}, ErrorType: {ErrorType}",
+                to, _config.SmtpHost, _config.SmtpPort, ex.GetType().Name);
             return false;
         }
     }

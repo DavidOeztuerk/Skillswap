@@ -10,6 +10,10 @@ using Microsoft.AspNetCore.Mvc;
 using NotificationService.Application.Commands;
 using NotificationService.Application.Queries;
 using NotificationService.Domain.ResponseModels;
+using EmailTemplateDetailResponse = NotificationService.Domain.ResponseModels.EmailTemplateDetailResponse;
+using TemplatePreviewResponse = NotificationService.Domain.ResponseModels.TemplatePreviewResponse;
+using SendTestEmailResponse = NotificationService.Domain.ResponseModels.SendTestEmailResponse;
+using ReminderSettingsResponse = NotificationService.Domain.ResponseModels.ReminderSettingsResponse;
 
 namespace NotificationService.Extensions;
 
@@ -164,6 +168,56 @@ public static class NotificationControllerExtensions
         .RequireAuthorization()
         .Produces<UpdateNotificationPreferencesResponse>(200);
 
+        preferences.MapPost("/push-token", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] RegisterPushTokenRequest request) =>
+        {
+            var userId = claims.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new RegisterPushTokenCommand(userId, request.Token);
+            return await mediator.SendCommand(command);
+        })
+        .WithName("RegisterPushToken")
+        .WithSummary("Register push notification token")
+        .WithDescription("Registers a Firebase Cloud Messaging token for push notifications")
+        .RequireAuthorization()
+        .Produces<bool>(200);
+
+        // Grouped endpoints for reminder settings
+        var reminders = builder.MapGroup("/reminders").WithTags("Reminders");
+
+        reminders.MapGet("/settings", async (IMediator mediator, ClaimsPrincipal claims) =>
+        {
+            var userId = claims.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new GetReminderSettingsQuery(userId);
+            return await mediator.SendQuery(query);
+        })
+        .WithName("GetReminderSettings")
+        .WithSummary("Get reminder settings")
+        .WithDescription("Retrieves the authenticated user's reminder settings")
+        .RequireAuthorization()
+        .Produces<ReminderSettingsResponse>(200);
+
+        reminders.MapPut("/settings", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] UpdateReminderSettingsRequest request) =>
+        {
+            var userId = claims.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new UpdateReminderSettingsCommand(
+                userId,
+                request.ReminderMinutesBefore,
+                request.EmailRemindersEnabled,
+                request.PushRemindersEnabled,
+                request.SmsRemindersEnabled);
+            return await mediator.SendCommand(command);
+        })
+        .WithName("UpdateReminderSettings")
+        .WithSummary("Update reminder settings")
+        .WithDescription("Updates the authenticated user's reminder settings for appointments")
+        .RequireAuthorization()
+        .Produces<ReminderSettingsResponse>(200);
+
         // Grouped endpoints for templates (Admin)
         var templates = builder.MapGroup("/templates").WithTags("Templates");
 
@@ -208,6 +262,48 @@ public static class NotificationControllerExtensions
         .WithDescription("Retrieves all email templates - Admin access required")
         .RequireAuthorization(Policies.RequireAdminRole)
         .Produces<PagedResponse<EmailTemplateResponse>>(200);
+
+        templates.MapGet("/{templateId}", async (IMediator mediator, ClaimsPrincipal claims, string templateId) =>
+        {
+            var userId = claims.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new GetTemplateByIdQuery(templateId);
+            return await mediator.SendQuery(query);
+        })
+        .WithName("GetTemplateById")
+        .WithSummary("Get email template by ID (Admin)")
+        .WithDescription("Retrieves a specific email template with full content - Admin access required")
+        .RequireAuthorization(Policies.RequireAdminRole)
+        .Produces<EmailTemplateDetailResponse>(200);
+
+        templates.MapPost("/preview", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] PreviewTemplateRequest request) =>
+        {
+            var userId = claims.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new PreviewTemplateCommand(request.TemplateId, request.Variables) { UserId = userId };
+            return await mediator.SendCommand(command);
+        })
+        .WithName("PreviewTemplate")
+        .WithSummary("Preview email template (Admin)")
+        .WithDescription("Renders an email template with sample or provided variables - Admin access required")
+        .RequireAuthorization(Policies.RequireAdminRole)
+        .Produces<TemplatePreviewResponse>(200);
+
+        templates.MapPost("/test-send", async (IMediator mediator, ClaimsPrincipal claims, [FromBody] SendTestEmailRequest request) =>
+        {
+            var userId = claims.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new SendTestEmailCommand(request.TemplateId, request.RecipientEmail, request.Variables) { UserId = userId };
+            return await mediator.SendCommand(command);
+        })
+        .WithName("SendTestEmail")
+        .WithSummary("Send test email (Admin)")
+        .WithDescription("Sends a test email using the specified template - Admin access required")
+        .RequireAuthorization(Policies.RequireAdminRole)
+        .Produces<SendTestEmailResponse>(200);
 
         // Grouped endpoints for analytics (Admin)
         var analytics = builder.MapGroup("/analytics").WithTags("Analytics");

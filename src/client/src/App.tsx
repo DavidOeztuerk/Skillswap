@@ -1,39 +1,39 @@
 import { memo, useCallback, useEffect, lazy, Suspense, useState } from 'react';
-import { Outlet } from 'react-router-dom';
-import { CssBaseline, ThemeProvider } from '@mui/material';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { useThemeMode } from './hooks/useTheme';
-import MainLayout from './components/layout/MainLayout';
-import SkipLinks from './components/accessibility/SkipLinks';
-import NetworkStatusIndicator from './components/error/NetworkStatusIndicator';
-import GlobalErrorBoundary from './components/error/GlobalErrorBoundary';
-import GlobalLoadingIndicator from './components/common/GlobalLoadingIndicator';
+import { CssBaseline, ThemeProvider } from '@mui/material';
+import { authEvents } from './core/api/apiClient';
+import { EmailVerificationProvider } from './core/contexts/EmailVerificationContext';
+import { LoadingProvider } from './core/contexts/LoadingContext';
+import { PermissionProvider } from './core/contexts/PermissionContext';
+import { StreamProvider } from './core/contexts/StreamContext';
+import { ToastProvider } from './core/contexts/ToastContext';
 import AuthProvider from './features/auth/AuthProvider';
-import { TwoFactorDialogProvider } from './components/auth/TwoFactorDialog';
-import { PermissionProvider } from './contexts/PermissionContext';
-import { LoadingProvider } from './contexts/LoadingContext';
-import { EmailVerificationProvider } from './contexts/EmailVerificationContext';
-import { ToastProvider } from './contexts/ToastContext';
-import { StreamProvider } from './contexts/StreamContext';
+import { TwoFactorDialogProvider } from './features/auth/components/TwoFactorDialog';
+import SkipLinks from './shared/components/accessibility/SkipLinks';
+import GlobalLoadingIndicator from './shared/components/common/GlobalLoadingIndicator';
+import GlobalErrorBoundary from './shared/components/error/GlobalErrorBoundary';
+import NetworkStatusIndicator from './shared/components/error/NetworkStatusIndicator';
+import MainLayout from './shared/components/layout/MainLayout';
+import { useThemeMode } from './shared/hooks/useTheme';
+import 'react-toastify/dist/ReactToastify.css';
 
-// ============================================================================
-// Lazy-loaded Development Tools
-// ============================================================================
-
-const PerformanceDashboard = lazy(() => import('./components/dev/PerformanceDashboard'));
-
-// ============================================================================
-// App Component
-// ============================================================================
+const PerformanceDashboard = lazy(() => import('./shared/components/dev/PerformanceDashboard'));
 
 const App = memo(() => {
   const { mode, theme, toggleTheme } = useThemeMode();
   const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
+  const navigate = useNavigate();
 
-  // =========================================================================
-  // Document Setup - Run once on mount
-  // =========================================================================
+  useEffect(() => {
+    authEvents.onAuthFailure = () => {
+      void navigate('/auth/login');
+    };
+    return () => {
+      authEvents.onAuthFailure = null;
+    };
+  }, [navigate]);
+
   useEffect(() => {
     // Set language attribute for accessibility
     document.documentElement.lang = 'de';
@@ -44,9 +44,6 @@ const App = memo(() => {
     }
   }, []);
 
-  // =========================================================================
-  // Performance Dashboard Toggle (Development Only)
-  // =========================================================================
   const togglePerformanceDashboard = useCallback(() => {
     setShowPerformanceDashboard((prev) => !prev);
   }, []);
@@ -115,13 +112,32 @@ const App = memo(() => {
             </PermissionProvider>
           </LoadingProvider>
         </AuthProvider>
-
         {/* Development-only Performance Dashboard */}
-        {import.meta.env.DEV && showPerformanceDashboard && (
-          <Suspense fallback={null}>
+        // Optimierung: Suspense Boundary für Performance Dashboard
+        {import.meta.env.DEV && showPerformanceDashboard ? (
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0,0,0,0.8)',
+                  zIndex: 9999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Loading Performance Dashboard...
+              </div>
+            }
+          >
             <PerformanceDashboard visible={showPerformanceDashboard} />
           </Suspense>
-        )}
+        ) : null}
       </ThemeProvider>
     </GlobalErrorBoundary>
   );

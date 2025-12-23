@@ -220,7 +220,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage>): void => {
 
   console.debug(`🍎 Safari E2EE: onrtctransform called for ${operation} (${kind})`);
   console.debug(
-    `🍎 Safari E2EE: encryptionEnabled=${String(encryptionEnabled)}, hasKey=${String(!!encryptionKey)}`
+    `🍎 Safari E2EE: encryptionEnabled=${encryptionEnabled}, hasKey=${!!encryptionKey}`
   );
 
   void transformer.readable
@@ -345,7 +345,7 @@ async function updateKey(payload: {
       ['encrypt', 'decrypt']
     );
     generation = payload.generation;
-    console.debug(`🔄 Safari E2EE Worker: Key updated to generation ${String(generation)}`);
+    console.debug(`🔄 Safari E2EE Worker: Key updated to generation ${generation}`);
   } catch (error) {
     console.error('Safari E2EE Worker: Failed to update key:', error);
   }

@@ -582,6 +582,88 @@
       }
     },
     {
+      "Comment": "========== CALENDAR INTEGRATION ROUTES ==========",
+      "DownstreamPathTemplate": "/users/calendar/connections",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/calendar/connections",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/calendar/connect/{provider}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/calendar/connect/{provider}",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/calendar/callback",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/calendar/callback",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/users/calendar/disconnect/{provider}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/calendar/disconnect/{provider}",
+      "UpstreamHttpMethod": ["DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/calendar/busy-times",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/calendar/busy-times",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "Comment": "Calendar service-to-service endpoints",
+      "DownstreamPathTemplate": "/users/calendar/{userId}/busy-times",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/calendar/{userId}/busy-times",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/users/calendar/{userId}/sync",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/calendar/{userId}/sync",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/users/calendar/{userId}/sync/{appointmentId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/calendar/{userId}/sync/{appointmentId}",
+      "UpstreamHttpMethod": ["PUT", "DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
       "DownstreamPathTemplate": "/skills/my-skills",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
@@ -1071,6 +1153,45 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/appointments/{appointmentId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5004 }
+      ],
+      "UpstreamPathTemplate": "/api/appointments/{appointmentId}",
+      "UpstreamHttpMethod": ["PUT", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/appointments/{appointmentId}/report",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5004 }
+      ],
+      "UpstreamPathTemplate": "/api/appointments/{appointmentId}/report",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/appointments/available-slots",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5004 }
+      ],
+      "UpstreamPathTemplate": "/api/appointments/available-slots",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/my/appointments",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -1210,7 +1331,21 @@
         { "Host": "localhost", "Port": 5006 }
       ],
       "UpstreamPathTemplate": "/api/notifications/templates/{templateId}",
-      "UpstreamHttpMethod": ["PUT"],
+      "UpstreamHttpMethod": ["GET", "PUT"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "Comment": "FIXED: Added preview route for email templates",
+      "DownstreamPathTemplate": "/templates/preview",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/templates/preview",
+      "UpstreamHttpMethod": ["POST"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -1229,6 +1364,46 @@
         "AllowedScopes": []
       },
       "AddQueriesToRequest": true
+    },
+    {
+      "Comment": "========== REMINDER SETTINGS ROUTES ==========",
+      "DownstreamPathTemplate": "/reminders/settings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/reminders/settings",
+      "UpstreamHttpMethod": ["GET", "PUT"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/push/register",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/push/register",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/preferences/push-token",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5006 }
+      ],
+      "UpstreamPathTemplate": "/api/notifications/preferences/push-token",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
     },
     {
       "DownstreamPathTemplate": "/skills/export",
@@ -1741,6 +1916,20 @@
       }
     },
     {
+      "Comment": "========== ADMIN DASHBOARD (DIRECT) ==========",
+      "DownstreamPathTemplate": "/api/admin/dashboard",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/dashboard",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "role": "Admin"
+      }
+    },
+    {
       "Comment": "========== ADMIN STATISTICS & ANALYTICS ==========",
       "DownstreamPathTemplate": "/api/admin/dashboard",
       "DownstreamScheme": "http",
@@ -1879,6 +2068,34 @@
       }
     },
     {
+      "Comment": "========== ADMIN AUDIT LOGS ==========",
+      "DownstreamPathTemplate": "/api/admin/audit-logs",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/audit-logs",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "role": "Admin"
+      }
+    },
+    {
+      "Comment": "========== ADMIN SETTINGS ==========",
+      "DownstreamPathTemplate": "/api/admin/settings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/admin/settings",
+      "UpstreamHttpMethod": ["GET", "PUT", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "role": "Admin"
+      }
+    },
+    {
       "Comment": "========== MODERATION ROUTES ==========",
       "DownstreamPathTemplate": "/reports",
       "DownstreamScheme": "http",
@@ -1994,6 +2211,105 @@
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
+    },
+    {
+      "Comment": "========== CHAT API ROUTES ==========",
+      "DownstreamPathTemplate": "/chat/threads",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/chat/threads",
+      "UpstreamHttpMethod": ["GET", "POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/chat/threads/{threadId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/chat/threads/{threadId}",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/chat/threads/{threadId}/messages",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/chat/threads/{threadId}/messages",
+      "UpstreamHttpMethod": ["GET", "POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/chat/threads/{threadId}/read",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/chat/threads/{threadId}/read",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/chat/threads/{threadId}/typing",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/chat/threads/{threadId}/typing",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/chat/messages/{messageId}/reactions",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/chat/messages/{messageId}/reactions",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/chat/unread",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/chat/unread",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "Comment": "========== CHAT SIGNALR HUB ==========",
+      "DownstreamPathTemplate": "/hubs/chat",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/notification-service/hubs/chat",
+      "UpstreamHttpMethod": ["GET", "POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/hubs/chat/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/notification-service/hubs/chat/{everything}",
+      "UpstreamHttpMethod": ["GET", "POST", "OPTIONS"]
     },
     {
       "DownstreamPathTemplate": "/matches",

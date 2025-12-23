@@ -2,7 +2,8 @@ namespace AppointmentService.Domain.Repositories;
 
 /// <summary>
 /// Unit of Work pattern interface for AppointmentService.
-/// Provides coordinated access to all repositories and manages transactions.
+/// Provides coordinated access to all repositories and manages database persistence.
+/// NOTE: Transaction methods removed - they conflict with NpgsqlRetryingExecutionStrategy.
 /// </summary>
 public interface IAppointmentUnitOfWork : IAsyncDisposable
 {
@@ -32,27 +33,7 @@ public interface IAppointmentUnitOfWork : IAsyncDisposable
     IConnectionRepository Connections { get; }
 
     /// <summary>
-    /// Saves all changes across all repositories as a single transaction.
+    /// Saves all changes across all repositories.
     /// </summary>
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Begins a database transaction.
-    /// </summary>
-    Task BeginTransactionAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Commits the current transaction.
-    /// </summary>
-    Task CommitTransactionAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Rolls back the current transaction.
-    /// </summary>
-    Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Executes an operation within a transaction with automatic commit/rollback.
-    /// </summary>
-    // Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken = default);
 }

@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "target": "ES2020",
+    "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -23,19 +23,17 @@
     "noUncheckedSideEffectImports": true,
     "forceConsistentCasingInFileNames": true,
 
-    /* REMOVE THIS SECTION */
-    /* Worker support - Alternative wenn WebWorker nicht funktioniert */
-    /* "types": ["webworker", "dom"], */
-
-    /* Paths */
+    /* Paths - Feature-Based Architecture */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@features/*": ["src/features/*"],
+      "@shared/*": ["src/shared/*"],
+      "@core/*": ["src/core/*"]
     },
 
-    /* TODO: Enable these gradually and fix violations */
-    "noImplicitReturns": false,
-    "noImplicitOverride": false,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
     "exactOptionalPropertyTypes": false,
     "noPropertyAccessFromIndexSignature": false
   },

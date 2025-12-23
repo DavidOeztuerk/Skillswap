@@ -200,6 +200,18 @@ public class PermissionMiddleware
         // Admin endpoints
         if (path.Contains("/admin/"))
         {
+            // Dashboard, audit logs, and security pages
+            if (path.Contains("/dashboard"))
+                return Permissions.AdminAccessDashboard;
+            if (path.Contains("/audit-logs") || path.Contains("/logs"))
+                return Permissions.SystemViewLogs;
+            if (path.Contains("/security") || path.Contains("/security-alerts"))
+                return Permissions.SecurityViewAlerts;
+            if (path.Contains("/statistics") || path.Contains("/analytics"))
+                return Permissions.AdminViewStatistics;
+            if (path.Contains("/email-templates"))
+                return Permissions.SystemManageSettings;
+
             if (path.Contains("/users"))
             {
                 return method switch

@@ -1,4 +1,5 @@
 using Events.Integration.AppointmentManagement;
+using Infrastructure.Communication;
 using Microsoft.Extensions.Logging;
 using MassTransit;
 using NotificationService.Domain.Enums;
@@ -9,16 +10,19 @@ namespace NotificationService.Infrastructure.Consumers;
 
 /// <summary>
 /// Consumes appointment accepted events and sends confirmation emails with meeting links
+/// Also triggers external calendar sync for both parties
 /// </summary>
 public class AppointmentAcceptedIntegrationEventConsumer(
     ILogger<AppointmentAcceptedIntegrationEventConsumer> logger,
     INotificationOrchestrator orchestrator,
-    ISmartNotificationRouter router)
+    ISmartNotificationRouter router,
+    IServiceCommunicationManager serviceCommunication)
     : IConsumer<AppointmentAcceptedIntegrationEvent>
 {
     private readonly ILogger<AppointmentAcceptedIntegrationEventConsumer> _logger = logger;
     private readonly INotificationOrchestrator _orchestrator = orchestrator;
     private readonly ISmartNotificationRouter _router = router;
+    private readonly IServiceCommunicationManager _serviceCommunication = serviceCommunication;
 
     public async Task Consume(ConsumeContext<AppointmentAcceptedIntegrationEvent> context)
     {
@@ -85,6 +89,9 @@ public class AppointmentAcceptedIntegrationEventConsumer(
             _logger.LogInformation(
                 "Successfully sent appointment confirmation notifications for appointment {AppointmentId}",
                 message.AppointmentId);
+
+            // Sync appointment to external calendars for both parties
+            await SyncToExternalCalendarsAsync(message);
         }
         catch (Exception ex)
         {
@@ -92,6 +99,75 @@ public class AppointmentAcceptedIntegrationEventConsumer(
                 "Failed to process appointment accepted event for appointment {AppointmentId}",
                 message.AppointmentId);
             throw; // Let MassTransit handle retry
+        }
+    }
+
+    /// <summary>
+    /// Sync the confirmed appointment to external calendars for both participants
+    /// </summary>
+    private async Task SyncToExternalCalendarsAsync(AppointmentAcceptedIntegrationEvent message)
+    {
+        try
+        {
+            var syncRequest = new CalendarSyncRequest
+            {
+                AppointmentId = message.AppointmentId,
+                Title = $"SkillSwap: {message.SkillName ?? "Skill Session"}",
+                Description = $"SkillSwap session for {message.SkillName ?? "skill exchange"}\n\n" +
+                    $"Skill Category: {message.SkillCategory ?? "General"}\n" +
+                    $"Duration: {message.DurationMinutes} minutes",
+                StartTime = message.ScheduledDate,
+                EndTime = message.ScheduledDate.AddMinutes(message.DurationMinutes),
+                Location = "Online",
+                MeetingLink = message.MeetingLink,
+                AttendeeEmails = new List<string>
+                {
+                    message.OrganizerEmail,
+                    message.ParticipantEmail
+                }
+            };
+
+            // Sync for organizer
+            await SyncCalendarForUserAsync(message.OrganizerUserId, syncRequest, "organizer");
+
+            // Sync for participant
+            await SyncCalendarForUserAsync(message.ParticipantUserId, syncRequest, "participant");
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail the entire process - calendar sync is best effort
+            _logger.LogWarning(ex,
+                "Failed to sync appointment {AppointmentId} to external calendars, notifications were sent",
+                message.AppointmentId);
+        }
+    }
+
+    private async Task SyncCalendarForUserAsync(string userId, CalendarSyncRequest request, string role)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Syncing appointment {AppointmentId} to external calendars for {Role} (user {UserId})",
+                request.AppointmentId, role, userId);
+
+            var response = await _serviceCommunication.SendRequestAsync<CalendarSyncRequest, CalendarSyncResponse>(
+                "UserService",
+                $"/api/users/calendar/{userId}/sync",
+                request);
+
+            if (response != null)
+            {
+                _logger.LogInformation(
+                    "Calendar sync for {Role} (user {UserId}): {SyncedCount} synced, {FailedCount} failed",
+                    role, userId, response.SyncedCount, response.FailedCount);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to sync calendar for {Role} (user {UserId})",
+                role, userId);
+            // Don't rethrow - calendar sync is best effort
         }
     }
 
@@ -239,4 +315,29 @@ public class AppointmentAcceptedIntegrationEventConsumer(
                 break;
         }
     }
+}
+
+/// <summary>
+/// Request model for syncing to external calendars
+/// </summary>
+internal record CalendarSyncRequest
+{
+    public string AppointmentId { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public DateTime StartTime { get; init; }
+    public DateTime EndTime { get; init; }
+    public string? Location { get; init; }
+    public string? MeetingLink { get; init; }
+    public List<string> AttendeeEmails { get; init; } = [];
+}
+
+/// <summary>
+/// Response from calendar sync operation
+/// </summary>
+internal record CalendarSyncResponse
+{
+    public bool Success { get; init; }
+    public int SyncedCount { get; init; }
+    public int FailedCount { get; init; }
 }
