@@ -1,3 +1,14 @@
+// =============================================================================
+// DEPRECATED - Azure Bicep Templates
+// =============================================================================
+// Diese Datei wird nicht mehr aktiv verwendet.
+// Skillswap wurde auf Oracle Cloud Infrastructure (OCI) migriert.
+//
+// Neue Infrastruktur: /infrastructure/oracle/ (Terraform)
+//
+// Diese Dateien werden für eine mögliche spätere Azure-Migration aufbewahrt.
+// =============================================================================
+
 // Azure Bicep Template für Skillswap Infrastructure
 // Deployment: az deployment group create --resource-group skillswap-rg --template-file main.bicep
 
@@ -9,7 +20,7 @@ param environmentName string = 'staging'
 
 @secure()
 @description('PostgreSQL admin password')
-param postgresPassword string = 'SkillSwap2024!'
+param postgresPassword string = ''
 
 @secure()
 @description('JWT Secret for authentication')
