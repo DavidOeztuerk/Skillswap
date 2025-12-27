@@ -25,7 +25,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IVideocallUnitOfWork, VideocallUnitOfWork>();
         services.AddScoped<IVideoCallSessionRepository, VideoCallSessionRepository>();
         services.AddScoped<ICallParticipantRepository, CallParticipantRepository>();
-        services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
         services.AddScoped<IE2EEAuditLogRepository, E2EEAuditLogRepository>();
 
         // Register E2EE Rate Limiter (Singleton - uses Redis)

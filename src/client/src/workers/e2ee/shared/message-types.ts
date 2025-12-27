@@ -146,6 +146,8 @@ export interface WorkerDecryptSuccessMessage {
     readonly decryptedData: ArrayBuffer;
     readonly decryptionTime?: number;
     readonly wasEncrypted?: boolean;
+    /** true wenn Frame verworfen wurde (verschlüsselt aber kein Key vorhanden) */
+    readonly dropped?: boolean;
   };
 }
 
@@ -208,6 +210,8 @@ export interface WorkerStats {
   readonly averageDecryptionTimeMs: number;
   readonly keyGeneration: number;
   readonly encryptionEnabled: boolean;
+  /** Anzahl verworfener Frames (verschlüsselt empfangen aber kein Key vorhanden) */
+  droppedFrames?: number;
 }
 
 /**
@@ -225,6 +229,7 @@ export function createInitialStats(): WorkerStats {
     averageDecryptionTimeMs: 0,
     keyGeneration: 0,
     encryptionEnabled: false,
+    droppedFrames: 0,
   };
 }
 

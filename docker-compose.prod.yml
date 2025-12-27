@@ -84,6 +84,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ENABLE_SWAGGER=false
       - LOG_LEVEL=Warning
+      - AppSettings__BaseUrl=${APP_BASE_URL:-https://skillswap.com}
     secrets:
       - jwt_secret
       - postgres_user

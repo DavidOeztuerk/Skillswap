@@ -1,14 +1,17 @@
 /**
- * Safari E2EE Worker mit RTCRtpScriptTransform
+ * Safari/Firefox E2EE Worker mit RTCRtpScriptTransform
  *
  * Event-basierte Frame-Verarbeitung via onrtctransform.
- * Safari verwendet eine komplett andere API als Chrome/Firefox!
+ * Safari und Firefox nutzen RTCRtpScriptTransform statt Chrome's createEncodedStreams.
  *
- * KRITISCHE UNTERSCHIEDE:
- * 1. Safari nutzt `onrtctransform` Event statt `postMessage` für Frames
- * 2. Safari akzeptiert KEINEN `tagLength` Parameter bei AES-GCM
- * 3. Keys müssen VOR dem RTCRtpScriptTransform Event gesetzt sein!
- * 4. Frame-Verarbeitung erfolgt über TransformStream Pipeline
+ * UNTERSCHIEDE ZU CHROME:
+ * 1. Nutzt `onrtctransform` Event statt `postMessage` für Frames
+ * 2. Keys müssen VOR dem RTCRtpScriptTransform Event gesetzt sein!
+ * 3. Frame-Verarbeitung erfolgt über TransformStream Pipeline
+ *
+ * BROWSER-KOMPATIBILITÄT (verifiziert 2024-12):
+ * - AES-GCM tagLength: Funktioniert in ALLEN modernen Browsern
+ * - Worker Message Transfer: 10MB+ ohne Probleme
  */
 
 /// <reference path="./worker-types.d.ts" />
@@ -20,16 +23,16 @@ import {
   isUpdateKeyMessage,
   isInitMessage,
   createInitialState,
+  updateKeyInState,
   importEncryptionKey,
   encryptFrameData,
-  decryptFrameData,
+  decryptFrameDataWithState,
   updateEncryptionStats,
   updateDecryptionStats,
   incrementEncryptionError,
   incrementDecryptionError,
   setKeyGeneration,
   setEncryptionEnabled,
-  SAFARI_CONFIG,
 } from './shared';
 
 // ============================================================================
@@ -40,6 +43,10 @@ let state: WorkerCryptoState = createInitialState();
 
 // Stats Reporting Interval
 let statsReportInterval: ReturnType<typeof setInterval> | null = null;
+
+// Store video receiver transformers for keyframe requests
+// Wir speichern den Transformer um nach Key-Update einen Keyframe anzufordern
+const videoReceiverTransformers: RTCTransformer[] = [];
 
 // ============================================================================
 // Safari RTCRtpScriptTransform Handler
@@ -59,6 +66,15 @@ let statsReportInterval: ReturnType<typeof setInterval> | null = null;
     `[Safari E2EE Worker] onrtctransform: operation=${operation}, kind=${kind}, ` +
       `encryptionEnabled=${state.encryptionEnabled}, hasKey=${state.encryptionKey !== null}`
   );
+
+  // Store video receiver transformer for keyframe requests
+  // WICHTIG: Nach Key-Update fordern wir einen Keyframe an damit Video sofort startet!
+  if (operation === 'decrypt' && kind === 'video') {
+    videoReceiverTransformers.push(transformer);
+    console.debug(
+      `[Safari E2EE Worker] Stored video receiver transformer (total: ${videoReceiverTransformers.length})`
+    );
+  }
 
   const transformStream = new TransformStream<
     RTCEncodedVideoFrame | RTCEncodedAudioFrame,
@@ -96,6 +112,8 @@ let statsReportInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Verschlüsselt einen Frame im Stream
+ *
+ * Frame Format: [Generation (1 byte)][IV (12 bytes)][Ciphertext + AuthTag]
  */
 async function handleStreamEncrypt(
   frame: RTCEncodedVideoFrame | RTCEncodedAudioFrame,
@@ -109,7 +127,13 @@ async function handleStreamEncrypt(
   }
 
   try {
-    const encryptedData = await encryptFrameData(state.encryptionKey, frame.data, SAFARI_CONFIG);
+    // Pass generation to encryption so frames can be decrypted with the right key
+    const encryptedData = await encryptFrameData(
+      state.encryptionKey,
+      frame.data,
+      undefined, // Legacy config parameter, ignored
+      state.generation // Generation Byte für Multi-Key Support
+    );
 
     // Frame-Daten ersetzen (mutabel!)
     frame.data = encryptedData;
@@ -127,24 +151,61 @@ async function handleStreamEncrypt(
 }
 
 /**
- * Entschlüsselt einen Frame im Stream
+ * Prüft ob ein Frame verschlüsselt aussieht
+ * Frame Format: [Generation (1)][IV (12)][Ciphertext + AuthTag (16+)]
+ * Minimale Größe: 1 + 12 + 16 + 1 = 30 bytes
+ */
+function looksEncrypted(frameData: ArrayBuffer): boolean {
+  const MIN_ENCRYPTED_SIZE = 30; // Generation (1) + IV (12) + AuthTag (16) + 1
+  return frameData.byteLength >= MIN_ENCRYPTED_SIZE;
+}
+
+// Debug counter for periodic logging
+let decryptFrameCount = 0;
+const DEBUG_LOG_INTERVAL = 100; // Log every 100 frames
+
+/**
+ * Entschlüsselt einen Frame im Stream mit Multi-Key Support
  *
- * KRITISCH: Decryption IMMER versuchen wenn Key vorhanden!
- * Der andere Peer könnte bereits verschlüsselt senden.
+ * Frame Format: [Generation (1 byte)][IV (12 bytes)][Ciphertext + AuthTag]
+ *
+ * KRITISCH: Wenn kein Key vorhanden ist, aber Frame verschlüsselt aussieht,
+ * muss der Frame VERWORFEN werden (nicht passthrough!), da sonst korrupte
+ * Daten angezeigt werden (schwarzes Video).
  */
 async function handleStreamDecrypt(
   frame: RTCEncodedVideoFrame | RTCEncodedAudioFrame,
   controller: TransformStreamDefaultController<RTCEncodedVideoFrame | RTCEncodedAudioFrame>,
   startTime: number
 ): Promise<void> {
-  // Kein Key -> Passthrough
+  decryptFrameCount++;
+
+  // Periodic debug logging
+  if (decryptFrameCount % DEBUG_LOG_INTERVAL === 1) {
+    const frameGen = frame.data.byteLength > 0 ? new Uint8Array(frame.data)[0] : -1;
+    console.debug(
+      `[Safari E2EE Worker] Decrypt frame #${decryptFrameCount}: ` +
+        `hasKey=${state.encryptionKey !== null}, ` +
+        `gen=${state.generation}, prevGen=${state.previousGeneration}, ` +
+        `frameGen=${frameGen}, frameSize=${frame.data.byteLength}, ` +
+        `stats: dec=${state.stats.decryptedFrames}, drop=${state.stats.droppedFrames ?? 0}`
+    );
+  }
+
+  // Kein Key -> Frame verwerfen wenn er verschlüsselt aussieht
   if (state.encryptionKey === null) {
+    if (looksEncrypted(frame.data)) {
+      state.stats.droppedFrames = (state.stats.droppedFrames ?? 0) + 1;
+      return; // Frame nicht enqueueen = verwerfen
+    }
+    // Kleine Frames passthrough - wahrscheinlich nicht verschlüsselt
     controller.enqueue(frame);
     return;
   }
 
   try {
-    const result = await decryptFrameData(state.encryptionKey, frame.data, SAFARI_CONFIG);
+    // Use multi-key decryption with generation support!
+    const result = await decryptFrameDataWithState(state, frame.data);
 
     // Frame-Daten ersetzen
     frame.data = result.data;
@@ -155,9 +216,11 @@ async function handleStreamDecrypt(
     controller.enqueue(frame);
   } catch (error) {
     state.stats = incrementDecryptionError(state.stats);
-    console.error('[Safari E2EE Worker] Decryption error:', error);
-    // Bei Fehler: Original-Frame durchlassen
-    controller.enqueue(frame);
+    state.stats.droppedFrames = (state.stats.droppedFrames ?? 0) + 1;
+    // Log with frame generation info for debugging
+    if (decryptFrameCount % DEBUG_LOG_INTERVAL === 1) {
+      console.warn('[Safari E2EE Worker] Decryption failed, dropping frame:', error);
+    }
   }
 }
 
@@ -254,25 +317,95 @@ async function handleInit(
     state.encryptionKey = await importEncryptionKey(payload.encryptionKey);
     state.generation = payload.generation ?? 1;
     state.stats = setKeyGeneration(state.stats, state.generation);
+
+    // Auto-enable encryption when key is provided during init
+    if (!state.encryptionEnabled) {
+      state.encryptionEnabled = true;
+      state.stats = setEncryptionEnabled(state.stats, true);
+      startStatsReporting();
+      console.debug(`[Safari E2EE Worker] Auto-enabled encryption during init`);
+    }
+
     console.debug(`[Safari E2EE Worker] Key initialized, generation=${state.generation}`);
   }
   postResponse({ type: 'ready', operationId });
 }
 
 /**
- * Aktualisiert den Encryption Key
+ * Aktualisiert den Encryption Key mit Multi-Key Support
+ *
+ * KRITISCH für Safari: Encryption wird automatisch aktiviert wenn Key gesetzt wird!
+ * Das ist notwendig weil onrtctransform SOFORT nach RTCRtpScriptTransform feuert,
+ * oft BEVOR der Main Thread enableEncryption() aufrufen kann.
+ *
+ * Der vorherige Key wird gespeichert für Frames die noch unterwegs sind (Key Rotation).
  */
 async function handleUpdateKey(
   payload: { encryptionKey: JsonWebKey; generation: number },
   operationId?: number
 ): Promise<void> {
-  state.encryptionKey = await importEncryptionKey(payload.encryptionKey);
-  state.generation = payload.generation;
+  const newKey = await importEncryptionKey(payload.encryptionKey);
+
+  // Use updateKeyInState to preserve previous key for in-transit frames!
+  state = updateKeyInState(state, newKey, payload.generation);
   state.stats = setKeyGeneration(state.stats, state.generation);
 
-  console.debug(`[Safari E2EE Worker] Key updated, generation=${state.generation}`);
+  // KRITISCH: Encryption automatisch aktivieren wenn Key gesetzt wird!
+  if (!state.encryptionEnabled) {
+    state.encryptionEnabled = true;
+    state.stats = setEncryptionEnabled(state.stats, true);
+    startStatsReporting();
+    console.debug(`[Safari E2EE Worker] Auto-enabled encryption with key update`);
+  }
+
+  console.debug(
+    `[Safari E2EE Worker] Key updated: gen=${state.generation}, prevGen=${state.previousGeneration}`
+  );
+
+  // KRITISCH: Keyframe anfordern damit Video sofort startet!
+  // Ohne das muss der Decoder auf den nächsten I-Frame warten (2-10 Sekunden)
+  requestKeyFrames();
 
   postResponse({ type: 'keyUpdated', operationId });
+}
+
+/**
+ * Fordert Keyframes von allen Video-Receivern an
+ *
+ * WICHTIG: Nach Key-Exchange oder Key-Rotation müssen wir einen Keyframe anfordern,
+ * sonst muss der Video-Decoder auf den nächsten I-Frame warten (kann 2-10 Sekunden dauern!)
+ *
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/RTCRtpScriptTransformer/sendKeyFrameRequest
+ */
+function requestKeyFrames(): void {
+  if (videoReceiverTransformers.length === 0) {
+    console.debug('[Safari E2EE Worker] No video receiver transformers to request keyframes from');
+    return;
+  }
+
+  console.debug(
+    `[Safari E2EE Worker] Requesting keyframes from ${videoReceiverTransformers.length} video receivers`
+  );
+
+  for (const transformer of videoReceiverTransformers) {
+    try {
+      // sendKeyFrameRequest() ist asynchron aber wir warten nicht darauf
+      // Der Browser entscheidet selbst ob ein Keyframe wirklich benötigt wird
+      if (typeof transformer.sendKeyFrameRequest === 'function') {
+        void transformer
+          .sendKeyFrameRequest()
+          .then(() => {
+            console.debug('[Safari E2EE Worker] Keyframe request sent successfully');
+          })
+          .catch((error: unknown) => {
+            // Nicht kritisch - Browser kann die Anfrage ablehnen
+            console.debug('[Safari E2EE Worker] Keyframe request failed (not critical):', error);
+          });
+      }
+    } catch (error) {
+      console.debug('[Safari E2EE Worker] sendKeyFrameRequest not supported:', error);
+    }
+  }
 }
 
 // ============================================================================
@@ -316,6 +449,8 @@ function stopStatsReporting(): void {
 function handleCleanup(operationId?: number): void {
   stopStatsReporting();
   state = createInitialState();
+  // Clear stored transformers
+  videoReceiverTransformers.length = 0;
   postResponse({ type: 'cleanupComplete', operationId });
 }
 

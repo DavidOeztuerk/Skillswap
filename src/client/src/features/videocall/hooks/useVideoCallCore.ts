@@ -36,9 +36,6 @@ import {
   setError,
   addParticipant,
   removeParticipant,
-  incrementChatMessagesDecrypted,
-  incrementChatVerificationFailures,
-  addMessage,
   updateParticipant,
   setLoading,
   initializeCall,
@@ -46,8 +43,6 @@ import {
 } from '../store/videoCallSlice';
 import { joinVideoCall, leaveVideoCall } from '../store/videocallThunks';
 import { type VideoCallSharedRefs, useRefSync } from './VideoCallContext';
-import type { EncryptedMessage } from '../../../shared/utils/crypto/e2eeChatEncryption';
-import type { ChatMessage } from '../../chat/types/ChatMessage';
 import type { VideoCallConfig } from '../types/VideoCallConfig';
 
 // ============================================================================
@@ -73,7 +68,7 @@ function getParticipantName(userId: string, config: VideoCallConfig): string {
   if (userId === config.participantUserId) {
     return config.participantName;
   }
-  return 'Teilnehmer';
+  return 'Participant';
 }
 
 /**
@@ -173,33 +168,101 @@ function cleanupE2EE(refs: VideoCallSharedRefs): void {
   refs.e2eeTransformsAppliedRef.current = false;
 }
 
+interface TrackCleanupItem {
+  sender: RTCRtpSender;
+  track: MediaStreamTrack;
+}
+
+/**
+ * Safari cleanup: Remove all tracks, wait, then stop all tracks
+ */
+async function cleanupTracksSafari(
+  pc: RTCPeerConnection,
+  tracksToCleanup: TrackCleanupItem[]
+): Promise<void> {
+  // Step 1: Remove all tracks from PeerConnection
+  for (const { sender, track } of tracksToCleanup) {
+    try {
+      console.debug(`🍎 Safari: Removing ${track.kind} track from PC...`);
+      pc.removeTrack(sender);
+    } catch (e) {
+      console.warn(`Error removing ${track.kind} track from PC:`, e);
+    }
+  }
+
+  // Step 2: CRITICAL - Safari needs 50ms delay between removeTrack and stop!
+  console.debug('🍎 Safari: Waiting 50ms for camera release...');
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 50);
+  });
+
+  // Step 3: Now stop all tracks
+  for (const { track } of tracksToCleanup) {
+    try {
+      track.stop();
+      track.enabled = false;
+      console.debug(`🍎 Safari: Stopped ${track.kind} track`);
+    } catch (e) {
+      console.warn(`Error stopping ${track.kind} track:`, e);
+    }
+  }
+}
+
+/**
+ * Chrome/Firefox cleanup: Stop and remove each track
+ */
+function cleanupTracksStandard(pc: RTCPeerConnection, tracksToCleanup: TrackCleanupItem[]): void {
+  for (const { sender, track } of tracksToCleanup) {
+    try {
+      track.stop();
+      track.enabled = false;
+      pc.removeTrack(sender);
+      console.debug(`✅ Stopped and removed ${track.kind} track`);
+    } catch (e) {
+      console.warn(`Error cleaning ${track.kind} track:`, e);
+    }
+  }
+}
+
 /**
  * Clean up PeerConnection and its tracks
+ * CRITICAL: Safari requires removeTrack() BEFORE track.stop() to release camera indicator
+ * IMPORTANT: This function MUST be called BEFORE StreamManager.destroyAllStreams()
  */
 async function cleanupPeerConnection(refs: VideoCallSharedRefs): Promise<void> {
-  if (!refs.peerRef.current) return;
+  if (!refs.peerRef.current) {
+    console.debug('🧹 cleanupPeerConnection: No PeerConnection to clean up');
+    return;
+  }
 
   const pc = refs.peerRef.current;
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
   try {
-    const senders = pc.getSenders();
-    console.debug(`🧹 Cleanup: Removing ${senders.length} tracks from senders`);
-    for (const sender of senders) {
-      if (sender.track) {
-        try {
-          sender.track.stop();
-          sender.track.enabled = false;
-          pc.removeTrack(sender);
-        } catch (e) {
-          console.warn('Error removing track from sender:', e);
-        }
-      }
+    // Collect all tracks BEFORE any removal (sender.track becomes null after removeTrack in Safari)
+    const tracksToCleanup: TrackCleanupItem[] = pc
+      .getSenders()
+      .filter((s): s is RTCRtpSender & { track: MediaStreamTrack } => s.track !== null)
+      .map((sender) => ({ sender, track: sender.track }));
+
+    console.debug(
+      `🧹 Cleanup: Processing ${tracksToCleanup.length} active tracks (Safari: ${isSafari})`
+    );
+
+    // Browser-specific cleanup
+    if (isSafari) {
+      await cleanupTracksSafari(pc, tracksToCleanup);
+    } else {
+      cleanupTracksStandard(pc, tracksToCleanup);
     }
 
+    // Clear event handlers
     pc.onicecandidate = null;
     pc.ontrack = null;
     pc.onconnectionstatechange = null;
     pc.oniceconnectionstatechange = null;
 
+    // Small delay before closing
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 50);
     });
@@ -572,28 +635,68 @@ export const useVideoCallCore = (
         setTimeout(resolve, 50);
       });
 
-      // Stop local stream tracks if call was active
+      // CRITICAL FIX: PeerConnection cleanup MUST run FIRST for Safari!
+      // Safari requires pc.removeTrack(sender) while tracks still exist
+      // If StreamManager runs first, sender.track will be null and removeTrack won't work
+      console.debug('🍎 Safari Fix: Running PeerConnection cleanup BEFORE StreamManager...');
+      await cleanupPeerConnection(refs);
+
+      // THEN use StreamManager to clean up any remaining streams
+      // StreamManager handles both Safari and Chrome track cleanup
+      try {
+        const streamManager = StreamManager.getInstance();
+        console.debug('🎥 Using StreamManager to destroy remaining streams...');
+        streamManager.destroyAllStreams();
+      } catch (e) {
+        console.warn('StreamManager cleanup error:', e);
+      }
+
+      // Fallback: Also stop local stream tracks directly in case StreamManager missed any
       const currentLocalStream = localStreamRef.current;
-      if (currentLocalStream && refs.peerRef.current) {
-        console.debug('🎥 Stopping local stream tracks for camera release...');
+      if (currentLocalStream) {
+        console.debug('🎥 Fallback: Stopping remaining local stream tracks...');
         currentLocalStream.getTracks().forEach((track) => {
           try {
-            track.stop();
-            track.enabled = false;
-            console.debug(`✅ Stopped local ${track.kind} track`);
+            if (track.readyState === 'live') {
+              track.stop();
+              track.enabled = false;
+              console.debug(`✅ Fallback stopped local ${track.kind} track`);
+            }
           } catch (e) {
             console.warn(`Error stopping local ${track.kind} track:`, e);
           }
         });
       }
 
-      // PeerConnection cleanup - critical for Safari camera release
-      await cleanupPeerConnection(refs);
-
-      // SignalR cleanup after E2EE handlers removed
-      if (refs.signalRConnectionRef.current) {
+      // SignalR cleanup - IMPORTANT: Remove handlers BEFORE stop() to prevent memory leaks
+      const connection = refs.signalRConnectionRef.current;
+      if (connection) {
         try {
-          await refs.signalRConnectionRef.current.stop();
+          // Remove ALL event handlers before stopping
+          const signalREvents = [
+            'UserJoined',
+            'UserLeft',
+            'RoomJoined',
+            'HeartbeatAck',
+            'ReceiveOffer',
+            'ReceiveAnswer',
+            'ReceiveIceCandidate',
+            'ChatMessage',
+            'MediaStateChanged',
+          ];
+
+          console.debug('🔌 SignalR: Removing event handlers before stop...');
+          signalREvents.forEach((event) => {
+            try {
+              connection.off(event);
+            } catch {
+              // Ignore removal errors
+            }
+          });
+
+          // Now stop the connection
+          await connection.stop();
+          console.debug('✅ SignalR: Connection stopped cleanly');
         } catch {
           // Ignore stop errors
         }
@@ -628,10 +731,16 @@ export const useVideoCallCore = (
   // ===== SIGNALR SETUP =====
   const setupSignalR = useCallback(
     async (config: VideoCallConfig) => {
+      // Guard against race condition: don't setup if component unmounted
+      if (!refs.isMountedRef.current) {
+        console.debug('🔌 SignalR setup skipped - component unmounted');
+        return;
+      }
+
       const token = getToken();
 
       if (!token) {
-        dispatch(setError('Authentifizierungsfehler'));
+        dispatch(setError('Authentication error'));
         return;
       }
 
@@ -801,56 +910,6 @@ export const useVideoCallCore = (
         }
       );
 
-      // ChatMessage
-      connection.on(
-        'ChatMessage',
-        async (data: { userId: string; message: string; timestamp: string }) => {
-          const currentUser = refs.userRef.current;
-          if (data.userId === currentUser?.id) return;
-
-          let messageContent = data.message;
-          let isEncrypted = false;
-          let isVerified = false;
-
-          const currentChatE2EEStatus = refs.chatE2EEStatusRef.current;
-          const currentRoomId = refs.roomIdRef.current;
-
-          if (currentChatE2EEStatus === 'active' && currentRoomId) {
-            try {
-              const encryptedData = JSON.parse(data.message) as EncryptedMessage;
-              const decrypted = await refs.chatManagerRef.current.decryptMessage(
-                currentRoomId,
-                encryptedData
-              );
-              messageContent = decrypted.content;
-              isEncrypted = true;
-              isVerified = decrypted.isVerified;
-
-              dispatch(incrementChatMessagesDecrypted());
-              if (!isVerified) {
-                dispatch(incrementChatVerificationFailures());
-              }
-            } catch {
-              // Use original message
-            }
-          }
-
-          const chatMessage: ChatMessage = {
-            id: Date.now().toString(),
-            sessionId: refs.sessionIdRef.current ?? '',
-            senderId: data.userId,
-            senderName: 'Participant',
-            message: messageContent,
-            sentAt: data.timestamp,
-            messageType: isEncrypted ? 'Encrypted' : 'Text',
-            isEncrypted,
-            isVerified,
-          };
-
-          dispatch(addMessage(chatMessage));
-        }
-      );
-
       // MediaStateChanged
       connection.on(
         'MediaStateChanged',
@@ -908,6 +967,7 @@ export const useVideoCallCore = (
       try {
         await connection.start();
         console.debug('✅ SignalR connected');
+        // eslint-disable-next-line require-atomic-updates -- refs is stable context reference
         refs.signalRConnectionRef.current = connection;
         dispatch(setConnected(true));
 
@@ -917,6 +977,7 @@ export const useVideoCallCore = (
         }
 
         // Start heartbeat
+        // eslint-disable-next-line require-atomic-updates -- refs is stable context reference
         refs.heartbeatIntervalRef.current = setInterval(() => {
           const currentRoomId = refs.roomIdRef.current;
           if (connection.state === HubConnectionState.Connected && currentRoomId) {
@@ -927,7 +988,7 @@ export const useVideoCallCore = (
         }, HEARTBEAT_INTERVAL);
       } catch (err) {
         console.error('SignalR start failed:', err);
-        dispatch(setError('SignalR-Verbindung fehlgeschlagen'));
+        dispatch(setError('SignalR connection failed'));
         throw err;
       }
     },
@@ -991,7 +1052,7 @@ export const useVideoCallCore = (
       } catch (err: unknown) {
         console.error('WebRTC Setup Error:', err);
         setRefValue(refs.isInitializedRef, false);
-        dispatch(setError(err instanceof Error ? err.message : 'Verbindungsaufbau fehlgeschlagen'));
+        dispatch(setError(err instanceof Error ? err.message : 'Connection setup failed'));
         await cleanupResources(true);
       }
     },
@@ -1019,7 +1080,7 @@ export const useVideoCallCore = (
 
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- data can be undefined after isSuccessResponse
           if (!isSuccessResponse(configResponse) || configResponse.data === undefined) {
-            throw new Error('Konnte Anruf-Konfiguration nicht laden');
+            throw new Error('Could not load call configuration');
           }
 
           const config = configResponse.data;
@@ -1044,7 +1105,7 @@ export const useVideoCallCore = (
           }
         } catch (err: unknown) {
           console.error('Start Video Call Failed:', err);
-          dispatch(setError(err instanceof Error ? err.message : 'Fehler beim Starten'));
+          dispatch(setError(err instanceof Error ? err.message : 'Error starting call'));
           await cleanupResources(true);
         } finally {
           dispatch(setLoading(false));
@@ -1070,28 +1131,52 @@ export const useVideoCallCore = (
   );
 
   // ===== CLEANUP ON UNMOUNT =====
+  // IMPORTANT: Empty dependency array! Only cleanup on actual unmount.
+  // cleanupResourcesRef.current is used instead of cleanupResources directly,
+  // so this effect won't re-trigger on callback changes.
   useEffect(() => {
     refs.isMountedRef.current = true;
 
     return () => {
       console.debug('🔄 useVideoCallCore unmounting');
       refs.isMountedRef.current = false;
-      void cleanupResources(true);
+      // Use ref to get current cleanupResources without dependency
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ref.current can be null at unmount
+      if (cleanupResourcesRef.current != null) {
+        void cleanupResourcesRef.current(true);
+      }
     };
-  }, [cleanupResources, refs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run on mount/unmount
+  }, []);
 
   // ===== SAFARI EMERGENCY CLEANUP =====
   useEffect(() => {
-    const handleBeforeUnload = (): void => {
-      console.debug('🚨 beforeunload: Emergency camera cleanup');
+    // Safari detection - must remove track from PC before stopping
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-      if (refs.peerRef.current) {
+    const handleBeforeUnload = (): void => {
+      console.debug(`🚨 beforeunload: Emergency camera cleanup (Safari: ${isSafari})`);
+
+      const pc = refs.peerRef.current;
+      if (pc) {
         try {
-          const senders = refs.peerRef.current.getSenders();
+          const senders = pc.getSenders();
           senders.forEach((sender) => {
-            if (sender.track) {
-              sender.track.stop();
-              sender.track.enabled = false;
+            // Destructure track from sender for ESLint prefer-destructuring
+            const { track } = sender;
+            if (track) {
+              try {
+                // CRITICAL: Safari requires removeTrack BEFORE stop() for camera indicator release
+                if (isSafari) {
+                  pc.removeTrack(sender);
+                  console.debug(`🍎 Safari beforeunload: Removed ${track.kind} track from PC`);
+                }
+                // Use saved reference, NOT sender.track (which is now null!)
+                track.stop();
+                track.enabled = false;
+              } catch {
+                /* ignore individual track errors */
+              }
             }
           });
         } catch {
@@ -1101,7 +1186,21 @@ export const useVideoCallCore = (
 
       const currentLocalStream = localStreamRef.current;
       if (currentLocalStream) {
-        currentLocalStream.getTracks().forEach((track) => {
+        const tracks = currentLocalStream.getTracks();
+
+        // Safari: Remove tracks from stream BEFORE stopping
+        if (isSafari) {
+          tracks.forEach((track) => {
+            try {
+              currentLocalStream.removeTrack(track);
+            } catch {
+              /* ignore */
+            }
+          });
+        }
+
+        // Now stop all tracks
+        tracks.forEach((track) => {
           try {
             track.stop();
             track.enabled = false;
@@ -1111,6 +1210,7 @@ export const useVideoCallCore = (
         });
       }
 
+      // StreamManager handles Safari-specific cleanup internally
       try {
         const streamManager = StreamManager.getInstance();
         streamManager.destroyAllStreams();

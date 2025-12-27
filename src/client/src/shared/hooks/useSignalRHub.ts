@@ -159,10 +159,6 @@ export interface UseSignalRHubReturn {
   sendOffer: (roomId: string, targetUserId: string, sdp: string) => Promise<void>;
   sendAnswer: (roomId: string, targetUserId: string, sdp: string) => Promise<void>;
   sendIceCandidate: (roomId: string, targetUserId: string, candidate: string) => Promise<void>;
-  sendKeyOffer: (roomId: string, targetUserId: string, keyData: string) => Promise<void>;
-  sendKeyAnswer: (roomId: string, targetUserId: string, keyData: string) => Promise<void>;
-  sendKeyRotation: (roomId: string, targetUserId: string, keyData: string) => Promise<void>;
-  sendChatMessage: (roomId: string, message: string) => Promise<void>;
   mediaStateChanged: (roomId: string, mediaType: string, enabled: boolean) => Promise<void>;
   sendHeartbeat: (roomId: string) => Promise<void>;
 
@@ -755,10 +751,12 @@ export function useSignalRHub(options: UseSignalRHubOptions = {}): UseSignalRHub
         handlers.onMediaStateChanged?.(data);
       });
 
-      // Chat
-      connection.on('ChatMessage', (data: ChatMessagePayload) => {
-        logger.log('ChatMessage from:', data.userId);
-        handlers.onChatMessage?.(data);
+      // Chat (legacy - now handled by ChatHub via useInlineChat)
+      connection.on('ChatMessage', (data) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const chatMessage: ChatMessagePayload = data;
+        logger.log('ChatMessage received');
+        handlers.onChatMessage?.(chatMessage);
       });
 
       // Heartbeat
@@ -1042,32 +1040,7 @@ export function useSignalRHub(options: UseSignalRHubOptions = {}): UseSignalRHub
     [invokeWithRetry]
   );
 
-  const sendKeyOffer = useCallback(
-    (roomId: string, targetUserId: string, keyData: string) =>
-      invokeWithRetry('SendKeyOffer', [roomId, targetUserId, keyData], { priority: 'high' }),
-    [invokeWithRetry]
-  );
-
-  const sendKeyAnswer = useCallback(
-    (roomId: string, targetUserId: string, keyData: string) =>
-      invokeWithRetry('SendKeyAnswer', [roomId, targetUserId, keyData], { priority: 'high' }),
-    [invokeWithRetry]
-  );
-
-  const sendKeyRotation = useCallback(
-    (roomId: string, targetUserId: string, keyData: string) =>
-      invokeWithRetry('SendKeyRotation', [roomId, targetUserId, keyData], { priority: 'normal' }),
-    [invokeWithRetry]
-  );
-
-  const sendChatMessage = useCallback(
-    (roomId: string, message: string) =>
-      invokeWithRetry('SendChatMessage', [roomId, message], {
-        priority: 'normal',
-        queueIfOffline: true,
-      }),
-    [invokeWithRetry]
-  );
+  // NOTE: Chat is now handled by ChatHub via useInlineChat, not VideoCallHub
 
   const mediaStateChanged = useCallback(
     (roomId: string, mediaType: string, enabled: boolean) =>
@@ -1136,10 +1109,6 @@ export function useSignalRHub(options: UseSignalRHubOptions = {}): UseSignalRHub
     sendOffer,
     sendAnswer,
     sendIceCandidate,
-    sendKeyOffer,
-    sendKeyAnswer,
-    sendKeyRotation,
-    sendChatMessage,
     mediaStateChanged,
     sendHeartbeat,
 

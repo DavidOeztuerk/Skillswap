@@ -1,10 +1,9 @@
 /**
  * AES-256-GCM Encryption/Decryption
- * Browser-agnostic implementation with Safari compatibility
+ * Browser-agnostic implementation using Web Crypto API
  *
- * KRITISCH: Safari akzeptiert den tagLength Parameter NICHT!
- * Safari verwendet automatisch 128-bit Tags (Standard), ist also kompatibel,
- * aber der Parameter darf nicht angegeben werden.
+ * All modern browsers (Safari 17+, Chrome, Firefox, Edge) fully support
+ * AES-GCM with tagLength parameter.
  */
 
 import {
@@ -15,44 +14,6 @@ import {
   MIN_ENCRYPTED_FRAME_SIZE,
 } from './constants';
 import { generateRandomBytes, combineIvAndData, extractIvAndData } from './encoding';
-import type { AesGcmConfig } from './types';
-
-// ============================================================================
-// Configuration Presets
-// ============================================================================
-
-/** Default configuration (Chrome/Edge/Firefox) - MIT tagLength */
-export const DEFAULT_AES_CONFIG: AesGcmConfig = {
-  includeTagLength: true,
-} as const;
-
-/** Safari configuration - OHNE tagLength! */
-export const SAFARI_AES_CONFIG: AesGcmConfig = {
-  includeTagLength: false,
-} as const;
-
-// ============================================================================
-// Internal Helpers
-// ============================================================================
-
-/**
- * Erstellt AES-GCM Encryption Parameters
- * KRITISCH: Safari akzeptiert tagLength NICHT!
- */
-function createAesGcmParams(iv: Uint8Array, config: AesGcmConfig): AesGcmParams {
-  const params: AesGcmParams = {
-    name: AES_GCM_ALGORITHM,
-    iv,
-  };
-
-  // Safari wirft einen Error wenn tagLength angegeben wird
-  // Safari verwendet automatisch 128-bit (Standard), ist also kompatibel
-  if (config.includeTagLength) {
-    params.tagLength = AUTH_TAG_LENGTH;
-  }
-
-  return params;
-}
 
 // ============================================================================
 // Encryption
@@ -63,18 +24,20 @@ function createAesGcmParams(iv: Uint8Array, config: AesGcmConfig): AesGcmParams 
  *
  * @param key - AES CryptoKey
  * @param plaintext - Zu verschlüsselnde Daten
- * @param config - Browser-spezifische Konfiguration
  * @returns Kombinierter Buffer: [IV][Ciphertext+AuthTag]
  */
-export async function encryptAesGcm(
-  key: CryptoKey,
-  plaintext: ArrayBuffer,
-  config: AesGcmConfig = DEFAULT_AES_CONFIG
-): Promise<ArrayBuffer> {
+export async function encryptAesGcm(key: CryptoKey, plaintext: ArrayBuffer): Promise<ArrayBuffer> {
   const iv = generateRandomBytes(IV_LENGTH);
-  const params = createAesGcmParams(iv, config);
 
-  const ciphertext = await crypto.subtle.encrypt(params, key, plaintext);
+  const ciphertext = await crypto.subtle.encrypt(
+    {
+      name: AES_GCM_ALGORITHM,
+      iv: iv as BufferSource,
+      tagLength: AUTH_TAG_LENGTH,
+    },
+    key,
+    plaintext
+  );
 
   return combineIvAndData(iv, ciphertext);
 }
@@ -85,21 +48,26 @@ export async function encryptAesGcm(
  * @param key - AES CryptoKey
  * @param plaintext - Zu verschlüsselnde Daten
  * @param iv - Initialization Vector (12 bytes)
- * @param config - Browser-spezifische Konfiguration
  * @returns Kombinierter Buffer: [IV][Ciphertext+AuthTag]
  */
 export async function encryptAesGcmWithIv(
   key: CryptoKey,
   plaintext: ArrayBuffer,
-  iv: Uint8Array,
-  config: AesGcmConfig = DEFAULT_AES_CONFIG
+  iv: Uint8Array
 ): Promise<ArrayBuffer> {
   if (iv.length !== IV_LENGTH) {
     throw new Error(`IV must be ${IV_LENGTH} bytes, got ${iv.length}`);
   }
 
-  const params = createAesGcmParams(iv, config);
-  const ciphertext = await crypto.subtle.encrypt(params, key, plaintext);
+  const ciphertext = await crypto.subtle.encrypt(
+    {
+      name: AES_GCM_ALGORITHM,
+      iv: iv as BufferSource,
+      tagLength: AUTH_TAG_LENGTH,
+    },
+    key,
+    plaintext
+  );
 
   return combineIvAndData(iv, ciphertext);
 }
@@ -113,19 +81,24 @@ export async function encryptAesGcmWithIv(
  *
  * @param key - AES CryptoKey
  * @param encryptedData - Kombinierter Buffer: [IV][Ciphertext+AuthTag]
- * @param config - Browser-spezifische Konfiguration
  * @returns Entschlüsselte Daten
  * @throws Error wenn Entschlüsselung fehlschlägt (z.B. falscher Key, Manipulation)
  */
 export async function decryptAesGcm(
   key: CryptoKey,
-  encryptedData: ArrayBuffer,
-  config: AesGcmConfig = DEFAULT_AES_CONFIG
+  encryptedData: ArrayBuffer
 ): Promise<ArrayBuffer> {
   const { iv, ciphertext } = extractIvAndData(encryptedData, IV_LENGTH);
-  const params = createAesGcmParams(iv, config);
 
-  return crypto.subtle.decrypt(params, key, ciphertext);
+  return crypto.subtle.decrypt(
+    {
+      name: AES_GCM_ALGORITHM,
+      iv: iv as BufferSource,
+      tagLength: AUTH_TAG_LENGTH,
+    },
+    key,
+    ciphertext as BufferSource
+  );
 }
 
 /**
@@ -134,13 +107,11 @@ export async function decryptAesGcm(
  *
  * @param key - AES CryptoKey (null für Passthrough)
  * @param data - Möglicherweise verschlüsselte Daten
- * @param config - Browser-spezifische Konfiguration
  * @returns Objekt mit entschlüsselten Daten und Flag ob verschlüsselt war
  */
 export async function tryDecryptAesGcm(
   key: CryptoKey | null,
-  data: ArrayBuffer,
-  config: AesGcmConfig = DEFAULT_AES_CONFIG
+  data: ArrayBuffer
 ): Promise<{ decrypted: ArrayBuffer; wasEncrypted: boolean }> {
   // Kein Key -> Passthrough
   if (key === null) {
@@ -153,7 +124,7 @@ export async function tryDecryptAesGcm(
   }
 
   try {
-    const decrypted = await decryptAesGcm(key, data, config);
+    const decrypted = await decryptAesGcm(key, data);
     return { decrypted, wasEncrypted: true };
   } catch {
     // Entschlüsselung fehlgeschlagen -> wahrscheinlich unverschlüsselt
@@ -168,7 +139,7 @@ export async function tryDecryptAesGcm(
 /**
  * Generiert einen neuen AES-256-GCM Key
  *
- * @param extractable - Ob der Key exportierbar sein soll (true für Worker-Transfer)
+ * @param extractable - Ob der Key exportierbar sein soll (default: true für Worker-Transfer)
  * @returns CryptoKey für AES-GCM Operationen
  */
 export async function generateAesKey(extractable = true): Promise<CryptoKey> {

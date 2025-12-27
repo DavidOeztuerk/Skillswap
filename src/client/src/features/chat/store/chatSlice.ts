@@ -99,10 +99,11 @@ const chatSlice = createSlice({
     threadCreated: (state, action: PayloadAction<ChatThreadResponse>) => {
       const thread = action.payload;
       const userId = '';
+      const otherName = thread.participant2Name;
       const listItem: ChatThreadListItem = {
         threadId: thread.threadId,
         otherParticipantId: thread.participant2Id,
-        otherParticipantName: thread.participant2Name,
+        otherParticipantName: otherName,
         otherParticipantAvatarUrl: thread.participant2AvatarUrl,
         skillName: thread.skillName,
         lastMessageAt: thread.lastMessageAt,
@@ -278,6 +279,32 @@ const chatSlice = createSlice({
           }
         );
         break;
+      }
+    },
+    // Real-time message deleted from SignalR
+    messageDeleted: (
+      state,
+      action: PayloadAction<{
+        messageId: string;
+        threadId: string;
+        deletedBy: string;
+        deletedAt: string;
+      }>
+    ) => {
+      const { messageId, threadId } = action.payload;
+      ensureThreadMessagesState(state, threadId);
+
+      if (messageId in state.messagesByThread[threadId].entities) {
+        state.messagesByThread[threadId] = chatMessagesAdapter.updateOne(
+          state.messagesByThread[threadId],
+          {
+            id: messageId,
+            changes: {
+              isDeleted: true,
+              content: '[Message deleted]',
+            },
+          }
+        );
       }
     },
     setUnreadCount: (state, action: PayloadAction<ChatUnreadCountPayload>) => {
@@ -468,7 +495,7 @@ const chatSlice = createSlice({
             id: messageId,
             changes: {
               isDeleted: true,
-              content: '[Nachricht wurde gelöscht]',
+              content: '[Message deleted]',
             },
           }
         );
@@ -492,6 +519,7 @@ export const {
   typingIndicator,
   clearTypingIndicator,
   reactionUpdated,
+  messageDeleted,
   setUnreadCount,
   openDrawer,
   closeDrawer,

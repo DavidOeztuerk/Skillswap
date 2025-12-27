@@ -31,6 +31,16 @@ export type SignalRConnectionState =
   | 'reconnecting'
   | 'error';
 
+export interface RoomParticipant {
+  userId: string;
+  connectionId: string;
+  joinedAt: string;
+  cameraEnabled: boolean;
+  microphoneEnabled: boolean;
+  screenShareEnabled: boolean;
+  isInitiator: boolean;
+}
+
 export interface UseSignalRHubOptions {
   roomId: string;
   onE2EEMessage?: (message: E2EEInboundMessage) => void;
@@ -40,6 +50,19 @@ export interface UseSignalRHubOptions {
   onAnswer?: (fromUserId: string, answer: string) => void;
   onIceCandidate?: (fromUserId: string, candidate: string) => void;
   onError?: (error: WebRTCError) => void;
+  // New callbacks for backend alignment
+  onRoomJoined?: (roomId: string, participants: RoomParticipant[]) => void;
+  onCallEnded?: (roomId: string, endedBy: string, reason: string) => void;
+  onMediaStateChanged?: (
+    userId: string,
+    mediaType: 'audio' | 'video' | 'screen',
+    enabled: boolean
+  ) => void;
+  onCameraToggled?: (userId: string, enabled: boolean) => void;
+  onMicrophoneToggled?: (userId: string, enabled: boolean) => void;
+  onScreenShareStarted?: (userId: string) => void;
+  onScreenShareStopped?: (userId: string) => void;
+  onHeartbeatAck?: (timestamp: string) => void;
   autoConnect?: boolean;
 }
 
@@ -54,6 +77,17 @@ export interface UseSignalRHubReturn {
   sendAnswer: (targetUserId: string, sdp: string) => Promise<void>;
   sendIceCandidate: (targetUserId: string, candidate: string) => Promise<void>;
   joinRoom: () => Promise<void>;
+  leaveRoom: () => Promise<void>;
+  // Media state methods (matching backend hub)
+  notifyMediaStateChanged: (
+    mediaType: 'audio' | 'video' | 'screen',
+    enabled: boolean
+  ) => Promise<void>;
+  toggleCamera: (enabled: boolean) => Promise<void>;
+  toggleMicrophone: (enabled: boolean) => Promise<void>;
+  startScreenShare: () => Promise<void>;
+  stopScreenShare: () => Promise<void>;
+  sendHeartbeat: () => Promise<void>;
   error: WebRTCError | null;
 }
 
@@ -79,6 +113,15 @@ export function useSignalRHub(options: UseSignalRHubOptions): UseSignalRHubRetur
     onAnswer,
     onIceCandidate,
     onError,
+    // New callbacks for backend alignment
+    onRoomJoined,
+    onCallEnded,
+    onMediaStateChanged,
+    onCameraToggled,
+    onMicrophoneToggled,
+    onScreenShareStarted,
+    onScreenShareStopped,
+    onHeartbeatAck,
     autoConnect = true,
   } = options;
 
@@ -216,8 +259,78 @@ export function useSignalRHub(options: UseSignalRHubOptions): UseSignalRHubRetur
           onIceCandidate(data.fromUserId, data.candidate);
         });
       }
+
+      // Room management events
+      if (onRoomJoined) {
+        connection.on('RoomJoined', (data: { roomId: string; participants: RoomParticipant[] }) => {
+          onRoomJoined(data.roomId, data.participants);
+        });
+      }
+
+      if (onCallEnded) {
+        connection.on('CallEnded', (data: { roomId: string; endedBy: string; reason: string }) => {
+          onCallEnded(data.roomId, data.endedBy, data.reason);
+        });
+      }
+
+      // Media state events
+      if (onMediaStateChanged) {
+        connection.on(
+          'MediaStateChanged',
+          (data: { userId: string; type: 'audio' | 'video' | 'screen'; enabled: boolean }) => {
+            onMediaStateChanged(data.userId, data.type, data.enabled);
+          }
+        );
+      }
+
+      if (onCameraToggled) {
+        connection.on('CameraToggled', (data: { userId: string; enabled: boolean }) => {
+          onCameraToggled(data.userId, data.enabled);
+        });
+      }
+
+      if (onMicrophoneToggled) {
+        connection.on('MicrophoneToggled', (data: { userId: string; enabled: boolean }) => {
+          onMicrophoneToggled(data.userId, data.enabled);
+        });
+      }
+
+      if (onScreenShareStarted) {
+        connection.on('ScreenShareStarted', (data: { userId: string }) => {
+          onScreenShareStarted(data.userId);
+        });
+      }
+
+      if (onScreenShareStopped) {
+        connection.on('ScreenShareStopped', (data: { userId: string }) => {
+          onScreenShareStopped(data.userId);
+        });
+      }
+
+      // Heartbeat acknowledgment
+      if (onHeartbeatAck) {
+        connection.on('HeartbeatAck', (data: { timestamp: string }) => {
+          onHeartbeatAck(data.timestamp);
+        });
+      }
     },
-    [onE2EEMessage, onUserJoined, onUserLeft, onOffer, onAnswer, onIceCandidate, onError]
+    [
+      onE2EEMessage,
+      onUserJoined,
+      onUserLeft,
+      onOffer,
+      onAnswer,
+      onIceCandidate,
+      onError,
+      onRoomJoined,
+      onCallEnded,
+      onMediaStateChanged,
+      onCameraToggled,
+      onMicrophoneToggled,
+      onScreenShareStarted,
+      onScreenShareStopped,
+      onHeartbeatAck,
+    ]
   );
 
   // ============================================================================
@@ -241,6 +354,7 @@ export function useSignalRHub(options: UseSignalRHubOptions): UseSignalRHubRetur
     try {
       await connection.start();
     } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (isMountedRef.current) {
         const webrtcError = new WebRTCError(
           WebRTCErrorCode.SIGNALING_FAILED,
@@ -255,6 +369,7 @@ export function useSignalRHub(options: UseSignalRHubOptions): UseSignalRHubRetur
     }
 
     // Post-connection handling - check mount state and update atomically
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!isMountedRef.current) {
       // Component unmounted during connection - clean up
       void connection.stop();
@@ -351,6 +466,76 @@ export function useSignalRHub(options: UseSignalRHubOptions): UseSignalRHubRetur
     await connectionRef.current.invoke('JoinRoom', roomId);
   }, [roomId]);
 
+  const leaveRoom = useCallback(async () => {
+    if (!connectionRef.current || connectionRef.current.state !== HubConnectionState.Connected) {
+      throw new WebRTCError(WebRTCErrorCode.SIGNALING_FAILED, NOT_CONNECTED_ERROR);
+    }
+
+    await connectionRef.current.invoke('LeaveRoom', roomId);
+  }, [roomId]);
+
+  // ==========================================================================
+  // Media State Methods (matching backend hub)
+  // ==========================================================================
+
+  const notifyMediaStateChanged = useCallback(
+    async (mediaType: 'audio' | 'video' | 'screen', enabled: boolean) => {
+      if (!connectionRef.current || connectionRef.current.state !== HubConnectionState.Connected) {
+        throw new WebRTCError(WebRTCErrorCode.SIGNALING_FAILED, NOT_CONNECTED_ERROR);
+      }
+
+      await connectionRef.current.invoke('MediaStateChanged', roomId, mediaType, enabled);
+    },
+    [roomId]
+  );
+
+  const toggleCamera = useCallback(
+    async (enabled: boolean) => {
+      if (!connectionRef.current || connectionRef.current.state !== HubConnectionState.Connected) {
+        throw new WebRTCError(WebRTCErrorCode.SIGNALING_FAILED, NOT_CONNECTED_ERROR);
+      }
+
+      await connectionRef.current.invoke('ToggleCamera', roomId, enabled);
+    },
+    [roomId]
+  );
+
+  const toggleMicrophone = useCallback(
+    async (enabled: boolean) => {
+      if (!connectionRef.current || connectionRef.current.state !== HubConnectionState.Connected) {
+        throw new WebRTCError(WebRTCErrorCode.SIGNALING_FAILED, NOT_CONNECTED_ERROR);
+      }
+
+      await connectionRef.current.invoke('ToggleMicrophone', roomId, enabled);
+    },
+    [roomId]
+  );
+
+  const startScreenShare = useCallback(async () => {
+    if (!connectionRef.current || connectionRef.current.state !== HubConnectionState.Connected) {
+      throw new WebRTCError(WebRTCErrorCode.SIGNALING_FAILED, NOT_CONNECTED_ERROR);
+    }
+
+    await connectionRef.current.invoke('StartScreenShare', roomId);
+  }, [roomId]);
+
+  const stopScreenShare = useCallback(async () => {
+    if (!connectionRef.current || connectionRef.current.state !== HubConnectionState.Connected) {
+      throw new WebRTCError(WebRTCErrorCode.SIGNALING_FAILED, NOT_CONNECTED_ERROR);
+    }
+
+    await connectionRef.current.invoke('StopScreenShare', roomId);
+  }, [roomId]);
+
+  const sendHeartbeat = useCallback(async () => {
+    if (!connectionRef.current || connectionRef.current.state !== HubConnectionState.Connected) {
+      // Silently fail for heartbeats - don't throw errors
+      return;
+    }
+
+    await connectionRef.current.invoke('SendHeartbeat', roomId);
+  }, [roomId]);
+
   // ============================================================================
   // Auto Connect Effect
   // ============================================================================
@@ -383,6 +568,14 @@ export function useSignalRHub(options: UseSignalRHubOptions): UseSignalRHubRetur
     sendAnswer,
     sendIceCandidate,
     joinRoom,
+    leaveRoom,
+    // Media state methods
+    notifyMediaStateChanged,
+    toggleCamera,
+    toggleMicrophone,
+    startScreenShare,
+    stopScreenShare,
+    sendHeartbeat,
     error,
   };
 }

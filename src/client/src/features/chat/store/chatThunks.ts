@@ -12,8 +12,8 @@ import {
 import chatHubService from '../services/chatHub';
 import chatService from '../services/chatService';
 import { type ChatThreadListItem, getThreadDisplayInfo, type ChatThread } from '../types/Chat';
-import type { SendChatMessageRequest } from '../types/ChatMessage';
 import type {
+  SendChatMessageRequest,
   GetChatThreadsRequest,
   GetChatMessagesRequest,
   AddReactionRequest,

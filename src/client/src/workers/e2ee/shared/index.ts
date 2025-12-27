@@ -1,6 +1,11 @@
 /**
  * Shared E2EE Worker Module
  * Re-exports für einfachen Import
+ *
+ * BROWSER-KOMPATIBILITÄT (verifiziert 2024-12):
+ * - Alle Funktionen sind browser-agnostisch
+ * - AES-GCM tagLength funktioniert in allen modernen Browsern
+ * - Worker Message Transfer bis 10MB+ ohne Probleme
  */
 
 // Message Types
@@ -37,15 +42,15 @@ export {
 } from './message-types';
 
 // Crypto Operations
-export type { WorkerCryptoState, EncryptionConfig, DecryptionResult } from './crypto-operations';
+export type { WorkerCryptoState, DecryptionResult, KeyEntry } from './crypto-operations';
 
 export {
   createInitialState,
+  updateKeyInState,
   importEncryptionKey,
-  CHROME_CONFIG,
-  SAFARI_CONFIG,
   encryptFrameData,
   decryptFrameData,
+  decryptFrameDataWithState,
   updateEncryptionStats,
   updateDecryptionStats,
   incrementEncryptionError,

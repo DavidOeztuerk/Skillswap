@@ -2,7 +2,7 @@
  * Detection Module - Public API
  *
  * Zentrale Exports für Browser- und Feature-Detection.
- * Ersetzt alle duplizierten Detection-Implementierungen in der Codebase.
+ * Browser-agnostisch für moderne Browser (Safari 17+, Chrome, Firefox, Edge).
  *
  * @example
  * ```typescript
@@ -10,11 +10,11 @@
  *   getBrowserInfo,
  *   isSafari,
  *   getE2EEMethod,
- *   requiresSafariWorker
+ *   usesScriptTransform
  * } from '@/shared/detection';
  *
- * if (requiresSafariWorker()) {
- *   // Safari-spezifische Logik
+ * if (usesScriptTransform()) {
+ *   // RTCRtpScriptTransform wird verwendet
  * }
  * ```
  */
@@ -31,7 +31,11 @@ export type {
   MediaCapabilities,
   CodecSupport,
   BrowserQuirks,
+  CryptoCapabilities,
+  WorkerCapabilities,
   FullBrowserCapabilities,
+  FeatureTestResult,
+  E2EEReadinessResult,
 } from './types';
 
 // ============================================================================
@@ -50,6 +54,12 @@ export {
   isMobile,
   isBrowserVersionAtLeast,
   resetBrowserInfoCache,
+  // Enhanced Detection
+  isPrivateBrowsing,
+  getBrowserQuirks,
+  getCryptoCapabilities,
+  getWorkerCapabilities,
+  getBrowserCapabilitiesSummary,
 } from './browserDetector';
 
 // ============================================================================
@@ -60,7 +70,7 @@ export {
   getE2EECapabilities,
   getE2EEMethod,
   isE2EESupported,
-  requiresSafariWorker,
+  usesScriptTransformFn as usesScriptTransform,
   getE2EEMethodDescription,
   canSupportE2EEForGroup,
   getE2EEWorkerUrl,

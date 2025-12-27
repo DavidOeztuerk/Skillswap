@@ -9,8 +9,8 @@ import {
   type ApiResponse,
   isSuccessResponse,
 } from '../../../shared/types/api/UnifiedResponse';
-import type { SendChatMessageRequest } from '../types/ChatMessage';
 import type {
+  SendChatMessageRequest,
   GetChatThreadsRequest,
   CreateChatThreadRequest,
   GetChatMessagesRequest,
@@ -29,7 +29,7 @@ import type {
 
 // Base API paths
 const API_CHAT_THREADS = '/api/chat/threads';
-const THREAD_ID_REQUIRED = 'Thread-ID ist erforderlich';
+const THREAD_ID_REQUIRED = 'Thread ID is required';
 
 // Chat API endpoints - defined locally with const assertion for proper typing
 const ENDPOINTS = {
@@ -103,8 +103,8 @@ const chatService = {
    */
   async createThread(request: CreateChatThreadRequest): Promise<ApiResponse<ChatThreadResponse>> {
     if (!request.threadId.trim()) throw new Error(THREAD_ID_REQUIRED);
-    if (!request.participant1Id.trim()) throw new Error('Participant1-ID ist erforderlich');
-    if (!request.participant2Id.trim()) throw new Error('Participant2-ID ist erforderlich');
+    if (!request.participant1Id.trim()) throw new Error('Participant1 ID is required');
+    if (!request.participant2Id.trim()) throw new Error('Participant2 ID is required');
 
     try {
       console.debug('[ChatService] Creating thread:', request);
@@ -156,7 +156,7 @@ const chatService = {
     request: SendChatMessageRequest
   ): Promise<ApiResponse<ChatMessageResponse>> {
     if (!threadId.trim()) throw new Error(THREAD_ID_REQUIRED);
-    if (!request.message.trim()) throw new Error('Nachricht ist erforderlich');
+    if (!request.content.trim()) throw new Error('Message content is required');
 
     try {
       console.debug('[ChatService] Sending message to thread:', threadId);
@@ -234,8 +234,8 @@ const chatService = {
     messageId: string,
     request: AddReactionRequest
   ): Promise<ApiResponse<boolean>> {
-    if (!messageId.trim()) throw new Error('Message-ID ist erforderlich');
-    if (!request.emoji.trim()) throw new Error('Emoji ist erforderlich');
+    if (!messageId.trim()) throw new Error('Message ID is required');
+    if (!request.emoji.trim()) throw new Error('Emoji is required');
 
     try {
       console.debug('[ChatService] Toggling reaction:', messageId, request.emoji);
@@ -253,7 +253,7 @@ const chatService = {
    * Delete a message (soft-delete)
    */
   async deleteMessage(messageId: string): Promise<ApiResponse<boolean>> {
-    if (!messageId.trim()) throw new Error('Message-ID ist erforderlich');
+    if (!messageId.trim()) throw new Error('Message ID is required');
 
     try {
       console.debug('[ChatService] Deleting message:', messageId);
@@ -334,18 +334,6 @@ const chatService = {
   // ==========================================================================
 
   /**
-   * Generate thread ID from participants and skill (matching backend algorithm)
-   */
-  generateThreadId(userId1: string, userId2: string, skillId?: string): string {
-    const sortedIds = [userId1, userId2].sort();
-    // Simple hash for client-side (actual SHA256 is done server-side)
-    // This is just for reference - actual threadId comes from backend
-    return skillId
-      ? `${sortedIds[0]}:${sortedIds[1]}:${skillId}`
-      : `${sortedIds[0]}:${sortedIds[1]}`;
-  },
-
-  /**
    * Check if the current user is a participant
    */
   isUserParticipant(thread: ChatThreadResponse, userId: string): boolean {
@@ -354,11 +342,21 @@ const chatService = {
 
   /**
    * Get the other participant's info
+   * Note: Backend now provides otherParticipant* fields computed for the current user
    */
   getOtherParticipant(
     thread: ChatThreadResponse,
     currentUserId: string
-  ): { id: string; name: string; avatarUrl?: string } {
+  ): { id: string; name?: string; avatarUrl?: string } {
+    // Use backend-computed fields if available
+    if (thread.otherParticipantId !== undefined) {
+      return {
+        id: thread.otherParticipantId,
+        name: thread.otherParticipantName,
+        avatarUrl: thread.otherParticipantAvatarUrl,
+      };
+    }
+    // Fallback to manual calculation
     if (thread.participant1Id === currentUserId) {
       return {
         id: thread.participant2Id,
@@ -374,13 +372,11 @@ const chatService = {
   },
 
   /**
-   * Get unread count for a specific user in a thread
+   * Get unread count for the current user in a thread
+   * Note: Backend now provides single unreadCount for the current user
    */
-  getUnreadCountForUser(thread: ChatThreadResponse, userId: string): number {
-    if (thread.participant1Id === userId) {
-      return thread.participant1UnreadCount;
-    }
-    return thread.participant2UnreadCount;
+  getThreadUnreadCount(thread: ChatThreadResponse): number {
+    return thread.unreadCount;
   },
 };
 

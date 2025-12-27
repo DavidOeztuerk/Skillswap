@@ -57,6 +57,7 @@ public static class VideocallControllerExtensions
                 participantUserId,
                 request.AppointmentId,
                 appointment.MatchId,
+                appointment.ThreadId,  // ThreadId from MatchRequest for Chat integration
                 false,
                 request.MaxParticipants)
             {
@@ -122,6 +123,7 @@ public static class VideocallControllerExtensions
                 participantUserId,
                 request.AppointmentId,
                 appointment.MatchId,
+                appointment.ThreadId,  // ThreadId from MatchRequest for Chat integration
                 false,
                 request.MaxParticipants)
             {
@@ -210,20 +212,6 @@ public static class VideocallControllerExtensions
         .WithName("GetCallSessionConfig")
         .WithSummary("Get call session configuration")
         .WithDescription("Retrieves configuration for a specific call session (alias for GetCallSession).");
-
-        // Chat history endpoint - retrieve chat messages for a session
-        calls.MapGet("/{sessionId}/chat-history", async (IMediator mediator, ClaimsPrincipal claims, string sessionId, int? limit) =>
-        {
-            var userId = claims.GetUserId();
-            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-            var query = new GetChatHistoryQuery(sessionId, limit ?? 50);
-            return await mediator.SendQuery(query);
-        })
-        .WithName("GetChatHistory")
-        .WithSummary("Get chat history for a call session")
-        .WithDescription("Retrieves chat message history for a video call session. Messages are persisted for later retrieval.")
-        .RequireAuthorization();
 
         // Grouped endpoints for user call history
         var myCalls = builder.MapGroup("/api/my/calls").WithTags("VideoCalls");

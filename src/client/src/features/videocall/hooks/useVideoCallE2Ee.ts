@@ -7,7 +7,8 @@
 
 import { useCallback, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../core/store/store.hooks';
-import { getE2EESupport } from '../../../shared/utils/crypto/e2eeBrowserSupport';
+import { formatFingerprintForDisplay, type KeyFingerprint } from '../../../shared/core/crypto';
+import { getE2EECapabilities, getBrowserInfo } from '../../../shared/detection';
 import {
   type KeyExchangeEvents,
   E2EEKeyExchangeManager,
@@ -103,20 +104,22 @@ export const useVideoCallE2EE = (
 
     console.debug('🔒 E2EE: Applying transform pipelines to media tracks...');
 
-    // Apply encryption to senders
+    // Apply encryption to senders (async)
     pc.getSenders().forEach((sender) => {
       if (sender.track !== null) {
         const kind = sender.track.kind as 'video' | 'audio';
-        try {
-          streamsHandler.applyEncryptionToSender(sender, kind);
-          console.debug(`✅ E2EE: Encryption pipeline applied to ${kind} sender`);
-        } catch (e) {
-          console.error(`E2EE: Failed to apply to ${kind} sender:`, e);
-        }
+        streamsHandler
+          .applyEncryptionToSender(sender, kind)
+          .then(() => {
+            console.debug(`✅ E2EE: Encryption pipeline applied to ${kind} sender`);
+          })
+          .catch((e: unknown) => {
+            console.error(`E2EE: Failed to apply to ${kind} sender:`, e);
+          });
       }
     });
 
-    // Apply decryption to receivers
+    // Apply decryption to receivers (sync)
     pc.getReceivers().forEach((receiver) => {
       const kind = receiver.track.kind as 'video' | 'audio';
       try {
@@ -161,7 +164,7 @@ export const useVideoCallE2EE = (
           signingKeys.verificationKey,
           signingKeys.fingerprint,
           peerSigningPublicKey,
-          peerSigningFingerprint
+          peerSigningFingerprint as KeyFingerprint | undefined
         );
 
         dispatch(setChatE2EEStatus('active'));
@@ -194,10 +197,12 @@ export const useVideoCallE2EE = (
     }
 
     // Check E2EE support
-    const e2eeSupport = getE2EESupport();
-    if (!e2eeSupport.supported) {
+    const e2eeCapabilities = getE2EECapabilities();
+    if (!e2eeCapabilities.supported) {
       dispatch(setE2EEStatus('unsupported'));
-      dispatch(setE2EEErrorMessage(e2eeSupport.userMessage));
+      const browser = getBrowserInfo();
+      const userMessage = `❌ E2EE is not supported in ${browser.name} ${browser.majorVersion}. Please update your browser.`;
+      dispatch(setE2EEErrorMessage(userMessage));
       return;
     }
 
@@ -211,61 +216,64 @@ export const useVideoCallE2EE = (
       await refs.streamsHandlerRef.current.initializeWorkers();
 
       // Key exchange events
+      // IMPORTANT: These callbacks are now properly async and will be awaited by the caller.
+      // This ensures proper sequencing: key updates complete BEFORE encryption is enabled.
       const keyExchangeEvents: KeyExchangeEvents = {
-        onKeyExchangeComplete: (
+        onKeyExchangeComplete: async (
           fingerprint,
           generation,
           peerSigningPublicKey,
           peerSigningFingerprint
         ) => {
-          void (async () => {
-            dispatch(setE2EERemoteFingerprint(fingerprint));
-            dispatch(setE2EEKeyGeneration(generation));
+          dispatch(setE2EERemoteFingerprint(fingerprint));
+          dispatch(setE2EEKeyGeneration(generation));
 
-            const keyMaterial = refs.e2eeManagerRef.current?.getCurrentKeyMaterial();
-            if (!keyMaterial || !refs.streamsHandlerRef.current) return;
+          const keyMaterial = refs.e2eeManagerRef.current?.getCurrentKeyMaterial();
+          if (!keyMaterial || !refs.streamsHandlerRef.current) return;
 
-            const isSafari = refs.streamsHandlerRef.current.getE2EEMethod() === 'scriptTransform';
+          const isSafari = refs.streamsHandlerRef.current.getE2EEMethod() === 'scriptTransform';
 
-            if (isSafari) {
-              await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
-              applyE2EEToMediaTracks();
-              await new Promise<void>((r) => {
-                setTimeout(r, 100);
-              });
-            } else {
-              applyE2EEToMediaTracks();
-              await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
-            }
+          // CRITICAL ORDER:
+          // - Safari: Key MUST be set BEFORE transforms are applied (RTCRtpScriptTransform
+          //   fires onrtctransform immediately, and we need the key to be there)
+          // - Chrome: Transforms can be applied before key update since the TransformStream
+          //   will pass-through frames until encryption is enabled
+          //
+          // updateWorkerKeys now properly awaits acknowledgement from both workers,
+          // ensuring the key is actually set before we proceed.
 
-            await new Promise<void>((r) => {
-              setTimeout(r, 200);
-            });
-            refs.streamsHandlerRef.current.enableEncryption();
-            await new Promise<void>((r) => {
-              setTimeout(r, 100);
-            });
+          if (isSafari) {
+            // Safari: Key first, then transforms
+            await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
+            applyE2EEToMediaTracks();
+          } else {
+            // Chrome: Transforms first (creates pipelines), then key update
+            applyE2EEToMediaTracks();
+            await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
+          }
 
-            void initializeChatE2EE(
-              keyMaterial.encryptionKey,
-              peerSigningPublicKey,
-              peerSigningFingerprint
-            );
-            dispatch(setE2EEStatus('active'));
-          })();
+          // Enable encryption - workers already have the key at this point
+          refs.streamsHandlerRef.current.enableEncryption();
+
+          // Initialize chat E2EE (fire-and-forget is OK here, it's a separate subsystem)
+          void initializeChatE2EE(
+            keyMaterial.encryptionKey,
+            peerSigningPublicKey,
+            peerSigningFingerprint
+          );
+          dispatch(setE2EEStatus('active'));
         },
 
-        onKeyRotation: (generation) => {
-          void (async () => {
-            dispatch(setE2EEKeyGeneration(generation));
-            refs.lastKeyRotationRef.current = new Date().toISOString();
+        onKeyRotation: async (generation) => {
+          dispatch(setE2EEKeyGeneration(generation));
+          refs.lastKeyRotationRef.current = new Date().toISOString();
 
-            const keyMaterial = refs.e2eeManagerRef.current?.getCurrentKeyMaterial();
-            if (keyMaterial && refs.streamsHandlerRef.current) {
-              await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
-            }
-            dispatch(setE2EEStatus('active'));
-          })();
+          const keyMaterial = refs.e2eeManagerRef.current?.getCurrentKeyMaterial();
+          if (keyMaterial && refs.streamsHandlerRef.current) {
+            // CRITICAL: Wait for workers to confirm key update before returning
+            await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
+          }
+          dispatch(setE2EEStatus('active'));
         },
 
         onKeyExchangeError: (err) => {
@@ -274,7 +282,7 @@ export const useVideoCallE2EE = (
         },
 
         onVerificationRequired:
-          e2eeSupport.method === 'scriptTransform'
+          e2eeCapabilities.method === 'scriptTransform'
             ? undefined
             : () => {
                 console.debug('🔐 E2EE: Verification required');
@@ -301,6 +309,7 @@ export const useVideoCallE2EE = (
       dispatch(setE2EELocalFingerprint(localFp));
 
       // Start key rotation (initiator only)
+      // Frame format now includes generation byte: [gen (1 byte)][IV (12 bytes)][ciphertext+tag]
       if (isInitiator) {
         refs.e2eeManagerRef.current.startKeyRotation(() => {
           dispatch(setE2EEStatus('key-rotation'));
@@ -358,10 +367,10 @@ export const useVideoCallE2EE = (
     localKeyFingerprint,
     remotePeerFingerprint,
     formattedLocalFingerprint: localKeyFingerprint
-      ? E2EEKeyExchangeManager.formatFingerprintForDisplay(localKeyFingerprint)
+      ? formatFingerprintForDisplay(localKeyFingerprint)
       : null,
     formattedRemoteFingerprint: remotePeerFingerprint
-      ? E2EEKeyExchangeManager.formatFingerprintForDisplay(remotePeerFingerprint)
+      ? formatFingerprintForDisplay(remotePeerFingerprint)
       : null,
     keyGeneration,
     encryptionStats,

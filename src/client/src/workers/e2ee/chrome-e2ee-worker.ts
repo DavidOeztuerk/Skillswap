@@ -18,16 +18,16 @@ import {
   isUpdateKeyMessage,
   isInitMessage,
   createInitialState,
+  updateKeyInState,
   importEncryptionKey,
   encryptFrameData,
-  decryptFrameData,
+  decryptFrameDataWithState,
   updateEncryptionStats,
   updateDecryptionStats,
   incrementEncryptionError,
   incrementDecryptionError,
   setKeyGeneration,
   setEncryptionEnabled,
-  CHROME_CONFIG,
 } from './shared';
 
 // ============================================================================
@@ -35,6 +35,40 @@ import {
 // ============================================================================
 
 let state: WorkerCryptoState = createInitialState();
+
+// Stats Reporting Interval (consistent with Safari worker)
+let statsReportInterval: ReturnType<typeof setInterval> | null = null;
+
+// ============================================================================
+// Stats Reporting (unified with Safari worker)
+// ============================================================================
+
+/**
+ * Startet periodisches Stats-Reporting
+ * Einheitlich mit Safari Worker für konsistente UI-Updates
+ */
+function startStatsReporting(): void {
+  if (statsReportInterval !== null) return;
+
+  statsReportInterval = setInterval(() => {
+    if (state.stats.totalFrames > 0) {
+      postResponse({
+        type: 'stats',
+        payload: state.stats,
+      });
+    }
+  }, 5000); // Alle 5 Sekunden (wie Safari)
+}
+
+/**
+ * Stoppt das Stats-Reporting
+ */
+function stopStatsReporting(): void {
+  if (statsReportInterval !== null) {
+    clearInterval(statsReportInterval);
+    statsReportInterval = null;
+  }
+}
 
 // ============================================================================
 // Message Handler
@@ -72,6 +106,7 @@ self.onmessage = async (event: MessageEvent<WorkerInboundMessage>): Promise<void
       case 'enableEncryption':
         state.encryptionEnabled = true;
         state.stats = setEncryptionEnabled(state.stats, true);
+        startStatsReporting(); // Start periodic stats reporting
         postResponse({ type: 'ready', operationId: message.operationId });
         break;
 
@@ -130,21 +165,31 @@ async function handleInit(
 }
 
 /**
- * Aktualisiert den Encryption Key
+ * Aktualisiert den Encryption Key mit Multi-Key Support
+ *
+ * Der vorherige Key wird gespeichert für Frames die noch unterwegs sind (Key Rotation).
  */
 async function handleUpdateKey(
   payload: { encryptionKey: JsonWebKey; generation: number },
   operationId?: number
 ): Promise<void> {
-  state.encryptionKey = await importEncryptionKey(payload.encryptionKey);
-  state.generation = payload.generation;
+  const newKey = await importEncryptionKey(payload.encryptionKey);
+
+  // Use updateKeyInState to preserve previous key for in-transit frames!
+  state = updateKeyInState(state, newKey, payload.generation);
   state.stats = setKeyGeneration(state.stats, state.generation);
+
+  console.debug(
+    `[Chrome E2EE Worker] Key updated: gen=${state.generation}, prevGen=${state.previousGeneration}`
+  );
 
   postResponse({ type: 'keyUpdated', operationId });
 }
 
 /**
  * Verschlüsselt Frame-Daten
+ *
+ * Frame Format: [Generation (1 byte)][IV (12 bytes)][Ciphertext + AuthTag]
  */
 async function handleEncrypt(frameData: ArrayBuffer, operationId: number): Promise<void> {
   const startTime = performance.now();
@@ -166,7 +211,13 @@ async function handleEncrypt(frameData: ArrayBuffer, operationId: number): Promi
   }
 
   try {
-    const encryptedData = await encryptFrameData(state.encryptionKey, frameData, CHROME_CONFIG);
+    // Pass generation to encryption so frames can be decrypted with the right key
+    const encryptedData = await encryptFrameData(
+      state.encryptionKey,
+      frameData,
+      undefined, // Legacy config parameter, ignored
+      state.generation // Generation Byte für Multi-Key Support
+    );
 
     const encryptionTime = performance.now() - startTime;
     state.stats = updateEncryptionStats(state.stats, encryptionTime);
@@ -190,18 +241,63 @@ async function handleEncrypt(frameData: ArrayBuffer, operationId: number): Promi
   }
 }
 
+// Minimale Größe für verschlüsselte Daten: Generation (1) + IV (12) + AuthTag (16) + 1 byte payload
+const MIN_ENCRYPTED_SIZE = 30;
+
 /**
- * Entschlüsselt Frame-Daten
+ * Prüft ob ein Frame verschlüsselt aussieht (hat IV + AuthTag + Payload)
+ */
+function looksEncrypted(frameData: ArrayBuffer): boolean {
+  return frameData.byteLength >= MIN_ENCRYPTED_SIZE;
+}
+
+/**
+ * Entschlüsselt Frame-Daten mit Multi-Key Support
  *
- * KRITISCH: Decryption IMMER versuchen wenn Key vorhanden!
- * encryptionEnabled wird NICHT geprüft - der andere Peer könnte bereits
- * verschlüsselt senden bevor wir unsere Encryption aktiviert haben.
+ * Frame Format: [Generation (1 byte)][IV (12 bytes)][Ciphertext + AuthTag]
+ *
+ * KRITISCH: Wenn kein Key vorhanden ist, aber Frame verschlüsselt aussieht,
+ * muss der Frame VERWORFEN werden (nicht passthrough!), da sonst korrupte
+ * Daten angezeigt werden (schwarzes Video).
  */
 async function handleDecrypt(frameData: ArrayBuffer, operationId: number): Promise<void> {
   const startTime = performance.now();
 
+  // Kein Key -> Frame verwerfen wenn er verschlüsselt aussieht
+  if (state.encryptionKey === null) {
+    if (looksEncrypted(frameData)) {
+      state.stats.droppedFrames = (state.stats.droppedFrames ?? 0) + 1;
+      postResponse({
+        type: 'decryptSuccess',
+        operationId,
+        payload: {
+          decryptedData: new ArrayBuffer(0), // Empty buffer = drop
+          decryptionTime: performance.now() - startTime,
+          wasEncrypted: false,
+          dropped: true,
+        },
+      });
+      return;
+    }
+    // Kleine Frames passthrough - wahrscheinlich nicht verschlüsselt
+    postResponse(
+      {
+        type: 'decryptSuccess',
+        operationId,
+        payload: {
+          decryptedData: frameData,
+          decryptionTime: performance.now() - startTime,
+          wasEncrypted: false,
+        },
+      },
+      [frameData]
+    );
+    return;
+  }
+
   try {
-    const result = await decryptFrameData(state.encryptionKey, frameData, CHROME_CONFIG);
+    // Use multi-key decryption with generation support!
+    const result = await decryptFrameDataWithState(state, frameData);
 
     const decryptionTime = performance.now() - startTime;
     state.stats = updateDecryptionStats(state.stats, decryptionTime, result.wasEncrypted);
@@ -220,19 +316,18 @@ async function handleDecrypt(frameData: ArrayBuffer, operationId: number): Promi
     );
   } catch (error) {
     state.stats = incrementDecryptionError(state.stats);
-    // Bei Fehler: Original-Frame durchlassen (graceful degradation)
-    postResponse(
-      {
-        type: 'decryptSuccess',
-        operationId,
-        payload: {
-          decryptedData: frameData,
-          decryptionTime: performance.now() - startTime,
-          wasEncrypted: false,
-        },
+    state.stats.droppedFrames = (state.stats.droppedFrames ?? 0) + 1;
+    console.warn('[Chrome E2EE Worker] Decryption failed, dropping frame:', error);
+    postResponse({
+      type: 'decryptSuccess',
+      operationId,
+      payload: {
+        decryptedData: new ArrayBuffer(0), // Empty buffer = drop
+        decryptionTime: performance.now() - startTime,
+        wasEncrypted: false,
+        dropped: true,
       },
-      [frameData]
-    );
+    });
   }
 }
 
@@ -240,6 +335,7 @@ async function handleDecrypt(frameData: ArrayBuffer, operationId: number): Promi
  * Bereinigt den Worker-State
  */
 function handleCleanup(operationId?: number): void {
+  stopStatsReporting();
   state = createInitialState();
   postResponse({ type: 'cleanupComplete', operationId });
 }

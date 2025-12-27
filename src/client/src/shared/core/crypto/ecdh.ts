@@ -32,7 +32,8 @@ export async function generateECDHKeyPair(): Promise<ECDHKeyPair> {
   const publicKeyBase64 = arrayBufferToBase64(publicKeyBuffer);
 
   const fingerprintBuffer = await crypto.subtle.digest('SHA-256', publicKeyBuffer);
-  const fingerprint = arrayBufferToHex(fingerprintBuffer) as KeyFingerprint;
+  const hexString = arrayBufferToHex(fingerprintBuffer);
+  const fingerprint = hexString as unknown as KeyFingerprint;
 
   return {
     publicKey: keyPair.publicKey,
@@ -187,7 +188,7 @@ export async function deriveRawKeyMaterial(
 export async function calculateKeyFingerprint(publicKey: CryptoKey): Promise<KeyFingerprint> {
   const exportedKey = await crypto.subtle.exportKey('raw', publicKey);
   const hashBuffer = await crypto.subtle.digest('SHA-256', exportedKey);
-  return arrayBufferToHex(hashBuffer) as KeyFingerprint;
+  return arrayBufferToHex(hashBuffer) as unknown as KeyFingerprint;
 }
 
 /**
@@ -201,7 +202,7 @@ export async function calculateFingerprintFromBase64(
 ): Promise<KeyFingerprint> {
   const keyBuffer = base64ToArrayBuffer(publicKeyBase64);
   const hashBuffer = await crypto.subtle.digest('SHA-256', keyBuffer);
-  return arrayBufferToHex(hashBuffer) as KeyFingerprint;
+  return arrayBufferToHex(hashBuffer) as unknown as KeyFingerprint;
 }
 
 /**
@@ -212,9 +213,11 @@ export async function calculateFingerprintFromBase64(
  * @param chunkSize - Zeichen pro Gruppe (default: 4)
  * @returns Formatierter String für Anzeige
  */
-export function formatFingerprintForDisplay(fingerprint: KeyFingerprint, chunkSize = 4): string {
-  // Cast to string to access methods safely
-  const fp = fingerprint as string;
+export function formatFingerprintForDisplay(
+  fingerprint: KeyFingerprint | string,
+  chunkSize = 4
+): string {
+  const fp = fingerprint;
   const chunks: string[] = [];
   for (let i = 0; i < fp.length; i += chunkSize) {
     chunks.push(fp.slice(i, i + chunkSize));

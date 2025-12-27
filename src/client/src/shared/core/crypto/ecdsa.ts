@@ -33,7 +33,7 @@ export async function generateECDSAKeyPair(): Promise<ECDSAKeyPair> {
   const publicKeyBase64 = arrayBufferToBase64(publicKeyBuffer);
 
   const fingerprintBuffer = await crypto.subtle.digest('SHA-256', publicKeyBuffer);
-  const fingerprint = arrayBufferToHex(fingerprintBuffer) as KeyFingerprint;
+  const fingerprint = arrayBufferToHex(fingerprintBuffer) as unknown as KeyFingerprint;
 
   return {
     signingKey: keyPair.privateKey,
@@ -279,5 +279,5 @@ export async function calculateECDSAFingerprint(
 ): Promise<KeyFingerprint> {
   const exportedKey = await crypto.subtle.exportKey('raw', verificationKey);
   const hashBuffer = await crypto.subtle.digest('SHA-256', exportedKey);
-  return arrayBufferToHex(hashBuffer) as KeyFingerprint;
+  return arrayBufferToHex(hashBuffer) as unknown as KeyFingerprint;
 }

@@ -44,14 +44,9 @@ public class DeleteChatMessageCommandHandler(
                 return Error("Message is already deleted", ErrorCodes.OperationNotAllowed);
             }
 
-            // Soft delete - mark as deleted and replace content
-            message.IsDeleted = true;
-            message.DeletedAt = DateTime.UtcNow;
-            message.Content = "[Nachricht wurde gelöscht]";
+            // Soft delete - mark as deleted and clear content
+            message.MarkAsDeleted(request.UserId);
             message.RenderedHtml = null;
-
-            // Clear sensitive data
-            message.EncryptedContent = null;
             message.EncryptionIV = null;
 
             await _unitOfWork.ChatMessages.UpdateAsync(message, cancellationToken);

@@ -73,6 +73,30 @@ public interface IChatThreadRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets count of search results
+    /// </summary>
+    Task<int> GetSearchCountAsync(
+        string userId,
+        string searchTerm,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets threads with unread messages for a user (paginated)
+    /// </summary>
+    Task<List<ChatThread>> GetWithUnreadMessagesPagedAsync(
+        string userId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets count of threads with unread messages
+    /// </summary>
+    Task<int> GetWithUnreadMessagesCountAsync(
+        string userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Adds a new thread
     /// </summary>
     Task AddAsync(ChatThread thread, CancellationToken cancellationToken = default);

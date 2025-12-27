@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   memo,
   type ReactNode,
 } from 'react';
@@ -47,7 +48,27 @@ export const StreamProvider: React.FC<StreamProviderProps> = memo(({ children })
   const [screenStreamId, setScreenStreamId] = useState<string | null>(null);
 
   // ========================================================================
-  // StreamManager Event Handler
+  // Refs für stabile Referenzen (verhindert stale closures in Event Handlers)
+  // ========================================================================
+  const localStreamIdRef = useRef<string | null>(null);
+  const remoteStreamIdRef = useRef<string | null>(null);
+  const screenStreamIdRef = useRef<string | null>(null);
+
+  // Sync refs with state
+  useEffect(() => {
+    localStreamIdRef.current = localStreamId;
+  }, [localStreamId]);
+
+  useEffect(() => {
+    remoteStreamIdRef.current = remoteStreamId;
+  }, [remoteStreamId]);
+
+  useEffect(() => {
+    screenStreamIdRef.current = screenStreamId;
+  }, [screenStreamId]);
+
+  // ========================================================================
+  // StreamManager Event Handler (stabil - verwendet Refs statt State)
   // ========================================================================
 
   useEffect(() => {
@@ -87,16 +108,17 @@ export const StreamProvider: React.FC<StreamProviderProps> = memo(({ children })
 
       log(`📹 StreamContext: Stream destroyed: ${event.streamId}`);
 
-      // Prüfe welcher Stream zerstört wurde und update State
-      if (event.streamId === localStreamId) {
+      // WICHTIG: Verwende Refs statt State um stale closures zu vermeiden!
+      // Der Effect läuft nur einmal, aber die Refs werden immer aktualisiert.
+      if (event.streamId === localStreamIdRef.current) {
         setLocalStream(null);
         setLocalStreamId(null);
         dispatch(dispatchLocalStreamId(null));
-      } else if (event.streamId === remoteStreamId) {
+      } else if (event.streamId === remoteStreamIdRef.current) {
         setRemoteStream(null);
         setRemoteStreamId(null);
         dispatch(dispatchRemoteStreamId(null));
-      } else if (event.streamId === screenStreamId) {
+      } else if (event.streamId === screenStreamIdRef.current) {
         setScreenStream(null);
         setScreenStreamId(null);
       }
@@ -110,7 +132,7 @@ export const StreamProvider: React.FC<StreamProviderProps> = memo(({ children })
       console.error('📹 StreamContext: StreamManager error:', event.error);
     };
 
-    // Subscribe to StreamManager events
+    // Subscribe to StreamManager events (nur einmal beim Mount!)
     const unsubCreated = streamManager.on('streamCreated', handleStreamCreated);
     const unsubDestroyed = streamManager.on('streamDestroyed', handleStreamDestroyed);
     const unsubEnded = streamManager.on('trackEnded', handleTrackEnded);
@@ -122,46 +144,46 @@ export const StreamProvider: React.FC<StreamProviderProps> = memo(({ children })
       unsubEnded();
       unsubError();
     };
-  }, [dispatch, streamManager, localStreamId, remoteStreamId, screenStreamId]);
+  }, [dispatch, streamManager]); // Keine Stream-ID Dependencies mehr!
 
   // ========================================================================
-  // Stream Creation (NEW - preferred methods)
+  // Stream Creation (stabil durch Refs)
   // ========================================================================
 
   const createLocalStream = useCallback(
     async (constraints: MediaStreamConstraints): Promise<MediaStream> => {
-      // Cleanup existing stream first
-      if (localStreamId) {
-        streamManager.destroyStream(localStreamId);
+      // Cleanup existing stream first (use ref for current value)
+      if (localStreamIdRef.current) {
+        streamManager.destroyStream(localStreamIdRef.current);
       }
 
       return streamManager.createCameraStream(constraints);
     },
-    [streamManager, localStreamId]
+    [streamManager] // Keine State-Dependencies mehr!
   );
 
   const createScreenStream = useCallback(
     async (constraints?: DisplayMediaStreamOptions): Promise<MediaStream> => {
       // Cleanup existing screen stream first
-      if (screenStreamId) {
-        streamManager.destroyStream(screenStreamId);
+      if (screenStreamIdRef.current) {
+        streamManager.destroyStream(screenStreamIdRef.current);
       }
 
       return streamManager.createScreenStream(constraints);
     },
-    [streamManager, screenStreamId]
+    [streamManager]
   );
 
   const registerRemoteStream = useCallback(
     (stream: MediaStream, peerId?: string): void => {
       // Cleanup existing remote stream first
-      if (remoteStreamId) {
-        streamManager.destroyStream(remoteStreamId);
+      if (remoteStreamIdRef.current) {
+        streamManager.destroyStream(remoteStreamIdRef.current);
       }
 
       streamManager.registerRemoteStream(stream, peerId);
     },
-    [streamManager, remoteStreamId]
+    [streamManager]
   );
 
   // ========================================================================
@@ -169,11 +191,11 @@ export const StreamProvider: React.FC<StreamProviderProps> = memo(({ children })
   // ========================================================================
 
   const stopLocalStream = useCallback(() => {
-    if (localStreamId) {
+    if (localStreamIdRef.current) {
       log('🛑 StreamContext: Stopping local stream');
-      streamManager.destroyStream(localStreamId);
+      streamManager.destroyStream(localStreamIdRef.current);
     }
-  }, [streamManager, localStreamId]);
+  }, [streamManager]);
 
   const stopRemoteStream = useCallback(() => {
     // Don't stop remote tracks - they're controlled by the peer
@@ -184,11 +206,11 @@ export const StreamProvider: React.FC<StreamProviderProps> = memo(({ children })
   }, [dispatch]);
 
   const stopScreenStream = useCallback(() => {
-    if (screenStreamId) {
+    if (screenStreamIdRef.current) {
       log('🛑 StreamContext: Stopping screen stream');
-      streamManager.destroyStream(screenStreamId);
+      streamManager.destroyStream(screenStreamIdRef.current);
     }
-  }, [streamManager, screenStreamId]);
+  }, [streamManager]);
 
   const cleanup = useCallback(() => {
     log('🧹 StreamContext: Full cleanup');
@@ -254,11 +276,11 @@ export const StreamProvider: React.FC<StreamProviderProps> = memo(({ children })
   );
 
   // ========================================================================
-  // Utilities
+  // Utilities (stabil durch Refs)
   // ========================================================================
 
-  const getLocalStreamId = useCallback(() => localStreamId, [localStreamId]);
-  const getRemoteStreamId = useCallback(() => remoteStreamId, [remoteStreamId]);
+  const getLocalStreamId = useCallback(() => localStreamIdRef.current, []);
+  const getRemoteStreamId = useCallback(() => remoteStreamIdRef.current, []);
 
   const hasLocalVideo = useCallback(
     () =>

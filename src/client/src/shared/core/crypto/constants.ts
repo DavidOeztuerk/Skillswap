@@ -16,7 +16,7 @@ export const IV_LENGTH = 12 as const;
 export const AUTH_TAG_LENGTH = 128 as const;
 
 /** Minimum verschlüsselte Frame-Größe: IV + Auth Tag + 1 byte Payload */
-export const MIN_ENCRYPTED_FRAME_SIZE = (IV_LENGTH + 16 + 1) as const;
+export const MIN_ENCRYPTED_FRAME_SIZE = 29 as const; // IV_LENGTH (12) + Auth Tag (16) + 1 byte Payload
 
 /** ECDH Kurve */
 export const ECDH_CURVE = 'P-256' as const;
@@ -43,7 +43,7 @@ export const KEY_EXCHANGE_TIMEOUT_MS = 15_000 as const;
 export const MAX_KEY_EXCHANGE_RETRIES = 5 as const;
 
 /** Nonce Maximum Age für Replay Protection (5 Minuten) */
-export const NONCE_MAX_AGE_MS = (5 * 60 * 1000) as const;
+export const NONCE_MAX_AGE_MS = 300_000 as const; // 5 * 60 * 1000
 
 /** Nonce Cleanup Interval */
 export const NONCE_CLEANUP_INTERVAL_MS = 60_000 as const;

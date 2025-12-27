@@ -10,7 +10,6 @@ public class VideoCallDbContext(
 {
     public DbSet<VideoCallSession> VideoCallSessions { get; set; }
     public DbSet<CallParticipant> CallParticipants { get; set; }
-    public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<CallAnalytics> CallAnalytics { get; set; }
     public DbSet<CallRecording> CallRecordings { get; set; }
     public DbSet<E2EEAuditLog> E2EEAuditLogs { get; set; }
@@ -80,28 +79,6 @@ public class VideoCallDbContext(
             entity.HasOne(p => p.Session)
                 .WithMany(s => s.Participants)
                 .HasForeignKey(p => p.SessionId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasQueryFilter(e => !e.IsDeleted);
-        });
-
-        modelBuilder.Entity<ChatMessage>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.SessionId);
-            entity.HasIndex(e => e.SenderId);
-            entity.HasIndex(e => e.SentAt);
-            entity.HasIndex(e => new { e.SessionId, e.SentAt });
-
-            entity.Property(e => e.SenderId).HasMaxLength(450);
-            entity.Property(e => e.SenderName).HasMaxLength(200);
-            entity.Property(e => e.Message).HasMaxLength(2000);
-            entity.Property(e => e.MessageType).HasMaxLength(50);
-            entity.Property(e => e.Metadata).HasMaxLength(1000);
-
-            entity.HasOne(m => m.Session)
-                .WithMany()
-                .HasForeignKey(m => m.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasQueryFilter(e => !e.IsDeleted);
