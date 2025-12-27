@@ -394,6 +394,9 @@ export const useVideoCallCore = (
 
       const pc = new RTCPeerConnection(getWebRTCConfiguration());
 
+      // Set PC reference for E2EE keyframe requests (Chrome workaround)
+      refs.streamsHandlerRef.current.setPeerConnection(pc);
+
       pc.ontrack = (event) => {
         console.debug('🎥 ONTRACK EVENT:', {
           streams: event.streams.length,

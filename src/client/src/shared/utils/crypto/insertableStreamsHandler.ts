@@ -112,6 +112,9 @@ export class InsertableStreamsHandler {
   // WICHTIG: Nach Key-Update fordern wir Keyframes an damit Video sofort startet!
   private videoReceivers = new Set<RTCRtpReceiver>();
 
+  // PeerConnection reference for keyframe requests (Chrome workaround)
+  private peerConnection: RTCPeerConnection | null = null;
+
   // Stats
   private stats: FrameStats = {
     totalFrames: 0,
@@ -161,6 +164,15 @@ export class InsertableStreamsHandler {
 
   getStats(): FrameStats {
     return { ...this.stats };
+  }
+
+  /**
+   * Set the PeerConnection reference for Chrome keyframe workaround
+   * Chrome doesn't support RTCRtpReceiver.requestKeyFrame(), so we need
+   * to trigger keyframes via SDP renegotiation or other means.
+   */
+  setPeerConnection(pc: RTCPeerConnection): void {
+    this.peerConnection = pc;
   }
 
   // ============================================================================
@@ -440,7 +452,7 @@ export class InsertableStreamsHandler {
    *
    * Für Chrome (encodedStreams/rtpTransform) verwenden wir verschiedene Ansätze:
    * 1. RTCRtpReceiver.requestKeyFrame() (wenn verfügbar)
-   * 2. Über die PeerConnection (RTCP PLI)
+   * 2. Trigger via setParameters (forces encoder to send keyframe)
    *
    * Für RTCRtpScriptTransform (Safari/Firefox) wird dies im Worker via
    * RTCRtpScriptTransformer.sendKeyFrameRequest() gemacht.
@@ -459,10 +471,10 @@ export class InsertableStreamsHandler {
 
     console.debug(`📹 E2EE: Requesting keyframes from ${this.videoReceivers.size} video receivers`);
 
+    // Try receiver.requestKeyFrame() first (newer browsers)
+    let requestSent = false;
     for (const receiver of this.videoReceivers) {
       try {
-        // Neuere Browser haben möglicherweise requestKeyFrame()
-        // Dies ist Teil des webrtc-encoded-transform Proposals
         const receiverWithKeyFrame = receiver as RTCRtpReceiver & {
           requestKeyFrame?(): Promise<void>;
         };
@@ -476,14 +488,60 @@ export class InsertableStreamsHandler {
             .catch((error: unknown) => {
               console.debug('📹 E2EE: Keyframe request failed (not critical):', error);
             });
-        } else {
-          // Fallback: Trigger über PeerConnection wenn möglich
-          // Dies erfordert Zugriff auf die PC, was wir hier nicht haben
-          // Für jetzt loggen wir nur dass es nicht unterstützt wird
-          console.debug('📹 E2EE: requestKeyFrame() not available on this browser');
+          requestSent = true;
         }
       } catch (error) {
         console.debug('📹 E2EE: Keyframe request error (not critical):', error);
+      }
+    }
+
+    // Chrome workaround: trigger keyframe via sender setParameters
+    // This forces the local encoder to send a keyframe, which helps the remote decoder
+    if (!requestSent && this.peerConnection) {
+      this.triggerKeyframeViaSender();
+    } else if (!requestSent) {
+      console.debug('📹 E2EE: No keyframe request method available - video may be briefly blurry');
+    }
+  }
+
+  /**
+   * Chrome workaround: Trigger keyframe by temporarily changing sender parameters
+   * This causes the encoder to generate a new keyframe
+   */
+  private triggerKeyframeViaSender(): void {
+    if (!this.peerConnection) return;
+
+    const senders = this.peerConnection.getSenders();
+    for (const sender of senders) {
+      if (sender.track?.kind !== 'video') continue;
+
+      try {
+        const params = sender.getParameters();
+        const { encodings } = params;
+        if (encodings.length === 0) continue;
+
+        // Temporarily change priority to force a new keyframe
+        // This is a known Chrome workaround
+        const firstEncoding = encodings[0];
+        const originalPriority = firstEncoding.priority ?? 'low';
+        firstEncoding.priority = originalPriority === 'high' ? 'medium' : 'high';
+
+        void sender.setParameters(params).then(() => {
+          // Restore original priority after a short delay
+          setTimeout(() => {
+            const restoreParams = sender.getParameters();
+            const restoreEncodings = restoreParams.encodings;
+            if (restoreEncodings.length > 0) {
+              restoreEncodings[0].priority = originalPriority;
+              void sender.setParameters(restoreParams).catch(() => {
+                // Ignore errors during restore
+              });
+            }
+          }, 100);
+          console.debug('📹 E2EE: Keyframe triggered via sender setParameters (Chrome workaround)');
+        });
+      } catch (error) {
+        console.debug('📹 E2EE: Chrome keyframe workaround failed (not critical):', error);
       }
     }
   }
