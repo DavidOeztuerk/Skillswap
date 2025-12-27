@@ -24,6 +24,7 @@ import {
   // Constants
   KEY_EXCHANGE_TIMEOUT_MS,
   MAX_KEY_EXCHANGE_RETRIES,
+  KEY_EXCHANGE_DEBOUNCE_MS,
   NONCE_MAX_AGE_MS,
   NONCE_CLEANUP_INTERVAL_MS,
 } from '../../core/crypto';
@@ -83,6 +84,7 @@ export class E2EEKeyExchangeManager {
   private keyGeneration = 0;
   private retryCount = 0;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private lastKeyExchangeCompleteTime = 0; // Debounce: track last successful exchange
 
   // Nonce Replay Protection - LRU Map mit Timestamps
   // Max 100 Einträge für Memory-Effizienz (statt 1000)
@@ -398,6 +400,15 @@ export class E2EEKeyExchangeManager {
       return;
     }
 
+    // Debounce: Don't send new offers too quickly after a successful exchange
+    const timeSinceLastExchange = Date.now() - this.lastKeyExchangeCompleteTime;
+    if (this.lastKeyExchangeCompleteTime > 0 && timeSinceLastExchange < KEY_EXCHANGE_DEBOUNCE_MS) {
+      console.debug(
+        `⏳ KeyExchange: Debouncing - last exchange was ${timeSinceLastExchange}ms ago, waiting...`
+      );
+      return;
+    }
+
     this.state = 'sending-offer';
 
     try {
@@ -668,6 +679,8 @@ export class E2EEKeyExchangeManager {
     );
 
     this.state = 'complete';
+    this.lastKeyExchangeCompleteTime = Date.now(); // Mark completion time for debounce
+    this.retryCount = 0; // Reset retry count on success
 
     // Trigger verification if needed
     if (this.events.onVerificationRequired && this.peerSigningFingerprint) {
@@ -705,8 +718,19 @@ export class E2EEKeyExchangeManager {
     }
 
     this.retryTimeout = setTimeout(() => {
-      if (this.state === 'waiting-answer') {
-        console.debug('🔄 KeyExchange: Retrying...');
+      // Only retry if still waiting and not complete
+      if (this.state === 'waiting-answer' || this.state === 'sending-offer') {
+        // Double-check we haven't completed in the meantime
+        if (this.lastKeyExchangeCompleteTime > 0) {
+          const timeSinceComplete = Date.now() - this.lastKeyExchangeCompleteTime;
+          if (timeSinceComplete < KEY_EXCHANGE_DEBOUNCE_MS) {
+            console.debug('🔄 KeyExchange: Skipping retry - exchange completed recently');
+            return;
+          }
+        }
+        console.debug(
+          `🔄 KeyExchange: Retrying (attempt ${this.retryCount + 1}/${MAX_KEY_EXCHANGE_RETRIES})...`
+        );
         this.retryCount++;
         void this.sendKeyOffer();
       }

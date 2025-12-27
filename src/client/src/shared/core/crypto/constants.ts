@@ -33,14 +33,17 @@ export const PBKDF2_ITERATIONS = 100_000 as const;
 /** Salt Länge für PBKDF2 */
 export const SALT_LENGTH = 16 as const;
 
-/** Key Rotation Interval in Millisekunden (60 Sekunden) */
-export const KEY_ROTATION_INTERVAL_MS = 60_000 as const;
+/** Key Rotation Interval in Millisekunden (5 Minuten - longer interval = less disruption) */
+export const KEY_ROTATION_INTERVAL_MS = 300_000 as const;
 
-/** Key Exchange Timeout in Millisekunden */
-export const KEY_EXCHANGE_TIMEOUT_MS = 15_000 as const;
+/** Key Exchange Timeout in Millisekunden (longer timeout = fewer retries) */
+export const KEY_EXCHANGE_TIMEOUT_MS = 10_000 as const;
 
-/** Maximum Key Exchange Retry Attempts */
-export const MAX_KEY_EXCHANGE_RETRIES = 5 as const;
+/** Maximum Key Exchange Retry Attempts (reduced to prevent rapid key generations) */
+export const MAX_KEY_EXCHANGE_RETRIES = 2 as const;
+
+/** Minimum time between key exchanges to prevent rapid key generation cascades */
+export const KEY_EXCHANGE_DEBOUNCE_MS = 5_000 as const;
 
 /** Nonce Maximum Age für Replay Protection (5 Minuten) */
 export const NONCE_MAX_AGE_MS = 300_000 as const; // 5 * 60 * 1000
