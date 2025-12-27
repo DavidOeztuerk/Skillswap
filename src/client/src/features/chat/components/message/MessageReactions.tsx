@@ -5,7 +5,7 @@
 
 import React, { useMemo } from 'react';
 import { Box, Chip, useTheme, alpha } from '@mui/material';
-import { useAppDispatch } from '../../../../core/store/hooks';
+import { useAppDispatch } from '../../../../core/store/store.hooks';
 import { toggleMessageReaction } from '../../store/chatThunks';
 import { parseReactions } from '../../types/Chat';
 

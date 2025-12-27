@@ -78,33 +78,16 @@ export const E2EEErrorCodes = {
 export type E2EEErrorCode = (typeof E2EEErrorCodes)[keyof typeof E2EEErrorCodes];
 
 // ============================================================================
-// Legacy SignalR Events (for backward compatibility)
-// ============================================================================
-
-export interface LegacyKeyExchangeMessage {
-  fromUserId: string;
-  keyExchangeData: string;
-}
-
-// ============================================================================
 // SignalR Hub Method Names
 // ============================================================================
 
 export const E2EEHubMethods = {
-  // New unified method
   ForwardE2EEMessage: 'ForwardE2EEMessage',
-
-  // Legacy methods (deprecated)
-  SendKeyOffer: 'SendKeyOffer',
-  SendKeyAnswer: 'SendKeyAnswer',
-  SendKeyRotation: 'SendKeyRotation',
 } as const;
 
 export const E2EEHubEvents = {
-  // New unified event
   ReceiveE2EEMessage: 'ReceiveE2EEMessage',
-
-  // Legacy events (for backward compatibility)
+  // Legacy events still needed for receiving (backend sends these)
   ReceiveKeyOffer: 'ReceiveKeyOffer',
   ReceiveKeyAnswer: 'ReceiveKeyAnswer',
   ReceiveKeyRotation: 'ReceiveKeyRotation',
@@ -155,31 +138,6 @@ export function offE2EEMessage(
   } else {
     connection.off(E2EEHubEvents.ReceiveE2EEMessage);
   }
-}
-
-// ============================================================================
-// Legacy Event Handlers (for backward compatibility)
-// ============================================================================
-
-export function onLegacyKeyOffer(
-  connection: HubConnection,
-  callback: (fromUserId: string, keyExchangeData: string) => void
-): void {
-  connection.on(E2EEHubEvents.ReceiveKeyOffer, callback);
-}
-
-export function onLegacyKeyAnswer(
-  connection: HubConnection,
-  callback: (fromUserId: string, keyExchangeData: string) => void
-): void {
-  connection.on(E2EEHubEvents.ReceiveKeyAnswer, callback);
-}
-
-export function onLegacyKeyRotation(
-  connection: HubConnection,
-  callback: (fromUserId: string, keyExchangeData: string) => void
-): void {
-  connection.on(E2EEHubEvents.ReceiveKeyRotation, callback);
 }
 
 // ============================================================================

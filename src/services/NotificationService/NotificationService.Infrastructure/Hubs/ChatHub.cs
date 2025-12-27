@@ -367,6 +367,183 @@ public class ChatHub : Hub
 
     #endregion
 
+    #region E2EE Key Exchange
+
+    /// <summary>
+    /// Send E2EE key offer to peer
+    /// </summary>
+    public async Task SendKeyOffer(string threadId, string publicKey, string fingerprint)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId)) return;
+
+        try
+        {
+            var thread = await _unitOfWork.ChatThreads.GetByThreadIdAsync(threadId);
+            if (thread == null || !thread.IsParticipant(userId))
+            {
+                await Clients.Caller.SendAsync("E2EEError", "Not a participant of this chat");
+                return;
+            }
+
+            var otherUserId = thread.GetOtherParticipantId(userId);
+
+            _logger.LogDebug("E2EE KeyOffer from {UserId} to {OtherUserId} in thread {ThreadId}",
+                userId, otherUserId, threadId);
+
+            await Clients.Group($"user-{otherUserId}").SendAsync("ReceiveKeyOffer", new
+            {
+                ThreadId = threadId,
+                SenderId = userId,
+                PublicKey = publicKey,
+                Fingerprint = fingerprint,
+                Timestamp = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending key offer in thread {ThreadId}", threadId);
+            await Clients.Caller.SendAsync("E2EEError", "Failed to send key offer");
+        }
+    }
+
+    /// <summary>
+    /// Send E2EE key answer to peer
+    /// </summary>
+    public async Task SendKeyAnswer(string threadId, string publicKey, string fingerprint)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId)) return;
+
+        try
+        {
+            var thread = await _unitOfWork.ChatThreads.GetByThreadIdAsync(threadId);
+            if (thread == null || !thread.IsParticipant(userId))
+            {
+                await Clients.Caller.SendAsync("E2EEError", "Not a participant of this chat");
+                return;
+            }
+
+            var otherUserId = thread.GetOtherParticipantId(userId);
+
+            _logger.LogDebug("E2EE KeyAnswer from {UserId} to {OtherUserId} in thread {ThreadId}",
+                userId, otherUserId, threadId);
+
+            await Clients.Group($"user-{otherUserId}").SendAsync("ReceiveKeyAnswer", new
+            {
+                ThreadId = threadId,
+                SenderId = userId,
+                PublicKey = publicKey,
+                Fingerprint = fingerprint,
+                Timestamp = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending key answer in thread {ThreadId}", threadId);
+            await Clients.Caller.SendAsync("E2EEError", "Failed to send key answer");
+        }
+    }
+
+    /// <summary>
+    /// Notify peer that E2EE is ready
+    /// </summary>
+    public async Task SendE2EEReady(string threadId, string fingerprint)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId)) return;
+
+        try
+        {
+            var thread = await _unitOfWork.ChatThreads.GetByThreadIdAsync(threadId);
+            if (thread == null || !thread.IsParticipant(userId)) return;
+
+            var otherUserId = thread.GetOtherParticipantId(userId);
+
+            _logger.LogDebug("E2EE Ready from {UserId} in thread {ThreadId}", userId, threadId);
+
+            await Clients.Group($"user-{otherUserId}").SendAsync("ReceiveE2EEReady", new
+            {
+                ThreadId = threadId,
+                SenderId = userId,
+                Fingerprint = fingerprint
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending E2EE ready in thread {ThreadId}", threadId);
+        }
+    }
+
+    #endregion
+
+    #region Message Operations
+
+    /// <summary>
+    /// Delete a message (soft delete)
+    /// </summary>
+    public async Task DeleteMessage(string messageId)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId)) return;
+
+        try
+        {
+            var message = await _unitOfWork.ChatMessages.GetByIdAsync(messageId);
+            if (message == null)
+            {
+                await Clients.Caller.SendAsync("Error", "Message not found");
+                return;
+            }
+
+            // Only the sender can delete their own message
+            if (message.SenderId != userId)
+            {
+                await Clients.Caller.SendAsync("Error", "You can only delete your own messages");
+                return;
+            }
+
+            var thread = await _unitOfWork.ChatThreads.GetByThreadIdAsync(message.ThreadId);
+            if (thread == null)
+            {
+                await Clients.Caller.SendAsync("Error", "Thread not found");
+                return;
+            }
+
+            // Soft delete the message
+            message.MarkAsDeleted(userId);
+            await _unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation("Message {MessageId} deleted by user {UserId}", messageId, userId);
+
+            // Notify all participants in the thread
+            await Clients.Group($"thread-{message.ThreadId}").SendAsync("MessageDeleted", new
+            {
+                MessageId = messageId,
+                ThreadId = message.ThreadId,
+                DeletedBy = userId,
+                DeletedAt = DateTime.UtcNow
+            });
+
+            // Also notify users not currently in thread
+            var otherUserId = thread.GetOtherParticipantId(userId);
+            await Clients.Group($"user-{otherUserId}").SendAsync("MessageDeleted", new
+            {
+                MessageId = messageId,
+                ThreadId = message.ThreadId,
+                DeletedBy = userId,
+                DeletedAt = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting message {MessageId}", messageId);
+            await Clients.Caller.SendAsync("Error", "Failed to delete message");
+        }
+    }
+
+    #endregion
+
     #region Reactions
 
     /// <summary>

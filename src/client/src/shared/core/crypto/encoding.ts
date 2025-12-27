@@ -112,7 +112,7 @@ export function generateRandomBytes(length: number): Uint8Array {
  * @returns 32-character hex string (16 bytes)
  */
 export function generateNonce(): HexString {
-  return arrayBufferToHex(generateRandomBytes(16).buffer);
+  return arrayBufferToHex(generateRandomBytes(16).buffer as ArrayBuffer);
 }
 
 /**

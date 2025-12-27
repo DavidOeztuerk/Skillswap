@@ -28,12 +28,12 @@ import {
   type SxProps,
   type Theme,
 } from '@mui/material';
-import { useAppSelector } from '../../../core/store/hooks';
+import { useAppSelector } from '../../../core/store/store.hooks';
 import { selectAuthUser } from '../../auth/store/authSelectors';
 import { useInlineChat } from '../hooks/useInlineChat';
 import { ChatE2EEStatusHeader } from './ChatE2EeIndicator';
 import ChatMessageBubble from './ChatMessageBubble';
-import type { ChatE2EEStatus } from '../../videocall/hooks/types';
+import type { ChatE2EEStatus } from '../types/Chat';
 
 // ============================================================================
 // PERFORMANCE: Extract sx objects as constants to prevent recreation
@@ -103,6 +103,8 @@ const emptyIconSx: SxProps<Theme> = {
 // ============================================================================
 
 export interface InlineChatPanelProps {
+  /** ThreadId from MatchRequest (SHA256-GUID format) - REQUIRED */
+  threadId: string;
   partnerId: string;
   partnerName: string;
   partnerAvatarUrl?: string;
@@ -205,6 +207,7 @@ const TypingIndicatorDisplay: React.FC<TypingIndicatorDisplayProps> = ({ userNam
 // ============================================================================
 
 const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
+  threadId,
   partnerId,
   partnerName,
   partnerAvatarUrl,
@@ -222,9 +225,10 @@ const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
-  // Use inline chat hook
+  // Use inline chat hook with threadId from API (not generated locally)
   const { messages, isLoading, isConnected, typingIndicator, sendMessage, sendTyping } =
     useInlineChat({
+      threadId,
       partnerId,
       partnerName,
       partnerAvatarUrl,

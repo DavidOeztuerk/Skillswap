@@ -41,7 +41,10 @@ public record UserMatchResponse(
     string[] PreferredDays,
     string[] PreferredTimes,
     SessionInfoResponse? SessionInfo,
-    string? AdditionalNotes);
+    string? AdditionalNotes,
+    // Chat/Thread info - ThreadId from MatchRequest for Chat integration
+    string? ThreadId = null,
+    string? MatchRequestId = null);
 
 public record SessionInfoResponse(
     int CompletedSessions,

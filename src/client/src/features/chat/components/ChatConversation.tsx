@@ -36,8 +36,7 @@ import {
 import { ChatE2EEStatusHeader } from './ChatE2EeIndicator';
 import ChatMessageBubble from './ChatMessageBubble';
 import ChatMessageInput from './ChatMessageInput';
-import type { ChatE2EEStatus } from '../../videocall/hooks/types';
-import type { ChatMessageModel } from '../types/Chat';
+import type { ChatE2EEStatus, ChatMessageModel } from '../types/Chat';
 
 // ============================================================================
 // PERFORMANCE: Extract sx objects as constants to prevent recreation
@@ -420,7 +419,7 @@ const ChatConversation: React.FC<ChatConversationProps> = ({ threadId, onBack })
           </IconButton>
         ) : null}
         <Avatar src={otherParticipantAvatarUrl} alt={otherParticipantName} sx={avatarSx}>
-          {otherParticipantName.charAt(0).toUpperCase()}
+          {otherParticipantName?.charAt(0).toUpperCase()}
         </Avatar>
         <Box sx={headerFlexSx}>
           <Box sx={headerNameContainerSx}>

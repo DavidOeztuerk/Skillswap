@@ -321,10 +321,17 @@ namespace VideocallService.Migrations
                     b.ToTable("CallRecordings");
                 });
 
-            modelBuilder.Entity("VideocallService.Domain.Entities.ChatMessage", b =>
+            modelBuilder.Entity("VideocallService.Domain.Entities.E2EEAuditLog", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
+
+                    b.Property<string>("ClientIpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<DateTime?>("ClientTimestamp")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -338,37 +345,52 @@ namespace VideocallService.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("FromUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                    b.Property<string>("KeyFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("KeyGeneration")
+                        .HasColumnType("integer");
 
                     b.Property<string>("MessageType")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<string>("Metadata")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                    b.Property<int>("PayloadSize")
+                        .HasColumnType("integer");
 
-                    b.Property<string>("SenderId")
+                    b.Property<int?>("ProcessingTimeMs")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RoomId")
                         .IsRequired()
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
-                    b.Property<string>("SenderName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateTime>("SentAt")
+                    b.Property<DateTime>("ServerTimestamp")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SessionId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ToUserId")
                         .IsRequired()
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
@@ -379,17 +401,30 @@ namespace VideocallService.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("WasRateLimited")
+                        .HasColumnType("boolean");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("SenderId");
+                    b.HasIndex("FromUserId");
 
-                    b.HasIndex("SentAt");
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("ServerTimestamp");
 
                     b.HasIndex("SessionId");
 
-                    b.HasIndex("SessionId", "SentAt");
+                    b.HasIndex("RoomId", "ServerTimestamp");
 
-                    b.ToTable("ChatMessages");
+                    b.HasIndex("Success", "ServerTimestamp");
+
+                    b.HasIndex("WasRateLimited", "ServerTimestamp");
+
+                    b.ToTable("E2EEAuditLogs");
                 });
 
             modelBuilder.Entity("VideocallService.Domain.Entities.VideoCallSession", b =>
@@ -503,6 +538,10 @@ namespace VideocallService.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("ThreadId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -550,17 +589,6 @@ namespace VideocallService.Migrations
                 });
 
             modelBuilder.Entity("VideocallService.Domain.Entities.CallRecording", b =>
-                {
-                    b.HasOne("VideocallService.Domain.Entities.VideoCallSession", "Session")
-                        .WithMany()
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Session");
-                });
-
-            modelBuilder.Entity("VideocallService.Domain.Entities.ChatMessage", b =>
                 {
                     b.HasOne("VideocallService.Domain.Entities.VideoCallSession", "Session")
                         .WithMany()

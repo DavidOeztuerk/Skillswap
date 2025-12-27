@@ -2,7 +2,7 @@
  * Crypto Module - Public API
  *
  * Zentrale Exports für alle kryptographischen Operationen.
- * Ersetzt alle duplizierten Implementierungen in der Codebase.
+ * Browser-agnostisch - alle modernen Browser unterstützen die gleichen APIs.
  *
  * @example
  * ```typescript
@@ -11,7 +11,7 @@
  *   encryptAesGcm,
  *   generateECDHKeyPair,
  *   signData,
- *   SAFARI_AES_CONFIG
+ *   getCryptoFactory
  * } from '@/shared/core/crypto';
  * ```
  */
@@ -48,7 +48,6 @@ export type {
   KeyFingerprint,
   KeyGeneration,
   E2EEMethod,
-  AesGcmConfig,
   ECDHKeyPair,
   ECDSAKeyPair,
   E2EEKeyMaterial,
@@ -94,9 +93,6 @@ export {
 // ============================================================================
 
 export {
-  // Configuration
-  DEFAULT_AES_CONFIG,
-  SAFARI_AES_CONFIG,
   // Encryption
   encryptAesGcm,
   encryptAesGcmWithIv,
@@ -162,3 +158,36 @@ export {
   // Fingerprint
   calculateECDSAFingerprint,
 } from './ecdsa';
+
+// ============================================================================
+// Crypto Factory
+// ============================================================================
+
+export {
+  CryptoFactory,
+  getCryptoFactory,
+  initializeCryptoFactory,
+  resetCryptoFactory,
+} from './adaptiveCryptoFactory';
+
+// ============================================================================
+// Storage Manager (für Private Mode Fallback)
+// ============================================================================
+
+export {
+  SafariStorageManager,
+  getSafariStorage,
+  initializeSafariStorage,
+  resetSafariStorage,
+} from './safariStorageManager';
+
+// ============================================================================
+// WebRTC Adapter (für RTCRtpScriptTransform vs createEncodedStreams)
+// ============================================================================
+
+export {
+  SafariWebRTCAdapter,
+  createWebRTCAdapter,
+  isWebRTCE2EESupported,
+  getWebRTCE2EEMethod,
+} from './safariWebRtcAdapter';

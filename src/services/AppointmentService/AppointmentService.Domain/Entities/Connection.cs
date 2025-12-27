@@ -18,6 +18,13 @@ public class Connection : AuditableEntity
     public string MatchRequestId { get; set; } = string.Empty;
 
     /// <summary>
+    /// ThreadId from MatchRequest (SHA256-GUID format) for Chat integration.
+    /// Links this connection to the ChatThread.
+    /// </summary>
+    [MaxLength(450)]
+    public string? ThreadId { get; set; }
+
+    /// <summary>
     /// User who initiated the match request
     /// </summary>
     [Required]
@@ -136,12 +143,14 @@ public class Connection : AuditableEntity
         string skillId,
         string? exchangeSkillId = null,
         decimal? paymentRatePerHour = null,
-        string? currency = null)
+        string? currency = null,
+        string? threadId = null)
     {
         return new Connection
         {
             Id = Guid.NewGuid().ToString(),
             MatchRequestId = matchRequestId,
+            ThreadId = threadId,
             RequesterId = requesterId,
             TargetUserId = targetUserId,
             ConnectionType = connectionType,

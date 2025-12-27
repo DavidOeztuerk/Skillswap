@@ -11,8 +11,11 @@ public interface ISessionOrchestrationService
     /// <summary>
     /// Creates the complete session hierarchy when a match is accepted
     /// </summary>
+    /// <param name="matchRequestId">The MatchRequest ID that originated this connection</param>
+    /// <param name="threadId">ThreadId from MatchRequest (SHA256-GUID format) for Chat integration</param>
     Task<Connection> CreateSessionHierarchyFromMatchAsync(
         string matchRequestId,
+        string? threadId,
         string requesterId,
         string targetUserId,
         string skillId,

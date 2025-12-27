@@ -5,6 +5,7 @@
  * Shows encryption state, key fingerprints, and verification status.
  */
 
+import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
   Error as ErrorIcon,
@@ -119,7 +120,7 @@ export const E2EEStatusIndicator = ({
   errorMessage,
   onRotateKeys,
   compact = false,
-}: E2EEStatusIndicatorProps): JSX.Element => {
+}: E2EEStatusIndicatorProps): ReactElement => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
 
@@ -304,7 +305,7 @@ export const E2EEStatusIndicator = ({
 
 export const E2EEStatusBadge = ({
   status,
-}: Pick<E2EEStatusIndicatorProps, 'status'>): JSX.Element => {
+}: Pick<E2EEStatusIndicatorProps, 'status'>): ReactElement => {
   const config = statusConfigs[status];
 
   return (

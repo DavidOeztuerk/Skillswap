@@ -1,7 +1,6 @@
 import { apiClient } from '../../../core/api/apiClient';
 import { VIDEOCALL_ENDPOINTS } from '../../../core/config/endpoints';
 import type { ApiResponse, PagedResponse } from '../../../shared/types/api/UnifiedResponse';
-import type { SendChatMessageRequest } from '../../chat/types/ChatMessage';
 import type { VideoCallConfig } from '../types/VideoCallConfig';
 import type {
   LeaveCallResponse,
@@ -9,12 +8,11 @@ import type {
   SaveCallInfoResponse,
   ReportIssueResponse,
   JoinCallResponse,
-  ChatMessageResponse,
 } from '../types/VideoCallResponses';
 
-const raumIdErforderlichError = 'Raum-ID ist erforderlich';
-const sessionIdErforderlichError = 'Session-ID ist erforderlich';
-const terminIdErforderlichError = 'Termin-ID ist erforderlich';
+const ROOM_ID_REQUIRED_ERROR = 'Room ID is required';
+const SESSION_ID_REQUIRED_ERROR = 'Session ID is required';
+const APPOINTMENT_ID_REQUIRED_ERROR = 'Appointment ID is required';
 /**
  * Service for video call operations
  */
@@ -23,7 +21,7 @@ const videoCallService = {
    * Get video call configuration
    */
   async getCallConfig(appointmentId: string): Promise<ApiResponse<VideoCallConfig>> {
-    if (!appointmentId.trim()) throw new Error(terminIdErforderlichError);
+    if (!appointmentId.trim()) throw new Error(APPOINTMENT_ID_REQUIRED_ERROR);
     return apiClient.get<VideoCallConfig>(`${VIDEOCALL_ENDPOINTS.DETAILS}/${appointmentId}/config`);
   },
 
@@ -31,7 +29,7 @@ const videoCallService = {
    * Create new video call room
    */
   async createCallRoom(appointmentId: string): Promise<ApiResponse<VideoCallConfig>> {
-    if (!appointmentId.trim()) throw new Error(terminIdErforderlichError);
+    if (!appointmentId.trim()) throw new Error(APPOINTMENT_ID_REQUIRED_ERROR);
     return apiClient.post<VideoCallConfig>(VIDEOCALL_ENDPOINTS.CREATE, { appointmentId });
   },
 
@@ -39,7 +37,7 @@ const videoCallService = {
    * Join video call room
    */
   async joinCallRoom(roomId: string): Promise<ApiResponse<VideoCallConfig>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
     return apiClient.post<VideoCallConfig>(`${VIDEOCALL_ENDPOINTS.JOIN}/${roomId}/join`);
   },
 
@@ -48,7 +46,7 @@ const videoCallService = {
    * @deprecated Use leaveCall() instead
    */
   async leaveCallRoom(roomId: string): Promise<ApiResponse<LeaveCallResponse>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
     return apiClient.post<LeaveCallResponse>(`${VIDEOCALL_ENDPOINTS.LEAVE}/${roomId}/leave`);
   },
 
@@ -56,7 +54,7 @@ const videoCallService = {
    * Start video call
    */
   async startCall(roomId: string): Promise<ApiResponse<{ sessionId: string; startedAt: string }>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
     return apiClient.post<{ sessionId: string; startedAt: string }>(
       `${VIDEOCALL_ENDPOINTS.START}/${roomId}/start`
     );
@@ -72,7 +70,7 @@ const videoCallService = {
     rating?: number,
     feedback?: string
   ): Promise<ApiResponse<EndCallResponse>> {
-    if (!sessionId.trim()) throw new Error(sessionIdErforderlichError);
+    if (!sessionId.trim()) throw new Error(SESSION_ID_REQUIRED_ERROR);
     return apiClient.post<EndCallResponse>(VIDEOCALL_ENDPOINTS.END_CALL, {
       sessionId,
       durationSeconds: durationSeconds ?? 0,
@@ -90,8 +88,8 @@ const videoCallService = {
     roomId: string,
     durationInSeconds: number
   ): Promise<ApiResponse<SaveCallInfoResponse>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
-    if (durationInSeconds < 0) throw new Error('Dauer muss positiv sein');
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
+    if (durationInSeconds < 0) throw new Error('Duration must be positive');
 
     // Note: Save call info is now handled by endCall endpoint
     // This method returns a synthetic success response for backwards compatibility
@@ -113,8 +111,8 @@ const videoCallService = {
    * @deprecated Use reportTechnicalIssue() instead
    */
   async reportIssue(roomId: string, issue: string): Promise<ApiResponse<ReportIssueResponse>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
-    if (!issue.trim()) throw new Error('Problembeschreibung ist erforderlich');
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
+    if (!issue.trim()) throw new Error('Issue description is required');
 
     // Return synthetic response as backend endpoint doesn't exist
     await Promise.resolve();
@@ -141,7 +139,7 @@ const videoCallService = {
     microphoneEnabled = true,
     deviceInfo?: string
   ): Promise<ApiResponse<JoinCallResponse>> {
-    if (!sessionId.trim()) throw new Error(sessionIdErforderlichError);
+    if (!sessionId.trim()) throw new Error(SESSION_ID_REQUIRED_ERROR);
 
     return apiClient.post<JoinCallResponse>(VIDEOCALL_ENDPOINTS.JOIN, {
       sessionId,
@@ -157,7 +155,7 @@ const videoCallService = {
    * Backend returns: LeaveCallResponse { sessionId, success }
    */
   async leaveCall(sessionId: string): Promise<ApiResponse<LeaveCallResponse>> {
-    if (!sessionId.trim()) throw new Error(sessionIdErforderlichError);
+    if (!sessionId.trim()) throw new Error(SESSION_ID_REQUIRED_ERROR);
     return apiClient.post<LeaveCallResponse>(VIDEOCALL_ENDPOINTS.LEAVE, { sessionId });
   },
 
@@ -167,7 +165,7 @@ const videoCallService = {
   async startRecording(
     roomId: string
   ): Promise<ApiResponse<{ recordingId: string; status: string }>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
     return apiClient.post<{ recordingId: string; status: string }>(
       `${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/recording/start`
     );
@@ -179,7 +177,7 @@ const videoCallService = {
   async stopRecording(
     roomId: string
   ): Promise<ApiResponse<{ recordingId: string; status: string; url?: string }>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
     return apiClient.post<{ recordingId: string; status: string; url?: string }>(
       `${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/recording/stop`
     );
@@ -196,7 +194,7 @@ const videoCallService = {
       bandwidth: number;
     }>
   > {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
     return apiClient.get<{
       audioLevel: number;
       networkQuality: 'poor' | 'fair' | 'good' | 'excellent';
@@ -215,8 +213,8 @@ const videoCallService = {
     issue: string,
     description: string
   ): Promise<ApiResponse<ReportIssueResponse>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
-    if (!issue.trim()) throw new Error('Problem-Typ ist erforderlich');
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
+    if (!issue.trim()) throw new Error('Issue type is required');
 
     // Log the issue for now - backend endpoint doesn't exist yet
     console.warn('[VideoCallService] reportTechnicalIssue: Backend endpoint not implemented', {
@@ -281,26 +279,10 @@ const videoCallService = {
     roomId: string,
     settings: Record<string, unknown>
   ): Promise<ApiResponse<{ roomId: string; updated: boolean }>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
     return apiClient.put<{ roomId: string; updated: boolean }>(
       `${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/settings`,
       settings
-    );
-  },
-
-  /**
-   * Send chat message - messages are persisted to database
-   * @param request - Message details including sessionId, senderId, and message content
-   */
-  async sendChatMessage(
-    request: SendChatMessageRequest
-  ): Promise<ApiResponse<SendChatMessageRequest>> {
-    if (!request.sessionId.trim()) throw new Error(sessionIdErforderlichError);
-    if (!request.message.trim()) throw new Error('Nachricht ist erforderlich');
-
-    return apiClient.post<SendChatMessageRequest>(
-      `${VIDEOCALL_ENDPOINTS.DETAILS}/chat/send`,
-      request
     );
   },
 
@@ -310,28 +292,9 @@ const videoCallService = {
   async getCallParticipants(
     roomId: string
   ): Promise<PagedResponse<{ id: string; name: string; isConnected: boolean }>> {
-    if (!roomId.trim()) throw new Error(raumIdErforderlichError);
+    if (!roomId.trim()) throw new Error(ROOM_ID_REQUIRED_ERROR);
     return apiClient.getPaged<{ id: string; name: string; isConnected: boolean }>(
       `${VIDEOCALL_ENDPOINTS.DETAILS}/${roomId}/participants`
-    );
-  },
-
-  /**
-   * Get chat history for a session - retrieves persisted messages from database
-   * Backend returns: ChatMessageResponse[]
-   * @param sessionId - The video call session ID
-   * @param limit - Optional limit on number of messages to retrieve
-   */
-  async getChatHistory(
-    sessionId: string,
-    limit?: number
-  ): Promise<ApiResponse<ChatMessageResponse[]>> {
-    if (!sessionId.trim()) throw new Error(sessionIdErforderlichError);
-
-    const queryParams = limit === undefined ? undefined : { limit };
-    return apiClient.get<ChatMessageResponse[]>(
-      `${VIDEOCALL_ENDPOINTS.DETAILS}/${sessionId}/chat-history`,
-      queryParams
     );
   },
 };

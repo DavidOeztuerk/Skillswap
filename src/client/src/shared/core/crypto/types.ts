@@ -13,8 +13,8 @@ export type Base64String = string & { readonly __brand: 'Base64' };
 /** Branded type für Hex encoded strings */
 export type HexString = string & { readonly __brand: 'Hex' };
 
-/** Branded type für Key Fingerprints */
-export type KeyFingerprint = HexString & { readonly __brand: 'KeyFingerprint' };
+/** Branded type für Key Fingerprints (64-char hex SHA-256 hash) */
+export type KeyFingerprint = string & { readonly __brand: 'KeyFingerprint' };
 
 /** Key Generation Number */
 export type KeyGeneration = number & { readonly __brand: 'KeyGeneration' };
@@ -25,19 +25,6 @@ export type KeyGeneration = number & { readonly __brand: 'KeyGeneration' };
 
 /** Supported E2EE Methods */
 export type E2EEMethod = 'encodedStreams' | 'rtpTransform' | 'scriptTransform' | 'none';
-
-// ============================================================================
-// Configuration Types
-// ============================================================================
-
-/**
- * Browser-specific AES-GCM Configuration
- * KRITISCH: Safari akzeptiert tagLength NICHT!
- */
-export interface AesGcmConfig {
-  /** Whether to include tagLength (Safari doesn't support it) */
-  readonly includeTagLength: boolean;
-}
 
 // ============================================================================
 // Key Pair Types

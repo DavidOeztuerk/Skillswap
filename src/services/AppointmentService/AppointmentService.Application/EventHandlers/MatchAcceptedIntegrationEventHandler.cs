@@ -47,6 +47,7 @@ public class MatchAcceptedIntegrationEventHandler : IConsumer<MatchAcceptedInteg
 
             var connection = await _sessionOrchestrationService.CreateSessionHierarchyFromMatchAsync(
                 matchRequestId: message.MatchId,
+                threadId: message.ThreadId,
                 requesterId: message.RequesterId,
                 targetUserId: message.TargetUserId,
                 skillId: message.SkillId,

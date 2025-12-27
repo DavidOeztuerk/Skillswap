@@ -1,8 +1,12 @@
 /**
  * E2EE Capability Detection - Single Source of Truth
  *
- * Ersetzt alle duplizierten E2EE-Detection Implementierungen (bisher in 4 Dateien!).
  * Bestimmt die richtige E2EE-Methode basierend auf Browser UND Feature Detection.
+ *
+ * Unterstützte Methoden:
+ * - scriptTransform: RTCRtpScriptTransform (Safari 15.4+, Firefox 117+)
+ * - encodedStreams: createEncodedStreams (Chrome Legacy)
+ * - rtpTransform: RTCRtpSender.transform (Chrome 86+, Firefox 117+)
  */
 
 import { isSafari, isChrome, isFirefox, getBrowserInfo } from './browserDetector';
@@ -19,7 +23,7 @@ let cachedE2EECapabilities: E2EECapabilities | null = null;
 // ============================================================================
 
 /**
- * Prüft ob RTCRtpScriptTransform verfügbar ist (Safari 15.4+)
+ * Prüft ob RTCRtpScriptTransform verfügbar ist (Safari 15.4+, Firefox 117+)
  */
 function hasRtpScriptTransform(): boolean {
   return typeof RTCRtpScriptTransform !== 'undefined';
@@ -60,12 +64,12 @@ function detectE2EECapabilities(): E2EECapabilities {
 
   // Methode bestimmen basierend auf Browser UND Features
   let method: E2EEMethod = 'none';
-  let needsSafariWorker = false;
+  let usesScriptTransform = false;
 
   // 1. Safari mit RTCRtpScriptTransform
   if (isSafari() && supportsRtpScriptTransform) {
     method = 'scriptTransform';
-    needsSafariWorker = true;
+    usesScriptTransform = true;
   }
   // 2. Chrome/Edge: encodedStreams BEVORZUGEN (stabiler, besser getestet)
   else if (isChrome() && supportsEncodedStreams) {
@@ -75,15 +79,26 @@ function detectE2EECapabilities(): E2EECapabilities {
   else if (isChrome() && supportsRtpTransform) {
     method = 'rtpTransform';
   }
-  // 4. Firefox: rtpTransform
-  else if (isFirefox() && supportsRtpTransform) {
-    method = 'rtpTransform';
+  // 4. Firefox: rtpTransform oder scriptTransform
+  else if (isFirefox()) {
+    if (supportsRtpScriptTransform) {
+      method = 'scriptTransform';
+      usesScriptTransform = true;
+    } else if (supportsRtpTransform) {
+      method = 'rtpTransform';
+    }
   }
-  // 5. Andere Browser mit rtpTransform
+  // 5. Andere Browser mit scriptTransform
+  // eslint-disable-next-line sonarjs/no-duplicated-branches
+  else if (supportsRtpScriptTransform) {
+    method = 'scriptTransform';
+    usesScriptTransform = true;
+  }
+  // 6. Andere Browser mit rtpTransform
   else if (supportsRtpTransform) {
     method = 'rtpTransform';
   }
-  // 6. Andere Browser mit encodedStreams
+  // 7. Andere Browser mit encodedStreams
   else if (supportsEncodedStreams) {
     method = 'encodedStreams';
   }
@@ -93,9 +108,8 @@ function detectE2EECapabilities(): E2EECapabilities {
     method,
     supportsEncodedStreams,
     supportsRtpTransform,
-    // Nur für echtes Safari true!
-    supportsRtpScriptTransform: isSafari() && supportsRtpScriptTransform,
-    requiresSafariWorker: needsSafariWorker,
+    supportsRtpScriptTransform,
+    usesScriptTransform,
   };
 }
 
@@ -126,10 +140,10 @@ export function isE2EESupported(): boolean {
 }
 
 /**
- * Prüft ob Safari Worker benötigt wird
+ * Prüft ob RTCRtpScriptTransform verwendet wird
  */
-export function requiresSafariWorker(): boolean {
-  return getE2EECapabilities().requiresSafariWorker;
+export function usesScriptTransformFn(): boolean {
+  return getE2EECapabilities().usesScriptTransform;
 }
 
 /**
@@ -141,7 +155,7 @@ export function getE2EEMethodDescription(): string {
 
   switch (method) {
     case 'scriptTransform':
-      return `RTCRtpScriptTransform (Safari ${browser.majorVersion})`;
+      return `RTCRtpScriptTransform (${browser.name} ${browser.majorVersion})`;
     case 'encodedStreams':
       return `Encoded Streams API (${browser.name} ${browser.majorVersion})`;
     case 'rtpTransform':
@@ -186,11 +200,8 @@ export function getE2EEWorkerUrl(): URL | null {
     return null;
   }
 
-  if (requiresSafariWorker()) {
-    return new URL('@/workers/e2ee/safari-e2ee-worker.ts', import.meta.url);
-  }
-
-  return new URL('@/workers/e2ee/chrome-e2ee-worker.ts', import.meta.url);
+  // Beide Methoden verwenden denselben Worker
+  return new URL('../../workers/e2ee/chrome-e2ee-worker.ts', import.meta.url);
 }
 
 /**

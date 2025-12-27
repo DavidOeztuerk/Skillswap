@@ -28,11 +28,11 @@ import {
   type Theme,
 } from '@mui/material';
 import {
-  type BrowserCapabilities,
-  getBrowserCapabilities,
+  type E2EECapabilities,
+  getE2EECapabilities,
   getBrowserInfo,
-} from '../../../shared/utils/browserDetection';
-import type { E2EEStatus } from '../hooks/types';
+} from '../../../shared/detection';
+import type { ChatE2EEStatus, E2EEStatus } from '../hooks/types';
 import type { EncryptionStats } from '../store/videoCallAdapter+State';
 
 // ============================================================================
@@ -59,7 +59,7 @@ interface E2EEDebugPanelProps {
   onRotateKeys?: () => void;
 
   // Chat E2EE
-  chatStatus: E2EEStatus;
+  chatStatus: ChatE2EEStatus;
   chatLocalFingerprint: string | null;
   chatStats: {
     messagesEncrypted: number;
@@ -83,9 +83,12 @@ function formatFingerprint(fp: string | null): string {
   return `${clean.slice(0, 4)}-${clean.slice(4, 8)}-${clean.slice(8, 12)}-${clean.slice(12, 16)}`;
 }
 
-function getStatusColor(status: E2EEStatus): 'success' | 'warning' | 'error' | 'info' | 'default' {
+function getStatusColor(
+  status: E2EEStatus | ChatE2EEStatus
+): 'success' | 'warning' | 'error' | 'info' | 'default' {
   switch (status) {
     case 'active':
+    case 'verified':
       return 'success';
     case 'initializing':
     case 'key-exchange':
@@ -95,6 +98,7 @@ function getStatusColor(status: E2EEStatus): 'success' | 'warning' | 'error' | '
       return 'error';
     case 'unsupported':
       return 'warning';
+    case 'inactive':
     case 'disabled':
       return 'default';
     default: {
@@ -104,9 +108,10 @@ function getStatusColor(status: E2EEStatus): 'success' | 'warning' | 'error' | '
   }
 }
 
-function getStatusIcon(status: E2EEStatus): JSX.Element {
+function getStatusIcon(status: E2EEStatus | ChatE2EEStatus): JSX.Element {
   switch (status) {
     case 'active':
+    case 'verified':
       return <CheckCircleIcon fontSize="small" />;
     case 'initializing':
     case 'key-exchange':
@@ -116,6 +121,7 @@ function getStatusIcon(status: E2EEStatus): JSX.Element {
       return <ErrorIcon fontSize="small" />;
     case 'unsupported':
       return <WarningIcon fontSize="small" />;
+    case 'inactive':
     case 'disabled':
       return <SecurityIcon fontSize="small" />;
     default: {
@@ -125,8 +131,9 @@ function getStatusIcon(status: E2EEStatus): JSX.Element {
   }
 }
 
-function getStatusLabel(status: E2EEStatus): string {
+function getStatusLabel(status: E2EEStatus | ChatE2EEStatus): string {
   switch (status) {
+    case 'inactive':
     case 'disabled':
       return 'Deaktiviert';
     case 'initializing':
@@ -135,6 +142,8 @@ function getStatusLabel(status: E2EEStatus): string {
       return 'Schlüsselaustausch...';
     case 'active':
       return 'Aktiv';
+    case 'verified':
+      return 'Verifiziert';
     case 'key-rotation':
       return 'Schlüsselrotation...';
     case 'error':
@@ -330,7 +339,7 @@ const EncryptionStatsSection: React.FC<EncryptionStatsSectionProps> = ({
 };
 
 interface ChatE2EESectionProps {
-  chatStatus: E2EEStatus;
+  chatStatus: ChatE2EEStatus;
   chatStats: {
     messagesEncrypted: number;
     messagesDecrypted: number;
@@ -398,8 +407,8 @@ const E2EEDebugPanel: React.FC<E2EEDebugPanelProps> = ({
   const theme = useTheme();
   const [expanded, setExpanded] = useState(!compact);
   const [copied, setCopied] = useState<string | null>(null);
-  // browserCaps is read-only after initialization, setter not needed
-  const browserCaps = useMemo<BrowserCapabilities>(() => getBrowserCapabilities(), []);
+  // e2eeCaps is read-only after initialization, setter not needed
+  const e2eeCaps = useMemo<E2EECapabilities>(() => getE2EECapabilities(), []);
   const browserInfo = useMemo(() => getBrowserInfo(), []);
 
   // Calculate encryption health percentage
@@ -505,8 +514,8 @@ const E2EEDebugPanel: React.FC<E2EEDebugPanelProps> = ({
               />
               <Chip
                 size="small"
-                label={browserCaps.e2eeMethod === 'none' ? 'Kein E2EE' : browserCaps.e2eeMethod}
-                color={browserCaps.e2eeMethod === 'none' ? 'error' : 'success'}
+                label={e2eeCaps.method === 'none' ? 'Kein E2EE' : e2eeCaps.method}
+                color={e2eeCaps.method === 'none' ? 'error' : 'success'}
                 variant="outlined"
               />
               {browserInfo.isMobile ? (

@@ -22,9 +22,10 @@ public class UserServiceClient : IUserServiceClient
         {
             _logger.LogDebug("Getting user profile for {UserId}", userId);
 
+            // Use internal endpoint for M2M - requires Service role (M2M token)
             var response = await _serviceCommunication.GetAsync<UserProfileResponse>(
                 "userservice",
-                $"users/profile/{userId}",
+                $"users/internal/{userId}",
                 cancellationToken);
 
             if (response == null)

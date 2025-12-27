@@ -35,6 +35,8 @@ declare global {
     readonly writable: WritableStream<RTCEncodedVideoFrame | RTCEncodedAudioFrame>;
     /** Optionale Konfiguration vom Main Thread */
     readonly options?: RTCTransformOptions;
+    /** Request a keyframe from the encoder (Safari-specific) */
+    sendKeyFrameRequest?(): Promise<void>;
   }
 
   /**

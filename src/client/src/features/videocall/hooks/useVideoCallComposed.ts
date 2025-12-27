@@ -9,22 +9,25 @@
  * - useVideoCallCore handles WebRTC/SignalR connection
  * - useVideoCallMedia handles media controls (mic, camera, screen share)
  * - useVideoCallParticipants handles participant list
- * - useVideoCallChat handles in-call chat
  * - useVideoCallE2EE handles end-to-end encryption
+ *
+ * Note: Chat is now handled by VideoCallChatPanel using shared chat infrastructure.
  */
 
-import { useEffect } from 'react';
-import { useAppSelector } from '../../../core/store/store.hooks';
+import { useCallback, useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '../../../core/store/store.hooks';
 import {
   selectRoomId,
   selectPeerId,
   selectIsConnected,
   selectE2EEStatus,
   selectIsChatOpen,
-  selectChatMessages,
+  selectChatE2EEStatus,
+  selectIsChatE2EEActive,
+  selectChatE2EEStats,
   selectParticipants,
 } from '../store/videoCallSelectors';
-import { useVideoCallChat } from './useVideoCallChat';
+import { toggleChat } from '../store/videoCallSlice';
 import { useVideoCallCore } from './useVideoCallCore';
 import { useVideoCallE2EE } from './useVideoCallE2Ee';
 import { useVideoCallMedia } from './useVideoCallMedia';
@@ -42,6 +45,7 @@ const E2EE_INIT_DELAY = 1500;
 // ============================================================================
 
 export const useVideoCallComposed = (): UseVideoCallReturn => {
+  const dispatch = useAppDispatch();
   const {
     refs,
     cleanupResourcesRef,
@@ -58,8 +62,12 @@ export const useVideoCallComposed = (): UseVideoCallReturn => {
 
   // Additional selectors for return value
   const isChatOpen = useAppSelector(selectIsChatOpen);
-  const messages = useAppSelector(selectChatMessages);
   const participants = useAppSelector(selectParticipants);
+
+  // Chat E2EE selectors (for status display in VideoCallChatPanel)
+  const chatE2EEStatus = useAppSelector(selectChatE2EEStatus);
+  const isChatE2EEActive = useAppSelector(selectIsChatE2EEActive);
+  const chatE2EEStats = useAppSelector(selectChatE2EEStats);
 
   // ===== MODULAR HOOKS =====
 
@@ -78,8 +86,10 @@ export const useVideoCallComposed = (): UseVideoCallReturn => {
   // Media Hook (mic, camera, screen share)
   const media = useVideoCallMedia(refs);
 
-  // Chat Hook (in-call chat with E2EE)
-  const chat = useVideoCallChat(refs);
+  // Toggle chat panel visibility
+  const toggleChatPanel = useCallback(() => {
+    dispatch(toggleChat());
+  }, [dispatch]);
 
   // ===== E2EE INITIALIZATION EFFECT =====
   useEffect(() => {
@@ -93,7 +103,7 @@ export const useVideoCallComposed = (): UseVideoCallReturn => {
       return;
     }
 
-    if (e2eeStatus !== 'disabled') return;
+    if (e2eeStatus !== 'inactive') return;
 
     const timer = setTimeout(() => {
       void e2ee.initializeE2EE();
@@ -121,9 +131,8 @@ export const useVideoCallComposed = (): UseVideoCallReturn => {
     error: core.error,
     callConfig: core.callConfig,
 
-    // Chat state
+    // Chat state (panel visibility - chat content handled by VideoCallChatPanel)
     isChatOpen,
-    messages,
 
     // Participants
     participants,
@@ -138,9 +147,8 @@ export const useVideoCallComposed = (): UseVideoCallReturn => {
     toggleCamera: media.toggleCamera,
     toggleScreenSharing: media.toggleScreenSharing,
 
-    // Actions from Chat
-    toggleChatPanel: chat.toggleChatPanel,
-    sendChatMessage: chat.sendMessage,
+    // Chat panel toggle
+    toggleChatPanel,
 
     // PeerConnection access
     peerConnection: core.peerConnection,
@@ -160,8 +168,14 @@ export const useVideoCallComposed = (): UseVideoCallReturn => {
       rotateKeys: e2ee.rotateKeys,
     },
 
-    // E2EE Chat
-    chatE2EE: chat.chatE2EE,
+    // E2EE Chat status (for VideoCallChatPanel)
+    chatE2EE: {
+      status: chatE2EEStatus,
+      isActive: isChatE2EEActive,
+      localFingerprint: null, // Fingerprints now managed by shared chat
+      peerFingerprint: null,
+      stats: chatE2EEStats,
+    },
   };
 };
 

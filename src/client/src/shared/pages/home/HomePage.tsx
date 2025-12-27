@@ -24,7 +24,7 @@ import {
   Rating,
   Skeleton,
 } from '@mui/material';
-import { useAppSelector } from '../../../core/store/hooks';
+import { useAppSelector } from '../../../core/store/store.hooks';
 import useAuth from '../../../features/auth/hooks/useAuth';
 import useSkills from '../../../features/skills/hooks/useSkills';
 import { selectFeaturedSkills } from '../../../features/skills/store/skillsSelectors';

@@ -108,6 +108,10 @@ export interface MatchDisplay {
   isLearningMode: boolean;
   preferredDays: string[];
   preferredTimes: string[];
+
+  // Chat/Thread info - ThreadId from MatchRequest for Chat integration
+  threadId?: string;
+  matchRequestId?: string;
 }
 
 export interface MatchThreadDisplay {

@@ -1,10 +1,40 @@
 /**
- * Insertable Streams Handler for WebRTC E2EE
+ * Insertable Streams Handler
+ *
+ * Verwaltet E2EE Worker-Lifecycle und wendet Transforms auf RTCRtpSender/Receiver an.
+ * Unterstützt Chrome/Firefox (createEncodedStreams/rtpTransform) und Safari (RTCRtpScriptTransform).
  */
 
-import type { E2EEManager, E2EEKeyMaterial } from './e2eeVideoEncryption';
+import { exportAesKeyToJwk, type E2EEKeyMaterial } from '../../core/crypto';
+import { getE2EECapabilities, type E2EECapabilities } from '../../detection';
+import type { E2EEManager } from './e2eeVideoEncryption';
+import type {
+  WorkerInboundMessage,
+  WorkerOutboundMessage,
+  WorkerStats,
+} from '../../../workers/e2ee/shared/message-types';
 
-interface FrameStats {
+// ============================================================================
+// Types
+// ============================================================================
+
+type E2EEMethod = 'encodedStreams' | 'rtpTransform' | 'scriptTransform' | 'none';
+
+/** WebRTC Encoded Frame (RTCEncodedVideoFrame/RTCEncodedAudioFrame) */
+interface EncodedMediaFrame {
+  data: ArrayBuffer;
+  timestamp?: number;
+  type?: string;
+  getMetadata?(): Record<string, unknown>;
+}
+
+/** Return type of RTCRtpSender/Receiver.createEncodedStreams() */
+interface EncodedStreams {
+  readable: ReadableStream<EncodedMediaFrame>;
+  writable: WritableStream<EncodedMediaFrame>;
+}
+
+export interface FrameStats {
   totalFrames: number;
   encryptedFrames: number;
   decryptedFrames: number;
@@ -21,127 +51,68 @@ interface PendingOperation {
   timestamp: number;
 }
 
-// Worker message types
-interface WorkerStatsPayload {
-  totalFrames?: number;
-  encryptedFrames?: number;
-  decryptedFrames?: number;
-  encryptionErrors?: number;
-  decryptionErrors?: number;
-  averageEncryptionTime?: number;
-  averageDecryptionTime?: number;
-}
+// ============================================================================
+// Constants
+// ============================================================================
 
-interface WorkerSuccessPayload {
-  encryptionTime?: number;
-  decryptionTime?: number;
-  encryptedData?: ArrayBuffer;
-  decryptedData?: ArrayBuffer;
-  error?: string;
-}
-
-interface WorkerMessage {
-  type: string;
-  payload?: WorkerStatsPayload | WorkerSuccessPayload;
-  operationId?: number;
-}
-
-// RTCEncodedFrame type for typed access
-interface RTCEncodedFrame {
-  data: ArrayBuffer;
-  timestamp: number;
-  type?: string;
-}
-
+// Operation timeout: 5s für Frame-Verarbeitung
+// Längerer Timeout verhindert vorzeitiges Frame-Dropping bei:
+// - Langsamen Geräten (ältere Smartphones, Tablets)
+// - CPU-Last durch andere Tabs
+// - Netzwerklatenz bei Key-Exchange
 const OPERATION_TIMEOUT = 5000;
 
-type E2EEMethod = 'encodedStreams' | 'rtpTransform' | 'scriptTransform' | 'none';
-
-function detectE2EEMethod(): E2EEMethod {
-  // KRITISCHER FIX: Chrome 143+ erkennt beide APIs, aber encodedStreams ist korrekt!
-  const ua = navigator.userAgent.toLowerCase();
-
-  // 1. ZUERST auf echte Safari prüfen (mit robuster Erkennung)
-  const isRealSafari = (() => {
-    const isWebKit = 'webkitSpeechRecognition' in window || 'webkitAudioContext' in window;
-    const hasSafariInUA =
-      ua.includes('safari') &&
-      !ua.includes('chrome') &&
-      !ua.includes('chromium') &&
-      !ua.includes('edg');
-    return isWebKit && hasSafariInUA;
-  })();
-
-  // 2. Echte Safari mit RTCRtpScriptTransform
-  if (isRealSafari && typeof RTCRtpScriptTransform !== 'undefined') {
-    console.debug('🍎 E2EE: Safari detected, using scriptTransform');
-    return 'scriptTransform';
-  }
-
-  // 3. WICHTIG: Chrome/Edge PRÜFEN VOR Firefox!
-  // Chrome 86+ hat createEncodedStreams, Chrome 118+ hat AUCH rtpTransform
-  // ABER wir MÜSSEN encodedStreams verwenden für korrekte E2EE!
-  const isChrome = ua.includes('chrome') || ua.includes('chromium') || ua.includes('edg');
-
-  if (isChrome && typeof RTCRtpSender !== 'undefined') {
-    // Chrome 86+ mit createEncodedStreams
-    if ('createEncodedStreams' in RTCRtpSender.prototype) {
-      console.debug(
-        '🌐 E2EE: Chrome/Edge detected, using encodedStreams (createEncodedStreams API)'
-      );
-      return 'encodedStreams';
-    }
-    // Chrome 118+ mit rtpTransform (NICHT verwenden für E2EE - nur als Fallback)
-    if ('transform' in RTCRtpSender.prototype) {
-      console.warn('⚠️ E2EE: Chrome with only rtpTransform - limited E2EE support');
-      return 'rtpTransform';
-    }
-  }
-
-  // 4. Firefox 117+ mit RTCRtpSender.transform
-  const isFirefox = ua.includes('firefox');
-  if (isFirefox && typeof RTCRtpSender !== 'undefined' && 'transform' in RTCRtpSender.prototype) {
-    console.debug('🦊 E2EE: Firefox detected, using rtpTransform (TransformStream)');
-    return 'rtpTransform';
-  }
-
-  console.warn('⚠️ E2EE: No supported method found');
-  return 'none';
-}
+// ============================================================================
+// Handler Class
+// ============================================================================
 
 export class InsertableStreamsHandler {
-  private e2eeManager: E2EEManager;
-  private encryptionWorker: Worker | null = null;
-  private decryptionWorker: Worker | null = null;
-  private safariEncryptionWorker: Worker | null = null;
-  private safariDecryptionWorker: Worker | null = null;
-  private pendingEncryptions = new Map<number, PendingOperation>();
-  private pendingDecryptions = new Map<number, PendingOperation>();
-  private operationCounter = 0;
-  private cleanupInterval: NodeJS.Timeout | null = null;
+  // Stored for potential fallback encryption if workers are unavailable
+  private _e2eeManager: E2EEManager;
+  private capabilities: E2EECapabilities;
   private e2eeMethod: E2EEMethod;
 
-  // Flag für aktive Encryption
+  // Workers
+  private encryptionWorker: Worker | null = null;
+  private decryptionWorker: Worker | null = null;
+
+  // Pending operations
+  private pendingEncryptions = new Map<number, PendingOperation>();
+  private pendingDecryptions = new Map<number, PendingOperation>();
+  private pendingKeyUpdates = new Map<
+    number,
+    { resolve: () => void; reject: (e: Error) => void }
+  >();
+  private operationCounter = 0;
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+  // State
   private encryptionEnabled = false;
-
-  // Gecachte Encoded Streams für Chrome
-  private senderEncodedStreams = new Map<
-    string,
-    { readable: ReadableStream; writable: WritableStream }
-  >();
-  private receiverEncodedStreams = new Map<
-    string,
-    { readable: ReadableStream; writable: WritableStream }
-  >();
-
-  // Track applied transforms to avoid double-applying
-  private appliedSenderTransforms = new Set<string>();
-  private appliedReceiverTransforms = new Set<string>();
-
-  // Flag to track if workers are initialized
   private workersInitialized = false;
   private workerInitPromise: Promise<void> | null = null;
 
+  // Encoded Streams (Chrome legacy) - use WeakMap to store by sender/receiver
+  private senderEncodedStreams = new WeakMap<
+    RTCRtpSender,
+    { readable: ReadableStream; writable: WritableStream }
+  >();
+  private receiverEncodedStreams = new WeakMap<
+    RTCRtpReceiver,
+    { readable: ReadableStream; writable: WritableStream }
+  >();
+  // Track which senders/receivers have been piped
+  private pipedSenders = new WeakSet<RTCRtpSender>();
+  private pipedReceivers = new WeakSet<RTCRtpReceiver>();
+
+  // Applied transforms tracking
+  private appliedSenderTransforms = new Set<string>();
+  private appliedReceiverTransforms = new Set<string>();
+
+  // Video receivers for keyframe requests after key updates
+  // WICHTIG: Nach Key-Update fordern wir Keyframes an damit Video sofort startet!
+  private videoReceivers = new Set<RTCRtpReceiver>();
+
+  // Stats
   private stats: FrameStats = {
     totalFrames: 0,
     encryptedFrames: 0,
@@ -154,13 +125,22 @@ export class InsertableStreamsHandler {
   };
 
   constructor(e2eeManager: E2EEManager) {
-    this.e2eeManager = e2eeManager;
-    this.e2eeMethod = detectE2EEMethod();
+    this._e2eeManager = e2eeManager;
+    this.capabilities = getE2EECapabilities();
+    this.e2eeMethod = this.capabilities.method;
     console.debug(`🔒 E2EE: Detected method: ${this.e2eeMethod}`);
   }
 
+  // ============================================================================
+  // Public API
+  // ============================================================================
+
   getE2EEMethod(): E2EEMethod {
     return this.e2eeMethod;
+  }
+
+  getE2EEManager(): E2EEManager {
+    return this._e2eeManager;
   }
 
   isSupported(): boolean {
@@ -171,310 +151,194 @@ export class InsertableStreamsHandler {
     return this.workersInitialized;
   }
 
-  /**
-   * NEU: Prüft ob diese Methode Encoded Streams benötigt
-   */
   requiresEncodedStreams(): boolean {
     return this.e2eeMethod === 'encodedStreams';
-  }
-
-  enableEncryption(): void {
-    console.debug('🔐 E2EE: Enabling encryption (keys ready)');
-    this.encryptionEnabled = true;
-
-    // Informiere alle Worker
-    const workers = [
-      this.encryptionWorker,
-      this.decryptionWorker,
-      this.safariEncryptionWorker,
-      this.safariDecryptionWorker,
-    ];
-
-    workers.forEach((worker) => {
-      if (worker) {
-        worker.postMessage({ type: 'enableEncryption' });
-      }
-    });
-  }
-
-  disableEncryption(): void {
-    console.debug('🔓 E2EE: Disabling encryption');
-    this.encryptionEnabled = false;
-
-    const workers = [
-      this.encryptionWorker,
-      this.decryptionWorker,
-      this.safariEncryptionWorker,
-      this.safariDecryptionWorker,
-    ];
-
-    workers.forEach((worker) => {
-      if (worker) {
-        worker.postMessage({ type: 'disableEncryption' });
-      }
-    });
   }
 
   isEncryptionEnabled(): boolean {
     return this.encryptionEnabled;
   }
 
-  /**
-   * Encoded Streams für Sender vorbereiten
-   */
-  prepareEncodedStreamsForSender(sender: RTCRtpSender, kind: 'video' | 'audio'): boolean {
-    if (this.e2eeMethod !== 'encodedStreams') {
-      return false;
-    }
-
-    const trackId = sender.track?.id ?? `sender-${kind}-${Date.now()}`;
-
-    if (this.senderEncodedStreams.has(trackId)) {
-      console.debug(`🔒 E2EE: Encoded streams already prepared for ${kind} sender`);
-      return true;
-    }
-
-    try {
-      // WICHTIG: Type Assertion für Chrome API
-      const senderWithStreams = sender as RTCRtpSender & {
-        createEncodedStreams?: () => { readable: ReadableStream; writable: WritableStream };
-      };
-      if (typeof senderWithStreams.createEncodedStreams !== 'function') {
-        console.error(`❌ E2EE: createEncodedStreams not available on sender`);
-        return false;
-      }
-
-      const encodedStreams = senderWithStreams.createEncodedStreams();
-      this.senderEncodedStreams.set(trackId, encodedStreams);
-      console.debug(`✅ E2EE: Prepared encoded streams for ${kind} sender (${trackId})`);
-      return true;
-    } catch (error) {
-      console.error(`❌ E2EE: Failed to prepare encoded streams for ${kind} sender:`, error);
-      return false;
-    }
+  getStats(): FrameStats {
+    return { ...this.stats };
   }
 
-  /**
-   * Encoded Streams für Receiver vorbereiten
-   */
-  prepareEncodedStreamsForReceiver(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): boolean {
-    if (this.e2eeMethod !== 'encodedStreams') {
-      return false;
-    }
-
-    // WICHTIG: Gleicher Fallback wie in applyDecryptionChrome für Cache-Konsistenz!
-    const trackId = receiver.track.id || `receiver-${kind}`;
-
-    if (this.receiverEncodedStreams.has(trackId)) {
-      console.debug(`🔒 E2EE: Encoded streams already prepared for ${kind} receiver (${trackId})`);
-      return true;
-    }
-
-    try {
-      const receiverWithStreams = receiver as RTCRtpReceiver & {
-        createEncodedStreams?: () => { readable: ReadableStream; writable: WritableStream };
-      };
-      if (typeof receiverWithStreams.createEncodedStreams !== 'function') {
-        console.error(`❌ E2EE: createEncodedStreams not available on receiver`);
-        return false;
-      }
-
-      const encodedStreams = receiverWithStreams.createEncodedStreams();
-      this.receiverEncodedStreams.set(trackId, encodedStreams);
-      console.debug(`✅ E2EE: Prepared encoded streams for ${kind} receiver (${trackId})`);
-      return true;
-    } catch (error) {
-      // Wenn Streams bereits von applyDecryptionChrome erstellt wurden, ist das OK
-      // Diese Race Condition kann auftreten wenn ontrack nach applyTransformPipelines feuert
-      if (error instanceof Error && error.message.includes('already created')) {
-        console.debug(
-          `✅ E2EE: Encoded streams already exist for ${kind} receiver (${trackId}) - created by applyDecryption`
-        );
-        return true;
-      }
-      console.error(`❌ E2EE: Failed to prepare encoded streams for ${kind} receiver:`, error);
-      return false;
-    }
-  }
+  // ============================================================================
+  // Worker Initialization
+  // ============================================================================
 
   async initializeWorkers(): Promise<void> {
-    // Prevent double initialization
-    if (this.workersInitialized) {
-      console.debug('🔧 E2EE: Workers already initialized, skipping');
+    if (this.workersInitialized) return;
+    if (this.workerInitPromise) return this.workerInitPromise;
+
+    this.workerInitPromise = this.doInitializeWorkers();
+    return this.workerInitPromise;
+  }
+
+  private async doInitializeWorkers(): Promise<void> {
+    if (!this.isSupported()) {
+      console.warn('⚠️ E2EE: Not supported in this browser');
       return;
     }
 
-    // If initialization is in progress, wait for it
-    if (this.workerInitPromise) {
-      console.debug('🔧 E2EE: Worker initialization in progress, waiting...');
-      return this.workerInitPromise;
-    }
+    try {
+      const { usesScriptTransform } = this.capabilities;
+      const workerUrl = usesScriptTransform
+        ? new URL('../../../workers/e2ee/safari-e2ee-worker.ts', import.meta.url)
+        : new URL('../../../workers/e2ee/chrome-e2ee-worker.ts', import.meta.url);
 
-    console.debug('🔧 E2EE: Initializing workers for', this.e2eeMethod);
+      console.debug(
+        `🔧 E2EE: Loading ${usesScriptTransform ? 'ScriptTransform' : 'EncodedStreams'} worker...`
+      );
 
-    // Track the initialization promise
-    this.workerInitPromise = (async () => {
-      switch (this.e2eeMethod) {
-        case 'scriptTransform':
-          await this.initializeSafariWorkers();
-          break;
+      // Create workers
+      this.encryptionWorker = new Worker(workerUrl, { type: 'module' });
+      this.decryptionWorker = new Worker(workerUrl, { type: 'module' });
 
-        case 'encodedStreams':
-        case 'rtpTransform':
-          await this.initializeStandardWorkers();
-          break;
+      // Setup message handlers
+      this.setupWorkerHandlers(this.encryptionWorker, 'encryption');
+      this.setupWorkerHandlers(this.decryptionWorker, 'decryption');
 
-        case 'none':
-        default:
-          console.warn('⚠️ E2EE: No supported method, running without encryption');
-          break;
-      }
+      // Wait for workers to be ready
+      await Promise.all([
+        this.waitForWorkerReady(this.encryptionWorker),
+        this.waitForWorkerReady(this.decryptionWorker),
+      ]);
+
+      // Start cleanup interval for timed-out operations
+      this.cleanupInterval = setInterval(() => this.cleanupTimedOutOperations(), 1000);
 
       this.workersInitialized = true;
-      this.cleanupInterval = setInterval(() => {
-        this.cleanupTimedOutOperations();
-      }, 1000);
-      console.debug('✅ E2EE: Workers initialized');
-    })();
-
-    await this.workerInitPromise;
-    this.workerInitPromise = null;
-  }
-
-  private async initializeSafariWorkers(): Promise<void> {
-    this.safariEncryptionWorker = new Worker(
-      new URL('../../../workers/safariE2EEWorker.ts', import.meta.url),
-      { type: 'module', name: 'safari-e2ee-encryption' }
-    );
-
-    this.safariDecryptionWorker = new Worker(
-      new URL('../../../workers/safariE2EEWorker.ts', import.meta.url),
-      { type: 'module', name: 'safari-e2ee-decryption' }
-    );
-
-    this.setupWorkerMessageHandler(this.safariEncryptionWorker, 'encryption');
-    this.setupWorkerMessageHandler(this.safariDecryptionWorker, 'decryption');
-
-    await Promise.all([
-      this.waitForWorkerReady(this.safariEncryptionWorker, 'Safari Encryption'),
-      this.waitForWorkerReady(this.safariDecryptionWorker, 'Safari Decryption'),
-    ]);
-
-    const keyMaterial = this.e2eeManager.getCurrentKeyMaterial();
-    if (keyMaterial) {
-      await this.updateWorkerKeys(keyMaterial);
+      console.debug('✅ E2EE: Workers initialized successfully');
+    } catch (error) {
+      console.error('❌ E2EE: Worker initialization failed:', error);
+      throw error;
     }
   }
 
-  private async initializeStandardWorkers(): Promise<void> {
-    this.encryptionWorker = new Worker(
-      new URL('../../../workers/e2eeTransformWorker.ts', import.meta.url),
-      { type: 'module' }
-    );
+  private setupWorkerHandlers(worker: Worker, type: 'encryption' | 'decryption'): void {
+    worker.addEventListener('message', (event: MessageEvent<WorkerOutboundMessage>) => {
+      const message = event.data;
 
-    this.decryptionWorker = new Worker(
-      new URL('../../../workers/e2eeTransformWorker.ts', import.meta.url),
-      { type: 'module' }
-    );
+      switch (message.type) {
+        case 'encryptSuccess':
+          this.handleEncryptSuccess(message.operationId, message.payload);
+          break;
 
-    this.setupWorkerMessageHandler(this.encryptionWorker, 'encryption');
-    this.setupWorkerMessageHandler(this.decryptionWorker, 'decryption');
+        case 'decryptSuccess':
+          this.handleDecryptSuccess(message.operationId, message.payload);
+          break;
 
-    await Promise.all([
-      this.waitForWorkerReady(this.encryptionWorker, 'Encryption'),
-      this.waitForWorkerReady(this.decryptionWorker, 'Decryption'),
-    ]);
+        case 'error':
+          this.handleWorkerError(message.operationId, message.payload.error);
+          break;
 
-    const keyMaterial = this.e2eeManager.getCurrentKeyMaterial();
-    if (keyMaterial) {
-      await this.updateWorkerKeys(keyMaterial);
-    }
-  }
+        case 'stats':
+          this.updateStatsFromWorker(message.payload);
+          break;
 
-  private handleWorkerStats(
-    statsPayload: WorkerStatsPayload,
-    type: 'encryption' | 'decryption'
-  ): void {
-    this.stats.totalFrames = Math.max(this.stats.totalFrames, statsPayload.totalFrames ?? 0);
-    if (type === 'encryption') {
-      this.stats.encryptedFrames = statsPayload.encryptedFrames ?? 0;
-      this.stats.encryptionErrors = statsPayload.encryptionErrors ?? 0;
-      this.stats.averageEncryptionTime = statsPayload.averageEncryptionTime ?? 0;
-    } else {
-      this.stats.decryptedFrames = statsPayload.decryptedFrames ?? 0;
-      this.stats.decryptionErrors = statsPayload.decryptionErrors ?? 0;
-      this.stats.averageDecryptionTime = statsPayload.averageDecryptionTime ?? 0;
-    }
-  }
+        case 'keyUpdated':
+          console.debug(`🔑 E2EE ${type} worker: Key updated`);
+          if (message.operationId !== undefined) {
+            const pending = this.pendingKeyUpdates.get(message.operationId);
+            if (pending) {
+              this.pendingKeyUpdates.delete(message.operationId);
+              pending.resolve();
+            }
+          }
+          break;
 
-  private handleWorkerSuccess(
-    msgType: string,
-    successPayload: WorkerSuccessPayload | undefined,
-    pending: PendingOperation
-  ): void {
-    if (msgType === 'encryptSuccess') {
-      this.updateEncryptionStats(successPayload?.encryptionTime ?? 0);
-    } else {
-      this.updateDecryptionStats(successPayload?.decryptionTime ?? 0);
-    }
-    const resultData = successPayload?.encryptedData ?? successPayload?.decryptedData;
-    if (resultData) {
-      pending.resolve(resultData);
-    } else {
-      pending.reject(new Error('No data in response'));
-    }
-  }
+        case 'ready':
+          console.debug(`✅ E2EE ${type} worker: Ready`);
+          break;
 
-  private setupWorkerMessageHandler(worker: Worker, type: 'encryption' | 'decryption'): void {
-    const pendingMap = type === 'encryption' ? this.pendingEncryptions : this.pendingDecryptions;
+        case 'cleanupComplete':
+          console.debug(`🧹 E2EE ${type} worker: Cleanup complete`);
+          break;
 
-    worker.addEventListener('message', (event: MessageEvent<WorkerMessage>): void => {
-      const { type: msgType, payload, operationId } = event.data;
-
-      if (msgType === 'ready' || msgType === 'initSuccess' || msgType === 'cleanupSuccess') {
-        return;
-      }
-
-      // Safari Worker sends periodic stats
-      if (msgType === 'stats' && payload !== undefined) {
-        this.handleWorkerStats(payload as WorkerStatsPayload, type);
-        return;
-      }
-
-      if (operationId !== undefined && pendingMap.has(operationId)) {
-        const pending = pendingMap.get(operationId);
-        if (!pending) return;
-        pendingMap.delete(operationId);
-        const successPayload = payload as WorkerSuccessPayload | undefined;
-
-        if (msgType === 'encryptSuccess' || msgType === 'decryptSuccess') {
-          this.handleWorkerSuccess(msgType, successPayload, pending);
-        } else if (msgType === 'error') {
-          pending.reject(new Error(successPayload?.error ?? 'Unknown error'));
-        }
+        default:
+          // Exhaustive check for future message types
+          console.debug(`E2EE ${type} worker: Unknown message type`);
       }
     });
 
     worker.addEventListener('error', (error) => {
-      console.error(`❌ E2EE: ${type} worker error:`, error);
-      for (const [id, pending] of pendingMap) {
-        pending.reject(new Error(`Worker error: ${error.message}`));
-        pendingMap.delete(id);
-      }
+      console.error(`❌ E2EE ${type} worker error:`, error);
     });
   }
 
-  private waitForWorkerReady(worker: Worker, name: string): Promise<void> {
+  private handleEncryptSuccess(
+    operationId: number,
+    payload: { encryptedData: ArrayBuffer; encryptionTime?: number }
+  ): void {
+    const pending = this.pendingEncryptions.get(operationId);
+    if (!pending) return;
+
+    this.pendingEncryptions.delete(operationId);
+    pending.resolve(payload.encryptedData);
+
+    this.stats.totalFrames++;
+    this.stats.encryptedFrames++;
+    if (payload.encryptionTime !== undefined && payload.encryptionTime !== 0) {
+      this.updateAverageTime('encryption', payload.encryptionTime);
+    }
+  }
+
+  private handleDecryptSuccess(
+    operationId: number,
+    payload: { decryptedData: ArrayBuffer; decryptionTime?: number; dropped?: boolean }
+  ): void {
+    const pending = this.pendingDecryptions.get(operationId);
+    if (!pending) return;
+
+    this.pendingDecryptions.delete(operationId);
+
+    // Handle dropped frames: reject the promise so TransformStream doesn't enqueue
+    if (payload.dropped === true) {
+      this.stats.droppedFrames++;
+      // Reject with a special error that the TransformStream can catch
+      pending.reject(new Error('FRAME_DROPPED'));
+      return;
+    }
+
+    pending.resolve(payload.decryptedData);
+
+    this.stats.totalFrames++;
+    this.stats.decryptedFrames++;
+    if (payload.decryptionTime !== undefined && payload.decryptionTime !== 0) {
+      this.updateAverageTime('decryption', payload.decryptionTime);
+    }
+  }
+
+  private handleWorkerError(operationId: number | undefined, errorMessage: string): void {
+    if (operationId === undefined) return;
+
+    const encPending = this.pendingEncryptions.get(operationId);
+    if (encPending) {
+      this.pendingEncryptions.delete(operationId);
+      encPending.reject(new Error(errorMessage));
+      this.stats.encryptionErrors++;
+      return;
+    }
+
+    const decPending = this.pendingDecryptions.get(operationId);
+    if (decPending) {
+      this.pendingDecryptions.delete(operationId);
+      decPending.reject(new Error(errorMessage));
+      this.stats.decryptionErrors++;
+    }
+  }
+
+  private waitForWorkerReady(worker: Worker): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error(`${name} worker initialization timeout`));
-      }, 10000);
+        reject(new Error('Worker initialization timeout'));
+      }, 5000);
 
-      const handler = (event: MessageEvent<WorkerMessage>): void => {
+      const handler = (event: MessageEvent<WorkerOutboundMessage>): void => {
         if (event.data.type === 'ready') {
           clearTimeout(timeout);
           worker.removeEventListener('message', handler);
-          console.debug(`✅ E2EE: ${name} worker ready`);
           resolve();
         }
       };
@@ -483,477 +347,637 @@ export class InsertableStreamsHandler {
     });
   }
 
-  applyEncryptionToSender(sender: RTCRtpSender, kind: 'video' | 'audio'): void {
-    const trackId = sender.track?.id ?? `sender-${kind}-${Date.now()}`;
+  // ============================================================================
+  // Key Management
+  // ============================================================================
 
-    // Check if already applied
-    if (this.appliedSenderTransforms.has(trackId)) {
-      console.debug(`🔒 E2EE: Encryption transform already applied to ${kind} sender, skipping`);
+  async updateKey(encryptionKey: CryptoKey, generation: number): Promise<void> {
+    if (!this.workersInitialized) {
+      await this.initializeWorkers();
+    }
+
+    const keyJwk = await exportAesKeyToJwk(encryptionKey);
+
+    // Create promises that wait for key update acknowledgement from workers
+    // CRITICAL for RTCRtpScriptTransform (Safari/Firefox): onrtctransform fires
+    // immediately when RTCRtpScriptTransform is created, so we MUST ensure the
+    // worker has the key BEFORE we create the transform.
+    const promises: Promise<void>[] = [];
+
+    if (this.encryptionWorker) {
+      const encOpId = this.operationCounter++;
+      const encPromise = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this.pendingKeyUpdates.delete(encOpId);
+          reject(new Error('Encryption worker key update timeout'));
+        }, 3000);
+
+        this.pendingKeyUpdates.set(encOpId, {
+          resolve: () => {
+            clearTimeout(timeout);
+            resolve();
+          },
+          reject: (e) => {
+            clearTimeout(timeout);
+            reject(e);
+          },
+        });
+      });
+      promises.push(encPromise);
+
+      const message: WorkerInboundMessage = {
+        type: 'updateKey',
+        payload: { encryptionKey: keyJwk, generation },
+        operationId: encOpId,
+      };
+      this.encryptionWorker.postMessage(message);
+    }
+
+    if (this.decryptionWorker) {
+      const decOpId = this.operationCounter++;
+      const decPromise = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this.pendingKeyUpdates.delete(decOpId);
+          reject(new Error('Decryption worker key update timeout'));
+        }, 3000);
+
+        this.pendingKeyUpdates.set(decOpId, {
+          resolve: () => {
+            clearTimeout(timeout);
+            resolve();
+          },
+          reject: (e) => {
+            clearTimeout(timeout);
+            reject(e);
+          },
+        });
+      });
+      promises.push(decPromise);
+
+      const message: WorkerInboundMessage = {
+        type: 'updateKey',
+        payload: { encryptionKey: keyJwk, generation },
+        operationId: decOpId,
+      };
+      this.decryptionWorker.postMessage(message);
+    }
+
+    // Wait for BOTH workers to acknowledge the key update
+    await Promise.all(promises);
+
+    console.debug(`🔑 E2EE: Key updated to generation ${generation} (both workers confirmed)`);
+
+    // KRITISCH: Keyframe anfordern damit Video sofort startet!
+    // Ohne das muss der Decoder auf den nächsten I-Frame warten (2-10 Sekunden)
+    this.requestKeyFrames();
+  }
+
+  /**
+   * Request keyframes from all video receivers
+   *
+   * WICHTIG: Nach Key-Exchange oder Key-Rotation müssen wir einen Keyframe anfordern,
+   * sonst muss der Video-Decoder auf den nächsten I-Frame warten (kann 2-10 Sekunden dauern!)
+   *
+   * Für Chrome (encodedStreams/rtpTransform) verwenden wir verschiedene Ansätze:
+   * 1. RTCRtpReceiver.requestKeyFrame() (wenn verfügbar)
+   * 2. Über die PeerConnection (RTCP PLI)
+   *
+   * Für RTCRtpScriptTransform (Safari/Firefox) wird dies im Worker via
+   * RTCRtpScriptTransformer.sendKeyFrameRequest() gemacht.
+   */
+  private requestKeyFrames(): void {
+    // RTCRtpScriptTransform: Worker macht das automatisch via sendKeyFrameRequest()
+    if (this.e2eeMethod === 'scriptTransform') {
+      console.debug('🔧 ScriptTransform: Keyframe request handled by worker');
       return;
     }
 
-    console.debug(`🔒 E2EE: Applying encryption to ${kind} sender (${trackId})`);
-
-    switch (this.e2eeMethod) {
-      case 'scriptTransform':
-        this.applyEncryptionSafari(sender, kind);
-        break;
-
-      case 'encodedStreams':
-        this.applyEncryptionChrome(sender, kind);
-        break;
-
-      case 'rtpTransform':
-        this.applyEncryptionFirefox(sender, kind);
-        break;
-
-      case 'none':
-      default:
-        console.warn('⚠️ E2EE method none - running without encryption');
-        return; // Don't track if not applied
-    }
-
-    this.appliedSenderTransforms.add(trackId);
-  }
-
-  applyDecryptionToReceiver(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): void {
-    const trackId = receiver.track.id || `receiver-${kind}-${Date.now()}`;
-
-    // Check if already applied
-    if (this.appliedReceiverTransforms.has(trackId)) {
-      console.debug(`🔓 E2EE: Decryption transform already applied to ${kind} receiver, skipping`);
+    if (this.videoReceivers.size === 0) {
+      console.debug('📹 E2EE: No video receivers to request keyframes from');
       return;
     }
 
-    console.debug(`🔓 E2EE: Applying decryption to ${kind} receiver (${trackId})`);
+    console.debug(`📹 E2EE: Requesting keyframes from ${this.videoReceivers.size} video receivers`);
 
-    switch (this.e2eeMethod) {
-      case 'scriptTransform':
-        this.applyDecryptionSafari(receiver, kind);
-        break;
+    for (const receiver of this.videoReceivers) {
+      try {
+        // Neuere Browser haben möglicherweise requestKeyFrame()
+        // Dies ist Teil des webrtc-encoded-transform Proposals
+        const receiverWithKeyFrame = receiver as RTCRtpReceiver & {
+          requestKeyFrame?(): Promise<void>;
+        };
 
-      case 'encodedStreams':
-        this.applyDecryptionChrome(receiver, kind);
-        break;
-
-      case 'rtpTransform':
-        this.applyDecryptionFirefox(receiver, kind);
-        break;
-
-      case 'none':
-      default:
-        console.warn('⚠️ E2EE method none - running without decryption');
-        return; // Don't track if not applied
-    }
-
-    this.appliedReceiverTransforms.add(trackId);
-  }
-
-  private applyEncryptionSafari(sender: RTCRtpSender, kind: string): void {
-    if (!this.safariEncryptionWorker) {
-      throw new Error('Safari encryption worker not initialized');
-    }
-
-    const transform = new RTCRtpScriptTransform(this.safariEncryptionWorker, {
-      operation: 'encrypt',
-      kind,
-    });
-
-    (sender as RTCRtpSender & { transform?: RTCRtpScriptTransform }).transform = transform;
-    console.debug(`✅ Safari E2EE: Encryption applied to ${kind} sender`);
-  }
-
-  private applyDecryptionSafari(receiver: RTCRtpReceiver, kind: string): void {
-    if (!this.safariDecryptionWorker) {
-      throw new Error('Safari decryption worker not initialized');
-    }
-
-    const transform = new RTCRtpScriptTransform(this.safariDecryptionWorker, {
-      operation: 'decrypt',
-      kind,
-    });
-
-    (receiver as RTCRtpReceiver & { transform?: RTCRtpScriptTransform }).transform = transform;
-    console.debug(`✅ Safari E2EE: Decryption applied to ${kind} receiver`);
-  }
-
-  private applyEncryptionChrome(sender: RTCRtpSender, kind: string): void {
-    if (!this.encryptionWorker) throw new Error('Encryption worker not initialized');
-
-    const trackId = sender.track?.id ?? `sender-${kind}`;
-
-    // Versuche gecachte Streams zu nutzen
-    const cachedStreams = this.senderEncodedStreams.get(trackId);
-    let streams: { readable: ReadableStream; writable: WritableStream };
-
-    if (cachedStreams) {
-      streams = cachedStreams;
-    } else {
-      console.warn(`⚠️ E2EE: No prepared streams for ${kind} sender, trying to create now...`);
-      const senderWithStreams = sender as RTCRtpSender & {
-        createEncodedStreams?: () => { readable: ReadableStream; writable: WritableStream };
-      };
-      const newStreams = senderWithStreams.createEncodedStreams?.();
-      if (!newStreams) {
-        console.error(`❌ E2EE: Failed to create encoded streams for ${kind} sender`);
-        return;
+        if (typeof receiverWithKeyFrame.requestKeyFrame === 'function') {
+          void receiverWithKeyFrame
+            .requestKeyFrame()
+            .then(() => {
+              console.debug('📹 E2EE: Keyframe request sent via RTCRtpReceiver.requestKeyFrame()');
+            })
+            .catch((error: unknown) => {
+              console.debug('📹 E2EE: Keyframe request failed (not critical):', error);
+            });
+        } else {
+          // Fallback: Trigger über PeerConnection wenn möglich
+          // Dies erfordert Zugriff auf die PC, was wir hier nicht haben
+          // Für jetzt loggen wir nur dass es nicht unterstützt wird
+          console.debug('📹 E2EE: requestKeyFrame() not available on this browser');
+        }
+      } catch (error) {
+        console.debug('📹 E2EE: Keyframe request error (not critical):', error);
       }
-      streams = newStreams;
-      this.senderEncodedStreams.set(trackId, newStreams);
     }
-
-    const transformStream = new TransformStream<RTCEncodedFrame, RTCEncodedFrame>({
-      transform: async (
-        encodedFrame: RTCEncodedFrame,
-        controller: TransformStreamDefaultController<RTCEncodedFrame>
-      ) => {
-        try {
-          this.stats.totalFrames++;
-
-          // Passthrough wenn Encryption nicht aktiviert
-          if (!this.encryptionEnabled) {
-            controller.enqueue(encodedFrame);
-            return;
-          }
-
-          const frameDataCopy = this.copyArrayBuffer(encodedFrame.data);
-          const encryptedData = await this.encryptFrameViaWorker(frameDataCopy);
-
-          // Stelle sicher dass Daten korrekt kopiert werden
-          const encryptedArray = new Uint8Array(encryptedData);
-          // eslint-disable-next-line require-atomic-updates
-          encodedFrame.data = encryptedArray.buffer;
-
-          this.stats.encryptedFrames++;
-          controller.enqueue(encodedFrame);
-        } catch (error) {
-          console.error(`[E2EE] Encryption error (${kind}):`, error);
-          this.stats.encryptionErrors++;
-          // Bei Fehler trotzdem durchleiten für bessere UX
-          controller.enqueue(encodedFrame);
-        }
-      },
-    });
-
-    (streams.readable as ReadableStream<RTCEncodedFrame>)
-      .pipeThrough(transformStream)
-      .pipeTo(streams.writable as WritableStream<RTCEncodedFrame>)
-      .catch((error: unknown) => {
-        console.error('[E2EE] Encryption pipeline error:', error);
-      });
-
-    this.senderEncodedStreams.delete(trackId);
-  }
-
-  private applyDecryptionChrome(receiver: RTCRtpReceiver, kind: string): void {
-    if (!this.decryptionWorker) throw new Error('Decryption worker not initialized');
-
-    const trackId = receiver.track.id || `receiver-${kind}`;
-
-    const cachedStreams = this.receiverEncodedStreams.get(trackId);
-    let streams: { readable: ReadableStream; writable: WritableStream };
-
-    if (cachedStreams) {
-      streams = cachedStreams;
-    } else {
-      console.warn(`⚠️ E2EE: No prepared streams for ${kind} receiver, trying to create now...`);
-      const receiverWithStreams = receiver as RTCRtpReceiver & {
-        createEncodedStreams?: () => { readable: ReadableStream; writable: WritableStream };
-      };
-      const newStreams = receiverWithStreams.createEncodedStreams?.();
-      if (!newStreams) {
-        console.error(`❌ E2EE: Failed to create encoded streams for ${kind} receiver`);
-        return;
-      }
-      streams = newStreams;
-      this.receiverEncodedStreams.set(trackId, newStreams);
-    }
-
-    // KRITISCH: hasKey wird außerhalb des Transforms geprüft um schnellen Zugriff zu ermöglichen
-    // Die Decryption sollte IMMER versucht werden wenn ein Key vorhanden ist,
-    // unabhängig von encryptionEnabled - denn der andere Peer könnte bereits verschlüsselt senden!
-    const transformStream = new TransformStream<RTCEncodedFrame, RTCEncodedFrame>({
-      transform: async (
-        encodedFrame: RTCEncodedFrame,
-        controller: TransformStreamDefaultController<RTCEncodedFrame>
-      ) => {
-        try {
-          this.stats.totalFrames++;
-
-          // GEÄNDERT: Decryption nur überspringen wenn KEIN Worker und KEIN Key
-          // Wenn ein Key vorhanden ist, IMMER versuchen zu decrypten,
-          // denn der andere Peer könnte bereits encrypted senden!
-          const hasKey = this.e2eeManager.getCurrentKeyMaterial() !== null;
-
-          if (!hasKey) {
-            // Kein Key → Passthrough (Peer hat noch nicht Key Exchange abgeschlossen)
-            controller.enqueue(encodedFrame);
-            return;
-          }
-
-          const encryptedDataCopy = this.copyArrayBuffer(encodedFrame.data);
-          const decryptedData = await this.decryptFrameViaWorker(encryptedDataCopy);
-
-          // Stelle sicher dass Daten korrekt kopiert werden
-          const decryptedArray = new Uint8Array(decryptedData);
-          // eslint-disable-next-line require-atomic-updates
-          encodedFrame.data = decryptedArray.buffer;
-
-          this.stats.decryptedFrames++;
-          controller.enqueue(encodedFrame);
-        } catch (error) {
-          console.error(`[E2EE] Decryption error (${kind}):`, error);
-          this.stats.decryptionErrors++;
-          // Bei Fehler trotzdem durchleiten (könnte unverschlüsselter Frame sein)
-          controller.enqueue(encodedFrame);
-        }
-      },
-    });
-
-    (streams.readable as ReadableStream<RTCEncodedFrame>)
-      .pipeThrough(transformStream)
-      .pipeTo(streams.writable as WritableStream<RTCEncodedFrame>)
-      .catch((error: unknown) => {
-        console.error('[E2EE] Decryption pipeline error:', error);
-      });
-
-    this.receiverEncodedStreams.delete(trackId);
-  }
-
-  private applyEncryptionFirefox(sender: RTCRtpSender, kind: string): void {
-    if (!this.encryptionWorker) throw new Error('Encryption worker not initialized');
-
-    const transformStream = new TransformStream<RTCEncodedFrame, RTCEncodedFrame>({
-      transform: async (
-        encodedFrame: RTCEncodedFrame,
-        controller: TransformStreamDefaultController<RTCEncodedFrame>
-      ) => {
-        try {
-          this.stats.totalFrames++;
-
-          // Passthrough wenn Encryption nicht aktiviert
-          if (!this.encryptionEnabled) {
-            controller.enqueue(encodedFrame);
-            return;
-          }
-
-          const frameDataCopy = this.copyArrayBuffer(encodedFrame.data);
-          const encryptedData = await this.encryptFrameViaWorker(frameDataCopy);
-
-          const encryptedArray = new Uint8Array(encryptedData);
-          // eslint-disable-next-line require-atomic-updates
-          encodedFrame.data = encryptedArray.buffer;
-
-          this.stats.encryptedFrames++;
-          controller.enqueue(encodedFrame);
-        } catch (error) {
-          console.error(`[E2EE] Encryption error (${kind}):`, error);
-          this.stats.encryptionErrors++;
-          this.stats.droppedFrames++;
-        }
-      },
-    });
-
-    (
-      sender as RTCRtpSender & { transform?: TransformStream<RTCEncodedFrame, RTCEncodedFrame> }
-    ).transform = transformStream;
-  }
-
-  private applyDecryptionFirefox(receiver: RTCRtpReceiver, kind: string): void {
-    if (!this.decryptionWorker) throw new Error('Decryption worker not initialized');
-
-    // KRITISCH: Decryption sollte IMMER versucht werden wenn ein Key vorhanden ist,
-    // unabhängig von encryptionEnabled - denn der andere Peer könnte bereits verschlüsselt senden!
-    const transformStream = new TransformStream<RTCEncodedFrame, RTCEncodedFrame>({
-      transform: async (
-        encodedFrame: RTCEncodedFrame,
-        controller: TransformStreamDefaultController<RTCEncodedFrame>
-      ) => {
-        try {
-          this.stats.totalFrames++;
-
-          // GEÄNDERT: Nur auf Key-Verfügbarkeit prüfen, nicht auf encryptionEnabled
-          const hasKey = this.e2eeManager.getCurrentKeyMaterial() !== null;
-
-          if (!hasKey) {
-            // Kein Key → Passthrough
-            controller.enqueue(encodedFrame);
-            return;
-          }
-
-          const encryptedDataCopy = this.copyArrayBuffer(encodedFrame.data);
-          const decryptedData = await this.decryptFrameViaWorker(encryptedDataCopy);
-
-          const decryptedArray = new Uint8Array(decryptedData);
-          // eslint-disable-next-line require-atomic-updates
-          encodedFrame.data = decryptedArray.buffer;
-
-          this.stats.decryptedFrames++;
-          controller.enqueue(encodedFrame);
-        } catch (error) {
-          console.error(`[E2EE] Decryption error (${kind}):`, error);
-          this.stats.decryptionErrors++;
-          // Bei Fehler durchleiten statt droppen (könnte unverschlüsselter Frame sein)
-          controller.enqueue(encodedFrame);
-        }
-      },
-    });
-
-    (
-      receiver as RTCRtpReceiver & { transform?: TransformStream<RTCEncodedFrame, RTCEncodedFrame> }
-    ).transform = transformStream;
   }
 
   async updateWorkerKeys(keyMaterial: E2EEKeyMaterial): Promise<void> {
-    console.debug(`🔄 E2EE: Updating worker keys (generation ${keyMaterial.generation})`);
+    await this.updateKey(keyMaterial.encryptionKey, keyMaterial.generation);
+  }
+
+  enableEncryption(): void {
+    this.encryptionEnabled = true;
+
+    const message: WorkerInboundMessage = { type: 'enableEncryption' };
+    this.encryptionWorker?.postMessage(message);
+    this.decryptionWorker?.postMessage(message);
+
+    console.debug('🔐 E2EE: Encryption enabled');
+  }
+
+  disableEncryption(): void {
+    this.encryptionEnabled = false;
+
+    const message: WorkerInboundMessage = { type: 'disableEncryption' };
+    this.encryptionWorker?.postMessage(message);
+    this.decryptionWorker?.postMessage(message);
+
+    console.debug('🔓 E2EE: Encryption disabled');
+  }
+
+  // ============================================================================
+  // Transform Application (Chrome encodedStreams)
+  // ============================================================================
+
+  prepareEncodedStreamsForSender(sender: RTCRtpSender, kind: 'video' | 'audio'): void {
+    if (this.e2eeMethod !== 'encodedStreams') return;
+    if (this.senderEncodedStreams.has(sender)) return; // Already prepared
 
     try {
-      const exportedKey = await crypto.subtle.exportKey('jwk', keyMaterial.encryptionKey);
-      const updatePayload = {
-        encryptionKey: exportedKey,
-        generation: keyMaterial.generation,
+      // Chrome-specific API for Insertable Streams
+      const senderWithStreams = sender as RTCRtpSender & {
+        createEncodedStreams(): EncodedStreams;
       };
-
-      const workers = [
-        this.encryptionWorker,
-        this.decryptionWorker,
-        this.safariEncryptionWorker,
-        this.safariDecryptionWorker,
-      ];
-
-      // KRITISCH: Warte auf Worker-Bestätigung, nicht nur auf postMessage!
-      // Ohne dies kann onrtctransform laufen BEVOR der Key gesetzt ist.
-      const updatePromises = workers
-        .filter((worker): worker is Worker => worker !== null)
-        .map(
-          (worker) =>
-            new Promise<void>((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                reject(new Error('Worker key update timeout'));
-              }, 5000);
-
-              const handler = (event: MessageEvent<WorkerMessage>): void => {
-                if (event.data.type === 'keyUpdated') {
-                  clearTimeout(timeout);
-                  worker.removeEventListener('message', handler);
-                  console.debug(
-                    `✅ E2EE: Worker confirmed key update (gen ${keyMaterial.generation})`
-                  );
-                  resolve();
-                }
-              };
-
-              worker.addEventListener('message', handler);
-              worker.postMessage({ type: 'updateKey', payload: updatePayload });
-            })
-        );
-
-      await Promise.all(updatePromises);
-      console.debug('✅ E2EE: All worker keys confirmed');
-    } catch (error) {
-      console.error('❌ E2EE: Failed to update worker keys:', error);
+      const { readable, writable } = senderWithStreams.createEncodedStreams();
+      this.senderEncodedStreams.set(sender, { readable, writable });
+      console.debug(`📤 E2EE: Prepared encoded streams for ${kind} sender`);
+    } catch (e) {
+      console.warn(`⚠️ E2EE: Could not create encoded streams for ${kind} sender:`, e);
     }
   }
 
-  private encryptFrameViaWorker(frameData: ArrayBuffer): Promise<ArrayBuffer> {
-    return new Promise((resolve, reject) => {
-      const worker =
-        this.e2eeMethod === 'scriptTransform' ? this.safariEncryptionWorker : this.encryptionWorker;
+  prepareEncodedStreamsForReceiver(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): void {
+    if (this.e2eeMethod !== 'encodedStreams') return;
+    if (this.receiverEncodedStreams.has(receiver)) return; // Already prepared
 
-      if (!worker) {
-        reject(new Error('Encryption worker not available'));
-        return;
+    try {
+      // Chrome-specific API for Insertable Streams
+      const receiverWithStreams = receiver as RTCRtpReceiver & {
+        createEncodedStreams(): EncodedStreams;
+      };
+      const { readable, writable } = receiverWithStreams.createEncodedStreams();
+      this.receiverEncodedStreams.set(receiver, { readable, writable });
+      console.debug(`📥 E2EE: Prepared encoded streams for ${kind} receiver`);
+    } catch (e) {
+      console.warn(`⚠️ E2EE: Could not create encoded streams for ${kind} receiver:`, e);
+    }
+  }
+
+  async applyEncryptionToSenders(senders: RTCRtpSender[]): Promise<void> {
+    if (!this.workersInitialized) {
+      await this.initializeWorkers();
+    }
+
+    for (const sender of senders) {
+      if (!sender.track) continue;
+
+      const kind = sender.track.kind as 'video' | 'audio';
+      const senderId = `${kind}-${sender.track.id}`;
+
+      if (this.appliedSenderTransforms.has(senderId)) {
+        continue;
       }
 
-      const operationId = this.operationCounter++;
+      try {
+        this.applyEncryptionTransform(sender, kind);
+        this.appliedSenderTransforms.add(senderId);
+      } catch (e) {
+        console.warn(`⚠️ E2EE: Failed to apply encryption to ${kind} sender:`, e);
+      }
+    }
+  }
+
+  async applyEncryptionToSender(sender: RTCRtpSender, kind: 'video' | 'audio'): Promise<void> {
+    if (!this.workersInitialized) {
+      await this.initializeWorkers();
+    }
+
+    if (!sender.track) return;
+
+    const senderId = `${kind}-${sender.track.id}`;
+    if (this.appliedSenderTransforms.has(senderId)) return;
+
+    try {
+      this.applyEncryptionTransform(sender, kind);
+      this.appliedSenderTransforms.add(senderId);
+    } catch (e) {
+      console.warn(`⚠️ E2EE: Failed to apply encryption to ${kind} sender:`, e);
+    }
+  }
+
+  async applyDecryptionToReceivers(receivers: RTCRtpReceiver[]): Promise<void> {
+    if (!this.workersInitialized) {
+      await this.initializeWorkers();
+    }
+
+    for (const receiver of receivers) {
+      const kind = receiver.track.kind as 'video' | 'audio';
+      const receiverId = `${kind}-${receiver.track.id}`;
+
+      if (this.appliedReceiverTransforms.has(receiverId)) {
+        continue;
+      }
+
+      try {
+        this.applyDecryptionTransform(receiver, kind);
+        this.appliedReceiverTransforms.add(receiverId);
+      } catch (e) {
+        console.warn(`⚠️ E2EE: Failed to apply decryption to ${kind} receiver:`, e);
+      }
+    }
+  }
+
+  /**
+   * Apply decryption to a single receiver
+   * Handles RTCRtpScriptTransform (Safari/Firefox), encodedStreams (Chrome legacy), and rtpTransform
+   */
+  applyDecryptionToReceiver(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): void {
+    const receiverId = `${kind}-${receiver.track.id}`;
+    if (this.appliedReceiverTransforms.has(receiverId)) return;
+
+    // Track video receivers for keyframe requests after key updates
+    if (kind === 'video') {
+      this.videoReceivers.add(receiver);
+      console.debug(
+        `📹 E2EE: Tracking video receiver for keyframe requests (total: ${this.videoReceivers.size})`
+      );
+    }
+
+    if (this.e2eeMethod === 'scriptTransform') {
+      // Safari/Firefox: RTCRtpScriptTransform
+      if (this.decryptionWorker) {
+        try {
+          receiver.transform = new RTCRtpScriptTransform(this.decryptionWorker, {
+            operation: 'decrypt',
+            kind,
+          });
+          this.appliedReceiverTransforms.add(receiverId);
+          console.debug(`🔧 ScriptTransform: Applied decryption transform to ${kind} receiver`);
+        } catch (e) {
+          console.warn(`⚠️ ScriptTransform: Failed to apply decryption transform:`, e);
+        }
+      }
+    } else if (this.e2eeMethod === 'encodedStreams') {
+      // Chrome: Pipe encoded streams through decryption transform
+      // CRITICAL: The streams must be prepared BEFORE this is called!
+      this.pipeEncodedStreamsForReceiver(receiver, kind);
+      this.appliedReceiverTransforms.add(receiverId);
+    } else if (this.e2eeMethod === 'rtpTransform') {
+      // Firefox/Chrome 118+: RTCRtpReceiver.transform
+      const transformStream = this.createDecryptionTransformStream();
+      receiver.transform = transformStream;
+      this.appliedReceiverTransforms.add(receiverId);
+      console.debug(`🦊 Firefox/Chrome: Applied rtp transform to ${kind} receiver`);
+    }
+  }
+
+  // ============================================================================
+  // Private Transform Methods
+  // ============================================================================
+
+  private applyEncryptionTransform(sender: RTCRtpSender, kind: 'video' | 'audio'): void {
+    if (this.e2eeMethod === 'scriptTransform') {
+      // Safari/Firefox: RTCRtpScriptTransform
+      if (this.encryptionWorker) {
+        sender.transform = new RTCRtpScriptTransform(this.encryptionWorker, {
+          operation: 'encrypt',
+          kind,
+        });
+        console.debug(`🔧 ScriptTransform: Applied encryption transform to ${kind} sender`);
+      }
+    } else if (this.e2eeMethod === 'rtpTransform') {
+      // Firefox/Chrome 118+: RTCRtpSender.transform with TransformStream
+      const transformStream = this.createEncryptionTransformStream();
+      sender.transform = transformStream;
+      console.debug(`🦊 Firefox/Chrome: Applied rtp transform to ${kind} sender`);
+    } else if (this.e2eeMethod === 'encodedStreams') {
+      // Chrome legacy: pipe readable → transform → writable
+      this.pipeEncodedStreamsForSender(sender, kind);
+    }
+  }
+
+  private applyDecryptionTransform(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): void {
+    if (this.e2eeMethod === 'scriptTransform') {
+      // Safari/Firefox: RTCRtpScriptTransform
+      if (this.decryptionWorker) {
+        receiver.transform = new RTCRtpScriptTransform(this.decryptionWorker, {
+          operation: 'decrypt',
+          kind,
+        });
+        console.debug(`🔧 ScriptTransform: Applied decryption transform to ${kind} receiver`);
+      }
+    } else if (this.e2eeMethod === 'rtpTransform') {
+      // Firefox/Chrome 118+
+      const transformStream = this.createDecryptionTransformStream();
+      receiver.transform = transformStream;
+      console.debug(`🦊 Firefox/Chrome: Applied rtp transform to ${kind} receiver`);
+    } else if (this.e2eeMethod === 'encodedStreams') {
+      // Chrome legacy: pipe readable → transform → writable
+      this.pipeEncodedStreamsForReceiver(receiver, kind);
+    }
+  }
+
+  /**
+   * Chrome encodedStreams: Pipe sender streams through encryption transform
+   */
+  private pipeEncodedStreamsForSender(sender: RTCRtpSender, kind: 'video' | 'audio'): void {
+    if (this.pipedSenders.has(sender)) {
+      console.debug(`🌐 Chrome: Sender ${kind} already piped`);
+      return;
+    }
+
+    const streams = this.senderEncodedStreams.get(sender);
+    if (!streams) {
+      console.warn(`⚠️ Chrome: No encoded streams found for ${kind} sender`);
+      return;
+    }
+
+    const transformStream = this.createEncryptionTransformStream();
+
+    // Pipe: readable → transform → writable
+    // Note: Chrome's createEncodedStreams returns streams with `any` type
+    void streams.readable
+      .pipeThrough(transformStream)
+      .pipeTo(streams.writable as WritableStream<EncodedMediaFrame>)
+      .catch((error: unknown) => {
+        console.error(`❌ Chrome: Encryption pipeline error for ${kind}:`, error);
+      });
+
+    this.pipedSenders.add(sender);
+    console.debug(`🌐 Chrome: Piped encryption transform for ${kind} sender`);
+  }
+
+  /**
+   * Chrome encodedStreams: Pipe receiver streams through decryption transform
+   */
+  private pipeEncodedStreamsForReceiver(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): void {
+    if (this.pipedReceivers.has(receiver)) {
+      console.debug(`🌐 Chrome: Receiver ${kind} already piped`);
+      return;
+    }
+
+    const streams = this.receiverEncodedStreams.get(receiver);
+    if (!streams) {
+      console.warn(`⚠️ Chrome: No encoded streams found for ${kind} receiver`);
+      return;
+    }
+
+    const transformStream = this.createDecryptionTransformStream();
+
+    // Pipe: readable → transform → writable
+    // Note: Chrome's createEncodedStreams returns streams with `any` type
+    void streams.readable
+      .pipeThrough(transformStream)
+      .pipeTo(streams.writable as WritableStream<EncodedMediaFrame>)
+      .catch((error: unknown) => {
+        console.error(`❌ Chrome: Decryption pipeline error for ${kind}:`, error);
+      });
+
+    this.pipedReceivers.add(receiver);
+    console.debug(`🌐 Chrome: Piped decryption transform for ${kind} receiver`);
+  }
+
+  private createEncryptionTransformStream(): TransformStream<EncodedMediaFrame, EncodedMediaFrame> {
+    return new TransformStream<EncodedMediaFrame, EncodedMediaFrame>({
+      transform: async (frame, controller) => {
+        if (!this.encryptionEnabled || !this.encryptionWorker) {
+          controller.enqueue(frame);
+          return;
+        }
+
+        try {
+          const encryptedData = await this.encryptFrame(frame.data);
+          // CRITICAL: Mutate the frame's data property directly!
+          // RTCEncodedVideoFrame/RTCEncodedAudioFrame are special objects
+          // that cannot be spread - spreading loses critical internal state.
+          // Chrome requires the original frame object with modified data.
+          // eslint-disable-next-line require-atomic-updates -- Intentional mutation of WebRTC frame
+          frame.data = encryptedData;
+          controller.enqueue(frame);
+        } catch (error: unknown) {
+          // Bei Encryption-Fehler: Frame unverschlüsselt durchreichen
+          // Besser als gar kein Video - Empfänger kann unverschlüsselte Frames erkennen
+          this.stats.encryptionErrors++;
+          console.warn('[E2EE] Encryption failed, passing through unencrypted:', error);
+          controller.enqueue(frame);
+        }
+      },
+    });
+  }
+
+  private createDecryptionTransformStream(): TransformStream<EncodedMediaFrame, EncodedMediaFrame> {
+    return new TransformStream<EncodedMediaFrame, EncodedMediaFrame>({
+      transform: async (frame, controller) => {
+        if (!this.decryptionWorker) {
+          controller.enqueue(frame);
+          return;
+        }
+
+        try {
+          const decryptedData = await this.decryptFrame(frame.data);
+          // CRITICAL: Mutate the frame's data property directly!
+          // RTCEncodedVideoFrame/RTCEncodedAudioFrame are special objects
+          // that cannot be spread - spreading loses critical internal state.
+          // Chrome requires the original frame object with modified data.
+          // eslint-disable-next-line require-atomic-updates -- Intentional mutation of WebRTC frame
+          frame.data = decryptedData;
+          controller.enqueue(frame);
+        } catch (error: unknown) {
+          // FRAME_DROPPED means the worker intentionally dropped this frame
+          // (encrypted frame arrived before key exchange completed)
+          // Don't enqueue anything - video will briefly freeze until key is ready
+          if (error instanceof Error && error.message === 'FRAME_DROPPED') {
+            this.stats.droppedFrames++;
+            return; // Don't enqueue - frame is intentionally dropped
+          }
+          // KRITISCH: Bei Decryption-Fehler Frame DROPPEN, nicht durchreichen!
+          // Durchreichen des verschlüsselten Frames → schwarzes/korruptes Video
+          this.stats.decryptionErrors++;
+          this.stats.droppedFrames++;
+          console.warn('[E2EE] Decryption failed, dropping frame:', error);
+          // Nicht enqueueen = Frame wird verworfen (besser als korruptes Video)
+        }
+      },
+    });
+  }
+
+  // ============================================================================
+  // Frame Encryption/Decryption via Worker
+  // ============================================================================
+
+  private async encryptFrame(frameData: ArrayBuffer): Promise<ArrayBuffer> {
+    const worker = this.encryptionWorker;
+    if (!worker) {
+      throw new Error('Encryption worker not initialized');
+    }
+
+    const operationId = this.operationCounter++;
+
+    return new Promise<ArrayBuffer>((resolve, reject) => {
       this.pendingEncryptions.set(operationId, {
         resolve,
         reject,
         timestamp: Date.now(),
       });
 
-      worker.postMessage(
-        {
-          type: 'encrypt',
-          operationId,
-          payload: { frameData },
-        },
-        [frameData]
-      );
+      const message: WorkerInboundMessage = {
+        type: 'encrypt',
+        payload: { frameData },
+        operationId,
+      };
+
+      worker.postMessage(message, [frameData]);
     });
   }
 
-  private decryptFrameViaWorker(encryptedData: ArrayBuffer): Promise<ArrayBuffer> {
-    return new Promise((resolve, reject) => {
-      const worker =
-        this.e2eeMethod === 'scriptTransform' ? this.safariDecryptionWorker : this.decryptionWorker;
+  private async decryptFrame(frameData: ArrayBuffer): Promise<ArrayBuffer> {
+    const worker = this.decryptionWorker;
+    if (!worker) {
+      throw new Error('Decryption worker not initialized');
+    }
 
-      if (!worker) {
-        reject(new Error('Decryption worker not available'));
-        return;
-      }
+    const operationId = this.operationCounter++;
 
-      const operationId = this.operationCounter++;
+    return new Promise<ArrayBuffer>((resolve, reject) => {
       this.pendingDecryptions.set(operationId, {
         resolve,
         reject,
         timestamp: Date.now(),
       });
 
-      worker.postMessage(
-        {
-          type: 'decrypt',
-          operationId,
-          payload: { frameData: encryptedData },
-        },
-        [encryptedData]
-      );
+      const message: WorkerInboundMessage = {
+        type: 'decrypt',
+        payload: { frameData },
+        operationId,
+      };
+
+      worker.postMessage(message, [frameData]);
     });
   }
 
-  private copyArrayBuffer(buffer: ArrayBuffer): ArrayBuffer {
-    const copy = new ArrayBuffer(buffer.byteLength);
-    new Uint8Array(copy).set(new Uint8Array(buffer));
-    return copy;
+  // ============================================================================
+  // Stats & Cleanup
+  // ============================================================================
+
+  private updateAverageTime(type: 'encryption' | 'decryption', time: number): void {
+    if (type === 'encryption') {
+      const total = this.stats.encryptedFrames;
+      this.stats.averageEncryptionTime =
+        (this.stats.averageEncryptionTime * (total - 1) + time) / total;
+    } else {
+      const total = this.stats.decryptedFrames;
+      this.stats.averageDecryptionTime =
+        (this.stats.averageDecryptionTime * (total - 1) + time) / total;
+    }
+  }
+
+  private updateStatsFromWorker(workerStats: WorkerStats): void {
+    this.stats.totalFrames = workerStats.totalFrames;
+    this.stats.encryptedFrames = workerStats.encryptedFrames;
+    this.stats.decryptedFrames = workerStats.decryptedFrames;
+    this.stats.encryptionErrors = workerStats.encryptionErrors;
+    this.stats.decryptionErrors = workerStats.decryptionErrors;
+    this.stats.averageEncryptionTime = workerStats.averageEncryptionTimeMs;
+    this.stats.averageDecryptionTime = workerStats.averageDecryptionTimeMs;
   }
 
   private cleanupTimedOutOperations(): void {
     const now = Date.now();
 
-    for (const [id, pending] of this.pendingEncryptions) {
-      if (now - pending.timestamp > OPERATION_TIMEOUT) {
-        pending.reject(new Error('Encryption operation timed out'));
+    for (const [id, op] of this.pendingEncryptions) {
+      if (now - op.timestamp > OPERATION_TIMEOUT) {
         this.pendingEncryptions.delete(id);
+        op.reject(new Error('Operation timed out'));
         this.stats.droppedFrames++;
       }
     }
 
-    for (const [id, pending] of this.pendingDecryptions) {
-      if (now - pending.timestamp > OPERATION_TIMEOUT) {
-        pending.reject(new Error('Decryption operation timed out'));
+    for (const [id, op] of this.pendingDecryptions) {
+      if (now - op.timestamp > OPERATION_TIMEOUT) {
         this.pendingDecryptions.delete(id);
+        op.reject(new Error('Operation timed out'));
         this.stats.droppedFrames++;
       }
     }
   }
 
-  private updateEncryptionStats(encryptionTime: number): void {
-    const n = this.stats.encryptedFrames;
-    this.stats.averageEncryptionTime =
-      (this.stats.averageEncryptionTime * n + encryptionTime) / (n + 1);
-  }
+  cleanup(): void {
+    console.debug('🧹 E2EE: Cleanup InsertableStreamsHandler');
 
-  private updateDecryptionStats(decryptionTime: number): void {
-    const n = this.stats.decryptedFrames;
-    this.stats.averageDecryptionTime =
-      (this.stats.averageDecryptionTime * n + decryptionTime) / (n + 1);
-  }
+    // Stop cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
 
-  getStats(): FrameStats {
-    return { ...this.stats };
-  }
+    // Send cleanup to workers
+    const cleanupMessage: WorkerInboundMessage = { type: 'cleanup' };
+    this.encryptionWorker?.postMessage(cleanupMessage);
+    this.decryptionWorker?.postMessage(cleanupMessage);
 
-  resetStats(): void {
+    // Terminate workers
+    this.encryptionWorker?.terminate();
+    this.decryptionWorker?.terminate();
+    this.encryptionWorker = null;
+    this.decryptionWorker = null;
+
+    // Clear pending operations
+    for (const op of this.pendingEncryptions.values()) {
+      op.reject(new Error('Cleanup'));
+    }
+    for (const op of this.pendingDecryptions.values()) {
+      op.reject(new Error('Cleanup'));
+    }
+    this.pendingEncryptions.clear();
+    this.pendingDecryptions.clear();
+    for (const op of this.pendingKeyUpdates.values()) {
+      op.reject(new Error('Cleanup'));
+    }
+    this.pendingKeyUpdates.clear();
+
+    // Reset encoded streams (WeakMaps will be garbage collected when senders/receivers are gone)
+    this.senderEncodedStreams = new WeakMap();
+    this.receiverEncodedStreams = new WeakMap();
+    this.pipedSenders = new WeakSet();
+    this.pipedReceivers = new WeakSet();
+
+    // Clear applied transforms
+    this.appliedSenderTransforms.clear();
+    this.appliedReceiverTransforms.clear();
+
+    // Reset state
+    this.workersInitialized = false;
+    this.workerInitPromise = null;
+    this.encryptionEnabled = false;
+
+    // Reset stats
     this.stats = {
       totalFrames: 0,
       encryptedFrames: 0,
@@ -965,65 +989,4 @@ export class InsertableStreamsHandler {
       droppedFrames: 0,
     };
   }
-
-  cleanup(): void {
-    console.debug('🧹 E2EE: Cleaning up Insertable Streams handler');
-
-    // Disable encryption first
-    this.disableEncryption();
-
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
-    }
-
-    for (const [, pending] of this.pendingEncryptions) {
-      pending.reject(new Error('Handler cleanup'));
-    }
-    this.pendingEncryptions.clear();
-
-    for (const [, pending] of this.pendingDecryptions) {
-      pending.reject(new Error('Handler cleanup'));
-    }
-    this.pendingDecryptions.clear();
-
-    this.senderEncodedStreams.clear();
-    this.receiverEncodedStreams.clear();
-    this.appliedSenderTransforms.clear();
-    this.appliedReceiverTransforms.clear();
-    this.workersInitialized = false;
-    this.workerInitPromise = null;
-
-    const terminateWorker = (worker: Worker | null): void => {
-      if (worker) {
-        try {
-          worker.postMessage({ type: 'cleanup' });
-          setTimeout(() => {
-            try {
-              worker.terminate();
-            } catch (e) {
-              console.warn('Failed to terminate worker:', e);
-            }
-          }, 100);
-        } catch (e) {
-          console.warn('Failed to send cleanup to worker:', e);
-        }
-      }
-    };
-
-    terminateWorker(this.encryptionWorker);
-    terminateWorker(this.decryptionWorker);
-    terminateWorker(this.safariEncryptionWorker);
-    terminateWorker(this.safariDecryptionWorker);
-
-    this.encryptionWorker = null;
-    this.decryptionWorker = null;
-    this.safariEncryptionWorker = null;
-    this.safariDecryptionWorker = null;
-
-    this.resetStats();
-    console.debug('✅ E2EE: Insertable Streams handler cleanup complete');
-  }
 }
-
-export type { FrameStats };

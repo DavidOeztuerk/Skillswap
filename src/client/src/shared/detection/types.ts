@@ -53,10 +53,10 @@ export interface E2EECapabilities {
   readonly supportsEncodedStreams: boolean;
   /** RTCRtpSender.transform verfügbar */
   readonly supportsRtpTransform: boolean;
-  /** Safari's RTCRtpScriptTransform verfügbar */
+  /** RTCRtpScriptTransform verfügbar (Safari/Firefox) */
   readonly supportsRtpScriptTransform: boolean;
-  /** Ob der Safari Worker verwendet werden muss */
-  readonly requiresSafariWorker: boolean;
+  /** Ob RTCRtpScriptTransform verwendet wird */
+  readonly usesScriptTransform: boolean;
 }
 
 // ============================================================================
@@ -98,6 +98,9 @@ export interface CodecSupport {
 
 /**
  * Browser-spezifische Eigenheiten und Workarounds
+ *
+ * HINWEIS: Moderne Browser (Safari 17+, Chrome, Firefox) haben die meisten
+ * historischen Quirks behoben. Diese Liste enthält nur noch ECHTE Unterschiede.
  */
 export interface BrowserQuirks {
   /** Safari: getUserMedia muss vor enumerateDevices aufgerufen werden */
@@ -106,10 +109,52 @@ export interface BrowserQuirks {
   readonly hasKnownCameraReleaseIssue: boolean;
   /** iOS: Autoplay erfordert User Gesture */
   readonly requiresPlayGesture: boolean;
-  /** Safari: Kein tagLength Parameter bei AES-GCM */
-  readonly noAesGcmTagLength: boolean;
   /** Safari: Key muss vor RTCRtpScriptTransform gesetzt sein */
   readonly requiresKeyBeforeTransform: boolean;
+  /** Safari: Track-Removal muss VOR stop() erfolgen */
+  readonly requiresRemoveTrackBeforeStop: boolean;
+  /** Private Mode: IndexedDB nicht verfügbar (wird async geprüft) */
+  readonly indexedDBUnavailable: boolean;
+}
+
+// ============================================================================
+// Crypto Capabilities
+// ============================================================================
+
+/**
+ * WebCrypto API Fähigkeiten des Browsers
+ */
+export interface CryptoCapabilities {
+  /** WebCrypto API verfügbar */
+  readonly hasWebCrypto: boolean;
+  /** SubtleCrypto verfügbar */
+  readonly hasSubtleCrypto: boolean;
+  /** ECDH Key Generation unterstützt */
+  readonly supportsECDH: boolean;
+  /** AES-GCM Encryption unterstützt */
+  readonly supportsAesGcm: boolean;
+  /** ECDSA Signing unterstützt */
+  readonly supportsECDSA: boolean;
+  /** Secure Context (HTTPS) aktiv */
+  readonly isSecureContext: boolean;
+  /** Private Browsing Mode erkannt */
+  readonly isPrivateBrowsing: boolean;
+}
+
+// ============================================================================
+// Worker Capabilities
+// ============================================================================
+
+/**
+ * Web Worker Fähigkeiten
+ */
+export interface WorkerCapabilities {
+  /** Web Workers unterstützt */
+  readonly supportsWorkers: boolean;
+  /** Transferable Objects unterstützt */
+  readonly supportsTransferable: boolean;
+  /** SharedArrayBuffer unterstützt (COOP/COEP headers required) */
+  readonly supportsSharedArrayBuffer: boolean;
 }
 
 // ============================================================================
@@ -125,4 +170,28 @@ export interface FullBrowserCapabilities {
   readonly media: MediaCapabilities;
   readonly codecs: CodecSupport;
   readonly quirks: BrowserQuirks;
+  readonly crypto: CryptoCapabilities;
+  readonly workers: WorkerCapabilities;
+}
+
+// ============================================================================
+// Detection Result Types
+// ============================================================================
+
+/**
+ * Ergebnis eines Feature-Tests
+ */
+export interface FeatureTestResult {
+  readonly supported: boolean;
+  readonly reason?: string;
+}
+
+/**
+ * E2EE Readiness Check Ergebnis
+ */
+export interface E2EEReadinessResult {
+  readonly ready: boolean;
+  readonly method: E2EEMethod;
+  readonly blockers: string[];
+  readonly warnings: string[];
 }

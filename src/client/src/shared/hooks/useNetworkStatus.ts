@@ -16,34 +16,34 @@ export type ConnectionType =
   | 'none';
 
 export interface NetworkStatus {
-  /** Ist das Gerät online? */
+  /** Is the device online? */
   isOnline: boolean;
 
-  /** Ist die Verbindung langsam? */
+  /** Is the connection slow? */
   isSlowConnection: boolean;
 
-  /** Effektiver Verbindungstyp */
+  /** Effective connection type */
   connectionType: ConnectionType;
 
-  /** Effektive Verbindungsgeschwindigkeit (Network Information API) */
+  /** Effective connection speed (Network Information API) */
   effectiveType: EffectiveConnectionType;
 
-  /** Geschätzte Downstream-Bandbreite in Mbps */
+  /** Estimated downstream bandwidth in Mbps */
   downlink?: number;
 
-  /** Round-Trip-Time in ms */
+  /** Round-trip time in ms */
   rtt?: number;
 
-  /** Ist Datensparmodus aktiviert? */
+  /** Is data saver mode enabled? */
   saveData?: boolean;
 
-  /** Qualitätsscore 0-100 für UI-Anzeige */
+  /** Quality score 0-100 for UI display */
   qualityScore: number;
 
-  /** Empfohlene Video-Qualität basierend auf Netzwerk */
+  /** Recommended video quality based on network */
   recommendedVideoQuality: 'low' | 'medium' | 'hd' | '4k';
 
-  /** Timestamp des letzten Updates */
+  /** Timestamp of last update */
   lastUpdated: number;
 }
 
@@ -182,7 +182,7 @@ export function useNetworkStatus(): NetworkStatus {
     lastUpdated: Date.now(),
   }));
 
-  // Ref für Debouncing
+  // Ref for debouncing
   const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateNetworkStatus = useCallback(() => {
@@ -209,7 +209,7 @@ export function useNetworkStatus(): NetworkStatus {
         effectiveType = connection.effectiveType;
         connectionType = mapConnectionType(connection.type);
 
-        // Bestimme ob Verbindung langsam ist
+        // Determine if connection is slow
         isSlowConnection =
           effectiveType === '2g' ||
           effectiveType === 'slow-2g' ||
@@ -285,7 +285,7 @@ export function useNetworkStatus(): NetworkStatus {
       connection.addEventListener('change', updateNetworkStatus);
     }
 
-    // Periodic check (alle 30 Sekunden)
+    // Periodic check (every 30 seconds)
     const periodicCheck = setInterval(updateNetworkStatus, 30000);
 
     return () => {
@@ -312,22 +312,22 @@ export function useNetworkStatus(): NetworkStatus {
 // ============================================================================
 
 export interface WebRTCNetworkRecommendations {
-  /** Sollte Video aktiviert werden? */
+  /** Should video be enabled? */
   enableVideo: boolean;
 
-  /** Empfohlene Video-Auflösung */
+  /** Recommended video resolution */
   videoConstraints: MediaTrackConstraints;
 
-  /** Empfohlene Audio-Einstellungen */
+  /** Recommended audio settings */
   audioConstraints: MediaTrackConstraints;
 
-  /** Sollte simulcast verwendet werden? */
+  /** Should simulcast be used? */
   useSimulcast: boolean;
 
-  /** Empfohlener Max-Bitrate für Video (kbps) */
+  /** Recommended max bitrate for video (kbps) */
   maxVideoBitrate: number;
 
-  /** Warnung für User? */
+  /** Warning for user? */
   userWarning: string | null;
 }
 
@@ -345,7 +345,7 @@ export function useWebRTCNetworkRecommendations(): WebRTCNetworkRecommendations 
         audioConstraints: { echoCancellation: true, noiseSuppression: true },
         useSimulcast: false,
         maxVideoBitrate: 0,
-        userWarning: 'Keine Internetverbindung. Bitte überprüfe deine Netzwerkeinstellungen.',
+        userWarning: 'No internet connection. Please check your network settings.',
       };
     }
 
@@ -357,11 +357,11 @@ export function useWebRTCNetworkRecommendations(): WebRTCNetworkRecommendations 
         audioConstraints: { echoCancellation: true, noiseSuppression: true },
         useSimulcast: false,
         maxVideoBitrate: 150,
-        userWarning: 'Datensparmodus aktiv. Video ist deaktiviert.',
+        userWarning: 'Data saver mode active. Video is disabled.',
       };
     }
 
-    // Sehr schlechte Verbindung
+    // Very poor connection
     if (qualityScore < 30) {
       return {
         enableVideo: false,
@@ -369,11 +369,11 @@ export function useWebRTCNetworkRecommendations(): WebRTCNetworkRecommendations 
         audioConstraints: { echoCancellation: true, noiseSuppression: true },
         useSimulcast: false,
         maxVideoBitrate: 100,
-        userWarning: 'Sehr langsame Verbindung. Video wurde deaktiviert für bessere Audioqualität.',
+        userWarning: 'Very slow connection. Video has been disabled for better audio quality.',
       };
     }
 
-    // Schlechte Verbindung
+    // Poor connection
     if (qualityScore < 50 || isSlowConnection) {
       return {
         enableVideo: true,
@@ -381,11 +381,11 @@ export function useWebRTCNetworkRecommendations(): WebRTCNetworkRecommendations 
         audioConstraints: { echoCancellation: true, noiseSuppression: true },
         useSimulcast: false,
         maxVideoBitrate: 300,
-        userWarning: 'Langsame Verbindung erkannt. Videoqualität wurde reduziert.',
+        userWarning: 'Slow connection detected. Video quality has been reduced.',
       };
     }
 
-    // Mittlere Verbindung
+    // Medium connection
     if (qualityScore < 70) {
       return {
         enableVideo: true,
@@ -397,7 +397,7 @@ export function useWebRTCNetworkRecommendations(): WebRTCNetworkRecommendations 
       };
     }
 
-    // Gute Verbindung
+    // Good connection
     if (qualityScore < 90) {
       return {
         enableVideo: true,
@@ -409,7 +409,7 @@ export function useWebRTCNetworkRecommendations(): WebRTCNetworkRecommendations 
       };
     }
 
-    // Exzellente Verbindung
+    // Excellent connection
     return {
       enableVideo: true,
       videoConstraints: { width: 1920, height: 1080, frameRate: 30 },

@@ -1,8 +1,6 @@
 import React, { useState, memo, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Box, useMediaQuery, type Theme } from '@mui/material';
-import ChatDrawer from '../../../features/chat/components/ChatDrawer';
-import useChat from '../../../features/chat/hooks/useChat';
 import { createLogger } from '../../utils/logger';
 import NavigationProgress from '../ui/NavigationProgress';
 import Header from './Header';
@@ -26,7 +24,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onToggleTheme, darkMo
   const location = useLocation();
   const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
   const [mobileOpenState, setMobileOpenState] = useState(false);
-  const { isDrawerOpen, closeChat } = useChat();
   const prevLocationRef = useRef<string>(location.pathname);
 
   // Global navigation logging (development only)
@@ -136,9 +133,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onToggleTheme, darkMo
       >
         {children}
       </Box>
-
-      {/* Global Chat Drawer */}
-      <ChatDrawer open={isDrawerOpen} onClose={closeChat} />
     </Box>
   );
 };

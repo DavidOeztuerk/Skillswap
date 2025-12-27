@@ -11,6 +11,7 @@ import {
 import { toast } from 'react-toastify';
 import { getToken } from '../../../shared/utils/authHelpers';
 import type { AppDispatch } from '../../../core/store/store';
+import type { Base64String, KeyFingerprint } from '../../../shared/core/crypto';
 import type {
   ChatServerToClientEvents,
   ChatConnectionState,
@@ -51,6 +52,36 @@ function getDispatch(): AppDispatch {
 
 type ChatEventCallback<T extends keyof ChatServerToClientEvents> = ChatServerToClientEvents[T];
 
+// E2EE Key Exchange Types
+interface E2EEKeyOfferPayload {
+  ThreadId: string;
+  SenderId: string;
+  PublicKey: string;
+  Fingerprint: string;
+  Timestamp: string;
+}
+
+interface E2EEKeyAnswerPayload {
+  ThreadId: string;
+  SenderId: string;
+  PublicKey: string;
+  Fingerprint: string;
+  Timestamp: string;
+}
+
+interface E2EEReadyPayload {
+  ThreadId: string;
+  SenderId: string;
+  Fingerprint: string;
+}
+
+interface MessageDeletedPayload {
+  messageId: string;
+  threadId: string;
+  deletedBy: string;
+  deletedAt: string;
+}
+
 interface ChatHubCallbacks {
   onThreadJoined?: ChatEventCallback<'ThreadJoined'>;
   onThreadCreated?: ChatEventCallback<'ThreadCreated'>;
@@ -64,6 +95,13 @@ interface ChatHubCallbacks {
   onUnreadCount?: ChatEventCallback<'ChatUnreadCount'>;
   onError?: ChatEventCallback<'Error'>;
   onConnectionStateChanged?: (state: ChatConnectionState) => void;
+  // E2EE Callbacks
+  onE2EEKeyOffer?: (data: E2EEKeyOfferPayload) => void;
+  onE2EEKeyAnswer?: (data: E2EEKeyAnswerPayload) => void;
+  onE2EEReady?: (data: E2EEReadyPayload) => void;
+  onE2EEError?: (message: string) => void;
+  // Message Operations
+  onMessageDeleted?: (data: MessageDeletedPayload) => void;
 }
 
 // ============================================================================
@@ -303,6 +341,34 @@ class ChatHubService {
       toast.error(`Chat-Fehler: ${message}`);
     });
 
+    // E2EE Events - Backend sends ReceiveKeyOffer, ReceiveKeyAnswer, ReceiveE2EEReady
+    this.connection.on('ReceiveKeyOffer', (data: E2EEKeyOfferPayload) => {
+      console.debug('[ChatHub] ReceiveKeyOffer:', data.ThreadId);
+      this.callbacks.onE2EEKeyOffer?.(data);
+    });
+
+    this.connection.on('ReceiveKeyAnswer', (data: E2EEKeyAnswerPayload) => {
+      console.debug('[ChatHub] ReceiveKeyAnswer:', data.ThreadId);
+      this.callbacks.onE2EEKeyAnswer?.(data);
+    });
+
+    this.connection.on('ReceiveE2EEReady', (data: E2EEReadyPayload) => {
+      console.debug('[ChatHub] ReceiveE2EEReady:', data.ThreadId);
+      this.callbacks.onE2EEReady?.(data);
+    });
+
+    this.connection.on('E2EEError', (message: string) => {
+      console.error('[ChatHub] E2EEError:', message);
+      this.callbacks.onE2EEError?.(message);
+    });
+
+    // Message Deleted Event
+    this.connection.on('MessageDeleted', (data: MessageDeletedPayload) => {
+      console.debug('[ChatHub] MessageDeleted:', data.messageId);
+      this.callbacks.onMessageDeleted?.(data);
+      getDispatch()({ type: 'chat/messageDeleted', payload: data });
+    });
+
     // Connection Lifecycle
     this.connection.onclose(() => {
       console.debug('[ChatHub] Connection closed');
@@ -538,6 +604,91 @@ class ChatHubService {
 
     console.debug('[ChatHub] Toggling reaction:', messageId, emoji);
     await this.getConnection().invoke('ToggleReaction', messageId, emoji);
+  }
+
+  // ==========================================================================
+  // Message Operations
+  // ==========================================================================
+
+  /**
+   * Delete a message (soft-delete, sender only)
+   */
+  public async deleteMessage(messageId: string): Promise<void> {
+    if (!this.isConnected()) {
+      throw new Error(CHAT_HUB_NOT_CONNECTED);
+    }
+
+    console.debug('[ChatHub] Deleting message:', messageId);
+    await this.getConnection().invoke('DeleteMessage', messageId);
+  }
+
+  // ==========================================================================
+  // E2EE Key Exchange
+  // ==========================================================================
+
+  /**
+   * Send E2EE key offer to peer
+   */
+  public async sendKeyOffer(
+    threadId: string,
+    publicKey: Base64String,
+    fingerprint: KeyFingerprint
+  ): Promise<void> {
+    if (!this.isConnected()) {
+      throw new Error(CHAT_HUB_NOT_CONNECTED);
+    }
+
+    console.debug('[ChatHub] Sending E2EE key offer:', threadId);
+    await this.getConnection().invoke('SendKeyOffer', threadId, publicKey, fingerprint);
+  }
+
+  /**
+   * Send E2EE key answer to peer
+   */
+  public async sendKeyAnswer(
+    threadId: string,
+    publicKey: string,
+    fingerprint: string
+  ): Promise<void> {
+    if (!this.isConnected()) {
+      throw new Error(CHAT_HUB_NOT_CONNECTED);
+    }
+
+    console.debug('[ChatHub] Sending E2EE key answer:', threadId);
+    await this.getConnection().invoke('SendKeyAnswer', threadId, publicKey, fingerprint);
+  }
+
+  /**
+   * Notify peer that E2EE is ready
+   */
+  public async sendE2EEReady(threadId: string, fingerprint: string): Promise<void> {
+    if (!this.isConnected()) {
+      throw new Error(CHAT_HUB_NOT_CONNECTED);
+    }
+
+    console.debug('[ChatHub] Sending E2EE ready:', threadId);
+    await this.getConnection().invoke('SendE2EEReady', threadId, fingerprint);
+  }
+
+  /**
+   * Send an encrypted message
+   */
+  public async sendEncryptedMessage(
+    threadId: string,
+    plaintextPreview: string,
+    encryptedContent: string,
+    encryptionKeyId: string,
+    encryptionIV: string
+  ): Promise<void> {
+    await this.sendMessage({
+      threadId,
+      content:
+        plaintextPreview.length > 20 ? `${plaintextPreview.slice(0, 17)}...` : plaintextPreview,
+      isEncrypted: true,
+      encryptedContent,
+      encryptionKeyId,
+      encryptionIV,
+    });
   }
 
   // ==========================================================================

@@ -90,21 +90,8 @@ export interface GetCallSessionResponse {
   iceServers?: RTCIceServer[];
   createdAt: string;
   apiVersion?: string;
-}
-
-/**
- * Response from GET /api/calls/{sessionId}/chat-history
- * Backend: Contracts.VideoCall.Responses.ChatMessageResponse[]
- */
-export interface ChatMessageResponse {
-  id: string;
-  sessionId: string;
-  senderId: string;
-  senderName: string;
-  message: string;
-  sentAt: string; // ISO DateTime string
-  messageType: string;
-  metadata?: string;
+  /** ThreadId from MatchRequest (SHA256-GUID format) for Chat integration */
+  threadId?: string;
 }
 
 /**
