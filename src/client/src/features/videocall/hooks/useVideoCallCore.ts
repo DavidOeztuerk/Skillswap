@@ -10,6 +10,7 @@ import { HubConnectionState, HubConnectionBuilder, LogLevel } from '@microsoft/s
 import { useStreams } from '../../../core/contexts/streamContextHooks';
 import StreamManager from '../../../core/services/StreamManager';
 import { useAppDispatch, useAppSelector } from '../../../core/store/store.hooks';
+import { isSafari } from '../../../shared/detection';
 import { type ApiResponse, isSuccessResponse } from '../../../shared/types/api/UnifiedResponse';
 import { getToken } from '../../../shared/utils/authHelpers';
 import { E2EEManager } from '../../../shared/utils/crypto/e2eeVideoEncryption';
@@ -40,6 +41,7 @@ import {
   setLoading,
   initializeCall,
   clearError,
+  resetE2EE,
 } from '../store/videoCallSlice';
 import { joinVideoCall, leaveVideoCall } from '../store/videocallThunks';
 import { type VideoCallSharedRefs, useRefSync } from './VideoCallContext';
@@ -113,17 +115,28 @@ function handleChromeEncodedStreams(refs: VideoCallSharedRefs, receiver: RTCRtpR
 
 /**
  * Handle Safari script transform decryption
+ * REJOIN FIX: If workers aren't ready yet, wait for them before applying transform
  */
-function handleSafariScriptTransform(refs: VideoCallSharedRefs, receiver: RTCRtpReceiver): void {
+async function handleSafariScriptTransform(
+  refs: VideoCallSharedRefs,
+  receiver: RTCRtpReceiver
+): Promise<void> {
   const handler = refs.streamsHandlerRef.current;
   if (!handler || handler.getE2EEMethod() !== 'scriptTransform') return;
 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- WebRTC types can be null at runtime
   if (receiver.track === null) return;
 
+  // REJOIN FIX: Wait for workers to be ready instead of just returning
   if (!handler.areWorkersInitialized()) {
-    console.debug(`⏳ Safari: Workers not ready yet for ${receiver.track.kind}`);
-    return;
+    console.debug(`⏳ Safari: Workers not ready yet for ${receiver.track.kind}, waiting...`);
+    try {
+      await handler.waitForWorkersReady();
+      console.debug(`✅ Safari: Workers now ready for ${receiver.track.kind}`);
+    } catch (e) {
+      console.error(`❌ Safari: Failed to wait for workers:`, e);
+      return;
+    }
   }
 
   const kind = receiver.track.kind as 'video' | 'audio';
@@ -174,11 +187,13 @@ interface TrackCleanupItem {
 }
 
 /**
- * Safari cleanup: Remove all tracks, wait, then stop all tracks
+ * Safari cleanup: Remove all tracks from PC, optionally stop them
+ * @param stopTracks - If false, only removes from PC but keeps tracks live (for reconnect)
  */
 async function cleanupTracksSafari(
   pc: RTCPeerConnection,
-  tracksToCleanup: TrackCleanupItem[]
+  tracksToCleanup: TrackCleanupItem[],
+  stopTracks = true
 ): Promise<void> {
   // Step 1: Remove all tracks from PeerConnection
   for (const { sender, track } of tracksToCleanup) {
@@ -196,28 +211,43 @@ async function cleanupTracksSafari(
     setTimeout(resolve, 50);
   });
 
-  // Step 3: Now stop all tracks
-  for (const { track } of tracksToCleanup) {
-    try {
-      track.stop();
-      track.enabled = false;
-      console.debug(`🍎 Safari: Stopped ${track.kind} track`);
-    } catch (e) {
-      console.warn(`Error stopping ${track.kind} track:`, e);
+  // Step 3: Stop all tracks (only if stopTracks is true)
+  if (stopTracks) {
+    for (const { track } of tracksToCleanup) {
+      try {
+        track.stop();
+        track.enabled = false;
+        console.debug(`🍎 Safari: Stopped ${track.kind} track`);
+      } catch (e) {
+        console.warn(`Error stopping ${track.kind} track:`, e);
+      }
     }
+  } else {
+    console.debug('🍎 Safari: Partial cleanup - keeping tracks live for reconnect');
   }
 }
 
 /**
- * Chrome/Firefox cleanup: Stop and remove each track
+ * Chrome/Firefox cleanup: Remove tracks from PC, optionally stop them
+ * @param stopTracks - If false, only removes from PC but keeps tracks live (for reconnect)
  */
-function cleanupTracksStandard(pc: RTCPeerConnection, tracksToCleanup: TrackCleanupItem[]): void {
+function cleanupTracksStandard(
+  pc: RTCPeerConnection,
+  tracksToCleanup: TrackCleanupItem[],
+  stopTracks = true
+): void {
   for (const { sender, track } of tracksToCleanup) {
     try {
-      track.stop();
-      track.enabled = false;
+      if (stopTracks) {
+        track.stop();
+        track.enabled = false;
+      }
       pc.removeTrack(sender);
-      console.debug(`✅ Stopped and removed ${track.kind} track`);
+      console.debug(
+        stopTracks
+          ? `✅ Stopped and removed ${track.kind} track`
+          : `✅ Removed ${track.kind} track from PC (kept live for reconnect)`
+      );
     } catch (e) {
       console.warn(`Error cleaning ${track.kind} track:`, e);
     }
@@ -228,15 +258,16 @@ function cleanupTracksStandard(pc: RTCPeerConnection, tracksToCleanup: TrackClea
  * Clean up PeerConnection and its tracks
  * CRITICAL: Safari requires removeTrack() BEFORE track.stop() to release camera indicator
  * IMPORTANT: This function MUST be called BEFORE StreamManager.destroyAllStreams()
+ * @param stopTracks - If false, only removes tracks from PC but keeps them live (for reconnect)
  */
-async function cleanupPeerConnection(refs: VideoCallSharedRefs): Promise<void> {
+async function cleanupPeerConnection(refs: VideoCallSharedRefs, stopTracks = true): Promise<void> {
   if (!refs.peerRef.current) {
     console.debug('🧹 cleanupPeerConnection: No PeerConnection to clean up');
     return;
   }
 
   const pc = refs.peerRef.current;
-  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isSafariBrowser = isSafari();
 
   try {
     // Collect all tracks BEFORE any removal (sender.track becomes null after removeTrack in Safari)
@@ -246,14 +277,14 @@ async function cleanupPeerConnection(refs: VideoCallSharedRefs): Promise<void> {
       .map((sender) => ({ sender, track: sender.track }));
 
     console.debug(
-      `🧹 Cleanup: Processing ${tracksToCleanup.length} active tracks (Safari: ${isSafari})`
+      `🧹 Cleanup: Processing ${tracksToCleanup.length} active tracks (Safari: ${isSafariBrowser}, stopTracks: ${stopTracks})`
     );
 
     // Browser-specific cleanup
-    if (isSafari) {
-      await cleanupTracksSafari(pc, tracksToCleanup);
+    if (isSafariBrowser) {
+      await cleanupTracksSafari(pc, tracksToCleanup, stopTracks);
     } else {
-      cleanupTracksStandard(pc, tracksToCleanup);
+      cleanupTracksStandard(pc, tracksToCleanup, stopTracks);
     }
 
     // Clear event handlers
@@ -354,7 +385,10 @@ export const useVideoCallCore = (
   const localStreamRef = useRef(localStream);
   useEffect(() => {
     localStreamRef.current = localStream;
-  }, [localStream]);
+    // FIX: Sync to shared context ref for use in callbacks like ensurePeerConnection
+    // Without this, refs.localStreamRef.current is null when creating new PC on rejoin
+    setRefValue(refs.localStreamRef, localStream);
+  }, [localStream, refs]);
 
   // Sync Redux state to shared refs
   useRefSync(refs, {
@@ -383,13 +417,15 @@ export const useVideoCallCore = (
           refs.streamsHandlerRef.current.getE2EEMethod()
         );
 
-        // Safari: Pre-initialize workers
-        if (refs.streamsHandlerRef.current.getE2EEMethod() === 'scriptTransform') {
-          console.debug('🍎 Safari: Pre-initializing E2EE workers');
-          refs.streamsHandlerRef.current.initializeWorkers().catch((e: unknown) => {
-            console.error('🍎 Safari worker early init failed:', e);
-          });
-        }
+        // Pre-initialize workers for ALL browsers (Chrome + Safari)
+        // This prevents frame drops when ontrack fires before workers are ready
+        console.debug(
+          '🔧 E2EE: Pre-initializing workers for',
+          refs.streamsHandlerRef.current.getE2EEMethod()
+        );
+        refs.streamsHandlerRef.current.initializeWorkers().catch((e: unknown) => {
+          console.error('⚠️ E2EE worker early init failed:', e);
+        });
       }
 
       const pc = new RTCPeerConnection(getWebRTCConfiguration());
@@ -406,13 +442,20 @@ export const useVideoCallCore = (
 
         // Handle E2EE for different browser implementations
         handleChromeEncodedStreams(refs, event.receiver);
-        handleSafariScriptTransform(refs, event.receiver);
+        // Safari: Fire and forget - the async function waits for workers internally
+        void handleSafariScriptTransform(refs, event.receiver);
 
         // Set remote stream after encoded streams prepared
         if (event.streams.length > 0) {
           const stream = event.streams[0];
+          // Get peer userId from config for UserLeft cleanup support
+          const currentUser = refs.userRef.current;
+          const remotePeerId =
+            config.initiatorUserId === currentUser?.id
+              ? config.participantUserId
+              : config.initiatorUserId;
           // registerRemoteStream handles both context state and Redux dispatch via StreamManager events
-          registerRemoteStream(stream);
+          registerRemoteStream(stream, remotePeerId);
         }
       };
 
@@ -478,29 +521,81 @@ export const useVideoCallCore = (
   );
 
   const ensurePeerConnection = useCallback(
+    // eslint-disable-next-line sonarjs/cognitive-complexity
     (config: VideoCallConfig): RTCPeerConnection => {
       const existingPc = refs.peerRef.current;
 
+      // CRITICAL FIX: Initialize E2EE handlers if missing, even for existing PC
+      // This is needed for Safari (responder) after UserLeft cleanup
+      if (!refs.streamsHandlerRef.current) {
+        console.debug('🔒 ensurePeerConnection: Initializing E2EE handlers...');
+        refs.e2eeManagerRef.current ??= new E2EEManager();
+        refs.streamsHandlerRef.current = new InsertableStreamsHandler(refs.e2eeManagerRef.current);
+        // Initialize workers asynchronously - they'll be ready by the time key exchange completes
+        void refs.streamsHandlerRef.current.initializeWorkers();
+      }
+
       if (existingPc) {
+        // REJOIN FIX: A disconnected PC is NOT usable for new offers!
+        // When the peer leaves and rejoins, they send a new offer.
+        // We need a fresh PC to handle it - the old one has stale remote description.
         const isUsable =
           existingPc.signalingState !== 'closed' &&
           existingPc.connectionState !== 'closed' &&
-          existingPc.connectionState !== 'failed';
+          existingPc.connectionState !== 'failed' &&
+          existingPc.connectionState !== 'disconnected';
 
         if (isUsable) {
           return existingPc;
+        }
+
+        // Clean up the unusable PC before creating a new one
+        console.debug(
+          '🔄 ensurePeerConnection: Replacing unusable PC (state:',
+          existingPc.connectionState,
+          ')'
+        );
+        try {
+          existingPc.close();
+        } catch {
+          // Ignore close errors
         }
       }
 
       const pc = createPeerConnection(config);
       refs.peerRef.current = pc;
 
-      // Add existing tracks
-      if (localStream) {
-        localStream.getTracks().forEach((track: MediaStreamTrack) => {
+      // Add existing tracks - use ref instead of stale closure!
+      let streamToUse = refs.localStreamRef.current;
+
+      // FIX: Fallback to StreamManager if refs.localStreamRef is null (happens on rejoin)
+      if (!streamToUse) {
+        console.warn(
+          '⚠️ ensurePeerConnection: refs.localStreamRef is null, trying StreamManager...'
+        );
+        const streamManager = StreamManager.getInstance();
+        const existingStream = streamManager.getCameraStream();
+
+        if (existingStream != null) {
+          const hasLiveTracks = existingStream.getTracks().some((t) => t.readyState !== 'ended');
+          if (hasLiveTracks) {
+            console.debug('✅ ensurePeerConnection: Got stream from StreamManager');
+
+            setRefValue(refs.localStreamRef, existingStream);
+            streamToUse = existingStream;
+          }
+        }
+        if (!streamToUse) {
+          console.error('❌ ensurePeerConnection: No usable stream available!');
+        }
+      }
+
+      if (streamToUse) {
+        const capturedStream = streamToUse; // Capture for closure (avoid shadowing localStream)
+        capturedStream.getTracks().forEach((track: MediaStreamTrack) => {
           if (track.readyState !== 'ended') {
             try {
-              const sender = pc.addTrack(track, localStream);
+              const sender = pc.addTrack(track, capturedStream);
               console.debug(`✅ Added ${track.kind} track to PC`);
 
               // Chrome: Prepare encoded streams immediately after addTrack
@@ -517,7 +612,7 @@ export const useVideoCallCore = (
 
       return pc;
     },
-    [createPeerConnection, localStream, refs]
+    [createPeerConnection, refs]
   );
 
   // ===== SIGNALING HANDLERS =====
@@ -574,6 +669,7 @@ export const useVideoCallCore = (
   );
 
   const createOfferForTarget = useCallback(
+    // eslint-disable-next-line sonarjs/cognitive-complexity -- Complex logic required for WebRTC offer creation with rejoin support
     async (config: VideoCallConfig, targetUserId: string) => {
       if (!targetUserId || !config.roomId) return;
 
@@ -583,28 +679,85 @@ export const useVideoCallCore = (
         return;
       }
 
+      // CRITICAL: Mark as sent IMMEDIATELY to prevent race conditions!
+      // If two UserJoined events fire simultaneously, both would pass the check above
+      // before either adds to the Set. By adding here, the second call will be blocked.
+      refs.offerSentForPeerRef.current.add(targetUserId);
+      console.debug('🔒 Reserved offer slot for', targetUserId);
+
       try {
         const pc = ensurePeerConnection(config);
 
-        // Ensure we have tracks
-        if (pc.getSenders().length === 0 && localStream) {
-          localStream.getTracks().forEach((track: MediaStreamTrack) => {
-            if (track.readyState !== 'ended') {
-              const sender = pc.addTrack(track, localStream);
+        // REJOIN FIX: Check if PC has senders WITH tracks (not just any senders)
+        const sendersWithTracks = pc
+          .getSenders()
+          .filter((s) => s.track && s.track.readyState !== 'ended');
 
-              // Chrome: Prepare encoded streams immediately after addTrack
-              if (refs.streamsHandlerRef.current?.getE2EEMethod() === 'encodedStreams') {
-                const kind = track.kind as 'video' | 'audio';
-                refs.streamsHandlerRef.current.prepareEncodedStreamsForSender(sender, kind);
-              }
+        if (sendersWithTracks.length === 0) {
+          console.debug('⚠️ No senders with live tracks - attempting to add tracks...');
+
+          // Use ref instead of stale closure
+          let currentLocalStream = refs.localStreamRef.current;
+
+          // Check if we have live tracks
+          const liveTracks =
+            currentLocalStream?.getTracks().filter((t) => t.readyState !== 'ended') ?? [];
+
+          if (liveTracks.length === 0) {
+            // All tracks ended or no stream - get fresh stream from StreamManager
+            console.debug('📹 createOfferForTarget: All tracks ended, getting fresh stream...');
+            const streamManager = StreamManager.getInstance();
+            // Try existing stream first, then create new one
+            let freshStream = streamManager.getCameraStream();
+
+            if (
+              freshStream == null ||
+              freshStream.getTracks().every((t) => t.readyState === 'ended')
+            ) {
+              freshStream = await streamManager.createCameraStream({ audio: true, video: true });
             }
-          });
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions -- freshStream can be null/undefined
+            if (freshStream) {
+              // eslint-disable-next-line require-atomic-updates -- refs is stable from useRef
+              refs.localStreamRef.current = freshStream;
+              // eslint-disable-next-line require-atomic-updates -- intentional reassignment after async
+              currentLocalStream = freshStream;
+              console.debug(
+                '✅ Got fresh camera stream with',
+                freshStream.getTracks().length,
+                'tracks'
+              );
+            }
+          }
+
+          // Add tracks to PC
+          if (currentLocalStream) {
+            currentLocalStream.getTracks().forEach((track: MediaStreamTrack) => {
+              if (track.readyState !== 'ended') {
+                const sender = pc.addTrack(track, currentLocalStream);
+                console.debug(`✅ Added ${track.kind} track to PC`);
+
+                // Chrome: Prepare encoded streams immediately after addTrack
+                if (refs.streamsHandlerRef.current?.getE2EEMethod() === 'encodedStreams') {
+                  const kind = track.kind as 'video' | 'audio';
+                  refs.streamsHandlerRef.current.prepareEncodedStreamsForSender(sender, kind);
+                }
+              }
+            });
+          }
         }
 
         const offer = await pc.createOffer();
 
         if (!offer.sdp || (!offer.sdp.includes('m=audio') && !offer.sdp.includes('m=video'))) {
           console.error('CRITICAL: Offer SDP contains no media!');
+          // Log diagnostic info
+          console.error(
+            'Diagnostic: senders=',
+            pc.getSenders().length,
+            'localStream=',
+            refs.localStreamRef.current?.getTracks().length
+          );
           return;
         }
 
@@ -612,16 +765,20 @@ export const useVideoCallCore = (
 
         const connection = refs.signalRConnectionRef.current;
         if (connection?.state === HubConnectionState.Connected) {
-          refs.offerSentForPeerRef.current.add(targetUserId);
           await connection.invoke('SendOffer', config.roomId, targetUserId, offer.sdp);
           console.debug('📤 Sent offer to', targetUserId);
+        } else {
+          // Connection not ready - remove reservation so we can retry later
+          refs.offerSentForPeerRef.current.delete(targetUserId);
+          console.warn('⚠️ SignalR not connected, releasing offer slot for', targetUserId);
         }
       } catch (err) {
         console.error('createOffer failed:', err);
         refs.offerSentForPeerRef.current.delete(targetUserId);
       }
     },
-    [ensurePeerConnection, localStream, refs]
+
+    [ensurePeerConnection, refs]
   );
 
   // ===== CLEANUP =====
@@ -641,34 +798,51 @@ export const useVideoCallCore = (
       // CRITICAL FIX: PeerConnection cleanup MUST run FIRST for Safari!
       // Safari requires pc.removeTrack(sender) while tracks still exist
       // If StreamManager runs first, sender.track will be null and removeTrack won't work
+      // NOTE: For partial cleanup (reconnect), we DON'T stop tracks - just remove from PC
       console.debug('🍎 Safari Fix: Running PeerConnection cleanup BEFORE StreamManager...');
-      await cleanupPeerConnection(refs);
+      await cleanupPeerConnection(refs, fullCleanup);
 
-      // THEN use StreamManager to clean up any remaining streams
+      // THEN use StreamManager to clean up streams
       // StreamManager handles both Safari and Chrome track cleanup
       try {
         const streamManager = StreamManager.getInstance();
-        console.debug('🎥 Using StreamManager to destroy remaining streams...');
-        streamManager.destroyAllStreams();
+        if (fullCleanup) {
+          // Full cleanup: destroy ALL streams (local + remote)
+          console.debug('🎥 Full cleanup: Destroying all streams...');
+          streamManager.destroyAllStreams();
+        } else {
+          // Partial cleanup: Only destroy REMOTE streams, keep local for reconnect
+          // This prevents "Offer SDP contains no media!" error on reconnect
+          console.debug('🎥 Partial cleanup: Destroying only remote streams (keeping local)...');
+
+          const remoteStreamIds: string[] = streamManager.getStreamsByType('remote');
+
+          remoteStreamIds.forEach((streamId: string) => {
+            streamManager.destroyStream(streamId);
+          });
+        }
       } catch (e) {
         console.warn('StreamManager cleanup error:', e);
       }
 
       // Fallback: Also stop local stream tracks directly in case StreamManager missed any
-      const currentLocalStream = localStreamRef.current;
-      if (currentLocalStream) {
-        console.debug('🎥 Fallback: Stopping remaining local stream tracks...');
-        currentLocalStream.getTracks().forEach((track) => {
-          try {
-            if (track.readyState === 'live') {
-              track.stop();
-              track.enabled = false;
-              console.debug(`✅ Fallback stopped local ${track.kind} track`);
+      // ONLY for full cleanup - partial cleanup keeps local stream for reconnect
+      if (fullCleanup) {
+        const currentLocalStream = localStreamRef.current;
+        if (currentLocalStream) {
+          console.debug('🎥 Fallback: Stopping remaining local stream tracks...');
+          currentLocalStream.getTracks().forEach((track) => {
+            try {
+              if (track.readyState === 'live') {
+                track.stop();
+                track.enabled = false;
+                console.debug(`✅ Fallback stopped local ${track.kind} track`);
+              }
+            } catch (e) {
+              console.warn(`Error stopping local ${track.kind} track:`, e);
             }
-          } catch (e) {
-            console.warn(`Error stopping local ${track.kind} track:`, e);
-          }
-        });
+          });
+        }
       }
 
       // SignalR cleanup - IMPORTANT: Remove handlers BEFORE stop() to prevent memory leaks
@@ -758,14 +932,26 @@ export const useVideoCallCore = (
         .withAutomaticReconnect(RECONNECT_DELAYS)
         .build();
 
-      // UserJoined
+      // Track processed UserJoined events to prevent duplicate processing
+      const processedUserJoined = new Set<string>();
+
+      // UserJoined - Handles both initial join and rejoin after UserLeft
       connection.on('UserJoined', async (data: { userId: string }) => {
         const joinedUserId = data.userId;
         const currentUser = refs.userRef.current;
 
-        console.debug('👥 UserJoined:', joinedUserId);
-
         if (!joinedUserId || joinedUserId === currentUser?.id) return;
+
+        // Deduplication: Prevent processing same UserJoined multiple times
+        // Server may send duplicate events, and we must only process once
+        // NOTE: UserLeft handler removes user from this set, enabling rejoin
+        if (processedUserJoined.has(joinedUserId)) {
+          console.debug('⏭️ Skipping duplicate UserJoined for', joinedUserId);
+          return;
+        }
+        processedUserJoined.add(joinedUserId);
+
+        console.debug('👥 UserJoined:', joinedUserId);
 
         const participantName = getParticipantName(joinedUserId, config);
         const participantAvatar = getParticipantAvatar(joinedUserId, config);
@@ -793,9 +979,15 @@ export const useVideoCallCore = (
           // Re-trigger key exchange if peer joined
           if (refs.keyExchangeManagerRef.current) {
             const keyExchangeState = refs.keyExchangeManagerRef.current.getState();
-            if (keyExchangeState !== 'complete') {
-              console.debug('🔐 E2EE: Peer joined! Re-triggering key exchange...');
+            if (keyExchangeState === 'idle' || keyExchangeState === 'error') {
+              console.debug(
+                `🔐 E2EE: Peer joined! Starting key exchange (was ${keyExchangeState})...`
+              );
               void refs.keyExchangeManagerRef.current.retriggerKeyExchange();
+            } else {
+              console.debug(
+                `🔐 E2EE: Peer joined but already in state '${keyExchangeState}', skipping`
+              );
             }
           }
         } else {
@@ -803,10 +995,66 @@ export const useVideoCallCore = (
         }
       });
 
-      // UserLeft
+      // UserLeft - Complete cleanup for potential rejoin
       connection.on('UserLeft', (data: { userId: string }) => {
-        console.debug('👋 UserLeft:', data.userId);
-        dispatch(removeParticipant(data.userId));
+        const leftUserId = data.userId;
+        console.debug('👋 UserLeft:', leftUserId);
+
+        // 1. Remove from participants list
+        dispatch(removeParticipant(leftUserId));
+
+        // 2. Clear remote stream via StreamManager
+        // StreamManager emits 'streamDestroyed' → StreamContext updates React state
+        const streamManager = StreamManager.getInstance();
+        const remoteStreamId = streamManager.getStreamIdByPeerId(leftUserId);
+        if (remoteStreamId) {
+          console.debug('🧹 UserLeft: Destroying remote stream', remoteStreamId);
+          streamManager.destroyStream(remoteStreamId);
+        }
+
+        // 2b. CRITICAL FIX: Close PeerConnection so rejoin creates fresh one
+        // createEncodedStreams() can only be called ONCE per sender/receiver!
+        // If we keep the PC but clean InsertableStreamsHandler, encoded streams cannot be recreated.
+        if (refs.peerRef.current) {
+          console.debug('🧹 UserLeft: Closing PeerConnection for clean rejoin');
+          try {
+            refs.peerRef.current.close();
+          } catch (e) {
+            console.warn('UserLeft: Error closing PC:', e);
+          }
+          refs.peerRef.current = null;
+        }
+
+        // 3. E2EE cleanup - reset for potential rejoin
+        if (refs.keyExchangeManagerRef.current) {
+          console.debug('🧹 UserLeft: Cleaning up KeyExchangeManager');
+          refs.keyExchangeManagerRef.current.cleanup();
+          refs.keyExchangeManagerRef.current = null;
+        }
+        if (refs.streamsHandlerRef.current) {
+          console.debug('🧹 UserLeft: Cleaning up InsertableStreamsHandler');
+          refs.streamsHandlerRef.current.cleanup();
+          refs.streamsHandlerRef.current = null;
+        }
+        if (refs.e2eeManagerRef.current) {
+          console.debug('🧹 UserLeft: Cleaning up E2EEManager (resets generation counter)');
+          refs.e2eeManagerRef.current.cleanup();
+          refs.e2eeManagerRef.current = null;
+        }
+        refs.e2eeTransformsAppliedRef.current = false;
+        refs.lastWorkerKeyGenerationRef.current = 0;
+        refs.pendingChatE2EEKeyRef.current = null;
+
+        // 4. Reset E2EE Redux state
+        dispatch(resetE2EE());
+
+        // 5. Clear offer deduplication for this peer (allow new offer on rejoin)
+        refs.offerSentForPeerRef.current.delete(leftUserId);
+
+        // 6. Clear processedUserJoined to allow rejoin
+        processedUserJoined.delete(leftUserId);
+
+        console.debug('✅ UserLeft: Cleanup complete for', leftUserId);
       });
 
       // RoomJoined
@@ -833,6 +1081,10 @@ export const useVideoCallCore = (
                   videoEnabled: participant.cameraEnabled,
                 })
               );
+
+              // REJOIN FIX: Add to processedUserJoined to prevent duplicate processing
+              // when UserJoined event fires immediately after RoomJoined
+              processedUserJoined.add(participantUserId);
 
               const isInitiator = config.initiatorUserId === currentUser?.id;
               if (isInitiator) {
@@ -1154,11 +1406,11 @@ export const useVideoCallCore = (
 
   // ===== SAFARI EMERGENCY CLEANUP =====
   useEffect(() => {
-    // Safari detection - must remove track from PC before stopping
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    // Use centralized browser detection (cached)
+    const isSafariBrowser = isSafari();
 
     const handleBeforeUnload = (): void => {
-      console.debug(`🚨 beforeunload: Emergency camera cleanup (Safari: ${isSafari})`);
+      console.debug(`🚨 beforeunload: Emergency camera cleanup (Safari: ${isSafariBrowser})`);
 
       const pc = refs.peerRef.current;
       if (pc) {
@@ -1170,7 +1422,7 @@ export const useVideoCallCore = (
             if (track) {
               try {
                 // CRITICAL: Safari requires removeTrack BEFORE stop() for camera indicator release
-                if (isSafari) {
+                if (isSafariBrowser) {
                   pc.removeTrack(sender);
                   console.debug(`🍎 Safari beforeunload: Removed ${track.kind} track from PC`);
                 }
@@ -1192,7 +1444,7 @@ export const useVideoCallCore = (
         const tracks = currentLocalStream.getTracks();
 
         // Safari: Remove tracks from stream BEFORE stopping
-        if (isSafari) {
+        if (isSafariBrowser) {
           tracks.forEach((track) => {
             try {
               currentLocalStream.removeTrack(track);

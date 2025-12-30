@@ -210,6 +210,8 @@ public class ChatMessageRepository : IChatMessageRepository
         foreach (var message in unreadMessages)
         {
             message.MarkAsRead();
+            // CRITICAL: Mark entity as modified so EF Core will persist the change!
+            _dbContext.ChatMessages.Update(message);
         }
     }
 

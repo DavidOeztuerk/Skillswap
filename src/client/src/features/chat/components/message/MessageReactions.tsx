@@ -16,12 +16,15 @@ export interface MessageReactionsProps {
   currentUserId: string;
   /** Message ID for toggling reactions */
   messageId: string;
+  /** Whether this is the current user's own message (reactions disabled) */
+  isOwn?: boolean;
 }
 
 const MessageReactions: React.FC<MessageReactionsProps> = ({
   reactions: reactionsData,
   currentUserId,
   messageId,
+  isOwn = false,
 }) => {
   const theme = useTheme();
   const dispatch = useAppDispatch();
@@ -33,6 +36,8 @@ const MessageReactions: React.FC<MessageReactionsProps> = ({
   if (reactions.length === 0) return null;
 
   const handleReactionClick = (emoji: string): void => {
+    // Don't allow reacting to own messages
+    if (isOwn) return;
     void dispatch(toggleMessageReaction({ messageId, emoji }));
   };
 
@@ -55,9 +60,10 @@ const MessageReactions: React.FC<MessageReactionsProps> = ({
             border: userReactions.includes(reaction.emoji)
               ? `1px solid ${theme.palette.primary.main}`
               : 'none',
-            cursor: 'pointer',
+            // Show pointer cursor only if not own message
+            cursor: isOwn ? 'default' : 'pointer',
             '&:hover': {
-              backgroundColor: alpha(theme.palette.primary.main, 0.3),
+              backgroundColor: isOwn ? undefined : alpha(theme.palette.primary.main, 0.3),
             },
           }}
         />

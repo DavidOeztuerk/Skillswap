@@ -373,6 +373,12 @@ const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
             <br />
             Starte die Unterhaltung!
           </Typography>
+          {/* Show typing indicator even in empty state */}
+          {typingIndicator?.isTyping === true && typingIndicator.userName ? (
+            <Box sx={{ mt: 2 }}>
+              <TypingIndicatorDisplay userName={typingIndicator.userName} />
+            </Box>
+          ) : null}
         </Box>
       );
     }

@@ -146,6 +146,12 @@ export const useVideoCallE2EE = (
       const roomId = refs.roomIdRef.current;
       if (!sharedEncryptionKey || !roomId) return;
 
+      // Skip if already initialized (prevents duplicate init on key rotations)
+      if (refs.localSigningKeyRef.current) {
+        console.debug('🔒 Chat E2EE: Already initialized, skipping duplicate init');
+        return;
+      }
+
       try {
         dispatch(setChatE2EEStatus('initializing'));
 
@@ -222,46 +228,97 @@ export const useVideoCallE2EE = (
         onKeyExchangeComplete: async (
           fingerprint,
           generation,
+          keyMaterial,
           peerSigningPublicKey,
-          peerSigningFingerprint
+          peerSigningFingerprint,
+          shouldEnableEncryption = true // Default to true for backward compatibility
         ) => {
           dispatch(setE2EERemoteFingerprint(fingerprint));
           dispatch(setE2EEKeyGeneration(generation));
 
-          const keyMaterial = refs.e2eeManagerRef.current?.getCurrentKeyMaterial();
-          if (!keyMaterial || !refs.streamsHandlerRef.current) return;
+          // FIX: Use keyMaterial passed from KeyExchangeManager instead of fetching from refs
+          // This fixes the E2EEManager mismatch after UserLeft/Rejoin where:
+          // - KeyExchangeManager has reference to old E2EEManager (e2eeManager_v1)
+          // - refs.e2eeManagerRef.current points to new E2EEManager (e2eeManager_v2)
+          // - deriveSharedKey() runs on e2eeManager_v1
+          // - Old code: getCurrentKeyMaterial() from e2eeManager_v2 returned undefined!
+          if (!refs.streamsHandlerRef.current) return;
 
           const isSafari = refs.streamsHandlerRef.current.getE2EEMethod() === 'scriptTransform';
 
-          // CRITICAL ORDER:
-          // - Safari: Key MUST be set BEFORE transforms are applied (RTCRtpScriptTransform
-          //   fires onrtctransform immediately, and we need the key to be there)
-          // - Chrome: Transforms can be applied before key update since the TransformStream
-          //   will pass-through frames until encryption is enabled
-          //
-          // updateWorkerKeys now properly awaits acknowledgement from both workers,
-          // ensuring the key is actually set before we proceed.
+          // FIX: Skip worker key update if onKeyRotation already updated to this generation
+          // This prevents overwriting previousKey with the same key, which would break
+          // decryption of in-flight frames during key rotation.
+          const lastUpdatedGen = refs.lastWorkerKeyGenerationRef.current;
+          const shouldUpdateWorkerKeys = generation !== lastUpdatedGen;
 
-          if (isSafari) {
-            // Safari: Key first, then transforms
-            await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
-            applyE2EEToMediaTracks();
+          if (shouldUpdateWorkerKeys) {
+            // CRITICAL ORDER:
+            // - Safari: Key MUST be set BEFORE transforms are applied (RTCRtpScriptTransform
+            //   fires onrtctransform immediately, and we need the key to be there)
+            // - Chrome: Transforms can be applied before key update since the TransformStream
+            //   will pass-through frames until encryption is enabled
+
+            if (isSafari) {
+              // Safari: Key first, then transforms
+              await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
+              applyE2EEToMediaTracks();
+            } else {
+              // Chrome: Transforms first (creates pipelines), then key update
+              applyE2EEToMediaTracks();
+              await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
+            }
+
+            // eslint-disable-next-line require-atomic-updates -- refs is stable from useRef
+            refs.lastWorkerKeyGenerationRef.current = generation;
           } else {
-            // Chrome: Transforms first (creates pipelines), then key update
+            console.debug(
+              `🔒 E2EE: Skipping duplicate worker key update (gen=${generation} already applied)`
+            );
+            // Still apply transforms if not done yet
             applyE2EEToMediaTracks();
-            await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
           }
 
-          // Enable encryption - workers already have the key at this point
-          refs.streamsHandlerRef.current.enableEncryption();
+          // CRITICAL: Only enable encryption if shouldEnableEncryption is true.
+          // For responders, this is false on first call (to prepare for decryption only),
+          // then true on second call (after answer is sent, to enable outbound encryption).
+          if (shouldEnableEncryption) {
+            refs.streamsHandlerRef.current.enableEncryption();
+            console.debug('🔒 E2EE: Encryption enabled');
 
-          // Initialize chat E2EE (fire-and-forget is OK here, it's a separate subsystem)
-          void initializeChatE2EE(
-            keyMaterial.encryptionKey,
-            peerSigningPublicKey,
-            peerSigningFingerprint
-          );
-          dispatch(setE2EEStatus('active'));
+            // CHROME FIX: Request additional keyframes after a delay
+            // Chrome may have muted the video track because initial frames couldn't be decoded.
+            // After encryption is enabled and we start decrypting successfully, we need to
+            // request new keyframes to help Chrome recover the muted track.
+            setTimeout(() => {
+              if (refs.streamsHandlerRef.current && refs.isMountedRef.current) {
+                console.debug('🔄 E2EE: Requesting delayed keyframes for Chrome track recovery');
+                refs.streamsHandlerRef.current.requestKeyframes();
+              }
+            }, 500);
+
+            // Second delayed request in case the first one arrives during track evaluation
+            setTimeout(() => {
+              if (refs.streamsHandlerRef.current && refs.isMountedRef.current) {
+                console.debug(
+                  '🔄 E2EE: Requesting second delayed keyframes for Chrome track recovery'
+                );
+                refs.streamsHandlerRef.current.requestKeyframes();
+              }
+            }, 1500);
+
+            // Store key for lazy Chat E2EE initialization (when chat panel is opened)
+            // This saves ~261ms ECDSA KeyGen on Safari when chat is never used
+            refs.pendingChatE2EEKeyRef.current = {
+              encryptionKey: keyMaterial.encryptionKey,
+              peerSigningPublicKey,
+              peerSigningFingerprint,
+            };
+            console.debug('🔒 Chat E2EE: Key stored for lazy initialization');
+            dispatch(setE2EEStatus('active'));
+          } else {
+            console.debug('🔒 E2EE: Worker keys updated (decryption ready, encryption delayed)');
+          }
         },
 
         onKeyRotation: async (generation) => {
@@ -270,8 +327,21 @@ export const useVideoCallE2EE = (
 
           const keyMaterial = refs.e2eeManagerRef.current?.getCurrentKeyMaterial();
           if (keyMaterial && refs.streamsHandlerRef.current) {
-            // CRITICAL: Wait for workers to confirm key update before returning
-            await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
+            // FIX: Skip worker key update if onKeyExchangeComplete already updated to this generation
+            // For responders, deriveAndSetSharedKey triggers onKeyExchangeComplete BEFORE
+            // handleKeyRotation calls onKeyRotation, causing duplicate updates.
+            const lastUpdatedGen = refs.lastWorkerKeyGenerationRef.current;
+            if (generation === lastUpdatedGen) {
+              console.debug(
+                `🔒 E2EE: Skipping onKeyRotation worker update (gen=${generation} already applied)`
+              );
+            } else {
+              // CRITICAL: Wait for workers to confirm key update before returning
+              await refs.streamsHandlerRef.current.updateWorkerKeys(keyMaterial);
+              // Track that we updated to this generation (prevents duplicate in onKeyExchangeComplete)
+              // eslint-disable-next-line require-atomic-updates -- refs is stable from useRef
+              refs.lastWorkerKeyGenerationRef.current = generation;
+            }
           }
           dispatch(setE2EEStatus('active'));
         },
@@ -340,7 +410,7 @@ export const useVideoCallE2EE = (
       dispatch(setE2EEStatus('error'));
       dispatch(setE2EEErrorMessage(String(err)));
     }
-  }, [dispatch, refs, applyE2EEToMediaTracks, initializeChatE2EE]);
+  }, [dispatch, refs, applyE2EEToMediaTracks]);
 
   // Sync function refs
   useEffect(() => {

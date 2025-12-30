@@ -88,9 +88,9 @@ export const E2EEHubMethods = {
 export const E2EEHubEvents = {
   ReceiveE2EEMessage: 'ReceiveE2EEMessage',
   // Legacy events still needed for receiving (backend sends these)
-  ReceiveKeyOffer: 'ReceiveKeyOffer',
-  ReceiveKeyAnswer: 'ReceiveKeyAnswer',
-  ReceiveKeyRotation: 'ReceiveKeyRotation',
+  ReceiveKeyOffer: 'receivekeyoffer',
+  ReceiveKeyAnswer: 'receivekeyanswer',
+  ReceiveKeyRotation: 'receivekeyrotation',
 } as const;
 
 // ============================================================================

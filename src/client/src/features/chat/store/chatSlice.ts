@@ -372,7 +372,29 @@ const chatSlice = createSlice({
       })
       .addCase(fetchChatThreads.fulfilled, (state, action) => {
         state.threadsLoading = false;
+
+        // IMPORTANT: Preserve local unread count for active thread to prevent race conditions
+        // When user opens a chat, markMessagesAsRead sets unreadCount to 0 locally.
+        // If fetchChatThreads completes after that with stale data, we must preserve the 0.
+        const { activeThreadId } = state;
+        const activeThreadLocalUnread = activeThreadId
+          ? state.threads.entities[activeThreadId].unreadCount
+          : undefined;
+
+        // Update all threads from API
         state.threads = chatThreadsAdapter.setAll(state.threads, action.payload.data);
+
+        // Restore local unread count for active thread if it was 0
+        // (meaning user has already viewed this thread and marked messages as read)
+        if (activeThreadId && activeThreadLocalUnread === 0) {
+          const apiThread = state.threads.entities[activeThreadId];
+          if (apiThread.unreadCount > 0) {
+            state.threads = chatThreadsAdapter.updateOne(state.threads, {
+              id: activeThreadId,
+              changes: { unreadCount: 0 },
+            });
+          }
+        }
       })
       .addCase(fetchChatThreads.rejected, (state, action) => {
         state.threadsLoading = false;
@@ -455,6 +477,21 @@ const chatSlice = createSlice({
       .addCase(joinChatThread.fulfilled, (state, action) => {
         state.activeThreadLoading = false;
         state.activeThreadId = action.payload;
+
+        // IMPORTANT: When user joins a thread, immediately set unread to 0
+        // This ensures UI shows correct state even if markMessagesAsRead hasn't completed yet
+        const threadId = action.payload;
+        if (threadId && threadId in state.threads.entities) {
+          const thread = state.threads.entities[threadId];
+          if (thread.unreadCount > 0) {
+            const previousUnread = thread.unreadCount;
+            state.threads = chatThreadsAdapter.updateOne(state.threads, {
+              id: threadId,
+              changes: { unreadCount: 0 },
+            });
+            state.totalUnreadCount = Math.max(0, state.totalUnreadCount - previousUnread);
+          }
+        }
       })
       .addCase(joinChatThread.rejected, (state, action) => {
         state.activeThreadLoading = false;
@@ -472,12 +509,14 @@ const chatSlice = createSlice({
         // Update thread unread count
         if (threadId in state.threads.entities) {
           const thread = state.threads.entities[threadId];
-          if (thread.unreadCount > 0) {
-            const previousUnread = thread.unreadCount;
-            state.threads = chatThreadsAdapter.updateOne(state.threads, {
-              id: threadId,
-              changes: { unreadCount: 0 },
-            });
+          const previousUnread = thread.unreadCount;
+
+          state.threads = chatThreadsAdapter.updateOne(state.threads, {
+            id: threadId,
+            changes: { unreadCount: 0 },
+          });
+
+          if (previousUnread > 0) {
             state.totalUnreadCount = Math.max(0, state.totalUnreadCount - previousUnread);
           }
         }

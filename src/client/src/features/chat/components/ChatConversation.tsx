@@ -257,12 +257,12 @@ const ChatConversation: React.FC<ChatConversationProps> = ({ threadId, onBack })
     }
   }, [threadId, dispatch]);
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom on new messages OR when typing indicator appears
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages.length]);
+  }, [messages.length, typingIndicator?.isTyping]);
 
   // Group messages by date
   const groupedMessages = useMemo(() => {
@@ -356,6 +356,12 @@ const ChatConversation: React.FC<ChatConversationProps> = ({ threadId, onBack })
           <Typography variant="body2" color="text.disabled">
             Sende die erste Nachricht, um die Konversation zu starten.
           </Typography>
+          {/* Show typing indicator even in empty state */}
+          {typingIndicator?.isTyping === true && (
+            <Box sx={{ mt: 2 }}>
+              <TypingIndicator userName={typingIndicator.userName} />
+            </Box>
+          )}
         </Box>
       );
     }

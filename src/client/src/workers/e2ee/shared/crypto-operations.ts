@@ -74,15 +74,15 @@ export function createInitialState(): WorkerCryptoState {
   };
 }
 
-/**
- * Aktualisiert den Key im State (mit Rotation Support)
- * Der vorherige Key wird gespeichert für Frames die noch unterwegs sind.
- */
 export function updateKeyInState(
   state: WorkerCryptoState,
   newKey: CryptoKey,
   newGeneration: number
 ): WorkerCryptoState {
+  if (newGeneration === state.generation && state.encryptionKey !== null) {
+    return state; // Keine Änderung, gleiche Generation bereits aktiv
+  }
+
   return {
     ...state,
     // Vorherigen Key speichern

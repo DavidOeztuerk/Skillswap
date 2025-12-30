@@ -11,6 +11,7 @@ import {
   type ECDSAKeyPair,
   type KeyExchangeMessage,
   type KeyGeneration,
+  type E2EEKeyMaterial,
   // ECDH Functions
   generateECDHKeyPair,
   // ECDSA Functions
@@ -35,17 +36,26 @@ import type { HubConnection } from '@microsoft/signalr';
 // Types
 // ============================================================================
 
+// Re-export E2EEKeyMaterial for consumers of this module
+export type { E2EEKeyMaterial };
+
 export interface KeyExchangeEvents {
   /**
    * Called when key exchange is complete and encryption can be enabled.
    * IMPORTANT: This callback can be async - the caller WILL await it.
    * All encryption setup should complete before this returns.
+   *
+   * @param keyMaterial - The derived key material (passed directly to avoid E2EEManager mismatch after rejoin)
+   * @param shouldEnableEncryption - If false, only update worker keys without enabling encryption.
+   *        This is used by the responder to prepare for decryption before sending the answer.
    */
   onKeyExchangeComplete: (
     fingerprint: string,
     generation: number,
+    keyMaterial: E2EEKeyMaterial,
     peerSigningPublicKey?: string,
-    peerSigningFingerprint?: string
+    peerSigningFingerprint?: string,
+    shouldEnableEncryption?: boolean
   ) => void | Promise<void>;
   /**
    * Called when keys are rotated (both initiator and responder).
@@ -167,7 +177,14 @@ export class E2EEKeyExchangeManager {
   }
 
   /**
-   * Startet den Key Exchange neu (z.B. nach Reconnect)
+   * Startet den Key Exchange neu (z.B. nach Reconnect oder wenn ein neuer User joined)
+   *
+   * WICHTIG: Wenn wir im Error State sind (z.B. weil der Peer beim ersten Versuch
+   * noch nicht im Room war), starten wir KOMPLETT NEU. Das ist wichtig für das Szenario:
+   * 1. User A betritt Room (allein)
+   * 2. User A sendet Key Offers ins Leere → Error State
+   * 3. User B betritt Room → UserJoined Event
+   * 4. User A sollte jetzt neu starten können!
    */
   async retriggerKeyExchange(): Promise<void> {
     if (this.state === 'complete') {
@@ -175,8 +192,33 @@ export class E2EEKeyExchangeManager {
       return;
     }
 
+    // eslint-disable-next-line sonarjs/no-duplicate-string
+    if (this.state === 'waiting-answer' || this.state === 'sending-offer') {
+      console.debug('🔐 KeyExchange: Already in progress, skipping retrigger');
+      return;
+    }
+
+    // If we're in error state, reset and try again!
+    // This is important when the peer wasn't in the room during our initial attempts.
+    if (this.state === 'error') {
+      console.debug('🔐 KeyExchange: Resetting from error state for fresh start');
+      this.state = 'idle';
+      this.retryCount = 0;
+      if (this.retryTimeout) {
+        clearTimeout(this.retryTimeout);
+        this.retryTimeout = null;
+      }
+    }
+
     if (this.isInitiator) {
       console.debug('🔐 KeyExchange: Retriggering as initiator');
+      // Reset retry count for fresh attempt
+      this.retryCount = 0;
+      // Clear any pending retry timeout
+      if (this.retryTimeout) {
+        clearTimeout(this.retryTimeout);
+        this.retryTimeout = null;
+      }
       await this.sendKeyOffer();
     }
   }
@@ -409,6 +451,12 @@ export class E2EEKeyExchangeManager {
       return;
     }
 
+    // Clear any pending retry timeout to prevent overlapping retries
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
+
     this.state = 'sending-offer';
 
     try {
@@ -471,11 +519,17 @@ export class E2EEKeyExchangeManager {
     }
 
     try {
-      const nonce = generateNonce();
+      // CRITICAL FIX FOR CROSS-BROWSER E2EE:
+      // Step 1: Derive shared key and update worker keys for DECRYPTION only (no encryption yet).
+      // This ensures we can decrypt frames from the initiator as soon as they enable encryption.
+      console.debug('📤 KeyExchange: Deriving shared key (decryption ready, encryption delayed)');
+      await this.deriveAndSetSharedKey(peerPublicKeyBase64, false);
 
+      // Step 2: NOW send the answer. The initiator will receive this, derive their key,
+      // and start sending encrypted frames. We're ready to decrypt them.
+      const nonce = generateNonce();
       const timestamp = Date.now();
 
-      // Sign first, then create the immutable message
       const signature = await signKeyExchangeMessage(
         this.localECDSAKeyPair.signingKey,
         this.localECDHKeyPair.publicKeyBase64,
@@ -494,7 +548,6 @@ export class E2EEKeyExchangeManager {
         signingPublicKey: this.localECDSAKeyPair.publicKeyBase64,
       };
 
-      // Use unified ForwardE2EEMessage with audit logging
       const result = await this.hubConnection.invoke<{ success: boolean; errorMessage?: string }>(
         'ForwardE2EEMessage',
         {
@@ -514,8 +567,32 @@ export class E2EEKeyExchangeManager {
 
       console.debug('📤 KeyExchange: Sent key answer');
 
-      // Derive shared key
-      await this.deriveAndSetSharedKey(peerPublicKeyBase64);
+      // Step 3: NOW enable our outbound encryption. The initiator should have received
+      // our answer by now and be ready to decrypt. This 2-phase approach ensures both
+      // sides are ready before either starts encrypting.
+      // CRITICAL: Delay must be long enough for the peer (Chrome) to:
+      // 1. Receive the SignalR message (network latency)
+      // 2. Derive the shared key (crypto operation ~50-100ms)
+      // 3. Update workers with the key
+      // 4. Enable decryption pipeline
+      // 500ms gives plenty of margin for all these steps.
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 500);
+      });
+
+      // Call onKeyExchangeComplete again with encryption enabled
+      const keyMaterial = this.e2eeManager.getCurrentKeyMaterial();
+      if (keyMaterial) {
+        console.debug('📤 KeyExchange: Enabling encryption after answer sent');
+        await this.events.onKeyExchangeComplete(
+          keyMaterial.publicKeyFingerprint,
+          keyMaterial.generation,
+          keyMaterial,
+          this.peerSigningPublicKeyBase64 ?? undefined,
+          this.peerSigningFingerprint ?? undefined,
+          true // NOW enable encryption
+        );
+      }
     } catch (e) {
       console.error('❌ KeyExchange: Failed to send key answer:', e);
       this.state = 'error';
@@ -531,6 +608,16 @@ export class E2EEKeyExchangeManager {
     console.debug('📥 KeyExchange: Received key offer');
 
     try {
+      // REJOIN FIX: If keys are null (after cleanup from UserLeft), regenerate them
+      // This allows the non-initiator to respond to key offers after a leave/rejoin cycle
+      if (!this.localECDHKeyPair || !this.localECDSAKeyPair) {
+        console.debug(
+          '🔑 KeyExchange: Keys not initialized, generating new keys (lazy init for rejoin)'
+        );
+        this.localECDHKeyPair = await generateECDHKeyPair();
+        this.localECDSAKeyPair = await generateECDSAKeyPair();
+        console.debug('✅ KeyExchange: Keys generated for rejoin response');
+      }
       // Import and store peer's signing key for future verification
       if (message.signingPublicKey) {
         this.peerECDSAVerificationKey = await importECDSAVerificationKey(message.signingPublicKey);
@@ -575,9 +662,22 @@ export class E2EEKeyExchangeManager {
   }
 
   private async handleKeyAnswer(message: KeyExchangeMessage): Promise<void> {
-    // RACE CONDITION FIX: Accept answers in BOTH 'waiting-answer' AND 'sending-offer' states.
+    // RECOVERY FIX: If we're in 'error' state but receive a valid answer,
+    // this means the peer finally joined and responded! Reset and process.
+    // This handles the scenario where:
+    // 1. Chrome joins room (alone), sends key offers
+    // 2. Chrome retries exhaust → error state
+    // 3. Safari joins later, receives last offer, sends answer
+    // 4. Chrome should RECOVER and process this answer!
+    if (this.state === 'error') {
+      console.debug('📥 KeyExchange: Received answer while in error state - recovering!');
+      this.state = 'waiting-answer';
+      this.retryCount = 0;
+    }
+
+    // Accept answers in 'waiting-answer' AND 'sending-offer' states.
     // During retries, state temporarily becomes 'sending-offer', but an answer from the peer
-    // is still valid and should be processed. Only ignore if we're 'idle', 'complete', or 'error'.
+    // is still valid and should be processed.
     if (this.state !== 'waiting-answer' && this.state !== 'sending-offer') {
       console.debug(`📥 KeyExchange: Received answer but state is '${this.state}', ignoring`);
       return;
@@ -667,7 +767,16 @@ export class E2EEKeyExchangeManager {
   // Private Methods - Key Derivation
   // ============================================================================
 
-  private async deriveAndSetSharedKey(peerPublicKeyBase64: string): Promise<void> {
+  /**
+   * Derives the shared key and optionally enables encryption.
+   * @param peerPublicKeyBase64 - The peer's ECDH public key
+   * @param shouldEnableEncryption - If false, only update worker keys without enabling encryption.
+   *        Used by responder to be ready for decryption before sending answer.
+   */
+  private async deriveAndSetSharedKey(
+    peerPublicKeyBase64: string,
+    shouldEnableEncryption = true
+  ): Promise<void> {
     if (!this.localECDHKeyPair) {
       throw new Error('Local ECDH key pair not initialized');
     }
@@ -677,6 +786,12 @@ export class E2EEKeyExchangeManager {
       this.localECDHKeyPair.privateKey,
       peerPublicKeyBase64
     );
+
+    // Cancel any pending retry timer to prevent unnecessary key rotations
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
 
     this.state = 'complete';
     this.lastKeyExchangeCompleteTime = Date.now(); // Mark completion time for debounce
@@ -692,16 +807,20 @@ export class E2EEKeyExchangeManager {
 
     // CRITICAL: Await the callback to ensure encryption is fully set up
     // before we consider the key exchange complete
+    // FIX: Pass keyMaterial directly to avoid E2EEManager mismatch after rejoin
     await this.events.onKeyExchangeComplete(
       keyMaterial.publicKeyFingerprint,
       keyMaterial.generation,
+      keyMaterial,
       this.peerSigningPublicKeyBase64 ?? undefined,
-      this.peerSigningFingerprint ?? undefined
+      this.peerSigningFingerprint ?? undefined,
+      shouldEnableEncryption
     );
 
     console.debug('✅ KeyExchange: Complete', {
       generation: keyMaterial.generation,
       fingerprint: `${String(keyMaterial.publicKeyFingerprint).slice(0, 16)}...`,
+      encryptionEnabled: shouldEnableEncryption,
     });
   }
 

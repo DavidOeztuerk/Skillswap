@@ -22,6 +22,7 @@ export interface StreamMetadata {
   hasVideo: boolean;
   hasAudio: boolean;
   isActive: boolean;
+  peerId?: string; // For remote streams: the userId of the peer
 }
 
 export interface TrackEvent {
@@ -165,11 +166,21 @@ class StreamManager {
    * Registriert einen Remote Stream (von WebRTC)
    */
   registerRemoteStream(stream: MediaStream, peerId?: string): void {
-    const id = peerId ? `remote-${peerId}` : stream.id;
-    console.debug(`📡 StreamManager: Registering remote stream (${id})`);
+    const { id } = stream;
+    console.debug(
+      `📡 StreamManager: Registering remote stream (${id}, peerId: ${peerId ?? 'none'})`
+    );
 
-    // Falls der Stream schon eine ID hat, verwenden wir diese
+    // Register the stream
     this.registerStream(stream, 'remote');
+
+    // Store peerId in metadata for lookup during UserLeft cleanup
+    if (peerId) {
+      const meta = this.metadata.get(id);
+      if (meta) {
+        meta.peerId = peerId;
+      }
+    }
   }
 
   // ========================================================================
@@ -452,6 +463,33 @@ class StreamManager {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Get stream ID by peer user ID
+   * Used for cleanup when a user leaves the call
+   */
+  getStreamIdByPeerId(peerId: string): string | undefined {
+    for (const [streamId, meta] of this.metadata) {
+      if (meta.peerId === peerId) {
+        return streamId;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Get all stream IDs of a specific type
+   * Used for selective cleanup (e.g., only destroy remote streams during partial cleanup)
+   */
+  getStreamsByType(type: 'camera' | 'screen' | 'remote'): string[] {
+    const result: string[] = [];
+    for (const [streamId, meta] of this.metadata) {
+      if (meta.type === type) {
+        result.push(streamId);
+      }
+    }
+    return result;
   }
 
   // ========================================================================

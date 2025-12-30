@@ -324,11 +324,12 @@ const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = memo(
             </Box>
           </Box>
 
-          {/* Reactions */}
+          {/* Reactions - disable clicking for own messages */}
           <MessageReactions
             reactions={message.reactions ?? message.reactionsJson}
             currentUserId={currentUserId}
             messageId={message.id}
+            isOwn={isOwn}
           />
         </Box>
 
