@@ -9,11 +9,14 @@ export interface VideoCallConfig {
 
   endedAt?: Date | null;
   initiatorName: string;
-  initiatorAvatarUrl?: string | null; // NEU: Avatar-URL für Initiator
+  initiatorAvatarUrl?: string | null;
   participantName: string;
-  participantAvatarUrl?: string | null; // NEU: Avatar-URL für Participant
+  participantAvatarUrl?: string | null;
   recordingUrl?: string | null;
   isRecorded: boolean;
   sessionId: string;
   startedAt?: Date | null;
+
+  // Chat/Thread info - ThreadId from MatchRequest for Chat integration
+  threadId?: string | null;
 }

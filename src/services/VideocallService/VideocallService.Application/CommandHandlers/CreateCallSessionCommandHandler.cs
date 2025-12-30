@@ -79,6 +79,7 @@ public class CreateCallSessionCommandHandler(
             HostUserId = request.UserId!,  // Host = Initiator (MatchRequester)
             AppointmentId = request.AppointmentId,
             MatchId = request.MatchId,
+            ThreadId = request.ThreadId,  // ThreadId from MatchRequest for Chat integration
             IsRecorded = request.IsRecorded,
             MaxParticipants = request.MaxParticipants,
             CreatedBy = request.UserId

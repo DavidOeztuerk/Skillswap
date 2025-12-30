@@ -2,7 +2,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import errorService from '../../../core/services/errorService';
 import { removeToken } from '../../../shared/utils/authHelpers';
 import { isDefined, withDefault } from '../../../shared/utils/safeAccess';
-import { initialUsersState, type UsersEntityState } from './authAdapter';
+import { initialUsersState, initialPasswordFlowState, type UsersEntityState } from './authAdapter';
 import {
   login,
   register,
@@ -18,6 +18,7 @@ import {
   verifyTwoFactorCode,
   getTwoFactorStatus,
   disableTwoFactor,
+  resetPassword,
 } from './authThunks';
 import type { User } from '../../user/types/User';
 
@@ -147,6 +148,20 @@ const authSlice = createSlice({
      * Resets entire auth state (for testing or force logout)
      */
     resetAuthState: () => initialUsersState,
+
+    /**
+     * Clears reset password state
+     */
+    clearResetPasswordState: (state) => {
+      state.resetPassword = { ...initialPasswordFlowState };
+    },
+
+    /**
+     * Clears forgot password state
+     */
+    clearForgotPasswordState: (state) => {
+      state.forgotPassword = { ...initialPasswordFlowState };
+    },
   },
 
   extraReducers: (builder) => {
@@ -451,6 +466,29 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.errorMessage =
           action.payload?.message ?? action.error.message ?? 'Failed to disable 2FA';
+      })
+
+      // ============================================
+      // RESET PASSWORD
+      // ============================================
+      .addCase(resetPassword.pending, (state) => {
+        state.resetPassword.isLoading = true;
+        state.resetPassword.isSuccess = false;
+        state.resetPassword.errorMessage = undefined;
+      })
+      .addCase(resetPassword.fulfilled, (state) => {
+        state.resetPassword.isLoading = false;
+        state.resetPassword.isSuccess = true;
+        state.resetPassword.errorMessage = undefined;
+      })
+      .addCase(resetPassword.rejected, (state, action) => {
+        state.resetPassword.isLoading = false;
+        state.resetPassword.isSuccess = false;
+        state.resetPassword.errorMessage =
+          action.payload?.message ??
+          (action.payload?.errors && action.payload.errors.length > 0
+            ? action.payload.errors.join(', ')
+            : (action.error.message ?? 'Fehler beim Zurücksetzen des Passworts'));
       });
   },
 });
@@ -462,6 +500,8 @@ export const {
   clearTwoFactorState,
   updateUserPartial,
   resetAuthState,
+  clearResetPasswordState,
+  clearForgotPasswordState,
 } = authSlice.actions;
 
 export default authSlice.reducer;

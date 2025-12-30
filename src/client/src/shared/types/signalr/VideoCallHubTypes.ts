@@ -3,8 +3,7 @@
  * Provides compile-time type safety for SignalR communication
  */
 
-// import { ChatMessage } from '../models/ChatMessage';
-import type { KeyExchangeMessage } from '../../utils/crypto/e2eeKeyExchange';
+import type { KeyExchangeMessage } from '../../core/crypto';
 import type { HubConnection } from '@microsoft/signalr';
 
 // ============================================================================
@@ -62,12 +61,6 @@ export interface MediaStateChangedPayload {
   enabled: boolean;
 }
 
-export interface ChatMessagePayload {
-  userId: string;
-  message: string;
-  timestamp: string;
-}
-
 export interface HeartbeatAckPayload {
   timestamp: string;
   acknowledged: boolean;
@@ -77,6 +70,14 @@ export interface CallEndedPayload {
   roomId: string;
   endedBy: string;
   reason: 'user_left' | 'timeout' | 'error';
+}
+
+export interface ChatMessagePayload {
+  userId: string;
+  userName: string;
+  content: string;
+  timestamp: string;
+  isEncrypted?: boolean;
 }
 
 /**
@@ -106,9 +107,6 @@ export interface ServerToClientEvents {
   ScreenShareStarted: (data: { userId: string }) => void;
   ScreenShareStopped: (data: { userId: string }) => void;
 
-  // Chat
-  ChatMessage: (data: ChatMessagePayload) => void;
-
   // Connection
   HeartbeatAck: (data: HeartbeatAckPayload) => void;
 }
@@ -130,10 +128,16 @@ export interface ClientToServerMethods {
   SendAnswer: (roomId: string, targetUserId: string, sdp: string) => Promise<void>;
   SendIceCandidate: (roomId: string, targetUserId: string, candidate: string) => Promise<void>;
 
-  // E2EE Key Exchange
-  SendKeyOffer: (roomId: string, targetUserId: string, keyExchangeData: string) => Promise<void>;
-  SendKeyAnswer: (roomId: string, targetUserId: string, keyExchangeData: string) => Promise<void>;
-  SendKeyRotation: (roomId: string, targetUserId: string, keyExchangeData: string) => Promise<void>;
+  // E2EE Key Exchange (unified method)
+  ForwardE2EEMessage: (message: {
+    type: number;
+    targetUserId: string;
+    roomId: string;
+    encryptedPayload: string;
+    keyFingerprint?: string;
+    keyGeneration?: number;
+    clientTimestamp?: string;
+  }) => Promise<{ success: boolean; errorCode?: string; errorMessage?: string }>;
 
   // Media State
   MediaStateChanged: (roomId: string, mediaType: string, enabled: boolean) => Promise<void>;
@@ -141,9 +145,6 @@ export interface ClientToServerMethods {
   ToggleMicrophone: (roomId: string, enabled: boolean) => Promise<void>;
   StartScreenShare: (roomId: string) => Promise<void>;
   StopScreenShare: (roomId: string) => Promise<void>;
-
-  // Chat
-  SendChatMessage: (roomId: string, message: string) => Promise<void>;
 
   // Connection
   SendHeartbeat: (roomId: string) => Promise<void>;

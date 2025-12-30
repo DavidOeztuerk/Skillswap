@@ -4,24 +4,16 @@ import { isSuccessResponse } from '../../shared/types/api/UnifiedResponse';
 import { decodeToken, getToken } from '../../shared/utils/authHelpers';
 import { withDefault } from '../../shared/utils/safeAccess';
 import { apiClient } from '../api/apiClient';
-import { PermissionContext, type PermissionContextType } from './permissionContextValue';
+import {
+  PermissionContext,
+  type PermissionContextType,
+  type Permission,
+  type GrantPermissionOptions,
+} from './permissionContextValue';
 
 // ============================================================================
-// Types (local)
+// Types (local - API response only)
 // ============================================================================
-
-interface Permission {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  resource: string;
-  isSystemPermission: boolean;
-  isActive: boolean;
-  expiresAt?: string;
-  resourceId?: string;
-  source: string;
-}
 
 interface UserPermissions {
   userId: string;
@@ -31,12 +23,6 @@ interface UserPermissions {
   permissionsByCategory: Record<string, string[]>;
   cachedAt: string;
   cacheExpirationMinutes: number;
-}
-
-interface GrantPermissionOptions {
-  expiresAt?: Date;
-  resourceId?: string;
-  reason?: string;
 }
 
 // ============================================================================

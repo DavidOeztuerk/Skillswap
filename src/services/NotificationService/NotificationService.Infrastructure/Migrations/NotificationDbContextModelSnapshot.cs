@@ -389,6 +389,10 @@ namespace NotificationService.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
+                    b.Property<string>("MatchRequestId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
                     b.Property<string>("Participant1AvatarUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");

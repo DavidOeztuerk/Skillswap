@@ -8,8 +8,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useEmailVerificationContext } from '../../../core/contexts/emailVerificationContextHook';
-import { useLoading } from '../../../core/contexts/loadingContextHooks';
-import { LoadingKeys } from '../../../core/contexts/loadingContextValue';
 import { usePermissions } from '../../../core/contexts/permissionContextHook';
 import errorService from '../../../core/services/errorService';
 import useToast from '../../../shared/hooks/useToast';
@@ -41,7 +39,6 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
     [hasPermission]
   );
 
-  const { withLoading, isLoading } = useLoading();
   const {
     selectedSkill,
     userSkills,
@@ -80,18 +77,16 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
   const hasOpenedMatchForm = useRef(false);
   const hasRedirectedOwnSkill = useRef(false);
 
-  // Load skill data
+  // Scroll to top on mount
   useEffect(() => {
-    const loadSkill = async (): Promise<void> => {
-      if (skillId) {
-        await withLoading(LoadingKeys.FETCH_DATA, async () => {
-          errorService.addBreadcrumb('Loading skill details', 'navigation', { skillId });
-          await fetchSkillById(skillId);
-        });
-      }
-    };
-    loadSkill().catch(() => {});
-  }, [skillId, fetchSkillById, withLoading]);
+    window.scrollTo(0, 0);
+  }, [skillId]);
+
+  // Load skill data - simple fetch when skillId changes
+  useEffect(() => {
+    if (!skillId) return;
+    void fetchSkillById(skillId);
+  }, [skillId, fetchSkillById]);
 
   // Robust isOwner check
   const isOwner = useMemo(() => {
@@ -397,7 +392,7 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
   }, [isAuthenticated, isOwner, cameFromMySkills, navigate]);
 
   // Loading state
-  const isPageLoading = isLoading(LoadingKeys.FETCH_DATA) || (skillsLoading && !selectedSkill);
+  const isPageLoading = skillsLoading && !selectedSkill;
 
   return {
     skill: selectedSkill,

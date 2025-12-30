@@ -167,7 +167,10 @@ public class GetUserMatchesQueryHandler(
                         TotalSessions: matchRequest.TotalSessions ?? 1,
                         NextSessionDate: match.NextSessionDate
                     ),
-                    AdditionalNotes: matchRequest.AdditionalNotes
+                    AdditionalNotes: matchRequest.AdditionalNotes,
+                    // Chat/Thread info from MatchRequest
+                    ThreadId: matchRequest.ThreadId,
+                    MatchRequestId: matchRequest.Id
                 );
 
                 matches.Add(matchResponse);

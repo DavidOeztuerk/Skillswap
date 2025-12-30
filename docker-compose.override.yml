@@ -131,6 +131,7 @@ services:
       - DOTNET_USE_POLLING_FILE_WATCHER=true
       - ENABLE_SWAGGER=true
       - LOG_LEVEL=Debug
+      - AppSettings__BaseUrl=http://localhost:3000
     volumes:
       - ./src/services/NotificationService:/app
       - ./secrets/firebase-key.json:/app/secrets/firebase-key.json:ro

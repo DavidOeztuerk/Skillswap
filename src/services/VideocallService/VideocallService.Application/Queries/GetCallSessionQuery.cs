@@ -24,7 +24,8 @@ public record CallSessionResponse(
     int? DurationMinutes,
     List<CallParticipantResponse> ActiveParticipants,
     bool IsRecorded,
-    string? RecordingUrl);
+    string? RecordingUrl,
+    string? ThreadId);
 
 public record CallParticipantResponse(
     string UserId,

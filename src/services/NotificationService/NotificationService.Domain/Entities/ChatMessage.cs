@@ -293,6 +293,18 @@ public class ChatMessage : AuditableEntity
             DeliveredAt = DateTime.UtcNow;
         }
     }
+
+    /// <summary>
+    /// Soft-deletes the message by marking it as deleted and clearing content
+    /// </summary>
+    public void MarkAsDeleted(string? deletedBy = null)
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
+        DeletedBy = deletedBy;
+        Content = "[Message deleted]";
+        EncryptedContent = null;
+    }
 }
 
 /// <summary>

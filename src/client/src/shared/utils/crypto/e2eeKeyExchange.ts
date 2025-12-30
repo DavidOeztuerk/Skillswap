@@ -1,1188 +1,921 @@
 /**
- * E2EE Key Exchange via SignalR - KORRIGIERTE VERSION
+ * E2EE Key Exchange Manager
+ *
+ * Orchestriert das SignalR Key Exchange Protocol mit ECDSA Signaturen.
+ * Nutzt die core/crypto Primitives für alle kryptographischen Operationen.
  */
 
-import type { E2EEManager, ECDHKeyPair } from './e2eeVideoEncryption';
+import {
+  // Types
+  type ECDHKeyPair,
+  type ECDSAKeyPair,
+  type KeyExchangeMessage,
+  type KeyGeneration,
+  type E2EEKeyMaterial,
+  // ECDH Functions
+  generateECDHKeyPair,
+  // ECDSA Functions
+  generateECDSAKeyPair,
+  signKeyExchangeMessage,
+  verifyKeyExchangeMessage,
+  importECDSAVerificationKey,
+  // Encoding
+  generateNonce,
+  arrayBufferToHex,
+  // Constants
+  KEY_EXCHANGE_TIMEOUT_MS,
+  MAX_KEY_EXCHANGE_RETRIES,
+  KEY_EXCHANGE_DEBOUNCE_MS,
+  NONCE_MAX_AGE_MS,
+  NONCE_CLEANUP_INTERVAL_MS,
+} from '../../core/crypto';
+import type { E2EEManager } from './e2eeVideoEncryption';
 import type { HubConnection } from '@microsoft/signalr';
 
-const KEY_EXCHANGE_TIMEOUT = 15000;
-const MAX_RETRY_ATTEMPTS = 5;
-const NONCE_MAX_AGE = 5 * 60 * 1000;
-const NONCE_CLEANUP_INTERVAL = 60000;
+// ============================================================================
+// Types
+// ============================================================================
 
-// Shared helper functions
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
+// Re-export E2EEKeyMaterial for consumers of this module
+export type { E2EEKeyMaterial };
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-function arrayBufferToHex(buffer: ArrayBuffer): string {
-  return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-/**
- * Key exchange message types
- */
-export interface KeyExchangeMessage {
-  type: 'keyOffer' | 'keyAnswer' | 'keyRotation';
-  publicKey: string;
-  fingerprint: string;
-  signature: string;
-  generation: number;
-  timestamp: number;
-  nonce: string;
-}
-
-/**
- * Key exchange events
- */
 export interface KeyExchangeEvents {
+  /**
+   * Called when key exchange is complete and encryption can be enabled.
+   * IMPORTANT: This callback can be async - the caller WILL await it.
+   * All encryption setup should complete before this returns.
+   *
+   * @param keyMaterial - The derived key material (passed directly to avoid E2EEManager mismatch after rejoin)
+   * @param shouldEnableEncryption - If false, only update worker keys without enabling encryption.
+   *        This is used by the responder to prepare for decryption before sending the answer.
+   */
   onKeyExchangeComplete: (
     fingerprint: string,
     generation: number,
+    keyMaterial: E2EEKeyMaterial,
     peerSigningPublicKey?: string,
-    peerSigningFingerprint?: string
-  ) => void;
-  onKeyRotation: (generation: number) => void;
+    peerSigningFingerprint?: string,
+    shouldEnableEncryption?: boolean
+  ) => void | Promise<void>;
+  /**
+   * Called when keys are rotated (both initiator and responder).
+   * IMPORTANT: This callback can be async - the caller WILL await it.
+   * Worker key updates should complete before this returns.
+   */
+  onKeyRotation: (generation: number) => void | Promise<void>;
   onKeyExchangeError: (error: string) => void;
   onVerificationRequired?: (localFp: string, remoteFp: string) => void;
 }
 
-/**
- * Signatur-Manager für Key Exchange
- */
-class SignatureManager {
-  private signingKey: CryptoKey | null = null;
-  private verifyingKey: CryptoKey | null = null;
-  private peerVerifyingKey: CryptoKey | null = null;
+type KeyExchangeState = 'idle' | 'sending-offer' | 'waiting-answer' | 'complete' | 'error';
 
-  /**
-   * Generiere ECDSA Signing Key Pair
-   */
-  async generateSigningKeys(): Promise<{
-    publicKeyBase64: string;
-    fingerprint: string;
-  }> {
-    const keyPair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, [
-      'sign',
-      'verify',
-    ]);
+// ============================================================================
+// Manager Class
+// ============================================================================
 
-    this.signingKey = keyPair.privateKey;
-    this.verifyingKey = keyPair.publicKey;
-
-    const publicKeyBuffer = await crypto.subtle.exportKey('raw', keyPair.publicKey);
-    const publicKeyBase64 = arrayBufferToBase64(publicKeyBuffer);
-
-    const fingerprintBuffer = await crypto.subtle.digest('SHA-256', publicKeyBuffer);
-    const fingerprint = arrayBufferToHex(fingerprintBuffer);
-
-    return { publicKeyBase64, fingerprint };
-  }
-
-  /**
-   * Signiere Daten
-   */
-  async sign(data: string): Promise<string> {
-    if (!this.signingKey) {
-      throw new Error('Signing key not initialized');
-    }
-
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(data);
-
-    const signature = await crypto.subtle.sign(
-      { name: 'ECDSA', hash: 'SHA-256' },
-      this.signingKey,
-      dataBuffer
-    );
-
-    return arrayBufferToBase64(signature);
-  }
-
-  /**
-   * Importiere Peer's Public Key für Verifikation
-   */
-  async importPeerVerifyingKey(publicKeyBase64: string): Promise<void> {
-    const publicKeyBuffer = base64ToArrayBuffer(publicKeyBase64);
-
-    this.peerVerifyingKey = await crypto.subtle.importKey(
-      'raw',
-      publicKeyBuffer,
-      { name: 'ECDSA', namedCurve: 'P-256' },
-      false,
-      ['verify']
-    );
-  }
-
-  /**
-   * Verifiziere Signatur
-   */
-  async verify(data: string, signatureBase64: string): Promise<boolean> {
-    if (!this.peerVerifyingKey) {
-      console.warn('⚠️ Peer verifying key not set, cannot verify signature');
-      return false;
-    }
-
-    try {
-      const encoder = new TextEncoder();
-      const dataBuffer = encoder.encode(data);
-      const signatureBuffer = base64ToArrayBuffer(signatureBase64);
-
-      return await crypto.subtle.verify(
-        { name: 'ECDSA', hash: 'SHA-256' },
-        this.peerVerifyingKey,
-        signatureBuffer,
-        dataBuffer
-      );
-    } catch (error) {
-      console.error('❌ Signature verification error:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Exportiere Public Key für Übertragung
-   */
-  async exportVerifyingKey(): Promise<string> {
-    if (!this.verifyingKey) {
-      throw new Error('Verifying key not initialized');
-    }
-
-    const buffer = await crypto.subtle.exportKey('raw', this.verifyingKey);
-    return arrayBufferToBase64(buffer);
-  }
-}
-
-/**
- * E2EE Key Exchange Manager - KORRIGIERTE VERSION
- */
 export class E2EEKeyExchangeManager {
   private e2eeManager: E2EEManager;
-  private signatureManager: SignatureManager;
-  private signalRConnection: HubConnection | null = null;
-  private localKeyPair: ECDHKeyPair | null = null;
-  private remotePeerPublicKey: string | null = null;
-  private remotePeerFingerprint: string | null = null;
+  private hubConnection: HubConnection | null = null;
+  private roomId = '';
+  private targetUserId = '';
   private isInitiator = false;
-  private roomId: string | null = null;
-  private peerId: string | null = null;
-  private localUserId: string | null = null;
-  private events: KeyExchangeEvents;
 
-  // NEU: Peer's Signing Key für Chat E2EE
-  private peerSigningPublicKey: string | null = null;
+  // Key Pairs
+  private localECDHKeyPair: ECDHKeyPair | null = null;
+  private localECDSAKeyPair: ECDSAKeyPair | null = null;
+  private peerECDSAVerificationKey: CryptoKey | null = null;
+  private peerSigningPublicKeyBase64: string | null = null;
   private peerSigningFingerprint: string | null = null;
+  // Remote ECDH Public Key - needed for key rotation!
+  private remotePeerPublicKeyBase64: string | null = null;
 
-  // State Management für Race Conditions
-  private exchangeState: 'idle' | 'initiating' | 'responding' | 'complete' | 'error' = 'idle';
-  private keyExchangeTimeout: NodeJS.Timeout | null = null;
+  // State
+  private state: KeyExchangeState = 'idle';
+  private keyGeneration = 0;
   private retryCount = 0;
-  private usedNonces = new Map<string, number>(); // Replay-Schutz mit Timestamp für Cleanup
-  private nonceCleanupInterval: NodeJS.Timeout | null = null;
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private lastKeyExchangeCompleteTime = 0; // Debounce: track last successful exchange
 
-  // NEU: Key Rotation Loop Prevention
-  private lastInitiatedRotationGeneration = 0; // Generation die wir selbst initiiert haben
-  private processedRotationGenerations = new Set<number>(); // Bereits verarbeitete Generationen
-  private pendingRotationResponse: number | null = null; // Generation auf die wir eine Response erwarten
+  // Nonce Replay Protection - LRU Map mit Timestamps
+  // Max 100 Einträge für Memory-Effizienz (statt 1000)
+  private static readonly MAX_NONCE_CACHE_SIZE = 100;
+  private usedNonces = new Map<string, number>(); // nonce -> timestamp
+  private nonceCleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Events
+  private events: KeyExchangeEvents;
 
   constructor(e2eeManager: E2EEManager, events: KeyExchangeEvents) {
     this.e2eeManager = e2eeManager;
     this.events = events;
-    this.signatureManager = new SignatureManager();
-  }
 
-  /**
-   * Cleanup alte Nonces um Memory Leaks zu verhindern
-   * Entfernt alle Nonces die älter als NONCE_MAX_AGE sind
-   */
-  private cleanupOldNonces(): void {
-    const now = Date.now();
-    let cleanedCount = 0;
-
-    this.usedNonces.forEach((timestamp, nonce) => {
-      if (now - timestamp > NONCE_MAX_AGE) {
-        this.usedNonces.delete(nonce);
-        cleanedCount++;
-      }
-    });
-
-    if (cleanedCount > 0) {
-      console.debug(
-        `🧹 E2EE: Cleaned up ${cleanedCount.toString()} expired nonces, ${this.usedNonces.size.toString()} remaining`
-      );
-    }
-  }
-
-  /**
-   * Starte periodischen Nonce-Cleanup
-   */
-  private startNonceCleanup(): void {
-    // Stoppe vorherigen Interval falls vorhanden
-    if (this.nonceCleanupInterval) {
-      clearInterval(this.nonceCleanupInterval);
-    }
-
+    // Start nonce cleanup
     this.nonceCleanupInterval = setInterval(() => {
       this.cleanupOldNonces();
-    }, NONCE_CLEANUP_INTERVAL);
+    }, NONCE_CLEANUP_INTERVAL_MS);
+  }
 
-    console.debug('🔄 E2EE: Started nonce cleanup interval');
+  // ============================================================================
+  // Public API
+  // ============================================================================
+
+  getState(): KeyExchangeState {
+    return this.state;
+  }
+
+  getLocalFingerprint(): string | null {
+    return this.localECDHKeyPair?.fingerprint ?? null;
+  }
+
+  getLocalSigningPublicKey(): string | null {
+    return this.localECDSAKeyPair?.publicKeyBase64 ?? null;
+  }
+
+  getLocalSigningFingerprint(): string | null {
+    return this.localECDSAKeyPair?.fingerprint ?? null;
+  }
+
+  getPeerSigningPublicKey(): string | null {
+    return this.peerSigningPublicKeyBase64;
+  }
+
+  getPeerSigningFingerprint(): string | null {
+    return this.peerSigningFingerprint;
   }
 
   /**
-   * Initialize key exchange with SignalR connection
-   * @param signalRConnection - The SignalR connection
-   * @param roomId - The room ID
-   * @param peerId - The remote peer's user ID
-   * @param isInitiator - Whether this user is the initiator (based on backend config)
-   * @param localUserId - The local user's ID (for deterministic initiator resolution)
+   * Initialisiert den Key Exchange Manager
    */
   async initialize(
-    signalRConnection: HubConnection,
+    hubConnection: HubConnection,
     roomId: string,
-    peerId: string,
+    targetUserId: string,
     isInitiator: boolean,
-    localUserId?: string
+    _localUserId?: string
   ): Promise<void> {
-    console.debug(`🔐 E2EE: ========== KEY EXCHANGE INIT ==========`);
-    console.debug(`🔐 E2EE: Role: ${isInitiator ? 'INITIATOR' : 'PARTICIPANT'}`);
-    console.debug(`🔐 E2EE: RoomId: ${roomId}`);
-    console.debug(`🔐 E2EE: LocalUserId: ${localUserId?.toString() ?? 'N/A'}`);
-    console.debug(`🔐 E2EE: PeerId: ${peerId}`);
-    console.debug(`🔐 E2EE: SignalR State: ${signalRConnection.state}`);
-    console.debug(`🔐 E2EE: ===========================================`);
-
-    this.signalRConnection = signalRConnection;
+    this.hubConnection = hubConnection;
     this.roomId = roomId;
-    this.peerId = peerId;
-    this.localUserId = localUserId ?? null;
+    this.targetUserId = targetUserId;
     this.isInitiator = isInitiator;
-    this.exchangeState = 'idle';
-    this.retryCount = 0;
 
-    // Starte Nonce-Cleanup um Memory Leaks zu verhindern
-    this.startNonceCleanup();
+    // Generate key pairs
+    this.localECDHKeyPair = await generateECDHKeyPair();
+    this.localECDSAKeyPair = await generateECDSAKeyPair();
 
-    // KRITISCH: Handler ZUERST registrieren BEVOR Keys generiert werden!
-    // Sonst können KeyOffers ankommen bevor die Handler bereit sind.
-    // Dies behebt das "No client method with the name 'receivekeyoffer' found" Problem auf Safari.
-    this.registerSignalRHandlers();
+    console.debug('🔐 KeyExchange: Initialized', {
+      isInitiator,
+      localFingerprint: `${String(this.localECDHKeyPair.fingerprint).slice(0, 16)}...`,
+    });
 
-    // Generate local ECDH key pair (async - dauert Zeit)
-    this.localKeyPair = await this.e2eeManager.generateECDHKeyPair();
+    // Setup SignalR handlers
+    this.setupSignalRHandlers();
 
-    // Generiere Signing Keys (async - dauert Zeit)
-    const signingInfo = await this.signatureManager.generateSigningKeys();
-    console.debug(
-      `🔑 E2EE: Generated signing key, fingerprint: ${signingInfo.fingerprint.slice(0, 16)}...`
-    );
-
-    console.debug(
-      `🔑 E2EE: Generated local ECDH key pair, fingerprint: ${this.localKeyPair.fingerprint.slice(0, 16)}...`
-    );
-
-    // Race Condition Prevention
-    // Resolve initiator conflict using deterministic user ID comparison
-    await this.resolveInitiatorConflict();
-  }
-
-  /**
-   * Initiator-Rolle validieren
-   *
-   * WICHTIG: Die Initiator-Rolle wird vom Backend basierend auf dem Match festgelegt:
-   * - initiatorUserId = Der User der die ursprüngliche Matchanfrage gestellt hat
-   * - participantUserId = Der Skill-Besitzer
-   *
-   * Diese Rollen sind KONSTANT durch die gesamte Kette Match → Appointment → VideoCall
-   * und werden NICHT mehr lokal überschrieben!
-   *
-   * Die alte Hash-basierte "resolveInitiatorConflict" Logik wurde entfernt, da sie
-   * die korrekten Backend-Rollen überschreiben konnte.
-   */
-  private async resolveInitiatorConflict(): Promise<void> {
-    // Vertraue der Backend-Entscheidung - keine lokale Überschreibung mehr!
-    // Die Initiator-Rolle basiert auf dem Match (wer die Matchanfrage gestellt hat)
-    // und ist unabhängig davon, wer den Call startet oder zuerst joined.
-    console.debug(
-      `🔐 E2EE: Using backend-provided initiator role: ${this.isInitiator ? 'INITIATOR' : 'PARTICIPANT'}`
-    );
-    console.debug(
-      `🔐 E2EE: LocalUserId: ${this.localUserId?.toString() ?? 'N/A'}, PeerId: ${this.peerId?.toString() ?? 'N/A'}`
-    );
-
-    console.debug(
-      `🔐 E2EE: Final initiator role: ${this.isInitiator ? 'INITIATOR' : 'PARTICIPANT'}`
-    );
-
-    if (this.isInitiator) {
-      // Kurze Verzögerung um Race Condition zu vermeiden
-      await new Promise((resolve) => {
-        setTimeout(resolve, 500);
-      });
+    // If initiator, start key exchange
+    if (isInitiator) {
       await this.sendKeyOffer();
-      // Timeout NUR für Initiator starten - er erwartet eine Antwort
-      this.startKeyExchangeTimeout();
-    }
-    // WICHTIG: Participant startet KEINEN Timeout hier!
-    // Der Participant bekommt irgendwann ein KeyOffer und antwortet sofort.
-    // Wenn kein Offer kommt (z.B. Initiator noch nicht connected), ist das OK -
-    // der Initiator wird retry'en sobald er connected ist.
-  }
-
-  /**
-   * Starte den Key Exchange Timeout
-   * Nur aufrufen wenn wir aktiv auf eine Response warten!
-   */
-  private startKeyExchangeTimeout(): void {
-    // Clear existing timeout
-    if (this.keyExchangeTimeout) {
-      clearTimeout(this.keyExchangeTimeout);
-    }
-
-    this.keyExchangeTimeout = setTimeout(() => {
-      if (this.exchangeState !== 'complete') {
-        console.warn('⏰ E2EE: Key exchange timeout');
-        void this.handleKeyExchangeTimeout();
-      }
-    }, KEY_EXCHANGE_TIMEOUT);
-  }
-
-  /**
-   * Berechne Timeout mit Exponential Backoff
-   * Retry 1: 60s, Retry 2: 90s, Retry 3: 135s
-   */
-  private getRetryTimeout(): number {
-    const backoffMultiplier = 1.5 ** this.retryCount;
-    return Math.min(KEY_EXCHANGE_TIMEOUT * backoffMultiplier, 180000); // Max 3 Minuten
-  }
-
-  /**
-   * Timeout Handler mit Exponential Backoff Retry
-   */
-  private async handleKeyExchangeTimeout(): Promise<void> {
-    if (this.retryCount < MAX_RETRY_ATTEMPTS) {
-      this.retryCount++;
-      const nextTimeout = this.getRetryTimeout();
-      console.debug(
-        `🔄 E2EE: Retrying key exchange (attempt ${this.retryCount.toString()}/${MAX_RETRY_ATTEMPTS.toString()}, next timeout: ${(nextTimeout / 1000).toString()}s)`
-      );
-      this.exchangeState = 'idle';
-
-      if (this.isInitiator) {
-        // Kurze Verzögerung vor Retry mit Jitter (0-2s) um Kollisionen zu vermeiden
-        const jitter = Math.random() * 2000;
-        await new Promise((resolve) => {
-          setTimeout(resolve, jitter);
-        });
-        await this.sendKeyOffer();
-
-        // Neuer Timeout mit Exponential Backoff - NUR für Initiator
-        if (this.keyExchangeTimeout) {
-          clearTimeout(this.keyExchangeTimeout);
-        }
-        this.keyExchangeTimeout = setTimeout(() => {
-          if (this.exchangeState !== 'complete') {
-            void this.handleKeyExchangeTimeout();
-          }
-        }, nextTimeout);
-      }
-      // Participant braucht keinen Retry - er wartet einfach auf das nächste Offer
-    } else {
-      console.error('❌ E2EE: Key exchange failed after max retries');
-      this.exchangeState = 'error';
-      this.events.onKeyExchangeError('Key exchange failed after maximum retry attempts');
     }
   }
 
   /**
-   * Register SignalR event handlers for key exchange
-   */
-  private registerSignalRHandlers(): void {
-    if (!this.signalRConnection) return;
-
-    console.debug(`🔐 E2EE: Registering SignalR handlers for key exchange...`);
-    console.debug(`🔐 E2EE: SignalR connection state: ${this.signalRConnection.state}`);
-    console.debug(
-      `🔐 E2EE: LocalUserId: ${this.localUserId?.toString() ?? 'N/A'}, PeerId: ${this.peerId?.toString() ?? 'N/A'}`
-    );
-
-    this.signalRConnection.on(
-      'ReceiveKeyOffer',
-      async (fromUserId: string, message: KeyExchangeMessage) => {
-        console.debug(`📨 E2EE: ========== RECEIVED KEY OFFER ==========`);
-        console.debug(`📨 E2EE: From: ${fromUserId}`);
-        console.debug(`📨 E2EE: My ID: ${this.localUserId?.toString() ?? 'N/A'}`);
-        console.debug(`📨 E2EE: Expected Peer: ${this.peerId?.toString() ?? 'N/A'}`);
-        console.debug(`📨 E2EE: Current state: ${this.exchangeState}`);
-        console.debug(`📨 E2EE: Is Initiator: ${this.isInitiator.toString()}`);
-        console.debug(
-          `📨 E2EE: Message type: ${typeof message === 'string' ? 'string' : 'object'}`
-        );
-
-        // Parse wenn nötig
-        const parsedMessage: KeyExchangeMessage =
-          typeof message === 'string' ? (JSON.parse(message) as KeyExchangeMessage) : message;
-
-        if (this.usedNonces.has(parsedMessage.nonce)) {
-          console.warn('⚠️ E2EE: Duplicate nonce detected, ignoring (replay attack?)');
-          return;
-        }
-        this.usedNonces.set(parsedMessage.nonce, Date.now());
-
-        // Erlaube neuen Key Exchange wenn:
-        // 1. Wir noch nicht complete sind
-        // 2. Wir complete sind aber eine neue Generation kommt (key rotation)
-        // 3. Wir complete sind aber von einem reconnected peer
-        if (this.exchangeState === 'complete') {
-          const currentGen = this.e2eeManager.getCurrentKeyMaterial()?.generation ?? 0;
-          if (parsedMessage.generation <= currentGen) {
-            console.debug(
-              `✅ E2EE: Already complete with gen ${currentGen}, ignoring offer gen ${parsedMessage.generation}`
-            );
-            return;
-          }
-          console.debug(
-            `🔄 E2EE: Accepting new generation offer (${parsedMessage.generation} > ${currentGen})`
-          );
-          // Reset state für neuen Exchange
-          this.exchangeState = 'idle';
-        }
-
-        await this.handleKeyOffer(parsedMessage);
-      }
-    );
-
-    this.signalRConnection.on(
-      'ReceiveKeyAnswer',
-      async (fromUserId: string, message: KeyExchangeMessage) => {
-        console.debug(`📨 E2EE: ========== RECEIVED KEY ANSWER ==========`);
-        console.debug(`📨 E2EE: From: ${fromUserId}`);
-        console.debug(`📨 E2EE: My ID: ${this.localUserId?.toString() ?? 'N/A'}`);
-        console.debug(`📨 E2EE: Expected Peer: ${this.peerId?.toString() ?? 'N/A'}`);
-        console.debug(`📨 E2EE: Current state: ${this.exchangeState}`);
-        console.debug(`📨 E2EE: Is Initiator: ${this.isInitiator.toString()}`);
-        console.debug(
-          `📨 E2EE: Message type: ${typeof message === 'string' ? 'string' : 'object'}`
-        );
-
-        // Parse wenn nötig
-        const parsedMessage: KeyExchangeMessage =
-          typeof message === 'string' ? (JSON.parse(message) as KeyExchangeMessage) : message;
-
-        if (this.usedNonces.has(parsedMessage.nonce)) {
-          console.warn('⚠️ E2EE: Duplicate nonce detected, ignoring');
-          return;
-        }
-        this.usedNonces.set(parsedMessage.nonce, Date.now());
-
-        await this.handleKeyAnswer(parsedMessage);
-      }
-    );
-
-    this.signalRConnection.on(
-      'ReceiveKeyRotation',
-      async (fromUserId: string, message: KeyExchangeMessage) => {
-        console.debug(`🔄 E2EE: ========== RECEIVED KEY ROTATION ==========`);
-        console.debug(`🔄 E2EE: From: ${fromUserId}`);
-        console.debug(`🔄 E2EE: My ID: ${this.localUserId?.toString() ?? 'N/A'}`);
-        console.debug(`🔄 E2EE: Current state: ${this.exchangeState}`);
-        await this.handleKeyRotation(message);
-      }
-    );
-
-    console.debug(`✅ E2EE: SignalR handlers registered successfully`);
-  }
-
-  /**
-   * Generate unique nonce for replay protection
-   */
-  private generateNonce(): string {
-    const array = new Uint8Array(16);
-    crypto.getRandomValues(array);
-    return [...array].map((b) => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  /**
-   * Send key offer (initiator only) - KORRIGIERT
-   */
-  private async sendKeyOffer(): Promise<void> {
-    if (!this.signalRConnection || !this.localKeyPair || !this.roomId || !this.peerId) {
-      throw new Error('Key exchange not initialized');
-    }
-
-    if (this.exchangeState !== 'idle') {
-      console.debug(`⚠️ E2EE: Cannot send offer, state is ${this.exchangeState}`);
-      return;
-    }
-
-    this.exchangeState = 'initiating';
-
-    const nonce = this.generateNonce();
-
-    // Signiere die Nachricht
-    const dataToSign = `${this.localKeyPair.publicKeyBase64}:${this.localKeyPair.fingerprint}:${nonce}`;
-    const signature = await this.signatureManager.sign(dataToSign);
-    const signingPublicKey = await this.signatureManager.exportVerifyingKey();
-
-    const message: KeyExchangeMessage = {
-      type: 'keyOffer',
-      publicKey: this.localKeyPair.publicKeyBase64,
-      fingerprint: this.localKeyPair.fingerprint,
-      signature,
-      generation: 1,
-      timestamp: Date.now(),
-      nonce,
-    };
-
-    console.debug(`📤 E2EE: Sending signed key offer to room ${this.roomId}`);
-
-    try {
-      await this.signalRConnection.invoke(
-        'SendKeyOffer',
-        this.roomId,
-        this.peerId,
-        JSON.stringify({ ...message, signingPublicKey })
-      );
-    } catch (error) {
-      console.error('❌ E2EE: Failed to send key offer:', error);
-      this.exchangeState = 'error';
-      this.events.onKeyExchangeError(
-        `Failed to send key offer: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * Handle received key offer (participant only) - KORRIGIERT
-   */
-  private async handleKeyOffer(rawMessage: KeyExchangeMessage | string): Promise<void> {
-    try {
-      // Parse message if string
-      const message: KeyExchangeMessage & { signingPublicKey?: string } =
-        typeof rawMessage === 'string'
-          ? (JSON.parse(rawMessage) as KeyExchangeMessage & { signingPublicKey?: string })
-          : rawMessage;
-
-      // Importiere Peer's Signing Key und verifiziere
-      if (message.signingPublicKey) {
-        await this.signatureManager.importPeerVerifyingKey(message.signingPublicKey);
-
-        const dataToVerify = `${message.publicKey}:${message.fingerprint}:${message.nonce}`;
-        const isValid = await this.signatureManager.verify(dataToVerify, message.signature);
-
-        if (!isValid) {
-          console.error('❌ E2EE: Key offer signature verification failed!');
-          this.events.onKeyExchangeError(
-            'Key offer signature verification failed - possible MITM attack'
-          );
-          return;
-        }
-
-        console.debug('✅ E2EE: Key offer signature verified');
-
-        // NEU: Speichere Peer's Signing Key für Chat E2EE
-        this.peerSigningPublicKey = message.signingPublicKey;
-        // Berechne Fingerprint aus dem öffentlichen Schlüssel
-        const keyBuffer = base64ToArrayBuffer(message.signingPublicKey);
-        const fingerprintBuffer = await crypto.subtle.digest('SHA-256', keyBuffer);
-        this.peerSigningFingerprint = arrayBufferToHex(fingerprintBuffer);
-        console.debug(
-          `🔑 E2EE: Stored peer signing key, fingerprint: ${this.peerSigningFingerprint.slice(0, 16)}...`
-        );
-      }
-
-      this.exchangeState = 'responding';
-
-      // Store remote peer's public key
-      this.remotePeerPublicKey = message.publicKey;
-      this.remotePeerFingerprint = message.fingerprint;
-
-      console.debug(
-        `🔑 E2EE: Remote peer fingerprint: ${this.remotePeerFingerprint.slice(0, 16)}...`
-      );
-
-      // Derive shared key
-      await this.deriveSharedKey();
-
-      // Send key answer back
-      await this.sendKeyAnswer();
-
-      // Clear timeout
-      if (this.keyExchangeTimeout) {
-        clearTimeout(this.keyExchangeTimeout);
-        this.keyExchangeTimeout = null;
-      }
-
-      this.exchangeState = 'complete';
-
-      // Trigger Verification UI
-      if (this.events.onVerificationRequired && this.localKeyPair && this.remotePeerFingerprint) {
-        this.events.onVerificationRequired(
-          this.localKeyPair.fingerprint,
-          this.remotePeerFingerprint
-        );
-      }
-
-      // Notify completion - inkl. Peer Signing Key für Chat E2EE
-      this.events.onKeyExchangeComplete(
-        this.remotePeerFingerprint,
-        message.generation,
-        this.peerSigningPublicKey ?? undefined,
-        this.peerSigningFingerprint ?? undefined
-      );
-    } catch (error) {
-      console.error('❌ E2EE: Error handling key offer:', error);
-      this.exchangeState = 'error';
-      this.events.onKeyExchangeError(
-        `Failed to handle key offer: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * Send key answer (participant only) - KORRIGIERT
-   */
-  private async sendKeyAnswer(): Promise<void> {
-    if (!this.signalRConnection || !this.localKeyPair || !this.roomId || !this.peerId) {
-      throw new Error('Key exchange not initialized');
-    }
-
-    const nonce = this.generateNonce();
-
-    const dataToSign = `${this.localKeyPair.publicKeyBase64}:${this.localKeyPair.fingerprint}:${nonce}`;
-    const signature = await this.signatureManager.sign(dataToSign);
-    const signingPublicKey = await this.signatureManager.exportVerifyingKey();
-
-    const message: KeyExchangeMessage = {
-      type: 'keyAnswer',
-      publicKey: this.localKeyPair.publicKeyBase64,
-      fingerprint: this.localKeyPair.fingerprint,
-      signature,
-      generation: 1,
-      timestamp: Date.now(),
-      nonce,
-    };
-
-    console.debug(
-      `📤 E2EE: Sending signed key answer to room ${this.roomId}, peerId: ${this.peerId}`
-    );
-    console.debug(`📤 E2EE: Answer fingerprint: ${this.localKeyPair.fingerprint.slice(0, 16)}...`);
-
-    try {
-      await this.signalRConnection.invoke(
-        'SendKeyAnswer',
-        this.roomId,
-        this.peerId,
-        JSON.stringify({ ...message, signingPublicKey })
-      );
-      console.debug(`✅ E2EE: Key answer sent successfully to ${this.peerId}`);
-    } catch (error) {
-      console.error('❌ E2EE: Failed to send key answer:', error);
-      this.events.onKeyExchangeError(
-        `Failed to send key answer: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * Handle received key answer (initiator only) - KORRIGIERT
-   */
-  private async handleKeyAnswer(rawMessage: KeyExchangeMessage | string): Promise<void> {
-    console.debug(
-      `🔐 E2EE: handleKeyAnswer called, isInitiator: ${this.isInitiator}, state: ${this.exchangeState}`
-    );
-
-    if (!this.isInitiator) {
-      console.warn('⚠️ E2EE: Ignoring key answer (I am not the initiator)');
-      // Wenn wir nicht der Initiator sind aber trotzdem eine Answer bekommen,
-      // könnte es ein Timing-Problem sein. Logge zusätzliche Infos.
-      console.warn(
-        `⚠️ E2EE: localUserId: ${this.localUserId ?? 'N/A'}, peerId: ${this.peerId ?? 'N/A'}`
-      );
-      return;
-    }
-
-    // Wenn wir bereits complete sind, ignoriere (außer bei höherer Generation)
-    if (this.exchangeState === 'complete') {
-      console.debug('⚠️ E2EE: Already complete, ignoring answer (use key rotation instead)');
-      return;
-    }
-
-    try {
-      const message: KeyExchangeMessage & { signingPublicKey?: string } =
-        typeof rawMessage === 'string'
-          ? (JSON.parse(rawMessage) as KeyExchangeMessage & { signingPublicKey?: string })
-          : rawMessage;
-
-      if (message.signingPublicKey) {
-        await this.signatureManager.importPeerVerifyingKey(message.signingPublicKey);
-
-        const dataToVerify = `${message.publicKey}:${message.fingerprint}:${message.nonce}`;
-        const isValid = await this.signatureManager.verify(dataToVerify, message.signature);
-
-        if (!isValid) {
-          console.error('❌ E2EE: Key answer signature verification failed!');
-          this.events.onKeyExchangeError(
-            'Key answer signature verification failed - possible MITM attack'
-          );
-          return;
-        }
-
-        console.debug('✅ E2EE: Key answer signature verified');
-
-        // NEU: Speichere Peer's Signing Key für Chat E2EE
-        this.peerSigningPublicKey = message.signingPublicKey;
-        const keyBuffer = base64ToArrayBuffer(message.signingPublicKey);
-        const fingerprintBuffer = await crypto.subtle.digest('SHA-256', keyBuffer);
-        this.peerSigningFingerprint = arrayBufferToHex(fingerprintBuffer);
-        console.debug(
-          `🔑 E2EE: Stored peer signing key, fingerprint: ${this.peerSigningFingerprint.slice(0, 16)}...`
-        );
-      }
-
-      // Store remote peer's public key
-      this.remotePeerPublicKey = message.publicKey;
-      this.remotePeerFingerprint = message.fingerprint;
-
-      console.debug(
-        `🔑 E2EE: Remote peer fingerprint: ${this.remotePeerFingerprint.slice(0, 16)}...`
-      );
-
-      // Derive shared key
-      await this.deriveSharedKey();
-
-      // Clear timeout
-      if (this.keyExchangeTimeout) {
-        clearTimeout(this.keyExchangeTimeout);
-        this.keyExchangeTimeout = null;
-      }
-
-      this.exchangeState = 'complete';
-
-      // Trigger Verification UI
-      if (this.events.onVerificationRequired && this.localKeyPair && this.remotePeerFingerprint) {
-        this.events.onVerificationRequired(
-          this.localKeyPair.fingerprint,
-          this.remotePeerFingerprint
-        );
-      }
-
-      // Notify completion - inkl. Peer Signing Key für Chat E2EE
-      this.events.onKeyExchangeComplete(
-        this.remotePeerFingerprint,
-        message.generation,
-        this.peerSigningPublicKey ?? undefined,
-        this.peerSigningFingerprint ?? undefined
-      );
-    } catch (error) {
-      console.error('❌ E2EE: Error handling key answer:', error);
-      this.exchangeState = 'error';
-      this.events.onKeyExchangeError(
-        `Failed to handle key answer: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * Derive shared AES-GCM key from ECDH exchange
-   */
-  private async deriveSharedKey(): Promise<void> {
-    if (!this.localKeyPair || !this.remotePeerPublicKey) {
-      throw new Error('Missing key material for key derivation');
-    }
-
-    console.debug('🔐 E2EE: Deriving shared encryption key...');
-
-    const keyMaterial = await this.e2eeManager.deriveSharedKey(
-      this.localKeyPair.privateKey,
-      this.remotePeerPublicKey
-    );
-
-    console.debug(`✅ E2EE: Shared key derived (generation ${keyMaterial.generation.toString()})`);
-  }
-
-  /**
-   * Initiate key rotation - KORRIGIERT mit Loop Prevention
-   */
-  async rotateKeys(): Promise<void> {
-    if (this.exchangeState !== 'complete') {
-      console.warn('⚠️ E2EE: Cannot rotate keys - exchange not complete');
-      return;
-    }
-
-    const currentKeyMaterial = this.e2eeManager.getCurrentKeyMaterial();
-    const newGeneration = currentKeyMaterial ? currentKeyMaterial.generation + 1 : 1;
-
-    // NEU: Loop Prevention - Prüfe ob wir bereits auf eine Rotation warten
-    if (this.pendingRotationResponse !== null) {
-      console.debug(
-        `⚠️ E2EE: Already waiting for rotation response (gen ${this.pendingRotationResponse.toString()}), skipping`
-      );
-      return;
-    }
-
-    console.debug('🔄 E2EE: Initiating key rotation...');
-
-    try {
-      // Generate new key pair
-      this.localKeyPair = await this.e2eeManager.generateECDHKeyPair();
-
-      const nonce = this.generateNonce();
-      const dataToSign = `${this.localKeyPair.publicKeyBase64}:${this.localKeyPair.fingerprint}:${nonce}:${newGeneration.toString()}`;
-      const signature = await this.signatureManager.sign(dataToSign);
-
-      // Include signing public key for reconnect scenarios
-      const signingPublicKey = await this.signatureManager.exportVerifyingKey();
-
-      const message: KeyExchangeMessage & { signingPublicKey?: string; isResponse?: boolean } = {
-        type: 'keyRotation',
-        publicKey: this.localKeyPair.publicKeyBase64,
-        fingerprint: this.localKeyPair.fingerprint,
-        signature,
-        generation: newGeneration,
-        timestamp: Date.now(),
-        nonce,
-        signingPublicKey, // Include for peer to import
-      };
-
-      // NEU: Markiere diese Generation als selbst-initiiert
-      this.lastInitiatedRotationGeneration = newGeneration;
-      this.pendingRotationResponse = newGeneration;
-
-      if (this.signalRConnection && this.roomId && this.peerId) {
-        await this.signalRConnection.invoke(
-          'SendKeyRotation',
-          this.roomId,
-          this.peerId,
-          JSON.stringify(message)
-        );
-        console.debug(
-          `✅ E2EE: Key rotation message sent (generation ${newGeneration.toString()})`
-        );
-      }
-
-      // NEU: Timeout für Response - nach 10s ist pendingRotationResponse wieder frei
-      setTimeout(() => {
-        if (this.pendingRotationResponse === newGeneration) {
-          console.debug(`⚠️ E2EE: Rotation response timeout for gen ${newGeneration.toString()}`);
-          this.pendingRotationResponse = null;
-        }
-      }, 10000);
-    } catch (error) {
-      this.pendingRotationResponse = null;
-      console.error('❌ E2EE: Key rotation failed:', error);
-      this.events.onKeyExchangeError(
-        `Key rotation failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * Import peer signing key and update fingerprint
-   */
-  private async importPeerSigningKey(signingPublicKey: string): Promise<void> {
-    console.debug(`🔑 E2EE: Importing peer signing key from rotation message`);
-    await this.signatureManager.importPeerVerifyingKey(signingPublicKey);
-
-    this.peerSigningPublicKey = signingPublicKey;
-    const keyBuffer = base64ToArrayBuffer(signingPublicKey);
-    const fingerprintBuffer = await crypto.subtle.digest('SHA-256', keyBuffer);
-    this.peerSigningFingerprint = arrayBufferToHex(fingerprintBuffer);
-    console.debug(
-      `🔑 E2EE: Updated peer signing key, fingerprint: ${this.peerSigningFingerprint.slice(0, 16)}...`
-    );
-  }
-
-  /**
-   * Log key rotation debug info
-   */
-  private logRotationDebug(message: KeyExchangeMessage & { signingPublicKey?: string }): void {
-    console.debug(`🔄 E2EE: Processing key rotation (generation ${message.generation.toString()})`);
-    console.debug(`🔄 E2EE: Has signing public key in message: ${!!message.signingPublicKey}`);
-    console.debug(
-      `🔄 E2EE: Last initiated rotation: ${this.lastInitiatedRotationGeneration.toString()}`
-    );
-    console.debug(
-      `🔄 E2EE: Pending rotation response: ${this.pendingRotationResponse?.toString() ?? 'null'}`
-    );
-  }
-
-  /**
-   * Cleanup old generations to prevent memory leaks
-   * Keeps only the 10 most recent generations
-   */
-  private cleanupOldGenerations(): void {
-    if (this.processedRotationGenerations.size > 10) {
-      const generations = [...this.processedRotationGenerations].sort((a, b) => a - b);
-      for (let i = 0; i < generations.length - 10; i++) {
-        this.processedRotationGenerations.delete(generations[i]);
-      }
-    }
-  }
-
-  /**
-   * Handle key rotation from peer - KORRIGIERT mit Loop Prevention
-   */
-  private async handleKeyRotation(rawMessage: KeyExchangeMessage | string): Promise<void> {
-    try {
-      const message: KeyExchangeMessage & { signingPublicKey?: string; isResponse?: boolean } =
-        typeof rawMessage === 'string'
-          ? (JSON.parse(rawMessage) as KeyExchangeMessage & {
-              signingPublicKey?: string;
-              isResponse?: boolean;
-            })
-          : rawMessage;
-
-      this.logRotationDebug(message);
-
-      // NEU: Loop Prevention - Prüfe ob wir diese Generation bereits verarbeitet haben
-      if (this.processedRotationGenerations.has(message.generation)) {
-        console.debug(
-          `⚠️ E2EE: Already processed generation ${message.generation.toString()}, ignoring (loop prevention)`
-        );
-        return;
-      }
-
-      // NEU: Prüfe ob dies eine Response auf unsere initiierte Rotation ist
-      const isResponseToOurRotation = this.pendingRotationResponse === message.generation;
-
-      if (isResponseToOurRotation) {
-        console.debug(
-          `✅ E2EE: This is a response to our initiated rotation (gen ${message.generation.toString()})`
-        );
-        this.pendingRotationResponse = null; // Clear pending
-      }
-
-      // Falls Peer Signing Key in der Nachricht enthalten ist, importieren
-      if (message.signingPublicKey) {
-        await this.importPeerSigningKey(message.signingPublicKey);
-      }
-
-      // Verify signature
-      const dataToVerify = `${message.publicKey}:${message.fingerprint}:${message.nonce}:${message.generation.toString()}`;
-      const isValid = await this.signatureManager.verify(dataToVerify, message.signature);
-
-      if (!isValid) {
-        console.error('❌ E2EE: Key rotation signature verification failed!');
-        console.error(
-          '❌ E2EE: This may happen if the peer signing key was not set. Consider re-initializing E2EE.'
-        );
-        return;
-      }
-
-      console.debug(`✅ E2EE: Key rotation signature verified`);
-
-      // Update remote peer's public key
-      this.remotePeerPublicKey = message.publicKey;
-      this.remotePeerFingerprint = message.fingerprint;
-
-      // NEU: Nur neuen Key generieren wenn dies KEINE Response auf unsere Rotation ist
-      // Bei einer Response haben wir unseren Key bereits beim Initiieren generiert
-      if (!isResponseToOurRotation) {
-        // Generate new local key pair
-        this.localKeyPair = await this.e2eeManager.generateECDHKeyPair();
-      }
-
-      // Derive new shared key
-      await this.deriveSharedKey();
-
-      // NEU: Markiere diese Generation als verarbeitet
-      this.processedRotationGenerations.add(message.generation);
-      this.cleanupOldGenerations();
-
-      // NEU: Sende Response NUR wenn dies KEINE Response auf unsere Rotation ist
-      // UND wenn wir nicht selbst diese Rotation initiiert haben
-      if (
-        !isResponseToOurRotation &&
-        this.lastInitiatedRotationGeneration !== message.generation &&
-        this.localKeyPair
-      ) {
-        // Send our new public key back (include signing key for reconnect scenarios)
-        const nonce = this.generateNonce();
-        const dataToSign = `${this.localKeyPair.publicKeyBase64}:${this.localKeyPair.fingerprint}:${nonce}:${message.generation.toString()}`;
-        const signature = await this.signatureManager.sign(dataToSign);
-        const signingPublicKey = await this.signatureManager.exportVerifyingKey();
-
-        const responseMessage: KeyExchangeMessage & {
-          signingPublicKey?: string;
-          isResponse?: boolean;
-        } = {
-          type: 'keyRotation',
-          publicKey: this.localKeyPair.publicKeyBase64,
-          fingerprint: this.localKeyPair.fingerprint,
-          signature,
-          generation: message.generation,
-          timestamp: Date.now(),
-          nonce,
-          signingPublicKey, // Include for reconnect scenarios
-        };
-
-        if (this.signalRConnection && this.roomId && this.peerId) {
-          await this.signalRConnection.invoke(
-            'SendKeyRotation',
-            this.roomId,
-            this.peerId,
-            JSON.stringify(responseMessage)
-          );
-          console.debug(
-            `📤 E2EE: Sent key rotation response for gen ${message.generation.toString()}`
-          );
-        }
-      } else {
-        console.debug(
-          `🔒 E2EE: Not sending response (isResponseToOurRotation=${isResponseToOurRotation.toString()}, lastInitiated=${this.lastInitiatedRotationGeneration.toString()})`
-        );
-      }
-
-      // Notify key rotation complete
-      this.events.onKeyRotation(message.generation);
-
-      console.debug(`✅ E2EE: Key rotation complete (generation ${message.generation.toString()})`);
-    } catch (error) {
-      console.error('❌ E2EE: Error handling key rotation:', error);
-      this.events.onKeyExchangeError(
-        `Key rotation handling failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * Get remote peer's public key fingerprint
-   */
-  getRemotePeerFingerprint(): string | null {
-    return this.remotePeerFingerprint;
-  }
-
-  /**
-   * Get local public key fingerprint
-   */
-  getLocalFingerprint(): string | null {
-    return this.localKeyPair?.fingerprint ?? null;
-  }
-
-  /**
-   * Get current exchange state
-   */
-  getState(): string {
-    return this.exchangeState;
-  }
-
-  /**
-   * Re-trigger key exchange when peer joins
-   * Called when UserJoined event is received and key exchange is not complete
+   * Startet den Key Exchange neu (z.B. nach Reconnect oder wenn ein neuer User joined)
+   *
+   * WICHTIG: Wenn wir im Error State sind (z.B. weil der Peer beim ersten Versuch
+   * noch nicht im Room war), starten wir KOMPLETT NEU. Das ist wichtig für das Szenario:
+   * 1. User A betritt Room (allein)
+   * 2. User A sendet Key Offers ins Leere → Error State
+   * 3. User B betritt Room → UserJoined Event
+   * 4. User A sollte jetzt neu starten können!
    */
   async retriggerKeyExchange(): Promise<void> {
-    console.debug('🔄 E2EE: Re-triggering key exchange because peer joined');
-    console.debug('🔄 E2EE: Current state:', this.exchangeState);
-    console.debug('🔄 E2EE: Is initiator:', this.isInitiator);
-
-    // Clear any existing timeout
-    if (this.keyExchangeTimeout) {
-      clearTimeout(this.keyExchangeTimeout);
-      this.keyExchangeTimeout = null;
+    if (this.state === 'complete') {
+      console.debug('🔐 KeyExchange: Already complete, skipping retrigger');
+      return;
     }
 
-    // Reset retry count since peer just joined
-    this.retryCount = 0;
+    // eslint-disable-next-line sonarjs/no-duplicate-string
+    if (this.state === 'waiting-answer' || this.state === 'sending-offer') {
+      console.debug('🔐 KeyExchange: Already in progress, skipping retrigger');
+      return;
+    }
 
-    // Only initiator should send offers
+    // If we're in error state, reset and try again!
+    // This is important when the peer wasn't in the room during our initial attempts.
+    if (this.state === 'error') {
+      console.debug('🔐 KeyExchange: Resetting from error state for fresh start');
+      this.state = 'idle';
+      this.retryCount = 0;
+      if (this.retryTimeout) {
+        clearTimeout(this.retryTimeout);
+        this.retryTimeout = null;
+      }
+    }
+
     if (this.isInitiator) {
-      // Reset state to allow new offer
-      this.exchangeState = 'idle';
-
-      // Small delay to ensure peer's handlers are ready
-      await new Promise((resolve) => {
-        setTimeout(resolve, 1000);
-      });
-
-      console.debug('🔐 E2EE: Sending fresh key offer to newly joined peer');
+      console.debug('🔐 KeyExchange: Retriggering as initiator');
+      // Reset retry count for fresh attempt
+      this.retryCount = 0;
+      // Clear any pending retry timeout
+      if (this.retryTimeout) {
+        clearTimeout(this.retryTimeout);
+        this.retryTimeout = null;
+      }
       await this.sendKeyOffer();
-
-      // Set timeout for response
-      this.keyExchangeTimeout = setTimeout(() => {
-        if (this.exchangeState !== 'complete') {
-          console.warn('⏰ E2EE: Key exchange timeout after peer joined');
-          void this.handleKeyExchangeTimeout();
-        }
-      }, KEY_EXCHANGE_TIMEOUT);
     }
   }
 
   /**
-   * Format fingerprint for display
+   * Verarbeitet eine eingehende Key Exchange Message
    */
-  static formatFingerprintForDisplay(fingerprint: string): string {
-    return (
-      fingerprint
-        .match(/.{1,4}/g)
-        ?.join(' ')
-        .toUpperCase() ?? fingerprint
-    );
+  async handleIncomingMessage(message: KeyExchangeMessage): Promise<void> {
+    // Validate nonce (replay protection)
+    if (this.usedNonces.has(message.nonce)) {
+      console.warn('⚠️ KeyExchange: Replay attack detected - nonce already used');
+      return;
+    }
+
+    // Check nonce age
+    const nonceAge = Date.now() - message.timestamp;
+    if (nonceAge > NONCE_MAX_AGE_MS) {
+      console.warn('⚠️ KeyExchange: Message too old, ignoring');
+      return;
+    }
+
+    this.addNonce(message.nonce);
+
+    switch (message.type) {
+      case 'keyOffer':
+        await this.handleKeyOffer(message);
+        break;
+      case 'keyAnswer':
+        await this.handleKeyAnswer(message);
+        break;
+      case 'keyRotation':
+        await this.handleKeyRotation(message);
+        break;
+      default:
+        console.warn('⚠️ KeyExchange: Unknown message type:', message.type);
+        break;
+    }
   }
 
   /**
-   * Cleanup resources
+   * Rotiert die Keys (nur Initiator)
+   *
+   * KRITISCH: Der Initiator muss AUCH einen neuen Shared Key ableiten!
+   * Local_New_Private + Remote_Old_Public = New_Shared_Key
+   *
+   * WICHTIG FÜR RACE CONDITION FIX:
+   * 1. Generiere neuen Key
+   * 2. Leite neuen Shared Key ab
+   * 3. SOFORT Worker aktualisieren (onKeyRotation)
+   * 4. DANN Message senden
+   *
+   * Dies verhindert, dass Frames mit dem neuen Key verschlüsselt werden,
+   * bevor der Worker den neuen Key hat.
+   */
+  async rotateKeys(): Promise<void> {
+    if (!this.isInitiator) {
+      console.warn('⚠️ KeyExchange: Only initiator can rotate keys');
+      return;
+    }
+
+    if (!this.remotePeerPublicKeyBase64 || !this.localECDHKeyPair) {
+      console.error('❌ KeyExchange: Cannot rotate - missing keys');
+      return;
+    }
+
+    // Generate new ECDH key pair
+    this.localECDHKeyPair = await generateECDHKeyPair();
+    this.keyGeneration++;
+
+    console.debug(`🔄 KeyExchange: Rotating keys to generation ${this.keyGeneration}`);
+
+    // KRITISCH: Initiator muss auch neuen Shared Key ableiten!
+    // Direkt e2eeManager.deriveSharedKey() aufrufen (OHNE onKeyExchangeComplete)
+    // Das updatet E2EEManager.encryptionKey und E2EEManager.keyGeneration
+    await this.e2eeManager.deriveSharedKey(
+      this.localECDHKeyPair.privateKey,
+      this.remotePeerPublicKeyBase64
+    );
+
+    // RACE CONDITION FIX: Worker SOFORT aktualisieren BEVOR Message gesendet wird
+    // Dies stellt sicher, dass der Worker den neuen Key hat, bevor neue Frames
+    // mit diesem Key verschlüsselt werden
+    console.debug(`🔄 KeyExchange: Updating worker with new key BEFORE sending rotation message`);
+    await this.events.onKeyRotation(this.keyGeneration);
+
+    // DANN an andere Seite senden (Worker ist jetzt bereits aktualisiert)
+    await this.sendKeyRotationMessage();
+  }
+
+  /**
+   * Sendet die Key Rotation Message (intern, ohne Worker-Update)
+   */
+  private async sendKeyRotationMessage(): Promise<void> {
+    if (!this.hubConnection || !this.localECDHKeyPair || !this.localECDSAKeyPair) return;
+
+    try {
+      const nonce = generateNonce();
+      const timestamp = Date.now();
+
+      // Sign first, then create the immutable message
+      const signature = await signKeyExchangeMessage(
+        this.localECDSAKeyPair.signingKey,
+        this.localECDHKeyPair.publicKeyBase64,
+        timestamp,
+        nonce
+      );
+
+      const message: KeyExchangeMessage = {
+        type: 'keyRotation',
+        publicKey: this.localECDHKeyPair.publicKeyBase64,
+        fingerprint: this.localECDHKeyPair.fingerprint,
+        signature,
+        generation: this.keyGeneration as KeyGeneration,
+        timestamp,
+        nonce,
+      };
+
+      // Use unified ForwardE2EEMessage with audit logging
+      const result = await this.hubConnection.invoke<{ success: boolean; errorMessage?: string }>(
+        'ForwardE2EEMessage',
+        {
+          type: 3, // KeyRotation
+          targetUserId: this.targetUserId,
+          roomId: this.roomId,
+          encryptedPayload: JSON.stringify(message),
+          keyFingerprint: String(this.localECDHKeyPair.fingerprint).slice(0, 16),
+          keyGeneration: this.keyGeneration,
+          clientTimestamp: new Date().toISOString(),
+        }
+      );
+
+      if (!result.success) {
+        throw new Error(result.errorMessage ?? 'Failed to send key rotation');
+      }
+
+      console.debug('🔄 KeyExchange: Sent key rotation message');
+    } catch (e) {
+      console.error('❌ KeyExchange: Failed to send key rotation:', e);
+    }
+  }
+
+  /**
+   * Cleanup
    */
   cleanup(): void {
-    console.debug('🧹 E2EE: Cleaning up key exchange manager');
-
-    if (this.keyExchangeTimeout) {
-      clearTimeout(this.keyExchangeTimeout);
-      this.keyExchangeTimeout = null;
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
     }
 
-    // Stoppe Nonce-Cleanup Interval
     if (this.nonceCleanupInterval) {
       clearInterval(this.nonceCleanupInterval);
       this.nonceCleanupInterval = null;
     }
 
-    this.localKeyPair = null;
-    this.remotePeerPublicKey = null;
-    this.remotePeerFingerprint = null;
-    this.peerSigningPublicKey = null;
-    this.peerSigningFingerprint = null;
-    this.signalRConnection = null;
-    this.roomId = null;
-    this.peerId = null;
-    this.localUserId = null;
-    this.exchangeState = 'idle';
     this.usedNonces.clear();
+    this.localECDHKeyPair = null;
+    this.localECDSAKeyPair = null;
+    this.peerECDSAVerificationKey = null;
+    this.peerSigningPublicKeyBase64 = null;
+    this.peerSigningFingerprint = null;
+    this.remotePeerPublicKeyBase64 = null;
+    this.state = 'idle';
+    this.keyGeneration = 0;
     this.retryCount = 0;
 
-    // NEU: Reset Key Rotation Loop Prevention State
-    this.lastInitiatedRotationGeneration = 0;
-    this.processedRotationGenerations.clear();
-    this.pendingRotationResponse = null;
+    console.debug('🧹 KeyExchange: Cleanup complete');
+  }
 
-    console.debug('✅ E2EE: Cleanup complete, all resources released');
+  // ============================================================================
+  // Private Methods - SignalR
+  // ============================================================================
+
+  private setupSignalRHandlers(): void {
+    if (!this.hubConnection) return;
+
+    // Handle key offer
+    this.hubConnection.on('ReceiveKeyOffer', async (fromUserId: string, data: string) => {
+      if (fromUserId !== this.targetUserId) return;
+
+      try {
+        const message = JSON.parse(data) as KeyExchangeMessage;
+        await this.handleKeyOffer(message);
+      } catch (e) {
+        console.error('❌ KeyExchange: Failed to parse key offer:', e);
+      }
+    });
+
+    // Handle key answer
+    this.hubConnection.on('ReceiveKeyAnswer', async (fromUserId: string, data: string) => {
+      if (fromUserId !== this.targetUserId) return;
+
+      try {
+        const message = JSON.parse(data) as KeyExchangeMessage;
+        await this.handleKeyAnswer(message);
+      } catch (e) {
+        console.error('❌ KeyExchange: Failed to parse key answer:', e);
+      }
+    });
+
+    // Handle key rotation
+    this.hubConnection.on('ReceiveKeyRotation', async (fromUserId: string, data: string) => {
+      if (fromUserId !== this.targetUserId) return;
+
+      try {
+        const message = JSON.parse(data) as KeyExchangeMessage;
+        await this.handleKeyRotation(message);
+      } catch (e) {
+        console.error('❌ KeyExchange: Failed to parse key rotation:', e);
+      }
+    });
+  }
+
+  // ============================================================================
+  // Private Methods - Sending Messages
+  // ============================================================================
+
+  private async sendKeyOffer(): Promise<void> {
+    if (!this.hubConnection || !this.localECDHKeyPair || !this.localECDSAKeyPair) {
+      console.error('❌ KeyExchange: Cannot send offer - not initialized');
+      return;
+    }
+
+    // Debounce: Don't send new offers too quickly after a successful exchange
+    const timeSinceLastExchange = Date.now() - this.lastKeyExchangeCompleteTime;
+    if (this.lastKeyExchangeCompleteTime > 0 && timeSinceLastExchange < KEY_EXCHANGE_DEBOUNCE_MS) {
+      console.debug(
+        `⏳ KeyExchange: Debouncing - last exchange was ${timeSinceLastExchange}ms ago, waiting...`
+      );
+      return;
+    }
+
+    // Clear any pending retry timeout to prevent overlapping retries
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
+
+    this.state = 'sending-offer';
+
+    try {
+      const nonce = generateNonce();
+      const timestamp = Date.now();
+
+      // Sign first, then create the immutable message
+      const signature = await signKeyExchangeMessage(
+        this.localECDSAKeyPair.signingKey,
+        this.localECDHKeyPair.publicKeyBase64,
+        timestamp,
+        nonce
+      );
+
+      const message: KeyExchangeMessage = {
+        type: 'keyOffer',
+        publicKey: this.localECDHKeyPair.publicKeyBase64,
+        fingerprint: this.localECDHKeyPair.fingerprint,
+        signature,
+        generation: this.keyGeneration as KeyGeneration,
+        timestamp,
+        nonce,
+        signingPublicKey: this.localECDSAKeyPair.publicKeyBase64,
+      };
+
+      // Use unified ForwardE2EEMessage with audit logging
+      const result = await this.hubConnection.invoke<{ success: boolean; errorMessage?: string }>(
+        'ForwardE2EEMessage',
+        {
+          type: 1, // KeyOffer
+          targetUserId: this.targetUserId,
+          roomId: this.roomId,
+          encryptedPayload: JSON.stringify(message),
+          keyFingerprint: String(this.localECDHKeyPair.fingerprint).slice(0, 16),
+          keyGeneration: this.keyGeneration,
+          clientTimestamp: new Date().toISOString(),
+        }
+      );
+
+      if (!result.success) {
+        throw new Error(result.errorMessage ?? 'Failed to send key offer');
+      }
+
+      this.state = 'waiting-answer';
+      console.debug('📤 KeyExchange: Sent key offer');
+
+      // Set retry timeout
+      this.scheduleRetry();
+    } catch (e) {
+      console.error('❌ KeyExchange: Failed to send key offer:', e);
+      this.state = 'error';
+      this.events.onKeyExchangeError('Failed to send key offer');
+    }
+  }
+
+  private async sendKeyAnswer(peerPublicKeyBase64: string): Promise<void> {
+    if (!this.hubConnection || !this.localECDHKeyPair || !this.localECDSAKeyPair) {
+      console.error('❌ KeyExchange: Cannot send answer - not initialized');
+      return;
+    }
+
+    try {
+      // CRITICAL FIX FOR CROSS-BROWSER E2EE:
+      // Step 1: Derive shared key and update worker keys for DECRYPTION only (no encryption yet).
+      // This ensures we can decrypt frames from the initiator as soon as they enable encryption.
+      console.debug('📤 KeyExchange: Deriving shared key (decryption ready, encryption delayed)');
+      await this.deriveAndSetSharedKey(peerPublicKeyBase64, false);
+
+      // Step 2: NOW send the answer. The initiator will receive this, derive their key,
+      // and start sending encrypted frames. We're ready to decrypt them.
+      const nonce = generateNonce();
+      const timestamp = Date.now();
+
+      const signature = await signKeyExchangeMessage(
+        this.localECDSAKeyPair.signingKey,
+        this.localECDHKeyPair.publicKeyBase64,
+        timestamp,
+        nonce
+      );
+
+      const message: KeyExchangeMessage = {
+        type: 'keyAnswer',
+        publicKey: this.localECDHKeyPair.publicKeyBase64,
+        fingerprint: this.localECDHKeyPair.fingerprint,
+        signature,
+        generation: this.keyGeneration as KeyGeneration,
+        timestamp,
+        nonce,
+        signingPublicKey: this.localECDSAKeyPair.publicKeyBase64,
+      };
+
+      const result = await this.hubConnection.invoke<{ success: boolean; errorMessage?: string }>(
+        'ForwardE2EEMessage',
+        {
+          type: 2, // KeyAnswer
+          targetUserId: this.targetUserId,
+          roomId: this.roomId,
+          encryptedPayload: JSON.stringify(message),
+          keyFingerprint: String(this.localECDHKeyPair.fingerprint).slice(0, 16),
+          keyGeneration: this.keyGeneration,
+          clientTimestamp: new Date().toISOString(),
+        }
+      );
+
+      if (!result.success) {
+        throw new Error(result.errorMessage ?? 'Failed to send key answer');
+      }
+
+      console.debug('📤 KeyExchange: Sent key answer');
+
+      // Step 3: NOW enable our outbound encryption. The initiator should have received
+      // our answer by now and be ready to decrypt. This 2-phase approach ensures both
+      // sides are ready before either starts encrypting.
+      // CRITICAL: Delay must be long enough for the peer (Chrome) to:
+      // 1. Receive the SignalR message (network latency)
+      // 2. Derive the shared key (crypto operation ~50-100ms)
+      // 3. Update workers with the key
+      // 4. Enable decryption pipeline
+      // 500ms gives plenty of margin for all these steps.
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 500);
+      });
+
+      // Call onKeyExchangeComplete again with encryption enabled
+      const keyMaterial = this.e2eeManager.getCurrentKeyMaterial();
+      if (keyMaterial) {
+        console.debug('📤 KeyExchange: Enabling encryption after answer sent');
+        await this.events.onKeyExchangeComplete(
+          keyMaterial.publicKeyFingerprint,
+          keyMaterial.generation,
+          keyMaterial,
+          this.peerSigningPublicKeyBase64 ?? undefined,
+          this.peerSigningFingerprint ?? undefined,
+          true // NOW enable encryption
+        );
+      }
+    } catch (e) {
+      console.error('❌ KeyExchange: Failed to send key answer:', e);
+      this.state = 'error';
+      this.events.onKeyExchangeError('Failed to send key answer');
+    }
+  }
+
+  // ============================================================================
+  // Private Methods - Handling Messages
+  // ============================================================================
+
+  private async handleKeyOffer(message: KeyExchangeMessage): Promise<void> {
+    console.debug('📥 KeyExchange: Received key offer');
+
+    try {
+      // REJOIN FIX: If keys are null (after cleanup from UserLeft), regenerate them
+      // This allows the non-initiator to respond to key offers after a leave/rejoin cycle
+      if (!this.localECDHKeyPair || !this.localECDSAKeyPair) {
+        console.debug(
+          '🔑 KeyExchange: Keys not initialized, generating new keys (lazy init for rejoin)'
+        );
+        this.localECDHKeyPair = await generateECDHKeyPair();
+        this.localECDSAKeyPair = await generateECDSAKeyPair();
+        console.debug('✅ KeyExchange: Keys generated for rejoin response');
+      }
+      // Import and store peer's signing key for future verification
+      if (message.signingPublicKey) {
+        this.peerECDSAVerificationKey = await importECDSAVerificationKey(message.signingPublicKey);
+        this.peerSigningPublicKeyBase64 = message.signingPublicKey;
+
+        // Calculate peer's signing fingerprint
+        const fingerprintBuffer = await crypto.subtle.digest(
+          'SHA-256',
+          new TextEncoder().encode(message.signingPublicKey)
+        );
+        this.peerSigningFingerprint = arrayBufferToHex(fingerprintBuffer);
+      }
+
+      // Verify signature
+      if (this.peerECDSAVerificationKey) {
+        const isValid = await verifyKeyExchangeMessage(
+          this.peerECDSAVerificationKey,
+          message.publicKey,
+          message.timestamp,
+          message.nonce,
+          message.signature
+        );
+        if (!isValid) {
+          console.error('❌ KeyExchange: Invalid signature on key offer');
+          this.events.onKeyExchangeError('Invalid signature');
+          return;
+        }
+      }
+
+      // Update key generation
+      this.keyGeneration = message.generation;
+
+      // Store remote peer's public key for future key rotations
+      this.remotePeerPublicKeyBase64 = message.publicKey;
+
+      // Send answer
+      await this.sendKeyAnswer(message.publicKey);
+    } catch (e) {
+      console.error('❌ KeyExchange: Failed to handle key offer:', e);
+      this.events.onKeyExchangeError('Failed to process key offer');
+    }
+  }
+
+  private async handleKeyAnswer(message: KeyExchangeMessage): Promise<void> {
+    // RECOVERY FIX: If we're in 'error' state but receive a valid answer,
+    // this means the peer finally joined and responded! Reset and process.
+    // This handles the scenario where:
+    // 1. Chrome joins room (alone), sends key offers
+    // 2. Chrome retries exhaust → error state
+    // 3. Safari joins later, receives last offer, sends answer
+    // 4. Chrome should RECOVER and process this answer!
+    if (this.state === 'error') {
+      console.debug('📥 KeyExchange: Received answer while in error state - recovering!');
+      this.state = 'waiting-answer';
+      this.retryCount = 0;
+    }
+
+    // Accept answers in 'waiting-answer' AND 'sending-offer' states.
+    // During retries, state temporarily becomes 'sending-offer', but an answer from the peer
+    // is still valid and should be processed.
+    if (this.state !== 'waiting-answer' && this.state !== 'sending-offer') {
+      console.debug(`📥 KeyExchange: Received answer but state is '${this.state}', ignoring`);
+      return;
+    }
+
+    console.debug(`📥 KeyExchange: Received key answer (state was '${this.state}')`);
+
+    // Cancel retry
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
+
+    try {
+      // Import peer's signing key
+      if (message.signingPublicKey) {
+        this.peerECDSAVerificationKey = await importECDSAVerificationKey(message.signingPublicKey);
+        this.peerSigningPublicKeyBase64 = message.signingPublicKey;
+
+        const fingerprintBuffer = await crypto.subtle.digest(
+          'SHA-256',
+          new TextEncoder().encode(message.signingPublicKey)
+        );
+        this.peerSigningFingerprint = arrayBufferToHex(fingerprintBuffer);
+      }
+
+      // Verify signature
+      if (this.peerECDSAVerificationKey) {
+        const isValid = await verifyKeyExchangeMessage(
+          this.peerECDSAVerificationKey,
+          message.publicKey,
+          message.timestamp,
+          message.nonce,
+          message.signature
+        );
+        if (!isValid) {
+          console.error('❌ KeyExchange: Invalid signature on key answer');
+          this.events.onKeyExchangeError('Invalid signature');
+          return;
+        }
+      }
+
+      // Store remote peer's public key for future key rotations
+      this.remotePeerPublicKeyBase64 = message.publicKey;
+
+      // Derive shared key
+      await this.deriveAndSetSharedKey(message.publicKey);
+    } catch (e) {
+      console.error('❌ KeyExchange: Failed to handle key answer:', e);
+      this.events.onKeyExchangeError('Failed to process key answer');
+    }
+  }
+
+  private async handleKeyRotation(message: KeyExchangeMessage): Promise<void> {
+    console.debug('📥 KeyExchange: Received key rotation');
+
+    try {
+      // Verify signature
+      if (this.peerECDSAVerificationKey) {
+        const isValid = await verifyKeyExchangeMessage(
+          this.peerECDSAVerificationKey,
+          message.publicKey,
+          message.timestamp,
+          message.nonce,
+          message.signature
+        );
+        if (!isValid) {
+          console.error('❌ KeyExchange: Invalid signature on key rotation');
+          return;
+        }
+      }
+
+      // Update generation
+      this.keyGeneration = message.generation;
+
+      // Derive new shared key
+      await this.deriveAndSetSharedKey(message.publicKey);
+
+      // CRITICAL: Await the callback to ensure worker keys are updated
+      await this.events.onKeyRotation(this.keyGeneration);
+    } catch (e) {
+      console.error('❌ KeyExchange: Failed to handle key rotation:', e);
+    }
+  }
+
+  // ============================================================================
+  // Private Methods - Key Derivation
+  // ============================================================================
+
+  /**
+   * Derives the shared key and optionally enables encryption.
+   * @param peerPublicKeyBase64 - The peer's ECDH public key
+   * @param shouldEnableEncryption - If false, only update worker keys without enabling encryption.
+   *        Used by responder to be ready for decryption before sending answer.
+   */
+  private async deriveAndSetSharedKey(
+    peerPublicKeyBase64: string,
+    shouldEnableEncryption = true
+  ): Promise<void> {
+    if (!this.localECDHKeyPair) {
+      throw new Error('Local ECDH key pair not initialized');
+    }
+
+    // Derive shared key using E2EEManager
+    const keyMaterial = await this.e2eeManager.deriveSharedKey(
+      this.localECDHKeyPair.privateKey,
+      peerPublicKeyBase64
+    );
+
+    // Cancel any pending retry timer to prevent unnecessary key rotations
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
+
+    this.state = 'complete';
+    this.lastKeyExchangeCompleteTime = Date.now(); // Mark completion time for debounce
+    this.retryCount = 0; // Reset retry count on success
+
+    // Trigger verification if needed
+    if (this.events.onVerificationRequired && this.peerSigningFingerprint) {
+      this.events.onVerificationRequired(
+        (this.localECDSAKeyPair?.fingerprint ?? '') as string,
+        this.peerSigningFingerprint
+      );
+    }
+
+    // CRITICAL: Await the callback to ensure encryption is fully set up
+    // before we consider the key exchange complete
+    // FIX: Pass keyMaterial directly to avoid E2EEManager mismatch after rejoin
+    await this.events.onKeyExchangeComplete(
+      keyMaterial.publicKeyFingerprint,
+      keyMaterial.generation,
+      keyMaterial,
+      this.peerSigningPublicKeyBase64 ?? undefined,
+      this.peerSigningFingerprint ?? undefined,
+      shouldEnableEncryption
+    );
+
+    console.debug('✅ KeyExchange: Complete', {
+      generation: keyMaterial.generation,
+      fingerprint: `${String(keyMaterial.publicKeyFingerprint).slice(0, 16)}...`,
+      encryptionEnabled: shouldEnableEncryption,
+    });
+  }
+
+  // ============================================================================
+  // Private Methods - Retry & Cleanup
+  // ============================================================================
+
+  private scheduleRetry(): void {
+    if (this.retryCount >= MAX_KEY_EXCHANGE_RETRIES) {
+      console.error('❌ KeyExchange: Max retries exceeded');
+      this.state = 'error';
+      this.events.onKeyExchangeError('Key exchange failed after max retries');
+      return;
+    }
+
+    this.retryTimeout = setTimeout(() => {
+      // Only retry if still waiting and not complete
+      if (this.state === 'waiting-answer' || this.state === 'sending-offer') {
+        // Double-check we haven't completed in the meantime
+        if (this.lastKeyExchangeCompleteTime > 0) {
+          const timeSinceComplete = Date.now() - this.lastKeyExchangeCompleteTime;
+          if (timeSinceComplete < KEY_EXCHANGE_DEBOUNCE_MS) {
+            console.debug('🔄 KeyExchange: Skipping retry - exchange completed recently');
+            return;
+          }
+        }
+        console.debug(
+          `🔄 KeyExchange: Retrying (attempt ${this.retryCount + 1}/${MAX_KEY_EXCHANGE_RETRIES})...`
+        );
+        this.retryCount++;
+        void this.sendKeyOffer();
+      }
+    }, KEY_EXCHANGE_TIMEOUT_MS);
   }
 
   /**
-   * Get peer's signing public key (for Chat E2EE)
+   * Fügt eine Nonce zur LRU-Map hinzu
+   * Entfernt die älteste Nonce wenn die Map voll ist
    */
-  getPeerSigningPublicKey(): string | null {
-    return this.peerSigningPublicKey;
+  private addNonce(nonce: string): void {
+    // Wenn die Map voll ist, entferne die älteste Nonce (LRU)
+    if (this.usedNonces.size >= E2EEKeyExchangeManager.MAX_NONCE_CACHE_SIZE) {
+      // Finde die älteste Nonce (kleinster Timestamp)
+      let oldestNonce: string | null = null;
+      let oldestTime = Infinity;
+
+      for (const [n, timestamp] of this.usedNonces) {
+        if (timestamp < oldestTime) {
+          oldestTime = timestamp;
+          oldestNonce = n;
+        }
+      }
+
+      if (oldestNonce) {
+        this.usedNonces.delete(oldestNonce);
+      }
+    }
+
+    // Füge die neue Nonce hinzu
+    this.usedNonces.set(nonce, Date.now());
   }
 
-  /**
-   * Get peer's signing fingerprint
-   */
-  getPeerSigningFingerprint(): string | null {
-    return this.peerSigningFingerprint;
+  private cleanupOldNonces(): void {
+    // Entferne Nonces die älter als NONCE_MAX_AGE_MS sind
+    const now = Date.now();
+    const expiredNonces: string[] = [];
+
+    for (const [nonce, timestamp] of this.usedNonces) {
+      if (now - timestamp > NONCE_MAX_AGE_MS) {
+        expiredNonces.push(nonce);
+      }
+    }
+
+    for (const nonce of expiredNonces) {
+      this.usedNonces.delete(nonce);
+    }
+
+    // Falls die Map immer noch zu groß ist (sollte nicht passieren mit LRU),
+    // entferne die ältesten Einträge
+    while (this.usedNonces.size > E2EEKeyExchangeManager.MAX_NONCE_CACHE_SIZE) {
+      let oldestNonce: string | null = null;
+      let oldestTime = Infinity;
+
+      for (const [n, timestamp] of this.usedNonces) {
+        if (timestamp < oldestTime) {
+          oldestTime = timestamp;
+          oldestNonce = n;
+        }
+      }
+
+      if (oldestNonce) {
+        this.usedNonces.delete(oldestNonce);
+      } else {
+        break; // Sicherheitsabbruch
+      }
+    }
   }
 }

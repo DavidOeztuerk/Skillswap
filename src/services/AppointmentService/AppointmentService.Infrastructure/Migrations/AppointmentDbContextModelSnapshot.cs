@@ -104,6 +104,10 @@ namespace AppointmentService.Infrastructure.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
+                    b.Property<string>("ThreadId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
                     b.Property<int>("TotalSessionsCompleted")
                         .HasColumnType("integer");
 

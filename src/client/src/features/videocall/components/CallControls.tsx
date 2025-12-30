@@ -48,10 +48,11 @@ interface CallControlsProps {
   onToggleChat: () => void;
   onEndCall: () => void;
   onOpenSettings?: () => void;
+  disabled?: boolean;
 }
 
 /**
- * Steuerelemente für einen Videoanruf (Mikrofon, Kamera, Bildschirmfreigabe, etc.)
+ * Call control buttons for video calls (microphone, camera, screen share, etc.)
  */
 const CallControls: React.FC<CallControlsProps> = ({
   isMicEnabled,
@@ -64,56 +65,57 @@ const CallControls: React.FC<CallControlsProps> = ({
   onToggleChat,
   onEndCall,
   onOpenSettings,
+  disabled = false,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const controls = [
     {
-      tooltip: isMicEnabled ? 'Mikrofon ausschalten' : 'Mikrofon einschalten',
+      tooltip: isMicEnabled ? 'Mute microphone' : 'Unmute microphone',
       icon: isMicEnabled ? <MicIcon /> : <MicOffIcon />,
       color: isMicEnabled ? 'primary' : 'error',
       onClick: onToggleMic,
-      'aria-label': 'Mikrofon umschalten',
+      'aria-label': 'Toggle microphone',
     },
     {
-      tooltip: isVideoEnabled ? 'Kamera ausschalten' : 'Kamera einschalten',
+      tooltip: isVideoEnabled ? 'Turn off camera' : 'Turn on camera',
       icon: isVideoEnabled ? <VideoIcon /> : <VideoOffIcon />,
       color: isVideoEnabled ? 'primary' : 'error',
       onClick: onToggleVideo,
-      'aria-label': 'Kamera umschalten',
+      'aria-label': 'Toggle camera',
     },
     {
-      tooltip: isScreenSharing ? 'Bildschirmfreigabe beenden' : 'Bildschirm freigeben',
+      tooltip: isScreenSharing ? 'Stop screen share' : 'Share screen',
       icon: isScreenSharing ? <StopScreenShareIcon /> : <ScreenShareIcon />,
       color: isScreenSharing ? 'secondary' : 'primary',
       onClick: onToggleScreenShare,
-      'aria-label': 'Bildschirmfreigabe umschalten',
+      'aria-label': 'Toggle screen sharing',
     },
     {
-      tooltip: isChatOpen ? 'Chat schließen' : 'Chat öffnen',
+      tooltip: isChatOpen ? 'Close chat' : 'Open chat',
       icon: <ChatIcon />,
       color: isChatOpen ? 'secondary' : 'primary',
       onClick: onToggleChat,
-      'aria-label': 'Chat umschalten',
+      'aria-label': 'Toggle chat',
     },
     {
-      tooltip: 'Anruf beenden',
+      tooltip: 'End call',
       icon: <CallEndIcon />,
       color: 'error',
       onClick: onEndCall,
-      'aria-label': 'Anruf beenden',
+      'aria-label': 'End call',
     },
   ];
 
-  // Optional: Einstellungen-Button hinzufügen, wenn Callback vorhanden
+  // Optional: Add settings button if callback provided
   if (onOpenSettings) {
     controls.push({
-      tooltip: 'Einstellungen',
+      tooltip: 'Settings',
       icon: <SettingsIcon />,
       color: 'primary',
       onClick: onOpenSettings,
-      'aria-label': 'Einstellungen öffnen',
+      'aria-label': 'Open settings',
     });
   }
 
@@ -133,27 +135,35 @@ const CallControls: React.FC<CallControlsProps> = ({
         }}
       >
         {controls.map((control) => (
-          <Tooltip key={control['aria-label']} title={control.tooltip} arrow>
-            <IconButton
-              color={control.color as 'primary' | 'secondary' | 'error'}
-              onClick={control.onClick}
-              aria-label={control['aria-label']}
-              size={isMobile ? 'medium' : 'large'}
-              sx={{
-                backgroundColor:
-                  control.color === 'error' ? theme.palette.error.main : 'transparent',
-                color: control.color === 'error' ? theme.palette.error.contrastText : undefined,
-                '&:hover': {
-                  backgroundColor: control.color === 'error' ? theme.palette.error.dark : undefined,
-                },
-                ...(control.color === 'error' && {
-                  width: isMobile ? 48 : 56,
-                  height: isMobile ? 48 : 56,
-                }),
-              }}
-            >
-              {control.icon}
-            </IconButton>
+          <Tooltip key={control['aria-label']} title={disabled ? '' : control.tooltip} arrow>
+            <span>
+              <IconButton
+                color={control.color as 'primary' | 'secondary' | 'error'}
+                onClick={control.onClick}
+                aria-label={control['aria-label']}
+                size={isMobile ? 'medium' : 'large'}
+                disabled={disabled}
+                sx={{
+                  backgroundColor:
+                    control.color === 'error' ? theme.palette.error.main : 'transparent',
+                  color: control.color === 'error' ? theme.palette.error.contrastText : undefined,
+                  '&:hover': {
+                    backgroundColor:
+                      control.color === 'error' ? theme.palette.error.dark : undefined,
+                  },
+                  ...(control.color === 'error' && {
+                    width: isMobile ? 48 : 56,
+                    height: isMobile ? 48 : 56,
+                  }),
+                  '&.Mui-disabled': {
+                    backgroundColor: 'rgba(128, 128, 128, 0.5)',
+                    color: 'rgba(255, 255, 255, 0.5)',
+                  },
+                }}
+              >
+                {control.icon}
+              </IconButton>
+            </span>
           </Tooltip>
         ))}
       </Box>

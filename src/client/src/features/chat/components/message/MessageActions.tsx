@@ -2,23 +2,11 @@ import React, { useState, useCallback } from 'react';
 import {
   Reply as ReplyIcon,
   EmojiEmotions as EmojiIcon,
-  MoreHoriz as MoreIcon,
   ContentCopy as CopyIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import {
-  Box,
-  IconButton,
-  Tooltip,
-  Popover,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  useTheme,
-} from '@mui/material';
+import { Box, IconButton, Tooltip, Popover, useTheme } from '@mui/material';
 import { useAppDispatch } from '../../../../core/store/store.hooks';
 import ConfirmDialog from '../../../../shared/components/ui/ConfirmDialog';
 import { setReplyToMessage, setEditingMessage } from '../../store/chatSlice';
@@ -41,7 +29,6 @@ const MessageActions: React.FC<MessageActionsProps> = ({ message, isOwn, visible
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const [reactionAnchor, setReactionAnchor] = useState<HTMLButtonElement | null>(null);
-  const [moreMenuAnchor, setMoreMenuAnchor] = useState<HTMLButtonElement | null>(null);
   const [copied, setCopied] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -64,15 +51,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({ message, isOwn, visible
     dispatch(setReplyToMessage(message));
   }, [dispatch, message]);
 
-  // More menu handlers
-  const handleMoreMenuOpen = (event: React.MouseEvent<HTMLButtonElement>): void => {
-    setMoreMenuAnchor(event.currentTarget);
-  };
-
-  const handleMoreMenuClose = (): void => {
-    setMoreMenuAnchor(null);
-  };
-
+  // Copy message handler
   const handleCopyMessage = useCallback(async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(message.content);
@@ -83,17 +62,16 @@ const MessageActions: React.FC<MessageActionsProps> = ({ message, isOwn, visible
     } catch (error) {
       console.error('Failed to copy message:', error);
     }
-    handleMoreMenuClose();
   }, [message.content]);
 
+  // Edit message handler
   const handleEditMessage = useCallback((): void => {
     dispatch(setEditingMessage(message));
-    handleMoreMenuClose();
   }, [dispatch, message]);
 
+  // Delete message handlers
   const handleDeleteMessage = useCallback((): void => {
     setShowDeleteConfirm(true);
-    handleMoreMenuClose();
   }, []);
 
   const handleConfirmDelete = useCallback((): void => {
@@ -107,6 +85,8 @@ const MessageActions: React.FC<MessageActionsProps> = ({ message, isOwn, visible
 
   if (!visible) return null;
 
+  // Own messages: only edit/delete actions
+  // Other messages: react, reply, copy actions
   return (
     <>
       {/* Hover actions toolbar */}
@@ -121,68 +101,50 @@ const MessageActions: React.FC<MessageActionsProps> = ({ message, isOwn, visible
           p: 0.25,
         }}
       >
-        <Tooltip title="Reagieren">
-          <IconButton size="small" onClick={handleReactionPopup}>
-            <EmojiIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Antworten">
-          <IconButton size="small" onClick={handleReply}>
-            <ReplyIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={copied ? 'Kopiert!' : 'Mehr'}>
-          <IconButton size="small" onClick={handleMoreMenuOpen}>
-            <MoreIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </Tooltip>
+        {isOwn ? (
+          // Own messages: Edit and Delete only
+          <>
+            {!message.isDeleted && (
+              <Tooltip title="Bearbeiten">
+                <IconButton size="small" onClick={handleEditMessage}>
+                  <EditIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {!message.isDeleted && (
+              <Tooltip title="Löschen">
+                <IconButton size="small" onClick={handleDeleteMessage} sx={{ color: 'error.main' }}>
+                  <DeleteIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </>
+        ) : (
+          // Other messages: React, Reply, Copy
+          <>
+            <Tooltip title="Reagieren">
+              <IconButton size="small" onClick={handleReactionPopup}>
+                <EmojiIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Antworten">
+              <IconButton size="small" onClick={handleReply}>
+                <ReplyIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={copied ? 'Kopiert!' : 'Kopieren'}>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  void handleCopyMessage();
+                }}
+              >
+                <CopyIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          </>
+        )}
       </Box>
-
-      {/* More Menu */}
-      <Menu
-        anchorEl={moreMenuAnchor}
-        open={Boolean(moreMenuAnchor)}
-        onClose={handleMoreMenuClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-        slotProps={{
-          paper: {
-            elevation: 3,
-            sx: { minWidth: 160 },
-          },
-        }}
-      >
-        {[
-          <MenuItem
-            key="copy"
-            onClick={() => {
-              void handleCopyMessage();
-            }}
-          >
-            <ListItemIcon>
-              <CopyIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>{copied ? 'Kopiert!' : 'Kopieren'}</ListItemText>
-          </MenuItem>,
-          isOwn && !message.isDeleted ? (
-            <MenuItem key="edit" onClick={handleEditMessage}>
-              <ListItemIcon>
-                <EditIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>Bearbeiten</ListItemText>
-            </MenuItem>
-          ) : null,
-          isOwn && !message.isDeleted ? <Divider key="divider" /> : null,
-          isOwn && !message.isDeleted ? (
-            <MenuItem key="delete" onClick={handleDeleteMessage} sx={{ color: 'error.main' }}>
-              <ListItemIcon>
-                <DeleteIcon fontSize="small" color="error" />
-              </ListItemIcon>
-              <ListItemText>Löschen</ListItemText>
-            </MenuItem>
-          ) : null,
-        ].filter(Boolean)}
-      </Menu>
 
       {/* Reaction Popover */}
       <Popover

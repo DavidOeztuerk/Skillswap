@@ -71,28 +71,40 @@ interface MatchHistoryEntry {
   color?: 'primary' | 'secondary' | 'success' | 'error' | 'warning' | 'info';
 }
 
-// Status configuration for icons and colors
-type MatchStatus =
-  | 'active'
-  | 'accepted'
-  | 'completed'
-  | 'dissolved'
-  | 'cancelled'
-  | 'rejected'
-  | 'pending';
+// Status configuration for icons and colors - must match backend PascalCase enum values
+type MatchStatusKey =
+  | 'Active'
+  | 'Accepted'
+  | 'Completed'
+  | 'Dissolved'
+  | 'Cancelled'
+  | 'Rejected'
+  | 'Pending'
+  | 'Expired';
 
-const STATUS_CONFIG: Record<
-  MatchStatus,
-  { icon: React.ReactElement; color: 'success' | 'info' | 'error' | 'warning' }
-> = {
-  active: { icon: <CheckIcon />, color: 'success' },
-  accepted: { icon: <CheckIcon />, color: 'success' },
-  completed: { icon: <CheckIcon />, color: 'info' },
-  dissolved: { icon: <CancelIcon />, color: 'error' },
-  cancelled: { icon: <CancelIcon />, color: 'error' },
-  rejected: { icon: <CancelIcon />, color: 'error' },
-  pending: { icon: <PendingIcon />, color: 'warning' },
+interface StatusConfig {
+  icon: React.ReactElement;
+  color: 'success' | 'info' | 'error' | 'warning';
+}
+
+const STATUS_CONFIG: Record<MatchStatusKey, StatusConfig> = {
+  Active: { icon: <CheckIcon />, color: 'success' },
+  Accepted: { icon: <CheckIcon />, color: 'success' },
+  Completed: { icon: <CheckIcon />, color: 'info' },
+  Dissolved: { icon: <CancelIcon />, color: 'error' },
+  Cancelled: { icon: <CancelIcon />, color: 'error' },
+  Rejected: { icon: <CancelIcon />, color: 'error' },
+  Pending: { icon: <PendingIcon />, color: 'warning' },
+  Expired: { icon: <CancelIcon />, color: 'error' },
 };
+
+// Default fallback for unknown status values
+// const DEFAULT_STATUS_CONFIG: StatusConfig = {
+//   icon: <PendingIcon />,
+//   color: 'warning',
+// };
+
+const getStatusConfig = (status: string): StatusConfig => STATUS_CONFIG[status as MatchStatusKey];
 
 // Helper to build match history entries
 interface MatchForHistory {
@@ -458,8 +470,8 @@ const MatchDetailPage: React.FC = () => {
     return <EmptyMatchState />;
   }
 
-  // Get status config from lookup
-  const statusConfig = STATUS_CONFIG[match.status as MatchStatus];
+  // Get status config with fallback for unknown status values
+  const statusConfig = getStatusConfig(match.status);
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -684,6 +696,7 @@ const MatchDetailPage: React.FC = () => {
         }}
       >
         <InlineChatPanel
+          threadId={match.threadId ?? ''}
           partnerId={match.partnerId}
           partnerName={match.partnerName}
           partnerAvatarUrl={match.partnerAvatar ?? undefined}

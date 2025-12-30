@@ -1,6 +1,5 @@
 import { createEntityAdapter, type EntityState, type EntityId } from '@reduxjs/toolkit';
 import type { RequestState } from '../../../shared/types/common/RequestState';
-import type { ChatMessage } from '../../chat/types/ChatMessage';
 import type { ChatE2EEStatus, E2EEStatus } from '../hooks/types';
 import type { VideoCallConfig } from '../types/VideoCallConfig';
 
@@ -24,6 +23,7 @@ export interface VideoCallEntityState extends EntityState<VideoCallConfig, Entit
   sessionId: string | null;
   roomId: string | null;
   peerId: string | null;
+  threadId: string | null;
 
   // Connection State
   isConnected: boolean;
@@ -50,10 +50,8 @@ export interface VideoCallEntityState extends EntityState<VideoCallConfig, Entit
   isScreenSharing: boolean;
   isRecording: boolean;
 
-  // Chat
+  // Chat (messages handled by useInlineChat via ChatHub)
   isChatOpen: boolean;
-  messages: ChatMessage[];
-  unreadMessageCount: number;
 
   // Statistics & Settings
   callStatistics: CallStatistics;
@@ -69,7 +67,7 @@ export interface VideoCallEntityState extends EntityState<VideoCallConfig, Entit
 // ============================================================================
 
 export const initialE2EEState: E2EEState = {
-  status: 'disabled',
+  status: 'inactive',
   localKeyFingerprint: null,
   remotePeerFingerprint: null,
   keyGeneration: 0,
@@ -115,6 +113,7 @@ export const initialVideoCalllState: VideoCallEntityState = videoCallAdapter.get
   sessionId: null,
   roomId: null,
   peerId: null,
+  threadId: null,
 
   // Connection
   isConnected: false,
@@ -141,10 +140,8 @@ export const initialVideoCalllState: VideoCallEntityState = videoCallAdapter.get
   isScreenSharing: false,
   isRecording: false,
 
-  // Chat
+  // Chat (messages handled by useInlineChat via ChatHub)
   isChatOpen: false,
-  messages: [],
-  unreadMessageCount: 0,
 
   // Stats & Settings
   callStatistics: initialCallStatistics,

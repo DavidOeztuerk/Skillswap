@@ -319,6 +319,7 @@ services:
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USE_SSL=${SMTP_USE_SSL:-true}
       - SMS_PROVIDER=${SMS_PROVIDER:-twilio}
+      - AppSettings__BaseUrl=${APP_BASE_URL:-http://localhost:3000}
       - ServiceCommunication__UseGateway=true
       - ServiceEndpoints__Gateway=http://gateway:8080
     healthcheck:

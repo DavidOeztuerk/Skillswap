@@ -24,7 +24,6 @@ import {
   stopRecording,
   getCallStatistics,
 } from './videocallThunks';
-import type { ChatMessage } from '../../chat/types/ChatMessage';
 import type { ChatE2EEStatus, E2EEStatus } from '../hooks/types';
 import type { VideoCallConfig } from '../types/VideoCallConfig';
 
@@ -43,8 +42,6 @@ const videoCallSlice = createSlice({
       state.localStreamId = null;
       state.remoteStreamId = null;
       state.participants = [];
-      state.messages = [];
-      state.unreadMessageCount = 0;
       state.e2ee = initialE2EEState;
       state.chatE2EE = initialChatE2EEState;
       state.callStatistics = initialCallStatistics;
@@ -58,6 +55,7 @@ const videoCallSlice = createSlice({
       state.sessionId = action.payload.sessionId;
       state.roomId = action.payload.roomId;
       state.peerId = action.payload.participantUserId ?? null;
+      state.threadId = action.payload.threadId ?? null;
       state.isConnected = false;
       state.isInitializing = true;
     },
@@ -143,35 +141,15 @@ const videoCallSlice = createSlice({
     },
 
     // ========================================================================
-    // Chat
+    // Chat (messages handled by useInlineChat via ChatHub)
     // ========================================================================
 
     toggleChat: (state) => {
       state.isChatOpen = !state.isChatOpen;
-      // Reset unread count when opening chat
-      if (state.isChatOpen) {
-        state.unreadMessageCount = 0;
-      }
     },
 
     setChatOpen: (state, action: PayloadAction<boolean>) => {
       state.isChatOpen = action.payload;
-      if (action.payload) {
-        state.unreadMessageCount = 0;
-      }
-    },
-
-    addMessage: (state, action: PayloadAction<ChatMessage>) => {
-      state.messages.push(action.payload);
-      // Increment unread if chat is closed
-      if (!state.isChatOpen) {
-        state.unreadMessageCount += 1;
-      }
-    },
-
-    clearMessages: (state) => {
-      state.messages = [];
-      state.unreadMessageCount = 0;
     },
 
     // ========================================================================
@@ -546,8 +524,6 @@ export const {
   // Chat
   toggleChat,
   setChatOpen,
-  addMessage,
-  clearMessages,
 
   // Participants
   addParticipant,

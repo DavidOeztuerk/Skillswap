@@ -10,6 +10,7 @@ using VideocallService.Infrastructure.HttpClients;
 using VideocallService.Infrastructure.Repositories;
 using VideocallService.Infrastructure.Data;
 using VideocallService.Infrastructure.BackgroundServices;
+using VideocallService.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Hosting;
@@ -24,7 +25,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IVideocallUnitOfWork, VideocallUnitOfWork>();
         services.AddScoped<IVideoCallSessionRepository, VideoCallSessionRepository>();
         services.AddScoped<ICallParticipantRepository, CallParticipantRepository>();
-        services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+        services.AddScoped<IE2EEAuditLogRepository, E2EEAuditLogRepository>();
+
+        // Register E2EE Rate Limiter (Singleton - uses Redis)
+        services.AddSingleton<IE2EERateLimiter, RedisE2EERateLimiter>();
 
         // Register service clients that use IServiceCommunicationManager
         services.AddScoped<IUserServiceClient, UserServiceClient>();
