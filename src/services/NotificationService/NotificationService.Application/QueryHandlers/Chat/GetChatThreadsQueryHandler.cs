@@ -30,24 +30,18 @@ public class GetChatThreadsQueryHandler(
 
             if (request.UnreadOnly)
             {
+                // Use paginated unread query
                 threads = await _unitOfWork.ChatThreads
-                    .GetWithUnreadMessagesAsync(request.UserId, cancellationToken);
-                totalCount = threads.Count;
-
-                // Apply pagination
-                threads = threads
-                    .Skip((request.PageNumber - 1) * request.PageSize)
-                    .Take(request.PageSize)
-                    .ToList();
+                    .GetWithUnreadMessagesPagedAsync(request.UserId, request.PageNumber, request.PageSize, cancellationToken);
+                totalCount = await _unitOfWork.ChatThreads
+                    .GetWithUnreadMessagesCountAsync(request.UserId, cancellationToken);
             }
             else if (!string.IsNullOrEmpty(request.SearchTerm))
             {
                 threads = await _unitOfWork.ChatThreads
                     .SearchAsync(request.UserId, request.SearchTerm, request.PageNumber, request.PageSize, cancellationToken);
-                // For search, we estimate total count
-                totalCount = threads.Count < request.PageSize
-                    ? (request.PageNumber - 1) * request.PageSize + threads.Count
-                    : (request.PageNumber + 1) * request.PageSize;
+                totalCount = await _unitOfWork.ChatThreads
+                    .GetSearchCountAsync(request.UserId, request.SearchTerm, cancellationToken);
             }
             else
             {

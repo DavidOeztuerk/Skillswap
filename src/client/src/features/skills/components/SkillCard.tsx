@@ -616,24 +616,28 @@ const SkillCard: React.FC<SkillCardProps> = memo(
     }, []);
 
     // Memoized calculations
-    const cardData = useMemo(
-      () => ({
+    const cardData = useMemo(() => {
+      // Safe date parsing to avoid RangeError with invalid dates
+      const getLastActiveText = (): string => {
+        const dateValue = skill.lastActiveAt ?? skill.createdAt;
+        if (!dateValue) return 'Unbekannt';
+
+        const date = new Date(dateValue);
+        if (Number.isNaN(date.getTime())) return 'Unbekannt';
+
+        return formatDistanceToNow(date, { addSuffix: true, locale: de });
+      };
+
+      return {
         matchRequests: skill.matchRequests ?? 0,
         activeMatches: skill.activeMatches ?? 0,
         completionRate: skill.completionRate ?? 0,
         averageRating: skill.averageRating ?? 0,
         totalReviews: skill.reviewCount ?? 0,
         isVerified: skill.isVerified ?? false,
-        lastActive: formatDistanceToNow(
-          new Date(skill.lastActiveAt ?? skill.createdAt ?? new Date()),
-          {
-            addSuffix: true,
-            locale: de,
-          }
-        ),
-      }),
-      [skill]
-    );
+        lastActive: getLastActiveText(),
+      };
+    }, [skill]);
 
     const {
       matchRequests,

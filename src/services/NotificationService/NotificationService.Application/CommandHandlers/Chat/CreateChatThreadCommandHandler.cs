@@ -57,19 +57,6 @@ public class CreateChatThreadCommandHandler(
             };
 
             await _unitOfWork.ChatThreads.AddAsync(thread, cancellationToken);
-
-            // Add system message
-            var systemMessage = ChatMessage.CreateSystemMessage(
-                request.ThreadId,
-                $"Chat started between {request.Participant1Name ?? "User"} and {request.Participant2Name ?? "User"} for skill: {request.SkillName ?? "General"}");
-
-            await _unitOfWork.ChatMessages.AddAsync(systemMessage, cancellationToken);
-
-            thread.TotalMessageCount = 1;
-            thread.LastMessageAt = systemMessage.SentAt;
-            thread.LastMessagePreview = systemMessage.Content;
-            thread.LastMessageSenderId = "system";
-
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             Logger.LogInformation(

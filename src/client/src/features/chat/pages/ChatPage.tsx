@@ -32,7 +32,7 @@ import {
   type SxProps,
   type Theme,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '../../../core/store/hooks';
+import { useAppDispatch, useAppSelector } from '../../../core/store/store.hooks';
 import PageContainer from '../../../shared/components/layout/PageContainer';
 import PageHeader from '../../../shared/components/layout/PageHeader';
 import EmptyState from '../../../shared/components/ui/EmptyState';
@@ -186,7 +186,7 @@ const ThreadListItemComponent: React.FC<ThreadListItemProps> = ({ thread, isActi
               alt={thread.otherParticipantName}
               sx={avatarSx}
             >
-              {thread.otherParticipantName.charAt(0).toUpperCase()}
+              {thread.otherParticipantName?.charAt(0).toUpperCase()}
             </Avatar>
           </Badge>
         </ListItemAvatar>
@@ -376,7 +376,7 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     const connectHub = async (): Promise<void> => {
       if (!isConnected) await dispatch(connectToChatHub());
-      await dispatch(fetchChatThreads({}));
+      await dispatch(fetchChatThreads({ pageNumber: 1, pageSize: 50 }));
     };
     connectHub().catch(() => {});
   }, [isConnected, dispatch]);

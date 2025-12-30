@@ -4,7 +4,7 @@ import { createContext } from 'react';
 // Types
 // ============================================================================
 
-interface Permission {
+export interface Permission {
   id: string;
   name: string;
   category: string;
@@ -17,7 +17,7 @@ interface Permission {
   source: string;
 }
 
-interface GrantPermissionOptions {
+export interface GrantPermissionOptions {
   expiresAt?: Date;
   resourceId?: string;
   reason?: string;

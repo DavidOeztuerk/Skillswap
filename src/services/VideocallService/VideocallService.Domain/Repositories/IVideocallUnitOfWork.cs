@@ -17,9 +17,9 @@ public interface IVideocallUnitOfWork : IAsyncDisposable
     ICallParticipantRepository CallParticipants { get; }
 
     /// <summary>
-    /// Repository for ChatMessage entities
+    /// Repository for E2EE Audit Log entities
     /// </summary>
-    IChatMessageRepository ChatMessages { get; }
+    IE2EEAuditLogRepository E2EEAuditLogs { get; }
 
     /// <summary>
     /// Saves all changes across all repositories as a single transaction.

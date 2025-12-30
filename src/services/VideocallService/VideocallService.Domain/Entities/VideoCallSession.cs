@@ -23,6 +23,13 @@ public class VideoCallSession : AuditableEntity
     [MaxLength(450)]
     public string? MatchId { get; set; }
 
+    /// <summary>
+    /// ThreadId from MatchRequest (SHA256-GUID format) for Chat integration.
+    /// Links this video call session to the ChatThread.
+    /// </summary>
+    [MaxLength(450)]
+    public string? ThreadId { get; set; }
+
     [MaxLength(50)]
     public string Status { get; set; } = CallStatus.Pending;
 

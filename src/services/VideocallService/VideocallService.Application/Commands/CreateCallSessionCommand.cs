@@ -8,6 +8,7 @@ public record CreateCallSessionCommand(
     string ParticipantUserId,
     string? AppointmentId = null,
     string? MatchId = null,
+    string? ThreadId = null,
     bool IsRecorded = false,
     int MaxParticipants = 2) : ICommand<CreateCallSessionResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {

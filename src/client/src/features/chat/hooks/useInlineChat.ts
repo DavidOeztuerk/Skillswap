@@ -2,9 +2,10 @@
  * useInlineChat Hook
  * Manages inline chat functionality for detail pages (Match, Appointment)
  * Operates independently of the global ChatDrawer
+ * Supports E2EE encryption when both participants have exchanged keys
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../core/store/store.hooks';
 import { selectAuthUser } from '../../auth/store/authSelectors';
 import { chatHubService } from '../services/chatHub';
@@ -22,6 +23,7 @@ import {
   selectChatConnectionStatus,
   selectMessagesLoading,
 } from '../store/selectors/chatSelectors';
+import { useChatE2Ee, type ChatE2EEStatus } from './useChatE2Ee';
 import type { RootState } from '../../../core/store/store';
 import type { ChatMessageModel, TypingIndicator } from '../types/Chat';
 
@@ -30,6 +32,8 @@ import type { ChatMessageModel, TypingIndicator } from '../types/Chat';
 // ============================================================================
 
 export interface UseInlineChatOptions {
+  /** ThreadId from MatchRequest (SHA256-GUID format) - REQUIRED */
+  threadId: string;
   partnerId: string;
   partnerName: string;
   partnerAvatarUrl?: string;
@@ -47,6 +51,10 @@ export interface UseInlineChatReturn {
   isConnected: boolean;
   typingIndicator: TypingIndicator | undefined;
 
+  // E2EE State
+  e2eeStatus: ChatE2EEStatus;
+  isE2EEReady: boolean;
+
   // Actions
   sendMessage: (content: string) => Promise<void>;
   sendTyping: (isTyping: boolean) => void;
@@ -55,20 +63,12 @@ export interface UseInlineChatReturn {
 }
 
 // ============================================================================
-// Thread ID Generation
-// ============================================================================
-
-function generateThreadId(userId1: string, userId2: string, skillId?: string): string {
-  const sortedIds = [userId1, userId2].sort();
-  return skillId ? `${sortedIds[0]}:${sortedIds[1]}:${skillId}` : `${sortedIds[0]}:${sortedIds[1]}`;
-}
-
-// ============================================================================
 // Hook Implementation
 // ============================================================================
 
 export function useInlineChat(options: UseInlineChatOptions): UseInlineChatReturn {
   const {
+    threadId,
     partnerId,
     partnerName,
     partnerAvatarUrl,
@@ -83,16 +83,17 @@ export function useInlineChat(options: UseInlineChatOptions): UseInlineChatRetur
   const isConnected = useAppSelector(selectChatConnectionStatus);
   const isLoadingMessages = useAppSelector(selectMessagesLoading);
 
+  // E2EE Hook - manages key exchange and encryption
+  const e2ee = useChatE2Ee({
+    threadId,
+    peerId: partnerId,
+    autoInitiate: autoConnect,
+  });
+
   // Track initialization state
   const [isInitializing, setIsInitializing] = useState(true);
   const hasInitializedRef = useRef(false);
   const isSendingRef = useRef(false);
-
-  // Generate thread ID
-  const threadId = useMemo(() => {
-    if (!currentUser?.id) return '';
-    return generateThreadId(currentUser.id, partnerId, skillId);
-  }, [currentUser?.id, partnerId, skillId]);
 
   // Select messages for this specific thread
   const messages = useAppSelector((state: RootState) => selectMessagesForThread(state, threadId));
@@ -200,9 +201,26 @@ export function useInlineChat(options: UseInlineChatOptions): UseInlineChatRetur
       isSendingRef.current = true;
 
       try {
-        // Send via SignalR - server will echo the message back via NewMessage event
-        // No optimistic update needed - message appears when server confirms
-        await chatHubService.sendTextMessage(threadId, content.trim());
+        const trimmedContent = content.trim();
+
+        // Use E2EE if key exchange is complete
+        if (e2ee.isReady) {
+          console.debug('[useInlineChat] Sending encrypted message');
+          const encrypted = await e2ee.encryptMessage(trimmedContent);
+          // Cast branded types to string for SignalR
+          const keyGen = String(encrypted.keyGeneration);
+          await chatHubService.sendEncryptedMessage(
+            threadId,
+            trimmedContent,
+            encrypted.encryptedContent,
+            keyGen,
+            encrypted.iv
+          );
+        } else {
+          // Fallback to plaintext if E2EE not ready
+          console.debug('[useInlineChat] Sending plaintext message (E2EE not ready)');
+          await chatHubService.sendTextMessage(threadId, trimmedContent);
+        }
       } catch (error) {
         console.error('[useInlineChat] Failed to send message:', error);
       } finally {
@@ -212,7 +230,7 @@ export function useInlineChat(options: UseInlineChatOptions): UseInlineChatRetur
         }, 100);
       }
     },
-    [threadId, currentUser?.id]
+    [threadId, currentUser?.id, e2ee]
   );
 
   const sendTyping = useCallback(
@@ -242,6 +260,12 @@ export function useInlineChat(options: UseInlineChatOptions): UseInlineChatRetur
   }, [threadId, dispatch]);
 
   // ==========================================================================
+  // Cleanup E2EE on unmount
+  // ==========================================================================
+
+  useEffect(() => () => e2ee.cleanup(), [e2ee]);
+
+  // ==========================================================================
   // Return
   // ==========================================================================
 
@@ -251,6 +275,10 @@ export function useInlineChat(options: UseInlineChatOptions): UseInlineChatRetur
     isLoading: isInitializing || isLoadingMessages,
     isConnected,
     typingIndicator,
+    // E2EE
+    e2eeStatus: e2ee.status,
+    isE2EEReady: e2ee.isReady,
+    // Actions
     sendMessage,
     sendTyping,
     markAsRead,

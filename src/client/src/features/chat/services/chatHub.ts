@@ -11,6 +11,7 @@ import {
 import { toast } from 'react-toastify';
 import { getToken } from '../../../shared/utils/authHelpers';
 import type { AppDispatch } from '../../../core/store/store';
+import type { Base64String, KeyFingerprint } from '../../../shared/core/crypto';
 import type {
   ChatServerToClientEvents,
   ChatConnectionState,
@@ -51,6 +52,36 @@ function getDispatch(): AppDispatch {
 
 type ChatEventCallback<T extends keyof ChatServerToClientEvents> = ChatServerToClientEvents[T];
 
+// E2EE Key Exchange Types
+interface E2EEKeyOfferPayload {
+  ThreadId: string;
+  SenderId: string;
+  PublicKey: string;
+  Fingerprint: string;
+  Timestamp: string;
+}
+
+interface E2EEKeyAnswerPayload {
+  ThreadId: string;
+  SenderId: string;
+  PublicKey: string;
+  Fingerprint: string;
+  Timestamp: string;
+}
+
+interface E2EEReadyPayload {
+  ThreadId: string;
+  SenderId: string;
+  Fingerprint: string;
+}
+
+interface MessageDeletedPayload {
+  messageId: string;
+  threadId: string;
+  deletedBy: string;
+  deletedAt: string;
+}
+
 interface ChatHubCallbacks {
   onThreadJoined?: ChatEventCallback<'ThreadJoined'>;
   onThreadCreated?: ChatEventCallback<'ThreadCreated'>;
@@ -64,6 +95,13 @@ interface ChatHubCallbacks {
   onUnreadCount?: ChatEventCallback<'ChatUnreadCount'>;
   onError?: ChatEventCallback<'Error'>;
   onConnectionStateChanged?: (state: ChatConnectionState) => void;
+  // E2EE Callbacks
+  onE2EEKeyOffer?: (data: E2EEKeyOfferPayload) => void;
+  onE2EEKeyAnswer?: (data: E2EEKeyAnswerPayload) => void;
+  onE2EEReady?: (data: E2EEReadyPayload) => void;
+  onE2EEError?: (message: string) => void;
+  // Message Operations
+  onMessageDeleted?: (data: MessageDeletedPayload) => void;
 }
 
 // ============================================================================
@@ -80,6 +118,11 @@ class ChatHubService {
   private callbacks: ChatHubCallbacks = {};
   private activeThreadId: string | null = null;
   private typingDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private typingAutoStopTimer: ReturnType<typeof setTimeout> | null = null;
+  // Connection lock to prevent race conditions
+  private connectingPromise: Promise<void> | null = null;
+  // Current user ID to filter own events
+  private currentUserId: string | null = null;
 
   /**
    * Get the connection or throw if not connected
@@ -96,12 +139,26 @@ class ChatHubService {
   // ==========================================================================
 
   /**
+   * Set the current user ID for filtering own events
+   */
+  public setCurrentUserId(userId: string): void {
+    this.currentUserId = userId;
+  }
+
+  /**
    * Connect to the ChatHub
    */
   public async connect(): Promise<void> {
+    // Already connected - return immediately
     if (this.connection?.state === HubConnectionState.Connected) {
       console.debug('[ChatHub] Already connected');
       return;
+    }
+
+    // Connection in progress - wait for it
+    if (this.connectingPromise) {
+      console.debug('[ChatHub] Connection already in progress, waiting...');
+      return this.connectingPromise;
     }
 
     const token = getToken();
@@ -115,32 +172,47 @@ class ChatHubService {
 
     console.debug('[ChatHub] Connecting to:', hubUrl);
 
-    this.connection = new HubConnectionBuilder()
-      .withUrl(hubUrl, { accessTokenFactory: () => token })
-      .withAutomaticReconnect({
-        nextRetryDelayInMilliseconds: (ctx) => {
-          if (ctx.previousRetryCount >= this.maxReconnectAttempts) return null;
-          // Exponential backoff with jitter
-          const delay = this.baseReconnectDelay * 1.5 ** ctx.previousRetryCount;
-          const jitter = delay * 0.2 * Math.random();
-          return Math.min(delay + jitter, 30000);
-        },
-      })
-      .configureLogging(LogLevel.Information)
-      .build();
+    // Create connection promise to prevent race conditions
+    this.connectingPromise = (async () => {
+      // Double-check we didn't get connected while waiting
+      if (this.connection?.state === HubConnectionState.Connected) {
+        console.debug('[ChatHub] Already connected (race check)');
+        return;
+      }
 
-    this.setupEventHandlers();
+      this.connection = new HubConnectionBuilder()
+        .withUrl(hubUrl, { accessTokenFactory: () => token })
+        .withAutomaticReconnect({
+          nextRetryDelayInMilliseconds: (ctx) => {
+            if (ctx.previousRetryCount >= this.maxReconnectAttempts) return null;
+            // Exponential backoff with jitter
+            const delay = this.baseReconnectDelay * 1.5 ** ctx.previousRetryCount;
+            const jitter = delay * 0.2 * Math.random();
+            return Math.min(delay + jitter, 30000);
+          },
+        })
+        .configureLogging(LogLevel.Information)
+        .build();
+
+      this.setupEventHandlers();
+
+      try {
+        await this.connection.start();
+        this.notifyConnectionState('Connected');
+        this.reconnectAttempts = 0;
+        console.debug('[ChatHub] Connected successfully');
+      } catch (err) {
+        console.error('[ChatHub] Connection failed:', err);
+        this.notifyConnectionState('Disconnected');
+        this.scheduleReconnect();
+        throw err;
+      }
+    })();
 
     try {
-      await this.connection.start();
-      this.notifyConnectionState('Connected');
-      this.reconnectAttempts = 0;
-      console.debug('[ChatHub] Connected successfully');
-    } catch (err) {
-      console.error('[ChatHub] Connection failed:', err);
-      this.notifyConnectionState('Disconnected');
-      this.scheduleReconnect();
-      throw err;
+      await this.connectingPromise;
+    } finally {
+      this.connectingPromise = null;
     }
   }
 
@@ -158,6 +230,11 @@ class ChatHubService {
     if (this.typingDebounceTimer) {
       clearTimeout(this.typingDebounceTimer);
       this.typingDebounceTimer = null;
+    }
+
+    if (this.typingAutoStopTimer) {
+      clearTimeout(this.typingAutoStopTimer);
+      this.typingAutoStopTimer = null;
     }
 
     if (this.connection) {
@@ -275,8 +352,13 @@ class ChatHubService {
       getDispatch()({ type: 'chat/messagesRead', payload: data });
     });
 
-    // Typing Indicator
+    // Typing Indicator - ignore own events
     this.connection.on('TypingIndicator', (data: TypingIndicatorPayload) => {
+      // CRITICAL: Ignore typing events from ourselves (backend broadcasts to all)
+      if (this.currentUserId && data.userId === this.currentUserId) {
+        console.debug('[ChatHub] TypingIndicator: Ignoring own event');
+        return;
+      }
       console.debug('[ChatHub] TypingIndicator:', data);
       this.callbacks.onTypingIndicator?.(data);
       getDispatch()({ type: 'chat/typingIndicator', payload: data });
@@ -301,6 +383,34 @@ class ChatHubService {
       console.error('[ChatHub] Error:', message);
       this.callbacks.onError?.(message);
       toast.error(`Chat-Fehler: ${message}`);
+    });
+
+    // E2EE Events - Backend sends ReceiveKeyOffer, ReceiveKeyAnswer, ReceiveE2EEReady
+    this.connection.on('ReceiveKeyOffer', (data: E2EEKeyOfferPayload) => {
+      console.debug('[ChatHub] ReceiveKeyOffer:', data.ThreadId);
+      this.callbacks.onE2EEKeyOffer?.(data);
+    });
+
+    this.connection.on('ReceiveKeyAnswer', (data: E2EEKeyAnswerPayload) => {
+      console.debug('[ChatHub] ReceiveKeyAnswer:', data.ThreadId);
+      this.callbacks.onE2EEKeyAnswer?.(data);
+    });
+
+    this.connection.on('ReceiveE2EEReady', (data: E2EEReadyPayload) => {
+      console.debug('[ChatHub] ReceiveE2EEReady:', data.ThreadId);
+      this.callbacks.onE2EEReady?.(data);
+    });
+
+    this.connection.on('E2EEError', (message: string) => {
+      console.error('[ChatHub] E2EEError:', message);
+      this.callbacks.onE2EEError?.(message);
+    });
+
+    // Message Deleted Event
+    this.connection.on('MessageDeleted', (data: MessageDeletedPayload) => {
+      console.debug('[ChatHub] MessageDeleted:', data.messageId);
+      this.callbacks.onMessageDeleted?.(data);
+      getDispatch()({ type: 'chat/messageDeleted', payload: data });
     });
 
     // Connection Lifecycle
@@ -335,6 +445,10 @@ class ChatHubService {
   // Thread Operations
   // ==========================================================================
 
+  // Lock for join operation to prevent race conditions
+  private joiningThreadPromise: Promise<void> | null = null;
+  private joiningThreadId: string | null = null;
+
   /**
    * Join a chat thread to receive messages
    */
@@ -343,14 +457,36 @@ class ChatHubService {
       throw new Error(CHAT_HUB_NOT_CONNECTED);
     }
 
+    // Already in this thread - skip
+    if (this.activeThreadId === threadId) {
+      console.debug('[ChatHub] Already in thread:', threadId);
+      return;
+    }
+
+    // Join in progress for this thread - wait for it
+    if (this.joiningThreadPromise && this.joiningThreadId === threadId) {
+      console.debug('[ChatHub] Join already in progress for:', threadId);
+      return this.joiningThreadPromise;
+    }
+
     // Leave current thread if different
     if (this.activeThreadId && this.activeThreadId !== threadId) {
       await this.leaveThread(this.activeThreadId);
     }
 
-    console.debug('[ChatHub] Joining thread:', threadId);
-    await this.getConnection().invoke('JoinThread', threadId);
-    this.activeThreadId = threadId;
+    this.joiningThreadId = threadId;
+    this.joiningThreadPromise = (async () => {
+      console.debug('[ChatHub] Joining thread:', threadId);
+      await this.getConnection().invoke('JoinThread', threadId);
+      this.activeThreadId = threadId;
+    })();
+
+    try {
+      await this.joiningThreadPromise;
+    } finally {
+      this.joiningThreadPromise = null;
+      this.joiningThreadId = null;
+    }
   }
 
   /**
@@ -469,7 +605,16 @@ class ChatHubService {
    * Send typing indicator with debouncing
    */
   public sendTyping(threadId: string, isTyping: boolean): void {
-    if (!this.isConnected()) return;
+    console.debug('[ChatHub] sendTyping called:', {
+      threadId,
+      isTyping,
+      connected: this.isConnected(),
+    });
+
+    if (!this.isConnected()) {
+      console.warn('[ChatHub] sendTyping: Not connected, skipping');
+      return;
+    }
 
     // Clear existing timer
     if (this.typingDebounceTimer) {
@@ -479,6 +624,7 @@ class ChatHubService {
 
     // Send immediately if stopping
     if (!isTyping) {
+      console.debug('[ChatHub] sendTyping: Sending stop typing');
       this.getConnection()
         .invoke('SendTyping', threadId, false)
         .catch((err: unknown) => {
@@ -489,6 +635,7 @@ class ChatHubService {
 
     // Debounce start typing
     this.typingDebounceTimer = setTimeout(() => {
+      console.debug('[ChatHub] sendTyping: Sending start typing (after debounce)');
       this.getConnection()
         .invoke('SendTyping', threadId, true)
         .catch((err: unknown) => {
@@ -496,8 +643,14 @@ class ChatHubService {
         });
     }, 300);
 
-    // Auto-stop typing after 5 seconds
-    setTimeout(() => {
+    // Clear any existing auto-stop timer to prevent multiple false events
+    if (this.typingAutoStopTimer) {
+      clearTimeout(this.typingAutoStopTimer);
+    }
+
+    // Auto-stop typing after 5 seconds of no typing activity
+    this.typingAutoStopTimer = setTimeout(() => {
+      console.debug('[ChatHub] sendTyping: Auto-stop after 5s');
       if (this.isConnected()) {
         this.getConnection()
           .invoke('SendTyping', threadId, false)
@@ -505,6 +658,7 @@ class ChatHubService {
             // Ignore errors on auto-stop
           });
       }
+      this.typingAutoStopTimer = null;
     }, 5000);
   }
 
@@ -538,6 +692,91 @@ class ChatHubService {
 
     console.debug('[ChatHub] Toggling reaction:', messageId, emoji);
     await this.getConnection().invoke('ToggleReaction', messageId, emoji);
+  }
+
+  // ==========================================================================
+  // Message Operations
+  // ==========================================================================
+
+  /**
+   * Delete a message (soft-delete, sender only)
+   */
+  public async deleteMessage(messageId: string): Promise<void> {
+    if (!this.isConnected()) {
+      throw new Error(CHAT_HUB_NOT_CONNECTED);
+    }
+
+    console.debug('[ChatHub] Deleting message:', messageId);
+    await this.getConnection().invoke('DeleteMessage', messageId);
+  }
+
+  // ==========================================================================
+  // E2EE Key Exchange
+  // ==========================================================================
+
+  /**
+   * Send E2EE key offer to peer
+   */
+  public async sendKeyOffer(
+    threadId: string,
+    publicKey: Base64String,
+    fingerprint: KeyFingerprint
+  ): Promise<void> {
+    if (!this.isConnected()) {
+      throw new Error(CHAT_HUB_NOT_CONNECTED);
+    }
+
+    console.debug('[ChatHub] Sending E2EE key offer:', threadId);
+    await this.getConnection().invoke('SendKeyOffer', threadId, publicKey, fingerprint);
+  }
+
+  /**
+   * Send E2EE key answer to peer
+   */
+  public async sendKeyAnswer(
+    threadId: string,
+    publicKey: string,
+    fingerprint: string
+  ): Promise<void> {
+    if (!this.isConnected()) {
+      throw new Error(CHAT_HUB_NOT_CONNECTED);
+    }
+
+    console.debug('[ChatHub] Sending E2EE key answer:', threadId);
+    await this.getConnection().invoke('SendKeyAnswer', threadId, publicKey, fingerprint);
+  }
+
+  /**
+   * Notify peer that E2EE is ready
+   */
+  public async sendE2EEReady(threadId: string, fingerprint: string): Promise<void> {
+    if (!this.isConnected()) {
+      throw new Error(CHAT_HUB_NOT_CONNECTED);
+    }
+
+    console.debug('[ChatHub] Sending E2EE ready:', threadId);
+    await this.getConnection().invoke('SendE2EEReady', threadId, fingerprint);
+  }
+
+  /**
+   * Send an encrypted message
+   */
+  public async sendEncryptedMessage(
+    threadId: string,
+    plaintextPreview: string,
+    encryptedContent: string,
+    encryptionKeyId: string,
+    encryptionIV: string
+  ): Promise<void> {
+    await this.sendMessage({
+      threadId,
+      content:
+        plaintextPreview.length > 20 ? `${plaintextPreview.slice(0, 17)}...` : plaintextPreview,
+      isEncrypted: true,
+      encryptedContent,
+      encryptionKeyId,
+      encryptionIV,
+    });
   }
 
   // ==========================================================================
@@ -583,6 +822,7 @@ class ChatHubService {
   // ==========================================================================
 
   private subscribedThreads = new Set<string>();
+  private subscribingPromises = new Map<string, Promise<void>>();
 
   /**
    * Subscribe to a thread for inline chat (doesn't change activeThreadId)
@@ -592,14 +832,33 @@ class ChatHubService {
       throw new Error(CHAT_HUB_NOT_CONNECTED);
     }
 
+    // Already subscribed - skip
     if (this.subscribedThreads.has(threadId)) {
       console.debug('[ChatHub] Already subscribed to thread:', threadId);
       return;
     }
 
-    console.debug('[ChatHub] Subscribing to thread (inline):', threadId);
-    await this.getConnection().invoke('JoinThread', threadId);
-    this.subscribedThreads.add(threadId);
+    // Subscription in progress - wait for it
+    const existingPromise = this.subscribingPromises.get(threadId);
+    if (existingPromise) {
+      console.debug('[ChatHub] Subscription already in progress for:', threadId);
+      return existingPromise;
+    }
+
+    // Create subscription promise to prevent race conditions
+    const subscribePromise = (async () => {
+      console.debug('[ChatHub] Subscribing to thread (inline):', threadId);
+      await this.getConnection().invoke('JoinThread', threadId);
+      this.subscribedThreads.add(threadId);
+    })();
+
+    this.subscribingPromises.set(threadId, subscribePromise);
+
+    try {
+      await subscribePromise;
+    } finally {
+      this.subscribingPromises.delete(threadId);
+    }
   }
 
   /**

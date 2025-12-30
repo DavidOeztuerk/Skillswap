@@ -8,8 +8,8 @@ export interface ChatThreadResponse {
   threadId: string;
   participant1Id: string;
   participant2Id: string;
-  participant1Name: string;
-  participant2Name: string;
+  participant1Name?: string;
+  participant2Name?: string;
   participant1AvatarUrl?: string;
   participant2AvatarUrl?: string;
   skillId?: string;
@@ -18,17 +18,17 @@ export interface ChatThreadResponse {
   lastMessageAt?: string;
   lastMessagePreview?: string;
   lastMessageSenderId?: string;
-  participant1UnreadCount: number;
-  participant2UnreadCount: number;
+  // Backend provides single unread count for current user
+  unreadCount: number;
+  totalMessageCount: number;
   isLocked: boolean;
   lockReason?: string;
-  lockedAt?: string;
-  participant1LastReadAt?: string;
-  participant2LastReadAt?: string;
-  isTypingParticipant1: boolean;
-  isTypingParticipant2: boolean;
+  otherParticipantIsTyping: boolean;
   createdAt: string;
-  updatedAt?: string;
+  // Computed for current user by backend
+  otherParticipantId?: string;
+  otherParticipantName?: string;
+  otherParticipantAvatarUrl?: string;
 }
 
 export interface ChatMessageResponse {
@@ -38,30 +38,45 @@ export interface ChatMessageResponse {
   senderName: string;
   senderAvatarUrl?: string;
   content: string;
+  renderedHtml?: string;
   messageType: string;
   context: string;
   contextReferenceId?: string;
   replyToMessageId?: string;
-  replyToMessage?: ChatMessageResponse;
+  replyToPreview?: string;
+  replyToSenderName?: string;
   codeLanguage?: string;
   giphyId?: string;
   gifUrl?: string;
+  // E2EE
   isEncrypted: boolean;
   encryptedContent?: string;
   encryptionKeyId?: string;
   encryptionIV?: string;
-  attachmentId?: string;
-  attachment?: ChatAttachmentResponse;
+  // File attachments
+  fileUrl?: string;
+  fileName?: string;
+  fileMimeType?: string;
+  fileSize?: number;
+  fileSizeDisplay?: string;
+  thumbnailUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  attachments?: ChatAttachmentResponse[];
   // Reactions as parsed object from backend (matches C# Dictionary<string, List<string>>)
   reactions?: Record<string, string[]>;
-  reactionCount?: number;
+  reactionCount: number;
+  // Status
   isEdited: boolean;
   editedAt?: string;
   isDeleted: boolean;
   deletedAt?: string;
   isRead: boolean;
   readAt?: string;
+  deliveredAt?: string;
   createdAt: string;
+  // Computed by backend
+  isMine: boolean;
 }
 
 export interface ChatAttachmentResponse {

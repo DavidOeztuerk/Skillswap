@@ -70,7 +70,7 @@ export const selectFilteredThreads = createSelector(
     if (chat.searchQuery) {
       const query = chat.searchQuery.toLowerCase();
       result = result.filter((thread) => {
-        const nameMatch = thread.otherParticipantName.toLowerCase().includes(query);
+        const nameMatch = thread.otherParticipantName?.toLowerCase().includes(query) ?? false;
         const skillMatch = thread.skillName?.toLowerCase().includes(query) ?? false;
         const previewMatch = thread.lastMessagePreview?.toLowerCase().includes(query) ?? false;
         return nameMatch || skillMatch || previewMatch;
