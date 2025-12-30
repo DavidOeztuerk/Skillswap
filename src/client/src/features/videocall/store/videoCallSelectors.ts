@@ -43,6 +43,11 @@ export const selectPeerId = createSelector(
   (state): string | null => state.peerId
 );
 
+export const selectThreadId = createSelector(
+  [selectVideocallState],
+  (state): string | null => state.threadId
+);
+
 // ============================================================================
 // Connection Selectors
 // ============================================================================
@@ -190,27 +195,13 @@ export const selectMediaDeviceStatus = createSelector(
 
 // ============================================================================
 // Chat Selectors
+// NOTE: Chat messages are now handled by useInlineChat via ChatHub.
+// Only the panel open/close state is managed here.
 // ============================================================================
 
 export const selectIsChatOpen = createSelector(
   [selectVideocallState],
   (state): boolean => state.isChatOpen
-);
-
-export const selectChatMessages = createSelector([selectVideocallState], (state) => state.messages);
-
-export const selectUnreadMessagesCount = createSelector(
-  [selectVideocallState],
-  (state): number => state.unreadMessageCount
-);
-
-export const selectLatestMessage = createSelector([selectChatMessages], (messages) =>
-  messages.length > 0 ? messages.at(-1) : null
-);
-
-export const selectChatMessageCount = createSelector(
-  [selectChatMessages],
-  (messages): number => messages.length
 );
 
 // ============================================================================
@@ -419,7 +410,7 @@ export const selectIsE2EEActive = createSelector(
 
 export const selectIsE2EESupported = createSelector(
   [selectE2EEStatus],
-  (status): boolean => status !== 'unsupported' && status !== 'disabled'
+  (status): boolean => status !== 'unsupported' && status !== 'inactive'
 );
 
 // ============================================================================

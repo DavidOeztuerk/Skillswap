@@ -6,7 +6,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Chat as ChatIcon } from '@mui/icons-material';
 import { Fab, Badge, Tooltip, Zoom, useTheme, useMediaQuery } from '@mui/material';
-import { useAppSelector } from '../../../core/store/hooks';
+import { useAppSelector } from '../../../core/store/store.hooks';
 import { selectAuthUser } from '../../auth/store/authSelectors';
 import { useChat } from '../hooks/useChat';
 import ChatDrawer from './ChatDrawer';

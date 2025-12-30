@@ -8,7 +8,7 @@
  * - Browser-spezifische Cleanup-Logik (Safari)
  */
 
-import { getBrowserInfo } from '../../shared/utils/browserDetection';
+import { getBrowserInfo } from '../../shared/detection';
 
 // ============================================================================
 // Types
@@ -22,6 +22,7 @@ export interface StreamMetadata {
   hasVideo: boolean;
   hasAudio: boolean;
   isActive: boolean;
+  peerId?: string; // For remote streams: the userId of the peer
 }
 
 export interface TrackEvent {
@@ -65,9 +66,11 @@ class StreamManager {
   private listeners = new Map<StreamEventType, Set<StreamEventCallback>>();
 
   // Track Cleanup Handlers (für Memory-Leak-Prevention)
+  // Speichert Track-Referenz + Handler für korrektes removeEventListener
   private trackHandlers = new Map<
     string,
     {
+      track: MediaStreamTrack;
       ended: () => void;
       mute: () => void;
       unmute: () => void;
@@ -163,11 +166,21 @@ class StreamManager {
    * Registriert einen Remote Stream (von WebRTC)
    */
   registerRemoteStream(stream: MediaStream, peerId?: string): void {
-    const id = peerId ? `remote-${peerId}` : stream.id;
-    console.debug(`📡 StreamManager: Registering remote stream (${id})`);
+    const { id } = stream;
+    console.debug(
+      `📡 StreamManager: Registering remote stream (${id}, peerId: ${peerId ?? 'none'})`
+    );
 
-    // Falls der Stream schon eine ID hat, verwenden wir diese
+    // Register the stream
     this.registerStream(stream, 'remote');
+
+    // Store peerId in metadata for lookup during UserLeft cleanup
+    if (peerId) {
+      const meta = this.metadata.get(id);
+      if (meta) {
+        meta.peerId = peerId;
+      }
+    }
   }
 
   // ========================================================================
@@ -179,6 +192,18 @@ class StreamManager {
    */
   registerStream(stream: MediaStream, type: 'camera' | 'screen' | 'remote'): void {
     const { id } = stream;
+
+    // CRITICAL: Check if stream is already registered to prevent duplicate event listeners!
+    // This can happen because ontrack fires for each track (audio + video), but they
+    // share the same MediaStream. Registering twice causes duplicate mute/unmute events.
+    if (this.streams.has(id)) {
+      console.debug(
+        `📝 StreamManager.registerStream: Stream ${id} already registered, skipping duplicate`
+      );
+      // Just update metadata in case tracks changed
+      this.updateMetadata(id);
+      return;
+    }
 
     console.debug(
       `📝 StreamManager.registerStream called: type=${type}, id=${id}, tracks=${
@@ -231,6 +256,7 @@ class StreamManager {
     this.removeTrackListeners(trackId);
 
     const handlers = {
+      track, // Store track reference for proper cleanup
       ended: () => {
         this.handleTrackEnded(streamId, track);
       },
@@ -253,9 +279,15 @@ class StreamManager {
     const handlers = this.trackHandlers.get(trackId);
     if (!handlers) return;
 
-    // Wir haben keinen direkten Zugriff auf den Track hier,
-    // aber das ist OK - wenn der Track destroyed wird, werden die Listener
-    // automatisch entfernt. Wir räumen nur unsere Map auf.
+    // KRITISCH: Entferne Event Listener vom Track um Memory Leaks zu vermeiden!
+    try {
+      handlers.track.removeEventListener('ended', handlers.ended);
+      handlers.track.removeEventListener('mute', handlers.mute);
+      handlers.track.removeEventListener('unmute', handlers.unmute);
+    } catch {
+      // Track might already be destroyed, ignore
+    }
+
     this.trackHandlers.delete(trackId);
   }
 
@@ -340,14 +372,30 @@ class StreamManager {
 
     const tracks = stream.getTracks();
 
-    // 1. Stoppe alle Tracks SYNCHRON
+    // 1. Safari-spezifisch: Entferne Tracks aus Stream ZUERST für Camera-Indikator
+    // KRITISCH: Dies muss VOR track.stop() passieren, damit Safari
+    // den Camera-Indikator korrekt aktualisiert!
+    if (this.isSafari) {
+      console.debug(`🍎 StreamManager: Safari - removing ${tracks.length} tracks from stream`);
+      tracks.forEach((track) => {
+        try {
+          stream.removeTrack(track);
+          console.debug(`🍎 StreamManager: Removed ${track.kind} track from stream`);
+        } catch (e) {
+          console.warn(`Safari removeTrack failed for ${track.id}:`, e);
+        }
+      });
+    }
+
+    // 2. Stoppe alle Tracks SYNCHRON
     tracks.forEach((track) => {
       try {
-        if (track.readyState === 'live') {
-          console.debug(`🛑 StreamManager: Stopping ${track.kind} track ${track.id}`);
-          track.stop();
-          track.enabled = false;
-        }
+        // Stop regardless of readyState - track.stop() is idempotent
+        console.debug(
+          `🛑 StreamManager: Stopping ${track.kind} track ${track.id} (readyState: ${track.readyState})`
+        );
+        track.stop();
+        track.enabled = false;
       } catch (_e) {
         console.warn(`Failed to stop track ${track.id}:`, _e);
       }
@@ -355,17 +403,6 @@ class StreamManager {
       // Cleanup Handler
       this.removeTrackListeners(track.id);
     });
-
-    // 2. Safari-spezifisch: Entferne Tracks aus Stream für Camera-Indikator
-    if (this.isSafari) {
-      tracks.forEach((track) => {
-        try {
-          stream.removeTrack(track);
-        } catch {
-          // Ignoriere - Track könnte bereits entfernt sein
-        }
-      });
-    }
 
     // 3. Cleanup Maps
     this.streams.delete(streamId);
@@ -426,6 +463,33 @@ class StreamManager {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Get stream ID by peer user ID
+   * Used for cleanup when a user leaves the call
+   */
+  getStreamIdByPeerId(peerId: string): string | undefined {
+    for (const [streamId, meta] of this.metadata) {
+      if (meta.peerId === peerId) {
+        return streamId;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Get all stream IDs of a specific type
+   * Used for selective cleanup (e.g., only destroy remote streams during partial cleanup)
+   */
+  getStreamsByType(type: 'camera' | 'screen' | 'remote'): string[] {
+    const result: string[] = [];
+    for (const [streamId, meta] of this.metadata) {
+      if (meta.type === type) {
+        result.push(streamId);
+      }
+    }
+    return result;
   }
 
   // ========================================================================

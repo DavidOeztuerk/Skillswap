@@ -32,6 +32,9 @@ export interface Appointment {
   connectionType?: string;
   connectionStatus?: string;
 
+  // Chat/Thread info - ThreadId from MatchRequest for Chat integration
+  threadId?: string;
+
   sessionSeriesId?: string;
   sessionSeriesTitle?: string;
   sessionNumber?: number;

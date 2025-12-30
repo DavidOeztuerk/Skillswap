@@ -20,21 +20,22 @@ import { useStreams } from '../../../core/contexts/streamContextHooks';
 import { useAppDispatch, useAppSelector } from '../../../core/store/store.hooks';
 import ConfirmDialog from '../../../shared/components/ui/ConfirmDialog';
 import LoadingSpinner from '../../../shared/components/ui/LoadingSpinner';
+import { isSafari } from '../../../shared/detection';
 import useNetworkStatus from '../../../shared/hooks/useNetworkStatus';
-import browserInfo from '../../../shared/utils/browserDetection';
 import { useAuth } from '../../auth/hooks/useAuth';
 import CallControls from '../components/CallControls';
-import ChatPanel from '../components/ChatPanel';
 import ConnectionStatus from '../components/ConnectionStatus';
-import E2EEDebugPanel from '../components/E2EeDebugPanel';
+// import E2EEDebugPanel from '../components/E2EeDebugPanel';
 import E2EEStatus from '../components/E2EeStatus';
 import LocalVideo from '../components/LocalVideo';
 import PreCallLobby from '../components/PreCallLobby';
 import RemoteVideo from '../components/RemoteVideo';
+import VideoCallChatPanel from '../components/VideoCallChatPanel';
 import VideoLayout, { type LayoutMode } from '../components/VideoLayout';
 import useNetworkQuality, { type NetworkQualityStats } from '../hooks/useNetworkQuality';
 import { useVideoCallComposed } from '../hooks/useVideoCallComposed';
 import { VideoCallProvider } from '../hooks/VideoCallContext';
+import { selectThreadId } from '../store/videoCallSelectors';
 import { setLayoutMode } from '../store/videoCallSlice';
 
 // Types
@@ -221,6 +222,16 @@ const debugButtonSx: SxProps<Theme> = {
 // Layout Props Interfaces
 // ============================================================================
 
+type E2EEStatusType =
+  | 'inactive'
+  | 'initializing'
+  | 'key-exchange'
+  | 'key-rotation'
+  | 'active'
+  | 'verified'
+  | 'error'
+  | 'unsupported';
+
 interface LayoutRenderProps {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
@@ -241,6 +252,8 @@ interface LayoutRenderProps {
       }
     | undefined;
   mainParticipant?: { isLocal?: boolean };
+  /** E2EE status for showing encryption initialization overlay */
+  e2eeStatus?: E2EEStatusType;
 }
 
 // ============================================================================
@@ -258,6 +271,7 @@ const renderGridLayout = (props: LayoutRenderProps): React.ReactNode => {
     userName,
     localUserAvatarUrl,
     remoteParticipant,
+    e2eeStatus,
   } = props;
   const hasRemoteStream = !!remoteStream;
 
@@ -278,11 +292,12 @@ const renderGridLayout = (props: LayoutRenderProps): React.ReactNode => {
           <RemoteVideo
             stream={remoteStream}
             isConnected={isConnected}
-            username={remoteParticipant?.name ?? 'Teilnehmer'}
+            username={remoteParticipant?.name ?? 'Participant'}
             isMicMuted={remoteParticipant?.isMuted ?? false}
             isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
             isScreenSharing={remoteParticipant?.isScreenSharing ?? false}
             avatarUrl={remoteParticipant?.avatar}
+            e2eeStatus={e2eeStatus}
           />
         </Box>
       ) : null}
@@ -313,6 +328,7 @@ const renderSpotlightLayout = (props: LayoutRenderProps): React.ReactNode => {
     localUserAvatarUrl,
     remoteParticipant,
     mainParticipant,
+    e2eeStatus,
   } = props;
   const hasRemoteStream = !!remoteStream;
 
@@ -343,11 +359,12 @@ const renderSpotlightLayout = (props: LayoutRenderProps): React.ReactNode => {
           <RemoteVideo
             stream={remoteStream}
             isConnected={isConnected}
-            username={remoteParticipant?.name ?? 'Teilnehmer'}
+            username={remoteParticipant?.name ?? 'Participant'}
             isMicMuted={remoteParticipant?.isMuted ?? false}
             isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
             isScreenSharing={remoteParticipant?.isScreenSharing ?? false}
             avatarUrl={remoteParticipant?.avatar}
+            e2eeStatus={e2eeStatus}
           />
         ) : (
           <LocalVideo
@@ -377,11 +394,12 @@ const renderSpotlightLayout = (props: LayoutRenderProps): React.ReactNode => {
             <RemoteVideo
               stream={remoteStream}
               isConnected={isConnected}
-              username={remoteParticipant?.name ?? 'Teilnehmer'}
+              username={remoteParticipant?.name ?? 'Participant'}
               isMicMuted={remoteParticipant?.isMuted ?? false}
               isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
               isScreenSharing={false}
               avatarUrl={remoteParticipant?.avatar}
+              e2eeStatus={e2eeStatus}
             />
           )}
         </Box>
@@ -401,6 +419,7 @@ const renderScreenShareLayout = (props: LayoutRenderProps): React.ReactNode => {
     userName,
     localUserAvatarUrl,
     remoteParticipant,
+    e2eeStatus,
   } = props;
   const hasRemoteStream = !!remoteStream;
 
@@ -423,11 +442,12 @@ const renderScreenShareLayout = (props: LayoutRenderProps): React.ReactNode => {
             <RemoteVideo
               stream={remoteStream}
               isConnected={isConnected}
-              username={remoteParticipant?.name ?? 'Teilnehmer'}
+              username={remoteParticipant?.name ?? 'Participant'}
               isMicMuted={remoteParticipant?.isMuted ?? false}
               isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
               isScreenSharing={false}
               avatarUrl={remoteParticipant?.avatar}
+              e2eeStatus={e2eeStatus}
             />
           </Box>
         ) : null}
@@ -447,7 +467,7 @@ const renderScreenShareLayout = (props: LayoutRenderProps): React.ReactNode => {
           />
         ) : (
           <Typography color="white" variant="body2">
-            Keine Bildschirmfreigabe aktiv
+            No screen share active
           </Typography>
         )}
       </Box>
@@ -466,6 +486,7 @@ const renderPipLayout = (props: LayoutRenderProps): React.ReactNode => {
     userName,
     localUserAvatarUrl,
     remoteParticipant,
+    e2eeStatus,
   } = props;
   const hasRemoteStream = !!remoteStream;
 
@@ -491,11 +512,12 @@ const renderPipLayout = (props: LayoutRenderProps): React.ReactNode => {
         <RemoteVideo
           stream={remoteStream}
           isConnected={isConnected}
-          username={remoteParticipant?.name ?? 'Teilnehmer'}
+          username={remoteParticipant?.name ?? 'Participant'}
           isMicMuted={remoteParticipant?.isMuted ?? false}
           isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
           isScreenSharing={remoteParticipant?.isScreenSharing ?? false}
           avatarUrl={remoteParticipant?.avatar}
+          e2eeStatus={e2eeStatus}
         />
       </Box>
       <LocalVideo
@@ -595,6 +617,7 @@ const VideoCallPageContent: React.FC = () => {
   // Layout state from Redux
   const layoutMode = useAppSelector((state) => state.videoCall.layoutMode);
   const activeSpeakerId = useAppSelector((state) => state.videoCall.activeSpeakerId);
+  const threadId = useAppSelector(selectThreadId);
 
   // Video Call Hook (using composed modular hooks)
   const {
@@ -604,7 +627,6 @@ const VideoCallPageContent: React.FC = () => {
     isVideoEnabled,
     isScreenSharing,
     isChatOpen,
-    messages,
     participants,
     isLoading,
     error,
@@ -615,7 +637,6 @@ const VideoCallPageContent: React.FC = () => {
     toggleCamera,
     toggleScreenSharing,
     toggleChatPanel,
-    sendChatMessage,
     hangUp,
     e2ee,
     chatE2EE,
@@ -625,6 +646,7 @@ const VideoCallPageContent: React.FC = () => {
   // Local State (defined before hooks that use them)
   const [callPhase, setCallPhase] = useState<'lobby' | 'call' | 'ended'>('lobby');
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
   const [connectionQuality, setConnectionQuality] = useState<ConnectionQualityType>('connecting');
   const [networkWarning, setNetworkWarning] = useState<string | null>(null);
   const [showNetworkStats, setShowNetworkStats] = useState(false);
@@ -642,11 +664,9 @@ const VideoCallPageContent: React.FC = () => {
     enableLogging: import.meta.env.VITE_VERBOSE_NETWORK_QUALITY === 'true',
     onQualityChange: (quality) => {
       if (quality === 'poor') {
-        setNetworkWarning(
-          'Schlechte Verbindungsqualität erkannt. Videoqualität könnte beeinträchtigt sein.'
-        );
+        setNetworkWarning('Poor connection quality detected. Video quality may be affected.');
       } else if (quality === 'fair') {
-        setNetworkWarning('Mittelmäßige Verbindungsqualität.');
+        setNetworkWarning('Fair connection quality.');
       } else {
         setNetworkWarning(null);
       }
@@ -679,7 +699,7 @@ const VideoCallPageContent: React.FC = () => {
 
     try {
       console.debug('🚀 Starting video call initialization from lobby...');
-      if (browserInfo.isSafari) {
+      if (isSafari()) {
         console.debug('🍎 Safari detected - using Safari-specific WebRTC configuration');
       }
       setCallPhase('call');
@@ -807,16 +827,20 @@ const VideoCallPageContent: React.FC = () => {
 
   const handleExit = useCallback(async (): Promise<void> => {
     console.debug('📞 User initiated call end');
+    // Disable all buttons immediately to prevent multiple clicks
+    setIsExiting(true);
     setExitConfirmOpen(false);
 
     try {
-      isCallActiveRef.current = false;
+      // WICHTIG: Erst cleanup durchführen, DANN flag setzen
       await hangUpRef.current();
       cleanupStreams();
     } catch (err) {
       console.error('Exit cleanup error:', err);
     } finally {
-      void navigate('/appointments');
+      // Flag NACH cleanup setzen um Race Conditions zu vermeiden
+      isCallActiveRef.current = false;
+      await navigate('/appointments');
     }
   }, [navigate, cleanupStreams]);
 
@@ -946,7 +970,7 @@ const VideoCallPageContent: React.FC = () => {
     return (
       <Box sx={errorContainerSx}>
         <Typography variant="h5" color="error" gutterBottom>
-          Fehler beim Herstellen des Videoanrufs
+          Error establishing video call
         </Typography>
         <Typography variant="body1" color="text.secondary" gutterBottom sx={errorMessageSx}>
           {error}
@@ -957,7 +981,7 @@ const VideoCallPageContent: React.FC = () => {
           onClick={() => navigate('/appointments')}
           sx={{ mt: 3 }}
         >
-          Zurück zu den Terminen
+          Back to appointments
         </Button>
       </Box>
     );
@@ -968,7 +992,7 @@ const VideoCallPageContent: React.FC = () => {
   // ========================================================================
 
   if (isLoading && callPhase === 'call') {
-    return <LoadingSpinner fullPage message="Videoanruf wird gestartet..." />;
+    return <LoadingSpinner fullPage message="Starting video call..." />;
   }
 
   // ========================================================================
@@ -996,7 +1020,7 @@ const VideoCallPageContent: React.FC = () => {
       <ConnectionStatus quality={connectionQuality} hideWhenGood />
 
       {/* E2EE Status Indicator (Chip) */}
-      {e2ee.status !== 'disabled' && (
+      {e2ee.status !== 'inactive' && (
         <Box
           sx={{
             ...e2eeStatusBoxSx,
@@ -1018,7 +1042,7 @@ const VideoCallPageContent: React.FC = () => {
       )}
 
       {/* E2EE Debug Panel (Development Only) */}
-      {import.meta.env.DEV ? (
+      {/* {import.meta.env.DEV ? (
         <E2EEDebugPanel
           status={e2ee.status}
           localFingerprint={e2ee.localKeyFingerprint}
@@ -1032,7 +1056,7 @@ const VideoCallPageContent: React.FC = () => {
           chatStats={chatE2EE.stats}
           compact={isChatOpen}
         />
-      ) : null}
+      ) : null} */}
 
       {/* Video Layout Container */}
       <VideoLayout
@@ -1045,11 +1069,26 @@ const VideoCallPageContent: React.FC = () => {
         showLayoutControls
       >
         {({ mode, mainParticipant, sideParticipants: _sideParticipants }) => {
+          // CHROME/SAFARI FIX: Compute "effective" isConnected that considers E2EE status
+          // WebRTC connects fast, but video won't work until E2EE is ready.
+          // This prevents "Verbindung wird hergestellt" from disappearing too quickly.
+          const isE2EEReady =
+            e2ee.status === 'active' ||
+            e2ee.status === 'verified' ||
+            e2ee.status === 'key-rotation';
+          const isE2EENotUsed = e2ee.status === 'inactive' || e2ee.status === 'unsupported';
+
+          // Only consider "connected" when:
+          // - WebRTC is connected AND
+          // - E2EE is ready OR E2EE is not being used
+          // During E2EE initialization, show "Verbindung wird hergestellt" to avoid confusion
+          const effectiveIsConnected = isConnected && (isE2EEReady || isE2EENotUsed);
+
           const layoutProps: LayoutRenderProps = {
             localStream,
             remoteStream,
             screenStream,
-            isConnected,
+            isConnected: effectiveIsConnected,
             isMicEnabled,
             isVideoEnabled,
             isScreenSharing,
@@ -1057,6 +1096,7 @@ const VideoCallPageContent: React.FC = () => {
             localUserAvatarUrl: localUserAvatarUrl ?? undefined,
             remoteParticipant,
             mainParticipant,
+            e2eeStatus: e2ee.status,
           };
 
           switch (mode) {
@@ -1080,14 +1120,15 @@ const VideoCallPageContent: React.FC = () => {
       {/* Network Stats Display */}
       <NetworkStatsDisplay stats={webrtcQuality} visible={showNetworkStats} />
 
-      {/* Chat Panel */}
-      {isChatOpen ? (
+      {/* Chat Panel - Uses shared chat infrastructure */}
+      {isChatOpen && remoteParticipant && threadId ? (
         <Box sx={chatPanelContainerSx}>
-          <ChatPanel
-            messages={messages}
-            onSendMessage={sendChatMessage}
+          <VideoCallChatPanel
+            threadId={threadId}
+            peerId={remoteParticipant.id}
+            peerName={remoteParticipant.name}
+            peerAvatarUrl={remoteParticipant.avatar}
             onClose={toggleChatPanel}
-            currentUserId={user?.id ?? ''}
             e2eeStatus={chatE2EE.status}
             isE2EEActive={chatE2EE.isActive}
             messagesEncrypted={chatE2EE.stats.messagesEncrypted}
@@ -1108,6 +1149,7 @@ const VideoCallPageContent: React.FC = () => {
         onToggleScreenShare={toggleScreenSharing}
         onToggleChat={toggleChatPanel}
         onEndCall={handleExitConfirm}
+        disabled={isExiting}
       />
 
       {/* Debug & Stats Buttons (Development only) */}
@@ -1148,10 +1190,10 @@ const VideoCallPageContent: React.FC = () => {
       {/* Exit Confirmation Dialog */}
       <ConfirmDialog
         open={exitConfirmOpen}
-        title="Anruf beenden"
-        message="Möchtest du diesen Videoanruf wirklich beenden?"
-        confirmLabel="Beenden"
-        cancelLabel="Abbrechen"
+        title="End call"
+        message="Do you really want to end this video call?"
+        confirmLabel="End"
+        cancelLabel="Cancel"
         confirmColor="error"
         onConfirm={handleExit}
         onCancel={handleCancelExit}

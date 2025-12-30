@@ -1,171 +1,128 @@
 /**
- * End-to-End Encryption for Chat Messages
+ * E2EE Chat Encryption Manager
  *
- * This module implements E2EE for text messages using:
- * - AES-256-GCM for message encryption
- * - ECDSA (P-256) for message signing/verification
- * - Per-conversation keys (derived from ECDH)
- * - Message authentication & integrity
- *
- * Security Properties:
- * - Confidentiality: Only conversation participants can read messages
- * - Authenticity: Sender identity verified via digital signatures
- * - Integrity: Tampering detected via authentication tags
- * - Forward Secrecy: Optional key rotation for long conversations
- *
- * Message Format:
- * ```
- * {
- *   encryptedContent: string (base64),
- *   iv: string (base64),
- *   signature: string (base64),
- *   timestamp: number,
- *   keyGeneration: number,
- *   senderFingerprint: string
- * }
- * ```
+ * Orchestriert ECDSA Signing/Verification und AES-GCM Encryption für Chat-Nachrichten.
+ * Nutzt die core/crypto Primitives für alle kryptographischen Operationen.
  */
 
-const ALGORITHM = 'AES-GCM';
-const IV_LENGTH = 12; // 96 bits
-const AUTH_TAG_LENGTH = 128; // 128 bits
-const SIGNATURE_ALGORITHM = 'ECDSA';
-const SIGNATURE_HASH = 'SHA-256';
+import {
+  // Types
+  type ECDSAKeyPair,
+  type KeyFingerprint,
+  type KeyGeneration,
+  // ECDSA Functions
+  generateECDSAKeyPair,
+  signData,
+  verifySignature,
+  importECDSAVerificationKey,
+  exportECDSAVerificationKey,
+  calculateECDSAFingerprint,
+  // AES-GCM Functions
+  encryptAesGcm,
+  decryptAesGcm,
+  // Encoding
+  arrayBufferToBase64,
+  base64ToArrayBuffer,
+  stringToArrayBuffer,
+  arrayBufferToString,
+  extractIvAndData,
+  // Constants
+  IV_LENGTH,
+} from '../../core/crypto';
 
-/**
- * Encrypted message structure
- */
+// ============================================================================
+// Types
+// ============================================================================
+
 export interface EncryptedMessage {
-  /** Base64-encoded encrypted content */
   encryptedContent: string;
-  /** Base64-encoded initialization vector */
   iv: string;
-  /** Base64-encoded digital signature (ECDSA) */
   signature: string;
-  /** Message timestamp (milliseconds) */
   timestamp: number;
-  /** Key generation number (for rotation support) */
-  keyGeneration: number;
-  /** Sender's public key fingerprint (for verification) */
-  senderFingerprint: string;
+  keyGeneration: KeyGeneration;
+  senderFingerprint: KeyFingerprint;
 }
 
-/**
- * Decrypted message structure
- */
 export interface DecryptedMessage {
-  /** Plaintext message content */
   content: string;
-  /** Message timestamp */
   timestamp: number;
-  /** Key generation used */
-  keyGeneration: number;
-  /** Sender's fingerprint */
-  senderFingerprint: string;
-  /** Signature verification result */
+  keyGeneration: KeyGeneration;
+  senderFingerprint: KeyFingerprint;
   isVerified: boolean;
 }
 
-/**
- * Conversation key material
- */
 export interface ConversationKeyMaterial {
-  /** AES-GCM encryption key */
   encryptionKey: CryptoKey;
-  /** ECDSA signing key (private) */
   signingKey: CryptoKey;
-  /** ECDSA verification key (public) */
   verificationKey: CryptoKey;
-  /** Remote peer's verification key */
   peerVerificationKey: CryptoKey | null;
-  /** Key creation timestamp */
   createdAt: number;
-  /** Key generation number */
-  generation: number;
-  /** Local public key fingerprint */
-  localFingerprint: string;
-  /** Remote peer's fingerprint */
-  peerFingerprint: string | null;
+  generation: KeyGeneration;
+  localFingerprint: KeyFingerprint;
+  peerFingerprint: KeyFingerprint | null;
 }
 
+export interface SigningKeyPairResult {
+  signingKey: CryptoKey;
+  verificationKey: CryptoKey;
+  publicKeyBase64: string;
+  fingerprint: KeyFingerprint;
+}
+
+// ============================================================================
+// E2EE Chat Manager
+// ============================================================================
+
 /**
- * E2EE Chat Manager
+ * E2EE Chat Manager - Orchestriert Message Encryption und Signing
  */
 export class E2EEChatManager {
   private conversationKeys = new Map<string, ConversationKeyMaterial>();
 
   /**
-   * Generate signing key pair (ECDSA P-256)
+   * Generiert ein neues ECDSA Signing Key Pair
    */
-  async generateSigningKeyPair(): Promise<{
-    signingKey: CryptoKey;
-    verificationKey: CryptoKey;
-    publicKeyBase64: string;
-    fingerprint: string;
-  }> {
-    // Generate ECDSA key pair for message signing
-    const keyPair = await crypto.subtle.generateKey(
-      {
-        name: SIGNATURE_ALGORITHM,
-        namedCurve: 'P-256',
-      },
-      true, // extractable (need to export public key)
-      ['sign', 'verify']
-    );
+  async generateSigningKeyPair(): Promise<SigningKeyPairResult> {
+    const keyPair: ECDSAKeyPair = await generateECDSAKeyPair();
 
-    // Export public key for sharing
-    const publicKeyArrayBuffer = await crypto.subtle.exportKey('raw', keyPair.publicKey);
-    const publicKeyBase64 = this.arrayBufferToBase64(publicKeyArrayBuffer);
+    const publicKeyBase64 = await exportECDSAVerificationKey(keyPair.verificationKey);
+    const fingerprint = await calculateECDSAFingerprint(keyPair.verificationKey);
 
-    // Generate fingerprint
-    const fingerprintBuffer = await crypto.subtle.digest('SHA-256', publicKeyArrayBuffer);
-    const fingerprint = this.arrayBufferToHex(fingerprintBuffer);
+    console.debug('🔐 Chat E2EE: Generated new signing key pair');
 
     return {
-      signingKey: keyPair.privateKey,
-      verificationKey: keyPair.publicKey,
+      signingKey: keyPair.signingKey,
+      verificationKey: keyPair.verificationKey,
       publicKeyBase64,
       fingerprint,
     };
   }
 
   /**
-   * Initialize conversation with shared encryption key and signing keys
+   * Initialisiert eine Konversation mit Encryption und Signing Keys
    */
   async initializeConversation(
     conversationId: string,
     sharedEncryptionKey: CryptoKey,
     localSigningKey: CryptoKey,
     localVerificationKey: CryptoKey,
-    localFingerprint: string,
+    localFingerprint: KeyFingerprint,
     peerVerificationKeyBase64?: string,
-    peerFingerprint?: string
+    peerFingerprint?: KeyFingerprint
   ): Promise<void> {
-    // Import peer's verification key if provided
     let peerVerificationKey: CryptoKey | null = null;
 
     if (peerVerificationKeyBase64) {
-      const peerKeyBuffer = this.base64ToArrayBuffer(peerVerificationKeyBase64);
-      peerVerificationKey = await crypto.subtle.importKey(
-        'raw',
-        peerKeyBuffer,
-        {
-          name: SIGNATURE_ALGORITHM,
-          namedCurve: 'P-256',
-        },
-        false,
-        ['verify']
-      );
+      peerVerificationKey = await importECDSAVerificationKey(peerVerificationKeyBase64);
     }
 
-    // Store conversation keys
     this.conversationKeys.set(conversationId, {
       encryptionKey: sharedEncryptionKey,
       signingKey: localSigningKey,
       verificationKey: localVerificationKey,
       peerVerificationKey,
       createdAt: Date.now(),
-      generation: 1,
+      generation: 1 as KeyGeneration,
       localFingerprint,
       peerFingerprint: peerFingerprint ?? null,
     });
@@ -174,38 +131,26 @@ export class E2EEChatManager {
   }
 
   /**
-   * Update peer's verification key (when received)
+   * Aktualisiert den Peer Verification Key
    */
   async updatePeerVerificationKey(
     conversationId: string,
     peerVerificationKeyBase64: string,
-    peerFingerprint: string
+    peerFingerprint: KeyFingerprint
   ): Promise<void> {
     const keyMaterial = this.conversationKeys.get(conversationId);
     if (!keyMaterial) {
       throw new Error(`Conversation ${conversationId} not initialized`);
     }
 
-    const peerKeyBuffer = this.base64ToArrayBuffer(peerVerificationKeyBase64);
-    const peerVerificationKey = await crypto.subtle.importKey(
-      'raw',
-      peerKeyBuffer,
-      {
-        name: SIGNATURE_ALGORITHM,
-        namedCurve: 'P-256',
-      },
-      false,
-      ['verify']
-    );
-
-    keyMaterial.peerVerificationKey = peerVerificationKey;
+    keyMaterial.peerVerificationKey = await importECDSAVerificationKey(peerVerificationKeyBase64);
     keyMaterial.peerFingerprint = peerFingerprint;
 
     console.debug(`🔐 Chat E2EE: Updated peer verification key for ${conversationId}`);
   }
 
   /**
-   * Encrypt and sign a message
+   * Verschlüsselt und signiert eine Nachricht
    */
   async encryptMessage(conversationId: string, plaintext: string): Promise<EncryptedMessage> {
     const keyMaterial = this.conversationKeys.get(conversationId);
@@ -214,37 +159,23 @@ export class E2EEChatManager {
     }
 
     // Convert plaintext to ArrayBuffer
-    const encoder = new TextEncoder();
-    const plaintextBuffer = encoder.encode(plaintext);
+    const plaintextBuffer = stringToArrayBuffer(plaintext);
 
-    // Generate random IV
-    const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+    // Encrypt with AES-GCM - returns combined [IV][Ciphertext+AuthTag]
+    const encryptedCombined = await encryptAesGcm(keyMaterial.encryptionKey, plaintextBuffer);
 
-    // Encrypt message
-    const encryptedBuffer = await crypto.subtle.encrypt(
-      {
-        name: ALGORITHM,
-        iv,
-        tagLength: AUTH_TAG_LENGTH,
-      },
-      keyMaterial.encryptionKey,
-      plaintextBuffer
-    );
+    // Extract IV and ciphertext from combined buffer
+    const { iv, ciphertext } = extractIvAndData(encryptedCombined, IV_LENGTH);
 
-    // Sign the encrypted content (provides authenticity)
-    const signature = await crypto.subtle.sign(
-      {
-        name: SIGNATURE_ALGORITHM,
-        hash: SIGNATURE_HASH,
-      },
+    // Sign the encrypted data (ciphertext only, not IV) - returns Base64
+    const signatureBase64 = await signData(
       keyMaterial.signingKey,
-      encryptedBuffer
+      ciphertext.buffer as ArrayBuffer
     );
 
-    // Convert to base64 for transmission
-    const encryptedContent = this.arrayBufferToBase64(encryptedBuffer);
-    const ivBase64 = this.arrayBufferToBase64(iv.buffer);
-    const signatureBase64 = this.arrayBufferToBase64(signature);
+    // Encode to Base64
+    const encryptedContent = arrayBufferToBase64(ciphertext.buffer as ArrayBuffer);
+    const ivBase64 = arrayBufferToBase64(iv.buffer as ArrayBuffer);
 
     return {
       encryptedContent,
@@ -257,7 +188,7 @@ export class E2EEChatManager {
   }
 
   /**
-   * Decrypt and verify a message
+   * Verifiziert und entschlüsselt eine Nachricht
    */
   async decryptMessage(
     conversationId: string,
@@ -268,23 +199,19 @@ export class E2EEChatManager {
       throw new Error(`Conversation ${conversationId} not initialized`);
     }
 
-    // Convert from base64
-    const encryptedBuffer = this.base64ToArrayBuffer(encryptedMessage.encryptedContent);
-    const iv = this.base64ToArrayBuffer(encryptedMessage.iv);
-    const signature = this.base64ToArrayBuffer(encryptedMessage.signature);
+    // Decode from Base64
+    const encryptedBuffer = base64ToArrayBuffer(encryptedMessage.encryptedContent);
+    const iv = base64ToArrayBuffer(encryptedMessage.iv);
 
-    // Verify signature (if peer's verification key is available)
+    // Verify signature if peer key is available
     let isVerified = false;
     if (keyMaterial.peerVerificationKey) {
       try {
-        isVerified = await crypto.subtle.verify(
-          {
-            name: SIGNATURE_ALGORITHM,
-            hash: SIGNATURE_HASH,
-          },
+        // verifySignature expects: (key, data, signatureBase64)
+        isVerified = await verifySignature(
           keyMaterial.peerVerificationKey,
-          signature,
-          encryptedBuffer
+          encryptedBuffer,
+          encryptedMessage.signature
         );
 
         if (!isVerified) {
@@ -300,26 +227,24 @@ export class E2EEChatManager {
       );
     }
 
-    // Decrypt message
+    // Combine IV and ciphertext for decryption (decryptAesGcm expects combined format)
+    const ivArray = new Uint8Array(iv);
+    const encryptedArray = new Uint8Array(encryptedBuffer);
+    const combined = new Uint8Array(ivArray.length + encryptedArray.length);
+    combined.set(ivArray, 0);
+    combined.set(encryptedArray, ivArray.length);
+
+    // Decrypt
     let decryptedBuffer: ArrayBuffer;
     try {
-      decryptedBuffer = await crypto.subtle.decrypt(
-        {
-          name: ALGORITHM,
-          iv,
-          tagLength: AUTH_TAG_LENGTH,
-        },
-        keyMaterial.encryptionKey,
-        encryptedBuffer
-      );
+      decryptedBuffer = await decryptAesGcm(keyMaterial.encryptionKey, combined.buffer);
     } catch (error) {
       console.error('❌ Chat E2EE: Decryption failed:', error);
       throw new Error('Failed to decrypt message - invalid key or corrupted data');
     }
 
-    // Convert to plaintext
-    const decoder = new TextDecoder();
-    const content = decoder.decode(decryptedBuffer);
+    // Convert to string
+    const content = arrayBufferToString(decryptedBuffer);
 
     return {
       content,
@@ -331,7 +256,7 @@ export class E2EEChatManager {
   }
 
   /**
-   * Rotate conversation keys (for long conversations)
+   * Rotiert den Encryption Key für eine Konversation
    */
   rotateConversationKey(conversationId: string, newEncryptionKey: CryptoKey): void {
     const keyMaterial = this.conversationKeys.get(conversationId);
@@ -340,30 +265,30 @@ export class E2EEChatManager {
     }
 
     keyMaterial.encryptionKey = newEncryptionKey;
-    keyMaterial.generation++;
+    keyMaterial.generation = (keyMaterial.generation + 1) as KeyGeneration;
     keyMaterial.createdAt = Date.now();
 
     console.debug(
-      `🔄 Chat E2EE: Rotated keys for ${conversationId} (generation ${keyMaterial.generation.toString()})`
+      `🔄 Chat E2EE: Rotated keys for ${conversationId} (generation ${keyMaterial.generation})`
     );
   }
 
   /**
-   * Get conversation key material
+   * Gibt das Key Material für eine Konversation zurück
    */
   getConversationKeyMaterial(conversationId: string): ConversationKeyMaterial | null {
     return this.conversationKeys.get(conversationId) ?? null;
   }
 
   /**
-   * Check if conversation is initialized
+   * Prüft ob eine Konversation initialisiert ist
    */
   isConversationInitialized(conversationId: string): boolean {
     return this.conversationKeys.has(conversationId);
   }
 
   /**
-   * Remove conversation keys (cleanup)
+   * Entfernt eine Konversation
    */
   removeConversation(conversationId: string): void {
     this.conversationKeys.delete(conversationId);
@@ -371,39 +296,28 @@ export class E2EEChatManager {
   }
 
   /**
-   * Cleanup all conversations
+   * Gibt die Generation einer Konversation zurück
+   */
+  getConversationGeneration(conversationId: string): number {
+    const keyMaterial = this.conversationKeys.get(conversationId);
+    return keyMaterial?.generation ?? 0;
+  }
+
+  /**
+   * Gibt alle aktiven Konversations-IDs zurück
+   */
+  getActiveConversationIds(): string[] {
+    return [...this.conversationKeys.keys()];
+  }
+
+  /**
+   * Cleanup - Gibt alle Ressourcen frei
    */
   cleanup(): void {
     this.conversationKeys.clear();
     console.debug('🧹 Chat E2EE: Cleanup complete');
   }
-
-  // --- Utility Methods ---
-
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  }
-
-  private base64ToArrayBuffer(base64: string): ArrayBuffer {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes.buffer;
-  }
-
-  private arrayBufferToHex(buffer: ArrayBuffer): string {
-    return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
-  }
 }
 
-/**
- * Singleton instance for global access
- */
+// Singleton Instance für einfache Verwendung
 export const chatEncryptionManager = new E2EEChatManager();

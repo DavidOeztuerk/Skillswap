@@ -144,7 +144,8 @@ public class GetCallSessionQueryHandler(
                     p.ScreenShareEnabled
                 )).ToList(),
                 callSession.IsRecorded,
-                callSession.RecordingUrl
+                callSession.RecordingUrl,
+                callSession.ThreadId
             );
 
             Logger.LogInformation("✅ [GetCallSession] Call session found: {SessionId}, Status: {Status}",

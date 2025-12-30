@@ -143,8 +143,18 @@ const authService = {
     return apiClient.post(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email });
   },
 
-  async resetPassword(token: string, password: string): Promise<ApiResponse<void>> {
-    return apiClient.post(AUTH_ENDPOINTS.RESET_PASSWORD, { token, password });
+  async resetPassword(
+    email: string,
+    token: string,
+    newPassword: string,
+    confirmPassword: string
+  ): Promise<ApiResponse<void>> {
+    return apiClient.post(AUTH_ENDPOINTS.RESET_PASSWORD, {
+      email,
+      token,
+      newPassword,
+      confirmPassword,
+    });
   },
 
   /**

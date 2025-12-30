@@ -10,9 +10,9 @@ public class VideoCallDbContext(
 {
     public DbSet<VideoCallSession> VideoCallSessions { get; set; }
     public DbSet<CallParticipant> CallParticipants { get; set; }
-    public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<CallAnalytics> CallAnalytics { get; set; }
     public DbSet<CallRecording> CallRecordings { get; set; }
+    public DbSet<E2EEAuditLog> E2EEAuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,28 +84,6 @@ public class VideoCallDbContext(
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
-        modelBuilder.Entity<ChatMessage>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.SessionId);
-            entity.HasIndex(e => e.SenderId);
-            entity.HasIndex(e => e.SentAt);
-            entity.HasIndex(e => new { e.SessionId, e.SentAt });
-
-            entity.Property(e => e.SenderId).HasMaxLength(450);
-            entity.Property(e => e.SenderName).HasMaxLength(200);
-            entity.Property(e => e.Message).HasMaxLength(2000);
-            entity.Property(e => e.MessageType).HasMaxLength(50);
-            entity.Property(e => e.Metadata).HasMaxLength(1000);
-
-            entity.HasOne(m => m.Session)
-                .WithMany()
-                .HasForeignKey(m => m.SessionId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasQueryFilter(e => !e.IsDeleted);
-        });
-
         modelBuilder.Entity<CallAnalytics>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -152,6 +130,34 @@ public class VideoCallDbContext(
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<E2EEAuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            // Indexes for efficient querying
+            entity.HasIndex(e => e.SessionId);
+            entity.HasIndex(e => e.RoomId);
+            entity.HasIndex(e => e.FromUserId);
+            entity.HasIndex(e => e.ServerTimestamp);
+            entity.HasIndex(e => new { e.RoomId, e.ServerTimestamp });
+            entity.HasIndex(e => new { e.Success, e.ServerTimestamp });
+            entity.HasIndex(e => new { e.WasRateLimited, e.ServerTimestamp });
+
+            // Column configurations
+            entity.Property(e => e.SessionId).HasMaxLength(450);
+            entity.Property(e => e.RoomId).HasMaxLength(450);
+            entity.Property(e => e.FromUserId).HasMaxLength(450);
+            entity.Property(e => e.ToUserId).HasMaxLength(450);
+            entity.Property(e => e.MessageType).HasMaxLength(50);
+            entity.Property(e => e.KeyFingerprint).HasMaxLength(64);
+            entity.Property(e => e.ErrorCode).HasMaxLength(50);
+            entity.Property(e => e.ClientIpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+
+            // No soft delete for audit logs - they are permanent
+            // No query filter needed
         });
     }
 }

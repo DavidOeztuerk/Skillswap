@@ -22,6 +22,15 @@ export const usersAdapter = createEntityAdapter<User, EntityId>({
 // ============================================
 
 /**
+ * Password flow state (used for forgot/reset password)
+ */
+export interface PasswordFlowState {
+  isLoading: boolean;
+  isSuccess: boolean;
+  errorMessage: string | undefined;
+}
+
+/**
  * Auth state interface extending EntityState and RequestState
  */
 export interface UsersEntityState extends EntityState<User, EntityId>, RequestState {
@@ -36,11 +45,26 @@ export interface UsersEntityState extends EntityState<User, EntityId>, RequestSt
 
   /** Timestamp of last successful auth check */
   lastAuthCheck?: number;
+
+  /** Password reset state */
+  resetPassword: PasswordFlowState;
+
+  /** Forgot password state */
+  forgotPassword: PasswordFlowState;
 }
 
 // ============================================
 // INITIAL STATE
 // ============================================
+
+/**
+ * Initial state for password flow
+ */
+export const initialPasswordFlowState: PasswordFlowState = {
+  isLoading: false,
+  isSuccess: false,
+  errorMessage: undefined,
+};
 
 /**
  * Helper to safely check for existing token
@@ -75,6 +99,8 @@ export const initialUsersState: UsersEntityState = usersAdapter.getInitialState(
   isLoading: false,
   errorMessage: undefined,
   lastAuthCheck: undefined,
+  resetPassword: { ...initialPasswordFlowState },
+  forgotPassword: { ...initialPasswordFlowState },
 });
 
 // ============================================

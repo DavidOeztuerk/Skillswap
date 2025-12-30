@@ -5,7 +5,6 @@
  * Note: VideoCallSharedRefs is defined in VideoCallContext.tsx
  */
 
-import type { ChatMessage } from '../../chat/types/ChatMessage';
 import type { EncryptionStats, CallParticipant } from '../store/videoCallAdapter+State';
 import type { VideoCallConfig } from '../types/VideoCallConfig';
 
@@ -14,11 +13,12 @@ import type { VideoCallConfig } from '../types/VideoCallConfig';
 // ============================================================================
 
 export type E2EEStatus =
-  | 'disabled'
+  | 'inactive'
   | 'initializing'
   | 'key-exchange'
   | 'key-rotation'
   | 'active'
+  | 'verified'
   | 'error'
   | 'unsupported';
 
@@ -78,7 +78,6 @@ export interface VideoCallState {
   isVideoEnabled: boolean;
   isScreenSharing: boolean;
   isChatOpen: boolean;
-  messages: ChatMessage[];
   callDuration: number;
   participants: CallParticipant[];
   isLoading: boolean;
@@ -93,7 +92,6 @@ export interface VideoCallActions {
   toggleCamera: () => void;
   toggleChatPanel: () => void;
   toggleScreenSharing: () => Promise<void>;
-  sendChatMessage: (content: string) => Promise<void>;
   clearError: () => void;
 }
 

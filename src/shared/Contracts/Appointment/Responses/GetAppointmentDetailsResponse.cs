@@ -68,6 +68,8 @@ public record GetAppointmentDetailsResponse(
     string? ConnectionId,
     string? ConnectionType,
     string? ConnectionStatus,
+    // Chat/Thread info - ThreadId from MatchRequest for Chat integration
+    string? ThreadId,
     // Match/Connection Rollen - KONSTANT durch die gesamte Kette
     string? MatchRequesterId,
     string? MatchRequesterName,

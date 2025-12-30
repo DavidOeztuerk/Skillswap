@@ -306,7 +306,7 @@ const ThreadListItemComponent: React.FC<ThreadListItemProps> = ({ thread, isActi
               alt={thread.otherParticipantName}
               sx={{ width: 44, height: 44, bgcolor: theme.palette.primary.main }}
             >
-              {thread.otherParticipantName.charAt(0).toUpperCase()}
+              {thread.otherParticipantName?.charAt(0).toUpperCase()}
             </Avatar>
           </Badge>
         </ListItemAvatar>
@@ -466,7 +466,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ open, onClose, initialThreadId 
   useEffect(() => {
     if (!open) return;
     if (!isConnected) void dispatch(connectToChatHub());
-    void dispatch(fetchChatThreads({}));
+    void dispatch(fetchChatThreads({ pageNumber: 1, pageSize: 50 }));
   }, [open, isConnected, dispatch]);
 
   useEffect(() => {

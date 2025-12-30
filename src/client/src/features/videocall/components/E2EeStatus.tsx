@@ -49,6 +49,7 @@ interface E2EEStatusProps {
     decryptionErrors: number;
     averageEncryptionTime: number;
     averageDecryptionTime: number;
+    droppedFrames?: number;
   } | null;
   errorMessage: string | null;
   onRotateKeys?: () => void;
@@ -72,6 +73,7 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
   const getStatusColor = (): 'success' | 'warning' | 'error' | 'default' | 'info' => {
     switch (status) {
       case 'active':
+      case 'verified':
         return 'success';
       case 'initializing':
       case 'key-exchange':
@@ -81,7 +83,7 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
         return 'error';
       case 'unsupported':
         return 'warning';
-      case 'disabled':
+      case 'inactive':
         return 'default';
       default: {
         const _exhaustiveCheck: never = status;
@@ -96,12 +98,13 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
   const getStatusIcon = (): JSX.Element => {
     switch (status) {
       case 'active':
+      case 'verified':
         return <LockIcon fontSize="small" />;
       case 'error':
         return <ErrorIcon fontSize="small" />;
       case 'unsupported':
         return <WarningIcon fontSize="small" />;
-      case 'disabled':
+      case 'inactive':
         return <LockOpenIcon fontSize="small" />;
       case 'initializing':
       case 'key-exchange':
@@ -119,7 +122,7 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
    */
   const getStatusLabel = (): string => {
     switch (status) {
-      case 'disabled':
+      case 'inactive':
         return 'Not Encrypted';
       case 'initializing':
         return 'Initializing E2EE...';
@@ -127,6 +130,8 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
         return 'Exchanging Keys...';
       case 'active':
         return `Encrypted (Gen ${keyGeneration})`;
+      case 'verified':
+        return `Verified (Gen ${keyGeneration})`;
       case 'key-rotation':
         return 'Rotating Keys...';
       case 'error':
@@ -162,6 +167,17 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
     if (!encryptionStats || encryptionStats.decryptedFrames === 0) return 100;
     const totalAttempts = encryptionStats.decryptedFrames + encryptionStats.decryptionErrors;
     return (encryptionStats.decryptedFrames / totalAttempts) * 100;
+  };
+
+  /**
+   * Check if dropped frames are significant
+   * Warnung ab 10 gedroppten Frames oder >1% Drop-Rate
+   */
+  const hasSignificantDroppedFrames = (): boolean => {
+    if (encryptionStats?.droppedFrames == null) return false;
+    const droppedCount = encryptionStats.droppedFrames;
+    const dropRate = (droppedCount / Math.max(1, encryptionStats.totalFrames)) * 100;
+    return droppedCount > 10 || dropRate > 1;
   };
 
   return (
@@ -237,6 +253,20 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
                 </Typography>
                 <Typography variant="caption">
                   Only you and your peer can see and hear this call. Key generation: {keyGeneration}
+                </Typography>
+              </Alert>
+            ) : null}
+
+            {/* Dropped Frames Warning */}
+            {isActive && hasSignificantDroppedFrames() ? (
+              <Alert severity="warning" icon={<WarningIcon />}>
+                <Typography variant="body2" fontWeight="medium">
+                  Frames werden verworfen
+                </Typography>
+                <Typography variant="caption">
+                  {encryptionStats?.droppedFrames?.toLocaleString()} Frames wurden verworfen. Dies
+                  kann zu kurzen Aussetzern im Video führen. Mögliche Ursachen: langsame Verbindung,
+                  Key-Exchange in Bearbeitung, oder hohe CPU-Last.
                 </Typography>
               </Alert>
             ) : null}
@@ -383,6 +413,17 @@ export const E2EEStatusComponent: React.FC<E2EEStatusProps> = ({
                           {(
                             encryptionStats.encryptionErrors + encryptionStats.decryptionErrors
                           ).toLocaleString()}
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {(encryptionStats.droppedFrames ?? 0) > 0 && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Dropped
+                        </Typography>
+                        <Typography variant="body2" fontWeight="medium" color="warning.main">
+                          {encryptionStats.droppedFrames?.toLocaleString()}
                         </Typography>
                       </Box>
                     )}
