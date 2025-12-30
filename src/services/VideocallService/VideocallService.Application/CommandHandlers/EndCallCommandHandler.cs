@@ -123,10 +123,8 @@ public class EndCallCommandHandler(
                 session.ActualDurationMinutes ?? 0,
                 session.EndReason), cancellationToken);
 
-            // Get message count for analytics
-            var messageCount = await _unitOfWork.ChatMessages.GetMessageCountAsync(session.Id, cancellationToken);
-
             // Publish integration event for NotificationService and analytics
+            // Note: Chat messages are now handled by NotificationService, so messageCount is 0
             await _publishEndpoint.Publish(new CallSessionEndedIntegrationEvent(
                 session.Id,
                 session.RoomId,
@@ -136,7 +134,7 @@ public class EndCallCommandHandler(
                 session.ParticipantUserId,
                 request.DurationSeconds,
                 session.Participants.Count,
-                messageCount,
+                0, // Chat handled by NotificationService
                 session.ScreenShareUsed,
                 session.StartedAt ?? session.CreatedAt,
                 endedAt,

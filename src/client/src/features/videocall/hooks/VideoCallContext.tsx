@@ -34,6 +34,13 @@ interface User {
   lastName?: string;
 }
 
+// Pending Chat E2EE key data for lazy initialization
+export interface PendingChatE2EEKey {
+  encryptionKey: CryptoKey;
+  peerSigningPublicKey?: string;
+  peerSigningFingerprint?: string;
+}
+
 export interface VideoCallSharedRefs {
   // WebRTC
   peerRef: RefObject<RTCPeerConnection | null>;
@@ -59,6 +66,7 @@ export interface VideoCallSharedRefs {
   isScreenSharingRef: RefObject<boolean>;
   chatE2EEStatusRef: RefObject<ChatE2EEStatus>;
   userRef: RefObject<User | null>;
+  localStreamRef: RefObject<MediaStream | null>;
 
   // E2EE
   e2eeManagerRef: RefObject<E2EEManager | null>;
@@ -69,8 +77,12 @@ export interface VideoCallSharedRefs {
   localVerificationKeyRef: RefObject<CryptoKey | null>;
   configRef: RefObject<VideoCallConfig | null>;
   lastKeyRotationRef: RefObject<string | null>;
+  lastWorkerKeyGenerationRef: RefObject<number>;
   e2eeTransformsAppliedRef: RefObject<boolean>;
   offerSentForPeerRef: RefObject<Set<string>>;
+
+  // Chat E2EE lazy initialization - stores key until chat panel is opened
+  pendingChatE2EEKeyRef: RefObject<PendingChatE2EEKey | null>;
 }
 
 export interface VideoCallContextValue {
@@ -127,6 +139,7 @@ export const VideoCallProvider: FC<VideoCallProviderProps> = ({ children }) => {
   const isScreenSharingRef = useRef(false);
   const chatE2EEStatusRef = useRef<ChatE2EEStatus>('disabled');
   const userRef = useRef<User | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
 
   // E2EE refs
   const e2eeManagerRef = useRef<E2EEManager | null>(null);
@@ -137,8 +150,10 @@ export const VideoCallProvider: FC<VideoCallProviderProps> = ({ children }) => {
   const localVerificationKeyRef = useRef<CryptoKey | null>(null);
   const configRef = useRef<VideoCallConfig | null>(null);
   const lastKeyRotationRef = useRef<string | null>(null);
+  const lastWorkerKeyGenerationRef = useRef<number>(0);
   const e2eeTransformsAppliedRef = useRef(false);
   const offerSentForPeerRef = useRef<Set<string>>(new Set());
+  const pendingChatE2EEKeyRef = useRef<PendingChatE2EEKey | null>(null);
 
   // Function refs for breaking circular dependencies
   const cleanupResourcesRef = useRef<(isFullCleanup?: boolean) => Promise<void>>(async () => {});
@@ -171,6 +186,7 @@ export const VideoCallProvider: FC<VideoCallProviderProps> = ({ children }) => {
       isScreenSharingRef,
       chatE2EEStatusRef,
       userRef,
+      localStreamRef,
       e2eeManagerRef,
       streamsHandlerRef,
       keyExchangeManagerRef,
@@ -179,8 +195,10 @@ export const VideoCallProvider: FC<VideoCallProviderProps> = ({ children }) => {
       localVerificationKeyRef,
       configRef,
       lastKeyRotationRef,
+      lastWorkerKeyGenerationRef,
       e2eeTransformsAppliedRef,
       offerSentForPeerRef,
+      pendingChatE2EEKeyRef,
     }),
     []
   );

@@ -18,7 +18,7 @@ import {
   InputAdornment,
   Typography,
 } from '@mui/material';
-import { useAppSelector } from '../../../core/store/hooks';
+import { useAppSelector } from '../../../core/store/store.hooks';
 import type { SessionStatus } from '../store/sessionsSlice';
 
 interface SessionHistoryTableProps {

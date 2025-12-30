@@ -49,6 +49,13 @@ export interface ReactionUpdatedPayload {
   added: boolean;
 }
 
+export interface MessageDeletedPayload {
+  messageId: string;
+  threadId: string;
+  deletedBy: string;
+  deletedAt: string;
+}
+
 export type ThreadCreatedPayload = ChatThread;
 
 export interface ThreadLockedPayload {
@@ -63,6 +70,32 @@ export interface MessageErrorPayload {
 }
 
 export type ChatUnreadCountPayload = ChatUnreadCountResult;
+
+// ============================================================================
+// E2EE Key Exchange Payloads
+// ============================================================================
+
+export interface E2EEKeyOfferPayload {
+  threadId: string;
+  senderId: string;
+  publicKey: string;
+  fingerprint: string;
+  timestamp: string;
+}
+
+export interface E2EEKeyAnswerPayload {
+  threadId: string;
+  senderId: string;
+  publicKey: string;
+  fingerprint: string;
+  timestamp: string;
+}
+
+export interface E2EEReadyPayload {
+  threadId: string;
+  senderId: string;
+  fingerprint: string;
+}
 
 // ============================================================================
 // Server -> Client Events
@@ -91,8 +124,17 @@ export interface ChatServerToClientEvents {
   // Reactions
   ReactionUpdated: (data: ReactionUpdatedPayload) => void;
 
+  // Message Operations
+  MessageDeleted: (data: MessageDeletedPayload) => void;
+
   // Unread Count
   ChatUnreadCount: (data: ChatUnreadCountPayload) => void;
+
+  // E2EE Key Exchange
+  ReceiveKeyOffer: (data: E2EEKeyOfferPayload) => void;
+  ReceiveKeyAnswer: (data: E2EEKeyAnswerPayload) => void;
+  ReceiveE2EEReady: (data: E2EEReadyPayload) => void;
+  E2EEError: (message: string) => void;
 }
 
 // ============================================================================
@@ -129,6 +171,14 @@ export interface ChatClientToServerMethods {
 
   // Reactions
   ToggleReaction: (messageId: string, emoji: string) => Promise<void>;
+
+  // Message Operations
+  DeleteMessage: (messageId: string) => Promise<void>;
+
+  // E2EE Key Exchange
+  SendKeyOffer: (threadId: string, publicKey: string, fingerprint: string) => Promise<void>;
+  SendKeyAnswer: (threadId: string, publicKey: string, fingerprint: string) => Promise<void>;
+  SendE2EEReady: (threadId: string, fingerprint: string) => Promise<void>;
 }
 
 // ============================================================================
@@ -231,12 +281,17 @@ export type ChatHubEventType =
   | 'thread_joined'
   | 'thread_left'
   | 'new_message'
+  | 'message_deleted'
   | 'typing_indicator'
   | 'messages_read'
   | 'reaction_updated'
   | 'thread_created'
   | 'thread_locked'
   | 'unread_count_updated'
+  | 'e2ee_key_offer'
+  | 'e2ee_key_answer'
+  | 'e2ee_ready'
+  | 'e2ee_error'
   | 'error';
 
 export interface ChatHubEvent<T = unknown> {

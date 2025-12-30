@@ -33,9 +33,10 @@ import {
 } from '@mui/material';
 import Badge from '@mui/material/Badge';
 import { usePermissions } from '../../../core/contexts/permissionContextHook';
+import { useAppSelector } from '../../../core/store/store.hooks';
 import { Permissions } from '../../../features/auth/components/permissions.constants';
 import useAuth from '../../../features/auth/hooks/useAuth';
-import useChat from '../../../features/chat/hooks/useChat';
+import { selectTotalUnreadCount } from '../../../features/chat/store/selectors/chatSelectors';
 import { brandColors } from '../../../styles/tokens/colors';
 import { spacing, componentSpacing } from '../../../styles/tokens/spacing';
 import { useAdminNavigation } from './adminbar/useAdminNavigation';
@@ -153,7 +154,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const { isAuthenticated } = useAuth();
-    const { totalUnreadCount, openChat: openChatDrawer } = useChat();
+    const totalUnreadCount = useAppSelector(selectTotalUnreadCount);
     const {
       hasPermission,
       isAdmin: isAdminFromContext,
@@ -474,15 +475,17 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
           })}
         </List>
 
-        {/* Chat Button */}
+        {/* Chat Button - navigates to full chat page */}
         {isAuthenticated ? (
           <>
             <Divider sx={{ mt: 2, mb: 1 }} />
             <List>
               <ListItem disablePadding>
                 <ListItemButton
+                  component={RouterLink}
+                  to="/chat"
+                  selected={location.pathname.startsWith('/chat')}
                   onClick={() => {
-                    openChatDrawer();
                     if (isMobile) onDrawerToggle();
                   }}
                   sx={{
@@ -490,6 +493,15 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                     py: spacing[1] / 8,
                     borderRadius: `0 ${spacing[3]}px ${spacing[3]}px 0`,
                     mr: spacing[1] / 8,
+                    color: location.pathname.startsWith('/chat')
+                      ? brandColors.primary[500]
+                      : 'text.primary',
+                    '&.Mui-selected': {
+                      bgcolor: 'action.selected',
+                      '&:hover': {
+                        bgcolor: ACTION_HOVER_STYLE,
+                      },
+                    },
                     '&:hover': {
                       bgcolor: ACTION_HOVER_STYLE,
                     },
@@ -497,6 +509,9 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                 >
                   <ListItemIcon
                     sx={{
+                      color: location.pathname.startsWith('/chat')
+                        ? brandColors.primary[500]
+                        : 'inherit',
                       minWidth: componentSpacing.avatar.sizeMedium,
                     }}
                   >
@@ -504,7 +519,14 @@ const Sidebar: React.FC<SidebarProps> = React.memo(
                       <ChatIcon />
                     </Badge>
                   </ListItemIcon>
-                  <ListItemText primary="Chats" />
+                  <ListItemText
+                    primary="Chats"
+                    slotProps={{
+                      primary: {
+                        fontWeight: location.pathname.startsWith('/chat') ? 'medium' : 'regular',
+                      },
+                    }}
+                  />
                 </ListItemButton>
               </ListItem>
             </List>

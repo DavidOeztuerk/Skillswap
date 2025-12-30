@@ -72,7 +72,7 @@ export function useProgressiveLoading<T>({
         setHasMore(withDefault(result.hasMore, false));
         setCurrentPage(page);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Daten';
+        const errorMessage = err instanceof Error ? err.message : 'Error loading data';
         setError(errorMessage);
         console.error('Progressive loading error:', err);
       } finally {

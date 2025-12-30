@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   Mic as MicIcon,
   MicOff as MicOffIcon,
@@ -29,7 +29,7 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material';
-import browserInfo from '../../../shared/utils/browserDetection';
+import { isSafari } from '../../../shared/detection';
 import useAuth from '../../auth/hooks/useAuth';
 import usePreCall from '../hooks/usePreCall';
 import type { DeviceCheckStatus } from '../store/preCallSlice';
@@ -98,10 +98,10 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = ({
         {otherPartyName[0]}
       </Avatar>
       <Box>
-        <Typography variant="body1">Meeting mit {otherPartyName}</Typography>
+        <Typography variant="body1">Meeting with {otherPartyName}</Typography>
         {scheduledTime ? (
           <Typography variant="body2" color="text.secondary">
-            Geplant: {scheduledTime}
+            Scheduled: {scheduledTime}
           </Typography>
         ) : null}
       </Box>
@@ -168,7 +168,7 @@ const VideoPreviewContent: React.FC<VideoPreviewContentProps> = ({
       }}
     >
       <Avatar sx={{ width: 80, height: 80, bgcolor: 'primary.main' }}>{userInitial}</Avatar>
-      <Typography color="grey.400">Kamera ausgeschaltet</Typography>
+      <Typography color="grey.400">Camera off</Typography>
     </Box>
   );
 };
@@ -196,8 +196,8 @@ const DeviceStatusList: React.FC<DeviceStatusListProps> = ({
   speakers,
 }) => {
   const getSpeakerStatus = (): string => {
-    if (speakers.length > 0) return 'Verfügbar';
-    return browserInfo.isSafari ? 'Standard (Safari)' : 'Nicht gefunden';
+    if (speakers.length > 0) return 'Available';
+    return isSafari() ? 'Default (Safari)' : 'Not found';
   };
 
   return (
@@ -205,18 +205,18 @@ const DeviceStatusList: React.FC<DeviceStatusListProps> = ({
       <Stack direction="row" spacing={1} alignItems="center">
         {getDeviceCheckIcon(deviceCheckStatus.camera)}
         <Typography variant="body2">
-          Kamera: {cameras.length > 0 ? 'Verfügbar' : 'Nicht gefunden'}
+          Camera: {cameras.length > 0 ? 'Available' : 'Not found'}
         </Typography>
       </Stack>
       <Stack direction="row" spacing={1} alignItems="center">
         {getDeviceCheckIcon(deviceCheckStatus.microphone)}
         <Typography variant="body2">
-          Mikrofon: {microphones.length > 0 ? 'Verfügbar' : 'Nicht gefunden'}
+          Microphone: {microphones.length > 0 ? 'Available' : 'Not found'}
         </Typography>
       </Stack>
       <Stack direction="row" spacing={1} alignItems="center">
         {getDeviceCheckIcon(deviceCheckStatus.speaker)}
-        <Typography variant="body2">Lautsprecher: {getSpeakerStatus()}</Typography>
+        <Typography variant="body2">Speaker: {getSpeakerStatus()}</Typography>
       </Stack>
     </Stack>
   );
@@ -298,8 +298,23 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
   }, []); // Empty deps - only run on mount/unmount
 
   // ========================================================================
+  // State
+  // ========================================================================
+
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // ========================================================================
   // Handlers
   // ========================================================================
+
+  const handleCancel = useCallback(() => {
+    // Disable all buttons immediately
+    setIsCancelling(true);
+    // Cleanup takes time (especially on Safari)
+    cleanup();
+    // Navigate away
+    onCancel();
+  }, [cleanup, onCancel]);
 
   const handleJoinCall = useCallback(async () => {
     await prepareForJoin();
@@ -387,52 +402,68 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
                 }}
               >
                 <Typography variant="body2" color="white">
-                  {user?.firstName} {user?.lastName} (Du)
+                  {user?.firstName} {user?.lastName} (You)
                 </Typography>
               </Box>
             </Paper>
 
             {/* Controls */}
             <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 2 }}>
-              <Tooltip title={isMicEnabled ? 'Mikrofon ausschalten' : 'Mikrofon einschalten'}>
-                <IconButton
-                  onClick={toggleMic}
-                  sx={{
-                    bgcolor: isMicEnabled ? 'primary.main' : 'error.main',
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: isMicEnabled ? 'primary.dark' : 'error.dark',
-                    },
-                  }}
-                >
-                  {isMicEnabled ? <MicIcon /> : <MicOffIcon />}
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title={isCameraEnabled ? 'Kamera ausschalten' : 'Kamera einschalten'}>
-                <IconButton
-                  onClick={toggleCamera}
-                  sx={{
-                    bgcolor: isCameraEnabled ? 'primary.main' : 'error.main',
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: isCameraEnabled ? 'primary.dark' : 'error.dark',
-                    },
-                  }}
-                >
-                  {isCameraEnabled ? <VideocamIcon /> : <VideocamOffIcon />}
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title="Einstellungen">
-                <IconButton onClick={toggleSettings}>
-                  <SettingsIcon />
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title="Geräte aktualisieren">
+              <Tooltip title={isMicEnabled ? 'Mute microphone' : 'Unmute microphone'}>
                 <span>
-                  <IconButton onClick={startPreview} disabled={isLoading}>
+                  <IconButton
+                    onClick={toggleMic}
+                    disabled={isCancelling}
+                    sx={{
+                      bgcolor: isMicEnabled ? 'primary.main' : 'error.main',
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: isMicEnabled ? 'primary.dark' : 'error.dark',
+                      },
+                      '&.Mui-disabled': {
+                        bgcolor: 'grey.500',
+                        color: 'grey.300',
+                      },
+                    }}
+                  >
+                    {isMicEnabled ? <MicIcon /> : <MicOffIcon />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+
+              <Tooltip title={isCameraEnabled ? 'Turn off camera' : 'Turn on camera'}>
+                <span>
+                  <IconButton
+                    onClick={toggleCamera}
+                    disabled={isCancelling}
+                    sx={{
+                      bgcolor: isCameraEnabled ? 'primary.main' : 'error.main',
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: isCameraEnabled ? 'primary.dark' : 'error.dark',
+                      },
+                      '&.Mui-disabled': {
+                        bgcolor: 'grey.500',
+                        color: 'grey.300',
+                      },
+                    }}
+                  >
+                    {isCameraEnabled ? <VideocamIcon /> : <VideocamOffIcon />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+
+              <Tooltip title="Settings">
+                <span>
+                  <IconButton onClick={toggleSettings} disabled={isCancelling}>
+                    <SettingsIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+
+              <Tooltip title="Refresh devices">
+                <span>
+                  <IconButton onClick={startPreview} disabled={isLoading || isCancelling}>
                     <RefreshIcon />
                   </IconButton>
                 </span>
@@ -459,7 +490,7 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
                   />
                 </Stack>
                 <Typography variant="caption" color="text.secondary">
-                  Mikrofonpegel - Sprechen Sie, um zu testen
+                  Microphone level - speak to test
                 </Typography>
               </Box>
             ) : null}
@@ -469,7 +500,7 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
           <Box sx={{ flex: '1 1 300px', minWidth: 250 }}>
             {/* Device Status */}
             <Typography variant="subtitle2" gutterBottom>
-              Gerätestatus
+              Device Status
             </Typography>
             <DeviceStatusList
               deviceCheckStatus={deviceCheckStatus}
@@ -483,14 +514,14 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
               <>
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="subtitle2" gutterBottom>
-                  Geräteauswahl
+                  Device Selection
                 </Typography>
                 <Stack spacing={2}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Kamera</InputLabel>
+                  <FormControl fullWidth size="small" disabled={isCancelling}>
+                    <InputLabel>Camera</InputLabel>
                     <Select
                       value={selectedCamera ?? ''}
-                      label="Kamera"
+                      label="Camera"
                       onChange={(e) => {
                         selectCamera(e.target.value);
                       }}
@@ -503,11 +534,11 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
                     </Select>
                   </FormControl>
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Mikrofon</InputLabel>
+                  <FormControl fullWidth size="small" disabled={isCancelling}>
+                    <InputLabel>Microphone</InputLabel>
                     <Select
                       value={selectedMicrophone ?? ''}
-                      label="Mikrofon"
+                      label="Microphone"
                       onChange={(e) => {
                         selectMicrophone(e.target.value);
                       }}
@@ -520,11 +551,11 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
                     </Select>
                   </FormControl>
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Lautsprecher</InputLabel>
+                  <FormControl fullWidth size="small" disabled={isCancelling}>
+                    <InputLabel>Speaker</InputLabel>
                     <Select
                       value={selectedSpeaker ?? ''}
-                      label="Lautsprecher"
+                      label="Speaker"
                       onChange={(e) => {
                         selectSpeaker(e.target.value);
                       }}
@@ -544,6 +575,7 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
             <Divider sx={{ my: 3 }} />
             <Stack spacing={2}>
               <FormControlLabel
+                disabled={isCancelling}
                 control={
                   <Switch
                     checked={joinWithVideo}
@@ -552,9 +584,10 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
                     }}
                   />
                 }
-                label="Mit Video beitreten"
+                label="Join with video"
               />
               <FormControlLabel
+                disabled={isCancelling}
                 control={
                   <Switch
                     checked={joinWithAudio}
@@ -563,7 +596,7 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
                     }}
                   />
                 }
-                label="Mit Audio beitreten"
+                label="Join with audio"
               />
             </Stack>
           </Box>
@@ -572,16 +605,16 @@ const PreCallLobby: React.FC<PreCallLobbyProps> = ({
         {/* Action Buttons */}
         <Divider sx={{ my: 3 }} />
         <Stack direction="row" spacing={2} justifyContent="center">
-          <Button variant="outlined" size="large" onClick={onCancel}>
-            Abbrechen
+          <Button variant="outlined" size="large" onClick={handleCancel} disabled={isCancelling}>
+            {isCancelling ? 'Cancelling...' : 'Cancel'}
           </Button>
           <Button
             variant="contained"
             size="large"
             onClick={handleJoinCall}
-            disabled={isLoading || hasDeviceError}
+            disabled={isLoading || hasDeviceError || isCancelling}
           >
-            Beitreten
+            Join
           </Button>
         </Stack>
       </Paper>

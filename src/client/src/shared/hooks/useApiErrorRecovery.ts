@@ -77,27 +77,27 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
     switch (errorType) {
       case 'NETWORK':
         if (!isOnline) {
-          return 'Keine Internetverbindung. Bitte überprüfen Sie Ihre Netzwerkeinstellungen.';
+          return 'No internet connection. Please check your network settings.';
         }
         if (isSlowConnection) {
-          return 'Langsame Verbindung erkannt. Der Vorgang kann länger dauern.';
+          return 'Slow connection detected. The operation may take longer.';
         }
-        return 'Netzwerkfehler. Bitte versuchen Sie es erneut.';
+        return 'Network error. Please try again.';
 
       case 'SERVER':
-        return 'Server-Fehler. Der Service ist möglicherweise vorübergehend nicht verfügbar.';
+        return 'Server error. The service may be temporarily unavailable.';
 
       case 'CLIENT':
-        return 'Anfrage-Fehler. Bitte überprüfen Sie Ihre Eingaben.';
+        return 'Request error. Please check your inputs.';
 
       case 'VALIDATION':
-        return 'Validierungsfehler. Bitte überprüfen Sie Ihre Eingaben.';
+        return 'Validation error. Please check your inputs.';
 
       case 'PERMISSION':
-        return 'Zugriff verweigert. Sie haben keine Berechtigung für diese Aktion.';
+        return 'Access denied. You do not have permission for this action.';
 
       case 'UNKNOWN':
-        return 'Ein unerwarteter Fehler ist aufgetreten.';
+        return 'An unexpected error occurred.';
       default: {
         // Exhaustive check - this should never be reached
         const _exhaustiveCheck: never = errorType;
@@ -112,24 +112,24 @@ export function useApiErrorRecovery(): ApiErrorRecoveryReturn {
     switch (errorType) {
       case 'NETWORK':
         if (!isOnline) {
-          return 'Stellen Sie eine Internetverbindung her und versuchen Sie es erneut.';
+          return 'Establish an internet connection and try again.';
         }
-        return 'Erneut versuchen oder später wiederholen.';
+        return 'Try again or retry later.';
 
       case 'SERVER':
-        return 'In wenigen Minuten erneut versuchen.';
+        return 'Try again in a few minutes.';
 
       case 'CLIENT':
-        return 'Eingaben überprüfen oder Support kontaktieren.';
+        return 'Check your inputs or contact support.';
 
       case 'VALIDATION':
-        return 'Eingaben korrigieren und erneut versuchen.';
+        return 'Correct your inputs and try again.';
 
       case 'PERMISSION':
-        return 'Wenden Sie sich an einen Administrator.';
+        return 'Contact an administrator.';
 
       case 'UNKNOWN':
-        return 'Seite aktualisieren oder später wiederholen.';
+        return 'Refresh the page or try again later.';
       default: {
         // Exhaustive check - this should never be reached
         const _exhaustiveCheck: never = errorType;

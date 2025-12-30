@@ -121,6 +121,51 @@ public class ChatThreadRepository : IChatThreadRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<int> GetSearchCountAsync(
+        string userId,
+        string searchTerm,
+        CancellationToken cancellationToken = default)
+    {
+        var lowerSearchTerm = searchTerm.ToLower();
+
+        return await _dbContext.ChatThreads
+            .Where(t =>
+                (t.Participant1Id == userId || t.Participant2Id == userId) &&
+                (
+                    (t.Participant1Name != null && t.Participant1Name.ToLower().Contains(lowerSearchTerm)) ||
+                    (t.Participant2Name != null && t.Participant2Name.ToLower().Contains(lowerSearchTerm)) ||
+                    (t.SkillName != null && t.SkillName.ToLower().Contains(lowerSearchTerm))
+                ))
+            .CountAsync(cancellationToken);
+    }
+
+    public async Task<List<ChatThread>> GetWithUnreadMessagesPagedAsync(
+        string userId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.ChatThreads
+            .Where(t =>
+                (t.Participant1Id == userId && t.Participant1UnreadCount > 0) ||
+                (t.Participant2Id == userId && t.Participant2UnreadCount > 0))
+            .OrderByDescending(t => t.LastMessageAt ?? t.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<int> GetWithUnreadMessagesCountAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.ChatThreads
+            .Where(t =>
+                (t.Participant1Id == userId && t.Participant1UnreadCount > 0) ||
+                (t.Participant2Id == userId && t.Participant2UnreadCount > 0))
+            .CountAsync(cancellationToken);
+    }
+
     public async Task AddAsync(ChatThread thread, CancellationToken cancellationToken = default)
     {
         await _dbContext.ChatThreads.AddAsync(thread, cancellationToken);

@@ -19,7 +19,7 @@ import {
   Shield as ShieldIcon,
 } from '@mui/icons-material';
 import { Box, Tooltip, Chip, Typography } from '@mui/material';
-import type { ChatE2EEStatus } from '../../videocall/hooks/types';
+import type { ChatE2EEStatus } from '../types/Chat';
 
 // Helper functions to reduce cognitive complexity
 function getIconTooltip(isVerified: boolean | undefined): string {

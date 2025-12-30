@@ -4,10 +4,8 @@
 
 import { useRef, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../core/store/store.hooks';
-import browserInfo, {
-  getDevicesWithLabels,
-  stopStreamSafely,
-} from '../../../shared/utils/browserDetection';
+import { isSafari } from '../../../shared/detection';
+import { getDevicesWithLabels, stopStreamSafely } from '../../../shared/utils/mediaUtils';
 import {
   selectDeviceCheckStatus,
   selectDeviceStatusSummary,
@@ -34,6 +32,7 @@ import {
   setPreviewStreamId,
   setDeviceCheckStatus,
   setCameraEnabled,
+  setMicEnabled,
   toggleDeviceSettings,
   setSelectedCamera,
   setSelectedMicrophone,
@@ -43,8 +42,10 @@ import {
   setJoinWithAudio,
   toggleCamera as toggleCameraAction,
   toggleMic as toggleMicAction,
+  setLoading,
+  setError,
+  clearError,
 } from '../store/preCallSlice';
-import { setError, setLoading, clearError, setMicEnabled } from '../store/videoCallSlice';
 
 interface DeviceInfo {
   deviceId: string;
@@ -130,7 +131,11 @@ export const usePreCall = (): UsePreCallReturn => {
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null); // CRITICAL: Track source for Safari cleanup!
   const animationFrameRef = useRef<number | null>(null);
+
+  // Track ALL streams created for Safari cleanup (handles React StrictMode double-mount)
+  const allCreatedStreamsRef = useRef<Set<MediaStream>>(new Set());
 
   // ========================================================================
   // Device Enumeration
@@ -141,7 +146,7 @@ export const usePreCall = (): UsePreCallReturn => {
       try {
         const devices = await getDevicesWithLabels(existingStream);
 
-        if (browserInfo.isSafari) {
+        if (isSafari()) {
           console.debug('🍎 Safari: Device enumeration with labels completed');
         }
 
@@ -169,8 +174,8 @@ export const usePreCall = (): UsePreCallReturn => {
             kind: d.kind,
           }));
 
-        // Safari-spezifische Meldung
-        if (browserInfo.isSafari && audioOutputs.length === 0) {
+        // Safari-specific message
+        if (isSafari() && audioOutputs.length === 0) {
           console.debug('🍎 Safari: Using default speaker (audiooutput enumeration not supported)');
         }
 
@@ -179,14 +184,12 @@ export const usePreCall = (): UsePreCallReturn => {
             cameras: videoInputs,
             microphones: audioInputs,
             speakers: audioOutputs,
-            isSafari: browserInfo.isSafari,
+            isSafari: isSafari(),
           })
         );
       } catch (err) {
         console.error('Error enumerating devices:', err);
-        dispatch(
-          setError('Fehler beim Laden der Geräte. Bitte überprüfen Sie die Berechtigungen.')
-        );
+        dispatch(setError('Error loading devices. Please check permissions.'));
       }
     },
     [dispatch]
@@ -199,7 +202,17 @@ export const usePreCall = (): UsePreCallReturn => {
   const setupAudioLevelMonitor = useCallback(
     (stream: MediaStream) => {
       try {
-        // Cleanup existing
+        // Cleanup existing audio resources FIRST
+        // CRITICAL for Safari: Must disconnect source BEFORE closing context!
+        if (audioSourceRef.current) {
+          try {
+            audioSourceRef.current.disconnect();
+            console.debug('🍎 Safari: Disconnected previous audio source');
+          } catch {
+            // Ignore disconnect errors
+          }
+          audioSourceRef.current = null;
+        }
         if (audioContextRef.current) {
           void audioContextRef.current.close();
         }
@@ -214,8 +227,10 @@ export const usePreCall = (): UsePreCallReturn => {
         analyser.fftSize = 256;
         source.connect(analyser);
 
+        // CRITICAL: Store source reference for Safari cleanup!
         audioContextRef.current = audioContext;
         analyserRef.current = analyser;
+        audioSourceRef.current = source;
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
@@ -245,11 +260,25 @@ export const usePreCall = (): UsePreCallReturn => {
       dispatch(setLoading(true));
       dispatch(clearError());
 
-      // Stop existing stream
+      // Stop existing stream with Safari-specific cleanup
       if (previewStreamRef.current) {
-        previewStreamRef.current.getTracks().forEach((track) => {
-          track.stop();
-        });
+        const oldStream = previewStreamRef.current;
+        if (isSafari()) {
+          // Safari: Remove tracks before stopping
+          oldStream.getTracks().forEach((track) => {
+            try {
+              oldStream.removeTrack(track);
+              track.stop();
+              track.enabled = false;
+            } catch {
+              // Ignore errors
+            }
+          });
+        } else {
+          oldStream.getTracks().forEach((track) => {
+            track.stop();
+          });
+        }
       }
 
       const constraints: MediaStreamConstraints = {
@@ -262,6 +291,13 @@ export const usePreCall = (): UsePreCallReturn => {
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // Track all created streams for Safari cleanup (handles React StrictMode)
+      allCreatedStreamsRef.current.add(stream);
+      console.debug(
+        `🍎 Safari: Tracking stream ${stream.id} (total: ${allCreatedStreamsRef.current.size})`
+      );
+
       // Capture ref to avoid race condition warning
       const streamRef = previewStreamRef;
       streamRef.current = stream;
@@ -282,9 +318,7 @@ export const usePreCall = (): UsePreCallReturn => {
       dispatch(setLoading(false));
     } catch (err) {
       console.error('Error starting preview:', err);
-      dispatch(
-        setError('Zugriff auf Kamera/Mikrofon verweigert. Bitte erteilen Sie die Berechtigung.')
-      );
+      dispatch(setError('Camera/microphone access denied. Please grant permission.'));
       dispatch(
         setDeviceCheckStatus({
           camera: 'error',
@@ -391,28 +425,98 @@ export const usePreCall = (): UsePreCallReturn => {
   // ========================================================================
 
   const cleanup = useCallback(() => {
-    // Stop stream
-    if (previewStreamRef.current) {
-      if (videoPreviewRef.current) {
-        videoPreviewRef.current.srcObject = null;
-      }
-      previewStreamRef.current.getTracks().forEach((track) => {
-        track.stop();
-      });
-      previewStreamRef.current = null;
-    }
+    console.debug('🧹 PreCall cleanup starting...');
 
-    // Stop audio context
-    if (audioContextRef.current) {
-      void audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-
-    // Cancel animation frame
+    // =========================================================================
+    // STEP 1: Cancel animation frame FIRST (stops the audio level monitor loop)
+    // =========================================================================
     if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
+
+    // =========================================================================
+    // STEP 2: CRITICAL for Safari - Disconnect audio source BEFORE anything else!
+    // The MediaStreamSource holds a reference to the audio track.
+    // If we don't disconnect it first, Safari won't release the camera indicator!
+    // =========================================================================
+    if (audioSourceRef.current) {
+      try {
+        audioSourceRef.current.disconnect();
+        console.debug('🍎 Safari: Disconnected audio source (releases track reference)');
+      } catch {
+        // Ignore disconnect errors
+      }
+      audioSourceRef.current = null;
+    }
+
+    // =========================================================================
+    // STEP 3: Close audio context (releases audio resources)
+    // =========================================================================
+    if (audioContextRef.current) {
+      void audioContextRef.current.close();
+      audioContextRef.current = null;
+      console.debug('🍎 Safari: Closed audio context');
+    }
+
+    // =========================================================================
+    // STEP 4: Clear video element srcObject
+    // =========================================================================
+    const videoElement = videoPreviewRef.current;
+    if (videoElement) {
+      videoElement.srcObject = null;
+    }
+
+    // =========================================================================
+    // STEP 5: CRITICAL - Clean up ALL streams ever created (handles React StrictMode!)
+    // React StrictMode mounts/unmounts twice, creating orphaned streams.
+    // We must stop ALL of them, not just the current one!
+    // =========================================================================
+    const allStreams = allCreatedStreamsRef.current;
+    console.debug(`🍎 Safari: Cleaning up ${allStreams.size} tracked streams`);
+
+    if (isSafari()) {
+      // Collect ALL tracks from ALL streams
+      const allTracks: MediaStreamTrack[] = [];
+      allStreams.forEach((stream) => {
+        const tracks = stream.getTracks();
+        tracks.forEach((track) => {
+          allTracks.push(track);
+          try {
+            stream.removeTrack(track);
+            console.debug(`🍎 Safari: Removed ${track.kind} track from stream ${stream.id}`);
+          } catch {
+            // Ignore errors
+          }
+        });
+      });
+
+      // Stop all tracks IMMEDIATELY (no setTimeout - that causes race conditions!)
+      // The 50ms delay was causing issues with React StrictMode double-mount
+      allTracks.forEach((track) => {
+        try {
+          track.stop();
+          track.enabled = false;
+          console.debug(`🍎 Safari: Stopped ${track.kind} track (readyState: ${track.readyState})`);
+        } catch {
+          // Track might already be stopped
+        }
+      });
+
+      console.debug('🍎 Safari: PreCall cleanup complete - camera should be OFF now');
+    } else {
+      // Chrome/Firefox: Standard cleanup
+      allStreams.forEach((stream) => {
+        stream.getTracks().forEach((track) => {
+          track.stop();
+        });
+      });
+      console.debug('✅ Chrome/Firefox: PreCall cleanup complete');
+    }
+
+    // Clear the set and refs
+    allStreams.clear();
+    previewStreamRef.current = null;
 
     // Reset Redux state
     dispatch(resetPreCallState());

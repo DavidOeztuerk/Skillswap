@@ -78,7 +78,12 @@ export const useAuth = (): {
   disableTwoFactor: (request: DisableTwoFactorRequest) => void;
   // Password Reset
   requestPasswordReset: (email: string) => void;
-  resetPassword: (data: { token: string; password: string }) => void;
+  resetPassword: (data: {
+    email: string;
+    token: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) => void;
   // Token Operations
   refreshToken: () => void;
   // State Management
@@ -222,7 +227,12 @@ export const useAuth = (): {
       /**
        * Reset password with token
        */
-      resetPassword: (data: { token: string; password: string }) => dispatch(resetPassword(data)),
+      resetPassword: (data: {
+        email: string;
+        token: string;
+        newPassword: string;
+        confirmPassword: string;
+      }) => dispatch(resetPassword(data)),
 
       // ===== TOKEN OPERATIONS =====
 

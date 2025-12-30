@@ -27,6 +27,16 @@ const publicRoutes = {
     skeletonVariant: 'form',
   }),
 
+  forgotPassword: createLazyRoute(() => import('../../features/auth/pages/ForgotPasswordPage'), {
+    useSkeleton: true,
+    skeletonVariant: 'form',
+  }),
+
+  resetPassword: createLazyRoute(() => import('../../features/auth/pages/ResetPasswordPage'), {
+    useSkeleton: true,
+    skeletonVariant: 'form',
+  }),
+
   search: createLazyRoute(() => import('../../features/search/pages/SearchResultsPage'), {
     useSkeleton: true,
     skeletonVariant: 'list',
@@ -380,6 +390,22 @@ const routes: RouteObject[] = [
       {
         path: 'auth/register',
         element: <publicRoutes.register.component />,
+      },
+      {
+        path: 'auth/forgot-password',
+        element: <publicRoutes.forgotPassword.component />,
+      },
+      {
+        path: 'forgot-password',
+        element: <publicRoutes.forgotPassword.component />,
+      },
+      {
+        path: 'auth/reset-password',
+        element: <publicRoutes.resetPassword.component />,
+      },
+      {
+        path: 'reset-password',
+        element: <publicRoutes.resetPassword.component />,
       },
       {
         path: 'search',

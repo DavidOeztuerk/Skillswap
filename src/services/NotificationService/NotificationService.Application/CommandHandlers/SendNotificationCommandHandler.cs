@@ -30,6 +30,9 @@ public class SendNotificationCommandHandler(
             ExpiresAt = request.ScheduledAt?.AddDays(7)
         };
 
+        // Note: Subject and Content are intentionally left empty
+        // so that NotificationOrchestrator loads the template from the database
+        // via EmailService.SendTemplatedEmailAsync (see orchestrator line 51-67)
         var notification = new Notification
         {
             Id = notificationId,
@@ -37,8 +40,8 @@ public class SendNotificationCommandHandler(
             Type = request.Type,
             Template = request.Template,
             Recipient = request.Recipient,
-            Subject = GetSubjectFromTemplate(request.Template, request.Variables),
-            Content = GetContentFromTemplate(request.Template, request.Variables),
+            Subject = string.Empty, // Will be loaded from template
+            Content = string.Empty, // Will be loaded from template
             Status = request.ScheduledAt.HasValue && request.ScheduledAt > DateTime.UtcNow
                 ? NotificationStatus.Pending
                 : NotificationStatus.Pending,
@@ -70,44 +73,5 @@ public class SendNotificationCommandHandler(
             notification.CreatedAt);
 
         return Success(response);
-    }
-
-    private static string GetSubjectFromTemplate(string template, Dictionary<string, string> variables)
-    {
-        return template switch
-        {
-            EmailTemplateNames.Welcome => "Welcome to SkillSwap! 🎉",
-            EmailTemplateNames.EmailVerification => "Please verify your email address",
-            EmailTemplateNames.PasswordReset => "Reset your SkillSwap password",
-            EmailTemplateNames.PasswordChanged => "Your password has been changed",
-            EmailTemplateNames.SecurityAlert => "Security Alert - Unusual activity detected",
-            EmailTemplateNames.AccountSuspended => "Your account has been suspended",
-            EmailTemplateNames.AccountReactivated => "Your account has been reactivated",
-            EmailTemplateNames.SkillMatchFound => "New skill match found! 🚀",
-            EmailTemplateNames.AppointmentReminder => "Reminder: Your skill session is soon",
-            EmailTemplateNames.AppointmentConfirmation => "Your skill session has been confirmed",
-            _ => "SkillSwap Notification"
-        };
-    }
-
-    private static string GetContentFromTemplate(string template, Dictionary<string, string> variables)
-    {
-        var content = template switch
-        {
-            EmailTemplateNames.Welcome => "Welcome to SkillSwap! We're excited to have you join our community.",
-            EmailTemplateNames.EmailVerification => $"Please verify your email address using the provided link.",
-            EmailTemplateNames.PasswordReset => $"You requested to reset your password. Use the provided link to continue.",
-            EmailTemplateNames.PasswordChanged => $"Your password was successfully changed at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss UTC}.",
-            EmailTemplateNames.SecurityAlert => $"Unusual activity was detected on your account.",
-            _ => "SkillSwap notification"
-        };
-
-        // Simple variable replacement
-        foreach (var variable in variables)
-        {
-            content = content.Replace($"{{{{{variable.Key}}}}}", variable.Value);
-        }
-
-        return content;
     }
 }

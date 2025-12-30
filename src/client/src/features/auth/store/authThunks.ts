@@ -131,8 +131,16 @@ export const requestPasswordReset = createAppAsyncThunk(
 
 export const resetPassword = createAppAsyncThunk(
   'auth/resetPassword',
-  async ({ token, password }: { token: string; password: string }, { rejectWithValue }) => {
-    const response = await authService.resetPassword(token, password);
+  async (
+    {
+      email,
+      token,
+      newPassword,
+      confirmPassword,
+    }: { email: string; token: string; newPassword: string; confirmPassword: string },
+    { rejectWithValue }
+  ) => {
+    const response = await authService.resetPassword(email, token, newPassword, confirmPassword);
     return isSuccessResponse(response) ? response : rejectWithValue(response);
   }
 );

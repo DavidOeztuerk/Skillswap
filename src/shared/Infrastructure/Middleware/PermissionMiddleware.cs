@@ -125,7 +125,8 @@ public class PermissionMiddleware
             "/api/auth",       // API authentication endpoints
             "/api/users/login", // User login endpoint
             "/api/users/register", // User registration endpoint
-            "/api/users/forgot-password", // Password reset endpoints
+            "/api/users/forgot-password", // Password reset endpoints (legacy)
+            "/api/users/request-password-reset", // Password reset request endpoint
             "/api/users/reset-password",
             "/api/users/verify-email", // Email verification endpoint
             "/api/skills",     // Public skill browsing (Udemy-style)

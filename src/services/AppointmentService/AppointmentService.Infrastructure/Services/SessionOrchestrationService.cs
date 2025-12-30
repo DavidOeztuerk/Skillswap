@@ -30,6 +30,7 @@ public class SessionOrchestrationService(
 
     public async Task<Connection> CreateSessionHierarchyFromMatchAsync(
         string matchRequestId,
+        string? threadId,
         string requesterId,
         string targetUserId,
         string skillId,
@@ -61,7 +62,8 @@ public class SessionOrchestrationService(
             skillId: skillId,
             exchangeSkillId: exchangeSkillId,
             paymentRatePerHour: offeredAmount,
-            currency: currency
+            currency: currency,
+            threadId: threadId
         );
 
         await _unitOfWork.Connections.CreateAsync(connection, cancellationToken);

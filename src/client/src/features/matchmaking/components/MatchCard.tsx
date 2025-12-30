@@ -98,17 +98,29 @@ const MatchCard: React.FC<MatchCardProps> = memo(
       onClick?.(match.id);
     }, [onClick, match.id]);
 
-    const handleAccept = useCallback(() => {
-      onAccept?.(match.id);
-    }, [onAccept, match.id]);
+    const handleAccept = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent card click navigation
+        onAccept?.(match.id);
+      },
+      [onAccept, match.id]
+    );
 
-    const handleReject = useCallback(() => {
-      onReject?.(match.id);
-    }, [onReject, match.id]);
+    const handleReject = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent card click navigation
+        onReject?.(match.id);
+      },
+      [onReject, match.id]
+    );
 
-    const handleSchedule = useCallback(() => {
-      onSchedule?.(match);
-    }, [onSchedule, match]);
+    const handleSchedule = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent card click navigation
+        onSchedule?.(match);
+      },
+      [onSchedule, match]
+    );
 
     // Memoize card sx to avoid recreation when hasClick doesn't change
     const computedCardSx = useMemo(() => cardSx(!!onClick), [onClick]);
