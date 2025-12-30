@@ -154,6 +154,18 @@ export class InsertableStreamsHandler {
     return this.workersInitialized;
   }
 
+  /**
+   * Wait for workers to be initialized.
+   * Returns immediately if already initialized.
+   * Used by Safari to defer transform application until workers are ready.
+   */
+  async waitForWorkersReady(): Promise<void> {
+    if (this.workersInitialized) return;
+    if (this.workerInitPromise) return this.workerInitPromise;
+    // Workers not started yet, start them
+    return this.initializeWorkers();
+  }
+
   requiresEncodedStreams(): boolean {
     return this.e2eeMethod === 'encodedStreams';
   }
@@ -173,6 +185,23 @@ export class InsertableStreamsHandler {
    */
   setPeerConnection(pc: RTCPeerConnection): void {
     this.peerConnection = pc;
+  }
+
+  /**
+   * Public method to request keyframes from all video receivers.
+   *
+   * CHROME FIX: After E2EE key exchange completes, Chrome may have muted the video
+   * track because initial frames couldn't be decoded. Requesting new keyframes
+   * helps Chrome recover and start displaying video.
+   *
+   * This should be called:
+   * 1. After key exchange completes
+   * 2. After key rotation
+   * 3. When video appears frozen/black
+   */
+  requestKeyframes(): void {
+    console.debug('🔄 E2EE: Public requestKeyframes() called');
+    this.requestKeyFrames();
   }
 
   // ============================================================================
@@ -439,9 +468,31 @@ export class InsertableStreamsHandler {
 
     console.debug(`🔑 E2EE: Key updated to generation ${generation} (both workers confirmed)`);
 
-    // KRITISCH: Keyframe anfordern damit Video sofort startet!
-    // Ohne das muss der Decoder auf den nächsten I-Frame warten (2-10 Sekunden)
+    // KRITISCH: Keyframes MEHRFACH senden wegen Timing-Problemen!
+    //
+    // Problem: Safari sendet nach Key-Exchange einen Keyframe. Aber Chrome hat
+    // eventuell den Key noch nicht bereit und droppt ihn. Danach sendet Safari
+    // nur P-Frames bis zum nächsten natürlichen Keyframe (2-10 Sekunden).
+    //
+    // Lösung: Mehrere Keyframes mit Verzögerung senden. So ist es wahrscheinlicher,
+    // dass mindestens einer ankommt wenn der Peer den Key bereit hat.
     this.requestKeyFrames();
+
+    // Weitere Keyframes nach Verzögerungen senden
+    setTimeout(() => {
+      console.debug('📹 E2EE: Sending delayed keyframe (500ms)');
+      this.requestKeyFrames();
+    }, 500);
+
+    setTimeout(() => {
+      console.debug('📹 E2EE: Sending delayed keyframe (1500ms)');
+      this.requestKeyFrames();
+    }, 1500);
+
+    setTimeout(() => {
+      console.debug('📹 E2EE: Sending delayed keyframe (3000ms)');
+      this.requestKeyFrames();
+    }, 3000);
   }
 
   /**
@@ -511,6 +562,12 @@ export class InsertableStreamsHandler {
   private triggerKeyframeViaSender(): void {
     if (!this.peerConnection) return;
 
+    // FIX: Only trigger if PC is fully connected (prevents errors during rejoin)
+    if (this.peerConnection.connectionState !== 'connected') {
+      console.debug('📹 E2EE: Skipping keyframe trigger - PC not connected yet');
+      return;
+    }
+
     const senders = this.peerConnection.getSenders();
     for (const sender of senders) {
       if (sender.track?.kind !== 'video') continue;
@@ -520,28 +577,32 @@ export class InsertableStreamsHandler {
         const { encodings } = params;
         if (encodings.length === 0) continue;
 
-        // Temporarily change priority to force a new keyframe
-        // This is a known Chrome workaround
         const firstEncoding = encodings[0];
         const originalPriority = firstEncoding.priority ?? 'low';
         firstEncoding.priority = originalPriority === 'high' ? 'medium' : 'high';
 
-        void sender.setParameters(params).then(() => {
-          // Restore original priority after a short delay
-          setTimeout(() => {
-            const restoreParams = sender.getParameters();
-            const restoreEncodings = restoreParams.encodings;
-            if (restoreEncodings.length > 0) {
-              restoreEncodings[0].priority = originalPriority;
-              void sender.setParameters(restoreParams).catch(() => {
-                // Ignore errors during restore
-              });
-            }
-          }, 100);
-          console.debug('📹 E2EE: Keyframe triggered via sender setParameters (Chrome workaround)');
-        });
+        // FIX: Added .catch() for promise rejection
+        void sender
+          .setParameters(params)
+          .then(() => {
+            setTimeout(() => {
+              try {
+                const restoreParams = sender.getParameters();
+                if (restoreParams.encodings.length > 0) {
+                  restoreParams.encodings[0].priority = originalPriority;
+                  void sender.setParameters(restoreParams).catch(() => {});
+                }
+              } catch {
+                /* ignore */
+              }
+            }, 100);
+            console.debug('📹 E2EE: Keyframe triggered via setParameters');
+          })
+          .catch((e: unknown) => {
+            console.debug('📹 E2EE: setParameters failed (not critical):', e);
+          });
       } catch (error) {
-        console.debug('📹 E2EE: Chrome keyframe workaround failed (not critical):', error);
+        console.debug('📹 E2EE: Chrome keyframe workaround failed:', error);
       }
     }
   }
@@ -585,10 +646,82 @@ export class InsertableStreamsHandler {
       };
       const { readable, writable } = senderWithStreams.createEncodedStreams();
       this.senderEncodedStreams.set(sender, { readable, writable });
-      console.debug(`📤 E2EE: Prepared encoded streams for ${kind} sender`);
+
+      // CRITICAL FIX FOR CHROME:
+      // Chrome's createEncodedStreams() returns an immediately-active readable stream.
+      // Pipe immediately with a smart transform that passes through when encryption
+      // is not yet enabled, and encrypts once enabled.
+      this.pipeEncodedStreamsForSenderImmediate(sender, kind, readable, writable);
+
+      console.debug(`📤 E2EE: Prepared and piped encoded streams for ${kind} sender`);
     } catch (e) {
       console.warn(`⚠️ E2EE: Could not create encoded streams for ${kind} sender:`, e);
     }
+  }
+
+  /**
+   * CRITICAL: Pipe sender streams immediately after creation.
+   * Chrome's createEncodedStreams() must be piped right away or frames are lost.
+   */
+  private pipeEncodedStreamsForSenderImmediate(
+    sender: RTCRtpSender,
+    kind: 'video' | 'audio',
+    readable: ReadableStream,
+    writable: WritableStream
+  ): void {
+    if (this.pipedSenders.has(sender)) {
+      console.debug(`🌐 Chrome: Sender ${kind} already piped`);
+      return;
+    }
+
+    // Create a smart encryption transform that handles the "not yet enabled" case
+    const transformStream = this.createSmartEncryptionTransform();
+
+    // Pipe: readable → transform → writable
+    void readable
+      .pipeThrough(transformStream)
+      .pipeTo(writable as WritableStream<EncodedMediaFrame>)
+      .catch((error: unknown) => {
+        console.error(`❌ Chrome: Encryption pipeline error for ${kind}:`, error);
+      });
+
+    this.pipedSenders.add(sender);
+    console.debug(`🌐 Chrome: Piped encryption transform IMMEDIATELY for ${kind} sender`);
+  }
+
+  /**
+   * Smart encryption transform for Chrome's encodedStreams.
+   * Passes through when encryption is not enabled, encrypts when enabled.
+   */
+  private createSmartEncryptionTransform(): TransformStream<EncodedMediaFrame, EncodedMediaFrame> {
+    return new TransformStream<EncodedMediaFrame, EncodedMediaFrame>({
+      transform: async (frame, controller) => {
+        // PASSTHROUGH MODE: If encryption not enabled, pass through unencrypted
+        if (!this.encryptionEnabled) {
+          controller.enqueue(frame);
+          return;
+        }
+
+        // Encryption enabled but no worker - pass through
+        if (!this.encryptionWorker) {
+          controller.enqueue(frame);
+          return;
+        }
+
+        try {
+          const encryptedData = await this.encryptFrame(frame.data);
+          // CRITICAL: Mutate the frame's data property directly!
+          // eslint-disable-next-line require-atomic-updates -- Intentional mutation of WebRTC frame
+          frame.data = encryptedData;
+          controller.enqueue(frame);
+        } catch (error: unknown) {
+          // Encryption failed - pass through unencrypted (better than no video)
+          this.stats.encryptionErrors++;
+          console.warn('[E2EE Chrome] Encryption failed, passing through unencrypted:', error);
+          controller.enqueue(frame);
+        }
+      },
+    });
   }
 
   prepareEncodedStreamsForReceiver(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): void {
@@ -602,10 +735,121 @@ export class InsertableStreamsHandler {
       };
       const { readable, writable } = receiverWithStreams.createEncodedStreams();
       this.receiverEncodedStreams.set(receiver, { readable, writable });
-      console.debug(`📥 E2EE: Prepared encoded streams for ${kind} receiver`);
+
+      // Track video receivers for keyframe requests after key updates
+      if (kind === 'video') {
+        this.videoReceivers.add(receiver);
+        console.debug(
+          `📹 E2EE: Tracking video receiver for keyframe requests (total: ${this.videoReceivers.size})`
+        );
+      }
+
+      // CRITICAL FIX FOR CHROME:
+      // Chrome's createEncodedStreams() returns an immediately-active readable stream.
+      // If not piped immediately, the WebRTC decoder consumes frames directly and
+      // the stream becomes empty by the time we try to pipe after key exchange.
+      //
+      // We pipe immediately with a smart transform that:
+      // - Passes through unencrypted frames (before encryption is enabled)
+      // - Decrypts frames once key is available
+      // - Drops encrypted frames if no key yet (rare due to synchronization)
+      this.pipeEncodedStreamsImmediately(receiver, kind, readable, writable);
+
+      console.debug(`📥 E2EE: Prepared and piped encoded streams for ${kind} receiver`);
     } catch (e) {
       console.warn(`⚠️ E2EE: Could not create encoded streams for ${kind} receiver:`, e);
     }
+  }
+
+  /**
+   * CRITICAL: Pipe encoded streams immediately after creation.
+   * Chrome's createEncodedStreams() must be piped right away or frames are lost.
+   */
+  private pipeEncodedStreamsImmediately(
+    receiver: RTCRtpReceiver,
+    kind: 'video' | 'audio',
+    readable: ReadableStream,
+    writable: WritableStream
+  ): void {
+    if (this.pipedReceivers.has(receiver)) {
+      console.debug(`🌐 Chrome: Receiver ${kind} already piped`);
+      return;
+    }
+
+    // Create a smart decryption transform that handles the "no key yet" case
+    const transformStream = this.createSmartDecryptionTransform();
+
+    // Pipe: readable → transform → writable
+    void readable
+      .pipeThrough(transformStream)
+      .pipeTo(writable as WritableStream<EncodedMediaFrame>)
+      .catch((error: unknown) => {
+        console.error(`❌ Chrome: Decryption pipeline error for ${kind}:`, error);
+      });
+
+    this.pipedReceivers.add(receiver);
+    console.debug(`🌐 Chrome: Piped decryption transform IMMEDIATELY for ${kind} receiver`);
+  }
+
+  /**
+   * Smart decryption transform for Chrome's encodedStreams.
+   * Handles the timing gap between stream creation and key availability.
+   *
+   * CRITICAL: Unlike encryption, we cannot check `encryptionEnabled` for decryption!
+   * The remote peer might be encrypting BEFORE we enable encryption locally.
+   * We must ALWAYS send frames to the worker and let it decide:
+   * - If frame looks encrypted and no key → drop
+   * - If frame looks encrypted and has key → decrypt
+   * - If frame looks unencrypted → passthrough
+   */
+  private createSmartDecryptionTransform(): TransformStream<EncodedMediaFrame, EncodedMediaFrame> {
+    // Frame counter for debug logging (every 100th frame)
+    let frameCount = 0;
+
+    return new TransformStream<EncodedMediaFrame, EncodedMediaFrame>({
+      transform: async (frame, controller) => {
+        frameCount++;
+
+        // Debug log every 100 frames
+        if (frameCount % 100 === 1) {
+          console.debug(
+            `[Chrome E2EE] Decrypt frame #${frameCount}: hasWorker=${!!this.decryptionWorker}, ` +
+              `encEnabled=${this.encryptionEnabled}, frameSize=${frame.data.byteLength}`
+          );
+        }
+
+        // No worker yet - pass through (workers initialize quickly)
+        if (!this.decryptionWorker) {
+          controller.enqueue(frame);
+          return;
+        }
+
+        // ALWAYS send to worker - the worker decides based on:
+        // - Whether it has a key
+        // - Whether the frame looks encrypted (size check)
+        // This is critical because the remote peer might be encrypting before
+        // our local encryptionEnabled flag is set.
+        try {
+          const decryptedData = await this.decryptFrame(frame.data);
+          // CRITICAL: Mutate the frame's data property directly!
+          // eslint-disable-next-line require-atomic-updates -- Intentional mutation of WebRTC frame
+          frame.data = decryptedData;
+          controller.enqueue(frame);
+        } catch (error: unknown) {
+          // FRAME_DROPPED: Worker intentionally dropped (e.g., no key yet but frame encrypted)
+          // Just drop and wait for next frame - video will briefly freeze
+          if (error instanceof Error && error.message === 'FRAME_DROPPED') {
+            this.stats.droppedFrames++;
+            return; // Don't enqueue
+          }
+
+          // Decryption failed - drop frame to avoid garbage video
+          this.stats.decryptionErrors++;
+          this.stats.droppedFrames++;
+          console.warn('[E2EE Chrome] Decryption failed, dropping frame:', error);
+        }
+      },
+    });
   }
 
   async applyEncryptionToSenders(senders: RTCRtpSender[]): Promise<void> {
@@ -643,6 +887,13 @@ export class InsertableStreamsHandler {
     if (this.appliedSenderTransforms.has(senderId)) return;
 
     try {
+      // For encodedStreams (Chrome), piping is done immediately in prepareEncodedStreamsForSender()
+      if (this.e2eeMethod === 'encodedStreams' && this.pipedSenders.has(sender)) {
+        this.appliedSenderTransforms.add(senderId);
+        console.debug(`🌐 Chrome: Sender ${kind} already piped (done in prepare)`);
+        return;
+      }
+
       this.applyEncryptionTransform(sender, kind);
       this.appliedSenderTransforms.add(senderId);
     } catch (e) {
@@ -675,45 +926,86 @@ export class InsertableStreamsHandler {
   /**
    * Apply decryption to a single receiver
    * Handles RTCRtpScriptTransform (Safari/Firefox), encodedStreams (Chrome legacy), and rtpTransform
+   *
+   * NOTE: For encodedStreams (Chrome), piping is done immediately in prepareEncodedStreamsForReceiver()
+   * to prevent frame loss. This method just marks the receiver as having transforms applied.
    */
   applyDecryptionToReceiver(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): void {
     const receiverId = `${kind}-${receiver.track.id}`;
     if (this.appliedReceiverTransforms.has(receiverId)) return;
 
-    // Track video receivers for keyframe requests after key updates
-    if (kind === 'video') {
+    // Track video receivers for keyframe requests (except encodedStreams - done in prepare)
+    if (kind === 'video' && this.e2eeMethod !== 'encodedStreams') {
       this.videoReceivers.add(receiver);
       console.debug(
         `📹 E2EE: Tracking video receiver for keyframe requests (total: ${this.videoReceivers.size})`
       );
     }
 
-    if (this.e2eeMethod === 'scriptTransform') {
-      // Safari/Firefox: RTCRtpScriptTransform
-      if (this.decryptionWorker) {
-        try {
-          receiver.transform = new RTCRtpScriptTransform(this.decryptionWorker, {
-            operation: 'decrypt',
-            kind,
-          });
-          this.appliedReceiverTransforms.add(receiverId);
-          console.debug(`🔧 ScriptTransform: Applied decryption transform to ${kind} receiver`);
-        } catch (e) {
-          console.warn(`⚠️ ScriptTransform: Failed to apply decryption transform:`, e);
-        }
-      }
-    } else if (this.e2eeMethod === 'encodedStreams') {
-      // Chrome: Pipe encoded streams through decryption transform
-      // CRITICAL: The streams must be prepared BEFORE this is called!
-      this.pipeEncodedStreamsForReceiver(receiver, kind);
+    const applied = this.applyDecryptionByMethod(receiver, kind);
+    if (applied) {
       this.appliedReceiverTransforms.add(receiverId);
-    } else if (this.e2eeMethod === 'rtpTransform') {
-      // Firefox/Chrome 118+: RTCRtpReceiver.transform
-      const transformStream = this.createDecryptionTransformStream();
-      receiver.transform = transformStream;
-      this.appliedReceiverTransforms.add(receiverId);
-      console.debug(`🦊 Firefox/Chrome: Applied rtp transform to ${kind} receiver`);
     }
+  }
+
+  /** Apply decryption transform based on E2EE method. Returns true if applied. */
+  private applyDecryptionByMethod(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): boolean {
+    switch (this.e2eeMethod) {
+      case 'scriptTransform':
+        return this.applyScriptTransformDecryption(receiver, kind);
+      case 'encodedStreams':
+        return this.applyEncodedStreamsDecryption(receiver, kind);
+      case 'rtpTransform':
+        return this.applyRtpTransformDecryption(receiver, kind);
+      case 'none':
+        return false;
+      default:
+        return false;
+    }
+  }
+
+  private applyScriptTransformDecryption(
+    receiver: RTCRtpReceiver,
+    kind: 'video' | 'audio'
+  ): boolean {
+    if (!this.decryptionWorker) return false;
+    try {
+      receiver.transform = new RTCRtpScriptTransform(this.decryptionWorker, {
+        operation: 'decrypt',
+        kind,
+      });
+      console.debug(`🔧 ScriptTransform: Applied decryption transform to ${kind} receiver`);
+      return true;
+    } catch (e) {
+      console.warn(`⚠️ ScriptTransform: Failed to apply decryption transform:`, e);
+      return false;
+    }
+  }
+
+  private applyEncodedStreamsDecryption(
+    receiver: RTCRtpReceiver,
+    kind: 'video' | 'audio'
+  ): boolean {
+    // Chrome: Streams are already piped immediately in prepareEncodedStreamsForReceiver()
+    if (this.pipedReceivers.has(receiver)) {
+      console.debug(`🌐 Chrome: Receiver ${kind} already piped (done in prepare)`);
+      return true;
+    }
+    // Fallback: try to pipe if somehow not done yet
+    const streams = this.receiverEncodedStreams.get(receiver);
+    if (!streams) {
+      console.warn(`⚠️ Chrome: No encoded streams found for ${kind} receiver`);
+      return false;
+    }
+    this.pipeEncodedStreamsForReceiver(receiver, kind);
+    return true;
+  }
+
+  private applyRtpTransformDecryption(receiver: RTCRtpReceiver, kind: 'video' | 'audio'): boolean {
+    const transformStream = this.createDecryptionTransformStream();
+    receiver.transform = transformStream;
+    console.debug(`🦊 Firefox/Chrome: Applied rtp transform to ${kind} receiver`);
+    return true;
   }
 
   // ============================================================================

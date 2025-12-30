@@ -560,6 +560,13 @@ public class ChatHub : Hub
             var message = await _unitOfWork.ChatMessages.GetByIdAsync(messageId);
             if (message == null) return;
 
+            // Don't allow reacting to own messages
+            if (message.SenderId == userId)
+            {
+                _logger.LogWarning("User {UserId} tried to react to their own message {MessageId}", userId, messageId);
+                return;
+            }
+
             var reactions = string.IsNullOrEmpty(message.ReactionsJson)
                 ? new Dictionary<string, List<string>>()
                 : JsonSerializer.Deserialize<Dictionary<string, List<string>>>(message.ReactionsJson) ?? [];

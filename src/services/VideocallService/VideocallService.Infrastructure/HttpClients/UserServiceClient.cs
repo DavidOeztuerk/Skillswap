@@ -25,7 +25,7 @@ public class UserServiceClient : IUserServiceClient
             // Use internal endpoint for M2M - requires Service role (M2M token)
             var response = await _serviceCommunication.GetAsync<UserProfileResponse>(
                 "userservice",
-                $"users/internal/{userId}",
+                $"api/users/internal/{userId}",
                 cancellationToken);
 
             if (response == null)

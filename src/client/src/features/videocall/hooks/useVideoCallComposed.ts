@@ -105,6 +105,16 @@ export const useVideoCallComposed = (): UseVideoCallReturn => {
 
     if (e2eeStatus !== 'inactive') return;
 
+    // FIX: Don't initialize E2EE if there are no remote participants
+    // This prevents premature E2EE init after UserLeft when the remote user has left
+    // but ICE is still connected for a moment
+    const currentUserId = refs.userRef.current?.id;
+    const hasRemoteParticipants = participants.some((p) => p.id !== currentUserId);
+    if (!hasRemoteParticipants) {
+      console.debug('🔒 E2EE: Skipping init - no remote participants');
+      return;
+    }
+
     const timer = setTimeout(() => {
       void e2ee.initializeE2EE();
     }, E2EE_INIT_DELAY);
@@ -112,7 +122,34 @@ export const useVideoCallComposed = (): UseVideoCallReturn => {
     return () => {
       clearTimeout(timer);
     };
-  }, [roomId, peerId, e2eeStatus, isConnected, e2ee, refs]);
+  }, [roomId, peerId, e2eeStatus, isConnected, e2ee, refs, participants]);
+
+  // ===== LAZY CHAT E2EE INITIALIZATION =====
+  // Initialize Chat E2EE only when chat panel is opened (saves ~261ms ECDSA KeyGen)
+  useEffect(() => {
+    if (!isChatOpen) return;
+
+    // Check if we have a pending key and Chat E2EE hasn't been initialized yet
+    const pendingKey = refs.pendingChatE2EEKeyRef.current;
+    if (!pendingKey) return;
+
+    // Check if already initialized (localSigningKeyRef is set during init)
+    if (refs.localSigningKeyRef.current) {
+      console.debug('🔒 Chat E2EE: Already initialized, skipping');
+      return;
+    }
+
+    console.debug('🔒 Chat E2EE: Lazy initialization triggered (chat panel opened)');
+    void initializeChatE2EERef.current(
+      pendingKey.encryptionKey,
+      pendingKey.peerSigningPublicKey,
+      pendingKey.peerSigningFingerprint
+    );
+
+    // Clear the pending key after initialization (intentional ref mutation)
+    // eslint-disable-next-line react-hooks/immutability
+    refs.pendingChatE2EEKeyRef.current = null;
+  }, [isChatOpen, refs, initializeChatE2EERef]);
 
   // ===== RETURN COMPOSED API =====
   return {

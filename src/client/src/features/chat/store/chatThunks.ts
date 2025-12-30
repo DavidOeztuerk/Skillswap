@@ -114,7 +114,12 @@ export const sendChatMessage = createAppAsyncThunk(
 /**
  * Connect to the chat hub
  */
-export const connectToChatHub = createAppAsyncThunk('chat/connect', async () => {
+export const connectToChatHub = createAppAsyncThunk('chat/connect', async (_, { getState }) => {
+  // Set current user ID for filtering own events (e.g., typing indicators)
+  const userId = getState().auth.user?.id;
+  if (userId) {
+    chatHubService.setCurrentUserId(userId);
+  }
   await chatHubService.connect();
 });
 

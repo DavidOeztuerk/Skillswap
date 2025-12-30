@@ -316,6 +316,12 @@ const VideoCallChatPanel: React.FC<VideoCallChatPanelProps> = ({
             <br />
             Starte die Unterhaltung!
           </Typography>
+          {/* Show typing indicator even in empty state */}
+          {typingIndicator?.isTyping === true && typingIndicator.userName ? (
+            <Box sx={{ mt: 2 }}>
+              <TypingIndicatorDisplay userName={typingIndicator.userName} />
+            </Box>
+          ) : null}
         </Box>
       );
     }

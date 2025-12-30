@@ -173,6 +173,14 @@ async function handleUpdateKey(
   payload: { encryptionKey: JsonWebKey; generation: number },
   operationId?: number
 ): Promise<void> {
+  if (payload.generation === state.generation && state.encryptionKey !== null) {
+    console.debug(
+      `[Chrome E2EE Worker] Ignoring duplicate key update for gen=${payload.generation} (already at gen=${state.generation})`
+    );
+    postResponse({ type: 'keyUpdated', operationId });
+    return;
+  }
+
   const newKey = await importEncryptionKey(payload.encryptionKey);
 
   // Use updateKeyInState to preserve previous key for in-transit frames!
@@ -246,9 +254,23 @@ const MIN_ENCRYPTED_SIZE = 30;
 
 /**
  * Prüft ob ein Frame verschlüsselt aussieht (hat IV + AuthTag + Payload)
+ *
+ * KRITISCH: Wir müssen auch prüfen ob die Generation gültig ist!
+ * Unverschlüsselte VP8/VP9 Frames haben andere Header-Bytes:
+ * - VP8 keyframes: 0x9D 0x01 0x2A (157, 1, 42)
+ * - VP9 frames: verschiedene Patterns
+ * Unsere Generationen sind 1-10, also ist jeder andere Wert unverschlüsselt.
  */
 function looksEncrypted(frameData: ArrayBuffer): boolean {
-  return frameData.byteLength >= MIN_ENCRYPTED_SIZE;
+  if (frameData.byteLength < MIN_ENCRYPTED_SIZE) {
+    return false;
+  }
+
+  // Check if first byte is a valid generation (1-10)
+  // Any other value (like 0x78=120 for VP8/VP9 or 0x9D=157 for keyframes) means unencrypted
+  const firstByte = new Uint8Array(frameData)[0];
+  const MAX_VALID_GENERATION = 10;
+  return firstByte >= 1 && firstByte <= MAX_VALID_GENERATION;
 }
 
 /**
@@ -260,8 +282,22 @@ function looksEncrypted(frameData: ArrayBuffer): boolean {
  * muss der Frame VERWORFEN werden (nicht passthrough!), da sonst korrupte
  * Daten angezeigt werden (schwarzes Video).
  */
+// Frame counter for debug logging (like Safari worker)
+let decryptFrameCount = 0;
+
 async function handleDecrypt(frameData: ArrayBuffer, operationId: number): Promise<void> {
   const startTime = performance.now();
+  decryptFrameCount++;
+
+  // Debug log every 100 frames (same as Safari worker)
+  if (decryptFrameCount % 100 === 1) {
+    console.debug(
+      `[Chrome E2EE Worker] Decrypt frame #${decryptFrameCount}: ` +
+        `hasKey=${state.encryptionKey !== null}, gen=${state.generation}, ` +
+        `prevGen=${state.previousGeneration}, frameSize=${frameData.byteLength}, ` +
+        `stats: dec=${state.stats.decryptedFrames}, drop=${state.stats.droppedFrames ?? 0}`
+    );
+  }
 
   // Kein Key -> Frame verwerfen wenn er verschlüsselt aussieht
   if (state.encryptionKey === null) {

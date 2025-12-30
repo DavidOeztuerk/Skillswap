@@ -25,7 +25,7 @@ import useNetworkStatus from '../../../shared/hooks/useNetworkStatus';
 import { useAuth } from '../../auth/hooks/useAuth';
 import CallControls from '../components/CallControls';
 import ConnectionStatus from '../components/ConnectionStatus';
-import E2EEDebugPanel from '../components/E2EeDebugPanel';
+// import E2EEDebugPanel from '../components/E2EeDebugPanel';
 import E2EEStatus from '../components/E2EeStatus';
 import LocalVideo from '../components/LocalVideo';
 import PreCallLobby from '../components/PreCallLobby';
@@ -222,6 +222,16 @@ const debugButtonSx: SxProps<Theme> = {
 // Layout Props Interfaces
 // ============================================================================
 
+type E2EEStatusType =
+  | 'inactive'
+  | 'initializing'
+  | 'key-exchange'
+  | 'key-rotation'
+  | 'active'
+  | 'verified'
+  | 'error'
+  | 'unsupported';
+
 interface LayoutRenderProps {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
@@ -242,6 +252,8 @@ interface LayoutRenderProps {
       }
     | undefined;
   mainParticipant?: { isLocal?: boolean };
+  /** E2EE status for showing encryption initialization overlay */
+  e2eeStatus?: E2EEStatusType;
 }
 
 // ============================================================================
@@ -259,6 +271,7 @@ const renderGridLayout = (props: LayoutRenderProps): React.ReactNode => {
     userName,
     localUserAvatarUrl,
     remoteParticipant,
+    e2eeStatus,
   } = props;
   const hasRemoteStream = !!remoteStream;
 
@@ -284,6 +297,7 @@ const renderGridLayout = (props: LayoutRenderProps): React.ReactNode => {
             isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
             isScreenSharing={remoteParticipant?.isScreenSharing ?? false}
             avatarUrl={remoteParticipant?.avatar}
+            e2eeStatus={e2eeStatus}
           />
         </Box>
       ) : null}
@@ -314,6 +328,7 @@ const renderSpotlightLayout = (props: LayoutRenderProps): React.ReactNode => {
     localUserAvatarUrl,
     remoteParticipant,
     mainParticipant,
+    e2eeStatus,
   } = props;
   const hasRemoteStream = !!remoteStream;
 
@@ -349,6 +364,7 @@ const renderSpotlightLayout = (props: LayoutRenderProps): React.ReactNode => {
             isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
             isScreenSharing={remoteParticipant?.isScreenSharing ?? false}
             avatarUrl={remoteParticipant?.avatar}
+            e2eeStatus={e2eeStatus}
           />
         ) : (
           <LocalVideo
@@ -383,6 +399,7 @@ const renderSpotlightLayout = (props: LayoutRenderProps): React.ReactNode => {
               isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
               isScreenSharing={false}
               avatarUrl={remoteParticipant?.avatar}
+              e2eeStatus={e2eeStatus}
             />
           )}
         </Box>
@@ -402,6 +419,7 @@ const renderScreenShareLayout = (props: LayoutRenderProps): React.ReactNode => {
     userName,
     localUserAvatarUrl,
     remoteParticipant,
+    e2eeStatus,
   } = props;
   const hasRemoteStream = !!remoteStream;
 
@@ -429,6 +447,7 @@ const renderScreenShareLayout = (props: LayoutRenderProps): React.ReactNode => {
               isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
               isScreenSharing={false}
               avatarUrl={remoteParticipant?.avatar}
+              e2eeStatus={e2eeStatus}
             />
           </Box>
         ) : null}
@@ -467,6 +486,7 @@ const renderPipLayout = (props: LayoutRenderProps): React.ReactNode => {
     userName,
     localUserAvatarUrl,
     remoteParticipant,
+    e2eeStatus,
   } = props;
   const hasRemoteStream = !!remoteStream;
 
@@ -497,6 +517,7 @@ const renderPipLayout = (props: LayoutRenderProps): React.ReactNode => {
           isVideoOff={!(remoteParticipant?.isVideoEnabled ?? true)}
           isScreenSharing={remoteParticipant?.isScreenSharing ?? false}
           avatarUrl={remoteParticipant?.avatar}
+          e2eeStatus={e2eeStatus}
         />
       </Box>
       <LocalVideo
@@ -1021,7 +1042,7 @@ const VideoCallPageContent: React.FC = () => {
       )}
 
       {/* E2EE Debug Panel (Development Only) */}
-      {import.meta.env.DEV ? (
+      {/* {import.meta.env.DEV ? (
         <E2EEDebugPanel
           status={e2ee.status}
           localFingerprint={e2ee.localKeyFingerprint}
@@ -1035,7 +1056,7 @@ const VideoCallPageContent: React.FC = () => {
           chatStats={chatE2EE.stats}
           compact={isChatOpen}
         />
-      ) : null}
+      ) : null} */}
 
       {/* Video Layout Container */}
       <VideoLayout
@@ -1048,11 +1069,26 @@ const VideoCallPageContent: React.FC = () => {
         showLayoutControls
       >
         {({ mode, mainParticipant, sideParticipants: _sideParticipants }) => {
+          // CHROME/SAFARI FIX: Compute "effective" isConnected that considers E2EE status
+          // WebRTC connects fast, but video won't work until E2EE is ready.
+          // This prevents "Verbindung wird hergestellt" from disappearing too quickly.
+          const isE2EEReady =
+            e2ee.status === 'active' ||
+            e2ee.status === 'verified' ||
+            e2ee.status === 'key-rotation';
+          const isE2EENotUsed = e2ee.status === 'inactive' || e2ee.status === 'unsupported';
+
+          // Only consider "connected" when:
+          // - WebRTC is connected AND
+          // - E2EE is ready OR E2EE is not being used
+          // During E2EE initialization, show "Verbindung wird hergestellt" to avoid confusion
+          const effectiveIsConnected = isConnected && (isE2EEReady || isE2EENotUsed);
+
           const layoutProps: LayoutRenderProps = {
             localStream,
             remoteStream,
             screenStream,
-            isConnected,
+            isConnected: effectiveIsConnected,
             isMicEnabled,
             isVideoEnabled,
             isScreenSharing,
@@ -1060,6 +1096,7 @@ const VideoCallPageContent: React.FC = () => {
             localUserAvatarUrl: localUserAvatarUrl ?? undefined,
             remoteParticipant,
             mainParticipant,
+            e2eeStatus: e2ee.status,
           };
 
           switch (mode) {

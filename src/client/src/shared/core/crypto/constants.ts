@@ -37,13 +37,17 @@ export const SALT_LENGTH = 16 as const;
 export const KEY_ROTATION_INTERVAL_MS = 300_000 as const;
 
 /** Key Exchange Timeout in Millisekunden (longer timeout = fewer retries) */
-export const KEY_EXCHANGE_TIMEOUT_MS = 10_000 as const;
+export const KEY_EXCHANGE_TIMEOUT_MS = 8_000 as const;
 
 /** Maximum Key Exchange Retry Attempts (reduced to prevent rapid key generations) */
 export const MAX_KEY_EXCHANGE_RETRIES = 2 as const;
 
-/** Minimum time between key exchanges to prevent rapid key generation cascades */
-export const KEY_EXCHANGE_DEBOUNCE_MS = 5_000 as const;
+/**
+ * Minimum time between key exchanges to prevent rapid key generation cascades.
+ * IMPORTANT: Must be > KEY_EXCHANGE_TIMEOUT_MS to prevent race conditions where
+ * a retry arrives after completion but before debounce expires.
+ */
+export const KEY_EXCHANGE_DEBOUNCE_MS = 15_000 as const;
 
 /** Nonce Maximum Age für Replay Protection (5 Minuten) */
 export const NONCE_MAX_AGE_MS = 300_000 as const; // 5 * 60 * 1000
