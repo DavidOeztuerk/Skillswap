@@ -65,7 +65,8 @@ public class RetryFailedNotificationCommandHandler(
                 }
 
                 notification.MetadataJson = JsonSerializer.Serialize(metadata);
-                notification.Content = GetContentFromTemplate(notification.Template, metadata.Variables);
+                // Leave Content empty so NotificationOrchestrator loads template from DB
+                notification.Content = string.Empty;
             }
 
             await _unitOfWork.Notifications.UpdateAsync(notification, cancellationToken);
@@ -100,24 +101,4 @@ public class RetryFailedNotificationCommandHandler(
         }
     }
 
-    private static string GetContentFromTemplate(string template, Dictionary<string, string> variables)
-    {
-        var content = template switch
-        {
-            EmailTemplateNames.Welcome => "Welcome to SkillSwap! We're excited to have you join our community.",
-            EmailTemplateNames.EmailVerification => $"Please verify your email address using the provided link.",
-            EmailTemplateNames.PasswordReset => $"You requested to reset your password. Use the provided link to continue.",
-            EmailTemplateNames.PasswordChanged => $"Your password was successfully changed at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss UTC}.",
-            EmailTemplateNames.SecurityAlert => $"Unusual activity was detected on your account.",
-            _ => "SkillSwap notification"
-        };
-
-        // Simple variable replacement
-        foreach (var variable in variables)
-        {
-            content = content.Replace($"{{{{{variable.Key}}}}}", variable.Value);
-        }
-
-        return content;
-    }
 }

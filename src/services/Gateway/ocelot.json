@@ -2282,6 +2282,17 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/chat/messages/{messageId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],
+      "UpstreamPathTemplate": "/api/chat/messages/{messageId}",
+      "UpstreamHttpMethod": ["DELETE", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/chat/unread",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5006 }],

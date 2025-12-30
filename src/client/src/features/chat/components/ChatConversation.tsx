@@ -36,8 +36,7 @@ import {
 import { ChatE2EEStatusHeader } from './ChatE2EeIndicator';
 import ChatMessageBubble from './ChatMessageBubble';
 import ChatMessageInput from './ChatMessageInput';
-import type { ChatE2EEStatus } from '../../videocall/hooks/types';
-import type { ChatMessageModel } from '../types/Chat';
+import type { ChatE2EEStatus, ChatMessageModel } from '../types/Chat';
 
 // ============================================================================
 // PERFORMANCE: Extract sx objects as constants to prevent recreation
@@ -258,12 +257,12 @@ const ChatConversation: React.FC<ChatConversationProps> = ({ threadId, onBack })
     }
   }, [threadId, dispatch]);
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom on new messages OR when typing indicator appears
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages.length]);
+  }, [messages.length, typingIndicator?.isTyping]);
 
   // Group messages by date
   const groupedMessages = useMemo(() => {
@@ -357,6 +356,12 @@ const ChatConversation: React.FC<ChatConversationProps> = ({ threadId, onBack })
           <Typography variant="body2" color="text.disabled">
             Sende die erste Nachricht, um die Konversation zu starten.
           </Typography>
+          {/* Show typing indicator even in empty state */}
+          {typingIndicator?.isTyping === true && (
+            <Box sx={{ mt: 2 }}>
+              <TypingIndicator userName={typingIndicator.userName} />
+            </Box>
+          )}
         </Box>
       );
     }
@@ -420,7 +425,7 @@ const ChatConversation: React.FC<ChatConversationProps> = ({ threadId, onBack })
           </IconButton>
         ) : null}
         <Avatar src={otherParticipantAvatarUrl} alt={otherParticipantName} sx={avatarSx}>
-          {otherParticipantName.charAt(0).toUpperCase()}
+          {otherParticipantName?.charAt(0).toUpperCase()}
         </Avatar>
         <Box sx={headerFlexSx}>
           <Box sx={headerNameContainerSx}>

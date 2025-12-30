@@ -133,7 +133,7 @@ const SkillList: React.FC<SkillListProps> = memo(
               showMatchButton={showMatchButtons ? !isOwnerView : undefined}
               onEdit={handleEditSkill}
               onDelete={handleDeleteSkill}
-              onMatch={handleMatchSkill}
+              onMatch={onMatchSkill ? handleMatchSkill : undefined}
               isFavorite={isFavorite?.(skill.id) ?? false}
               onToggleFavorite={handleToggleFavorite}
             />

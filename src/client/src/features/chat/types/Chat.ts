@@ -40,6 +40,11 @@ export const ThreadLockReason = {
 
 export type ThreadLockReasonValue = (typeof ThreadLockReason)[keyof typeof ThreadLockReason];
 
+/**
+ * E2EE status for chat UI display
+ */
+export type ChatE2EEStatus = 'disabled' | 'initializing' | 'active' | 'error';
+
 // ============================================================================
 // Core Chat Models
 // ============================================================================
@@ -49,8 +54,8 @@ export interface ChatThread {
   threadId: string;
   participant1Id: string;
   participant2Id: string;
-  participant1Name: string;
-  participant2Name: string;
+  participant1Name?: string;
+  participant2Name?: string;
   participant1AvatarUrl?: string;
   participant2AvatarUrl?: string;
   skillId?: string;
@@ -59,17 +64,19 @@ export interface ChatThread {
   lastMessageAt?: string;
   lastMessagePreview?: string;
   lastMessageSenderId?: string;
-  participant1UnreadCount: number;
-  participant2UnreadCount: number;
+  // Backend provides single unread count for current user
+  unreadCount: number;
+  totalMessageCount: number;
   isLocked: boolean;
   lockReason?: ThreadLockReasonValue;
-  lockedAt?: string;
-  participant1LastReadAt?: string;
-  participant2LastReadAt?: string;
-  isTypingParticipant1: boolean;
-  isTypingParticipant2: boolean;
+  otherParticipantIsTyping: boolean;
   createdAt: string;
-  updatedAt?: string;
+  // Computed for current user by backend
+  otherParticipantId?: string;
+  otherParticipantName?: string;
+  otherParticipantAvatarUrl?: string;
+  // Local state (not from backend)
+  isTyping?: boolean;
 }
 
 export interface ChatMessageModel {
@@ -128,7 +135,7 @@ export interface ChatAttachment {
 export interface ChatThreadListItem {
   threadId: string;
   otherParticipantId: string;
-  otherParticipantName: string;
+  otherParticipantName?: string;
   otherParticipantAvatarUrl?: string;
   skillName?: string;
   lastMessageAt?: string;
@@ -263,22 +270,31 @@ export function getThreadDisplayInfo(
   thread: ChatThread,
   currentUserId: string
 ): ChatThreadListItem {
+  // Use backend-computed fields if available, otherwise fall back to manual calculation
   const isParticipant1 = thread.participant1Id === currentUserId;
+
+  const otherParticipantId =
+    thread.otherParticipantId ?? (isParticipant1 ? thread.participant2Id : thread.participant1Id);
+  const otherParticipantName =
+    thread.otherParticipantName ??
+    (isParticipant1 ? thread.participant2Name : thread.participant1Name) ??
+    '';
+  const otherParticipantAvatarUrl =
+    thread.otherParticipantAvatarUrl ??
+    (isParticipant1 ? thread.participant2AvatarUrl : thread.participant1AvatarUrl);
 
   return {
     threadId: thread.threadId,
-    otherParticipantId: isParticipant1 ? thread.participant2Id : thread.participant1Id,
-    otherParticipantName: isParticipant1 ? thread.participant2Name : thread.participant1Name,
-    otherParticipantAvatarUrl: isParticipant1
-      ? thread.participant2AvatarUrl
-      : thread.participant1AvatarUrl,
+    otherParticipantId,
+    otherParticipantName,
+    otherParticipantAvatarUrl,
     skillName: thread.skillName,
     lastMessageAt: thread.lastMessageAt,
     lastMessagePreview: thread.lastMessagePreview,
     isLastMessageFromMe: thread.lastMessageSenderId === currentUserId,
-    unreadCount: isParticipant1 ? thread.participant1UnreadCount : thread.participant2UnreadCount,
+    unreadCount: thread.unreadCount,
     isLocked: thread.isLocked,
-    isTyping: isParticipant1 ? thread.isTypingParticipant2 : thread.isTypingParticipant1,
+    isTyping: thread.isTyping ?? thread.otherParticipantIsTyping,
   };
 }
 

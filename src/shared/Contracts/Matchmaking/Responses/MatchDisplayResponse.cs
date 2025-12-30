@@ -39,6 +39,10 @@ public record MatchDisplayResponse(
     string[] PreferredTimes,
     string? AdditionalNotes,
 
+    // Chat/Thread info - ThreadId from MatchRequest for Chat integration
+    string? ThreadId,
+    string? MatchRequestId,
+
     // Timestamps
     DateTime CreatedAt,
     DateTime? AcceptedAt,

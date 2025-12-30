@@ -115,6 +115,8 @@ export interface ChatThreadListProps {
  * Props for inline chat panel (embedded in pages)
  */
 export interface InlineChatPanelProps {
+  /** ThreadId from MatchRequest (SHA256-GUID format) - REQUIRED */
+  threadId: string;
   /** Chat partner's user ID */
   partnerId: string;
   /** Chat partner's display name */

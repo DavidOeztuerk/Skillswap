@@ -153,6 +153,7 @@ function calculateActionPermissions(
 
 // Helper to get chat partner info
 interface ChatPartnerInfo {
+  threadId: string | null;
   partnerId: string | null;
   partnerName: string;
   partnerAvatarUrl: string | undefined;
@@ -171,7 +172,12 @@ function getChatPartnerInfo(
   const partnerName = fullName.length > 0 ? fullName : (appointment.otherPartyName ?? 'Partner');
   const partnerAvatarUrl = otherUser?.profilePictureUrl ?? appointment.otherPartyAvatarUrl;
 
-  return { partnerId: partnerId ?? null, partnerName, partnerAvatarUrl };
+  return {
+    threadId: appointment.threadId ?? null,
+    partnerId: partnerId ?? null,
+    partnerName,
+    partnerAvatarUrl,
+  };
 }
 
 // Helper to handle API response validation
@@ -304,8 +310,9 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({
       },
     }}
   >
-    {chatPartner.partnerId ? (
+    {chatPartner.partnerId && chatPartner.threadId ? (
       <InlineChatPanel
+        threadId={chatPartner.threadId}
         partnerId={chatPartner.partnerId}
         partnerName={chatPartner.partnerName}
         partnerAvatarUrl={chatPartner.partnerAvatarUrl}

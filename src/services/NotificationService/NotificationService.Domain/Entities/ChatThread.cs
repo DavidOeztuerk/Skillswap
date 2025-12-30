@@ -74,6 +74,13 @@ public class ChatThread : AuditableEntity
     public string? MatchId { get; set; }
 
     /// <summary>
+    /// The MatchRequest ID that created this thread (source of ThreadId).
+    /// Cross-service reference - not a true FK but used for traceability.
+    /// </summary>
+    [MaxLength(450)]
+    public string? MatchRequestId { get; set; }
+
+    /// <summary>
     /// Timestamp of the last message in this thread
     /// </summary>
     public DateTime? LastMessageAt { get; set; }

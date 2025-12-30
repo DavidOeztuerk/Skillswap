@@ -70,6 +70,8 @@ public class GetAppointmentDetailsQueryHandler(
             ConnectionId: connection?.Id,
             ConnectionType: connectionType,
             ConnectionStatus: connection?.Status ?? "Active",
+            // Chat/Thread info - ThreadId from MatchRequest for Chat integration
+            ThreadId: connection?.ThreadId,
             // Match/Connection Rollen - KONSTANT durch die gesamte Kette
             MatchRequesterId: connection?.RequesterId,
             MatchRequesterName: enrichedData.MatchRequester != null

@@ -9,7 +9,6 @@ import {
   createErrorResponse,
 } from '../../../shared/types/api/UnifiedResponse';
 import videoCallService from '../services/videoCallService';
-import type { SendChatMessageRequest } from '../../chat/types/ChatMessage';
 import type { VideoCallConfig } from '../types/VideoCallConfig';
 import type {
   JoinCallResponse,
@@ -17,7 +16,6 @@ import type {
   EndCallResponse,
   SaveCallInfoResponse,
   ReportIssueResponse,
-  ChatMessageResponse,
 } from '../types/VideoCallResponses';
 
 export interface JoinCallPayload {
@@ -44,11 +42,6 @@ export interface ReportIssuePayload {
   roomId: string;
   issue: string;
   description: string;
-}
-
-export interface GetChatHistoryPayload {
-  sessionId: string;
-  limit?: number;
 }
 
 // ============================================================================
@@ -228,41 +221,6 @@ export const getCallStatistics = createAppAsyncThunk<
     return isSuccessResponse(response) ? response : rejectWithValue(response);
   } catch (error) {
     console.error('❌ getCallStatistics error:', error);
-    return rejectWithValue(createErrorResponse(error));
-  }
-});
-
-/**
- * Send a chat message (stored in database)
- * Backend: POST /api/calls/chat/send
- */
-export const sendChatMessage = createAppAsyncThunk<
-  SuccessResponse<SendChatMessageRequest>,
-  SendChatMessageRequest
->('videoCall/sendChatMessage', async (request, { rejectWithValue }) => {
-  try {
-    const response = await videoCallService.sendChatMessage(request);
-    return isSuccessResponse(response) ? response : rejectWithValue(response);
-  } catch (error) {
-    console.error('❌ sendChatMessage error:', error);
-    return rejectWithValue(createErrorResponse(error));
-  }
-});
-
-/**
- * Get chat history for a session
- * Backend: GET /api/calls/{sessionId}/chat-history
- * Returns: ChatMessageResponse[]
- */
-export const getChatHistory = createAppAsyncThunk<
-  SuccessResponse<ChatMessageResponse[]>,
-  GetChatHistoryPayload
->('videoCall/getChatHistory', async ({ sessionId, limit }, { rejectWithValue }) => {
-  try {
-    const response = await videoCallService.getChatHistory(sessionId, limit);
-    return isSuccessResponse(response) ? response : rejectWithValue(response);
-  } catch (error) {
-    console.error('❌ getChatHistory error:', error);
     return rejectWithValue(createErrorResponse(error));
   }
 });

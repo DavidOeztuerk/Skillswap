@@ -148,8 +148,8 @@ export const fetchSkillById = createAppAsyncThunk<Skill, string>(
         reviewCount: withDefault(skillData.reviews?.length, 0),
         endorsementCount: withDefault(skillData.endorsements?.length, 0),
         estimatedDurationMinutes: withDefault(skillData.preferredSessionDuration, 0),
-        createdAt: skillData.createdAt.toLocaleDateString(),
-        lastActiveAt: skillData.updatedAt.toLocaleDateString(),
+        createdAt: new Date(skillData.createdAt).toLocaleDateString('de-DE'),
+        lastActiveAt: new Date(skillData.updatedAt).toLocaleDateString('de-DE'),
       };
 
       return skill;
