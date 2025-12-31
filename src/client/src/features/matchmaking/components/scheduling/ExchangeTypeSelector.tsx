@@ -1,10 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import {
-  SwapHoriz as SwapIcon,
-  Euro as EuroIcon,
-  VolunteerActivism as FreeIcon,
-  Add as AddIcon,
-} from '@mui/icons-material';
+import { SwapHoriz as SwapIcon, Euro as EuroIcon, Add as AddIcon } from '@mui/icons-material';
 import {
   Box,
   Typography,
@@ -82,7 +77,6 @@ interface ExchangeTypeSelectorProps {
 const EXCHANGE_TYPE_ICONS: Record<ExchangeType, React.ReactNode> = {
   [EXCHANGE_TYPES.SKILL_EXCHANGE]: <SwapIcon />,
   [EXCHANGE_TYPES.PAYMENT]: <EuroIcon />,
-  [EXCHANGE_TYPES.FREE]: <FreeIcon />,
 };
 
 // Default values as constants to avoid re-creation on each render
@@ -344,14 +338,6 @@ export const ExchangeTypeSelector: React.FC<ExchangeTypeSelectorProps> = ({
             </Alert>
           ) : null}
         </Paper>
-      )}
-
-      {value === EXCHANGE_TYPES.FREE && (
-        <Alert severity="success" sx={{ mt: 1 }}>
-          <Typography variant="body2">
-            Du bietest oder suchst einen freiwilligen Wissensaustausch ohne Gegenleistung.
-          </Typography>
-        </Alert>
       )}
     </Box>
   );
