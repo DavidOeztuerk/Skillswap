@@ -64,7 +64,7 @@ export type MatchRequestType = z.infer<typeof MatchRequestTypeSchema>;
 export const ExchangeTypeSchema = z.enum([
   EXCHANGE_TYPES.SKILL_EXCHANGE,
   EXCHANGE_TYPES.PAYMENT,
-  EXCHANGE_TYPES.FREE,
+  // EXCHANGE_TYPES.FREE,
 ]);
 
 export type ExchangeType = z.infer<typeof ExchangeTypeSchema>;
