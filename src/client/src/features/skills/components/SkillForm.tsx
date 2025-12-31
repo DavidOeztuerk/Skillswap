@@ -12,12 +12,18 @@ import {
   Switch,
   FormControlLabel,
   CircularProgress,
+  Divider,
   type SelectChangeEvent,
 } from '@mui/material';
 import ErrorAlert from '../../../shared/components/error/ErrorAlert';
 import FormDialog from '../../../shared/components/ui/FormDialog';
+import { SchedulingSection, ExchangeSection, LocationSection } from './SkillFormSections';
 import type { CreateSkillRequest } from '../types/CreateSkillRequest';
 import type { ProficiencyLevel, Skill, SkillCategory } from '../types/Skill';
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 interface SkillFormProps {
   open: boolean;
@@ -31,6 +37,134 @@ interface SkillFormProps {
   error?: { message: string } | null;
 }
 
+// interface FormValues extends CreateSkillRequest {
+//   // All fields from CreateSkillRequest
+// }
+
+const getDefaultFormValues = (): CreateSkillRequest => ({
+  name: '',
+  description: '',
+  categoryId: '',
+  proficiencyLevelId: '',
+  isOffered: true,
+  tags: [],
+  // Exchange
+  exchangeType: 'skill_exchange',
+  desiredSkillCategoryId: undefined,
+  desiredSkillDescription: undefined,
+  hourlyRate: undefined,
+  currency: 'EUR',
+  // Scheduling
+  preferredDays: [],
+  preferredTimes: [],
+  sessionDurationMinutes: 60,
+  totalSessions: 1,
+  // Location
+  locationType: 'remote',
+  locationAddress: undefined,
+  locationCity: undefined,
+  locationPostalCode: undefined,
+  locationCountry: undefined,
+  maxDistanceKm: 50,
+});
+
+// =============================================================================
+// VALIDATION HELPERS
+// =============================================================================
+
+const validateBasicFields = (
+  formValues: CreateSkillRequest
+): Partial<Record<keyof CreateSkillRequest, string>> => {
+  const errors: Partial<Record<keyof CreateSkillRequest, string>> = {};
+
+  if (!formValues.name.trim()) {
+    errors.name = 'Name ist erforderlich';
+  } else if (formValues.name.trim().length < 3) {
+    errors.name = 'Name muss mindestens 3 Zeichen lang sein';
+  }
+
+  if (!formValues.description.trim()) {
+    errors.description = 'Beschreibung ist erforderlich';
+  } else if (formValues.description.trim().length < 10) {
+    errors.description = 'Beschreibung muss mindestens 10 Zeichen lang sein';
+  }
+
+  if (!formValues.categoryId) {
+    errors.categoryId = 'Kategorie ist erforderlich';
+  }
+  if (!formValues.proficiencyLevelId) {
+    errors.proficiencyLevelId = 'Fertigkeitsstufe ist erforderlich';
+  }
+
+  return errors;
+};
+
+const validatePaymentFields = (
+  formValues: CreateSkillRequest
+): Partial<Record<keyof CreateSkillRequest, string>> => {
+  const errors: Partial<Record<keyof CreateSkillRequest, string>> = {};
+
+  if (formValues.exchangeType === 'payment') {
+    if (!formValues.isOffered) {
+      errors.exchangeType = 'Bezahlung ist nur beim Anbieten möglich';
+    }
+    if (formValues.hourlyRate === undefined || formValues.hourlyRate < 5) {
+      errors.hourlyRate = 'Stundensatz muss mindestens 5 sein';
+    }
+  }
+
+  return errors;
+};
+
+const validateLocationFields = (
+  formValues: CreateSkillRequest
+): Partial<Record<keyof CreateSkillRequest, string>> => {
+  const errors: Partial<Record<keyof CreateSkillRequest, string>> = {};
+
+  if (formValues.locationType === 'in_person' || formValues.locationType === 'both') {
+    if (!formValues.locationCity?.trim()) {
+      errors.locationCity = 'Stadt ist für Vor-Ort-Skills erforderlich';
+    }
+    if (!formValues.locationCountry?.trim()) {
+      errors.locationCountry = 'Land ist für Vor-Ort-Skills erforderlich';
+    }
+  }
+
+  return errors;
+};
+
+// =============================================================================
+// FORM INITIALIZATION HELPER
+// =============================================================================
+
+const initializeFormFromSkill = (skill: Skill): CreateSkillRequest => ({
+  name: skill.name,
+  description: skill.description,
+  categoryId: skill.category.id,
+  proficiencyLevelId: skill.proficiencyLevel.id,
+  isOffered: skill.isOffered,
+  tags: skill.tagsJson ? (JSON.parse(skill.tagsJson) as string[]) : [],
+  exchangeType: skill.exchangeType ?? 'skill_exchange',
+  desiredSkillCategoryId: skill.desiredSkillCategoryId,
+  desiredSkillDescription: skill.desiredSkillDescription,
+  hourlyRate: skill.hourlyRate,
+  currency: skill.currency ?? 'EUR',
+  preferredDays: skill.preferredDays ?? [],
+  preferredTimes: skill.preferredTimes ?? [],
+  sessionDurationMinutes: skill.sessionDurationMinutes ?? 60,
+  totalSessions: skill.totalSessions ?? 1,
+  locationType: skill.locationType ?? 'remote',
+  locationAddress: skill.locationAddress,
+  locationCity: skill.locationCity,
+  locationPostalCode: skill.locationPostalCode,
+  locationCountry: skill.locationCountry,
+  maxDistanceKm: skill.maxDistanceKm ?? 50,
+});
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
 const SkillForm: React.FC<SkillFormProps> = ({
   open,
   onClose,
@@ -42,57 +176,30 @@ const SkillForm: React.FC<SkillFormProps> = ({
   title,
   error,
 }) => {
-  const getCategoryId = (category: SkillCategory): string => category.id;
+  const [formValues, setFormValues] = useState<CreateSkillRequest>(getDefaultFormValues());
+  const [errors, setErrors] = useState<Partial<Record<keyof CreateSkillRequest, string>>>({});
+  const [expandedSection, setExpandedSection] = useState<string | false>(false);
 
-  const getProficiencyLevelId = (level: ProficiencyLevel): string => level.id;
-
-  const getProficiencyLevelRank = (level: ProficiencyLevel): number => level.rank;
-
-  const [formValues, setFormValues] = useState<CreateSkillRequest>({
-    name: '',
-    description: '',
-    categoryId: '',
-    proficiencyLevelId: '',
-    isOffered: true,
-  });
-
-  const [errors, setErrors] = useState<Partial<CreateSkillRequest>>({});
-
+  // Reset form when dialog opens
   useEffect(() => {
     if (!open) return;
 
     const timer = setTimeout(() => {
-      if (skill) {
-        setFormValues({
-          name: skill.name,
-          description: skill.description,
-          categoryId: skill.category.id,
-          proficiencyLevelId: skill.proficiencyLevel.id,
-          isOffered: skill.isOffered,
-        });
-      } else {
-        setFormValues({
-          name: '',
-          description: '',
-          categoryId: '',
-          proficiencyLevelId: '',
-          isOffered: true,
-        });
-      }
+      setFormValues(skill ? initializeFormFromSkill(skill) : getDefaultFormValues());
       setErrors({});
+      setExpandedSection(false);
     }, 0);
-    return () => {
-      clearTimeout(timer);
-    };
+
+    return () => clearTimeout(timer);
   }, [open, skill]);
 
+  // Handlers
   const handleFieldChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent
   ): void => {
     const { name, value } = e.target;
     setFormValues((prev) => ({ ...prev, [name]: value }));
-    const errorKey = name as keyof CreateSkillRequest;
-    if (errors[errorKey] !== undefined) {
+    if (errors[name as keyof CreateSkillRequest]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
@@ -100,30 +207,34 @@ const SkillForm: React.FC<SkillFormProps> = ({
   const handleSwitchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, checked } = e.target;
     setFormValues((prev) => ({ ...prev, [name]: checked }));
+
+    // If switching to "seeking" (isOffered=false), payment is not allowed
+    if (name === 'isOffered' && !checked && formValues.exchangeType === 'payment') {
+      setFormValues((prev) => ({ ...prev, exchangeType: 'skill_exchange' }));
+    }
   };
 
+  const handleNumberChange = (name: keyof CreateSkillRequest, value: number): void => {
+    setFormValues((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleArrayToggle = (name: 'preferredDays' | 'preferredTimes', value: string): void => {
+    setFormValues((prev) => {
+      const current = prev[name] ?? [];
+      const updated = current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value];
+      return { ...prev, [name]: updated };
+    });
+  };
+
+  // Validation
   const validateForm = (): boolean => {
-    const newErrors: Partial<CreateSkillRequest> = {};
-
-    if (!formValues.name.trim()) {
-      newErrors.name = 'Name ist erforderlich';
-    }
-
-    if (!formValues.description.trim()) {
-      newErrors.description = 'Beschreibung ist erforderlich';
-    } else if (formValues.description.trim().length < 10) {
-      newErrors.description = 'Beschreibung muss mindestens 10 Zeichen lang sein';
-    } else if (formValues.description.trim().length > 2000) {
-      newErrors.description = 'Beschreibung darf maximal 2000 Zeichen lang sein';
-    }
-
-    if (formValues.categoryId.length === 0) {
-      newErrors.categoryId = 'Kategorie ist erforderlich';
-    }
-    if (formValues.proficiencyLevelId.length === 0) {
-      newErrors.proficiencyLevelId = 'Fertigkeitsstufe ist erforderlich';
-    }
-
+    const newErrors: Partial<Record<keyof CreateSkillRequest, string>> = {
+      ...validateBasicFields(formValues),
+      ...validatePaymentFields(formValues),
+      ...validateLocationFields(formValues),
+    };
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -131,16 +242,33 @@ const SkillForm: React.FC<SkillFormProps> = ({
   const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
     if (validateForm()) {
-      onSubmit(
-        {
-          name: formValues.name.trim(),
-          description: formValues.description.trim(),
-          isOffered: formValues.isOffered,
-          categoryId: formValues.categoryId,
-          proficiencyLevelId: formValues.proficiencyLevelId,
-        },
-        skill?.id
-      );
+      const submitData: CreateSkillRequest = {
+        name: formValues.name.trim(),
+        description: formValues.description.trim(),
+        isOffered: formValues.isOffered,
+        categoryId: formValues.categoryId,
+        proficiencyLevelId: formValues.proficiencyLevelId,
+        tags: formValues.tags,
+        // Exchange
+        exchangeType: formValues.exchangeType,
+        desiredSkillCategoryId: formValues.desiredSkillCategoryId,
+        desiredSkillDescription: formValues.desiredSkillDescription?.trim(),
+        hourlyRate: formValues.exchangeType === 'payment' ? formValues.hourlyRate : undefined,
+        currency: formValues.exchangeType === 'payment' ? formValues.currency : undefined,
+        // Scheduling
+        preferredDays: formValues.preferredDays,
+        preferredTimes: formValues.preferredTimes,
+        sessionDurationMinutes: formValues.sessionDurationMinutes,
+        totalSessions: formValues.totalSessions,
+        // Location
+        locationType: formValues.locationType,
+        locationAddress: formValues.locationAddress?.trim(),
+        locationCity: formValues.locationCity?.trim(),
+        locationPostalCode: formValues.locationPostalCode?.trim(),
+        locationCountry: formValues.locationCountry?.toUpperCase().trim(),
+        maxDistanceKm: formValues.maxDistanceKm,
+      };
+      onSubmit(submitData, skill?.id);
     }
   };
 
@@ -153,12 +281,17 @@ const SkillForm: React.FC<SkillFormProps> = ({
   const hasCategories = Array.isArray(categories) && categories.length > 0;
   const hasProficiencyLevels = Array.isArray(proficiencyLevels) && proficiencyLevels.length > 0;
 
+  // Calculate total duration
+  const totalDuration = (formValues.sessionDurationMinutes ?? 60) * (formValues.totalSessions ?? 1);
+  const totalHours = Math.floor(totalDuration / 60);
+  const totalMinutes = totalDuration % 60;
+
   return (
     <FormDialog
       open={open}
       onClose={handleDialogClose}
       title={title ?? (skill === undefined ? 'Neuen Skill erstellen' : 'Skill bearbeiten')}
-      maxWidth="sm"
+      maxWidth="md"
       fullWidth
       actions={
         <>
@@ -186,6 +319,10 @@ const SkillForm: React.FC<SkillFormProps> = ({
             compact={process.env.NODE_ENV === 'production'}
           />
 
+          {/* ================================================================ */}
+          {/* BASIC INFORMATION */}
+          {/* ================================================================ */}
+
           <TextField
             fullWidth
             label="Name"
@@ -212,11 +349,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
             disabled={loading}
             margin="normal"
             required
-            slotProps={{
-              htmlInput: {
-                maxLength: 2000,
-              },
-            }}
+            slotProps={{ htmlInput: { maxLength: 2000 } }}
           />
 
           <FormControl
@@ -235,20 +368,16 @@ const SkillForm: React.FC<SkillFormProps> = ({
               label="Kategorie"
             >
               {hasCategories ? (
-                categories.map((category) => {
-                  const categoryId = getCategoryId(category);
-                  return (
-                    <MenuItem key={categoryId} value={categoryId}>
-                      {category.name}
-                    </MenuItem>
-                  );
-                })
+                categories.map((category) => (
+                  <MenuItem key={category.id} value={category.id}>
+                    {category.name}
+                  </MenuItem>
+                ))
               ) : (
                 <MenuItem disabled>Kategorien werden geladen...</MenuItem>
               )}
             </Select>
             {errors.categoryId ? <FormHelperText>{errors.categoryId}</FormHelperText> : null}
-            {!hasCategories && <FormHelperText>Kategorien werden geladen...</FormHelperText>}
           </FormControl>
 
           <FormControl
@@ -268,16 +397,12 @@ const SkillForm: React.FC<SkillFormProps> = ({
             >
               {hasProficiencyLevels ? (
                 [...proficiencyLevels]
-                  .sort((a, b) => getProficiencyLevelRank(a) - getProficiencyLevelRank(b))
-                  .map((level) => {
-                    const levelId = getProficiencyLevelId(level);
-                    const rank = getProficiencyLevelRank(level);
-                    return (
-                      <MenuItem key={levelId} value={levelId}>
-                        {level.level} {rank > 0 ? `(${'★'.repeat(rank)})` : ''}
-                      </MenuItem>
-                    );
-                  })
+                  .sort((a, b) => a.rank - b.rank)
+                  .map((level) => (
+                    <MenuItem key={level.id} value={level.id}>
+                      {level.level} {level.rank > 0 ? `(${'★'.repeat(level.rank)})` : ''}
+                    </MenuItem>
+                  ))
               ) : (
                 <MenuItem disabled>Fertigkeitsstufen werden geladen...</MenuItem>
               )}
@@ -285,9 +410,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
             {errors.proficiencyLevelId ? (
               <FormHelperText>{errors.proficiencyLevelId}</FormHelperText>
             ) : null}
-            {!hasProficiencyLevels && (
-              <FormHelperText>Fertigkeitsstufen werden geladen...</FormHelperText>
-            )}
           </FormControl>
 
           <FormControlLabel
@@ -311,6 +433,62 @@ const SkillForm: React.FC<SkillFormProps> = ({
               </Typography>
             }
             sx={{ mt: 2 }}
+          />
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* ================================================================ */}
+          {/* SCHEDULING SECTION (Collapsible) */}
+          {/* ================================================================ */}
+
+          <SchedulingSection
+            formValues={formValues}
+            loading={loading}
+            expanded={expandedSection === 'scheduling'}
+            onExpandChange={(expanded) => setExpandedSection(expanded ? 'scheduling' : false)}
+            onNumberChange={handleNumberChange}
+            onArrayToggle={handleArrayToggle}
+            totalHours={totalHours}
+            totalMinutes={totalMinutes}
+          />
+
+          {/* ================================================================ */}
+          {/* EXCHANGE SECTION (Collapsible) */}
+          {/* ================================================================ */}
+
+          <ExchangeSection
+            formValues={formValues}
+            loading={loading}
+            expanded={expandedSection === 'exchange'}
+            onExpandChange={(expanded) => setExpandedSection(expanded ? 'exchange' : false)}
+            categories={categories}
+            hasCategories={hasCategories}
+            errors={errors}
+            onFieldChange={handleFieldChange}
+            onExchangeTypeChange={(value) =>
+              setFormValues((prev) => ({ ...prev, exchangeType: value }))
+            }
+            onNumberChange={handleNumberChange}
+            totalDuration={totalDuration}
+            totalHours={totalHours}
+            totalMinutes={totalMinutes}
+          />
+
+          {/* ================================================================ */}
+          {/* LOCATION SECTION (Collapsible) */}
+          {/* ================================================================ */}
+
+          <LocationSection
+            formValues={formValues}
+            loading={loading}
+            expanded={expandedSection === 'location'}
+            onExpandChange={(expanded) => setExpandedSection(expanded ? 'location' : false)}
+            errors={errors}
+            onFieldChange={handleFieldChange}
+            onLocationTypeChange={(value) =>
+              setFormValues((prev) => ({ ...prev, locationType: value }))
+            }
+            onNumberChange={handleNumberChange}
           />
         </Box>
       </form>

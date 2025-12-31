@@ -126,11 +126,14 @@ export type TimeRangeKey = keyof typeof TIME_RANGES;
 
 /**
  * Types of exchange for match requests
+ *
+ * NOTE: 'free' is NOT available for skills or match requests.
+ * Free multi-call sessions are only available via Public Workshops (separate feature).
+ * See docs/architecture/public-workshop-epic.md for details.
  */
 export const EXCHANGE_TYPES = {
   SKILL_EXCHANGE: 'skill_exchange',
   PAYMENT: 'payment',
-  FREE: 'free',
 } as const;
 
 export type ExchangeType = (typeof EXCHANGE_TYPES)[keyof typeof EXCHANGE_TYPES];
@@ -151,11 +154,6 @@ export const EXCHANGE_TYPE_CONFIG: Record<
     label: 'Bezahlung',
     description: 'Bezahle für die Lernstunden',
     icon: 'Euro',
-  },
-  [EXCHANGE_TYPES.FREE]: {
-    label: 'Kostenlos',
-    description: 'Freiwilliger Wissensaustausch ohne Gegenleistung',
-    icon: 'VolunteerActivism',
   },
 };
 

@@ -26,7 +26,6 @@ import {
   MAX_TOTAL_DURATION_MINUTES,
   MIN_SESSION_DURATION_MINUTES,
   MAX_SESSION_DURATION_MINUTES,
-  type ExchangeType,
 } from '../constants/scheduling';
 import { calculateSessions } from '../utils/sessionCalculations';
 import QuickSkillCreate from './QuickSkillCreate';
@@ -62,7 +61,7 @@ const matchFormSchema = z
     exchangeType: z.enum([
       EXCHANGE_TYPES.SKILL_EXCHANGE,
       EXCHANGE_TYPES.PAYMENT,
-      EXCHANGE_TYPES.FREE,
+      // EXCHANGE_TYPES.FREE,
     ]),
     exchangeSkillId: z.string().optional(),
     exchangeSkillName: z.string().optional(),
@@ -188,7 +187,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
       sessionDurationMinutes: DEFAULT_SESSION_DURATION_MINUTES,
 
       // Exchange Type
-      exchangeType: EXCHANGE_TYPES.FREE as ExchangeType,
+      exchangeType: EXCHANGE_TYPES.SKILL_EXCHANGE,
       exchangeSkillId: '',
       exchangeSkillName: '',
       hourlyRate: DEFAULT_HOURLY_RATE,

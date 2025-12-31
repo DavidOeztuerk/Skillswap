@@ -126,7 +126,8 @@ export const SessionPlanningSection: React.FC<SessionPlanningSectionProps> = ({
     (watch('totalDurationMinutes') as number) || DEFAULT_TOTAL_DURATION_MINUTES;
   const sessionDurationMinutes =
     (watch('sessionDurationMinutes') as number) || DEFAULT_SESSION_DURATION_MINUTES;
-  const exchangeType = (watch('exchangeType') as ExchangeType | undefined) ?? EXCHANGE_TYPES.FREE;
+  const exchangeType =
+    (watch('exchangeType') as ExchangeType | undefined) ?? EXCHANGE_TYPES.SKILL_EXCHANGE;
   const isOffering = (watch('isOffering') as boolean) || false;
   const exchangeSkillId = watch('exchangeSkillId') as string | undefined;
   const hourlyRate = watch('hourlyRate') as number | undefined;
