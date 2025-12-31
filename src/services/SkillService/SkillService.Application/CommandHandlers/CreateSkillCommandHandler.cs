@@ -6,6 +6,8 @@ using SkillService.Domain.Repositories;
 using Contracts.Skill.Responses;
 using CQRS.Models;
 using Core.Common.Exceptions;
+using Events.Integration.SkillManagement;
+using MassTransit;
 using Microsoft.Extensions.Logging;
 
 namespace SkillService.Application.CommandHandlers;
@@ -13,11 +15,13 @@ namespace SkillService.Application.CommandHandlers;
 public class CreateSkillCommandHandler(
     ISkillUnitOfWork unitOfWork,
     ILocationService locationService,
+    IPublishEndpoint publishEndpoint,
     ILogger<CreateSkillCommandHandler> logger)
     : BaseCommandHandler<CreateSkillCommand, CreateSkillResponse>(logger)
 {
     private readonly ISkillUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILocationService _locationService = locationService;
+    private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
 
     public override async Task<ApiResponse<CreateSkillResponse>> Handle(
         CreateSkillCommand request,
@@ -125,6 +129,40 @@ public class CreateSkillCommandHandler(
 
         Logger.LogInformation("Skill {SkillName} created successfully by user {UserId}",
             skill.Name, request.UserId);
+
+        // Publish integration event for automatic matchmaking
+        var integrationEvent = new SkillCreatedEvent
+        {
+            SkillId = skill.Id,
+            UserId = skill.UserId,
+            Name = skill.Name,
+            Description = skill.Description,
+            CategoryId = category.Id,
+            CategoryName = category.Name,
+            ProficiencyLevelId = proficiencyLevel.Id,
+            ProficiencyLevelRank = proficiencyLevel.Rank,
+            IsOffered = skill.IsOffered,
+            ExchangeType = skill.ExchangeType,
+            DesiredSkillCategoryId = skill.DesiredSkillCategoryId,
+            DesiredSkillDescription = skill.DesiredSkillDescription,
+            HourlyRate = skill.HourlyRate,
+            Currency = skill.Currency,
+            PreferredDays = skill.PreferredDays.ToArray(),
+            PreferredTimes = skill.PreferredTimes.ToArray(),
+            SessionDurationMinutes = skill.SessionDurationMinutes,
+            TotalSessions = skill.TotalSessions,
+            LocationType = skill.LocationType,
+            LocationCity = skill.LocationCity,
+            LocationPostalCode = skill.LocationPostalCode,
+            LocationCountry = skill.LocationCountry,
+            MaxDistanceKm = skill.MaxDistanceKm,
+            LocationLatitude = skill.LocationLatitude,
+            LocationLongitude = skill.LocationLongitude,
+            CreatedAt = skill.CreatedAt
+        };
+
+        await _publishEndpoint.Publish(integrationEvent, cancellationToken);
+        Logger.LogInformation("Published SkillCreatedEvent for SkillId: {SkillId}", skill.Id);
 
         var response = new CreateSkillResponse(
             skill.Id,
