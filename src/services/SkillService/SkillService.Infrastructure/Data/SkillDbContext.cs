@@ -37,6 +37,43 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             entity.Property(e => e.TagsJson).HasColumnType("text");
             entity.Property(e => e.SearchKeywords).HasMaxLength(500);
 
+            // Exchange properties
+            entity.Property(e => e.ExchangeType).HasMaxLength(20).HasDefaultValue("skill_exchange");
+            entity.Property(e => e.DesiredSkillCategoryId).HasMaxLength(450);
+            entity.Property(e => e.DesiredSkillDescription).HasMaxLength(500);
+            entity.Property(e => e.HourlyRate).HasPrecision(10, 2);
+            entity.Property(e => e.Currency).HasMaxLength(3);
+
+            // Scheduling properties (JSON arrays)
+            entity.Property(e => e.PreferredDaysJson).HasColumnType("text");
+            entity.Property(e => e.PreferredTimesJson).HasColumnType("text");
+            entity.Property(e => e.SessionDurationMinutes).HasDefaultValue(60);
+            entity.Property(e => e.TotalSessions).HasDefaultValue(1);
+
+            // Location properties
+            entity.Property(e => e.LocationType).HasMaxLength(20).HasDefaultValue("remote");
+            entity.Property(e => e.LocationAddress).HasMaxLength(200);
+            entity.Property(e => e.LocationCity).HasMaxLength(100);
+            entity.Property(e => e.LocationPostalCode).HasMaxLength(20);
+            entity.Property(e => e.LocationCountry).HasMaxLength(2);
+            entity.Property(e => e.MaxDistanceKm).HasDefaultValue(50);
+            entity.Property(e => e.LocationLatitude).HasPrecision(9, 6);
+            entity.Property(e => e.LocationLongitude).HasPrecision(9, 6);
+
+            // Ignore computed properties (not mapped to DB)
+            entity.Ignore(e => e.Tags);
+            entity.Ignore(e => e.PreferredDays);
+            entity.Ignore(e => e.PreferredTimes);
+            entity.Ignore(e => e.IsSkillExchange);
+            entity.Ignore(e => e.IsPayment);
+            entity.Ignore(e => e.IsRemote);
+            entity.Ignore(e => e.IsInPerson);
+            entity.Ignore(e => e.IsBothLocations);
+            entity.Ignore(e => e.HasGeoLocation);
+            entity.Ignore(e => e.IsHighlyRated);
+            entity.Ignore(e => e.IsPopular);
+            entity.Ignore(e => e.IsRecent);
+
             // Indexes for performance
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.SkillCategoryId);
@@ -54,6 +91,16 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
                 .HasDatabaseName("IX_Skills_Name");
             entity.HasIndex(e => e.SearchKeywords)
                 .HasDatabaseName("IX_Skills_SearchKeywords");
+
+            // Indexes for matching algorithm
+            entity.HasIndex(e => e.ExchangeType)
+                .HasDatabaseName("IX_Skills_ExchangeType");
+            entity.HasIndex(e => e.LocationType)
+                .HasDatabaseName("IX_Skills_LocationType");
+            entity.HasIndex(e => new { e.LocationCity, e.LocationCountry })
+                .HasDatabaseName("IX_Skills_Location");
+            entity.HasIndex(e => new { e.IsActive, e.IsOffered, e.SkillCategoryId })
+                .HasDatabaseName("IX_Skills_MatchingSearch");
 
             // Foreign Key Relationships
             entity.HasOne(s => s.SkillCategory)
