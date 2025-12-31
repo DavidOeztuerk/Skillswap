@@ -205,7 +205,9 @@ interface ExchangeSectionProps extends BaseSectionProps {
   categories: SkillCategory[];
   hasCategories: boolean;
   errors: Partial<Record<keyof CreateSkillRequest, string>>;
-  onFieldChange: (e: SelectChangeEvent | React.ChangeEvent<HTMLInputElement>) => void;
+  onFieldChange: (
+    e: SelectChangeEvent | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => void;
   onExchangeTypeChange: (value: 'skill_exchange' | 'payment') => void;
   onNumberChange: (name: keyof CreateSkillRequest, value: number) => void;
   totalDuration: number;
@@ -381,7 +383,9 @@ export const ExchangeSection: React.FC<ExchangeSectionProps> = ({
 
 interface LocationSectionProps extends BaseSectionProps {
   errors: Partial<Record<keyof CreateSkillRequest, string>>;
-  onFieldChange: (e: SelectChangeEvent | React.ChangeEvent<HTMLInputElement>) => void;
+  onFieldChange: (
+    e: SelectChangeEvent | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => void;
   onLocationTypeChange: (value: 'remote' | 'in_person' | 'both') => void;
   onNumberChange: (name: keyof CreateSkillRequest, value: number) => void;
 }
