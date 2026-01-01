@@ -42,6 +42,12 @@ export interface CreateSkillRequest {
   desiredSkillDescription?: string;
 
   /**
+   * For skill_exchange when seeking (isOffered=false): ID of own skill to offer in exchange
+   * This allows users to select one of their own offered skills as a counter-offer
+   */
+  offeredSkillId?: string;
+
+  /**
    * For payment: Hourly rate (only valid when isOffered=true and exchangeType='payment')
    * Min: 5, Max: 500
    */

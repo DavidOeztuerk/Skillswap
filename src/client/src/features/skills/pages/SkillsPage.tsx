@@ -339,6 +339,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
           categories={categories}
           proficiencyLevels={proficiencyLevels}
           loading={isLoading}
+          userOfferedSkills={userSkills.filter((s) => s.isOffered)}
           onClose={() => {
             setIsFormOpen(false);
             setSelectedSkill(undefined);

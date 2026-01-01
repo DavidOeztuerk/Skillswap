@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LocalOffer as OfferIcon, Search as SearchIcon } from '@mui/icons-material';
 import {
   Box,
   TextField,
@@ -9,10 +10,13 @@ import {
   FormHelperText,
   Button,
   Typography,
-  Switch,
-  FormControlLabel,
   CircularProgress,
   Divider,
+  Chip,
+  Autocomplete,
+  ToggleButtonGroup,
+  ToggleButton,
+  Stack,
   type SelectChangeEvent,
 } from '@mui/material';
 import ErrorAlert from '../../../shared/components/error/ErrorAlert';
@@ -35,6 +39,8 @@ interface SkillFormProps {
   skill?: Skill;
   title?: string;
   error?: { message: string } | null;
+  /** User's own offered skills for exchange selection when seeking */
+  userOfferedSkills: Skill[];
 }
 
 // interface FormValues extends CreateSkillRequest {
@@ -52,6 +58,7 @@ const getDefaultFormValues = (): CreateSkillRequest => ({
   exchangeType: 'skill_exchange',
   desiredSkillCategoryId: undefined,
   desiredSkillDescription: undefined,
+  offeredSkillId: undefined,
   hourlyRate: undefined,
   currency: 'EUR',
   // Scheduling
@@ -116,6 +123,22 @@ const validatePaymentFields = (
   return errors;
 };
 
+const validateSchedulingFields = (
+  formValues: CreateSkillRequest
+): Partial<Record<keyof CreateSkillRequest, string>> => {
+  const errors: Partial<Record<keyof CreateSkillRequest, string>> = {};
+
+  if (!formValues.preferredDays || formValues.preferredDays.length === 0) {
+    errors.preferredDays = 'Mindestens ein bevorzugter Tag ist erforderlich';
+  }
+
+  if (!formValues.preferredTimes || formValues.preferredTimes.length === 0) {
+    errors.preferredTimes = 'Mindestens eine bevorzugte Uhrzeit ist erforderlich';
+  }
+
+  return errors;
+};
+
 const validateLocationFields = (
   formValues: CreateSkillRequest
 ): Partial<Record<keyof CreateSkillRequest, string>> => {
@@ -147,6 +170,7 @@ const initializeFormFromSkill = (skill: Skill): CreateSkillRequest => ({
   exchangeType: skill.exchangeType ?? 'skill_exchange',
   desiredSkillCategoryId: skill.desiredSkillCategoryId,
   desiredSkillDescription: skill.desiredSkillDescription,
+  offeredSkillId: skill.offeredSkillId,
   hourlyRate: skill.hourlyRate,
   currency: skill.currency ?? 'EUR',
   preferredDays: skill.preferredDays ?? [],
@@ -175,6 +199,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
   skill,
   title,
   error,
+  userOfferedSkills,
 }) => {
   const [formValues, setFormValues] = useState<CreateSkillRequest>(getDefaultFormValues());
   const [errors, setErrors] = useState<Partial<Record<keyof CreateSkillRequest, string>>>({});
@@ -204,12 +229,16 @@ const SkillForm: React.FC<SkillFormProps> = ({
     }
   };
 
-  const handleSwitchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, checked } = e.target;
-    setFormValues((prev) => ({ ...prev, [name]: checked }));
+  const handleIsOfferedChange = (
+    _event: React.MouseEvent<HTMLElement>,
+    newValue: 'offer' | 'seek' | null
+  ): void => {
+    if (newValue === null) return; // Don't allow deselection
+    const isOffered = newValue === 'offer';
+    setFormValues((prev) => ({ ...prev, isOffered }));
 
     // If switching to "seeking" (isOffered=false), payment is not allowed
-    if (name === 'isOffered' && !checked && formValues.exchangeType === 'payment') {
+    if (!isOffered && formValues.exchangeType === 'payment') {
       setFormValues((prev) => ({ ...prev, exchangeType: 'skill_exchange' }));
     }
   };
@@ -226,16 +255,29 @@ const SkillForm: React.FC<SkillFormProps> = ({
         : [...current, value];
       return { ...prev, [name]: updated };
     });
+
+    // Clear error when user adds a value (not when removing)
+    const currentValues = formValues[name] ?? [];
+    if (!currentValues.includes(value) && errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   // Validation
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof CreateSkillRequest, string>> = {
       ...validateBasicFields(formValues),
+      ...validateSchedulingFields(formValues),
       ...validatePaymentFields(formValues),
       ...validateLocationFields(formValues),
     };
     setErrors(newErrors);
+
+    // If scheduling errors exist, expand the section to show the error
+    if (newErrors.preferredDays || newErrors.preferredTimes) {
+      setExpandedSection('scheduling');
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -253,6 +295,10 @@ const SkillForm: React.FC<SkillFormProps> = ({
         exchangeType: formValues.exchangeType,
         desiredSkillCategoryId: formValues.desiredSkillCategoryId,
         desiredSkillDescription: formValues.desiredSkillDescription?.trim(),
+        offeredSkillId:
+          !formValues.isOffered && formValues.exchangeType === 'skill_exchange'
+            ? formValues.offeredSkillId
+            : undefined,
         hourlyRate: formValues.exchangeType === 'payment' ? formValues.hourlyRate : undefined,
         currency: formValues.exchangeType === 'payment' ? formValues.currency : undefined,
         // Scheduling
@@ -318,6 +364,67 @@ const SkillForm: React.FC<SkillFormProps> = ({
             onDismiss={() => {}}
             compact={process.env.NODE_ENV === 'production'}
           />
+
+          {/* ================================================================ */}
+          {/* SKILL TYPE SELECTION (Offer or Seek) */}
+          {/* ================================================================ */}
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Was möchtest du tun?
+            </Typography>
+            <ToggleButtonGroup
+              value={formValues.isOffered ? 'offer' : 'seek'}
+              exclusive
+              onChange={handleIsOfferedChange}
+              disabled={loading}
+              sx={{ width: '100%' }}
+            >
+              <ToggleButton
+                value="offer"
+                sx={{
+                  flex: 1,
+                  py: 1.5,
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                    },
+                  },
+                }}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <OfferIcon />
+                  <Typography variant="body2">Ich biete an</Typography>
+                </Stack>
+              </ToggleButton>
+              <ToggleButton
+                value="seek"
+                sx={{
+                  flex: 1,
+                  py: 1.5,
+                  '&.Mui-selected': {
+                    backgroundColor: 'secondary.main',
+                    color: 'secondary.contrastText',
+                    '&:hover': {
+                      backgroundColor: 'secondary.dark',
+                    },
+                  },
+                }}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <SearchIcon />
+                  <Typography variant="body2">Ich suche</Typography>
+                </Stack>
+              </ToggleButton>
+            </ToggleButtonGroup>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {formValues.isOffered
+                ? 'Du bietest diesen Skill an und kannst anderen beibringen.'
+                : 'Du suchst jemanden, der dir diesen Skill beibringen kann.'}
+            </Typography>
+          </Box>
 
           {/* ================================================================ */}
           {/* BASIC INFORMATION */}
@@ -412,26 +519,39 @@ const SkillForm: React.FC<SkillFormProps> = ({
             ) : null}
           </FormControl>
 
-          <FormControlLabel
-            control={
-              <Switch
-                checked={formValues.isOffered}
-                onChange={handleSwitchChange}
-                name="isOffered"
-                color="primary"
+          {/* Tags Input */}
+          <Autocomplete
+            multiple
+            freeSolo
+            options={[]}
+            value={formValues.tags ?? []}
+            onChange={(_, newValue) => {
+              // Filter out empty strings and limit to 10 tags
+              const filteredTags = newValue
+                .map((tag) => (typeof tag === 'string' ? tag.trim() : tag))
+                .filter((tag) => tag.length > 0)
+                .slice(0, 10);
+              setFormValues((prev) => ({ ...prev, tags: filteredTags }));
+            }}
+            renderValue={(value, getTagProps) =>
+              value.map((option, index) => {
+                const { key, ...tagProps } = getTagProps({ index });
+                return <Chip key={key} label={option} size="small" {...tagProps} />;
+              })
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Tags"
+                placeholder={
+                  (formValues.tags?.length ?? 0) < 10 ? 'Tag eingeben und Enter drücken...' : ''
+                }
+                helperText={`${formValues.tags?.length ?? 0}/10 Tags - Hilft anderen, deinen Skill zu finden`}
+                margin="normal"
                 disabled={loading}
               />
-            }
-            label={
-              <Typography>
-                {formValues.isOffered ? 'Angeboten' : 'Gesucht'}
-                <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                  {formValues.isOffered
-                    ? '(Ich biete diese Fähigkeit an)'
-                    : '(Ich suche jemanden mit dieser Fähigkeit)'}
-                </Typography>
-              </Typography>
-            }
+            )}
+            disabled={loading}
             sx={{ mt: 2 }}
           />
 
@@ -450,6 +570,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
             onArrayToggle={handleArrayToggle}
             totalHours={totalHours}
             totalMinutes={totalMinutes}
+            errors={errors}
           />
 
           {/* ================================================================ */}
@@ -472,6 +593,10 @@ const SkillForm: React.FC<SkillFormProps> = ({
             totalDuration={totalDuration}
             totalHours={totalHours}
             totalMinutes={totalMinutes}
+            userOfferedSkills={userOfferedSkills}
+            onOfferedSkillChange={(skillId: string | undefined) =>
+              setFormValues((prev) => ({ ...prev, offeredSkillId: skillId }))
+            }
           />
 
           {/* ================================================================ */}

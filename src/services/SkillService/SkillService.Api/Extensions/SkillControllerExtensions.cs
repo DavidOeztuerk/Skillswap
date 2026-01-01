@@ -149,7 +149,25 @@ public static class SkillControllerExtensions
                 request.Tags,
                 request.IsOffered,
                 request.AvailableHours,
-                request.PreferredSessionDuration)
+                request.PreferredSessionDuration,
+                // Exchange options
+                request.ExchangeType,
+                request.DesiredSkillCategoryId,
+                request.DesiredSkillDescription,
+                request.HourlyRate,
+                request.Currency,
+                // Scheduling
+                request.PreferredDays,
+                request.PreferredTimes,
+                request.SessionDurationMinutes,
+                request.TotalSessions,
+                // Location
+                request.LocationType,
+                request.LocationAddress,
+                request.LocationCity,
+                request.LocationPostalCode,
+                request.LocationCountry,
+                request.MaxDistanceKm)
             {
                 UserId = userId
             };
