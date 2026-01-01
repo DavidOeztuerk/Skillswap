@@ -51,6 +51,24 @@ export interface SkillDetailsResponse {
   status: string;
   createdAt: Date;
   updatedAt: Date;
+  // Exchange options
+  exchangeType?: 'skill_exchange' | 'payment';
+  desiredSkillCategoryId?: string;
+  desiredSkillDescription?: string;
+  hourlyRate?: number;
+  currency?: string;
+  // Scheduling
+  preferredDays?: string[];
+  preferredTimes?: string[];
+  sessionDurationMinutes?: number;
+  totalSessions?: number;
+  // Location
+  locationType?: 'remote' | 'in_person' | 'both';
+  locationAddress?: string;
+  locationCity?: string;
+  locationPostalCode?: string;
+  locationCountry?: string;
+  maxDistanceKm?: number;
 }
 
 export interface SkillReviewResponse {

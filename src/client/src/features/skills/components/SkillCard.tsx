@@ -484,12 +484,13 @@ interface CardHeaderProps {
   isVerified: boolean;
   isMobile: boolean;
   isFavorite: boolean;
+  isOwner: boolean;
   onToggleFavorite: (e: React.MouseEvent) => void;
   onMenuOpen: (e: React.MouseEvent<HTMLElement>) => void;
 }
 
 const CardHeader: React.FC<CardHeaderProps> = memo(
-  ({ skill, isVerified, isMobile, isFavorite, onToggleFavorite, onMenuOpen }) => (
+  ({ skill, isVerified, isMobile, isFavorite, isOwner, onToggleFavorite, onMenuOpen }) => (
     <Box
       display="flex"
       justifyContent="space-between"
@@ -517,16 +518,19 @@ const CardHeader: React.FC<CardHeaderProps> = memo(
       </Box>
 
       <Box display="flex" alignItems="center" gap={0.5} sx={actionButtonsTopSx}>
-        <IconButton
-          size={isMobile ? 'medium' : 'small'}
-          onClick={onToggleFavorite}
-          sx={{
-            ...touchTargetSx,
-            color: isFavorite ? 'primary.main' : 'text.secondary',
-          }}
-        >
-          {isFavorite ? <BookmarkIcon /> : <BookmarkBorderIcon />}
-        </IconButton>
+        {/* Only show favorite button for skills that are NOT owned by the current user */}
+        {!isOwner && (
+          <IconButton
+            size={isMobile ? 'medium' : 'small'}
+            onClick={onToggleFavorite}
+            sx={{
+              ...touchTargetSx,
+              color: isFavorite ? 'primary.main' : 'text.secondary',
+            }}
+          >
+            {isFavorite ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+          </IconButton>
+        )}
         <IconButton size={isMobile ? 'medium' : 'small'} onClick={onMenuOpen} sx={touchTargetSx}>
           <MoreVertIcon />
         </IconButton>
@@ -714,6 +718,7 @@ const SkillCard: React.FC<SkillCardProps> = memo(
             isVerified={isVerified}
             isMobile={isMobile}
             isFavorite={isFavorite}
+            isOwner={isOwner}
             onToggleFavorite={handleToggleFavorite}
             onMenuOpen={handleMenuOpen}
           />

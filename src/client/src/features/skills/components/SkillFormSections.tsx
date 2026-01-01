@@ -7,6 +7,7 @@ import {
   Schedule as ScheduleIcon,
   Videocam as VideocamIcon,
   Place as PlaceIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -28,7 +29,7 @@ import {
   type SelectChangeEvent,
 } from '@mui/material';
 import type { CreateSkillRequest } from '../types/CreateSkillRequest';
-import type { SkillCategory } from '../types/Skill';
+import type { Skill, SkillCategory } from '../types/Skill';
 
 // =============================================================================
 // CONSTANTS
@@ -88,6 +89,7 @@ interface SchedulingSectionProps extends BaseSectionProps {
   onArrayToggle: (name: 'preferredDays' | 'preferredTimes', value: string) => void;
   totalHours: number;
   totalMinutes: number;
+  errors: Partial<Record<keyof CreateSkillRequest, string>>;
 }
 
 export const SchedulingSection: React.FC<SchedulingSectionProps> = ({
@@ -99,103 +101,129 @@ export const SchedulingSection: React.FC<SchedulingSectionProps> = ({
   onArrayToggle,
   totalHours,
   totalMinutes,
-}) => (
-  <Accordion
-    expanded={expanded}
-    onChange={(_e, isExpanded) => onExpandChange(isExpanded)}
-    sx={{ mb: 2 }}
-  >
-    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <ScheduleIcon color="action" />
-        <Typography fontWeight={500}>Zeitplanung</Typography>
-        {(formValues.preferredDays?.length ?? 0) > 0 && (
-          <Chip
-            size="small"
-            label={`${String(formValues.preferredDays?.length ?? 0)} Tage`}
-            color="primary"
-            variant="outlined"
-          />
-        )}
-      </Stack>
-    </AccordionSummary>
-    <AccordionDetails>
-      <Typography variant="subtitle2" gutterBottom>
-        Dauer pro Session
-      </Typography>
-      <ToggleButtonGroup
-        value={formValues.sessionDurationMinutes}
-        exclusive
-        onChange={(_e, value: number | null) => {
-          if (value !== null) onNumberChange('sessionDurationMinutes', value);
-        }}
-        disabled={loading}
-        sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}
-      >
-        {SESSION_DURATIONS.map((duration) => (
-          <ToggleButton key={duration} value={duration} sx={{ px: 2, py: 1 }}>
-            {SESSION_DURATION_LABELS[duration]}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
+  errors,
+}) => {
+  const hasErrors = !!(errors.preferredDays ?? errors.preferredTimes);
 
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Anzahl Sessions
-        </Typography>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <TextField
-            type="number"
-            value={formValues.totalSessions}
-            onChange={(e) =>
-              onNumberChange('totalSessions', Math.max(1, Math.min(50, +e.target.value)))
-            }
-            disabled={loading}
-            size="small"
-            slotProps={{ htmlInput: { min: 1, max: 50 } }}
-            sx={{ width: 100 }}
-          />
-          <Typography variant="body2" color="text.secondary">
-            = {totalHours > 0 ? `${totalHours}h ` : ''}
-            {totalMinutes > 0 ? `${totalMinutes}min` : ''} Gesamtzeit
+  return (
+    <Accordion
+      expanded={expanded}
+      onChange={(_e, isExpanded) => onExpandChange(isExpanded)}
+      sx={{
+        mb: 2,
+        ...(hasErrors && {
+          border: '1px solid',
+          borderColor: 'error.main',
+        }),
+      }}
+    >
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <ScheduleIcon color={hasErrors ? 'error' : 'action'} />
+          <Typography fontWeight={500} color={hasErrors ? 'error' : 'inherit'}>
+            Zeitplanung *
           </Typography>
+          {hasErrors ? <ErrorIcon color="error" fontSize="small" /> : null}
+          {!hasErrors && (formValues.preferredDays?.length ?? 0) > 0 && (
+            <Chip
+              size="small"
+              label={`${String(formValues.preferredDays?.length ?? 0)} Tage`}
+              color="primary"
+              variant="outlined"
+            />
+          )}
         </Stack>
-      </Box>
+      </AccordionSummary>
+      <AccordionDetails>
+        <Typography variant="subtitle2" gutterBottom>
+          Dauer pro Session
+        </Typography>
+        <ToggleButtonGroup
+          value={formValues.sessionDurationMinutes}
+          exclusive
+          onChange={(_e, value: number | null) => {
+            if (value !== null) onNumberChange('sessionDurationMinutes', value);
+          }}
+          disabled={loading}
+          sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}
+        >
+          {SESSION_DURATIONS.map((duration) => (
+            <ToggleButton key={duration} value={duration} sx={{ px: 2, py: 1 }}>
+              {SESSION_DURATION_LABELS[duration]}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
 
-      <Typography variant="subtitle2" gutterBottom>
-        Bevorzugte Tage
-      </Typography>
-      <Stack direction="row" spacing={0.5} sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
-        {WEEKDAYS.map((day) => (
-          <Chip
-            key={day.value}
-            label={day.label}
-            onClick={() => onArrayToggle('preferredDays', day.value)}
-            color={formValues.preferredDays?.includes(day.value) ? 'primary' : 'default'}
-            variant={formValues.preferredDays?.includes(day.value) ? 'filled' : 'outlined'}
-            disabled={loading}
-          />
-        ))}
-      </Stack>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Anzahl Sessions
+          </Typography>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <TextField
+              type="number"
+              value={formValues.totalSessions}
+              onChange={(e) =>
+                onNumberChange('totalSessions', Math.max(1, Math.min(50, +e.target.value)))
+              }
+              disabled={loading}
+              size="small"
+              slotProps={{ htmlInput: { min: 1, max: 50 } }}
+              sx={{ width: 100 }}
+            />
+            <Typography variant="body2" color="text.secondary">
+              = {totalHours > 0 ? `${totalHours}h ` : ''}
+              {totalMinutes > 0 ? `${totalMinutes}min` : ''} Gesamtzeit
+            </Typography>
+          </Stack>
+        </Box>
 
-      <Typography variant="subtitle2" gutterBottom>
-        Bevorzugte Tageszeit
-      </Typography>
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-        {TIME_SLOTS.map((slot) => (
-          <Chip
-            key={slot.value}
-            label={`${slot.label} (${slot.desc})`}
-            onClick={() => onArrayToggle('preferredTimes', slot.value)}
-            color={formValues.preferredTimes?.includes(slot.value) ? 'primary' : 'default'}
-            variant={formValues.preferredTimes?.includes(slot.value) ? 'filled' : 'outlined'}
-            disabled={loading}
-          />
-        ))}
-      </Stack>
-    </AccordionDetails>
-  </Accordion>
-);
+        <Typography variant="subtitle2" gutterBottom>
+          Bevorzugte Tage *
+        </Typography>
+        <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap', gap: 0.5 }}>
+          {WEEKDAYS.map((day) => (
+            <Chip
+              key={day.value}
+              label={day.label}
+              onClick={() => onArrayToggle('preferredDays', day.value)}
+              color={formValues.preferredDays?.includes(day.value) ? 'primary' : 'default'}
+              variant={formValues.preferredDays?.includes(day.value) ? 'filled' : 'outlined'}
+              disabled={loading}
+            />
+          ))}
+        </Stack>
+        {errors.preferredDays ? (
+          <Alert severity="error" sx={{ mb: 2, py: 0 }}>
+            {errors.preferredDays}
+          </Alert>
+        ) : (
+          <Box sx={{ mb: 2 }} />
+        )}
+
+        <Typography variant="subtitle2" gutterBottom>
+          Bevorzugte Tageszeit *
+        </Typography>
+        <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap', gap: 1 }}>
+          {TIME_SLOTS.map((slot) => (
+            <Chip
+              key={slot.value}
+              label={`${slot.label} (${slot.desc})`}
+              onClick={() => onArrayToggle('preferredTimes', slot.value)}
+              color={formValues.preferredTimes?.includes(slot.value) ? 'primary' : 'default'}
+              variant={formValues.preferredTimes?.includes(slot.value) ? 'filled' : 'outlined'}
+              disabled={loading}
+            />
+          ))}
+        </Stack>
+        {errors.preferredTimes ? (
+          <Alert severity="error" sx={{ py: 0 }}>
+            {errors.preferredTimes}
+          </Alert>
+        ) : null}
+      </AccordionDetails>
+    </Accordion>
+  );
+};
 
 // =============================================================================
 // EXCHANGE SECTION
@@ -213,6 +241,10 @@ interface ExchangeSectionProps extends BaseSectionProps {
   totalDuration: number;
   totalHours: number;
   totalMinutes: number;
+  /** User's own offered skills for exchange selection when seeking */
+  userOfferedSkills: Skill[];
+  /** Callback when user selects an offered skill */
+  onOfferedSkillChange: (skillId: string | undefined) => void;
 }
 
 export const ExchangeSection: React.FC<ExchangeSectionProps> = ({
@@ -220,8 +252,8 @@ export const ExchangeSection: React.FC<ExchangeSectionProps> = ({
   loading,
   expanded,
   onExpandChange,
-  categories,
-  hasCategories,
+  categories: _categories,
+  hasCategories: _hasCategories,
   errors,
   onFieldChange,
   onExchangeTypeChange,
@@ -229,6 +261,8 @@ export const ExchangeSection: React.FC<ExchangeSectionProps> = ({
   totalDuration,
   totalHours,
   totalMinutes,
+  userOfferedSkills,
+  onOfferedSkillChange,
 }) => (
   <Accordion
     expanded={expanded}
@@ -285,40 +319,43 @@ export const ExchangeSection: React.FC<ExchangeSectionProps> = ({
 
       {formValues.exchangeType === 'skill_exchange' && (
         <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            Gewünschter Skill (optional)
-          </Typography>
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Gewünschte Kategorie</InputLabel>
-            <Select
-              name="desiredSkillCategoryId"
-              value={formValues.desiredSkillCategoryId ?? ''}
-              onChange={onFieldChange}
-              label="Gewünschte Kategorie"
-              disabled={loading}
-            >
-              <MenuItem value="">Keine Präferenz</MenuItem>
-              {hasCategories
-                ? categories.map((category) => (
-                    <MenuItem key={category.id} value={category.id}>
-                      {category.name}
+          {/* When seeking (isOffered=false): Allow selecting own skill as counter-offer */}
+          {!formValues.isOffered && userOfferedSkills.length > 0 && (
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Mein Gegenangebot (optional)
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
+                Wähle einen deiner Skills aus, den du im Gegenzug anbieten möchtest.
+              </Alert>
+              <FormControl fullWidth size="small">
+                <InputLabel>Skill zum Tauschen</InputLabel>
+                <Select
+                  value={formValues.offeredSkillId ?? ''}
+                  onChange={(e: SelectChangeEvent) =>
+                    onOfferedSkillChange(e.target.value === '' ? undefined : e.target.value)
+                  }
+                  label="Skill zum Tauschen"
+                  disabled={loading}
+                >
+                  <MenuItem value="">Kein spezifischer Skill</MenuItem>
+                  {userOfferedSkills.map((skill) => (
+                    <MenuItem key={skill.id} value={skill.id}>
+                      {skill.name} ({skill.category.name})
                     </MenuItem>
-                  ))
-                : null}
-            </Select>
-          </FormControl>
-          <TextField
-            fullWidth
-            size="small"
-            label="Beschreibung des gewünschten Skills"
-            name="desiredSkillDescription"
-            value={formValues.desiredSkillDescription ?? ''}
-            onChange={onFieldChange}
-            disabled={loading}
-            multiline
-            rows={2}
-            placeholder="z.B. 'Ich suche jemanden der mir Gitarre beibringen kann'"
-          />
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          )}
+
+          {/* When seeking but no own skills available */}
+          {!formValues.isOffered && userOfferedSkills.length === 0 && (
+            <Alert severity="warning">
+              Du hast noch keine Skills zum Tauschen angelegt. Erstelle zuerst einen angebotenen
+              Skill, um ihn als Gegenangebot auswählen zu können.
+            </Alert>
+          )}
         </Box>
       )}
 

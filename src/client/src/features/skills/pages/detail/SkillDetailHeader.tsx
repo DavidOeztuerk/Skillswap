@@ -75,11 +75,14 @@ export const SkillDetailHeader: React.FC<SkillDetailHeaderProps> = ({
 
       {/* Action buttons */}
       <Box sx={{ display: 'flex', gap: 1 }}>
-        <Tooltip title={isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}>
-          <IconButton onClick={onBookmark}>
-            {isFavorite ? <BookmarkIcon /> : <BookmarkBorderIcon />}
-          </IconButton>
-        </Tooltip>
+        {/* Only show favorite button for skills that are NOT owned by the current user */}
+        {!isOwner && (
+          <Tooltip title={isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}>
+            <IconButton onClick={onBookmark}>
+              {isFavorite ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+            </IconButton>
+          </Tooltip>
+        )}
         <Tooltip title="Teilen">
           <IconButton onClick={onShare}>
             <ShareIcon />

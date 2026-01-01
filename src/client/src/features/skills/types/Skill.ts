@@ -56,6 +56,11 @@ export interface Skill {
   desiredSkillDescription?: string;
 
   /**
+   * For skill_exchange when seeking (isOffered=false): ID of own skill to offer in exchange
+   */
+  offeredSkillId?: string;
+
+  /**
    * For payment: Hourly rate
    */
   hourlyRate?: number;
