@@ -46,44 +46,62 @@ const getTimeLabel = (time: string): string => {
   return timeLabels[time.toLowerCase()] ?? time;
 };
 
-export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
-  skill,
-  skillOwner,
-  isOwner,
-  isAuthenticated,
-  canUpdateOwnSkill,
-  canDeleteOwnSkill,
-  isMatchmakingLoading,
-  onCreateMatch,
-  onEdit,
-  onDelete,
-}) => (
-  <>
-    {/* Owner card - only for non-owners */}
-    {!isOwner && (
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Anbieter
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Avatar sx={{ width: 56, height: 56 }} src={skillOwner.avatar}>
-            <PersonIcon />
-          </Avatar>
-          <Box>
-            <Typography variant="subtitle1">{skillOwner.name}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Mitglied seit {skillOwner.memberSince}
-            </Typography>
-            <Rating value={skillOwner.rating} readOnly size="small" />
-          </Box>
-        </Box>
-        <Button variant="outlined" fullWidth>
-          Profil ansehen
-        </Button>
-      </Paper>
-    )}
+// Helper to format hourly rate
+const formatHourlyRate = (rate: number | undefined, currency: string | undefined): string => {
+  if (rate != null && rate > 0 && currency) {
+    return `${rate} ${currency}/Std.`;
+  }
+  return 'Bezahlung';
+};
 
-    {/* Skill info card */}
+// Helper to format location address
+const formatLocationAddress = (
+  city?: string,
+  postalCode?: string,
+  country?: string,
+  maxDistance?: number
+): string => {
+  const parts = [city, postalCode, country].filter(Boolean).join(', ');
+  if (maxDistance != null && maxDistance > 0) {
+    return `${parts} • max. ${maxDistance} km`;
+  }
+  return parts;
+};
+
+// Sub-component: Owner Card
+const OwnerCard: React.FC<{
+  skillOwner: SkillDetailSidebarProps['skillOwner'];
+}> = ({ skillOwner }) => (
+  <Paper sx={{ p: 3, mb: 3 }}>
+    <Typography variant="h6" gutterBottom>
+      Anbieter
+    </Typography>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+      <Avatar sx={{ width: 56, height: 56 }} src={skillOwner.avatar}>
+        <PersonIcon />
+      </Avatar>
+      <Box>
+        <Typography variant="subtitle1">{skillOwner.name}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Mitglied seit {skillOwner.memberSince}
+        </Typography>
+        <Rating value={skillOwner.rating} readOnly size="small" />
+      </Box>
+    </Box>
+    <Button variant="outlined" fullWidth>
+      Profil ansehen
+    </Button>
+  </Paper>
+);
+
+// Sub-component: Skill Info Card
+const SkillInfoCard: React.FC<{
+  skill: SkillDetailSidebarProps['skill'];
+}> = ({ skill }) => {
+  const hasRank = skill.proficiencyLevel.rank > 0;
+  const isPayment = skill.exchangeType === 'payment';
+
+  return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" gutterBottom>
         Skill-Details
@@ -102,7 +120,7 @@ export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body1">{skill.proficiencyLevel.level || 'Keine Angabe'}</Typography>
-          {skill.proficiencyLevel.rank && skill.proficiencyLevel.rank > 0 ? (
+          {hasRank ? (
             <Box sx={{ display: 'flex' }}>
               {Array.from({ length: skill.proficiencyLevel.rank }, (_, i) => (
                 <StarIcon key={i} sx={{ fontSize: 16, color: 'primary.main' }} />
@@ -130,13 +148,11 @@ export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
               Austausch
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {skill.exchangeType === 'payment' ? (
+              {isPayment ? (
                 <>
                   <PaymentsIcon sx={{ fontSize: 18, color: 'success.main' }} />
                   <Typography variant="body1">
-                    {skill.hourlyRate && skill.currency
-                      ? `${skill.hourlyRate} ${skill.currency}/Std.`
-                      : 'Bezahlung'}
+                    {formatHourlyRate(skill.hourlyRate, skill.currency)}
                   </Typography>
                 </>
               ) : (
@@ -150,8 +166,24 @@ export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
         </>
       ) : null}
     </Paper>
+  );
+};
 
-    {/* Location & Schedule card */}
+// Sub-component: Location & Schedule Card
+const LocationScheduleCard: React.FC<{
+  skill: SkillDetailSidebarProps['skill'];
+}> = ({ skill }) => {
+  const isRemote = skill.locationType === 'remote';
+  const hasPhysicalLocation =
+    (skill.locationType === 'in_person' || skill.locationType === 'both') &&
+    Boolean(skill.locationCity);
+  const hasSessionInfo =
+    (skill.sessionDurationMinutes != null && skill.sessionDurationMinutes > 0) ||
+    (skill.totalSessions != null && skill.totalSessions > 0);
+  const hasPreferredDays = skill.preferredDays && skill.preferredDays.length > 0;
+  const hasPreferredTimes = skill.preferredTimes && skill.preferredTimes.length > 0;
+
+  return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" gutterBottom>
         Ort & Zeit
@@ -163,7 +195,7 @@ export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
           Standort
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-          {skill.locationType === 'remote' ? (
+          {isRemote ? (
             <VideocamIcon sx={{ fontSize: 18, color: 'info.main', mt: 0.3 }} />
           ) : (
             <LocationIcon sx={{ fontSize: 18, color: 'error.main', mt: 0.3 }} />
@@ -172,15 +204,14 @@ export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
             <Typography variant="body1">
               {getLocationTypeLabel(skill.locationType ?? 'remote')}
             </Typography>
-            {(skill.locationType === 'in_person' || skill.locationType === 'both') &&
-            skill.locationCity ? (
+            {hasPhysicalLocation ? (
               <Typography variant="body2" color="text.secondary">
-                {[skill.locationCity, skill.locationPostalCode, skill.locationCountry]
-                  .filter(Boolean)
-                  .join(', ')}
-                {skill.maxDistanceKm && skill.maxDistanceKm > 0 ? (
-                  <> • max. {skill.maxDistanceKm} km</>
-                ) : null}
+                {formatLocationAddress(
+                  skill.locationCity,
+                  skill.locationPostalCode,
+                  skill.locationCountry,
+                  skill.maxDistanceKm
+                )}
               </Typography>
             ) : null}
           </Box>
@@ -188,7 +219,7 @@ export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
       </Box>
 
       {/* Schedule */}
-      {skill.sessionDurationMinutes || skill.totalSessions ? (
+      {hasSessionInfo ? (
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Sessions
@@ -203,13 +234,13 @@ export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
       ) : null}
 
       {/* Preferred Days */}
-      {skill.preferredDays && skill.preferredDays.length > 0 ? (
+      {hasPreferredDays ? (
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Bevorzugte Tage
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {skill.preferredDays.map((day) => (
+            {skill.preferredDays?.map((day) => (
               <Chip key={day} label={getDayLabel(day)} size="small" variant="outlined" />
             ))}
           </Box>
@@ -217,84 +248,146 @@ export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
       ) : null}
 
       {/* Preferred Times */}
-      {skill.preferredTimes && skill.preferredTimes.length > 0 ? (
+      {hasPreferredTimes ? (
         <Box>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Bevorzugte Zeiten
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {skill.preferredTimes.map((time) => (
+            {skill.preferredTimes?.map((time) => (
               <Chip key={time} label={getTimeLabel(time)} size="small" variant="outlined" />
             ))}
           </Box>
         </Box>
       ) : null}
     </Paper>
+  );
+};
 
-    {/* CTA card for non-owners */}
-    {!isOwner && (
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Interessiert?
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {skill.isOffered
-            ? 'Möchtest du diesen Skill lernen? Erstelle eine Match-Anfrage!'
-            : 'Kannst du bei diesem Skill helfen? Biete deine Hilfe an!'}
-        </Typography>
-        <LoadingButton
+// Sub-component: CTA Card for non-owners
+const NonOwnerCTACard: React.FC<{
+  skill: SkillDetailSidebarProps['skill'];
+  isAuthenticated: boolean;
+  isMatchmakingLoading: boolean;
+  onCreateMatch: () => void;
+}> = ({ skill, isAuthenticated, isMatchmakingLoading, onCreateMatch }) => {
+  const buttonText = isAuthenticated
+    ? skill.isOffered
+      ? 'Lernen anfragen'
+      : 'Hilfe anbieten'
+    : 'Einloggen um Match anzufragen';
+
+  return (
+    <Paper sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Interessiert?
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {skill.isOffered
+          ? 'Möchtest du diesen Skill lernen? Erstelle eine Match-Anfrage!'
+          : 'Kannst du bei diesem Skill helfen? Biete deine Hilfe an!'}
+      </Typography>
+      <LoadingButton
+        variant="contained"
+        color="primary"
+        fullWidth
+        onClick={onCreateMatch}
+        startIcon={<MessageIcon />}
+        loading={isMatchmakingLoading}
+      >
+        {buttonText}
+      </LoadingButton>
+    </Paper>
+  );
+};
+
+// Sub-component: Owner Actions Card
+const OwnerActionsCard: React.FC<{
+  canUpdateOwnSkill: boolean;
+  canDeleteOwnSkill: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}> = ({ canUpdateOwnSkill, canDeleteOwnSkill, onEdit, onDelete }) => (
+  <Paper sx={{ p: 3 }}>
+    <Typography variant="h6" gutterBottom>
+      Dein Skill
+    </Typography>
+    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      Dies ist dein eigener Skill. Du kannst ihn bearbeiten oder löschen.
+    </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {canUpdateOwnSkill ? (
+        <Button
           variant="contained"
           color="primary"
           fullWidth
-          onClick={onCreateMatch}
-          startIcon={<MessageIcon />}
-          loading={isMatchmakingLoading}
+          onClick={onEdit}
+          startIcon={<EditIcon />}
         >
-          {isAuthenticated
-            ? skill.isOffered
-              ? 'Lernen anfragen'
-              : 'Hilfe anbieten'
-            : 'Einloggen um Match anzufragen'}
-        </LoadingButton>
-      </Paper>
-    )}
-
-    {/* Owner actions card */}
-    {isOwner && (canUpdateOwnSkill || canDeleteOwnSkill) ? (
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Dein Skill
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Dies ist dein eigener Skill. Du kannst ihn bearbeiten oder löschen.
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {canUpdateOwnSkill ? (
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              onClick={onEdit}
-              startIcon={<EditIcon />}
-            >
-              Bearbeiten
-            </Button>
-          ) : null}
-          {canDeleteOwnSkill ? (
-            <Button
-              variant="outlined"
-              color="error"
-              fullWidth
-              onClick={onDelete}
-              startIcon={<DeleteIcon />}
-            >
-              Löschen
-            </Button>
-          ) : null}
-        </Box>
-      </Paper>
-    ) : null}
-  </>
+          Bearbeiten
+        </Button>
+      ) : null}
+      {canDeleteOwnSkill ? (
+        <Button
+          variant="outlined"
+          color="error"
+          fullWidth
+          onClick={onDelete}
+          startIcon={<DeleteIcon />}
+        >
+          Löschen
+        </Button>
+      ) : null}
+    </Box>
+  </Paper>
 );
+
+export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
+  skill,
+  skillOwner,
+  isOwner,
+  isAuthenticated,
+  canUpdateOwnSkill,
+  canDeleteOwnSkill,
+  isMatchmakingLoading,
+  onCreateMatch,
+  onEdit,
+  onDelete,
+}) => {
+  const showOwnerActions = isOwner && (canUpdateOwnSkill || canDeleteOwnSkill);
+
+  return (
+    <>
+      {/* Owner card - only for non-owners */}
+      {isOwner ? null : <OwnerCard skillOwner={skillOwner} />}
+
+      {/* Skill info card */}
+      <SkillInfoCard skill={skill} />
+
+      {/* Location & Schedule card */}
+      <LocationScheduleCard skill={skill} />
+
+      {/* CTA card for non-owners */}
+      {isOwner ? null : (
+        <NonOwnerCTACard
+          skill={skill}
+          isAuthenticated={isAuthenticated}
+          isMatchmakingLoading={isMatchmakingLoading}
+          onCreateMatch={onCreateMatch}
+        />
+      )}
+
+      {/* Owner actions card */}
+      {showOwnerActions ? (
+        <OwnerActionsCard
+          canUpdateOwnSkill={canUpdateOwnSkill}
+          canDeleteOwnSkill={canDeleteOwnSkill}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ) : null}
+    </>
+  );
+};
 
 export default SkillDetailSidebar;

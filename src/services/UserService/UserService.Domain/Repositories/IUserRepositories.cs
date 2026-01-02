@@ -82,14 +82,6 @@ public interface IUserRepository
     Task<(List<User> users, int totalCount)> SearchUsers(string? searchTerm, string? role, string? accountStatus, bool? emailVerified, DateTime? createdAfter, DateTime? createdBefore, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 }
 
-// User Skills Repository - handles favorite skills
-public interface IUserSkillsRepository
-{
-    Task<bool> AddFavoriteSkill(string userId, string skillId, CancellationToken cancellationToken = default);
-    Task<bool> RemoveFavoriteSkill(string userId, string skillId, CancellationToken cancellationToken = default);
-    Task<List<string>> GetFavoriteSkills(string userId, CancellationToken cancellationToken = default);
-}
-
 // User Blocking Repository - handles user blocking operations
 public interface IUserBlockingRepository
 {

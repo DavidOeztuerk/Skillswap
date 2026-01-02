@@ -70,12 +70,11 @@ public class SearchUsersQueryHandler(
                 u.FirstName,
                 u.LastName,
                 u.UserName,
-                u.FavoriteSkillIds, // Skills
-                u.UserRoles.Select(ur => ur.Role.Name).ToList(), // Rating - not implemented yet
-                u.EmailVerified, // ReviewCount - not implemented yet
-                u.AccountStatus.ToString(), // IsAvailable - default to true
+                u.UserRoles.Select(ur => ur.Role.Name).ToList(),
+                u.EmailVerified,
+                u.AccountStatus.ToString(),
                 u.CreatedAt,
-                u.LastLoginAt)) // JoinedAt
+                u.LastLoginAt))
                 .ToListAsync(cancellationToken);
 
         Logger.LogInformation("Searched users with term '{SearchTerm}', found {Count} results",

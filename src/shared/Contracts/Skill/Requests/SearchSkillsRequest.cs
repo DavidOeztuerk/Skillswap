@@ -40,7 +40,17 @@ public record SearchSkillsRequest(
     int PageNumber = 1,
 
     [Range(1, 100, ErrorMessage = "Page size must be between 1 and 100")]
-    int PageSize = 20)
+    int PageSize = 20,
+
+    // Location filters
+    string? LocationType = null,
+
+    [Range(1, 500, ErrorMessage = "Max distance must be between 1 and 500 km")]
+    int? MaxDistanceKm = null,
+
+    double? UserLatitude = null,
+
+    double? UserLongitude = null)
     : IVersionedContract
 {
     /// <summary>

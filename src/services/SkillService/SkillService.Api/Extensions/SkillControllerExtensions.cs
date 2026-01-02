@@ -111,7 +111,11 @@ public static class SkillControllerExtensions
                 request.SortBy,
                 request.SortDescending,
                 request.PageNumber,
-                request.PageSize);
+                request.PageSize,
+                request.LocationType,
+                request.MaxDistanceKm,
+                request.UserLatitude,
+                request.UserLongitude);
 
             return await mediator.SendQuery(query);
         }
@@ -131,7 +135,7 @@ public static class SkillControllerExtensions
             var userId = user.GetUserId();
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-            var query = new GetUserSkillsQuery(userId, request.IsOffered, request.CategoryId, request.ProficiencyLevelId, request.IncludeInactive, request.PageNumber, request.PageSize);
+            var query = new GetUserSkillsQuery(userId, request.IsOffered, request.CategoryId, request.ProficiencyLevelId, request.LocationType, request.IncludeInactive, request.PageNumber, request.PageSize);
 
             return await mediator.SendQuery(query);
         }
@@ -405,6 +409,104 @@ public static class SkillControllerExtensions
             return await mediator.SendQuery(query);
         }
 
+        #endregion
+
+        #region Favorites Endpoints
+        RouteGroupBuilder favorites = skills.MapGroup("/favorites")
+            .RequireAuthorization();
+
+        favorites.MapGet("/", GetFavoriteSkills)
+            .WithName("GetFavoriteSkills")
+            .WithSummary("Get favorite skills")
+            .WithDescription("Retrieve the user's favorite skills with pagination")
+            .WithTags("Favorites")
+            .Produces<PagedResponse<SkillSearchResultResponse>>(StatusCodes.Status200OK);
+
+        skills.MapPost("/{id}/favorite", AddFavorite)
+            .WithName("AddFavorite")
+            .WithSummary("Add skill to favorites")
+            .WithDescription("Add a skill to the user's favorites")
+            .WithTags("Favorites")
+            .Produces<ApiResponse<AddFavoriteResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .RequireAuthorization();
+
+        skills.MapDelete("/{id}/favorite", RemoveFavorite)
+            .WithName("RemoveFavorite")
+            .WithSummary("Remove skill from favorites")
+            .WithDescription("Remove a skill from the user's favorites")
+            .WithTags("Favorites")
+            .Produces<ApiResponse<RemoveFavoriteResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .RequireAuthorization();
+
+        skills.MapGet("/{id}/is-favorite", IsFavorite)
+            .WithName("IsFavorite")
+            .WithSummary("Check if skill is favorited")
+            .WithDescription("Check if a skill is in the user's favorites")
+            .WithTags("Favorites")
+            .Produces<ApiResponse<IsFavoriteResponse>>(StatusCodes.Status200OK)
+            .RequireAuthorization();
+
+        static async Task<IResult> GetFavoriteSkills(
+            IMediator mediator,
+            ClaimsPrincipal user,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new GetFavoriteSkillsQuery(userId, pageNumber, pageSize);
+
+            return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> AddFavorite(
+            IMediator mediator,
+            ClaimsPrincipal user,
+            [FromRoute] string id)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new AddFavoriteCommand(id)
+            {
+                UserId = userId
+            };
+
+            return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> RemoveFavorite(
+            IMediator mediator,
+            ClaimsPrincipal user,
+            [FromRoute] string id)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var command = new RemoveFavoriteCommand(id)
+            {
+                UserId = userId
+            };
+
+            return await mediator.SendCommand(command);
+        }
+
+        static async Task<IResult> IsFavorite(
+            IMediator mediator,
+            ClaimsPrincipal user,
+            [FromRoute] string id)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new IsFavoriteQuery(userId, id);
+
+            return await mediator.SendQuery(query);
+        }
         #endregion
 
         return skills;

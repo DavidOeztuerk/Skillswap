@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Caching.Distributed;
@@ -62,8 +63,8 @@ public class LocationService : ILocationService
         {
             var parts = cachedResult.Split(',');
             if (parts.Length == 2 &&
-                double.TryParse(parts[0], out var cachedLat) &&
-                double.TryParse(parts[1], out var cachedLng))
+                double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var cachedLat) &&
+                double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var cachedLng))
             {
                 _logger.LogDebug("Geocode cache hit for {CacheKey}", cacheKey);
                 return new GeoCoordinate(cachedLat, cachedLng);
@@ -109,7 +110,8 @@ public class LocationService : ILocationService
             }
 
             var result = results[0];
-            if (!double.TryParse(result.Lat, out var lat) || !double.TryParse(result.Lon, out var lng))
+            if (!double.TryParse(result.Lat, NumberStyles.Float, CultureInfo.InvariantCulture, out var lat) ||
+                !double.TryParse(result.Lon, NumberStyles.Float, CultureInfo.InvariantCulture, out var lng))
             {
                 _logger.LogWarning("Invalid coordinates from Nominatim: lat={Lat}, lon={Lon}",
                     result.Lat, result.Lon);

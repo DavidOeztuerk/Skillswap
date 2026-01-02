@@ -74,18 +74,16 @@ public class GenerateReportCommandHandler(
     private StringBuilder GenerateSkillsReport(CancellationToken cancellationToken)
     {
         var csv = new StringBuilder();
-        csv.AppendLine("UserId,Username,SkillCount,FavoriteSkillCount");
+        csv.AppendLine("UserId,Username,RoleCount");
 
         var users = _context.GetUsers(cancellationToken).ToList();
-        
+
         foreach (var user in users)
         {
-            var skillCount = user.UserRoles.Count; // Placeholder
-            var favoriteCount = user.FavoriteSkillIds?.Count ?? 0;
-            
-            csv.AppendLine($"{user.Id},{user.UserName},{skillCount},{favoriteCount}");
+            var roleCount = user.UserRoles.Count;
+            csv.AppendLine($"{user.Id},{user.UserName},{roleCount}");
         }
-        
+
         return csv;
     }
 

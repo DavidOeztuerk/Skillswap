@@ -15,7 +15,12 @@ public record SearchSkillsQuery(
     string? SortBy = "CreatedAt",
     string SortDirection = "desc",
     int PageNumber = 1,
-    int PageSize = 20)
+    int PageSize = 20,
+    // Location filters
+    string? LocationType = null,
+    int? MaxDistanceKm = null,
+    double? UserLatitude = null,
+    double? UserLongitude = null)
     : IPagedQuery<SkillSearchResultResponse>, ICacheableQuery
 {
     public int PageNumber { get; set; } = PageNumber;
@@ -23,7 +28,7 @@ public record SearchSkillsQuery(
 
     // Include UserId in cache key to ensure user-specific results are cached separately
     // This prevents users from getting cached results meant for other users
-    public string CacheKey => $"skills-search:{UserId}:{SearchTerm ?? ""}:{CategoryId ?? ""}:{ProficiencyLevelId ?? ""}:{IsOffered?.ToString() ?? ""}:{(Tags != null && Tags.Count > 0 ? string.Join(",", Tags) : "")}:{PageNumber}:{PageSize}";
+    public string CacheKey => $"skills-search:{UserId}:{SearchTerm ?? ""}:{CategoryId ?? ""}:{ProficiencyLevelId ?? ""}:{IsOffered?.ToString() ?? ""}:{(Tags != null && Tags.Count > 0 ? string.Join(",", Tags) : "")}:{LocationType ?? ""}:{MaxDistanceKm?.ToString() ?? ""}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 
@@ -41,7 +46,16 @@ public record SkillSearchResultResponse(
     int EndorsementCount,
     int? EstimatedDurationMinutes,
     DateTime CreatedAt,
-    DateTime? LastActiveAt);
+    DateTime? LastActiveAt,
+    // Location fields
+    string? LocationType,
+    string? LocationCity,
+    string? LocationCountry,
+    int? MaxDistanceKm,
+    // Owner info
+    string? OwnerUserName,
+    string? OwnerFirstName,
+    string? OwnerLastName);
 
 public class SearchSkillsQueryValidator : AbstractValidator<SearchSkillsQuery>
 {

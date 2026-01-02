@@ -515,6 +515,18 @@ const CardHeader: React.FC<CardHeaderProps> = memo(
           <Chip label={skill.category.name} size="small" sx={categoryChipSx} />
           <Chip label={skill.proficiencyLevel.level} size="small" variant="outlined" />
         </Box>
+
+        {/* Owner Name */}
+        {skill.ownerUserName != null && skill.ownerUserName !== '' && (
+          <Box display="flex" alignItems="center" gap={0.5}>
+            <PersonIcon fontSize="small" sx={{ color: 'text.secondary', fontSize: 16 }} />
+            <Typography variant="caption" color="text.secondary">
+              {skill.ownerFirstName && skill.ownerLastName
+                ? `${skill.ownerFirstName} ${skill.ownerLastName}`
+                : skill.ownerUserName}
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       <Box display="flex" alignItems="center" gap={0.5} sx={actionButtonsTopSx}>

@@ -34,6 +34,11 @@ public interface ISkillRepository
         string? sortDirection,
         int pageNumber,
         int pageSize,
+        // Location filters
+        string? locationType = null,
+        int? maxDistanceKm = null,
+        double? userLatitude = null,
+        double? userLongitude = null,
         CancellationToken cancellationToken = default);
 
     Task<(

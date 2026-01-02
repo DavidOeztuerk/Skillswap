@@ -13,6 +13,7 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
     public virtual DbSet<SkillReview> SkillReviews => base.Set<SkillReview>();
     public virtual DbSet<SkillView> SkillViews => base.Set<SkillView>();
     public virtual DbSet<SkillResource> SkillResources => base.Set<SkillResource>();
+    public virtual DbSet<SkillFavorite> SkillFavorites => base.Set<SkillFavorite>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -295,6 +296,36 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             entity.HasOne(r => r.Skill)
                   .WithMany()
                   .HasForeignKey(r => r.SkillId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ============================================================================
+        // SKILL FAVORITE ENTITY CONFIGURATION
+        // ============================================================================
+        modelBuilder.Entity<SkillFavorite>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.SkillId).IsRequired().HasMaxLength(450);
+
+            // Composite unique index (a user can only favorite a skill once)
+            entity.HasIndex(e => new { e.UserId, e.SkillId })
+                .IsUnique()
+                .HasDatabaseName("IX_SkillFavorites_UserSkill");
+
+            // Index for user queries (get all favorites of a user)
+            entity.HasIndex(e => e.UserId)
+                .HasDatabaseName("IX_SkillFavorites_UserId");
+
+            // Index for skill queries (count favorites for a skill)
+            entity.HasIndex(e => e.SkillId)
+                .HasDatabaseName("IX_SkillFavorites_SkillId");
+
+            // Foreign key relationship with cascade delete
+            entity.HasOne(f => f.Skill)
+                  .WithMany()
+                  .HasForeignKey(f => f.SkillId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
     }

@@ -33,7 +33,6 @@ public record UserSearchResultResponse(
     string FirstName,
     string LastName,
     string UserName,
-    List<string> FavouriteSkills,
     List<string> Roles,
     bool EmailVerified,
     string AccountStatus,
