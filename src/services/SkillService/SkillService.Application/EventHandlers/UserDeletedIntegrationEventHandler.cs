@@ -79,6 +79,10 @@ public class UserDeletedIntegrationEventHandler(
                     viewsToDelete.Count, integrationEvent.UserId);
             }
 
+            // Clean up favorites for this user
+            await _unitOfWork.SkillFavorites.RemoveAllForUserAsync(integrationEvent.UserId, cancellationToken);
+            Logger.LogInformation("Removed all SkillFavorites for user {UserId}", integrationEvent.UserId);
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             Logger.LogInformation("Successfully deleted {SkillsCount} Skills and related entities for user {UserId}", 
                 deletedSkillsCount, integrationEvent.UserId);

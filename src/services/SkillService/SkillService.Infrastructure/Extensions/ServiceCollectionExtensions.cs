@@ -6,8 +6,10 @@ using Infrastructure.Security;
 using Infrastructure.Authorization;
 using SkillService.Infrastructure.HttpClients;
 using SkillService.Infrastructure.Repositories;
+using SkillService.Infrastructure.Services;
 using SkillService.Domain.Repositories;
 using SkillService.Domain.Services;
+using SkillService.Application.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Hosting;
@@ -42,6 +44,9 @@ public static class ServiceCollectionExtensions
         // Register service clients that use IServiceCommunicationManager
         services.AddScoped<IUserServiceClient, UserServiceClient>();
         services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
+
+        // Register Location Service for geocoding and distance calculations
+        services.AddHttpClient<ILocationService, LocationService>();
 
         services.AddSharedInfrastructure(configuration, environment, serviceName);
 

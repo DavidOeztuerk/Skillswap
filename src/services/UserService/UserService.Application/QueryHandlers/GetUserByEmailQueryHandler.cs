@@ -30,8 +30,7 @@ public class GetUserByEmailQueryHandler(
             user.Id,
             user.FirstName,
             user.LastName,
-            user.UserName,
-            user.FavoriteSkillIds);
+            user.UserName);
 
         Logger.LogInformation("Retrieved user by email {Email}", request.Email);
         return Success(response);

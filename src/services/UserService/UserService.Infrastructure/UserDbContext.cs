@@ -100,17 +100,6 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasIndex(x => new { x.FirstName, x.LastName })
             .HasDatabaseName("IX_Users_Name");
 
-        // ValueConverter + ValueComparer für List<string>
-        e.Property(x => x.FavoriteSkillIds)
-         .HasColumnType("text")
-         .HasConversion(
-            v => JsonSerializer.Serialize(v ?? new List<string>(), (JsonSerializerOptions?)null),
-            v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new())
-         .Metadata.SetValueComparer(new ValueComparer<List<string>>(
-            (a, b) => a != null && b != null && a.SequenceEqual(b),
-            v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
-            v => v == null ? new List<string>() : new List<string>(v)));
-
         // Navs
         e.HasMany(x => x.UserRoles)
          .WithOne(x => x.User)

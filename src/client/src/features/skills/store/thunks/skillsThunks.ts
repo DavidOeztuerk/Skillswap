@@ -9,7 +9,11 @@ import {
 } from '../skillsAdapter+State';
 import type { CreateSkillRequest } from '../../types/CreateSkillRequest';
 import type { Skill } from '../../types/Skill';
-import type { SkillSearchParams } from '../../types/SkillResponses';
+import type {
+  SkillSearchParams,
+  SkillSearchResultResponse,
+  GetUserSkillResponse,
+} from '../../types/SkillResponses';
 import type { UpdateSkillRequest } from '../../types/UpdateSkillRequest';
 
 export const fetchAllSkills = createAppAsyncThunk<
@@ -18,13 +22,14 @@ export const fetchAllSkills = createAppAsyncThunk<
 >('skills/fetchAllSkills', async (params, { rejectWithValue }) => {
   try {
     const response = await skillService.getAllSkills(params);
+
     if (!isSuccessResponse(response)) {
-      console.error('❌ [fetchAllSkills] Not a success response:', response);
+      console.error('❌ [fetchAllSkills] Not a success response');
       return rejectWithValue(response);
     }
 
     if (!isPagedResponse(response)) {
-      console.error('❌ [fetchAllSkills] Not a paged response:', response);
+      console.error('❌ [fetchAllSkills] Not a paged response');
       return rejectWithValue({
         success: false,
         errors: ['Invalid response format - expected paged response'],
@@ -32,7 +37,21 @@ export const fetchAllSkills = createAppAsyncThunk<
       });
     }
 
-    const skills = response.data.map(mapSkillResponseToSkill);
+    // Handle both flat array and nested data structures
+    const rawData = Array.isArray(response.data)
+      ? response.data
+      : ((response.data as { data?: SkillSearchResultResponse[] }).data ?? []);
+
+    if (!Array.isArray(rawData)) {
+      console.error('❌ [fetchAllSkills] response.data is not an array');
+      return rejectWithValue({
+        success: false,
+        errors: ['Invalid response format - data is not an array'],
+        errorCode: 'INVALID_RESPONSE_FORMAT',
+      });
+    }
+
+    const skills = rawData.map(mapSkillResponseToSkill);
     const pagination: PaginationState = {
       pageNumber: response.pageNumber,
       pageSize: response.pageSize,
@@ -61,6 +80,7 @@ export const fetchUserSkills = createAppAsyncThunk<
       isOffered?: boolean;
       categoryId?: string;
       proficiencyLevelId?: string;
+      locationType?: string;
       includeInactive?: boolean;
     }
   | undefined
@@ -72,6 +92,7 @@ export const fetchUserSkills = createAppAsyncThunk<
       params?.isOffered,
       params?.categoryId,
       params?.proficiencyLevelId,
+      params?.locationType,
       params?.includeInactive ?? false
     );
 
@@ -87,7 +108,21 @@ export const fetchUserSkills = createAppAsyncThunk<
       });
     }
 
-    const skills = response.data.map(mapUserSkillsResponseToSkill);
+    // Handle both flat array and nested data structures
+    const rawUserData = Array.isArray(response.data)
+      ? response.data
+      : ((response.data as { data?: GetUserSkillResponse[] }).data ?? []);
+
+    if (!Array.isArray(rawUserData)) {
+      console.error('❌ [fetchUserSkills] response.data is not an array');
+      return rejectWithValue({
+        success: false,
+        errors: ['Invalid response format - data is not an array'],
+        errorCode: 'INVALID_RESPONSE_FORMAT',
+      });
+    }
+
+    const skills = rawUserData.map(mapUserSkillsResponseToSkill);
     const pagination: PaginationState = {
       pageNumber: response.pageNumber,
       pageSize: response.pageSize,
@@ -114,7 +149,7 @@ export const fetchSkillById = createAppAsyncThunk<Skill, string>(
       const response = await skillService.getSkillById(skillId);
 
       if (!isSuccessResponse(response)) {
-        console.error('❌ [fetchSkillById] Not a success response:', response);
+        console.error('❌ [fetchSkillById] Not a success response');
         return rejectWithValue(response);
       }
 
@@ -150,6 +185,24 @@ export const fetchSkillById = createAppAsyncThunk<Skill, string>(
         estimatedDurationMinutes: withDefault(skillData.preferredSessionDuration, 0),
         createdAt: new Date(skillData.createdAt).toLocaleDateString('de-DE'),
         lastActiveAt: new Date(skillData.updatedAt).toLocaleDateString('de-DE'),
+        // Exchange options
+        exchangeType: skillData.exchangeType,
+        desiredSkillCategoryId: skillData.desiredSkillCategoryId,
+        desiredSkillDescription: skillData.desiredSkillDescription,
+        hourlyRate: skillData.hourlyRate,
+        currency: skillData.currency,
+        // Scheduling
+        preferredDays: skillData.preferredDays,
+        preferredTimes: skillData.preferredTimes,
+        sessionDurationMinutes: skillData.sessionDurationMinutes,
+        totalSessions: skillData.totalSessions,
+        // Location
+        locationType: skillData.locationType,
+        locationAddress: skillData.locationAddress,
+        locationCity: skillData.locationCity,
+        locationPostalCode: skillData.locationPostalCode,
+        locationCountry: skillData.locationCountry,
+        maxDistanceKm: skillData.maxDistanceKm,
       };
 
       return skill;
@@ -166,7 +219,7 @@ export const fetchSkillById = createAppAsyncThunk<Skill, string>(
 
 export const createSkill = createAppAsyncThunk<Skill, CreateSkillRequest>(
   'skills/createSkill',
-  async (skillData, { rejectWithValue }) => {
+  async (skillData, { rejectWithValue, getState }) => {
     try {
       const response = await skillService.createSkill(skillData);
 
@@ -174,8 +227,18 @@ export const createSkill = createAppAsyncThunk<Skill, CreateSkillRequest>(
         return rejectWithValue(response);
       }
 
+      // Get category and proficiency level from Redux state
+      const state = getState();
+      const { categories } = state.category;
+      const { proficiencyLevels } = state.proficiencyLevel;
+
       // Map CreateSkillResponse to Skill - using actual response structure
       const created = response.data;
+
+      // Look up category and proficiency level details from Redux state
+      const categoryData = categories.find((c) => c.id === created.categoryId);
+      const proficiencyData = proficiencyLevels.find((p) => p.id === created.proficiencyLevelId);
+
       const skill: Skill = {
         id: created.skillId,
         userId: '', // Not included in CreateSkillResponse
@@ -184,15 +247,15 @@ export const createSkill = createAppAsyncThunk<Skill, CreateSkillRequest>(
         isOffered: created.isOffered,
         category: {
           id: created.categoryId || '',
-          name: '', // Not included in CreateSkillResponse
-          iconName: undefined,
-          color: undefined,
+          name: categoryData?.name ?? '',
+          iconName: categoryData?.iconName,
+          color: categoryData?.color,
         },
         proficiencyLevel: {
           id: created.proficiencyLevelId || '',
-          level: '', // Not included in CreateSkillResponse
-          rank: 0,
-          color: undefined,
+          level: proficiencyData?.level ?? '',
+          rank: proficiencyData?.rank ?? 0,
+          color: proficiencyData?.color,
         },
         tagsJson: created.tags.join(','),
         averageRating: 0,
@@ -217,7 +280,7 @@ export const createSkill = createAppAsyncThunk<Skill, CreateSkillRequest>(
 export const updateSkill = createAppAsyncThunk<
   Skill,
   { skillId: string; updateData: UpdateSkillRequest }
->('skills/updateSkill', async ({ skillId, updateData }, { rejectWithValue }) => {
+>('skills/updateSkill', async ({ skillId, updateData }, { rejectWithValue, getState }) => {
   try {
     const response = await skillService.updateSkill(skillId, updateData);
 
@@ -225,8 +288,18 @@ export const updateSkill = createAppAsyncThunk<
       return rejectWithValue(response);
     }
 
+    // Get category and proficiency level from Redux state
+    const state = getState();
+    const { categories } = state.category;
+    const { proficiencyLevels } = state.proficiencyLevel;
+
     // Map UpdateSkillResponse to Skill - using actual response structure
     const updated = response.data;
+
+    // Look up category and proficiency level details from Redux state
+    const categoryData = categories.find((c) => c.id === updated.categoryId);
+    const proficiencyData = proficiencyLevels.find((p) => p.id === updated.proficiencyLevelId);
+
     const skill: Skill = {
       id: updated.id,
       userId: '', // Not included in UpdateSkillResponse
@@ -235,15 +308,15 @@ export const updateSkill = createAppAsyncThunk<
       isOffered: updated.isOffered,
       category: {
         id: updated.categoryId || '',
-        name: '', // Not included in UpdateSkillResponse
-        iconName: undefined,
-        color: undefined,
+        name: categoryData?.name ?? '',
+        iconName: categoryData?.iconName,
+        color: categoryData?.color,
       },
       proficiencyLevel: {
         id: updated.proficiencyLevelId || '',
-        level: '', // Not included in UpdateSkillResponse
-        rank: 0,
-        color: undefined,
+        level: proficiencyData?.level ?? '',
+        rank: proficiencyData?.rank ?? 0,
+        color: proficiencyData?.color,
       },
       tagsJson: '', // Not included in UpdateSkillResponse
       averageRating: 0,
@@ -285,49 +358,79 @@ export const deleteSkill = createAppAsyncThunk<string, { skillId: string; reason
   }
 );
 
-export const fetchFavoriteSkills = createAppAsyncThunk<string[]>(
-  'skills/fetchFavoriteSkills',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await skillService.getFavoriteSkills();
+export const fetchFavoriteSkills = createAppAsyncThunk<
+  { skillIds: string[]; skills: Skill[]; pagination: PaginationState },
+  { pageNumber?: number; pageSize?: number } | undefined
+>('skills/fetchFavoriteSkills', async (params, { rejectWithValue }) => {
+  try {
+    const response = await skillService.getFavoriteSkills(
+      params?.pageNumber ?? 1,
+      params?.pageSize ?? 12
+    );
 
-      if (!isSuccessResponse(response)) {
-        return rejectWithValue(response);
-      }
+    if (!isSuccessResponse(response)) {
+      return rejectWithValue(response);
+    }
 
-      if (!isPagedResponse(response)) {
-        return rejectWithValue({
-          success: false,
-          errors: ['Invalid response format - expected paged response'],
-          errorCode: 'INVALID_RESPONSE_FORMAT',
-        });
-      }
-
-      return response.data;
-    } catch (error) {
+    if (!isPagedResponse(response)) {
       return rejectWithValue({
         success: false,
-        errors: [(error as Error).message || 'Failed to fetch favorite skills'],
-        errorCode: 'FETCH_FAVORITE_SKILLS_ERROR',
+        errors: ['Invalid response format - expected paged response'],
+        errorCode: 'INVALID_RESPONSE_FORMAT',
       });
     }
+
+    // Handle both flat array and nested data structures
+    // Note: Backend returns SkillSearchResultResponse, NOT GetUserSkillResponse
+    const rawData = Array.isArray(response.data)
+      ? response.data
+      : ((response.data as { data?: SkillSearchResultResponse[] }).data ?? []);
+
+    if (!Array.isArray(rawData)) {
+      return rejectWithValue({
+        success: false,
+        errors: ['Invalid response format - data is not an array'],
+        errorCode: 'INVALID_RESPONSE_FORMAT',
+      });
+    }
+
+    // Use mapSkillResponseToSkill because backend returns SkillSearchResultResponse
+    const skills = rawData.map(mapSkillResponseToSkill);
+    const skillIds = skills.map((s) => s.id);
+    const pagination: PaginationState = {
+      pageNumber: response.pageNumber,
+      pageSize: response.pageSize,
+      totalPages: response.totalPages,
+      totalRecords: response.totalRecords,
+      hasNextPage: response.hasNextPage,
+      hasPreviousPage: response.hasPreviousPage,
+    };
+
+    return { skillIds, skills, pagination };
+  } catch (error) {
+    return rejectWithValue({
+      success: false,
+      errors: [(error as Error).message || 'Failed to fetch favorite skills'],
+      errorCode: 'FETCH_FAVORITE_SKILLS_ERROR',
+    });
   }
-);
+});
 
 export const toggleFavoriteSkill = createAppAsyncThunk<
   { skillId: string; isFavorite: boolean },
   { skillId: string; isFavorite: boolean }
 >('skills/toggleFavoriteSkill', async ({ skillId, isFavorite }, { rejectWithValue }) => {
   try {
-    let response;
     if (isFavorite) {
-      response = await skillService.addFavoriteSkill(skillId);
+      const response = await skillService.addFavoriteSkill(skillId);
+      if (!isSuccessResponse(response)) {
+        return rejectWithValue(response);
+      }
     } else {
-      response = await skillService.removeFavoriteSkill(skillId);
-    }
-
-    if (!isSuccessResponse(response)) {
-      return rejectWithValue(response);
+      const response = await skillService.removeFavoriteSkill(skillId);
+      if (!isSuccessResponse(response)) {
+        return rejectWithValue(response);
+      }
     }
 
     return { skillId, isFavorite };

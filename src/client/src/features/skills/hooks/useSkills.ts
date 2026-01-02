@@ -145,6 +145,7 @@ interface UseSkillsReturn {
     isOffered?: boolean;
     categoryId?: string;
     proficiencyLevelId?: string;
+    locationType?: string;
     includeInactive?: boolean;
   }) => void;
   fetchSkillById: (skillId: string) => Promise<void>;
@@ -226,6 +227,7 @@ interface UseSkillsReturn {
     isOffered?: boolean;
     categoryId?: string;
     proficiencyLevelId?: string;
+    locationType?: string;
     includeInactive?: boolean;
   }) => void;
   loadSkills: (params?: SkillSearchParams) => void;
@@ -235,6 +237,7 @@ interface UseSkillsReturn {
     isOffered?: boolean;
     categoryId?: string;
     proficiencyLevelId?: string;
+    locationType?: string;
     includeInactive?: boolean;
   }) => void;
   loadCategories: () => void;
@@ -280,6 +283,7 @@ export const useSkills = (): UseSkillsReturn => {
         isOffered?: boolean;
         categoryId?: string;
         proficiencyLevelId?: string;
+        locationType?: string;
         includeInactive?: boolean;
       }) => {
         void dispatch(fetchUserSkills(params ?? {}));

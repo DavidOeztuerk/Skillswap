@@ -19,8 +19,14 @@ public class InputSanitizer : IInputSanitizer
     private readonly HtmlEncoder _htmlEncoder;
 
     // Common dangerous patterns
+    // Note: Removed underscore (_), at-sign (@), and percent (%) from pattern as they are common in:
+    // - Enum values (e.g., in_person, both_ways)
+    // - Email addresses (@ symbol)
+    // - URL parameters and identifiers
+    // - Percent-encoding in URLs
+    // The SQL keywords and actual dangerous patterns still provide protection.
     private static readonly Regex SqlInjectionPattern = new(
-        @"(\b(ALTER|CREATE|DELETE|DROP|EXEC(UTE)?|INSERT|MERGE|SELECT|UPDATE|UNION|SCRIPT|JAVASCRIPT|VBSCRIPT)\b)|(\-\-|\/\*|\*\/|;|\||\||`|'|""|\[|\]|\{|\}|%|_|@)",
+        @"(\b(ALTER|CREATE|DELETE|DROP|EXEC(UTE)?|INSERT|MERGE|SELECT|UPDATE|UNION|SCRIPT|JAVASCRIPT|VBSCRIPT)\b)|(\-\-|\/\*|\*\/|;|\||`|'|""|\[|\]|\{|\})",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex XssPattern = new(
