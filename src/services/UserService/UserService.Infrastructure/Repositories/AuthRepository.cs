@@ -120,7 +120,7 @@ public class AuthRepository(
 
         var profileData = new UserInfo(
             user.Id, user.Email, user.FirstName, user.LastName, user.UserName,
-            roleNames, user.FavoriteSkillIds, user.EmailVerified, user.AccountStatus.ToString());
+            roleNames, user.EmailVerified, user.AccountStatus.ToString());
 
         var userPermissions = await _permissionService.GetUserPermissionNamesAsync(user.Id, cancellationToken);
         var permissionsByCategory = await _permissionService.GetUserPermissionsByCategoryAsync(user.Id, cancellationToken);
@@ -182,7 +182,7 @@ public class AuthRepository(
 
                 var userInfo2Fa = new UserInfo(
                     user.Id, user.Email, user.FirstName, user.LastName, user.UserName,
-                    roleNames2Fa, user.FavoriteSkillIds, user.EmailVerified, user.AccountStatus.ToString());
+                    roleNames2Fa, user.EmailVerified, user.AccountStatus.ToString());
 
                 return new LoginResponse(
                     string.Empty, string.Empty, string.Empty, DateTime.UtcNow,
@@ -261,7 +261,7 @@ public class AuthRepository(
 
         var profileData = new UserInfo(
             user.Id, user.Email, user.FirstName, user.LastName, user.UserName,
-            roleNames, user.FavoriteSkillIds, user.EmailVerified, user.AccountStatus.ToString());
+            roleNames, user.EmailVerified, user.AccountStatus.ToString());
 
         var permissionsByCategory = await _permissionService.GetUserPermissionsByCategoryAsync(user.Id, cancellationToken);
 

@@ -14,6 +14,33 @@ export interface CreateSkillRequest {
   proficiencyLevelId: string;
   tags?: string[];
 
+  // ==========================================================================
+  // IMAGE OPTIONS
+  // ==========================================================================
+
+  /**
+   * Image option for the skill
+   * - 'none': No image, show category letter (default)
+   * - 'profile': Use the user's profile photo
+   * - 'upload': Upload a new custom image
+   */
+  imageOption?: 'none' | 'profile' | 'upload';
+
+  /**
+   * For upload: Base64-encoded image data
+   */
+  imageData?: string;
+
+  /**
+   * For upload: Original filename
+   */
+  imageFileName?: string;
+
+  /**
+   * For upload: Content type (e.g., 'image/jpeg', 'image/png')
+   */
+  imageContentType?: string;
+
   // Legacy fields (optional, for backward compatibility)
   availableHours?: number;
   preferredSessionDuration?: number;

@@ -417,6 +417,57 @@ namespace SkillService.Migrations
                     b.ToTable("SkillEndorsements");
                 });
 
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillFavorite", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SkillId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SkillId")
+                        .HasDatabaseName("IX_SkillFavorites_SkillId");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_SkillFavorites_UserId");
+
+                    b.HasIndex("UserId", "SkillId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SkillFavorites_UserSkill");
+
+                    b.ToTable("SkillFavorites");
+                });
+
             modelBuilder.Entity("SkillService.Domain.Entities.SkillMatch", b =>
                 {
                     b.Property<string>("Id")
@@ -790,6 +841,17 @@ namespace SkillService.Migrations
                 {
                     b.HasOne("SkillService.Domain.Entities.Skill", "Skill")
                         .WithMany("Endorsements")
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Skill");
+                });
+
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillFavorite", b =>
+                {
+                    b.HasOne("SkillService.Domain.Entities.Skill", "Skill")
+                        .WithMany()
                         .HasForeignKey("SkillId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

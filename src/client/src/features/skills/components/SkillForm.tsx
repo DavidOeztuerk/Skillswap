@@ -21,7 +21,9 @@ import {
 } from '@mui/material';
 import ErrorAlert from '../../../shared/components/error/ErrorAlert';
 import FormDialog from '../../../shared/components/ui/FormDialog';
+import { useAuth } from '../../auth/hooks/useAuth';
 import { SchedulingSection, ExchangeSection, LocationSection } from './SkillFormSections';
+import SkillImageSection, { type ImageOption } from './SkillImageSection';
 import type { CreateSkillRequest } from '../types/CreateSkillRequest';
 import type { ProficiencyLevel, Skill, SkillCategory } from '../types/Skill';
 
@@ -54,6 +56,11 @@ const getDefaultFormValues = (): CreateSkillRequest => ({
   proficiencyLevelId: '',
   isOffered: true,
   tags: [],
+  // Image
+  imageOption: 'none',
+  imageData: undefined,
+  imageFileName: undefined,
+  imageContentType: undefined,
   // Exchange
   exchangeType: 'skill_exchange',
   desiredSkillCategoryId: undefined,
@@ -201,9 +208,11 @@ const SkillForm: React.FC<SkillFormProps> = ({
   error,
   userOfferedSkills,
 }) => {
+  const { user } = useAuth();
   const [formValues, setFormValues] = useState<CreateSkillRequest>(getDefaultFormValues());
   const [errors, setErrors] = useState<Partial<Record<keyof CreateSkillRequest, string>>>({});
   const [expandedSection, setExpandedSection] = useState<string | false>(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -213,6 +222,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
       setFormValues(skill ? initializeFormFromSkill(skill) : getDefaultFormValues());
       setErrors({});
       setExpandedSection(false);
+      setImagePreview(null);
     }, 0);
 
     return () => clearTimeout(timer);
@@ -261,6 +271,52 @@ const SkillForm: React.FC<SkillFormProps> = ({
     if (!currentValues.includes(value) && errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
+  };
+
+  // Image handlers
+  const handleImageOptionChange = (option: ImageOption): void => {
+    if (option === 'upload') {
+      setFormValues((prev) => ({ ...prev, imageOption: option }));
+    } else {
+      // Clear upload data when switching away from upload
+      setFormValues((prev) => ({
+        ...prev,
+        imageOption: option,
+        imageData: undefined,
+        imageFileName: undefined,
+        imageContentType: undefined,
+      }));
+      setImagePreview(null);
+    }
+  };
+
+  const handleImageUpload = (file: File): void => {
+    const reader = new FileReader();
+    reader.addEventListener('load', (e) => {
+      const base64 = e.target?.result as string;
+      // Remove the data:image/xxx;base64, prefix for storage
+      const base64Data = base64.split(',')[1];
+      setFormValues((prev) => ({
+        ...prev,
+        imageOption: 'upload',
+        imageData: base64Data,
+        imageFileName: file.name,
+        imageContentType: file.type,
+      }));
+      setImagePreview(base64); // Keep full data URL for preview
+    });
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageClear = (): void => {
+    setFormValues((prev) => ({
+      ...prev,
+      imageOption: 'none',
+      imageData: undefined,
+      imageFileName: undefined,
+      imageContentType: undefined,
+    }));
+    setImagePreview(null);
   };
 
   // Validation
@@ -556,6 +612,22 @@ const SkillForm: React.FC<SkillFormProps> = ({
           />
 
           <Divider sx={{ my: 3 }} />
+
+          {/* ================================================================ */}
+          {/* IMAGE SECTION (Collapsible) */}
+          {/* ================================================================ */}
+
+          <SkillImageSection
+            imageOption={formValues.imageOption ?? 'none'}
+            imagePreview={imagePreview}
+            profilePhotoUrl={user?.profilePictureUrl}
+            loading={loading}
+            expanded={expandedSection === 'image'}
+            onExpandChange={(expanded) => setExpandedSection(expanded ? 'image' : false)}
+            onImageOptionChange={handleImageOptionChange}
+            onImageUpload={handleImageUpload}
+            onImageClear={handleImageClear}
+          />
 
           {/* ================================================================ */}
           {/* SCHEDULING SECTION (Collapsible) */}

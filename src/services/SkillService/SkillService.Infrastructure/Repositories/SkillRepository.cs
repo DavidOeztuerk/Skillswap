@@ -177,6 +177,11 @@ public class SkillRepository : ISkillRepository
         string? sortDirection,
         int pageNumber,
         int pageSize,
+        // Location filters
+        string? locationType = null,
+        int? maxDistanceKm = null,
+        double? userLatitude = null,
+        double? userLongitude = null,
         CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Skills
@@ -235,6 +240,28 @@ public class SkillRepository : ISkillRepository
             }
         }
 
+        // Apply location type filter
+        // Logic:
+        // - "remote": Skills available remotely (LocationType = "remote" or "both")
+        // - "in_person": Skills available in-person (LocationType = "in_person" or "both")
+        // - "both": Skills that can be done either way - shows remote OR in_person OR both
+        //           (This is inclusive - if user is flexible, show all location-aware skills)
+        if (!string.IsNullOrEmpty(locationType))
+        {
+            query = locationType.ToLower() switch
+            {
+                "remote" => query.Where(s => s.LocationType == "remote" || s.LocationType == "both"),
+                "in_person" => query.Where(s => s.LocationType == "in_person" || s.LocationType == "both"),
+                "both" => query.Where(s => !string.IsNullOrEmpty(s.LocationType)),
+                _ => query
+            };
+        }
+
+        // Note: Distance filter is applied AFTER fetching, in memory (see below)
+        // We need to handle "Alle Orte" + distance specially:
+        // - Remote skills should ALWAYS be included (no distance check)
+        // - In-person/both skills should be filtered by distance
+
         // Apply sorting
         query = sortBy?.ToLower() switch
         {
@@ -256,17 +283,80 @@ public class SkillRepository : ISkillRepository
             _ => query.OrderByDescending(s => s.SearchRelevanceScore)
         };
 
-        // Get total count
-        var totalCount = await query.CountAsync(cancellationToken);
+        // Get all results for distance filtering (if needed)
+        List<Skill> skills;
+        int totalCount;
 
-        // Apply paging
-        var skills = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        if (maxDistanceKm.HasValue && userLatitude.HasValue && userLongitude.HasValue)
+        {
+            // Fetch all matching skills and filter by distance in memory
+            var allSkills = await query.ToListAsync(cancellationToken);
+
+            // Distance filtering logic:
+            // - Remote skills (LocationType = "remote"): ALWAYS include, no distance check
+            // - In-person/both skills: Include only if within distance OR if no coordinates set
+            var filteredSkills = allSkills.Where(s =>
+            {
+                // Remote skills are always included (distance doesn't apply)
+                if (s.LocationType == "remote")
+                {
+                    return true;
+                }
+
+                // In-person/both skills: check distance if coordinates exist
+                if (s.LocationLatitude.HasValue && s.LocationLongitude.HasValue)
+                {
+                    var distance = CalculateHaversineDistance(
+                        userLatitude.Value, userLongitude.Value,
+                        s.LocationLatitude.Value, s.LocationLongitude.Value);
+                    return distance <= maxDistanceKm.Value;
+                }
+
+                // No coordinates set - exclude from distance-filtered results
+                return false;
+            }).ToList();
+
+            totalCount = filteredSkills.Count;
+            skills = filteredSkills
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+        }
+        else
+        {
+            // Standard pagination without distance filtering
+            totalCount = await query.CountAsync(cancellationToken);
+            skills = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+        }
 
         return (skills, totalCount);
     }
+
+    /// <summary>
+    /// Calculates distance between two coordinates using Haversine formula
+    /// </summary>
+    private static double CalculateHaversineDistance(
+        double lat1, double lon1,
+        double lat2, double lon2)
+    {
+        const double EarthRadiusKm = 6371.0;
+
+        var dLat = DegreesToRadians(lat2 - lat1);
+        var dLon = DegreesToRadians(lon2 - lon1);
+
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(DegreesToRadians(lat1)) * Math.Cos(DegreesToRadians(lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+
+        return EarthRadiusKm * c;
+    }
+
+    private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180.0;
 
     public async Task<(
         int TotalSkills,

@@ -122,13 +122,22 @@ export interface SkillSearchResultResponse {
   isOffered: boolean;
   category: SkillCategoryResponse;
   proficiencyLevel: ProficiencyLevelResponse;
-  tagsJson: string[];
+  tagsJson: string; // JSON string like "[\"tag1\",\"tag2\"]"
   averageRating?: number;
   reviewCount: number;
   endorsementCount: number;
   estimatedDurationMinutes?: number;
   createdAt: Date;
-  lastActiveAt?: Date; // Backend uses 'LastViewedAt' - might need to check this
+  lastActiveAt?: Date;
+  // Location fields (from backend)
+  locationType?: 'remote' | 'in_person' | 'both';
+  locationCity?: string;
+  locationCountry?: string;
+  maxDistanceKm?: number;
+  // Owner info
+  ownerUserName?: string;
+  ownerFirstName?: string;
+  ownerLastName?: string;
 }
 
 export interface SkillSearchParams {
@@ -150,6 +159,11 @@ export interface SkillSearchParams {
   sortDirection?: 'asc' | 'desc';
   pageNumber?: number;
   pageSize?: number;
+  // Location filters
+  locationType?: 'remote' | 'in_person' | 'both';
+  maxDistanceKm?: number;
+  userLatitude?: number;
+  userLongitude?: number;
 }
 
 export interface SkillStatistics {

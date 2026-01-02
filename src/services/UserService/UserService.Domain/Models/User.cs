@@ -106,11 +106,6 @@ public class User : AuditableEntity
     public virtual ICollection<BlockedUser> BlockedUsersInitiated { get; set; } = [];
     public virtual ICollection<BlockedUser> BlockedByOthers { get; set; } = [];
 
-    /// <summary>
-    /// List of Skill IDs that this user has marked as favorite
-    /// </summary>
-    public List<string> FavoriteSkillIds { get; set; } = [];
-
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();
     public bool IsAccountLocked => AccountLockedUntil.HasValue && AccountLockedUntil > DateTime.UtcNow;

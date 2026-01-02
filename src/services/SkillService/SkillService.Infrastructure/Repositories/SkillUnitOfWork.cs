@@ -18,6 +18,7 @@ public class SkillUnitOfWork(
     private ISkillResourceRepository? _skillResources;
     private ISkillReviewRepository? _skillReviews;
     private ISkillViewRepository? _skillViews;
+    private ISkillFavoriteRepository? _skillFavorites;
 
     public ISkillRepository Skills =>
         _skills ??= new SkillRepository(_dbContext);
@@ -42,6 +43,9 @@ public class SkillUnitOfWork(
 
     public ISkillViewRepository SkillViews =>
         _skillViews ??= new SkillViewRepository(_dbContext);
+
+    public ISkillFavoriteRepository SkillFavorites =>
+        _skillFavorites ??= new SkillFavoriteRepository(_dbContext);
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

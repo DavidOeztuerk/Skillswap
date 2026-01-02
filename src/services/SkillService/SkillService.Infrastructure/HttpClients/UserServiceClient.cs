@@ -96,4 +96,41 @@ public class UserServiceClient : IUserServiceClient
             return "Unknown User";
         }
     }
+
+    public async Task<Dictionary<string, PublicUserProfileResponse>> GetUserProfilesAsync(
+        IEnumerable<string> userIds,
+        CancellationToken cancellationToken = default)
+    {
+        var uniqueUserIds = userIds.Distinct().ToList();
+        var result = new Dictionary<string, PublicUserProfileResponse>();
+
+        if (uniqueUserIds.Count == 0)
+        {
+            return result;
+        }
+
+        _logger.LogDebug("Fetching {Count} user profiles in parallel", uniqueUserIds.Count);
+
+        // Fetch all user profiles in parallel
+        var tasks = uniqueUserIds.Select(async userId =>
+        {
+            var profile = await GetUserProfileAsync(userId, cancellationToken);
+            return (userId, profile);
+        });
+
+        var profiles = await Task.WhenAll(tasks);
+
+        foreach (var (userId, profile) in profiles)
+        {
+            if (profile != null)
+            {
+                result[userId] = profile;
+            }
+        }
+
+        _logger.LogDebug("Successfully fetched {Count} out of {Total} user profiles",
+            result.Count, uniqueUserIds.Count);
+
+        return result;
+    }
 }
