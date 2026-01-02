@@ -264,10 +264,9 @@ public static class RbacSeedData
                 EmailVerified = true,
                 AccountStatus = UserService.Domain.Enums.AccountStatus.Active,
                 CreatedAt = DateTime.UtcNow,
-                
+
                 // ✅ FIX: Add required fields
-                PhoneNumber = "+10000000000",
-                FavoriteSkillIds = new List<string>()  // Empty list
+                PhoneNumber = "+10000000000"
             };
 
             context.Users.Add(superAdminUser);
@@ -370,8 +369,7 @@ public static class RbacSeedData
                     EmailVerified = true,
                     AccountStatus = UserService.Domain.Enums.AccountStatus.Active,
                     CreatedAt = DateTime.UtcNow,
-                    PhoneNumber = "+10000000000",
-                    FavoriteSkillIds = new List<string>()
+                    PhoneNumber = "+10000000000"
                 };
 
                 context.Users.Add(serviceUser);

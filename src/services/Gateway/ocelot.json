@@ -470,10 +470,10 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/users/skills/favorites",
+      "DownstreamPathTemplate": "/skills/favorites",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/favorites",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/favorites",
       "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
@@ -481,32 +481,31 @@
       "AddQueriesToRequest": true
     },
     {
-      "DownstreamPathTemplate": "/users/skills/favorites",
+      "DownstreamPathTemplate": "/skills/{skillId}/favorite",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/favorites",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/{skillId}/favorite",
       "UpstreamHttpMethod": ["POST", "OPTIONS"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }
     },
     {
-      "DownstreamPathTemplate": "/users/skills/favorites/details",
+      "DownstreamPathTemplate": "/skills/{skillId}/favorite",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/favorites/details",
-      "UpstreamHttpMethod": ["GET"],
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/{skillId}/favorite",
+      "UpstreamHttpMethod": ["DELETE"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
-      },
-      "AddQueriesToRequest": true
+      }
     },
     {
-      "DownstreamPathTemplate": "/users/skills/favorites/{skillId}",
+      "DownstreamPathTemplate": "/skills/{skillId}/is-favorite",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
-      "UpstreamPathTemplate": "/api/users/favorites/{skillId}",
-      "UpstreamHttpMethod": ["DELETE"],
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/skills/{skillId}/is-favorite",
+      "UpstreamHttpMethod": ["GET"],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer"
       }

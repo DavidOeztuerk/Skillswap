@@ -93,12 +93,13 @@ export const SKILL_ENDPOINTS = {
 };
 
 /**
- * Favoriten-Endpunkte
+ * Favoriten-Endpunkte (SkillService)
  */
 export const FAVORITE_ENDPOINTS = {
-  GET_FAVORITES: () => `/api/users/favorites`,
-  ADD_FAVORITE: () => `/api/users/favorites`,
-  REMOVE_FAVORITE: (skillId: string) => `/api/users/favorites/${skillId}`,
+  GET_FAVORITES: `${BASE_SKILLS}/favorites`,
+  ADD_FAVORITE: (skillId: string) => `${BASE_SKILLS}/${skillId}/favorite`,
+  REMOVE_FAVORITE: (skillId: string) => `${BASE_SKILLS}/${skillId}/favorite`,
+  IS_FAVORITE: (skillId: string) => `${BASE_SKILLS}/${skillId}/is-favorite`,
 };
 
 /**

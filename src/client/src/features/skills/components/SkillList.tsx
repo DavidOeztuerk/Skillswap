@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useMemo } from 'react';
-import { Box, Typography, CircularProgress, Alert, Grid } from '@mui/material';
-import SkillCard from './SkillCard';
+import { Box, Typography, Alert, Stack } from '@mui/material';
+import SkillListItem, { SkillListItemSkeleton } from './SkillListItem';
 import type { Skill } from '../types/Skill';
 
 interface SkillListProps {
@@ -8,50 +8,14 @@ interface SkillListProps {
   loading: boolean;
   errors?: string[];
   isOwnerView?: boolean;
-  showMatchButtons?: boolean;
-  onEditSkill?: (skill: Skill) => void;
-  onDeleteSkill?: (skillId: string) => void;
-  onMatchSkill?: (skill: Skill) => void;
-  // favoriteSkillIds?: string[];
   isFavorite?: (skillId: string) => boolean;
   onToggleFavorite?: (skill: Skill) => void;
+  onEditSkill?: (skill: Skill) => void;
+  onDeleteSkill?: (skillId: string) => void;
 }
 
 const SkillList: React.FC<SkillListProps> = memo(
-  ({
-    skills,
-    loading,
-    errors,
-    isOwnerView = false,
-    showMatchButtons = false,
-    onEditSkill,
-    onDeleteSkill,
-    onMatchSkill,
-    // favoriteSkillIds,
-    isFavorite,
-    onToggleFavorite,
-  }) => {
-    const handleEditSkill = useCallback(
-      (skill: Skill) => {
-        onEditSkill?.(skill);
-      },
-      [onEditSkill]
-    );
-
-    const handleDeleteSkill = useCallback(
-      (skillId: string) => {
-        onDeleteSkill?.(skillId);
-      },
-      [onDeleteSkill]
-    );
-
-    const handleMatchSkill = useCallback(
-      (skill: Skill) => {
-        onMatchSkill?.(skill);
-      },
-      [onMatchSkill]
-    );
-
+  ({ skills, loading, errors, isOwnerView = false, isFavorite, onToggleFavorite }) => {
     const handleToggleFavorite = useCallback(
       (skill: Skill) => {
         onToggleFavorite?.(skill);
@@ -61,21 +25,18 @@ const SkillList: React.FC<SkillListProps> = memo(
 
     const validSkills = useMemo(() => skills ?? [], [skills]);
 
+    // Loading state: Show skeleton loaders
     if (loading) {
       return (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: 300,
-          }}
-        >
-          <CircularProgress size={60} />
-        </Box>
+        <Stack spacing={2}>
+          {Array.from({ length: 6 }, (_, i) => (
+            <SkillListItemSkeleton key={i} />
+          ))}
+        </Stack>
       );
     }
 
+    // Error state
     if (errors !== undefined && errors.length > 0) {
       return (
         <Box sx={{ mb: 3 }}>
@@ -95,6 +56,7 @@ const SkillList: React.FC<SkillListProps> = memo(
       );
     }
 
+    // Empty state
     if (validSkills.length === 0) {
       return (
         <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -110,36 +72,19 @@ const SkillList: React.FC<SkillListProps> = memo(
       );
     }
 
+    // List layout: Horizontal Udemy-style items stacked vertically
     return (
-      <Grid
-        container
-        spacing={{ xs: 2, sm: 3, md: 3 }}
-        sx={{
-          '& .MuiGrid-item': {
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        }}
-      >
+      <Stack spacing={2}>
         {validSkills.map((skill) => (
-          <Grid
+          <SkillListItem
             key={skill.id}
-            size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 3 }}
-            sx={{ display: 'flex' }}
-          >
-            <SkillCard
-              skill={skill}
-              isOwner={isOwnerView}
-              showMatchButton={showMatchButtons ? !isOwnerView : undefined}
-              onEdit={handleEditSkill}
-              onDelete={handleDeleteSkill}
-              onMatch={onMatchSkill ? handleMatchSkill : undefined}
-              isFavorite={isFavorite?.(skill.id) ?? false}
-              onToggleFavorite={handleToggleFavorite}
-            />
-          </Grid>
+            skill={skill}
+            isOwner={isOwnerView}
+            isFavorite={isFavorite?.(skill.id) ?? false}
+            onToggleFavorite={handleToggleFavorite}
+          />
         ))}
-      </Grid>
+      </Stack>
     );
   }
 );

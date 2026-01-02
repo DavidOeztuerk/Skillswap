@@ -40,9 +40,11 @@ const SkillEditPage: React.FC = () => {
 
   const {
     selectedSkill,
+    userSkills,
     categories,
     proficiencyLevels,
     fetchSkillById,
+    fetchUserSkills,
     updateSkill,
     fetchCategories,
     fetchProficiencyLevels,
@@ -69,14 +71,15 @@ const SkillEditPage: React.FC = () => {
 
       errorService.addBreadcrumb('Loading skill edit page data', 'data', { skillId });
 
-      // Load skill, categories, and proficiency levels (fire-and-forget - Redux tracks loading)
+      // Load skill, categories, proficiency levels, and user skills (fire-and-forget - Redux tracks loading)
       await fetchSkillById(skillId);
       fetchCategories();
       fetchProficiencyLevels();
+      fetchUserSkills(); // Load user skills for exchange selection
     };
 
     loadData().catch(() => {});
-  }, [skillId, fetchSkillById, fetchCategories, fetchProficiencyLevels, navigate]);
+  }, [skillId, fetchSkillById, fetchCategories, fetchProficiencyLevels, fetchUserSkills, navigate]);
 
   // Check ownership after skill is loaded
   useEffect(() => {
@@ -318,6 +321,7 @@ const SkillEditPage: React.FC = () => {
             loading={isUpdating || isLoading(LoadingKeys.UPDATE_SKILL)}
             skill={selectedSkill}
             title="" // No title needed since we have the page header
+            userOfferedSkills={userSkills.filter((s) => s.isOffered && s.id !== selectedSkill.id)}
           />
         ) : (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>

@@ -31,7 +31,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<ITwoFactorRepository, TwoFactorRepository>();
         services.AddScoped<IUserProfileRepository, UserProfileRepository>();
-        services.AddScoped<IUserSkillsRepository, UserSkillsRepository>();
         services.AddScoped<IUserBlockingRepository, UserBlockingRepository>();
         services.AddScoped<IUserActivityRepository, UserActivityRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();

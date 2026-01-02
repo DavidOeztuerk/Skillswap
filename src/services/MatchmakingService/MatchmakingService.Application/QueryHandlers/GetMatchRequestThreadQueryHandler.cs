@@ -2,6 +2,7 @@ using CQRS.Handlers;
 using MatchmakingService.Application.Queries;
 using Contracts.Matchmaking.Responses;
 using CQRS.Models;
+using MatchmakingService.Domain.Entities;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Domain.Services;
 using Microsoft.Extensions.Logging;
@@ -59,6 +60,38 @@ public class GetMatchRequestThreadQueryHandler(
             var targetUserName = await _userServiceClient.GetUserNameAsync(firstRequest.TargetUserId, cancellationToken);
             var targetUserRating = await _userServiceClient.GetUserRatingAsync(firstRequest.TargetUserId, cancellationToken);
 
+            // Counter-Offer Limit Calculation
+            const int maxInitiatorRequests = 3;
+            const int maxOwnerRequests = 3;
+            const int maxTotalRequests = 6;
+
+            var initiatorUserId = firstRequest.RequesterId;
+            var ownerUserId = firstRequest.TargetUserId;
+
+            var initiatorRequestCount = requests.Count(r => r.RequesterId == initiatorUserId);
+            var ownerRequestCount = requests.Count(r => r.RequesterId == ownerUserId);
+            var totalRequestCount = requests.Count;
+
+            var initiatorRemaining = Math.Max(0, maxInitiatorRequests - initiatorRequestCount);
+            var ownerRemaining = Math.Max(0, maxOwnerRequests - ownerRequestCount);
+            var totalRemaining = Math.Max(0, maxTotalRequests - totalRequestCount);
+
+            // Determine thread status
+            var hasAccepted = requests.Any(r => r.IsAccepted);
+            var hasAllRejected = requests.All(r => r.IsRejected);
+            var isLocked = totalRequestCount >= maxTotalRequests;
+            var hasExpired = requests.Any(r => r.IsExpired);
+
+            string threadStatus;
+            if (hasAccepted)
+                threadStatus = ThreadStatus.AgreementReached;
+            else if (hasAllRejected || (isLocked && !hasAccepted))
+                threadStatus = ThreadStatus.NoAgreement;
+            else if (hasExpired)
+                threadStatus = ThreadStatus.Expired;
+            else
+                threadStatus = ThreadStatus.Active;
+
             var response = new MatchRequestThreadResponse
             {
                 ThreadId = query.ThreadId,
@@ -88,7 +121,14 @@ public class GetMatchRequestThreadQueryHandler(
                 }).ToList(),
                 LastActivity = requests.Max(r => r.UpdatedAt ?? r.CreatedAt),
                 LastStatus = requests.Any(r => r.IsAccepted) ? "accepted" :
-                        requests.Any(r => r.IsRejected) ? "rejected" : "active"
+                        requests.Any(r => r.IsRejected) ? "rejected" : "active",
+
+                // Counter-Offer Limit Info
+                ThreadStatus = threadStatus,
+                InitiatorRemainingRequests = initiatorRemaining,
+                OwnerRemainingRequests = ownerRemaining,
+                TotalRemainingRequests = totalRemaining,
+                IsLocked = isLocked
             };
 
             return Success(response);

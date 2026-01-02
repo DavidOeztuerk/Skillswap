@@ -10,6 +10,10 @@ import {
   Check as AcceptIcon,
   Close as RejectIcon,
   MoreVert as MoreVertIcon,
+  SwapHoriz as SwapIcon,
+  Euro as EuroIcon,
+  VolunteerActivism as FreeIcon,
+  AccessTime as SessionIcon,
 } from '@mui/icons-material';
 import {
   Card,
@@ -168,6 +172,13 @@ const actionsLeftBoxSx: SxProps<Theme> = {
   gap: spacing[1] / 8,
 };
 
+const sessionInfoBoxSx: SxProps<Theme> = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 0.5,
+  mb: 1.5,
+};
+
 // ============================================================================
 // Helper functions
 // ============================================================================
@@ -211,6 +222,154 @@ function getRequestTypeColor(requestType: 'teach' | 'learn'): 'primary' | 'secon
 }
 
 // ============================================================================
+// Sub-components to reduce cognitive complexity
+// ============================================================================
+
+interface ExchangeInfoChipsProps {
+  isSkillExchange?: boolean;
+  exchangeSkillName?: string;
+  isMonetary?: boolean;
+  offeredAmount?: number;
+  currency?: string;
+}
+
+const ExchangeInfoChips: React.FC<ExchangeInfoChipsProps> = memo(
+  ({ isSkillExchange, exchangeSkillName, isMonetary, offeredAmount, currency }) => {
+    if (isSkillExchange) {
+      return (
+        <Chip
+          icon={<SwapIcon />}
+          label={exchangeSkillName ? `Tausch: ${exchangeSkillName}` : 'Skill-Tausch'}
+          size="small"
+          color="secondary"
+          variant="outlined"
+        />
+      );
+    }
+
+    if (isMonetary && offeredAmount !== undefined && offeredAmount > 0) {
+      return (
+        <Chip
+          icon={<EuroIcon />}
+          label={`${offeredAmount.toFixed(2)} ${currency ?? 'EUR'}`}
+          size="small"
+          color="success"
+          variant="outlined"
+        />
+      );
+    }
+
+    return (
+      <Chip icon={<FreeIcon />} label="Kostenlos" size="small" color="info" variant="outlined" />
+    );
+  }
+);
+
+ExchangeInfoChips.displayName = 'ExchangeInfoChips';
+
+interface SessionInfoChipsProps {
+  totalSessions?: number;
+  sessionDurationMinutes?: number;
+}
+
+const SessionInfoChips: React.FC<SessionInfoChipsProps> = memo(
+  ({ totalSessions, sessionDurationMinutes }) => (
+    <>
+      {totalSessions !== undefined && totalSessions > 0 ? (
+        <Chip
+          icon={<SessionIcon />}
+          label={`${totalSessions} Session${totalSessions > 1 ? 's' : ''}`}
+          size="small"
+          variant="filled"
+        />
+      ) : null}
+      {sessionDurationMinutes !== undefined && sessionDurationMinutes > 0 ? (
+        <Chip
+          icon={<ScheduleIcon />}
+          label={
+            sessionDurationMinutes >= 60
+              ? `${sessionDurationMinutes / 60} Std.`
+              : `${sessionDurationMinutes} Min.`
+          }
+          size="small"
+          variant="outlined"
+        />
+      ) : null}
+    </>
+  )
+);
+
+SessionInfoChips.displayName = 'SessionInfoChips';
+
+interface CardActionsContentProps {
+  status: 'pending' | 'accepted' | 'rejected';
+  onAccept?: () => void;
+  onReject?: () => void;
+  onMessage?: () => void;
+}
+
+const CardActionsContent: React.FC<CardActionsContentProps> = memo(
+  ({ status, onAccept, onReject, onMessage }) => (
+    <>
+      <Box sx={actionsLeftBoxSx}>
+        {status === 'pending' && (
+          <>
+            {onReject ? (
+              <Tooltip title="Ablehnen">
+                <IconButton color="error" onClick={onReject} size="small">
+                  <RejectIcon />
+                </IconButton>
+              </Tooltip>
+            ) : null}
+            {onAccept ? (
+              <Tooltip title="Akzeptieren">
+                <IconButton color="success" onClick={onAccept} size="small">
+                  <AcceptIcon />
+                </IconButton>
+              </Tooltip>
+            ) : null}
+          </>
+        )}
+
+        {onMessage ? (
+          <Tooltip title="Nachricht senden">
+            <IconButton color="primary" onClick={onMessage} size="small">
+              <MessageIcon />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+      </Box>
+
+      {status === 'pending' && onAccept ? (
+        <Button
+          variant="contained"
+          color="primary"
+          size="small"
+          onClick={onAccept}
+          startIcon={<AcceptIcon />}
+        >
+          Akzeptieren
+        </Button>
+      ) : null}
+
+      {status === 'accepted' && (
+        <Button
+          variant="outlined"
+          color="primary"
+          size="small"
+          onClick={onMessage}
+          startIcon={<MessageIcon />}
+        >
+          Nachricht
+        </Button>
+      )}
+    </>
+  )
+);
+
+CardActionsContent.displayName = 'CardActionsContent';
+
+// ============================================================================
 // Component
 // ============================================================================
 
@@ -226,6 +385,19 @@ interface MatchRequestCardProps {
   preferredTimes: string[];
   createdAt: string;
   status: 'pending' | 'accepted' | 'rejected';
+
+  // Session Info
+  sessionDurationMinutes?: number;
+  totalSessions?: number;
+
+  // Exchange Info
+  isSkillExchange?: boolean;
+  exchangeSkillName?: string;
+  isMonetary?: boolean;
+  offeredAmount?: number;
+  currency?: string;
+
+  // Callbacks
   onAccept?: (id: string) => void;
   onReject?: (id: string) => void;
   onMessage?: (id: string) => void;
@@ -245,6 +417,16 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = memo(
     preferredTimes,
     createdAt,
     status,
+    // Session Info
+    sessionDurationMinutes,
+    totalSessions,
+    // Exchange Info
+    isSkillExchange,
+    exchangeSkillName,
+    isMonetary,
+    offeredAmount,
+    currency,
+    // Callbacks
     onAccept,
     onReject,
     onMessage,
@@ -325,6 +507,21 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = memo(
             />
           </Box>
 
+          {/* Session & Exchange Info */}
+          <Box sx={sessionInfoBoxSx}>
+            <ExchangeInfoChips
+              isSkillExchange={isSkillExchange}
+              exchangeSkillName={exchangeSkillName}
+              isMonetary={isMonetary}
+              offeredAmount={offeredAmount}
+              currency={currency}
+            />
+            <SessionInfoChips
+              totalSessions={totalSessions}
+              sessionDurationMinutes={sessionDurationMinutes}
+            />
+          </Box>
+
           {/* Message */}
           {message && message.length > 0 ? (
             <Box sx={messageSectionSx}>
@@ -394,58 +591,12 @@ const MatchRequestCard: React.FC<MatchRequestCardProps> = memo(
 
         {/* Actions */}
         <CardActions sx={cardActionsSx}>
-          <Box sx={actionsLeftBoxSx}>
-            {status === 'pending' && (
-              <>
-                {onReject ? (
-                  <Tooltip title="Ablehnen">
-                    <IconButton color="error" onClick={handleReject} size="small">
-                      <RejectIcon />
-                    </IconButton>
-                  </Tooltip>
-                ) : null}
-                {onAccept ? (
-                  <Tooltip title="Akzeptieren">
-                    <IconButton color="success" onClick={handleAccept} size="small">
-                      <AcceptIcon />
-                    </IconButton>
-                  </Tooltip>
-                ) : null}
-              </>
-            )}
-
-            {onMessage ? (
-              <Tooltip title="Nachricht senden">
-                <IconButton color="primary" onClick={handleMessage} size="small">
-                  <MessageIcon />
-                </IconButton>
-              </Tooltip>
-            ) : null}
-          </Box>
-
-          {status === 'pending' && onAccept ? (
-            <Button
-              variant="contained"
-              color="primary"
-              size="small"
-              onClick={handleAccept}
-              startIcon={<AcceptIcon />}
-            >
-              Akzeptieren
-            </Button>
-          ) : null}
-
-          {status === 'accepted' && (
-            <Button
-              variant="outlined"
-              color="primary"
-              size="small"
-              onClick={handleMessage}
-              startIcon={<MessageIcon />}
-            >
-              Nachricht
-            </Button>
-          )}
+          <CardActionsContent
+            status={status}
+            onAccept={handleAccept}
+            onReject={handleReject}
+            onMessage={handleMessage}
+          />
         </CardActions>
       </Card>
     );

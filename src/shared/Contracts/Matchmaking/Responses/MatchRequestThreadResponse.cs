@@ -18,6 +18,35 @@ public class MatchRequestThreadResponse
     public List<MatchRequestInThread> Requests { get; set; } = [];
     public DateTime LastActivity { get; set; }
     public string LastStatus { get; set; } = string.Empty;
+
+    // Counter-Offer Limit Info
+    /// <summary>
+    /// Thread status: Active, AgreementReached, NoAgreement, Expired
+    /// </summary>
+    public string ThreadStatus { get; set; } = "Active";
+
+    /// <summary>
+    /// How many more requests the initiator (first requester) can make.
+    /// Initiator limit: 3 total (1 initial + 2 counter-offers)
+    /// </summary>
+    public int InitiatorRemainingRequests { get; set; } = 2;
+
+    /// <summary>
+    /// How many more requests the owner (skill owner) can make.
+    /// Owner limit: 3 counter-offers
+    /// </summary>
+    public int OwnerRemainingRequests { get; set; } = 3;
+
+    /// <summary>
+    /// Total remaining requests for the thread before it's locked.
+    /// Max 6 total requests per thread.
+    /// </summary>
+    public int TotalRemainingRequests { get; set; } = 5;
+
+    /// <summary>
+    /// True if the thread has reached the maximum of 6 requests.
+    /// </summary>
+    public bool IsLocked { get; set; } = false;
 }
 
 
