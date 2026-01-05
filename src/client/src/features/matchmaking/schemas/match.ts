@@ -4,6 +4,15 @@ import {
   NonEmptyStringSchema,
   IsoDateTimeSchema,
 } from '../../../shared/schemas/common';
+import {
+  SESSION_DURATION_OPTIONS,
+  MIN_TOTAL_DURATION_MINUTES,
+  MAX_TOTAL_DURATION_MINUTES,
+  EXCHANGE_TYPES,
+  MIN_HOURLY_RATE,
+  MAX_HOURLY_RATE,
+  CURRENCIES,
+} from '../constants/scheduling';
 
 // Constants
 const INVALID_AVATAR_URL = 'Invalid avatar URL';
@@ -47,6 +56,18 @@ export type MatchStatus = z.infer<typeof MatchStatusSchema>;
 export const MatchRequestTypeSchema = z.enum(['SkillExchange', 'Monetary']);
 
 export type MatchRequestType = z.infer<typeof MatchRequestTypeSchema>;
+
+// ============================================
+// EXCHANGE TYPE ENUM (NEW)
+// ============================================
+
+export const ExchangeTypeSchema = z.enum([
+  EXCHANGE_TYPES.SKILL_EXCHANGE,
+  EXCHANGE_TYPES.PAYMENT,
+  // EXCHANGE_TYPES.FREE,
+]);
+
+export type ExchangeType = z.infer<typeof ExchangeTypeSchema>;
 
 // ============================================
 // MATCH SCHEMAS
@@ -120,8 +141,8 @@ export type MatchRequest = z.infer<typeof MatchRequestSchema>;
 export const CreateMatchRequestSchema = z.object({
   skillId: UuidSchema,
   targetUserId: UuidSchema,
-  offeredSkillId: UuidSchema,
-  matchType: MatchRequestTypeSchema,
+  offeredSkillId: UuidSchema.optional(),
+  matchType: MatchRequestTypeSchema.optional(),
   message: z.string().max(500),
   proposedRate: z.number().nonnegative().optional(),
   currency: z.string().max(3).optional(),
@@ -136,9 +157,93 @@ export const CreateMatchRequestSchema = z.object({
   description: z.string().optional(),
   skillName: z.string().optional(),
   exchangeSkillName: z.string().optional(),
+  // NEW: Total duration for intelligent session calculation
+  totalDurationMinutes: z.number().int().positive().optional(),
+  // NEW: Exchange type (skill_exchange, payment, free)
+  exchangeType: ExchangeTypeSchema.optional(),
 });
 
 export type CreateMatchRequest = z.infer<typeof CreateMatchRequestSchema>;
+
+// ============================================
+// SESSION PLANNING SCHEMA (NEW)
+// ============================================
+
+/**
+ * Session Planning Form Schema
+ * Used in SessionPlanningSection for form validation
+ */
+export const SessionPlanningSchema = z
+  .object({
+    // Total learning time in minutes
+    totalDurationMinutes: z
+      .number()
+      .int()
+      .min(MIN_TOTAL_DURATION_MINUTES, `Mindestens ${MIN_TOTAL_DURATION_MINUTES} Minuten`)
+      .max(MAX_TOTAL_DURATION_MINUTES, `Maximal ${MAX_TOTAL_DURATION_MINUTES} Minuten`),
+
+    // Duration of each session in minutes
+    sessionDurationMinutes: z
+      .number()
+      .int()
+      .refine(
+        (val) =>
+          SESSION_DURATION_OPTIONS.includes(val as (typeof SESSION_DURATION_OPTIONS)[number]),
+        {
+          message: 'Ungueltige Session-Dauer',
+        }
+      ),
+
+    // Type of exchange
+    exchangeType: ExchangeTypeSchema,
+
+    // For skill exchange: the skill being offered
+    exchangeSkillId: z.string().optional(),
+    exchangeSkillName: z.string().optional(),
+
+    // For payment: hourly rate and currency
+    hourlyRate: z
+      .number()
+      .min(MIN_HOURLY_RATE, `Mindestens ${MIN_HOURLY_RATE} EUR/Std.`)
+      .max(MAX_HOURLY_RATE, `Maximal ${MAX_HOURLY_RATE} EUR/Std.`)
+      .optional(),
+    currency: z.enum(CURRENCIES).optional(),
+
+    // Preferred schedule
+    preferredDays: z.array(z.string()).min(1, 'Waehle mindestens einen Tag'),
+    preferredTimes: z.array(z.string()).min(1, 'Waehle mindestens eine Zeit'),
+
+    // Offer or seek
+    isOffering: z.boolean(),
+  })
+  .refine(
+    (data) => {
+      // If skill exchange, must have exchange skill selected
+      if (data.exchangeType === EXCHANGE_TYPES.SKILL_EXCHANGE) {
+        return !!data.exchangeSkillId;
+      }
+      return true;
+    },
+    {
+      message: 'Bei Skill-Tausch muss ein eigener Skill ausgewaehlt werden',
+      path: ['exchangeSkillId'],
+    }
+  )
+  .refine(
+    (data) => {
+      // If payment, must have hourly rate
+      if (data.exchangeType === EXCHANGE_TYPES.PAYMENT) {
+        return data.hourlyRate !== undefined && data.hourlyRate > 0;
+      }
+      return true;
+    },
+    {
+      message: 'Bei Bezahlung muss ein Stundensatz angegeben werden',
+      path: ['hourlyRate'],
+    }
+  );
+
+export type SessionPlanningFormValues = z.infer<typeof SessionPlanningSchema>;
 
 /**
  * Respond to Match Request Schema

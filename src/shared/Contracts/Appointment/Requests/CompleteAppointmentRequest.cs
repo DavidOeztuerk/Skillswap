@@ -31,7 +31,16 @@ public record RateSessionRequest(
     string? Feedback = null,
     bool IsPublic = true,
     bool? WouldRecommend = null,
-    string? Tags = null
+    string? Tags = null,
+    // Section Ratings (1-5 each, optional)
+    int? KnowledgeRating = null,
+    string? KnowledgeComment = null,
+    int? TeachingRating = null,
+    string? TeachingComment = null,
+    int? CommunicationRating = null,
+    string? CommunicationComment = null,
+    int? ReliabilityRating = null,
+    string? ReliabilityComment = null
 );
 
 public record RescheduleSessionRequest(

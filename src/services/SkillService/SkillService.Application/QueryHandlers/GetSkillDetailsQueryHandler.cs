@@ -76,7 +76,25 @@ public class GetSkillDetailsQueryHandler(
                 skill.EstimatedDurationMinutes,
                 skill.IsActive ? "Active" : "Inactive",
                 skill.CreatedAt,
-                skill.UpdatedAt ?? skill.CreatedAt);
+                skill.UpdatedAt ?? skill.CreatedAt,
+                // Exchange options
+                skill.ExchangeType,
+                skill.DesiredSkillCategoryId,
+                skill.DesiredSkillDescription,
+                skill.HourlyRate,
+                skill.Currency,
+                // Scheduling
+                skill.PreferredDays,
+                skill.PreferredTimes,
+                skill.SessionDurationMinutes,
+                skill.TotalSessions,
+                // Location
+                skill.LocationType,
+                skill.LocationAddress,
+                skill.LocationCity,
+                skill.LocationPostalCode,
+                skill.LocationCountry,
+                skill.MaxDistanceKm);
 
             return Success(response);
         }

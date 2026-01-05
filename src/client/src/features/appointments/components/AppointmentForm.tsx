@@ -4,13 +4,13 @@ import { isAfter, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
-import { LoadingButton } from '@mui/lab';
 import { Button, TextField, Box, Typography, Divider, Grid, InputAdornment } from '@mui/material';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import ErrorAlert from '../../../shared/components/error/ErrorAlert';
 import FormDialog from '../../../shared/components/ui/FormDialog';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import type { MatchDisplay } from '../../matchmaking/types/MatchmakingDisplay';
 import type { AppointmentRequest } from '../types/AppointmentRequest';
 

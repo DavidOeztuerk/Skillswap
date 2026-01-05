@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { formatDate } from 'date-fns';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowBack as ArrowBackIcon,
   VideoCall as VideoCallIcon,
   Check as CheckIcon,
   Cancel as CancelIcon,
@@ -21,6 +20,7 @@ import {
   Link as LinkIcon,
   School as SchoolIcon,
   Info as InfoIcon,
+  Star,
 } from '@mui/icons-material';
 import {
   Box,
@@ -40,6 +40,8 @@ import {
   LinearProgress,
   Alert,
   Stack,
+  Breadcrumbs,
+  Link,
   type SxProps,
   type Theme,
 } from '@mui/material';
@@ -49,6 +51,7 @@ import AlertMessage from '../../../shared/components/ui/AlertMessage';
 import ConfirmDialog from '../../../shared/components/ui/ConfirmDialog';
 import EmptyState from '../../../shared/components/ui/EmptyState';
 import PageLoader from '../../../shared/components/ui/PageLoader';
+import { useNavigation } from '../../../shared/hooks/useNavigation';
 import { isPastDate, formatDateTimeRange } from '../../../shared/utils/dateUtils';
 import MeetingLinkSection from '../../appointments/components/MeetingLinkSection';
 import { useAppointments } from '../../appointments/hooks/useAppointments';
@@ -56,6 +59,7 @@ import appointmentService from '../../appointments/services/appointmentService';
 import { type Appointment, AppointmentStatus } from '../../appointments/types/Appointment';
 import { useAuth } from '../../auth/hooks/useAuth';
 import useNotificationHandler from '../../notifications/hooks/useNotificationHandler';
+import RatingForm from '../components/RatingForm';
 
 // ============================================================================
 // PERFORMANCE: Extract sx objects as constants to prevent recreation
@@ -180,6 +184,49 @@ const DIALOG_CONFIG: Record<'confirm' | 'cancel' | 'complete', { title: string; 
       message: 'Möchtest du diese Session als abgeschlossen markieren?',
     },
   };
+
+// ============================================================================
+// Session Permission Helpers (extracted to reduce cognitive complexity)
+// ============================================================================
+
+interface SessionPermissions {
+  isOrganizer: boolean;
+  canJoinCall: boolean;
+  canConfirm: boolean;
+  canCancel: boolean;
+  canComplete: boolean;
+}
+
+const computeSessionPermissions = (
+  appointment: Appointment,
+  userId: string | undefined
+): SessionPermissions => {
+  const isOrganizer = appointment.isOrganizer ?? appointment.teacherId === userId;
+  const hasMeetingLink = (appointment.meetingLink ?? appointment.videocallUrl) !== undefined;
+
+  return {
+    isOrganizer,
+    canJoinCall:
+      appointment.status === AppointmentStatus.Confirmed &&
+      hasMeetingLink &&
+      !isPastDate(appointment.endTime),
+    canConfirm: !isOrganizer && appointment.status === AppointmentStatus.Pending,
+    canCancel:
+      appointment.status === AppointmentStatus.Pending ||
+      (appointment.status === AppointmentStatus.Confirmed && !isPastDate(appointment.startTime)),
+    canComplete:
+      isOrganizer &&
+      appointment.status === AppointmentStatus.Confirmed &&
+      isPastDate(appointment.endTime),
+  };
+};
+
+const computeSeriesProgress = (appointment: Appointment): number => {
+  const total = appointment.totalSessionsInSeries ?? 0;
+  if (total <= 0) return 0;
+  const completed = appointment.completedSessionsInSeries ?? 0;
+  return (completed / total) * 100;
+};
 
 // ============================================================================
 // Sub-Components
@@ -512,8 +559,23 @@ const SidebarDetailsCard: React.FC<SidebarDetailsCardProps> = ({
 const SessionDetailPage: React.FC = () => {
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const navigate = useNavigate();
+  const { contextualBreadcrumbs, navigateWithContext, navigationContext } = useNavigation();
 
   const { user } = useAuth();
+
+  // Handle breadcrumb navigation with context preservation
+  const handleBreadcrumbClick = useCallback(
+    (href: string) => {
+      if (href === '/') {
+        void navigateWithContext(href);
+      } else if (href === '/appointments') {
+        void navigateWithContext(href, { from: 'dashboard' });
+      } else {
+        void navigateWithContext(href, navigationContext);
+      }
+    },
+    [navigateWithContext, navigationContext]
+  );
   const {
     appointments,
     respondToAppointment,
@@ -543,11 +605,63 @@ const SessionDetailPage: React.FC = () => {
     type: 'success' | 'error' | 'info';
   } | null>(null);
 
+  // Rating form state - show automatically for students after session completion
+  const [showRatingForm, setShowRatingForm] = useState(false);
+  const [hasRatedSession, setHasRatedSession] = useState(false);
+
+  // Check if this session has already been rated (using localStorage)
+  useEffect(() => {
+    if (appointmentId) {
+      const ratedSessions = JSON.parse(localStorage.getItem('ratedSessions') ?? '[]') as string[];
+      setHasRatedSession(ratedSessions.includes(appointmentId));
+    }
+  }, [appointmentId]);
+
   useEffect(() => {
     if (!appointmentId) return;
     const foundAppointment = appointments.find((apt) => apt.id === appointmentId);
     if (foundAppointment) setAppointment(foundAppointment);
   }, [appointmentId, appointments]);
+
+  // Auto-show rating form for students when session is completed
+  useEffect(() => {
+    if (!appointment) return;
+
+    const isStudentRole = !(appointment.isOrganizer ?? appointment.teacherId === user?.id);
+    const isCompleted = appointment.status === AppointmentStatus.Completed;
+
+    // Show rating form automatically if:
+    // 1. Session is completed
+    // 2. Current user is the student (not the organizer/teacher)
+    // 3. User hasn't already rated this session
+    if (!isCompleted || !isStudentRole || hasRatedSession) return;
+
+    // Small delay to let the page render first
+    const timer = setTimeout(() => {
+      setShowRatingForm(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [appointment, user?.id, hasRatedSession]);
+
+  // Handle successful rating submission
+  const handleRatingSuccess = (): void => {
+    if (appointmentId) {
+      // Mark session as rated in localStorage
+      const ratedSessions = JSON.parse(localStorage.getItem('ratedSessions') ?? '[]') as string[];
+      if (!ratedSessions.includes(appointmentId)) {
+        ratedSessions.push(appointmentId);
+        localStorage.setItem('ratedSessions', JSON.stringify(ratedSessions));
+      }
+      setHasRatedSession(true);
+    }
+    setShowRatingForm(false);
+    handleSuccess('Vielen Dank für deine Bewertung!', 'Bewertung gespeichert');
+  };
+
+  // Handle rating form close (dismissal)
+  const handleRatingClose = (): void => {
+    setShowRatingForm(false);
+  };
 
   const handleConfirmDialogOpen = (action: 'confirm' | 'cancel' | 'complete'): void => {
     const config = DIALOG_CONFIG[action];
@@ -636,31 +750,13 @@ const SessionDetailPage: React.FC = () => {
     );
   }
 
-  const isOrganizer = appointment.isOrganizer ?? appointment.teacherId === user?.id;
+  // Use extracted helpers to reduce cognitive complexity
+  const { isOrganizer, canJoinCall, canConfirm, canCancel, canComplete } =
+    computeSessionPermissions(appointment, user?.id);
   const otherUser = isOrganizer ? appointment.studentDetails : appointment.teacherDetails;
-  // Allow join for Confirmed status only (Accepted was removed from enum)
-  const canJoinCall =
-    appointment.status === AppointmentStatus.Confirmed &&
-    (appointment.meetingLink ?? appointment.videocallUrl) !== undefined &&
-    !isPastDate(appointment.endTime);
-  // FIX: Only the PARTICIPANT (not the organizer) can accept the appointment
-  const canConfirm = !isOrganizer && appointment.status === AppointmentStatus.Pending;
-  const canCancel =
-    appointment.status === AppointmentStatus.Pending ||
-    (appointment.status === AppointmentStatus.Confirmed && !isPastDate(appointment.startTime));
-  const canComplete =
-    isOrganizer &&
-    appointment.status === AppointmentStatus.Confirmed &&
-    isPastDate(appointment.endTime);
-
   const statusIcon = STATUS_ICONS[appointment.status];
   const statusColor = STATUS_COLORS[appointment.status];
-
-  const seriesProgress =
-    (appointment.totalSessionsInSeries ?? 0) > 0
-      ? ((appointment.completedSessionsInSeries ?? 0) / (appointment.totalSessionsInSeries ?? 1)) *
-        100
-      : 0;
+  const seriesProgress = computeSeriesProgress(appointment);
 
   return (
     <Container maxWidth="lg" sx={{ mt: 3, mb: 4 }}>
@@ -674,13 +770,38 @@ const SessionDetailPage: React.FC = () => {
         />
       ) : null}
 
-      <Button
-        startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/appointments')}
-        sx={{ mb: 3 }}
-      >
-        Zurück zu Sessions
-      </Button>
+      {/* Breadcrumb Navigation */}
+      <Box sx={{ mb: 3 }}>
+        <Breadcrumbs aria-label="breadcrumb">
+          {contextualBreadcrumbs.map((item, index) => {
+            const isLast = index === contextualBreadcrumbs.length - 1;
+
+            if (isLast || item.isActive === true) {
+              return (
+                <Typography key={item.label} color="text.primary">
+                  {item.label}
+                </Typography>
+              );
+            }
+
+            return (
+              <Link
+                key={item.label}
+                component="button"
+                underline="hover"
+                color="inherit"
+                onClick={() => {
+                  if (item.href) {
+                    handleBreadcrumbClick(item.href);
+                  }
+                }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </Breadcrumbs>
+      </Box>
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
@@ -772,6 +893,29 @@ const SessionDetailPage: React.FC = () => {
             onJoin={handleJoinVideoCall}
             onConfirmDialog={handleConfirmDialogOpen}
           />
+
+          {/* Rate Session Button - Only for students on completed sessions who haven't rated yet */}
+          {appointment.status === AppointmentStatus.Completed &&
+          !isOrganizer &&
+          !hasRatedSession ? (
+            <Stack direction="row" sx={{ mt: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Star />}
+                onClick={() => setShowRatingForm(true)}
+              >
+                Session bewerten
+              </Button>
+            </Stack>
+          ) : null}
+
+          {/* Already rated indicator */}
+          {appointment.status === AppointmentStatus.Completed && !isOrganizer && hasRatedSession ? (
+            <Alert severity="success" sx={{ mt: 2, borderRadius: 2 }}>
+              Du hast diese Session bereits bewertet. Vielen Dank!
+            </Alert>
+          ) : null}
         </Grid>
 
         {/* Sidebar */}
@@ -810,6 +954,21 @@ const SessionDetailPage: React.FC = () => {
         severity={notification?.severity ?? 'error'}
         onClose={clearNotification}
       />
+
+      {/* Rating Form Dialog - Shows automatically for students after session completion */}
+      {showRatingForm && appointmentId != null ? (
+        <RatingForm
+          appointmentId={appointmentId}
+          participantName={
+            (appointment.otherPartyName ??
+              `${appointment.teacherDetails?.firstName ?? ''} ${appointment.teacherDetails?.lastName ?? ''}`.trim()) ||
+            'Lehrer'
+          }
+          open={showRatingForm}
+          onClose={handleRatingClose}
+          onSuccess={handleRatingSuccess}
+        />
+      ) : null}
     </Container>
   );
 };

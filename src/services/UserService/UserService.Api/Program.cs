@@ -52,7 +52,6 @@ app.UseSharedInfrastructure(app.Environment, serviceName);
 app.MapAuthController();
 app.MapUserVerificationController();
 app.MapUserProfileController();
-app.MapUserSkillsController();
 app.MapUserBlockingController();
 app.MapUserManagementController();
 app.MapTwoFactorController();

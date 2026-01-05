@@ -6,6 +6,10 @@ import {
   Check as AcceptIcon,
   Close as RejectIcon,
   Event as ScheduleIcon,
+  SwapHoriz as SwapIcon,
+  Euro as EuroIcon,
+  VolunteerActivism as FreeIcon,
+  AccessTime as SessionIcon,
 } from '@mui/icons-material';
 import {
   Card,
@@ -29,6 +33,68 @@ import {
   getMatchStatusMessage,
 } from '../utils/matchUtils';
 import type { MatchDisplay } from '../types/MatchmakingDisplay';
+
+// ============================================================================
+// Sub-components to reduce cognitive complexity
+// ============================================================================
+
+interface ExchangeInfoChipsProps {
+  match: MatchDisplay;
+}
+
+const ExchangeInfoChips: React.FC<ExchangeInfoChipsProps> = memo(({ match }) => {
+  if (match.isSkillExchange) {
+    return (
+      <Chip
+        icon={<SwapIcon />}
+        label={match.exchangeSkillName ? `Tausch: ${match.exchangeSkillName}` : 'Skill-Tausch'}
+        size="small"
+        color="secondary"
+        variant="outlined"
+      />
+    );
+  }
+
+  if (match.isMonetary && match.offeredAmount !== undefined && match.offeredAmount > 0) {
+    return (
+      <Chip
+        icon={<EuroIcon />}
+        label={`${match.offeredAmount.toFixed(2)} ${match.currency ?? 'EUR'}`}
+        size="small"
+        color="success"
+        variant="outlined"
+      />
+    );
+  }
+
+  return (
+    <Chip icon={<FreeIcon />} label="Kostenlos" size="small" color="info" variant="outlined" />
+  );
+});
+
+ExchangeInfoChips.displayName = 'ExchangeInfoChips';
+
+interface SessionInfoChipProps {
+  sessionInfo: MatchDisplay['sessionInfo'];
+}
+
+const SessionInfoChip: React.FC<SessionInfoChipProps> = memo(({ sessionInfo }) => {
+  if (!sessionInfo) return null;
+
+  const isComplete = sessionInfo.completedSessions === sessionInfo.totalSessions;
+
+  return (
+    <Chip
+      icon={<SessionIcon />}
+      label={`${sessionInfo.completedSessions}/${sessionInfo.totalSessions} Sessions`}
+      size="small"
+      color={isComplete ? 'success' : 'default'}
+      variant="filled"
+    />
+  );
+});
+
+SessionInfoChip.displayName = 'SessionInfoChip';
 
 // PERFORMANCE FIX: Extract sx objects as constants to prevent recreation on every render
 // This allows React.memo to work properly
@@ -60,6 +126,89 @@ const rejectButtonSx: SxProps<Theme> = { order: { xs: 2, sm: 1 } };
 const acceptButtonSx: SxProps<Theme> = { order: { xs: 1, sm: 2 } };
 const chipSx: SxProps<Theme> = { fontWeight: 'medium' };
 const smallChipSx: SxProps<Theme> = { mb: 0.5 };
+const sessionInfoBoxSx: SxProps<Theme> = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 1,
+  mb: 2,
+  p: 1.5,
+  borderRadius: 1,
+  bgcolor: 'action.hover',
+};
+
+// ============================================================================
+// MatchCardActions sub-component (defined after sx constants)
+// ============================================================================
+
+interface MatchCardActionsProps {
+  canRespond: boolean;
+  canSchedule: boolean;
+  onAccept?: (e: React.MouseEvent) => void;
+  onReject?: (e: React.MouseEvent) => void;
+  onSchedule?: (e: React.MouseEvent) => void;
+  statusMessage: string;
+}
+
+const MatchCardActions: React.FC<MatchCardActionsProps> = memo(
+  ({ canRespond, canSchedule, onAccept, onReject, onSchedule, statusMessage }) => {
+    if (canRespond) {
+      return (
+        <Box sx={actionsBoxSx}>
+          {onReject ? (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<RejectIcon />}
+              onClick={onReject}
+              fullWidth
+              sx={rejectButtonSx}
+            >
+              Ablehnen
+            </Button>
+          ) : null}
+          {onAccept ? (
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<AcceptIcon />}
+              onClick={onAccept}
+              fullWidth
+              sx={acceptButtonSx}
+            >
+              Akzeptieren
+            </Button>
+          ) : null}
+        </Box>
+      );
+    }
+
+    if (canSchedule && onSchedule) {
+      return (
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          startIcon={<ScheduleIcon />}
+          onClick={onSchedule}
+        >
+          Termin vereinbaren
+        </Button>
+      );
+    }
+
+    return (
+      <Typography variant="body2" color="text.secondary" align="center" sx={{ width: '100%' }}>
+        {statusMessage}
+      </Typography>
+    );
+  }
+);
+
+MatchCardActions.displayName = 'MatchCardActions';
+
+// ============================================================================
+// Main Component
+// ============================================================================
 
 interface MatchCardProps {
   match: MatchDisplay;
@@ -163,6 +312,12 @@ const MatchCard: React.FC<MatchCardProps> = memo(
             </Box>
           </Box>
 
+          {/* Session & Exchange Info */}
+          <Box sx={sessionInfoBoxSx}>
+            <ExchangeInfoChips match={match} />
+            <SessionInfoChip sessionInfo={match.sessionInfo} />
+          </Box>
+
           <Box sx={dateBoxSx}>
             <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1 }} />
             <Typography variant="body2">Erstellt am {formatDate(match.createdAt)}</Typography>
@@ -206,58 +361,14 @@ const MatchCard: React.FC<MatchCardProps> = memo(
         </CardContent>
 
         <CardActions sx={cardActionsSx}>
-          {canRespond ? (
-            <Box sx={actionsBoxSx}>
-              {onReject ? (
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<RejectIcon />}
-                  onClick={handleReject}
-                  fullWidth
-                  sx={rejectButtonSx}
-                >
-                  Ablehnen
-                </Button>
-              ) : null}
-
-              {onAccept ? (
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<AcceptIcon />}
-                  onClick={handleAccept}
-                  fullWidth
-                  sx={acceptButtonSx}
-                >
-                  Akzeptieren
-                </Button>
-              ) : null}
-            </Box>
-          ) : null}
-
-          {canSchedule && onSchedule ? (
-            <Button
-              fullWidth
-              variant="contained"
-              color="primary"
-              startIcon={<ScheduleIcon />}
-              onClick={handleSchedule}
-            >
-              Termin vereinbaren
-            </Button>
-          ) : null}
-
-          {!canRespond && !canSchedule && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              align="center"
-              sx={{ width: '100%' }}
-            >
-              {getMatchStatusMessage(match.status)}
-            </Typography>
-          )}
+          <MatchCardActions
+            canRespond={canRespond}
+            canSchedule={canSchedule}
+            onAccept={handleAccept}
+            onReject={handleReject}
+            onSchedule={handleSchedule}
+            statusMessage={getMatchStatusMessage(match.status)}
+          />
         </CardActions>
       </Card>
     );

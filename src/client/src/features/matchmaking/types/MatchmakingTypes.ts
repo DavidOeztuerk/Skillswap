@@ -1,3 +1,16 @@
+// Thread status constants matching backend ThreadStatus
+export type ThreadStatusType = 'Active' | 'AgreementReached' | 'NoAgreement' | 'Expired';
+
+// Counter-Offer Limit Constants
+export const COUNTER_OFFER_LIMITS = {
+  /** Max requests for initiator (1 initial + 2 counter-offers) */
+  MAX_INITIATOR_REQUESTS: 3,
+  /** Max counter-offers for owner */
+  MAX_OWNER_REQUESTS: 3,
+  /** Max total requests per thread */
+  MAX_TOTAL_REQUESTS: 6,
+} as const;
+
 export interface MatchRequestThreadResponse {
   threadId: string;
   skill: {
@@ -22,6 +35,18 @@ export interface MatchRequestThreadResponse {
   requests: MatchRequestInThread[];
   lastActivity: string;
   status: 'active' | 'accepted' | 'rejected' | 'expired';
+
+  // Counter-Offer Limit Info
+  /** Thread status: Active, AgreementReached, NoAgreement, Expired */
+  threadStatus: ThreadStatusType;
+  /** Remaining requests for initiator (max 3: 1 initial + 2 counter) */
+  initiatorRemainingRequests: number;
+  /** Remaining requests for owner (max 3 counter-offers) */
+  ownerRemainingRequests: number;
+  /** Total remaining requests before thread is locked (max 6) */
+  totalRemainingRequests: number;
+  /** True if thread has reached max 6 requests */
+  isLocked: boolean;
 }
 
 export interface MatchRequestInThread {

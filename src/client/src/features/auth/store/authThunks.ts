@@ -55,6 +55,14 @@ export const uploadProfilePicture = createAppAsyncThunk(
   }
 );
 
+export const deleteProfilePicture = createAppAsyncThunk(
+  'auth/deleteProfilePicture',
+  async (_, { rejectWithValue }) => {
+    const response = await authService.deleteProfilePicture();
+    return isSuccessResponse(response) ? response : rejectWithValue(response);
+  }
+);
+
 export const changePassword = createAppAsyncThunk(
   'auth/changePassword',
   async (passwordData: ChangePasswordRequest, { rejectWithValue }) => {

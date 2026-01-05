@@ -170,7 +170,12 @@ const skillsSlice = createSlice({
     });
     builder.addCase(fetchFavoriteSkills.fulfilled, (state, action) => {
       state.isLoading = false;
-      state.favoriteSkillIds = action.payload;
+      // Add skills to entity adapter
+      skillsAdapter.setMany(state, action.payload.skills);
+      // Store favorite skill IDs
+      state.favoriteSkillIds = action.payload.skillIds;
+      // Store pagination
+      state.favoriteSkillsPagination = action.payload.pagination;
     });
     builder.addCase(fetchFavoriteSkills.rejected, (state, action) => {
       state.isLoading = false;

@@ -23,6 +23,15 @@ export interface RateSessionRequest {
   isPublic?: boolean;
   wouldRecommend?: boolean | null;
   tags?: string | null;
+  // Section Ratings (1-5 each, optional)
+  knowledgeRating?: number | null;
+  knowledgeComment?: string | null;
+  teachingRating?: number | null;
+  teachingComment?: string | null;
+  communicationRating?: number | null;
+  communicationComment?: string | null;
+  reliabilityRating?: number | null;
+  reliabilityComment?: string | null;
 }
 
 export interface RescheduleSessionRequest {
@@ -143,6 +152,15 @@ const sessionService = {
         isPublic: request.isPublic !== false,
         wouldRecommend: request.wouldRecommend ?? null,
         tags: request.tags ?? null,
+        // Section ratings
+        knowledgeRating: request.knowledgeRating ?? null,
+        knowledgeComment: request.knowledgeComment ?? null,
+        teachingRating: request.teachingRating ?? null,
+        teachingComment: request.teachingComment ?? null,
+        communicationRating: request.communicationRating ?? null,
+        communicationComment: request.communicationComment ?? null,
+        reliabilityRating: request.reliabilityRating ?? null,
+        reliabilityComment: request.reliabilityComment ?? null,
       }
     );
   },

@@ -53,6 +53,11 @@ public class GetSkillRecommendationsQueryHandler(
             "desc",
             1,
             100, // Get top 100 candidates
+            // Location filters - not used for recommendations
+            null, // locationType
+            null, // maxDistanceKm
+            null, // userLatitude
+            null, // userLongitude
             cancellationToken);
 
         var recommendations = new List<SkillRecommendationResponse>();

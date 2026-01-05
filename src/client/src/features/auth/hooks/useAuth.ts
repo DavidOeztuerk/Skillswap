@@ -11,6 +11,7 @@ import {
   selectUserDisplayName,
   selectUserInitials,
   selectUserRoles,
+  selectUserAvatarUrl,
   selectIsProfileComplete,
 } from '../store/authSelectors';
 import { clearError, setLoading, clearTwoFactorState } from '../store/authSlice';
@@ -21,6 +22,7 @@ import {
   getProfile,
   updateProfile as updateProfileAction,
   uploadProfilePicture as uploadProfilePictureAction,
+  deleteProfilePicture as deleteProfilePictureAction,
   changePassword as changePasswordAction,
   silentLogin as silentLoginAction,
   verifyEmail as verifyEmailAction,
@@ -55,6 +57,7 @@ export const useAuth = (): {
   userDisplayName: string;
   userInitials: string;
   userRoles: string[];
+  userAvatarUrl: string | undefined;
   isProfileComplete: boolean;
   pendingLoginCredentials: ReturnType<typeof selectPendingLoginCredentials>;
   // Auth Operations
@@ -67,6 +70,7 @@ export const useAuth = (): {
   loadProfile: () => void;
   updateProfile: (profileData: UpdateProfileRequest) => void;
   uploadProfilePicture: (file: File) => void;
+  deleteProfilePicture: () => void;
   changePassword: (passwordData: ChangePasswordRequest) => void;
   // Email & 2FA Operations
   verifyEmail: (request: VerifyEmailRequest) => void;
@@ -107,6 +111,7 @@ export const useAuth = (): {
   const userDisplayName = useAppSelector(selectUserDisplayName);
   const userInitials = useAppSelector(selectUserInitials);
   const userRoles = useAppSelector(selectUserRoles);
+  const userAvatarUrl = useAppSelector(selectUserAvatarUrl);
   const isProfileComplete = useAppSelector(selectIsProfileComplete);
   const pendingLoginCredentials = useAppSelector(selectPendingLoginCredentials);
 
@@ -167,6 +172,11 @@ export const useAuth = (): {
        * Upload profile picture
        */
       uploadProfilePicture: (file: File) => dispatch(uploadProfilePictureAction(file)),
+
+      /**
+       * Delete profile picture
+       */
+      deleteProfilePicture: () => dispatch(deleteProfilePictureAction()),
 
       /**
        * Change password
@@ -327,6 +337,7 @@ export const useAuth = (): {
     userDisplayName,
     userInitials,
     userRoles,
+    userAvatarUrl,
     isProfileComplete,
     pendingLoginCredentials,
 
