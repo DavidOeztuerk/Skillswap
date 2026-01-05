@@ -15,6 +15,27 @@ public interface ISessionRatingRepository
     Task<List<SessionRating>> GetByRateeAsync(string rateeId, CancellationToken cancellationToken = default);
     Task<SessionRating?> GetBySessionAndRaterAsync(string appointmentId, string raterId, CancellationToken cancellationToken = default);
 
+    // Paginated query for user reviews (reviews received by user)
+    Task<List<SessionRating>> GetUserReviewsWithPaginationAsync(
+        string userId,
+        int pageNumber,
+        int pageSize,
+        int? starFilter = null,
+        CancellationToken cancellationToken = default);
+
+    Task<int> GetUserReviewsCountAsync(
+        string userId,
+        int? starFilter = null,
+        CancellationToken cancellationToken = default);
+
+    // Statistics for histogram display
+    Task<Dictionary<int, int>> GetRatingDistributionAsync(
+        string userId,
+        CancellationToken cancellationToken = default);
+
+    Task<(double? avgKnowledge, double? avgTeaching, double? avgCommunication, double? avgReliability)>
+        GetSectionAveragesAsync(string userId, CancellationToken cancellationToken = default);
+
     // Create operations
     Task<SessionRating> CreateAsync(SessionRating rating, CancellationToken cancellationToken = default);
 

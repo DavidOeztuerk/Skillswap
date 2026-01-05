@@ -21,6 +21,14 @@ public class CreateCounterOfferCommandHandler(
     private readonly IMatchmakingUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDomainEventPublisher _eventPublisher = eventPublisher;
 
+    // Counter-Offer Limits:
+    // - Initiator: 1 Initial + 2 Counter-Offers = 3 total
+    // - Owner: 3 Counter-Offers = 3 total
+    // - Thread total: 6 max
+    private const int MaxInitiatorRequests = 3;
+    private const int MaxOwnerRequests = 3;
+    private const int MaxTotalRequests = 6;
+
     public override async Task<ApiResponse<CreateMatchRequestResponse>> Handle(
         CreateCounterOfferCommand request,
         CancellationToken cancellationToken)
@@ -34,7 +42,7 @@ public class CreateCounterOfferCommandHandler(
                 return Error("Missing required fields", ErrorCodes.RequiredFieldMissing);
             }
 
-            Logger.LogInformation("Creating counter offer for request: {RequestId} by user: {UserId}", 
+            Logger.LogInformation("Creating counter offer for request: {RequestId} by user: {UserId}",
                 request.OriginalRequestId, request.UserId);
 
             // Find the original request
@@ -46,6 +54,68 @@ public class CreateCounterOfferCommandHandler(
                 Logger.LogWarning("Original request not found: {RequestId}", request.OriginalRequestId);
                 return Error($"Request {request.OriginalRequestId} not found", ErrorCodes.ResourceNotFound);
             }
+
+            // Get thread ID (use existing or will create new)
+            var threadId = originalRequest.ThreadId ?? originalRequest.Id;
+
+            // ========================================================================
+            // COUNTER-OFFER LIMIT CHECK
+            // ========================================================================
+            var requestsInThread = await _unitOfWork.MatchRequests
+                .GetRequestsByThreadIdAsync(threadId, cancellationToken);
+
+            // If thread doesn't exist yet (first counter-offer), include the original request
+            if (requestsInThread.Count == 0)
+            {
+                requestsInThread = [originalRequest];
+            }
+
+            // Determine who is the initiator (first request creator) and owner (target)
+            var firstRequest = requestsInThread.OrderBy(r => r.CreatedAt).First();
+            var initiatorUserId = firstRequest.RequesterId;
+            var ownerUserId = firstRequest.TargetUserId;
+
+            // Count requests per party
+            var initiatorRequestCount = requestsInThread.Count(r => r.RequesterId == initiatorUserId);
+            var ownerRequestCount = requestsInThread.Count(r => r.RequesterId == ownerUserId);
+            var totalRequestCount = requestsInThread.Count;
+
+            Logger.LogDebug(
+                "Thread {ThreadId} request counts - Initiator: {InitiatorCount}, Owner: {OwnerCount}, Total: {Total}",
+                threadId, initiatorRequestCount, ownerRequestCount, totalRequestCount);
+
+            // Check total limit
+            if (totalRequestCount >= MaxTotalRequests)
+            {
+                Logger.LogWarning("Thread {ThreadId} has reached maximum requests ({Max})",
+                    threadId, MaxTotalRequests);
+                return Error(
+                    "Maximale Verhandlungsrunden erreicht. Keine weitere Anfragen möglich.",
+                    ErrorCodes.ValidationFailed);
+            }
+
+            // Check per-party limits
+            if (request.UserId == initiatorUserId && initiatorRequestCount >= MaxInitiatorRequests)
+            {
+                Logger.LogWarning("Initiator {UserId} has reached max requests ({Max}) in thread {ThreadId}",
+                    request.UserId, MaxInitiatorRequests, threadId);
+                return Error(
+                    "Sie haben die maximale Anzahl von 3 Anfragen erreicht (1 Initial + 2 Gegenangebote).",
+                    ErrorCodes.ValidationFailed);
+            }
+
+            if (request.UserId == ownerUserId && ownerRequestCount >= MaxOwnerRequests)
+            {
+                Logger.LogWarning("Owner {UserId} has reached max counter-offers ({Max}) in thread {ThreadId}",
+                    request.UserId, MaxOwnerRequests, threadId);
+                return Error(
+                    "Sie haben die maximale Anzahl von 3 Gegenangeboten erreicht.",
+                    ErrorCodes.ValidationFailed);
+            }
+
+            // ========================================================================
+            // END LIMIT CHECK
+            // ========================================================================
 
             // Mark original request as countered
             originalRequest.MarkAsCounterOffered();

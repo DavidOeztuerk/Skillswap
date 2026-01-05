@@ -48,6 +48,11 @@ public class GetUserSkillsQueryHandler(
             filteredSkills = filteredSkills.Where(s => s.ProficiencyLevelId == request.ProficiencyLevelId);
         }
 
+        if (!string.IsNullOrEmpty(request.LocationType))
+        {
+            filteredSkills = filteredSkills.Where(s => s.LocationType == request.LocationType);
+        }
+
         var skillsList = filteredSkills.ToList();
         var totalRecords = skillsList.Count;
 

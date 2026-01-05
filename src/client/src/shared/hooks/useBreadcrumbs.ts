@@ -96,6 +96,32 @@ export const useBreadcrumbs = (): BreadcrumbItem[] => {
         isDynamic: true,
         labelResolver: () => 'Benutzerprofil',
       },
+      '/users/:userId/profile': {
+        label: 'Profil',
+        parent: '/users/:userId',
+        isDynamic: true,
+        labelResolver: () => 'Profil',
+      },
+      '/users/:userId/reviews': {
+        label: 'Bewertungen',
+        parent: '/users/:userId/profile',
+        isDynamic: true,
+        labelResolver: () => 'Bewertungen',
+      },
+      // Matchmaking detail route
+      '/matchmaking/:matchId': {
+        label: 'Match Details',
+        parent: '/matchmaking',
+        isDynamic: true,
+        labelResolver: () => 'Match Details',
+      },
+      // Session detail route
+      '/sessions/:sessionId': {
+        label: 'Session Details',
+        parent: '/appointments',
+        isDynamic: true,
+        labelResolver: () => 'Session Details',
+      },
       // Settings routes
       '/settings': {
         label: 'Einstellungen',

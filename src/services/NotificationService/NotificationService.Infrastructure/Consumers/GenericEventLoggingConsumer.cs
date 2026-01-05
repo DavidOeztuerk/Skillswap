@@ -26,8 +26,8 @@ public class GenericEventLoggingConsumer(
     public async Task Consume(ConsumeContext<SkillCreatedEvent> context)
     {
         await Task.CompletedTask;
-        _logger.LogInformation("Received SkillCreatedEvent: {SkillName} by {CreatorId} at {Timestamp}",
-            context.Message.Name, context.Message.SkillCreatorId, context.SentTime);
+        _logger.LogInformation("Received SkillCreatedEvent: {SkillName} by {UserId} at {Timestamp}",
+            context.Message.Name, context.Message.UserId, context.SentTime);
     }
 
     public async Task Consume(ConsumeContext<MatchFoundEvent> context)

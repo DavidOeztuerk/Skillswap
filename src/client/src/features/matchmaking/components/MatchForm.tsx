@@ -2,36 +2,34 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import z from 'zod';
-import { Add as AddIcon } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
-  FormControl,
-  FormControlLabel,
-  FormLabel,
-  Checkbox,
   TextField,
   Box,
   Typography,
-  Divider,
-  FormHelperText,
-  Select,
-  MenuItem,
-  Chip,
-  OutlinedInput,
-  ListItemText,
   InputAdornment,
   Grid,
-  Alert,
   CircularProgress,
 } from '@mui/material';
-import { WEEKDAYS, getWeekdayLabel, TIME_SLOTS } from '../../../core/config/constants';
 import ErrorAlert from '../../../shared/components/error/ErrorAlert';
 import FormDialog from '../../../shared/components/ui/FormDialog';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import { isSuccessResponse } from '../../../shared/types/api/UnifiedResponse';
 import { skillService } from '../../skills/services/skillsService';
-import CalendarIntegrationHint from './CalendarIntegrationHint';
+import {
+  EXCHANGE_TYPES,
+  DEFAULT_TOTAL_DURATION_MINUTES,
+  DEFAULT_SESSION_DURATION_MINUTES,
+  DEFAULT_CURRENCY,
+  DEFAULT_HOURLY_RATE,
+  MIN_TOTAL_DURATION_MINUTES,
+  MAX_TOTAL_DURATION_MINUTES,
+  MIN_SESSION_DURATION_MINUTES,
+  MAX_SESSION_DURATION_MINUTES,
+} from '../constants/scheduling';
+import { calculateSessions } from '../utils/sessionCalculations';
 import QuickSkillCreate from './QuickSkillCreate';
+import { SessionPlanningSection } from './scheduling';
 import type {
   SkillCategoryResponse,
   ProficiencyLevelResponse,
@@ -40,26 +38,59 @@ import type { Skill } from '../../skills/types/Skill';
 import type { GetUserSkillResponse } from '../../skills/types/SkillResponses';
 import type { CreateMatchRequest } from '../types/CreateMatchRequest';
 
-// Schema angepasst für CreateMatchRequest
+// Schema angepasst für CreateMatchRequest mit neuen Session-Planungs-Feldern
 const matchFormSchema = z
   .object({
     skillId: z.string().nonempty('Skill muss ausgewählt werden'),
     description: z.string().max(500, 'Beschreibung darf maximal 500 Zeichen enthalten').optional(),
     message: z.string().max(500, 'Nachricht darf maximal 500 Zeichen enthalten').optional(),
+    additionalNotes: z.string().max(500, 'Notizen dürfen maximal 500 Zeichen enthalten').optional(),
+
+    // Session Planning Fields
     isOffering: z.boolean(),
-    isSkillExchange: z.boolean().optional(),
+    totalDurationMinutes: z
+      .number()
+      .min(MIN_TOTAL_DURATION_MINUTES, `Mindestens ${MIN_TOTAL_DURATION_MINUTES} Minuten`)
+      .max(MAX_TOTAL_DURATION_MINUTES, `Maximal ${MAX_TOTAL_DURATION_MINUTES} Minuten`),
+    sessionDurationMinutes: z
+      .number()
+      .min(MIN_SESSION_DURATION_MINUTES, `Mindestens ${MIN_SESSION_DURATION_MINUTES} Minuten`)
+      .max(MAX_SESSION_DURATION_MINUTES, `Maximal ${MAX_SESSION_DURATION_MINUTES} Minuten`),
+
+    // Exchange Type Fields
+    exchangeType: z.enum([
+      EXCHANGE_TYPES.SKILL_EXCHANGE,
+      EXCHANGE_TYPES.PAYMENT,
+      // EXCHANGE_TYPES.FREE,
+    ]),
     exchangeSkillId: z.string().optional(),
+    exchangeSkillName: z.string().optional(),
+    hourlyRate: z.number().min(0).optional(),
+    currency: z.string().optional(),
+
+    // Schedule Preferences
     preferredDays: z.array(z.string()).min(1, 'Wähle mindestens einen Tag'),
     preferredTimes: z.array(z.string()).min(1, 'Wähle mindestens eine Zeit'),
-    additionalNotes: z.string().max(500, 'Notizen dürfen maximal 500 Zeichen enthalten').optional(),
   })
   .refine(
     (data) =>
       // Wenn Skill-Tausch gewählt ist, muss auch ein Tausch-Skill ausgewählt sein
-      !(data.isSkillExchange && !data.exchangeSkillId),
+      !(data.exchangeType === EXCHANGE_TYPES.SKILL_EXCHANGE && !data.exchangeSkillId),
     {
       message: 'Bei einem Skill-Tausch muss ein eigener Skill ausgewählt werden',
       path: ['exchangeSkillId'],
+    }
+  )
+  .refine(
+    (data) =>
+      // Bei Bezahlung muss ein Stundensatz angegeben sein
+      !(
+        data.exchangeType === EXCHANGE_TYPES.PAYMENT &&
+        (data.hourlyRate === undefined || data.hourlyRate <= 0)
+      ),
+    {
+      message: 'Bei Bezahlung muss ein Stundensatz angegeben werden',
+      path: ['hourlyRate'],
     }
   );
 
@@ -77,16 +108,7 @@ interface MatchFormProps {
   error?: string | undefined;
 }
 
-const ITEM_HEIGHT = 48;
-const ITEM_PADDING_TOP = 8;
-const MenuProps = {
-  PaperProps: {
-    style: {
-      maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-      width: 250,
-    },
-  },
-};
+// MenuProps wird jetzt in SessionPlanningSection verwaltet
 
 /**
  * Formular zur Erstellung einer Match-Anfrage
@@ -149,20 +171,31 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }
   }, [open, providedUserSkills]);
 
-  // Default-Werte
+  // Default-Werte mit neuen Session-Planungs-Feldern
   const defaultValues = useMemo(
     () => ({
       skillId: skill.id,
       description: skill.isOffered
         ? 'Ich möchte diesen Skill lernen'
         : 'Ich kann bei diesem Skill helfen',
-      isOffering: !skill.isOffered, // Umgekehrt: wenn der Nutzer den Skill anbietet, will er ihn hier lernen
-      isSkillExchange: false,
-      exchangeSkillId: '',
-      preferredDays: ['Monday', 'Tuesday', 'Wednesday'],
-      preferredTimes: ['18:00', '19:00'],
       message: '',
       additionalNotes: '',
+
+      // Session Planning
+      isOffering: !skill.isOffered, // Umgekehrt: wenn der Nutzer den Skill anbietet, will er ihn hier lernen
+      totalDurationMinutes: DEFAULT_TOTAL_DURATION_MINUTES,
+      sessionDurationMinutes: DEFAULT_SESSION_DURATION_MINUTES,
+
+      // Exchange Type
+      exchangeType: EXCHANGE_TYPES.SKILL_EXCHANGE,
+      exchangeSkillId: '',
+      exchangeSkillName: '',
+      hourlyRate: DEFAULT_HOURLY_RATE,
+      currency: DEFAULT_CURRENCY,
+
+      // Schedule Preferences
+      preferredDays: ['Monday', 'Tuesday', 'Wednesday'],
+      preferredTimes: ['18:00', '19:00'],
     }),
     [skill]
   );
@@ -201,6 +234,14 @@ const MatchForm: React.FC<MatchFormProps> = ({
       throw new Error('Target User ID ist erforderlich');
     }
 
+    // Berechne die Session-Anzahl aus Gesamtdauer und Session-Dauer
+    const isSkillExchange = data.exchangeType === EXCHANGE_TYPES.SKILL_EXCHANGE;
+    const calculation = calculateSessions(
+      data.totalDurationMinutes,
+      data.sessionDurationMinutes,
+      isSkillExchange
+    );
+
     const matchRequest: CreateMatchRequest = {
       skillId: data.skillId,
       targetUserId,
@@ -208,19 +249,37 @@ const MatchForm: React.FC<MatchFormProps> = ({
         data.message ??
         data.description ??
         (data.isOffering ? 'Ich möchte diesen Skill anbieten' : 'Ich möchte diesen Skill lernen'),
-      isSkillExchange: data.isSkillExchange ?? false,
-      exchangeSkillId: data.exchangeSkillId,
-      isMonetary: false, // Vorerst kein Geld-Austausch
-      sessionDurationMinutes: 60, // Standard: 60 Minuten
-      totalSessions: 1, // Standard: 1 Session
+
+      // Session Planning - berechnet aus Gesamtdauer
+      sessionDurationMinutes: data.sessionDurationMinutes,
+      totalSessions: calculation.totalSessions,
+      totalDurationMinutes: data.totalDurationMinutes,
+
+      // Exchange Type
+      exchangeType: data.exchangeType,
+      isSkillExchange,
+      exchangeSkillId: isSkillExchange ? data.exchangeSkillId : undefined,
+      isMonetary: data.exchangeType === EXCHANGE_TYPES.PAYMENT,
+      offeredAmount:
+        data.exchangeType === EXCHANGE_TYPES.PAYMENT &&
+        data.hourlyRate !== undefined &&
+        data.hourlyRate > 0
+          ? data.hourlyRate * (data.totalDurationMinutes / 60)
+          : undefined,
+      hourlyRate: data.exchangeType === EXCHANGE_TYPES.PAYMENT ? data.hourlyRate : undefined,
+      currency: data.exchangeType === EXCHANGE_TYPES.PAYMENT ? data.currency : undefined,
+
+      // Offer/Seek
+      isOffering: data.isOffering,
+
+      // Schedule Preferences
       preferredDays: data.preferredDays,
       preferredTimes: data.preferredTimes,
+
       // Frontend-only fields for display
       description: data.description,
       skillName: skill.name,
-      exchangeSkillName: data.exchangeSkillId
-        ? userSkills.find((s) => s.skillId === data.exchangeSkillId)?.name
-        : undefined,
+      exchangeSkillName: isSkillExchange ? data.exchangeSkillName : undefined,
     };
 
     try {
@@ -314,126 +373,31 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   helperText={errors.description?.message ?? 'Beschreibe kurz, was du möchtest'}
                   disabled={isLoading}
                   placeholder="Was möchtest du mit diesem Skill machen?"
+                  sx={{ mb: 3 }}
                 />
               )}
             />
+          </Grid>
 
-            <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
-              <FormLabel component="legend">Was möchtest du mit diesem Skill machen?</FormLabel>
-              <Controller
-                name="isOffering"
-                control={control}
-                render={({ field }) => (
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={field.value}
-                        onChange={(e) => {
-                          field.onChange(e.target.checked);
-                        }}
-                        disabled={isLoading}
-                      />
-                    }
-                    label={
-                      field.value
-                        ? 'Ich möchte diesen Skill anbieten (lehren)'
-                        : 'Ich möchte diesen Skill lernen'
-                    }
-                  />
-                )}
-              />
-            </FormControl>
-
-            {/* Skill Exchange Option */}
-            <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
-              <Controller
-                name="isSkillExchange"
-                control={control}
-                render={({ field }) => (
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={field.value ?? false}
-                        onChange={(e) => {
-                          field.onChange(e.target.checked);
-                        }}
-                        disabled={isLoading}
-                      />
-                    }
-                    label="Skill-Tausch: Ich möchte einen eigenen Skill im Austausch anbieten"
-                  />
-                )}
-              />
-            </FormControl>
-
-            {/* Exchange Skill Selection */}
-            {watch('isSkillExchange') && (
-              <Controller
-                name="exchangeSkillId"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.exchangeSkillId} sx={{ mb: 2 }}>
-                    <FormLabel>Wähle deinen Skill für den Tausch</FormLabel>
-                    <Select
-                      {...field}
-                      value={field.value ?? ''}
-                      disabled={isLoading || userSkills.length === 0}
-                      displayEmpty
-                    >
-                      <MenuItem value="" disabled>
-                        {userSkills.length === 0
-                          ? 'Keine eigenen Skills vorhanden'
-                          : 'Wähle einen Skill aus'}
-                      </MenuItem>
-                      {userSkills.map((userSkill) => (
-                        <MenuItem key={userSkill.skillId} value={userSkill.skillId}>
-                          <Box>
-                            <Typography variant="body1">{userSkill.name}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {userSkill.category.name} • {userSkill.proficiencyLevel.level}
-                            </Typography>
-                          </Box>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.exchangeSkillId ? (
-                      <FormHelperText>{errors.exchangeSkillId.message}</FormHelperText>
-                    ) : null}
-                    {userSkills.length === 0 && (
-                      <Alert severity="info" sx={{ mt: 1 }}>
-                        Du hast noch keine eigenen Skills.
-                        <Button
-                          size="small"
-                          color="primary"
-                          sx={{ ml: 1 }}
-                          onClick={() => {
-                            setQuickCreateOpen(true);
-                          }}
-                          startIcon={<AddIcon />}
-                        >
-                          Skill erstellen
-                        </Button>
-                      </Alert>
-                    )}
-                    {userSkills.length > 0 && (
-                      <Box sx={{ mt: 1 }}>
-                        <Button
-                          size="small"
-                          startIcon={<AddIcon />}
-                          onClick={() => {
-                            setQuickCreateOpen(true);
-                          }}
-                        >
-                          Neuen Skill erstellen
-                        </Button>
-                      </Box>
-                    )}
-                  </FormControl>
-                )}
-              />
-            )}
-
-            <Divider sx={{ my: 2 }} />
+          {/* Session Planning Section - enthält:
+              - Offer/Seek Toggle (Lernen/Lehren)
+              - Exchange Type (Skill-Tausch/Bezahlung/Kostenlos)
+              - Total Duration + Session Duration
+              - Session Calculation Display
+              - Preferred Days + Times
+          */}
+          <Grid size={{ xs: 12 }}>
+            <SessionPlanningSection
+              control={control as never}
+              errors={errors as never}
+              watch={watch as never}
+              setValue={setValue as never}
+              userSkills={userSkills}
+              onCreateSkill={() => setQuickCreateOpen(true)}
+              targetUserName={targetUserName}
+              skillName={skill.name}
+              isLoading={isLoading}
+            />
           </Grid>
 
           {/* Message */}
@@ -453,105 +417,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   disabled={isLoading}
                   placeholder="Stelle dich kurz vor und erkläre, warum du dich für diesen Skill-Austausch interessierst..."
                 />
-              )}
-            />
-          </Grid>
-
-          {/* Calendar Integration Hint - Before Day/Time Selection */}
-          <Grid size={{ xs: 12 }}>
-            <Divider sx={{ my: 1 }} />
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 2, mb: 1 }}>
-              Terminpräferenzen
-            </Typography>
-            <CalendarIntegrationHint defaultExpanded={false} />
-          </Grid>
-
-          {/* PreferredDays */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Controller
-              name="preferredDays"
-              control={control}
-              render={({ field }) => (
-                <FormControl fullWidth error={!!errors.preferredDays}>
-                  <FormLabel component="legend">Bevorzugte Tage</FormLabel>
-                  <Select
-                    multiple
-                    value={field.value}
-                    onChange={(event) => {
-                      const selected = event.target.value as string[];
-                      // Sort by position in WEEKDAYS (Monday=0, Tuesday=1, etc.)
-                      const sorted = [...selected].sort(
-                        (a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b)
-                      );
-                      field.onChange(sorted);
-                    }}
-                    input={<OutlinedInput id="select-multiple-days" />}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => (
-                          <Chip key={value} label={getWeekdayLabel(value)} />
-                        ))}
-                      </Box>
-                    )}
-                    MenuProps={MenuProps}
-                    disabled={isLoading}
-                  >
-                    {WEEKDAYS.map((day) => (
-                      <MenuItem key={day} value={day}>
-                        <Checkbox checked={field.value.includes(day)} />
-                        <ListItemText primary={getWeekdayLabel(day)} />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.preferredDays ? (
-                    <FormHelperText>{errors.preferredDays.message}</FormHelperText>
-                  ) : null}
-                </FormControl>
-              )}
-            />
-          </Grid>
-
-          {/* PreferredTimes */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Controller
-              name="preferredTimes"
-              control={control}
-              render={({ field }) => (
-                <FormControl fullWidth error={!!errors.preferredTimes}>
-                  <FormLabel component="legend">Bevorzugte Zeiten</FormLabel>
-                  <Select
-                    multiple
-                    value={field.value}
-                    onChange={(event) => {
-                      const selected = event.target.value as string[];
-                      // Sort by position in TIME_SLOTS (08:00, 09:00, etc.)
-                      const sorted = [...selected].sort(
-                        (a, b) => TIME_SLOTS.indexOf(a) - TIME_SLOTS.indexOf(b)
-                      );
-                      field.onChange(sorted);
-                    }}
-                    input={<OutlinedInput id="select-multiple-times" />}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => (
-                          <Chip key={value} label={value} />
-                        ))}
-                      </Box>
-                    )}
-                    MenuProps={MenuProps}
-                    disabled={isLoading}
-                  >
-                    {TIME_SLOTS.map((time) => (
-                      <MenuItem key={time} value={time}>
-                        <Checkbox checked={field.value.includes(time)} />
-                        <ListItemText primary={time} />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.preferredTimes ? (
-                    <FormHelperText>{errors.preferredTimes.message}</FormHelperText>
-                  ) : null}
-                </FormControl>
               )}
             />
           </Grid>

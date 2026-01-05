@@ -8,13 +8,17 @@ public record PublicUserProfileResponse(
     string FirstName,
     string LastName,
     string UserName,
+    string? Headline,
     string? Bio,
     string? AvatarUrl,
     DateTime MemberSince,
     int SkillsOffered,
     int SkillsLearned,
+    int CompletedSessions,
     double AverageRating,
     int TotalReviews,
     bool IsBlocked,
     List<string> Languages,
-    string? TimeZone);
+    string? TimeZone,
+    List<UserExperienceResponse> Experience,
+    List<UserEducationResponse> Education);

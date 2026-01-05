@@ -10,7 +10,8 @@ public interface ISkillUnitOfWork : IAsyncDisposable
     ISkillResourceRepository SkillResources { get; }
     ISkillReviewRepository SkillReviews { get; }
     ISkillViewRepository SkillViews { get; }
-    
+    ISkillFavoriteRepository SkillFavorites { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);
     Task CommitTransactionAsync(CancellationToken cancellationToken = default);

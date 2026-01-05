@@ -41,12 +41,18 @@ public class InputSanitizationMiddleware
 
         try
         {
-            await ProcessRequestAsync(context);
+            var shouldContinue = await ProcessRequestAsync(context);
+            if (!shouldContinue)
+            {
+                // Request was blocked due to injection detection or sanitization error
+                // Response has already been written, do not call _next
+                return;
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during input sanitization");
-            
+
             if (_options.BlockOnSanitizationError)
             {
                 await HandleSanitizationError(context, "Input sanitization failed");
@@ -57,31 +63,45 @@ public class InputSanitizationMiddleware
         await _next(context);
     }
 
-    private async Task ProcessRequestAsync(HttpContext context)
+    /// <summary>
+    /// Process and sanitize request inputs
+    /// </summary>
+    /// <returns>True if request should continue to next middleware, false if blocked</returns>
+    private async Task<bool> ProcessRequestAsync(HttpContext context)
     {
         // Sanitize query parameters
         if (context.Request.Query.Any())
         {
-            await SanitizeQueryParameters(context);
+            if (!await SanitizeQueryParameters(context))
+                return false;
         }
 
         // Sanitize headers
-        await SanitizeHeaders(context);
+        if (!await SanitizeHeaders(context))
+            return false;
 
         // Sanitize request body for POST/PUT/PATCH
         if (HasRequestBody(context))
         {
-            await SanitizeRequestBody(context);
+            if (!await SanitizeRequestBody(context))
+                return false;
         }
 
         // Sanitize form data
         if (context.Request.HasFormContentType)
         {
-            await SanitizeFormData(context);
+            if (!await SanitizeFormData(context))
+                return false;
         }
+
+        return true;
     }
 
-    private async Task SanitizeQueryParameters(HttpContext context)
+    /// <summary>
+    /// Sanitize query parameters
+    /// </summary>
+    /// <returns>True if request should continue, false if blocked</returns>
+    private async Task<bool> SanitizeQueryParameters(HttpContext context)
     {
         var sanitizedQuery = new Dictionary<string, StringValues>();
         var hasInjection = false;
@@ -94,7 +114,7 @@ public class InputSanitizationMiddleware
             for (int i = 0; i < values.Length; i++)
             {
                 var value = values[i] ?? string.Empty;
-                
+
                 // Detect injection attempts
                 var injectionResult = _inputSanitizer.DetectInjectionAttempt(value);
                 if (injectionResult.InjectionDetected)
@@ -105,7 +125,7 @@ public class InputSanitizationMiddleware
                     if (_options.BlockOnInjectionDetection)
                     {
                         await HandleInjectionAttempt(context, injectionResult);
-                        return;
+                        return false; // Request blocked
                     }
                 }
 
@@ -126,19 +146,25 @@ public class InputSanitizationMiddleware
         {
             _logger.LogWarning("Injection attempt detected in query parameters for {Path}", context.Request.Path);
         }
+
+        return true; // Continue processing
     }
 
-    private async Task SanitizeHeaders(HttpContext context)
+    /// <summary>
+    /// Sanitize request headers
+    /// </summary>
+    /// <returns>True if request should continue, false if blocked</returns>
+    private async Task<bool> SanitizeHeaders(HttpContext context)
     {
         // Skip User-Agent validation as it contains legitimate characters that trigger false positives
         var headersToSanitize = new[] { "Referer", "X-Forwarded-For", "X-Real-IP" };
-        
+
         foreach (var headerName in headersToSanitize)
         {
             if (context.Request.Headers.TryGetValue(headerName, out var headerValues))
             {
                 var sanitizedValues = new List<string>();
-                
+
                 foreach (var value in headerValues)
                 {
                     if (!string.IsNullOrEmpty(value))
@@ -147,11 +173,11 @@ public class InputSanitizationMiddleware
                         if (injectionResult.InjectionDetected)
                         {
                             await LogInjectionAttempt(context, "Header", headerName, value, injectionResult);
-                            
+
                             if (_options.BlockOnInjectionDetection)
                             {
                                 await HandleInjectionAttempt(context, injectionResult);
-                                return;
+                                return false; // Request blocked
                             }
                         }
 
@@ -161,7 +187,7 @@ public class InputSanitizationMiddleware
                             RemoveControlCharacters = true,
                             NormalizeWhitespace = true
                         });
-                        
+
                         sanitizedValues.Add(sanitized);
                     }
                 }
@@ -172,52 +198,64 @@ public class InputSanitizationMiddleware
                 }
             }
         }
+
+        return true; // Continue processing
     }
 
-    private async Task SanitizeRequestBody(HttpContext context)
+    /// <summary>
+    /// Sanitize request body
+    /// </summary>
+    /// <returns>True if request should continue, false if blocked</returns>
+    private async Task<bool> SanitizeRequestBody(HttpContext context)
     {
         if (context.Request.ContentLength > _options.MaxRequestBodySize)
         {
             await HandleSanitizationError(context, "Request body too large for sanitization");
-            return;
+            return false; // Request blocked
         }
 
         context.Request.EnableBuffering();
-        
+
         using var reader = new StreamReader(context.Request.Body, Encoding.UTF8, leaveOpen: true);
         var body = await reader.ReadToEndAsync();
         context.Request.Body.Position = 0;
 
         if (string.IsNullOrEmpty(body))
-            return;
+            return true;
 
         var contentType = context.Request.ContentType?.ToLowerInvariant() ?? "";
 
         if (contentType.Contains("application/json"))
         {
-            await SanitizeJsonBody(context, body);
+            return await SanitizeJsonBody(context, body);
         }
         else if (contentType.Contains("application/xml") || contentType.Contains("text/xml"))
         {
-            await SanitizeXmlBody(context, body);
+            return await SanitizeXmlBody(context, body);
         }
         else if (contentType.Contains("text/plain"))
         {
-            await SanitizeTextBody(context, body);
+            return await SanitizeTextBody(context, body);
         }
+
+        return true;
     }
 
-    private async Task SanitizeJsonBody(HttpContext context, string jsonBody)
+    /// <summary>
+    /// Sanitize JSON request body
+    /// </summary>
+    /// <returns>True if request should continue, false if blocked</returns>
+    private async Task<bool> SanitizeJsonBody(HttpContext context, string jsonBody)
     {
         try
         {
             // Skip injection detection on raw JSON as it contains legitimate characters
             // Instead, parse JSON first and then check individual values
-            
+
             // Parse and sanitize JSON
             var jsonDoc = JsonDocument.Parse(jsonBody);
             var sanitized = SanitizeJsonElement(jsonDoc.RootElement);
-            
+
             var sanitizedJson = JsonSerializer.Serialize(sanitized, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -227,30 +265,37 @@ public class InputSanitizationMiddleware
             var sanitizedBytes = Encoding.UTF8.GetBytes(sanitizedJson);
             context.Request.Body = new MemoryStream(sanitizedBytes);
             context.Request.ContentLength = sanitizedBytes.Length;
+            return true;
         }
         catch (JsonException ex)
         {
             _logger.LogWarning(ex, "Invalid JSON in request body");
-            
+
             if (_options.BlockOnInvalidInput)
             {
                 await HandleSanitizationError(context, "Invalid JSON format");
+                return false;
             }
+            return true;
         }
     }
 
-    private async Task SanitizeXmlBody(HttpContext context, string xmlBody)
+    /// <summary>
+    /// Sanitize XML request body
+    /// </summary>
+    /// <returns>True if request should continue, false if blocked</returns>
+    private async Task<bool> SanitizeXmlBody(HttpContext context, string xmlBody)
     {
         // Detect XML injection patterns
         var injectionResult = _inputSanitizer.DetectInjectionAttempt(xmlBody);
         if (injectionResult.InjectionDetected)
         {
             await LogInjectionAttempt(context, "XmlBody", "RequestBody", xmlBody, injectionResult);
-            
+
             if (_options.BlockOnInjectionDetection)
             {
                 await HandleInjectionAttempt(context, injectionResult);
-                return;
+                return false; // Request blocked
             }
         }
 
@@ -270,19 +315,24 @@ public class InputSanitizationMiddleware
         var sanitizedBytes = Encoding.UTF8.GetBytes(sanitized);
         context.Request.Body = new MemoryStream(sanitizedBytes);
         context.Request.ContentLength = sanitizedBytes.Length;
+        return true;
     }
 
-    private async Task SanitizeTextBody(HttpContext context, string textBody)
+    /// <summary>
+    /// Sanitize plain text request body
+    /// </summary>
+    /// <returns>True if request should continue, false if blocked</returns>
+    private async Task<bool> SanitizeTextBody(HttpContext context, string textBody)
     {
         var injectionResult = _inputSanitizer.DetectInjectionAttempt(textBody);
         if (injectionResult.InjectionDetected)
         {
             await LogInjectionAttempt(context, "TextBody", "RequestBody", textBody, injectionResult);
-            
+
             if (_options.BlockOnInjectionDetection)
             {
                 await HandleInjectionAttempt(context, injectionResult);
-                return;
+                return false; // Request blocked
             }
         }
 
@@ -297,9 +347,14 @@ public class InputSanitizationMiddleware
         var sanitizedBytes = Encoding.UTF8.GetBytes(sanitized);
         context.Request.Body = new MemoryStream(sanitizedBytes);
         context.Request.ContentLength = sanitizedBytes.Length;
+        return true;
     }
 
-    private async Task SanitizeFormData(HttpContext context)
+    /// <summary>
+    /// Sanitize form data
+    /// </summary>
+    /// <returns>True if request should continue, false if blocked</returns>
+    private async Task<bool> SanitizeFormData(HttpContext context)
     {
         try
         {
@@ -314,16 +369,16 @@ public class InputSanitizationMiddleware
                 for (int i = 0; i < values.Length; i++)
                 {
                     var value = values[i] ?? string.Empty;
-                    
+
                     var injectionResult = _inputSanitizer.DetectInjectionAttempt(value);
                     if (injectionResult.InjectionDetected)
                     {
                         await LogInjectionAttempt(context, "FormField", key, value, injectionResult);
-                        
+
                         if (_options.BlockOnInjectionDetection)
                         {
                             await HandleInjectionAttempt(context, injectionResult);
-                            return;
+                            return false; // Request blocked
                         }
                     }
 
@@ -334,10 +389,12 @@ public class InputSanitizationMiddleware
 
             // Note: Modifying form data in middleware is complex and may require custom form collection
             // This is a simplified implementation
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error reading form data");
+            return true; // Continue on error, let downstream handle validation
         }
     }
 

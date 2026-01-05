@@ -5,7 +5,6 @@ import {
   // Notifications as NotificationsIcon,
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
-  AccountCircle,
   Search as SearchIcon,
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
@@ -28,6 +27,7 @@ import {
 import useAuth from '../../../features/auth/hooks/useAuth';
 import NotificationBell from '../../../features/notifications/components/NotificationBell';
 import useSearchNavigation from '../../../features/search/hooks/useSearchNavigation';
+import ProfileAvatar from '../ui/ProfileAvatar';
 import MobileSearchBar from './MobileSearchbar';
 import SearchBar from './Searchbar';
 // import { useAnnouncements } from '../../hooks/useAnnouncements';
@@ -50,7 +50,7 @@ const Header: React.FC<HeaderProps> = memo(
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
-    const { isAuthenticated, logout } = useAuth();
+    const { isAuthenticated, logout, user } = useAuth();
     const { isOpen: searchOpen, openSearch, closeSearch } = useSearchNavigation();
 
     // States für Menüs
@@ -170,10 +170,14 @@ const Header: React.FC<HeaderProps> = memo(
               <Tooltip title="Profil öffnen">
                 <IconButton
                   onClick={handleProfileMenuOpen}
-                  sx={{ ml: 1 }}
+                  sx={{ ml: 1, p: 0.5 }}
                   aria-label="Benutzerprofil"
                 >
-                  <AccountCircle />
+                  <ProfileAvatar
+                    src={user?.profilePictureUrl ?? undefined}
+                    alt={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`}
+                    size={32}
+                  />
                 </IconButton>
               </Tooltip>
             </>

@@ -31,12 +31,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuthRepository, AuthRepository>();
         services.AddScoped<ITwoFactorRepository, TwoFactorRepository>();
         services.AddScoped<IUserProfileRepository, UserProfileRepository>();
-        services.AddScoped<IUserSkillsRepository, UserSkillsRepository>();
         services.AddScoped<IUserBlockingRepository, UserBlockingRepository>();
         services.AddScoped<IUserActivityRepository, UserActivityRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<IUserCalendarConnectionRepository, UserCalendarConnectionRepository>();
         services.AddScoped<IAppointmentCalendarEventRepository, AppointmentCalendarEventRepository>();
+
+        // Profile extension repositories
+        services.AddScoped<IUserExperienceRepository, UserExperienceRepository>();
+        services.AddScoped<IUserEducationRepository, UserEducationRepository>();
+        services.AddScoped<IUserReviewRepository, UserReviewRepository>();
 
         // Session Management - for concurrent session control
         services.AddScoped<ISessionManager, SessionManager>();

@@ -82,14 +82,6 @@ public interface IUserRepository
     Task<(List<User> users, int totalCount)> SearchUsers(string? searchTerm, string? role, string? accountStatus, bool? emailVerified, DateTime? createdAfter, DateTime? createdBefore, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 }
 
-// User Skills Repository - handles favorite skills
-public interface IUserSkillsRepository
-{
-    Task<bool> AddFavoriteSkill(string userId, string skillId, CancellationToken cancellationToken = default);
-    Task<bool> RemoveFavoriteSkill(string userId, string skillId, CancellationToken cancellationToken = default);
-    Task<List<string>> GetFavoriteSkills(string userId, CancellationToken cancellationToken = default);
-}
-
 // User Blocking Repository - handles user blocking operations
 public interface IUserBlockingRepository
 {
@@ -105,4 +97,37 @@ public interface IUserActivityRepository
 {
     Task<(List<UserActivity> activities, int totalCount)> GetUserActivities(string userId, DateTime? fromDate, DateTime? toDate, string? activityType, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
     Task<UserActivity> AddUserActivity(UserActivity activity, CancellationToken cancellationToken = default);
+}
+
+// User Experience Repository - handles work experience operations
+public interface IUserExperienceRepository
+{
+    Task<List<UserExperience>> GetUserExperiences(string userId, CancellationToken cancellationToken = default);
+    Task<UserExperience?> GetExperienceById(string experienceId, CancellationToken cancellationToken = default);
+    Task<UserExperience> AddExperience(UserExperience experience, CancellationToken cancellationToken = default);
+    Task<UserExperience> UpdateExperience(UserExperience experience, CancellationToken cancellationToken = default);
+    Task DeleteExperience(string experienceId, string userId, CancellationToken cancellationToken = default);
+}
+
+// User Education Repository - handles education operations
+public interface IUserEducationRepository
+{
+    Task<List<UserEducation>> GetUserEducation(string userId, CancellationToken cancellationToken = default);
+    Task<UserEducation?> GetEducationById(string educationId, CancellationToken cancellationToken = default);
+    Task<UserEducation> AddEducation(UserEducation education, CancellationToken cancellationToken = default);
+    Task<UserEducation> UpdateEducation(UserEducation education, CancellationToken cancellationToken = default);
+    Task DeleteEducation(string educationId, string userId, CancellationToken cancellationToken = default);
+}
+
+// User Review Repository - handles review operations
+public interface IUserReviewRepository
+{
+    Task<List<UserReview>> GetUserReviews(string revieweeId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+    Task<int> GetUserReviewCount(string revieweeId, CancellationToken cancellationToken = default);
+    Task<double> GetUserAverageRating(string revieweeId, CancellationToken cancellationToken = default);
+    Task<UserReview?> GetReviewById(string reviewId, CancellationToken cancellationToken = default);
+    Task<UserReview?> GetReviewBySessionId(string reviewerId, string sessionId, CancellationToken cancellationToken = default);
+    Task<UserReview> AddReview(UserReview review, CancellationToken cancellationToken = default);
+    Task<UserReview> UpdateReview(UserReview review, CancellationToken cancellationToken = default);
+    Task DeleteReview(string reviewId, string reviewerId, CancellationToken cancellationToken = default);
 }

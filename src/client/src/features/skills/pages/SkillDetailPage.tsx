@@ -1,21 +1,10 @@
-/**
- * SkillDetailPage Component
- *
- * Main page for displaying skill details.
- * Uses modular sub-components for better maintainability.
- */
-
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowBack as ArrowBackIcon,
-  Star as StarIcon,
   ThumbUp as ThumbUpIcon,
   Message as MessageIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
-// Local components
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Container,
@@ -33,6 +22,8 @@ import SEO from '../../../shared/components/seo/Seo';
 import AlertMessage from '../../../shared/components/ui/AlertMessage';
 import ConfirmDialog from '../../../shared/components/ui/ConfirmDialog';
 import EmptyState from '../../../shared/components/ui/EmptyState';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
+import { useNavigation } from '../../../shared/hooks/useNavigation';
 import { useAuth } from '../../auth/hooks/useAuth';
 import MatchForm from '../../matchmaking/components/MatchForm';
 import { useSkillDetail } from '../hooks/useSkillDetail';
@@ -40,7 +31,6 @@ import { SkillDetailHeader } from './detail/SkillDetailHeader';
 import { SkillDetailLoadingSkeleton } from './detail/SkillDetailLoadingSkeleton';
 import { SkillDetailSidebar } from './detail/SkillDetailSidebar';
 import { SkillEndorseDialog } from './detail/SkillEndorseDialog';
-import { SkillRatingDialog } from './detail/SkillRatingDialog';
 import { SkillReviewsSection } from './detail/SkillReviewsSection';
 import type { Skill } from '../types/Skill';
 
@@ -48,52 +38,66 @@ import type { Skill } from '../types/Skill';
 // Sub-components to reduce cognitive complexity
 // ============================================================================
 
-interface BreadcrumbNavProps {
-  isAuthenticated: boolean;
-  isOwner: boolean;
-  cameFromMySkills: boolean;
-  skillName: string;
-  onBack: () => void;
-}
+const BreadcrumbNav: React.FC = () => {
+  const { contextualBreadcrumbs, navigateWithContext, navigationContext } = useNavigation();
 
-const BreadcrumbNav: React.FC<BreadcrumbNavProps> = ({
-  isAuthenticated,
-  isOwner,
-  cameFromMySkills,
-  skillName,
-  onBack,
-}) => {
-  const getBreadcrumbHref = (): string => {
-    if (!isAuthenticated) return '/';
-    return isOwner || cameFromMySkills ? '/skills/my-skills' : '/skills';
-  };
-
-  const getBreadcrumbLabel = (): string => {
-    if (!isAuthenticated) return 'Startseite';
-    return isOwner || cameFromMySkills ? 'Meine Skills' : 'Alle Skills';
-  };
+  const handleBreadcrumbClick = useCallback(
+    (href: string, label: string) => {
+      // Bestimme den passenden Kontext basierend auf dem Ziel
+      if (href === '/') {
+        // Zur Startseite - kein Kontext nötig
+        void navigateWithContext(href);
+      } else if (href.startsWith('/skills/') && href !== '/skills') {
+        // Zu einem Skill - verwende 'home' für einfache Breadcrumbs
+        void navigateWithContext(href, {
+          from: 'home',
+          skillName: label,
+        });
+      } else if (href === '/skills') {
+        void navigateWithContext(href, { from: 'home' });
+      } else if (href === '/skills/my-skills') {
+        void navigateWithContext(href, { from: 'home' });
+      } else if (href === '/skills/favorites') {
+        void navigateWithContext(href, { from: 'home' });
+      } else {
+        // Andere Ziele - ursprünglichen Kontext beibehalten
+        void navigateWithContext(href, navigationContext);
+      }
+    },
+    [navigateWithContext, navigationContext]
+  );
 
   return (
-    <Box sx={{ mb: 3 }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ mb: 2 }}>
-        Zurück
-      </Button>
+    <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
+      {contextualBreadcrumbs.map((item, index) => {
+        const isLast = index === contextualBreadcrumbs.length - 1;
 
-      <Breadcrumbs aria-label="breadcrumb">
-        <Link
-          color="inherit"
-          href={getBreadcrumbHref()}
-          onClick={(e) => {
-            e.preventDefault();
-            onBack();
-          }}
-          sx={{ cursor: 'pointer' }}
-        >
-          {getBreadcrumbLabel()}
-        </Link>
-        <Typography color="text.primary">{skillName}</Typography>
-      </Breadcrumbs>
-    </Box>
+        if (isLast || item.isActive === true) {
+          return (
+            <Typography key={item.label} color="text.primary">
+              {item.label}
+            </Typography>
+          );
+        }
+
+        return (
+          <Link
+            key={item.label}
+            color="inherit"
+            href={item.href}
+            onClick={(e) => {
+              e.preventDefault();
+              if (item.href) {
+                handleBreadcrumbClick(item.href, item.label);
+              }
+            }}
+            sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+    </Breadcrumbs>
   );
 };
 
@@ -104,7 +108,6 @@ interface ActionButtonsProps {
   canUpdateOwnSkill: boolean;
   isMatchmakingLoading: boolean;
   onCreateMatch: () => void;
-  onRatingOpen: () => void;
   onEndorseOpen: () => void;
   onEdit: () => void;
 }
@@ -116,7 +119,6 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   canUpdateOwnSkill,
   isMatchmakingLoading,
   onCreateMatch,
-  onRatingOpen,
   onEndorseOpen,
   onEdit,
 }) => {
@@ -132,9 +134,6 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         >
           {skill.isOffered ? 'Lernen anfragen' : 'Hilfe anbieten'}
         </LoadingButton>
-        <Button variant="outlined" startIcon={<StarIcon />} onClick={onRatingOpen}>
-          Bewerten
-        </Button>
         <Button variant="outlined" startIcon={<ThumbUpIcon />} onClick={onEndorseOpen}>
           Empfehlen
         </Button>
@@ -159,17 +158,14 @@ interface DialogsSectionProps {
   skill: Skill;
   isOwner: boolean;
   canDeleteOwnSkill: boolean;
-  ratingDialogOpen: boolean;
   endorseDialogOpen: boolean;
   matchFormOpen: boolean;
   deleteDialogOpen: boolean;
   isMatchmakingLoading: boolean;
   matchmakingError: string | undefined;
-  onRatingClose: () => void;
   onEndorseClose: () => void;
   onMatchClose: () => void;
   onDeleteClose: () => void;
-  onRateSkill: (rating: number, comment: string) => void;
   onEndorseSkill: (comment: string) => void;
   onMatchSubmit: ReturnType<typeof useSkillDetail>['handleMatchSubmit'];
   onDeleteSkill: () => void;
@@ -180,17 +176,14 @@ const DialogsSection: React.FC<DialogsSectionProps> = ({
   skill,
   isOwner,
   canDeleteOwnSkill,
-  ratingDialogOpen,
   endorseDialogOpen,
   matchFormOpen,
   deleteDialogOpen,
   isMatchmakingLoading,
   matchmakingError,
-  onRatingClose,
   onEndorseClose,
   onMatchClose,
   onDeleteClose,
-  onRateSkill,
   onEndorseSkill,
   onMatchSubmit,
   onDeleteSkill,
@@ -198,14 +191,11 @@ const DialogsSection: React.FC<DialogsSectionProps> = ({
 }) => (
   <>
     {isOwner ? null : (
-      <>
-        <SkillRatingDialog open={ratingDialogOpen} onClose={onRatingClose} onSubmit={onRateSkill} />
-        <SkillEndorseDialog
-          open={endorseDialogOpen}
-          onClose={onEndorseClose}
-          onSubmit={onEndorseSkill}
-        />
-      </>
+      <SkillEndorseDialog
+        open={endorseDialogOpen}
+        onClose={onEndorseClose}
+        onSubmit={onEndorseSkill}
+      />
     )}
 
     {skill.id && !isOwner ? (
@@ -248,8 +238,6 @@ const SkillDetailPage: React.FC = () => {
     statusMessage,
     isPageLoading,
     errorMessage,
-    cameFromMySkills,
-    ratingDialogOpen,
     endorseDialogOpen,
     matchFormOpen,
     deleteDialogOpen,
@@ -259,15 +247,12 @@ const SkillDetailPage: React.FC = () => {
     matchmakingError,
     handleBookmark,
     handleShare,
-    handleRateSkill,
     handleEndorseSkill,
     handleDeleteSkill,
     handleCreateMatch,
     handleMatchSubmit,
     handleEdit,
-    handleBack,
     getOwnerName,
-    setRatingDialogOpen,
     setEndorseDialogOpen,
     setMatchFormOpen,
     setDeleteDialogOpen,
@@ -352,13 +337,7 @@ const SkillDetailPage: React.FC = () => {
       ) : null}
 
       {/* Navigation */}
-      <BreadcrumbNav
-        isAuthenticated={isAuthenticated}
-        isOwner={isOwner}
-        cameFromMySkills={cameFromMySkills}
-        skillName={skill.name}
-        onBack={handleBack}
-      />
+      <BreadcrumbNav />
 
       <Grid container spacing={3}>
         {/* Main content */}
@@ -394,9 +373,6 @@ const SkillDetailPage: React.FC = () => {
               canUpdateOwnSkill={canUpdateOwnSkill}
               isMatchmakingLoading={isMatchmakingLoading}
               onCreateMatch={handleCreateMatch}
-              onRatingOpen={() => {
-                setRatingDialogOpen(true);
-              }}
               onEndorseOpen={() => {
                 setEndorseDialogOpen(true);
               }}
@@ -432,15 +408,11 @@ const SkillDetailPage: React.FC = () => {
         skill={skill}
         isOwner={isOwner}
         canDeleteOwnSkill={canDeleteOwnSkill}
-        ratingDialogOpen={ratingDialogOpen}
         endorseDialogOpen={endorseDialogOpen}
         matchFormOpen={matchFormOpen}
         deleteDialogOpen={deleteDialogOpen}
         isMatchmakingLoading={isMatchmakingLoading}
         matchmakingError={matchmakingError}
-        onRatingClose={() => {
-          setRatingDialogOpen(false);
-        }}
         onEndorseClose={() => {
           setEndorseDialogOpen(false);
         }}
@@ -450,7 +422,6 @@ const SkillDetailPage: React.FC = () => {
         onDeleteClose={() => {
           setDeleteDialogOpen(false);
         }}
-        onRateSkill={handleRateSkill}
         onEndorseSkill={handleEndorseSkill}
         onMatchSubmit={handleMatchSubmit}
         onDeleteSkill={handleDeleteSkill}

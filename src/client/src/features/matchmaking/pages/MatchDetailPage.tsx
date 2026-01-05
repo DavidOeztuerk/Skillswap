@@ -480,11 +480,7 @@ const MatchDetailPage: React.FC = () => {
         subtitle={
           match.exchangeSkillName ? `Tausch gegen: ${match.exchangeSkillName}` : 'Skill-Sharing'
         }
-        breadcrumbs={[
-          { label: 'Home', href: '/' },
-          { label: 'Matchmaking', href: '/matchmaking' },
-          { label: match.skillName, isActive: true },
-        ]}
+        useContextualBreadcrumbs
       />
 
       <Grid container spacing={3} sx={{ mt: 2 }}>
