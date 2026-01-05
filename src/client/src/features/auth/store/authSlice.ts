@@ -10,6 +10,7 @@ import {
   getProfile,
   updateProfile,
   uploadProfilePicture,
+  deleteProfilePicture,
   changePassword,
   silentLogin,
   logout,
@@ -301,12 +302,35 @@ const authSlice = createSlice({
       .addCase(uploadProfilePicture.fulfilled, (state, action) => {
         state.isLoading = false;
         state.errorMessage = undefined;
-        state.user = action.payload.data;
+        // Update only profilePictureUrl in existing user, not replace entire user
+        if (state.user) {
+          state.user.profilePictureUrl = action.payload.data.avatarUrl;
+        }
       })
       .addCase(uploadProfilePicture.rejected, (state, action) => {
         state.isLoading = false;
         state.errorMessage =
           action.payload?.message ?? action.error.message ?? 'Failed to upload profile picture';
+      })
+
+      // ============================================
+      // DELETE PROFILE PICTURE
+      // ============================================
+      .addCase(deleteProfilePicture.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(deleteProfilePicture.fulfilled, (state) => {
+        state.isLoading = false;
+        state.errorMessage = undefined;
+        // Clear profilePictureUrl in existing user
+        if (state.user) {
+          state.user.profilePictureUrl = undefined;
+        }
+      })
+      .addCase(deleteProfilePicture.rejected, (state, action) => {
+        state.isLoading = false;
+        state.errorMessage =
+          action.payload?.message ?? action.error.message ?? 'Failed to delete profile picture';
       })
 
       // ============================================

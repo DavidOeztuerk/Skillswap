@@ -40,6 +40,119 @@ public class SessionRatingRepository : ISessionRatingRepository
             .FirstOrDefaultAsync(r => r.SessionAppointmentId == appointmentId && r.RaterId == raterId, cancellationToken);
     }
 
+    public async Task<List<SessionRating>> GetUserReviewsWithPaginationAsync(
+        string userId,
+        int pageNumber,
+        int pageSize,
+        int? starFilter = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.SessionRatings
+            .Where(r => r.RateeId == userId && r.IsPublic && !r.IsFlagged);
+
+        if (starFilter.HasValue)
+        {
+            query = query.Where(r => r.Rating == starFilter.Value);
+        }
+
+        return await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<int> GetUserReviewsCountAsync(
+        string userId,
+        int? starFilter = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.SessionRatings
+            .Where(r => r.RateeId == userId && r.IsPublic && !r.IsFlagged);
+
+        if (starFilter.HasValue)
+        {
+            query = query.Where(r => r.Rating == starFilter.Value);
+        }
+
+        return await query.CountAsync(cancellationToken);
+    }
+
+    public async Task<Dictionary<int, int>> GetRatingDistributionAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        var distribution = await _dbContext.SessionRatings
+            .Where(r => r.RateeId == userId && r.IsPublic && !r.IsFlagged)
+            .GroupBy(r => r.Rating)
+            .Select(g => new { Rating = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        // Initialize all ratings to 0, then populate
+        var result = new Dictionary<int, int>
+        {
+            { 1, 0 }, { 2, 0 }, { 3, 0 }, { 4, 0 }, { 5, 0 }
+        };
+
+        foreach (var item in distribution)
+        {
+            result[item.Rating] = item.Count;
+        }
+
+        return result;
+    }
+
+    public async Task<(double? avgKnowledge, double? avgTeaching, double? avgCommunication, double? avgReliability)>
+        GetSectionAveragesAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        var ratings = await _dbContext.SessionRatings
+            .Where(r => r.RateeId == userId && r.IsPublic && !r.IsFlagged)
+            .Select(r => new
+            {
+                r.KnowledgeRating,
+                r.TeachingRating,
+                r.CommunicationRating,
+                r.ReliabilityRating
+            })
+            .ToListAsync(cancellationToken);
+
+        if (!ratings.Any())
+        {
+            return (null, null, null, null);
+        }
+
+        var avgKnowledge = ratings
+            .Where(r => r.KnowledgeRating.HasValue)
+            .Select(r => (double)r.KnowledgeRating!.Value)
+            .DefaultIfEmpty()
+            .Average();
+
+        var avgTeaching = ratings
+            .Where(r => r.TeachingRating.HasValue)
+            .Select(r => (double)r.TeachingRating!.Value)
+            .DefaultIfEmpty()
+            .Average();
+
+        var avgCommunication = ratings
+            .Where(r => r.CommunicationRating.HasValue)
+            .Select(r => (double)r.CommunicationRating!.Value)
+            .DefaultIfEmpty()
+            .Average();
+
+        var avgReliability = ratings
+            .Where(r => r.ReliabilityRating.HasValue)
+            .Select(r => (double)r.ReliabilityRating!.Value)
+            .DefaultIfEmpty()
+            .Average();
+
+        return (
+            ratings.Any(r => r.KnowledgeRating.HasValue) ? avgKnowledge : null,
+            ratings.Any(r => r.TeachingRating.HasValue) ? avgTeaching : null,
+            ratings.Any(r => r.CommunicationRating.HasValue) ? avgCommunication : null,
+            ratings.Any(r => r.ReliabilityRating.HasValue) ? avgReliability : null
+        );
+    }
+
     public async Task<SessionRating> CreateAsync(SessionRating rating, CancellationToken cancellationToken = default)
     {
         await _dbContext.SessionRatings.AddAsync(rating, cancellationToken);

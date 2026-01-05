@@ -2,17 +2,9 @@ using Infrastructure.Communication;
 using Contracts.Skill.Responses;
 using Contracts.Skill.Requests;
 using Microsoft.Extensions.Logging;
+using UserService.Application.Services;
 
 namespace UserService.Infrastructure.HttpClients;
-
-public interface ISkillServiceClient
-{
-    Task<GetSkillDetailsResponse?> GetSkillDetailsAsync(string skillId, CancellationToken cancellationToken = default);
-    Task<bool> ValidateSkillExistsAsync(string skillId, CancellationToken cancellationToken = default);
-    Task<List<GetSkillDetailsResponse>> ValidateSkillsBatchAsync(List<string> skillIds, CancellationToken cancellationToken = default);
-    Task<List<UserSkillResponse>?> GetUserSkillsAsync(string userId, CancellationToken cancellationToken = default);
-    Task<bool> DeleteUserSkillsAsync(string userId, CancellationToken cancellationToken = default);
-}
 
 public class SkillServiceClient : ISkillServiceClient
 {
@@ -180,6 +172,34 @@ public class SkillServiceClient : ISkillServiceClient
         {
             _logger.LogError(ex, "Error deleting skills for user {UserId} from SkillService", userId);
             return false;
+        }
+    }
+
+    public async Task<UserSkillCountsResponse?> GetUserSkillCountsAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Getting skill counts for user {UserId}", userId);
+
+            var response = await _serviceCommunication.GetAsync<UserSkillCountsResponse>(
+                "skillservice",
+                $"api/skills/user/{userId}/counts",
+                cancellationToken);
+
+            if (response == null)
+            {
+                _logger.LogWarning("Failed to get skill counts for user {UserId} from SkillService", userId);
+                return null;
+            }
+
+            _logger.LogDebug("Successfully retrieved skill counts for user {UserId}: Offered={OfferedCount}, Requested={RequestedCount}",
+                userId, response.OfferedCount, response.RequestedCount);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching skill counts for user {UserId} from SkillService", userId);
+            return null;
         }
     }
 }

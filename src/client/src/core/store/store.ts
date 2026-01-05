@@ -5,6 +5,7 @@ import auth from '../../features/auth/store/authSlice';
 import chat from '../../features/chat/store/chatSlice';
 import matchmaking from '../../features/matchmaking/store/matchmakingSlice';
 import notifications from '../../features/notifications/store/notificationSlice';
+import profile from '../../features/profile/store/profileSlice';
 import search from '../../features/search/store/searchSlice';
 import sessions from '../../features/sessions/store/sessionsSlice';
 import category from '../../features/skills/store/categorySlice';
@@ -20,6 +21,7 @@ export const store = configureStore({
     skills,
     category,
     proficiencyLevel,
+    profile,
     search,
     matchmaking,
     appointments,

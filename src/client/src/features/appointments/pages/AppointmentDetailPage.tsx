@@ -1,9 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { formatDate } from 'date-fns';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowBack as ArrowBackIcon,
-  // VideoCall as VideoCallIcon,
   Edit as EditIcon,
   Cancel as CancelIcon,
   Check as CheckIcon,
@@ -40,6 +38,8 @@ import {
   ListItemText,
   Grid,
   Drawer,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import { FEATURES } from '../../../core/config/featureFlags';
 import errorService from '../../../core/services/errorService';
@@ -48,6 +48,7 @@ import AlertMessage from '../../../shared/components/ui/AlertMessage';
 import ConfirmDialog from '../../../shared/components/ui/ConfirmDialog';
 import EmptyState from '../../../shared/components/ui/EmptyState';
 import PageLoader from '../../../shared/components/ui/PageLoader';
+import { useNavigation } from '../../../shared/hooks/useNavigation';
 import { formatDateTimeRange, isPastDate } from '../../../shared/utils/dateUtils';
 import { useAuth } from '../../auth/hooks/useAuth';
 import InlineChatPanel from '../../chat/components/InlineChatPanel';
@@ -430,8 +431,23 @@ const RescheduleDialogWrapper: React.FC<RescheduleDialogWrapperProps> = ({
 const AppointmentDetailPage: React.FC = () => {
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const navigate = useNavigate();
+  const { contextualBreadcrumbs, navigateWithContext, navigationContext } = useNavigation();
 
   const { user } = useAuth();
+
+  // Handle breadcrumb navigation with context preservation
+  const handleBreadcrumbClick = useCallback(
+    (href: string) => {
+      if (href === '/') {
+        void navigateWithContext(href);
+      } else if (href === '/appointments') {
+        void navigateWithContext(href, { from: 'dashboard' });
+      } else {
+        void navigateWithContext(href, navigationContext);
+      }
+    },
+    [navigateWithContext, navigationContext]
+  );
   const { appointments, respondToAppointment, completeAppointment, isLoading, error } =
     useAppointments();
 
@@ -687,20 +703,41 @@ const AppointmentDetailPage: React.FC = () => {
       {/* Status messages */}
       <StatusMessage message={statusMessage} onClose={() => setStatusMessage(null)} />
 
-      {/* Header */}
+      {/* Breadcrumb Navigation */}
       <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => {
-            errorService.addBreadcrumb('Navigating back to appointments', 'navigation', {
-              appointmentId,
-            });
-            void navigate('/appointments');
-          }}
-          sx={{ mb: 2 }}
-        >
-          Zurück zu Terminen
-        </Button>
+        <Breadcrumbs aria-label="breadcrumb">
+          {contextualBreadcrumbs.map((item, index) => {
+            const isLast = index === contextualBreadcrumbs.length - 1;
+
+            if (isLast || item.isActive === true) {
+              return (
+                <Typography key={item.label} color="text.primary">
+                  {item.label}
+                </Typography>
+              );
+            }
+
+            return (
+              <Link
+                key={item.label}
+                component="button"
+                underline="hover"
+                color="inherit"
+                onClick={() => {
+                  if (item.href) {
+                    errorService.addBreadcrumb('Navigating via breadcrumb', 'navigation', {
+                      appointmentId,
+                      target: item.href,
+                    });
+                    handleBreadcrumbClick(item.href);
+                  }
+                }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </Breadcrumbs>
       </Box>
 
       <Grid container spacing={3}>

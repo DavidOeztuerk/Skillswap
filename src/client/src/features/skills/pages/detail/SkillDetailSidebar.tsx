@@ -4,7 +4,7 @@
  * Displays the sidebar with owner info, skill details, and CTAs.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   Person as PersonIcon,
   Star as StarIcon,
@@ -19,7 +19,9 @@ import {
 } from '@mui/icons-material';
 import { Box, Typography, Paper, Button, Avatar, Rating, Chip, Divider } from '@mui/material';
 import LoadingButton from '../../../../shared/components/ui/LoadingButton';
+import { useNavigation } from '../../../../shared/hooks/useNavigation';
 import { getLocationTypeLabel, formatSkillSchedule } from '../../types/Skill';
+import type { Skill } from '../../types/Skill';
 import type { SkillDetailSidebarProps } from '../../types/types';
 
 // Helper function to get German day label
@@ -70,29 +72,44 @@ const formatLocationAddress = (
 
 // Sub-component: Owner Card
 const OwnerCard: React.FC<{
+  skill: Skill;
   skillOwner: SkillDetailSidebarProps['skillOwner'];
-}> = ({ skillOwner }) => (
-  <Paper sx={{ p: 3, mb: 3 }}>
-    <Typography variant="h6" gutterBottom>
-      Anbieter
-    </Typography>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-      <Avatar sx={{ width: 56, height: 56 }} src={skillOwner.avatar}>
-        <PersonIcon />
-      </Avatar>
-      <Box>
-        <Typography variant="subtitle1">{skillOwner.name}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Mitglied seit {skillOwner.memberSince}
-        </Typography>
-        <Rating value={skillOwner.rating} readOnly size="small" />
+}> = ({ skill, skillOwner }) => {
+  const { navigateToProfile } = useNavigation();
+
+  const handleViewProfile = useCallback(async () => {
+    if (skill.userId) {
+      // navigateToProfile übergibt automatisch den Skill-Kontext
+      await navigateToProfile(skill.userId, {
+        skillName: skill.name,
+        userName: skillOwner.name,
+      });
+    }
+  }, [navigateToProfile, skill.userId, skill.name, skillOwner.name]);
+
+  return (
+    <Paper sx={{ p: 3, mb: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Anbieter
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        <Avatar sx={{ width: 56, height: 56 }} src={skillOwner.avatar}>
+          <PersonIcon />
+        </Avatar>
+        <Box>
+          <Typography variant="subtitle1">{skillOwner.name}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Mitglied seit {skillOwner.memberSince}
+          </Typography>
+          <Rating value={skillOwner.rating} readOnly size="small" />
+        </Box>
       </Box>
-    </Box>
-    <Button variant="outlined" fullWidth>
-      Profil ansehen
-    </Button>
-  </Paper>
-);
+      <Button variant="outlined" fullWidth onClick={handleViewProfile}>
+        Profil ansehen
+      </Button>
+    </Paper>
+  );
+};
 
 // Sub-component: Skill Info Card
 const SkillInfoCard: React.FC<{
@@ -359,7 +376,7 @@ export const SkillDetailSidebar: React.FC<SkillDetailSidebarProps> = ({
   return (
     <>
       {/* Owner card - only for non-owners */}
-      {isOwner ? null : <OwnerCard skillOwner={skillOwner} />}
+      {isOwner ? null : <OwnerCard skill={skill} skillOwner={skillOwner} />}
 
       {/* Skill info card */}
       <SkillInfoCard skill={skill} />

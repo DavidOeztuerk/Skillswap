@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Star, Send } from '@mui/icons-material';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Star, Send, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import {
   Box,
   Stack,
@@ -14,6 +14,11 @@ import {
   DialogContent,
   DialogActions,
   Button as MuiButton,
+  Typography,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider,
   type SxProps,
   type Theme,
 } from '@mui/material';
@@ -24,40 +29,93 @@ import type { RootState } from '../../../core/store/store';
 import type { RateSessionRequest } from '../services/sessionService';
 
 // ============================================================================
-// PERFORMANCE: Extract sx objects as constants to prevent recreation
+// TYPES & CONSTANTS
+// ============================================================================
+
+interface ReviewSection {
+  key: 'knowledge' | 'teaching' | 'communication' | 'reliability';
+  title: string;
+  description: string;
+  icon: string;
+}
+
+const REVIEW_SECTIONS: ReviewSection[] = [
+  {
+    key: 'knowledge',
+    title: 'Wissen & Fachkompetenz',
+    description: 'Wie gut war das Fachwissen des Lehrers?',
+    icon: '\uD83C\uDFAF',
+  },
+  {
+    key: 'teaching',
+    title: 'Unterrichtsqualität',
+    description: 'Wie verständlich wurde erklärt?',
+    icon: '\uD83D\uDCDA',
+  },
+  {
+    key: 'communication',
+    title: 'Kommunikation',
+    description: 'Wie war die Kommunikation und Freundlichkeit?',
+    icon: '\uD83D\uDCAC',
+  },
+  {
+    key: 'reliability',
+    title: 'Zuverlässigkeit',
+    description: 'War der Lehrer pünktlich und gut vorbereitet?',
+    icon: '\u2705',
+  },
+];
+
+const MAX_COMMENT_LENGTH = 500;
+
+// ============================================================================
+// STYLES
 // ============================================================================
 
 const contentStackSx: SxProps<Theme> = {
   mt: 1,
 };
 
-const labelSx: SxProps<Theme> = {
-  mb: 1,
-  fontSize: '0.875rem',
-  fontWeight: 600,
-  color: 'textSecondary',
+const sectionHeaderSx: SxProps<Theme> = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1,
 };
 
-const ratingLabelSx: SxProps<Theme> = {
-  mb: 1,
-  fontSize: '0.875rem',
-  fontWeight: 600,
+const ratingSx: SxProps<Theme> = {
+  '& .MuiRating-iconFilled': {
+    color: 'primary.main',
+  },
 };
 
-const ratingHelperSx: SxProps<Theme> = {
-  mt: 1,
-  fontSize: '0.75rem',
-  color: 'textSecondary',
+const overallRatingSx: SxProps<Theme> = {
+  p: 2,
+  bgcolor: 'action.hover',
+  borderRadius: 1,
+  textAlign: 'center',
 };
 
-const starIconSx: SxProps<Theme> = {
-  fontSize: '2rem',
+// ============================================================================
+// SECTION RATING STATE
+// ============================================================================
+
+interface SectionRatingState {
+  rating: number | null;
+  comment: string;
+}
+
+type SectionRatings = Record<ReviewSection['key'], SectionRatingState>;
+
+const initialSectionRatings: SectionRatings = {
+  knowledge: { rating: null, comment: '' },
+  teaching: { rating: null, comment: '' },
+  communication: { rating: null, comment: '' },
+  reliability: { rating: null, comment: '' },
 };
 
-const emptyStarIconSx: SxProps<Theme> = {
-  fontSize: '2rem',
-  opacity: 0.3,
-};
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 interface RatingFormProps {
   appointmentId: string;
@@ -67,16 +125,6 @@ interface RatingFormProps {
   onSuccess?: () => void;
 }
 
-/**
- * RatingForm Component
- *
- * Allows users to rate completed sessions with:
- * - 1-5 star rating
- * - Optional feedback/comments
- * - Public/private rating toggle
- * - Recommendation flag
- * - Tags for categorization
- */
 const RatingForm: React.FC<RatingFormProps> = ({
   appointmentId,
   participantName,
@@ -87,56 +135,106 @@ const RatingForm: React.FC<RatingFormProps> = ({
   const dispatch = useAppDispatch();
   const { isLoading, error } = useAppSelector((state: RootState) => state.sessions);
 
-  const [rating, setRating] = useState<number | null>(null);
+  // Section ratings state
+  const [sectionRatings, setSectionRatings] = useState<SectionRatings>(initialSectionRatings);
+
+  // Overall feedback state
   const [feedback, setFeedback] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [wouldRecommend, setWouldRecommend] = useState(true);
-  const [tags, setTags] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const handleRatingChange = (_event: React.SyntheticEvent, value: number | null): void => {
-    setRating(value);
-    setValidationError(null);
-  };
+  // Calculate overall rating from section ratings
+  const overallRating = useMemo(() => {
+    const ratings = Object.values(sectionRatings)
+      .map((s) => s.rating)
+      .filter((r): r is number => r !== null);
 
-  const handleFeedbackChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+    if (ratings.length === 0) return null;
+    return Math.round((ratings.reduce((sum, r) => sum + r, 0) / ratings.length) * 10) / 10;
+  }, [sectionRatings]);
+
+  // Check if at least one section is rated
+  const hasAnyRating = useMemo(
+    () => Object.values(sectionRatings).some((s) => s.rating !== null),
+    [sectionRatings]
+  );
+
+  // Handle section rating change
+  const handleSectionRatingChange = useCallback(
+    (key: ReviewSection['key']) =>
+      (_event: React.SyntheticEvent, value: number | null): void => {
+        setSectionRatings((prev) => ({
+          ...prev,
+          [key]: { ...prev[key], rating: value },
+        }));
+        setValidationError(null);
+      },
+    []
+  );
+
+  // Handle section comment change
+  const handleSectionCommentChange = useCallback(
+    (key: ReviewSection['key']) =>
+      (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+        const { value } = e.target;
+        if (value.length <= MAX_COMMENT_LENGTH) {
+          setSectionRatings((prev) => ({
+            ...prev,
+            [key]: { ...prev[key], comment: value },
+          }));
+        }
+      },
+    []
+  );
+
+  // Handle overall feedback change
+  const handleFeedbackChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>): void => {
     const { value } = e.target;
-    // Limit feedback to 2000 characters
     if (value.length <= 2000) {
       setFeedback(value);
     }
-  };
+  }, []);
 
-  const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setTags(e.target.value);
-  };
-
-  const handleClose = (): void => {
-    // Reset form
-    setRating(null);
+  // Reset form
+  const resetForm = useCallback((): void => {
+    setSectionRatings(initialSectionRatings);
     setFeedback('');
     setIsPublic(true);
     setWouldRecommend(true);
-    setTags('');
     setValidationError(null);
+  }, []);
 
+  // Handle close
+  const handleClose = useCallback((): void => {
+    resetForm();
     dispatch(setShowRatingForm(false));
     onClose?.();
-  };
+  }, [resetForm, dispatch, onClose]);
 
-  const handleSubmit = async (): Promise<void> => {
-    // Validation
-    if (rating === null || rating < 1 || rating > 5) {
-      setValidationError('Please select a rating between 1 and 5');
+  // Handle submit
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    // Validation: At least one section must be rated
+    if (!hasAnyRating || overallRating === null) {
+      setValidationError('Bitte bewerte mindestens eine Kategorie');
       return;
     }
 
     const request: RateSessionRequest = {
-      rating,
+      rating: Math.round(overallRating),
       feedback: feedback.trim() || null,
       isPublic,
       wouldRecommend,
-      tags: tags.trim() || null,
+      tags: null,
+      // Section ratings
+      knowledgeRating: sectionRatings.knowledge.rating,
+      knowledgeComment: sectionRatings.knowledge.comment.trim() || null,
+      teachingRating: sectionRatings.teaching.rating,
+      teachingComment: sectionRatings.teaching.comment.trim() || null,
+      communicationRating: sectionRatings.communication.rating,
+      communicationComment: sectionRatings.communication.comment.trim() || null,
+      reliabilityRating: sectionRatings.reliability.rating,
+      reliabilityComment: sectionRatings.reliability.comment.trim() || null,
     };
 
     try {
@@ -154,60 +252,168 @@ const RatingForm: React.FC<RatingFormProps> = ({
     } catch (err) {
       console.error('Failed to submit rating:', err);
     }
+  }, [
+    hasAnyRating,
+    overallRating,
+    feedback,
+    isPublic,
+    wouldRecommend,
+    sectionRatings,
+    dispatch,
+    appointmentId,
+    handleClose,
+    onSuccess,
+  ]);
+
+  // Render star labels
+  const getStarLabel = (value: number | null): string => {
+    if (value === null) return 'Nicht bewertet';
+    const labels: Record<number, string> = {
+      1: 'Mangelhaft',
+      2: 'Ausreichend',
+      3: 'Befriedigend',
+      4: 'Gut',
+      5: 'Sehr gut',
+    };
+    return labels[value] ?? '';
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Rate Your Session</DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth scroll="paper">
+      <DialogTitle>Session bewerten</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={3} sx={contentStackSx}>
           {error ? (
-            <Alert severity="error">{error.message ?? 'Failed to submit rating'}</Alert>
+            <Alert severity="error">
+              {error.message ?? 'Bewertung konnte nicht gespeichert werden'}
+            </Alert>
           ) : null}
 
           {validationError ? <Alert severity="warning">{validationError}</Alert> : null}
 
           {/* Participant Name */}
           <Box>
-            <Box sx={labelSx}>
-              Rating for: <strong>{participantName}</strong>
-            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Bewertung für
+            </Typography>
+            <Typography variant="h6" fontWeight="bold">
+              {participantName}
+            </Typography>
           </Box>
 
-          {/* Star Rating */}
-          <Box>
-            <Box sx={ratingLabelSx}>Your Rating *</Box>
-            <Rating
-              value={rating}
-              onChange={handleRatingChange}
-              size="large"
-              icon={<Star sx={starIconSx} />}
-              emptyIcon={<Star sx={emptyStarIconSx} />}
-            />
-            <Box sx={ratingHelperSx}>
-              {rating === null
-                ? 'Please select a rating'
-                : `You rated: ${rating} star${rating === 1 ? '' : 's'}`}
+          <Divider />
+
+          {/* Overall Rating Display */}
+          <Box sx={overallRatingSx}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Gesamtbewertung (berechnet)
+            </Typography>
+            <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
+              <Rating
+                value={overallRating}
+                readOnly
+                precision={0.5}
+                size="large"
+                icon={<Star fontSize="inherit" />}
+                emptyIcon={<Star fontSize="inherit" sx={{ opacity: 0.3 }} />}
+              />
+              <Typography variant="h5" fontWeight="bold" color="primary">
+                {overallRating?.toFixed(1) ?? '-'}
+              </Typography>
             </Box>
+            <Typography variant="caption" color="text.secondary">
+              Durchschnitt aus allen bewerteten Kategorien
+            </Typography>
           </Box>
 
-          {/* Feedback */}
+          <Divider />
+
+          {/* Section Ratings */}
+          <Typography variant="subtitle1" fontWeight="bold">
+            Bewerte die einzelnen Kategorien
+          </Typography>
+
+          {REVIEW_SECTIONS.map((section) => (
+            <Accordion key={section.key} defaultExpanded disableGutters elevation={0}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                sx={{
+                  bgcolor:
+                    sectionRatings[section.key].rating === null ? 'transparent' : 'action.selected',
+                  borderRadius: 1,
+                }}
+              >
+                <Box sx={sectionHeaderSx}>
+                  <Typography component="span" sx={{ fontSize: '1.2rem' }}>
+                    {section.icon}
+                  </Typography>
+                  <Box>
+                    <Typography fontWeight="medium">{section.title}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {section.description}
+                    </Typography>
+                  </Box>
+                  {sectionRatings[section.key].rating === null ? null : (
+                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Star sx={{ color: 'primary.main', fontSize: '1rem' }} />
+                      <Typography variant="body2" fontWeight="bold" color="primary">
+                        {sectionRatings[section.key].rating}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Stack spacing={2}>
+                  <Box>
+                    <Rating
+                      value={sectionRatings[section.key].rating}
+                      onChange={handleSectionRatingChange(section.key)}
+                      size="large"
+                      sx={ratingSx}
+                      icon={<Star fontSize="inherit" />}
+                      emptyIcon={<Star fontSize="inherit" sx={{ opacity: 0.3 }} />}
+                    />
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {getStarLabel(sectionRatings[section.key].rating)}
+                    </Typography>
+                  </Box>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    placeholder={`Optional: Was war gut oder verbesserungswürdig bei "${section.title}"?`}
+                    value={sectionRatings[section.key].comment}
+                    onChange={handleSectionCommentChange(section.key)}
+                    helperText={`${sectionRatings[section.key].comment.length}/${MAX_COMMENT_LENGTH}`}
+                    variant="outlined"
+                    size="small"
+                  />
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          ))}
+
+          <Divider />
+
+          {/* Overall Feedback */}
           <Box>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              Allgemeines Feedback (optional)
+            </Typography>
             <TextField
               fullWidth
               multiline
-              rows={4}
-              label="Feedback (Optional)"
-              placeholder="Share your experience with this session..."
+              rows={3}
+              placeholder="Teile deine allgemeinen Erfahrungen mit dieser Session..."
               value={feedback}
               onChange={handleFeedbackChange}
-              maxRows={6}
-              helperText={`${feedback.length}/2000 characters`}
+              helperText={`${feedback.length}/2000 Zeichen`}
               variant="outlined"
             />
           </Box>
 
-          {/* Public/Private Toggle */}
+          {/* Options */}
           <Box>
             <FormControlLabel
               control={
@@ -218,12 +424,8 @@ const RatingForm: React.FC<RatingFormProps> = ({
                   }}
                 />
               }
-              label="Make this rating public (visible to others)"
+              label="Bewertung öffentlich anzeigen"
             />
-          </Box>
-
-          {/* Recommendation */}
-          <Box>
             <FormControlLabel
               control={
                 <Checkbox
@@ -233,35 +435,22 @@ const RatingForm: React.FC<RatingFormProps> = ({
                   }}
                 />
               }
-              label="I would recommend this person"
-            />
-          </Box>
-
-          {/* Tags */}
-          <Box>
-            <TextField
-              fullWidth
-              label="Tags (Optional)"
-              placeholder="e.g., knowledgeable, friendly, punctual"
-              value={tags}
-              onChange={handleTagsChange}
-              helperText="Comma-separated tags to help categorize this rating"
-              variant="outlined"
+              label="Ich würde diese Person weiterempfehlen"
             />
           </Box>
         </Stack>
       </DialogContent>
       <DialogActions>
         <MuiButton variant="outlined" onClick={handleClose} disabled={isLoading}>
-          Cancel
+          Abbrechen
         </MuiButton>
         <MuiButton
           variant="contained"
           onClick={handleSubmit}
-          disabled={rating === null || isLoading}
+          disabled={!hasAnyRating || isLoading}
           endIcon={isLoading ? <CircularProgress size={20} /> : <Send />}
         >
-          Submit Rating
+          Bewertung absenden
         </MuiButton>
       </DialogActions>
     </Dialog>

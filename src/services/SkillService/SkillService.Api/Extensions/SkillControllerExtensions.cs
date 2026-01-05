@@ -46,6 +46,24 @@ public static class SkillControllerExtensions
             .ProducesProblem(StatusCodes.Status404NotFound)
             .RequireAuthorization();
 
+        skills.MapGet("/user/{userId}", GetSkillsByUserId)
+            .WithName("GetSkillsByUserId")
+            .WithSummary("Get skills by user ID")
+            .WithDescription("Retrieve all skills for a specific user (requires authentication)")
+            .WithTags("UserSkills")
+            .Produces<PagedResponse<UserSkillResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .RequireAuthorization();
+
+        // Public endpoint for skill counts (used by UserService for public profiles)
+        skills.MapGet("/user/{userId}/counts", GetUserSkillCounts)
+            .WithName("GetUserSkillCounts")
+            .WithSummary("Get user skill counts")
+            .WithDescription("Get count of offered and requested skills for a user (public endpoint for service-to-service calls)")
+            .WithTags("UserSkills")
+            .AllowAnonymous()
+            .Produces<ApiResponse<UserSkillCountsResponse>>(StatusCodes.Status200OK);
+
         skills.MapPost("/", CreateNewSkill)
             .WithName("CreateSkill")
             .WithSummary("Create a new skill")
@@ -137,6 +155,34 @@ public static class SkillControllerExtensions
 
             var query = new GetUserSkillsQuery(userId, request.IsOffered, request.CategoryId, request.ProficiencyLevelId, request.LocationType, request.IncludeInactive, request.PageNumber, request.PageSize);
 
+            return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> GetSkillsByUserId(
+            IMediator mediator,
+            ClaimsPrincipal user,
+            [FromRoute] string userId,
+            [AsParameters] GetUserSkillsRequest request)
+        {
+            // Public profile: Only show active skills (IncludeInactive = false)
+            var query = new GetUserSkillsQuery(
+                userId,
+                request.IsOffered,
+                request.CategoryId,
+                request.ProficiencyLevelId,
+                request.LocationType,
+                false, // Always exclude inactive for public profile
+                request.PageNumber,
+                request.PageSize);
+
+            return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> GetUserSkillCounts(
+            IMediator mediator,
+            [FromRoute] string userId)
+        {
+            var query = new GetUserSkillCountsQuery(userId);
             return await mediator.SendQuery(query);
         }
 

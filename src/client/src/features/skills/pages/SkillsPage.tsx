@@ -5,6 +5,7 @@ import {
   Refresh as RefreshIcon,
   FilterList as FilterListIcon,
   Close as CloseIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -25,8 +26,10 @@ import errorService from '../../../core/services/errorService';
 import SkillErrorBoundary from '../../../shared/components/error/SkillErrorBoundary';
 import PaginationControls from '../../../shared/components/pagination/PaginationControls';
 import { useGeolocation } from '../../../shared/hooks/useGeolocation';
+import { isPagedResponse } from '../../../shared/types/api/UnifiedResponse';
 import { Permissions } from '../../auth/components/permissions.constants';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { profileService } from '../../profile/services/profileService';
 import SkillFilterSidebar from '../components/SkillFilterSidebar';
 import SkillForm from '../components/SkillForm';
 import SkillList from '../components/SkillList';
@@ -34,10 +37,48 @@ import useSkills from '../hooks/useSkills';
 import type { CreateSkillRequest } from '../types/CreateSkillRequest';
 import type { Skill } from '../types/Skill';
 import type { SkillFilters } from '../types/SkillFilter';
+import type { SkillSearchResultResponse } from '../types/SkillResponses';
 import type { UpdateSkillRequest } from '../types/UpdateSkillRequest';
 
 // Sidebar width constant
 const SIDEBAR_WIDTH = 280;
+
+// Helper to convert SkillSearchResultResponse to Skill type
+const mapSearchResultToSkill = (result: SkillSearchResultResponse): Skill => ({
+  id: result.skillId,
+  userId: result.userId,
+  ownerUserName: result.ownerUserName,
+  ownerFirstName: result.ownerFirstName,
+  ownerLastName: result.ownerLastName,
+  name: result.name,
+  description: result.description,
+  isOffered: result.isOffered,
+  category: {
+    id: result.category.categoryId,
+    name: result.category.name,
+    iconName: result.category.iconName,
+    color: result.category.color,
+    skillCount: result.category.skillCount,
+  },
+  proficiencyLevel: {
+    id: result.proficiencyLevel.levelId,
+    level: result.proficiencyLevel.level,
+    rank: result.proficiencyLevel.rank,
+    color: result.proficiencyLevel.color,
+    skillCount: result.proficiencyLevel.skillCount,
+  },
+  tagsJson: result.tagsJson,
+  averageRating: result.averageRating,
+  reviewCount: result.reviewCount,
+  endorsementCount: result.endorsementCount,
+  estimatedDurationMinutes: result.estimatedDurationMinutes,
+  createdAt: result.createdAt.toString(),
+  lastActiveAt: result.lastActiveAt?.toString(),
+  locationType: result.locationType,
+  locationCity: result.locationCity,
+  locationCountry: result.locationCountry,
+  maxDistanceKm: result.maxDistanceKm,
+});
 
 // Helper to count active filters for badge
 const countActiveFilters = (filters: SkillFilters): number => {
@@ -49,6 +90,227 @@ const countActiveFilters = (filters: SkillFilters): number => {
   if (filters.locationType) count++;
   if (filters.maxDistanceKm != null && filters.maxDistanceKm > 0) count++;
   return count;
+};
+
+// Helper to parse filters from URL search params
+const parseFiltersFromParams = (searchParams: URLSearchParams): SkillFilters => {
+  const typeParam = searchParams.get('type');
+  const isOffered = typeParam === 'offer' ? true : typeParam === 'seek' ? false : undefined;
+
+  return {
+    searchTerm: searchParams.get('q') ?? undefined,
+    categoryId: searchParams.get('category') ?? undefined,
+    proficiencyLevelId: searchParams.get('level') ?? undefined,
+    isOffered,
+    minRating: searchParams.get('rating') ? Number(searchParams.get('rating')) : undefined,
+    locationType: (searchParams.get('location') as SkillFilters['locationType']) ?? undefined,
+    maxDistanceKm: searchParams.get('distance') ? Number(searchParams.get('distance')) : undefined,
+    sortBy: (searchParams.get('sort') as SkillFilters['sortBy']) ?? 'relevance',
+    sortDirection: (searchParams.get('dir') ?? 'desc') as 'asc' | 'desc',
+    userId: searchParams.get('userId') ?? undefined,
+  };
+};
+
+// Helper to build URL params from filters (declarative approach to reduce complexity)
+const buildFilterParams = (filters: SkillFilters): URLSearchParams => {
+  const params = new URLSearchParams();
+
+  // Define param mappings: [key, value, condition]
+  const mappings: [string, string | undefined, boolean][] = [
+    ['q', filters.searchTerm, Boolean(filters.searchTerm)],
+    ['category', filters.categoryId, Boolean(filters.categoryId)],
+    ['level', filters.proficiencyLevelId, Boolean(filters.proficiencyLevelId)],
+    ['type', filters.isOffered ? 'offer' : 'seek', filters.isOffered !== undefined],
+    ['rating', String(filters.minRating ?? ''), (filters.minRating ?? 0) > 0],
+    ['location', filters.locationType, Boolean(filters.locationType)],
+    ['distance', String(filters.maxDistanceKm ?? ''), (filters.maxDistanceKm ?? 0) > 0],
+    ['sort', filters.sortBy, Boolean(filters.sortBy) && filters.sortBy !== 'relevance'],
+    [
+      'dir',
+      filters.sortDirection,
+      Boolean(filters.sortDirection) && filters.sortDirection !== 'desc',
+    ],
+    ['userId', filters.userId, typeof filters.userId === 'string'],
+  ];
+
+  mappings.forEach(([key, value, condition]) => {
+    if (condition && value) params.set(key, value);
+  });
+
+  return params;
+};
+
+// Helper to get page title for user profile view
+const getUserProfileTitle = (isOffered: boolean | undefined): string => {
+  if (isOffered === true) return 'Angebote';
+  if (isOffered === false) return 'Gesuche';
+  return 'Skills';
+};
+
+// Helper to get page description for user profile view
+const getUserProfileDescription = (isOffered: boolean | undefined): string => {
+  if (isOffered === true) return 'Skills die dieser Nutzer anbietet';
+  if (isOffered === false) return 'Skills die dieser Nutzer lernen möchte';
+  return 'Alle Skills dieses Nutzers';
+};
+
+// Helper to get displayed skills based on view type
+const getDisplayedSkills = (
+  showOnly: ViewType,
+  isUserProfileView: boolean,
+  skills: {
+    userProfileSkills: SkillSearchResultResponse[];
+    userSkills: Skill[];
+    favoriteSkills: Skill[];
+    allSkills: Skill[];
+  }
+): Skill[] => {
+  if (isUserProfileView && showOnly === 'all') {
+    return skills.userProfileSkills.map(mapSearchResultToSkill);
+  }
+
+  switch (showOnly) {
+    case 'mine':
+      return skills.userSkills;
+    case 'favorite':
+      return skills.favoriteSkills;
+    case 'all':
+    default:
+      return skills.allSkills;
+  }
+};
+
+// Helper to determine loading state based on view type
+const getLoadingState = (
+  showOnly: ViewType,
+  isUserProfileView: boolean,
+  loadingStates: {
+    isLoadingUserProfile: boolean;
+    isLoadingUser: boolean;
+    isLoadingFavorites: boolean;
+    isLoadingAll: boolean;
+    isLoadingCategories: boolean;
+    isLoadingProficiencyLevels: boolean;
+  }
+): boolean => {
+  const { isLoadingCategories, isLoadingProficiencyLevels } = loadingStates;
+  const metadataLoading = isLoadingCategories || isLoadingProficiencyLevels;
+
+  if (isUserProfileView && showOnly === 'all') {
+    return loadingStates.isLoadingUserProfile || metadataLoading;
+  }
+
+  switch (showOnly) {
+    case 'mine':
+      return loadingStates.isLoadingUser || metadataLoading;
+    case 'favorite':
+      return loadingStates.isLoadingFavorites || loadingStates.isLoadingAll || metadataLoading;
+    case 'all':
+    default:
+      return loadingStates.isLoadingAll || metadataLoading;
+  }
+};
+
+// Default pagination for favorites (no server-side pagination yet)
+const DEFAULT_FAVORITE_PAGINATION = {
+  totalPages: 1,
+  pageNumber: 1,
+  hasNextPage: false,
+  hasPreviousPage: false,
+};
+
+// Pagination type
+interface PaginationInfo {
+  totalRecords: number;
+  totalPages: number;
+  pageNumber: number;
+  pageSize: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+// Helper to get pagination based on view type
+const getPagination = (
+  showOnly: ViewType,
+  isUserProfileView: boolean,
+  paginationData: {
+    userProfilePagination: PaginationInfo;
+    userSkillsPagination: PaginationInfo;
+    allSkillsPagination: PaginationInfo;
+    favoritesLength: number;
+  }
+): PaginationInfo => {
+  if (isUserProfileView && showOnly === 'all') {
+    return paginationData.userProfilePagination;
+  }
+
+  switch (showOnly) {
+    case 'mine':
+      return paginationData.userSkillsPagination;
+    case 'favorite':
+      return {
+        ...DEFAULT_FAVORITE_PAGINATION,
+        totalRecords: paginationData.favoritesLength,
+        pageSize: paginationData.favoritesLength || 12,
+      };
+    case 'all':
+    default:
+      return paginationData.allSkillsPagination;
+  }
+};
+
+// Extracted component: Back to profile button
+interface BackToProfileButtonProps {
+  isUserProfileView: boolean;
+  userId: string | undefined;
+  navigate: (path: string) => void;
+}
+
+const BackToProfileButton: React.FC<BackToProfileButtonProps> = ({
+  isUserProfileView,
+  userId,
+  navigate,
+}) => {
+  if (!isUserProfileView || typeof userId !== 'string') return null;
+
+  const handleClick = (): void => {
+    navigate(`/users/${userId}`);
+  };
+
+  return (
+    <Button startIcon={<ArrowBackIcon />} onClick={handleClick} sx={{ mb: 1 }} size="small">
+      Zurück zum Profil
+    </Button>
+  );
+};
+
+// Extracted component: Create skill button
+interface CreateSkillButtonProps {
+  isOwnerView: boolean;
+  canCreate: boolean;
+  isMobile: boolean;
+  onClick: () => void;
+}
+
+const CreateSkillButton: React.FC<CreateSkillButtonProps> = ({
+  isOwnerView,
+  canCreate,
+  isMobile,
+  onClick,
+}) => {
+  if (!isOwnerView || !canCreate) return null;
+
+  return (
+    <Button
+      variant="contained"
+      color="primary"
+      startIcon={<AddIcon />}
+      onClick={onClick}
+      size="medium"
+    >
+      {isMobile ? 'Neu' : 'Neuer Skill'}
+    </Button>
+  );
 };
 
 // Extracted component to reduce cognitive complexity
@@ -99,8 +361,8 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
   // Mobile filter drawer state
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  // ⚡ PERFORMANCE: Use transition for non-blocking filter updates
-  const [isFilterPending, startFilterTransition] = useTransition();
+  // ⚡ useTransition for non-blocking filter updates
+  const [isPending, startTransition] = useTransition();
 
   // Memoize permission checks for user skills
   const canCreateOwnSkill = useMemo(
@@ -149,29 +411,43 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<Skill | undefined>();
 
+  // ⚡ PERFORMANCE: Single state object for user profile view
+  // This reduces re-renders from 3 to 1 (loading + skills + pagination → single update)
+  const [userProfileState, setUserProfileState] = useState<{
+    skills: SkillSearchResultResponse[];
+    pagination: {
+      totalRecords: number;
+      totalPages: number;
+      pageNumber: number;
+      pageSize: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    };
+    isLoading: boolean;
+  }>({
+    skills: [],
+    pagination: {
+      totalRecords: 0,
+      totalPages: 1,
+      pageNumber: 1,
+      pageSize: 12,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    },
+    isLoading: false,
+  });
+
+  // Destructure for easier access (these are stable references due to single state)
+  const userProfileSkills = userProfileState.skills;
+  const userProfilePagination = userProfileState.pagination;
+  const isLoadingUserProfile = userProfileState.isLoading;
+
   // ===== FILTER & PAGINATION STATE =====
-  // Read filters from URL params
-  const filtersFromUrl = useMemo(
-    (): SkillFilters => ({
-      searchTerm: searchParams.get('q') ?? undefined,
-      categoryId: searchParams.get('category') ?? undefined,
-      proficiencyLevelId: searchParams.get('level') ?? undefined,
-      isOffered:
-        searchParams.get('type') === 'offer'
-          ? true
-          : searchParams.get('type') === 'seek'
-            ? false
-            : undefined,
-      minRating: searchParams.get('rating') ? Number(searchParams.get('rating')) : undefined,
-      locationType: (searchParams.get('location') as SkillFilters['locationType']) ?? undefined,
-      maxDistanceKm: searchParams.get('distance')
-        ? Number(searchParams.get('distance'))
-        : undefined,
-      sortBy: (searchParams.get('sort') as SkillFilters['sortBy']) ?? 'relevance',
-      sortDirection: (searchParams.get('dir') ?? 'desc') as 'asc' | 'desc',
-    }),
-    [searchParams]
-  );
+  // Read filters from URL params (uses extracted helper)
+  const filtersFromUrl = useMemo(() => parseFiltersFromParams(searchParams), [searchParams]);
+
+  // Check if viewing another user's skills
+  const isUserProfileView = Boolean(filtersFromUrl.userId);
 
   const [filters, setFilters] = useState<SkillFilters>(filtersFromUrl);
   const [pageNumber, setPageNumber] = useState(() => {
@@ -185,70 +461,134 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
 
   // Determine view properties
   const isOwnerView = showOnly === 'mine';
-  const { title: pageTitle, description: pageDescription } = PAGE_CONFIG[showOnly];
+  const baseConfig = PAGE_CONFIG[showOnly];
+
+  // Override title/description for user profile view (uses extracted helpers)
+  const pageTitle = isUserProfileView ? getUserProfileTitle(filters.isOffered) : baseConfig.title;
+
+  const pageDescription = isUserProfileView
+    ? getUserProfileDescription(filters.isOffered)
+    : baseConfig.description;
 
   // ===== FILTER CHANGE HANDLERS =====
-  // ⚡ PERFORMANCE: Use startTransition to make filter updates non-blocking
-  // This prevents the UI from freezing when rapidly changing filters
+  // ⚡ startTransition wraps state updates to keep UI responsive
   const handleFilterChange = useCallback(
     (newFilters: SkillFilters) => {
-      // Wrap state updates in transition for non-blocking behavior
-      startFilterTransition(() => {
-        setFilters(newFilters);
-        setPageNumber(1); // Reset to first page on filter change
+      const mergedFilters: SkillFilters = { ...newFilters, userId: filters.userId };
+      // URL update happens immediately (not in transition)
+      setSearchParams(buildFilterParams(mergedFilters), { replace: true });
+      // State updates are low priority - UI stays responsive
+      startTransition(() => {
+        setFilters(mergedFilters);
+        setPageNumber(1);
       });
-
-      // URL update outside transition for immediate feedback
-      const params = new URLSearchParams();
-      if (newFilters.searchTerm) params.set('q', newFilters.searchTerm);
-      if (newFilters.categoryId) params.set('category', newFilters.categoryId);
-      if (newFilters.proficiencyLevelId) params.set('level', newFilters.proficiencyLevelId);
-      if (newFilters.isOffered !== undefined)
-        params.set('type', newFilters.isOffered ? 'offer' : 'seek');
-      if (newFilters.minRating != null && newFilters.minRating > 0)
-        params.set('rating', String(newFilters.minRating));
-      if (newFilters.locationType) params.set('location', newFilters.locationType);
-      if (newFilters.maxDistanceKm != null && newFilters.maxDistanceKm > 0)
-        params.set('distance', String(newFilters.maxDistanceKm));
-      if (newFilters.sortBy && newFilters.sortBy !== 'relevance')
-        params.set('sort', newFilters.sortBy);
-      if (newFilters.sortDirection && newFilters.sortDirection !== 'desc')
-        params.set('dir', newFilters.sortDirection);
-
-      setSearchParams(params, { replace: true });
     },
-    [setSearchParams, startFilterTransition]
+    [setSearchParams, filters.userId, startTransition]
   );
 
   const handleClearFilters = useCallback(() => {
-    startFilterTransition(() => {
-      setFilters({});
+    const clearedFilters: SkillFilters = filters.userId ? { userId: filters.userId } : {};
+    setSearchParams(buildFilterParams(clearedFilters), { replace: true });
+    startTransition(() => {
+      setFilters(clearedFilters);
       setPageNumber(1);
     });
-    setSearchParams({}, { replace: true });
-  }, [setSearchParams, startFilterTransition]);
+  }, [setSearchParams, filters.userId, startTransition]);
 
-  const handlePageChange = useCallback((newPage: number) => {
-    setPageNumber(newPage);
-  }, []);
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      startTransition(() => {
+        setPageNumber(newPage);
+      });
+    },
+    [startTransition]
+  );
 
-  const handlePageSizeChange = useCallback((newPageSize: number) => {
-    setPageSize(newPageSize);
-    setPageNumber(1); // Reset to first page
-  }, []);
+  const handlePageSizeChange = useCallback(
+    (newPageSize: number) => {
+      startTransition(() => {
+        setPageSize(newPageSize);
+        setPageNumber(1);
+      });
+    },
+    [startTransition]
+  );
 
   // ===== MEMOIZED DATA LOADING FUNCTIONS =====
   // Note: These functions return void (fire-and-forget dispatch)
   const loadMetadata = useCallback((): void => {
     fetchCategories();
     fetchProficiencyLevels();
-    // Always load favorites when user is logged in so we know which skills are favorited
-    if (user?.id) {
-      fetchFavoriteSkills();
-    }
-  }, [fetchCategories, fetchProficiencyLevels, fetchFavoriteSkills, user?.id]);
+    // Favorites loading is conditional but we call anyway - service handles auth
+    fetchFavoriteSkills();
+  }, [fetchCategories, fetchProficiencyLevels, fetchFavoriteSkills]);
+
+  // Helper to load user profile skills (extracted to reduce complexity)
+  // ⚡ PERFORMANCE: Uses startTransition to keep UI responsive during data updates
+  const loadUserProfileSkills = useCallback(
+    (params: {
+      userId: string;
+      isOffered?: boolean;
+      pageNumber: number;
+      pageSize: number;
+      locationType?: 'remote' | 'in_person' | 'both';
+      categoryId?: string;
+      proficiencyLevelId?: string;
+    }): void => {
+      // Set loading state immediately (high priority)
+      setUserProfileState((prev) => ({ ...prev, isLoading: true }));
+
+      profileService
+        .getUserSkills(params.userId, {
+          isOffered: params.isOffered,
+          pageNumber: params.pageNumber,
+          pageSize: params.pageSize,
+          locationType: params.locationType,
+          categoryId: params.categoryId,
+          proficiencyLevelId: params.proficiencyLevelId,
+        })
+        .then((response) => {
+          // ⚡ CRITICAL: startTransition marks this update as LOW PRIORITY
+          // React can interrupt the list re-render to keep the UI responsive
+          startTransition(() => {
+            if (isPagedResponse(response)) {
+              setUserProfileState({
+                skills: response.data,
+                pagination: {
+                  totalRecords: response.totalRecords,
+                  totalPages: response.totalPages,
+                  pageNumber: response.pageNumber,
+                  pageSize: response.pageSize,
+                  hasNextPage: response.hasNextPage,
+                  hasPreviousPage: response.hasPreviousPage,
+                },
+                isLoading: false,
+              });
+            } else {
+              setUserProfileState((prev) => ({
+                ...prev,
+                skills: [],
+                isLoading: false,
+              }));
+            }
+          });
+        })
+        .catch((fetchError: unknown) => {
+          errorService.addBreadcrumb('Failed to load user profile skills', 'error', { fetchError });
+          startTransition(() => {
+            setUserProfileState((prev) => ({
+              ...prev,
+              skills: [],
+              isLoading: false,
+            }));
+          });
+        });
+    },
+    [startTransition] // startTransition is stable from useTransition
+  );
 
   const loadSkillsData = useCallback((): void => {
+    // Route to appropriate loader based on view type
     if (showOnly === 'mine') {
       fetchUserSkills({
         pageNumber,
@@ -258,32 +598,53 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
         proficiencyLevelId: filters.proficiencyLevelId,
         locationType: filters.locationType,
       });
-    } else if (showOnly === 'favorite' && user?.id) {
-      fetchFavoriteSkills();
-      fetchAllSkills({ pageNumber, pageSize }); // Needed for favorite filtering
-    } else {
-      // Build search params with filters
-      const hasDistanceFilter =
-        filters.maxDistanceKm != null &&
-        filters.maxDistanceKm > 0 &&
-        latitude != null &&
-        longitude != null;
+      return;
+    }
 
-      fetchAllSkills({
-        ...filters,
+    if (showOnly === 'favorite' && user?.id) {
+      fetchFavoriteSkills();
+      fetchAllSkills({ pageNumber, pageSize });
+      return;
+    }
+
+    if (typeof filters.userId === 'string') {
+      // Simple direct call - no wrapper needed
+      loadUserProfileSkills({
+        userId: filters.userId,
+        isOffered: filters.isOffered,
         pageNumber,
         pageSize,
-        // Add location coordinates if distance filter is set
-        ...(hasDistanceFilter ? { userLatitude: latitude, userLongitude: longitude } : {}),
+        locationType: filters.locationType,
+        categoryId: filters.categoryId,
+        proficiencyLevelId: filters.proficiencyLevelId,
       });
+      return;
     }
+
+    // Default: load all skills with filters
+    const locationParams =
+      (filters.maxDistanceKm ?? 0) > 0 && latitude != null && longitude != null
+        ? { userLatitude: latitude, userLongitude: longitude }
+        : {};
+
+    fetchAllSkills({ ...filters, pageNumber, pageSize, ...locationParams });
+    // Note: We intentionally don't include `filters` in deps to avoid double-triggers.
+    // The individual filter values are already dependencies of loadUserProfileSkills/fetchUserSkills.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     showOnly,
     user?.id,
     fetchUserSkills,
     fetchAllSkills,
     fetchFavoriteSkills,
-    filters,
+    loadUserProfileSkills,
+    // filters - removed to prevent double-trigger; filter values flow through loadUserProfileSkills
+    filters.userId, // Only include userId for routing decision
+    filters.isOffered,
+    filters.categoryId,
+    filters.proficiencyLevelId,
+    filters.locationType,
+    filters.maxDistanceKm,
     pageNumber,
     pageSize,
     latitude,
@@ -429,40 +790,28 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
   const activeFilterCount = useMemo(() => countActiveFilters(filters), [filters]);
 
   // ===== MEMOIZED DATA SELECTORS =====
-  const displayedSkills = useMemo(() => {
-    switch (showOnly) {
-      case 'mine':
-        return userSkills;
-      case 'favorite':
-        return favoriteSkills;
-      case 'all':
-        return allSkills;
-      default: {
-        const _exhaustiveCheck: never = showOnly;
-        return _exhaustiveCheck;
-      }
-    }
-  }, [showOnly, userSkills, favoriteSkills, allSkills]);
+  const displayedSkills = useMemo(
+    () =>
+      getDisplayedSkills(showOnly, isUserProfileView, {
+        userProfileSkills,
+        userSkills,
+        favoriteSkills,
+        allSkills,
+      }),
+    [showOnly, userSkills, favoriteSkills, allSkills, isUserProfileView, userProfileSkills]
+  );
 
   const isLoading = useMemo(() => {
-    // Include isFilterPending for immediate loading feedback during transitions
-    const baseLoading = (() => {
-      switch (showOnly) {
-        case 'mine':
-          return isLoadingUser || isLoadingCategories || isLoadingProficiencyLevels;
-        case 'favorite':
-          return (
-            isLoadingFavorites || isLoadingAll || isLoadingCategories || isLoadingProficiencyLevels
-          );
-        case 'all':
-          return isLoadingAll || isLoadingCategories || isLoadingProficiencyLevels;
-        default: {
-          const _exhaustiveCheck: never = showOnly;
-          return _exhaustiveCheck;
-        }
-      }
-    })();
-    return baseLoading || isFilterPending;
+    const baseLoading = getLoadingState(showOnly, isUserProfileView, {
+      isLoadingUserProfile,
+      isLoadingUser,
+      isLoadingFavorites,
+      isLoadingAll,
+      isLoadingCategories,
+      isLoadingProficiencyLevels,
+    });
+    // Include isPending from useTransition to show loading during filter changes
+    return baseLoading || isPending;
   }, [
     showOnly,
     isLoadingAll,
@@ -470,33 +819,29 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
     isLoadingFavorites,
     isLoadingCategories,
     isLoadingProficiencyLevels,
-    isFilterPending,
+    isUserProfileView,
+    isLoadingUserProfile,
+    isPending,
   ]);
 
-  // Pagination pro View auswählen
-  const currentPagination = useMemo(() => {
-    switch (showOnly) {
-      case 'mine':
-        return userSkillsPagination;
-      case 'favorite':
-        // Favoriten haben noch keine Server-Pagination (kommt in Sprint 2)
-        // Nutze Client-seitige "Pagination" basierend auf Array-Länge
-        return {
-          totalRecords: favoriteSkills.length,
-          totalPages: 1,
-          pageNumber: 1,
-          pageSize: favoriteSkills.length || 12,
-          hasNextPage: false,
-          hasPreviousPage: false,
-        };
-      case 'all':
-        return allSkillsPagination;
-      default: {
-        const _exhaustiveCheck: never = showOnly;
-        return _exhaustiveCheck;
-      }
-    }
-  }, [showOnly, allSkillsPagination, userSkillsPagination, favoriteSkills.length]);
+  // Pagination pro View auswählen (uses extracted helper)
+  const currentPagination = useMemo(
+    () =>
+      getPagination(showOnly, isUserProfileView, {
+        userProfilePagination,
+        userSkillsPagination,
+        allSkillsPagination,
+        favoritesLength: favoriteSkills.length,
+      }),
+    [
+      showOnly,
+      allSkillsPagination,
+      userSkillsPagination,
+      favoriteSkills.length,
+      isUserProfileView,
+      userProfilePagination,
+    ]
+  );
 
   // Pagination nur anzeigen wenn es mehr als eine Seite gibt
   const showPagination = showOnly !== 'favorite' && currentPagination.totalPages > 1;
@@ -525,6 +870,12 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
           }}
         >
           <Box>
+            {/* Back to Profile button when viewing another user's skills */}
+            <BackToProfileButton
+              isUserProfileView={isUserProfileView}
+              userId={filters.userId}
+              navigate={navigate}
+            />
             <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
               {pageTitle}
             </Typography>
@@ -552,17 +903,12 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
               {isMobile ? '' : 'Aktualisieren'}
             </Button>
 
-            {isOwnerView && canCreateOwnSkill ? (
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleCreateSkill}
-                size="medium"
-              >
-                {isMobile ? 'Neu' : 'Neuer Skill'}
-              </Button>
-            ) : null}
+            <CreateSkillButton
+              isOwnerView={isOwnerView}
+              canCreate={canCreateOwnSkill}
+              isMobile={isMobile}
+              onClick={handleCreateSkill}
+            />
           </Box>
         </Box>
 

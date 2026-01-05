@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   School as SchoolIcon,
@@ -30,6 +30,7 @@ import useSkills from '../../../features/skills/hooks/useSkills';
 import { selectFeaturedSkills } from '../../../features/skills/store/skillsSelectors';
 import { mixins } from '../../../styles/mixins';
 import SEO from '../../components/seo/Seo';
+import { useNavigation } from '../../hooks/useNavigation';
 import { trackSkillView, trackRegistrationClick } from '../../utils/analytics';
 import {
   heroSectionSx,
@@ -67,6 +68,7 @@ import {
  */
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { navigateToSkill } = useNavigation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuthenticated } = useAuth();
@@ -77,10 +79,14 @@ const HomePage: React.FC = () => {
     fetchAllSkills();
   }, [fetchAllSkills]);
 
-  const handleSkillClick = async (skillId: string): Promise<void> => {
-    trackSkillView(skillId, isAuthenticated);
-    await navigate(`/skills/${skillId}`);
-  };
+  const handleSkillClick = useCallback(
+    async (skillId: string, skillName?: string): Promise<void> => {
+      trackSkillView(skillId, isAuthenticated);
+      // navigateToSkill erkennt automatisch dass wir von 'home' kommen
+      await navigateToSkill(skillId, { skillName });
+    },
+    [isAuthenticated, navigateToSkill]
+  );
 
   const handleRegisterClick = async (source: string): Promise<void> => {
     trackRegistrationClick(source);
@@ -250,7 +256,7 @@ const HomePage: React.FC = () => {
                     elevation={2}
                     sx={skillCardSx}
                     onClick={async () => {
-                      await handleSkillClick(skill.id);
+                      await handleSkillClick(skill.id, skill.name);
                     }}
                   >
                     <CardContent sx={skillCardContentSx}>
@@ -303,7 +309,7 @@ const HomePage: React.FC = () => {
                         endIcon={<ArrowForwardIcon />}
                         onClick={async (e) => {
                           e.stopPropagation();
-                          await handleSkillClick(skill.id);
+                          await handleSkillClick(skill.id, skill.name);
                         }}
                       >
                         Details ansehen
