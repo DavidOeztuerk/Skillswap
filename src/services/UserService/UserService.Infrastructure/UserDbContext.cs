@@ -20,6 +20,11 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
     public DbSet<UserCalendarConnection> UserCalendarConnections => Set<UserCalendarConnection>();
     public DbSet<AppointmentCalendarEvent> AppointmentCalendarEvents => Set<AppointmentCalendarEvent>();
 
+    // Profile extension tables
+    public DbSet<UserExperience> UserExperiences => Set<UserExperience>();
+    public DbSet<UserEducation> UserEducation => Set<UserEducation>();
+    public DbSet<UserReview> UserReviews => Set<UserReview>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -36,6 +41,9 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         ConfigureBlockedUser(modelBuilder);
         ConfigureUserCalendarConnection(modelBuilder);
         ConfigureAppointmentCalendarEvent(modelBuilder);
+        ConfigureUserExperience(modelBuilder);
+        ConfigureUserEducation(modelBuilder);
+        ConfigureUserReview(modelBuilder);
 
         Seed(modelBuilder);
     }
@@ -53,6 +61,7 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.LastName).HasMaxLength(100).IsRequired();
 
         e.Property(x => x.Bio).HasMaxLength(1000);
+        e.Property(x => x.Headline).HasMaxLength(200);
         e.Property(x => x.TimeZone).HasMaxLength(100);
         e.Property(x => x.PhoneNumber).HasMaxLength(20);
         e.Property(x => x.LastLoginIp).HasMaxLength(45);
@@ -135,6 +144,28 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasMany(x => x.BlockedByOthers)
          .WithOne(x => x.BlockedUserRef)
          .HasForeignKey(x => x.BlockedUserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        // Profile extension collections
+        e.HasMany(x => x.Experiences)
+         .WithOne(x => x.User)
+         .HasForeignKey(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasMany(x => x.Education)
+         .WithOne(x => x.User)
+         .HasForeignKey(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        // Reviews - given and received
+        e.HasMany(x => x.ReviewsGiven)
+         .WithOne(x => x.Reviewer)
+         .HasForeignKey(x => x.ReviewerId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasMany(x => x.ReviewsReceived)
+         .WithOne(x => x.Reviewee)
+         .HasForeignKey(x => x.RevieweeId)
          .OnDelete(DeleteBehavior.Cascade);
     }
 
@@ -482,6 +513,92 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
          .HasPrincipalKey(c => new { c.UserId, c.Provider })
          .OnDelete(DeleteBehavior.SetNull)
          .IsRequired(false);
+    }
+
+    private static void ConfigureUserExperience(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserExperience>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.Title).IsRequired().HasMaxLength(200);
+        e.Property(x => x.Company).IsRequired().HasMaxLength(200);
+        e.Property(x => x.StartDate).IsRequired();
+        e.Property(x => x.Description).HasMaxLength(1000);
+        e.Property(x => x.SortOrder).HasDefaultValue(0);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+
+        e.HasIndex(x => x.UserId);
+        e.HasIndex(x => new { x.UserId, x.SortOrder })
+            .HasDatabaseName("IX_UserExperiences_UserSort");
+
+        e.HasOne(x => x.User)
+         .WithMany(u => u.Experiences)
+         .HasForeignKey(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static void ConfigureUserEducation(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserEducation>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.Degree).IsRequired().HasMaxLength(200);
+        e.Property(x => x.Institution).IsRequired().HasMaxLength(200);
+        e.Property(x => x.Description).HasMaxLength(1000);
+        e.Property(x => x.SortOrder).HasDefaultValue(0);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+
+        e.HasIndex(x => x.UserId);
+        e.HasIndex(x => new { x.UserId, x.SortOrder })
+            .HasDatabaseName("IX_UserEducation_UserSort");
+
+        e.HasOne(x => x.User)
+         .WithMany(u => u.Education)
+         .HasForeignKey(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static void ConfigureUserReview(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserReview>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.ReviewerId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.RevieweeId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.SessionId).HasMaxLength(450);
+        e.Property(x => x.SkillId).HasMaxLength(450);
+        e.Property(x => x.Rating).IsRequired();
+        e.Property(x => x.ReviewText).HasMaxLength(2000);
+        e.Property(x => x.ReviewerName).HasMaxLength(200);
+        e.Property(x => x.ReviewerAvatarUrl).HasMaxLength(500);
+        e.Property(x => x.SkillName).HasMaxLength(200);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Indexes
+        e.HasIndex(x => x.ReviewerId);
+        e.HasIndex(x => x.RevieweeId);
+        e.HasIndex(x => x.SessionId);
+        e.HasIndex(x => x.SkillId);
+        e.HasIndex(x => x.Rating);
+        e.HasIndex(x => x.CreatedAt);
+        e.HasIndex(x => new { x.RevieweeId, x.CreatedAt })
+            .HasDatabaseName("IX_UserReviews_RevieweeRecent");
+        e.HasIndex(x => new { x.RevieweeId, x.Rating })
+            .HasDatabaseName("IX_UserReviews_RevieweeRating");
+
+        // Prevent duplicate reviews for same session
+        e.HasIndex(x => new { x.ReviewerId, x.SessionId })
+            .IsUnique()
+            .HasFilter("\"SessionId\" IS NOT NULL")
+            .HasDatabaseName("IX_UserReviews_UniqueSessionReview");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+
+        // Relationships are configured in ConfigureUser
     }
 
     private static void Seed(ModelBuilder mb)

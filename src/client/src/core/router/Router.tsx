@@ -138,10 +138,26 @@ const protectedRoutes = {
   }),
 
   // User Profile & Settings
-  profile: createLazyRoute(() => import('../../shared/pages/profile/ProfilePage'), {
+  profile: createLazyRoute(() => import('../../features/profile/pages/ProfilePage'), {
     requireAuth: true,
     useSkeleton: true,
     skeletonVariant: 'profile',
+  }),
+
+  // Public Profile (andere User anzeigen) - öffentlich zugänglich
+  publicProfile: createLazyRoute(() => import('../../features/profile/pages/PublicProfilePage'), {
+    requireAuth: false,
+    useSkeleton: true,
+    skeletonVariant: 'profile',
+    loadingMessage: 'Profil wird geladen...',
+  }),
+
+  // User Reviews Page - öffentlich zugänglich
+  userReviews: createLazyRoute(() => import('../../features/profile/pages/ReviewsPage'), {
+    requireAuth: false,
+    useSkeleton: true,
+    skeletonVariant: 'list',
+    loadingMessage: 'Bewertungen werden geladen...',
   }),
 
   securitySettings: createLazyRoute(
@@ -491,6 +507,18 @@ const routes: RouteObject[] = [
       {
         path: 'profile',
         element: <protectedRoutes.profile.component />,
+      },
+      {
+        path: 'users/:userId',
+        element: <protectedRoutes.publicProfile.component />,
+      },
+      {
+        path: 'users/:userId/profile',
+        element: <protectedRoutes.publicProfile.component />,
+      },
+      {
+        path: 'users/:userId/reviews',
+        element: <protectedRoutes.userReviews.component />,
       },
       {
         path: 'settings/security',

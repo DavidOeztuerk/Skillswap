@@ -22,7 +22,6 @@ import {
   Refresh as RefreshIcon,
   TrendingUp as TrendingIcon,
 } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Card,
@@ -49,6 +48,7 @@ import { useAppSelector } from '../../../core/store/store.hooks';
 import PageContainer from '../../../shared/components/layout/PageContainer';
 import PageHeader from '../../../shared/components/layout/PageHeader';
 import EmptyState from '../../../shared/components/ui/EmptyState';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import LoadingSpinner from '../../../shared/components/ui/LoadingSpinner';
 import useToast from '../../../shared/hooks/useToast';
 import useMatchmaking from '../hooks/useMatchmaking';

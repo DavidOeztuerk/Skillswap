@@ -35,6 +35,9 @@ public class User : AuditableEntity
     [MaxLength(1000)]
     public string? Bio { get; set; }
 
+    [MaxLength(200)]
+    public string? Headline { get; set; }
+
     [MaxLength(100)]
     public string? TimeZone { get; set; }
 
@@ -83,8 +86,8 @@ public class User : AuditableEntity
     public DateTime? SuspendedAt { get; set; }
     public string? SuspensionReason { get; set; }
 
-    // Avatar URL (replaces ProfilePictureUrl)
-    [MaxLength(500)]
+    // TODO: Avatar wird später über Firebase Storage URL gespeichert
+    // Upload ist im Frontend deaktiviert bis Firebase Storage implementiert ist
     public string? ProfilePictureUrl { get; set; }
 
     // Availability and scheduling (stored as JSON)
@@ -105,6 +108,14 @@ public class User : AuditableEntity
     public virtual ICollection<UserSession> Sessions { get; set; } = [];
     public virtual ICollection<BlockedUser> BlockedUsersInitiated { get; set; } = [];
     public virtual ICollection<BlockedUser> BlockedByOthers { get; set; } = [];
+
+    // Profile extension collections
+    public virtual ICollection<UserExperience> Experiences { get; set; } = [];
+    public virtual ICollection<UserEducation> Education { get; set; } = [];
+
+    // Reviews - given and received
+    public virtual ICollection<UserReview> ReviewsGiven { get; set; } = [];
+    public virtual ICollection<UserReview> ReviewsReceived { get; set; } = [];
 
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();

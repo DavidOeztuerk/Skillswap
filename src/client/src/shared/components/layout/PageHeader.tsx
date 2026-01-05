@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import {
@@ -11,6 +11,7 @@ import {
   Button,
 } from '@mui/material';
 import { useBreadcrumbs, type BreadcrumbItem } from '../../hooks/useBreadcrumbs';
+import { useNavigation } from '../../hooks/useNavigation';
 
 interface PageHeaderProps {
   title?: string; // Now optional - will be auto-generated if not provided
@@ -20,6 +21,7 @@ interface PageHeaderProps {
   sx?: SxProps<Theme>;
   showBreadcrumbs?: boolean; // Control breadcrumb visibility
   useAutoBreadcrumbs?: boolean; // Use automatic breadcrumb generation
+  useContextualBreadcrumbs?: boolean; // Use contextual breadcrumbs from useNavigation
   icon?: React.ReactNode; // Icon for the header, if needed
 }
 
@@ -34,12 +36,41 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   sx,
   showBreadcrumbs = true,
   useAutoBreadcrumbs = true,
+  useContextualBreadcrumbs = false,
   icon,
 }) => {
   const autoBreadcrumbs = useBreadcrumbs();
+  const { contextualBreadcrumbs, navigateWithContext, navigationContext } = useNavigation();
 
-  // Determine which breadcrumbs to use
-  const finalBreadcrumbs = useAutoBreadcrumbs ? (breadcrumbs ?? autoBreadcrumbs) : breadcrumbs;
+  // Handler for breadcrumb navigation with context preservation
+  const handleBreadcrumbClick = useCallback(
+    (href: string, label: string) => {
+      if (href === '/') {
+        void navigateWithContext(href);
+      } else if (href.startsWith('/skills/') && href !== '/skills') {
+        void navigateWithContext(href, {
+          from: 'home',
+          skillName: label,
+        });
+      } else if (
+        href === '/skills' ||
+        href === '/skills/my-skills' ||
+        href === '/skills/favorites'
+      ) {
+        void navigateWithContext(href, { from: 'home' });
+      } else {
+        void navigateWithContext(href, navigationContext);
+      }
+    },
+    [navigateWithContext, navigationContext]
+  );
+
+  // Determine which breadcrumbs to use (contextual > custom > auto)
+  const finalBreadcrumbs = useContextualBreadcrumbs
+    ? contextualBreadcrumbs
+    : useAutoBreadcrumbs
+      ? (breadcrumbs ?? autoBreadcrumbs)
+      : breadcrumbs;
 
   // Auto-generate title from breadcrumbs if not provided
   const getAutoTitle = (): string => {
@@ -76,11 +107,33 @@ const PageHeader: React.FC<PageHeaderProps> = ({
             {finalBreadcrumbs.map((item, index) => {
               const isLast = index === finalBreadcrumbs.length - 1;
 
-              return isLast || item.href === undefined ? (
-                <Typography key={item.label} color="text.primary" variant="body2">
-                  {item.label}
-                </Typography>
-              ) : (
+              if (isLast || item.href === undefined || item.isActive === true) {
+                return (
+                  <Typography key={item.label} color="text.primary" variant="body2">
+                    {item.label}
+                  </Typography>
+                );
+              }
+
+              // Use contextual navigation handler when enabled
+              if (useContextualBreadcrumbs && item.href) {
+                return (
+                  <Link
+                    key={item.label}
+                    component="button"
+                    underline="hover"
+                    color="inherit"
+                    variant="body2"
+                    onClick={() => handleBreadcrumbClick(item.href ?? '', item.label)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              }
+
+              // Default: use RouterLink
+              return (
                 <Link
                   key={item.label}
                   component={RouterLink}

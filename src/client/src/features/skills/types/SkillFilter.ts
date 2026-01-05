@@ -11,6 +11,8 @@ export interface SkillFilters {
   maxDistanceKm?: number;
   sortBy?: 'relevance' | 'rating' | 'createdAt' | 'name' | 'popularity';
   sortDirection?: 'asc' | 'desc';
+  // Filter by specific user
+  userId?: string;
 }
 
 export const DEFAULT_SKILL_FILTERS: SkillFilters = {

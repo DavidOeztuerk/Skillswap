@@ -7,11 +7,11 @@ import { z } from 'zod';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { LoadingButton } from '@mui/lab';
 import { Box, Typography, Alert, Stack, TextField } from '@mui/material';
 import { useLoading } from '../../../core/contexts/loadingContextHooks';
 import { LoadingKeys } from '../../../core/contexts/loadingContextValue';
 import { useAppDispatch } from '../../../core/store/store.hooks';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import authService from '../services/authService';
 import { verifyEmail as verifyEmailAction } from '../store/authThunks';
 

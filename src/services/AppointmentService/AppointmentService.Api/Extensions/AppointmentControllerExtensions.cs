@@ -144,6 +144,23 @@ public static class AppointmentControllerExtensions
             .RequireAuthorization();
 
         // ============================================================================
+        // REVIEW ENDPOINTS (Public)
+        // ============================================================================
+
+        var reviews = builder.MapGroup("/reviews")
+            .WithTags("Reviews");
+
+        reviews.MapGet("/user/{userId}", HandleGetUserReviews)
+            .WithName("GetUserReviews")
+            .WithSummary("Get user reviews")
+            .WithDescription("Retrieves paginated reviews for a user (as teacher).");
+
+        reviews.MapGet("/user/{userId}/stats", HandleGetUserReviewStats)
+            .WithName("GetUserReviewStats")
+            .WithSummary("Get user review statistics")
+            .WithDescription("Retrieves rating distribution and averages for histogram display.");
+
+        // ============================================================================
         // HANDLER METHODS
         // ============================================================================
 
@@ -404,7 +421,15 @@ public static class AppointmentControllerExtensions
                 request.Feedback,
                 request.IsPublic,
                 request.WouldRecommend,
-                request.Tags);
+                request.Tags,
+                request.KnowledgeRating,
+                request.KnowledgeComment,
+                request.TeachingRating,
+                request.TeachingComment,
+                request.CommunicationRating,
+                request.CommunicationComment,
+                request.ReliabilityRating,
+                request.ReliabilityComment);
 
             return await mediator.SendCommand(command);
         }
@@ -452,6 +477,27 @@ public static class AppointmentControllerExtensions
                 request.PlatformFeePercent);
 
             return await mediator.SendCommand(command);
+        }
+
+        // ============================================================================
+        // REVIEW HANDLERS
+        // ============================================================================
+
+        static async Task<IResult> HandleGetUserReviews(
+            IMediator mediator,
+            string userId,
+            [FromQuery] int? starFilter = null,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var query = new GetUserReviewsQuery(userId, starFilter, pageNumber, pageSize);
+            return await mediator.SendQuery(query);
+        }
+
+        static async Task<IResult> HandleGetUserReviewStats(IMediator mediator, string userId)
+        {
+            var query = new GetUserReviewStatsQuery(userId);
+            return await mediator.SendQuery(query);
         }
 
         return appointments;

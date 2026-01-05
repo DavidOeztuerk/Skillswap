@@ -65,6 +65,86 @@ public class SessionRating : AuditableEntity
     [MaxLength(500)]
     public string? Tags { get; set; } // "professional,punctual,knowledgeable" (comma-separated)
 
+    // ============================================================================
+    // Section Ratings (1-5 each, optional)
+    // ============================================================================
+
+    /// <summary>
+    /// Knowledge rating (1-5) - How knowledgeable was the teacher?
+    /// </summary>
+    [Range(1, 5)]
+    public int? KnowledgeRating { get; set; }
+
+    /// <summary>
+    /// Knowledge comment
+    /// </summary>
+    [MaxLength(500)]
+    public string? KnowledgeComment { get; set; }
+
+    /// <summary>
+    /// Teaching rating (1-5) - How well did the teacher explain?
+    /// </summary>
+    [Range(1, 5)]
+    public int? TeachingRating { get; set; }
+
+    /// <summary>
+    /// Teaching comment
+    /// </summary>
+    [MaxLength(500)]
+    public string? TeachingComment { get; set; }
+
+    /// <summary>
+    /// Communication rating (1-5) - How was the communication?
+    /// </summary>
+    [Range(1, 5)]
+    public int? CommunicationRating { get; set; }
+
+    /// <summary>
+    /// Communication comment
+    /// </summary>
+    [MaxLength(500)]
+    public string? CommunicationComment { get; set; }
+
+    /// <summary>
+    /// Reliability rating (1-5) - Was the teacher reliable and punctual?
+    /// </summary>
+    [Range(1, 5)]
+    public int? ReliabilityRating { get; set; }
+
+    /// <summary>
+    /// Reliability comment
+    /// </summary>
+    [MaxLength(500)]
+    public string? ReliabilityComment { get; set; }
+
+    // ============================================================================
+    // Cached Context Data (for display purposes)
+    // ============================================================================
+
+    /// <summary>
+    /// ID of the skill being reviewed (cached from session)
+    /// </summary>
+    [MaxLength(450)]
+    public string? SkillId { get; set; }
+
+    /// <summary>
+    /// Name of the skill (cached for display)
+    /// </summary>
+    [MaxLength(200)]
+    public string? SkillName { get; set; }
+
+    /// <summary>
+    /// Name of the reviewer (cached for display)
+    /// </summary>
+    [MaxLength(200)]
+    public string? ReviewerName { get; set; }
+
+    /// <summary>
+    /// Avatar URL of the reviewer (cached for display)
+    /// </summary>
+    [MaxLength(500)]
+    public string? ReviewerAvatarUrl { get; set; }
+
     /// <summary>
     /// Response from the ratee (optional)
     /// </summary>
@@ -93,6 +173,19 @@ public class SessionRating : AuditableEntity
     public bool IsNegative => Rating <= 2;
 
     /// <summary>
+    /// Calculate average of section ratings (ignores null values)
+    /// </summary>
+    public double? AverageSectionRating
+    {
+        get
+        {
+            var ratings = new List<int?> { KnowledgeRating, TeachingRating, CommunicationRating, ReliabilityRating };
+            var validRatings = ratings.Where(r => r.HasValue).Select(r => r!.Value).ToList();
+            return validRatings.Count > 0 ? validRatings.Average() : null;
+        }
+    }
+
+    /// <summary>
     /// Creates a new session rating
     /// </summary>
     public static SessionRating Create(
@@ -103,7 +196,19 @@ public class SessionRating : AuditableEntity
         string? feedback = null,
         bool isPublic = true,
         bool? wouldRecommend = null,
-        string? tags = null)
+        string? tags = null,
+        int? knowledgeRating = null,
+        string? knowledgeComment = null,
+        int? teachingRating = null,
+        string? teachingComment = null,
+        int? communicationRating = null,
+        string? communicationComment = null,
+        int? reliabilityRating = null,
+        string? reliabilityComment = null,
+        string? skillId = null,
+        string? skillName = null,
+        string? reviewerName = null,
+        string? reviewerAvatarUrl = null)
     {
         if (rating < 1 || rating > 5)
             throw new ArgumentException("Rating must be between 1 and 5");
@@ -122,6 +227,18 @@ public class SessionRating : AuditableEntity
             IsPublic = isPublic,
             WouldRecommend = wouldRecommend,
             Tags = tags,
+            KnowledgeRating = knowledgeRating,
+            KnowledgeComment = knowledgeComment,
+            TeachingRating = teachingRating,
+            TeachingComment = teachingComment,
+            CommunicationRating = communicationRating,
+            CommunicationComment = communicationComment,
+            ReliabilityRating = reliabilityRating,
+            ReliabilityComment = reliabilityComment,
+            SkillId = skillId,
+            SkillName = skillName,
+            ReviewerName = reviewerName,
+            ReviewerAvatarUrl = reviewerAvatarUrl,
             CreatedAt = DateTime.UtcNow
         };
     }

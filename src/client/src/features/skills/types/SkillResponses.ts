@@ -164,6 +164,8 @@ export interface SkillSearchParams {
   maxDistanceKm?: number;
   userLatitude?: number;
   userLongitude?: number;
+  // User filter (for viewing another user's skills)
+  userId?: string;
 }
 
 export interface SkillStatistics {

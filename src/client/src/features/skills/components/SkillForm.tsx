@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LocalOffer as OfferIcon, Search as SearchIcon } from '@mui/icons-material';
 import {
   Box,
@@ -214,15 +214,20 @@ const SkillForm: React.FC<SkillFormProps> = ({
   const [expandedSection, setExpandedSection] = useState<string | false>(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+  const lastCategoryIdRef = useRef<string>('');
+
   // Reset form when dialog opens
   useEffect(() => {
     if (!open) return;
 
     const timer = setTimeout(() => {
-      setFormValues(skill ? initializeFormFromSkill(skill) : getDefaultFormValues());
+      const initialValues = skill ? initializeFormFromSkill(skill) : getDefaultFormValues();
+      setFormValues(initialValues);
       setErrors({});
       setExpandedSection(false);
       setImagePreview(null);
+      // Track initial category for edit mode
+      lastCategoryIdRef.current = initialValues.categoryId;
     }, 0);
 
     return () => clearTimeout(timer);
@@ -236,6 +241,18 @@ const SkillForm: React.FC<SkillFormProps> = ({
     setFormValues((prev) => ({ ...prev, [name]: value }));
     if (errors[name as keyof CreateSkillRequest]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  // Handle category change
+  const handleCategoryChange = (e: SelectChangeEvent): void => {
+    const newCategoryId = e.target.value;
+    setFormValues((prev) => ({ ...prev, categoryId: newCategoryId }));
+    lastCategoryIdRef.current = newCategoryId;
+
+    // Clear category error if present
+    if (errors.categoryId) {
+      setErrors((prev) => ({ ...prev, categoryId: undefined }));
     }
   };
 
@@ -527,7 +544,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
               labelId="category-select-label"
               name="categoryId"
               value={formValues.categoryId}
-              onChange={handleFieldChange}
+              onChange={handleCategoryChange}
               label="Kategorie"
             >
               {hasCategories ? (
