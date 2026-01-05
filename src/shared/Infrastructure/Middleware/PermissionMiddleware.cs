@@ -132,7 +132,7 @@ public class PermissionMiddleware
             "/api/skills",     // Public skill browsing (Udemy-style)
             "/api/categories", // Public skill categories
             "/api/proficiency-levels", // Public proficiency levels
-            "/api/users/profile/", // Public user profiles
+            "/api/users/public", // Public user profiles (anonymous access)
             "/register",       // Registration endpoint (legacy)
             "/login",          // Login endpoint (legacy)
             "/forgot-password", // Password reset endpoints (legacy)

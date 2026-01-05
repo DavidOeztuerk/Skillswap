@@ -37,6 +37,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserCalendarConnectionRepository, UserCalendarConnectionRepository>();
         services.AddScoped<IAppointmentCalendarEventRepository, AppointmentCalendarEventRepository>();
 
+        // Profile extension repositories
+        services.AddScoped<IUserExperienceRepository, UserExperienceRepository>();
+        services.AddScoped<IUserEducationRepository, UserEducationRepository>();
+        services.AddScoped<IUserReviewRepository, UserReviewRepository>();
+
         // Session Management - for concurrent session control
         services.AddScoped<ISessionManager, SessionManager>();
 

@@ -84,6 +84,14 @@ export const selectUserEmail = createSelector(
 );
 
 /**
+ * Select user's profile picture URL (avatar)
+ */
+export const selectUserAvatarUrl = createSelector(
+  [selectAuthUser],
+  (user): string | undefined => user?.profilePictureUrl
+);
+
+/**
  * Select user's ID
  */
 export const selectUserId = createSelector(

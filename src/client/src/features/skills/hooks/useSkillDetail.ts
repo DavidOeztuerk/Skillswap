@@ -10,6 +10,7 @@ import { useParams, useNavigate, useSearchParams, useLocation } from 'react-rout
 import { useEmailVerificationContext } from '../../../core/contexts/emailVerificationContextHook';
 import { usePermissions } from '../../../core/contexts/permissionContextHook';
 import errorService from '../../../core/services/errorService';
+import { useNavigation } from '../../../shared/hooks/useNavigation';
 import useToast from '../../../shared/hooks/useToast';
 import { trackMatchRequestClick } from '../../../shared/utils/analytics';
 import { Permissions } from '../../auth/components/permissions.constants';
@@ -29,6 +30,9 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
   const toast = useToast();
   const { hasPermission } = usePermissions();
 
+  // Neuer kombinierter Navigation Hook
+  const { navigationContext, navigateBack: navBack } = useNavigation();
+
   // Memoize permission checks
   const canUpdateOwnSkill = useMemo(
     () => hasPermission(Permissions.Skills.UPDATE_OWN),
@@ -44,7 +48,6 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
     userSkills,
     fetchSkillById,
     deleteSkill,
-    rateSkill,
     endorseSkill,
     isLoading: skillsLoading,
     errorMessage,
@@ -65,13 +68,14 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
   const { needsVerification, openVerificationModal } = useEmailVerificationContext();
 
   // Local state
-  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
   const [endorseDialogOpen, setEndorseDialogOpen] = useState(false);
   const [matchFormOpen, setMatchFormOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<StatusMessage | undefined>();
   const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
-  const [cameFromMySkills, setCameFromMySkills] = useState(false);
+
+  // cameFromMySkills wird jetzt aus dem Navigationskontext abgeleitet
+  const cameFromMySkills = navigationContext.from === 'mySkills';
 
   // Refs to prevent double execution
   const hasOpenedMatchForm = useRef(false);
@@ -134,15 +138,6 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
     toast,
     navigate,
   ]);
-
-  // Check referrer
-  useEffect(() => {
-    const { referrer } = document;
-    const cameFromMy = referrer.includes('/skills/my-skills') || isOwner;
-    queueMicrotask(() => {
-      setCameFromMySkills(cameFromMy);
-    });
-  }, [isOwner]);
 
   // Computed values
   const isFavorite = useMemo(
@@ -211,17 +206,6 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
       setStatusMessage({ text: 'Link in Zwischenablage kopiert', type: 'success' });
     }
   }, [selectedSkill]);
-
-  const handleRateSkill = useCallback(
-    (rating: number, review: string): void => {
-      if (!skillId || isOwner) return;
-      errorService.addBreadcrumb('Rating skill', 'form', { skillId, rating });
-      rateSkill(skillId, rating, review);
-      setStatusMessage({ text: 'Bewertung erfolgreich abgegeben', type: 'success' });
-      setRatingDialogOpen(false);
-    },
-    [skillId, isOwner, rateSkill]
-  );
 
   const handleEndorseSkill = useCallback(
     (message: string): void => {
@@ -380,16 +364,9 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
   }, [skillId, isOwner, navigate]);
 
   const handleBack = useCallback((): void => {
-    let targetRoute: string;
-    if (!isAuthenticated) {
-      targetRoute = '/';
-    } else if (isOwner || cameFromMySkills) {
-      targetRoute = '/skills/my-skills';
-    } else {
-      targetRoute = '/skills';
-    }
-    void navigate(targetRoute);
-  }, [isAuthenticated, isOwner, cameFromMySkills, navigate]);
+    // Nutze den neuen Navigation Hook für kontextbasierte Navigation
+    navBack();
+  }, [navBack]);
 
   // Loading state
   const isPageLoading = skillsLoading && !selectedSkill;
@@ -403,7 +380,6 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
     isPageLoading,
     errorMessage,
     cameFromMySkills,
-    ratingDialogOpen,
     endorseDialogOpen,
     matchFormOpen,
     deleteDialogOpen,
@@ -413,7 +389,6 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
     matchmakingError,
     handleBookmark,
     handleShare,
-    handleRateSkill,
     handleEndorseSkill,
     handleDeleteSkill,
     handleCreateMatch,
@@ -421,7 +396,6 @@ export const useSkillDetail = (): UseSkillDetailReturn => {
     handleEdit,
     handleBack,
     getOwnerName,
-    setRatingDialogOpen,
     setEndorseDialogOpen,
     setMatchFormOpen,
     setDeleteDialogOpen,

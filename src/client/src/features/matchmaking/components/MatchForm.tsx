@@ -2,7 +2,6 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import z from 'zod';
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   TextField,
@@ -14,6 +13,7 @@ import {
 } from '@mui/material';
 import ErrorAlert from '../../../shared/components/error/ErrorAlert';
 import FormDialog from '../../../shared/components/ui/FormDialog';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import { isSuccessResponse } from '../../../shared/types/api/UnifiedResponse';
 import { skillService } from '../../skills/services/skillsService';
 import {

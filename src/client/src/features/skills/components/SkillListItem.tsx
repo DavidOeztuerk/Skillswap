@@ -1,18 +1,9 @@
 /**
  * SkillListItem - Horizontal Udemy-style skill card for list view
  *
- * Layout:
- * ┌──────────────────────────────────────────────────────────────┐
- * │  ┌─────────┐  Skill Name                    ⭐ 4.5 (23)  ♡   │
- * │  │  IMAGE  │  Category • Proficiency Level                  │
- * │  │ 160x100 │  Description text truncated to 2 lines...      │
- * │  └─────────┘  👤 Owner Name  •  📍 Remote/In-Person          │
- * │               🏷️ tag1, tag2, tag3     [Angeboten/Gesucht]   │
- * └──────────────────────────────────────────────────────────────┘
  */
 
 import React, { memo, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   BookmarkBorder as BookmarkBorderIcon,
   Bookmark as BookmarkIcon,
@@ -32,6 +23,7 @@ import {
   useMediaQuery,
   Skeleton,
 } from '@mui/material';
+import { useNavigation } from '../../../shared/hooks/useNavigation';
 import { getLocationTypeLabel, type Skill, type SkillLocationType } from '../types/Skill';
 
 interface SkillListItemProps {
@@ -219,7 +211,7 @@ TagsDisplay.displayName = 'TagsDisplay';
 const SkillListItem: React.FC<SkillListItemProps> = memo(
   ({ skill, isOwner = false, isFavorite = false, onToggleFavorite, onClick }) => {
     const theme = useTheme();
-    const navigate = useNavigate();
+    const { navigateToSkill } = useNavigation();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     // Memoized data
@@ -237,13 +229,14 @@ const SkillListItem: React.FC<SkillListItemProps> = memo(
     );
 
     // Event handlers
-    const handleClick = useCallback(() => {
+    const handleClick = useCallback(async () => {
       if (onClick) {
         onClick(skill);
       } else {
-        void navigate(`/skills/${skill.id}`);
+        // navigateToSkill automatically determines source from current path
+        await navigateToSkill(skill.id, { skillName: skill.name });
       }
-    }, [onClick, navigate, skill]);
+    }, [onClick, navigateToSkill, skill]);
 
     const handleToggleFavorite = useCallback(
       (e: React.MouseEvent) => {
@@ -254,10 +247,10 @@ const SkillListItem: React.FC<SkillListItemProps> = memo(
     );
 
     const handleKeyDown = useCallback(
-      (e: React.KeyboardEvent) => {
+      async (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          handleClick();
+          await handleClick();
         }
       },
       [handleClick]
