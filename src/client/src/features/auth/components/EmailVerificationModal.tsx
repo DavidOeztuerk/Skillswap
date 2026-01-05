@@ -10,7 +10,6 @@ import {
   Error as ErrorIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Dialog,
   DialogTitle,
@@ -28,6 +27,7 @@ import {
 } from '@mui/material';
 import { useLoading } from '../../../core/contexts/loadingContextHooks';
 import { LoadingKeys } from '../../../core/contexts/loadingContextValue';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import useAuth from '../hooks/useAuth';
 import authService from '../services/authService';
 

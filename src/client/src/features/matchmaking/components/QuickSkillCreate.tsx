@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { Add as AddIcon } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Dialog,
   DialogTitle,
@@ -17,6 +16,7 @@ import {
   Alert,
   FormHelperText,
 } from '@mui/material';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import { isSuccessResponse } from '../../../shared/types/api/UnifiedResponse';
 import { skillService } from '../../skills/services/skillsService';
 import type { CreateSkillRequest } from '../../skills/types/CreateSkillRequest';

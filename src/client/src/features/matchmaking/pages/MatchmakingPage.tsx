@@ -15,7 +15,6 @@ import {
   Reply as ReplyIcon,
   AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Card,
@@ -48,6 +47,7 @@ import errorService from '../../../core/services/errorService';
 import MatchingErrorBoundary from '../../../shared/components/error/MatchingErrorBoundary';
 import PageContainer from '../../../shared/components/layout/PageContainer';
 import PageHeader from '../../../shared/components/layout/PageHeader';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import SkeletonLoader from '../../../shared/components/ui/SkeletonLoader';
 import { mixins } from '../../../styles/mixins';
 import { gridConfigs } from '../../../styles/responsive';

@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowBack as ArrowBackIcon, Cancel as CancelIcon } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Container,
@@ -18,7 +17,9 @@ import { LoadingKeys } from '../../../core/contexts/loadingContextValue';
 import errorService from '../../../core/services/errorService';
 import SkillErrorBoundary from '../../../shared/components/error/SkillErrorBoundary';
 import EmptyState from '../../../shared/components/ui/EmptyState';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import SkeletonLoader from '../../../shared/components/ui/SkeletonLoader';
+import { useNavigation } from '../../../shared/hooks/useNavigation';
 import { useAuth } from '../../auth/hooks/useAuth';
 import SkillForm from '../components/SkillForm';
 import useSkills from '../hooks/useSkills';
@@ -37,6 +38,7 @@ const SkillEditPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLoading } = useLoading();
+  const { contextualBreadcrumbs, navigateWithContext, navigationContext } = useNavigation();
 
   const {
     selectedSkill,
@@ -145,6 +147,28 @@ const SkillEditPage: React.FC = () => {
     void navigate(-1);
   };
 
+  // Handle breadcrumb navigation with context preservation
+  const handleBreadcrumbClick = useCallback(
+    (href: string, label: string) => {
+      if (href === '/') {
+        void navigateWithContext(href);
+      } else if (href.startsWith('/skills/') && href !== '/skills') {
+        // Navigating to a skill - use 'home' for simple breadcrumbs
+        void navigateWithContext(href, {
+          from: 'home',
+          skillName: label,
+        });
+      } else if (href === '/skills/my-skills') {
+        void navigateWithContext(href, { from: 'home' });
+      } else if (href === '/skills') {
+        void navigateWithContext(href, { from: 'home' });
+      } else {
+        void navigateWithContext(href, navigationContext);
+      }
+    },
+    [navigateWithContext, navigationContext]
+  );
+
   // Loading state
   const isPageLoading = isLoading(LoadingKeys.FETCH_DATA) || (skillsLoading && !selectedSkill);
 
@@ -229,29 +253,34 @@ const SkillEditPage: React.FC = () => {
         </Button>
 
         <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-          <Link
-            color="inherit"
-            href="/skills/my-skills"
-            onClick={(e) => {
-              e.preventDefault();
-              void navigate(MY_SKILLS_ROUTE);
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            Meine Skills
-          </Link>
-          <Link
-            color="inherit"
-            href={`/skills/${skillId ?? ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              void navigate(`/skills/${skillId ?? ''}`);
-            }}
-            sx={{ cursor: 'pointer' }}
-          >
-            {selectedSkill.name}
-          </Link>
-          <Typography color="text.primary">Bearbeiten</Typography>
+          {contextualBreadcrumbs.map((item, index) => {
+            const isLast = index === contextualBreadcrumbs.length - 1;
+
+            if (isLast || item.isActive === true) {
+              return (
+                <Typography key={item.label} color="text.primary">
+                  {item.label}
+                </Typography>
+              );
+            }
+
+            return (
+              <Link
+                key={item.label}
+                color="inherit"
+                href={item.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (item.href) {
+                    handleBreadcrumbClick(item.href, item.label);
+                  }
+                }}
+                sx={{ cursor: 'pointer' }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </Breadcrumbs>
       </Box>
 

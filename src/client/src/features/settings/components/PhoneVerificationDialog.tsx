@@ -10,7 +10,6 @@ import {
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Dialog,
   DialogTitle,
@@ -31,6 +30,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { useLoading } from '../../../core/contexts/loadingContextHooks';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import { isSuccessResponse } from '../../../shared/types/api/UnifiedResponse';
 import authService from '../../auth/services/authService';
 

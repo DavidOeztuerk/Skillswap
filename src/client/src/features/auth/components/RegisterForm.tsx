@@ -4,7 +4,6 @@ import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { Link as RouterLink } from 'react-router-dom';
 import { z } from 'zod';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Typography,
@@ -18,6 +17,7 @@ import {
 import { useLoading } from '../../../core/contexts/loadingContextHooks';
 import { LoadingKeys } from '../../../core/contexts/loadingContextValue';
 import ErrorAlert from '../../../shared/components/error/ErrorAlert';
+import { LoadingButton } from '../../../shared/components/ui/LoadingButton';
 import useAuth from '../hooks/useAuth';
 
 // Validierungsschema mit Zod

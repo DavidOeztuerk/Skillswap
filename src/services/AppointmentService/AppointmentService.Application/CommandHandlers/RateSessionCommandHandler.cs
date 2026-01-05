@@ -60,7 +60,8 @@ public class RateSessionCommandHandler(
                 ? appointment.ParticipantUserId
                 : appointment.OrganizerUserId;
 
-            // Create rating
+            // Create rating with section data
+            // Note: SkillId is in SessionSeries, so we pass null for now (can be enhanced later)
             var rating = SessionRating.Create(
                 request.SessionAppointmentId,
                 request.RaterId,
@@ -69,7 +70,17 @@ public class RateSessionCommandHandler(
                 request.Feedback,
                 request.IsPublic,
                 request.WouldRecommend,
-                request.Tags);
+                request.Tags,
+                request.KnowledgeRating,
+                request.KnowledgeComment,
+                request.TeachingRating,
+                request.TeachingComment,
+                request.CommunicationRating,
+                request.CommunicationComment,
+                request.ReliabilityRating,
+                request.ReliabilityComment,
+                appointment.SessionSeries?.SkillId,
+                null);
 
             await _unitOfWork.SessionRatings.CreateAsync(rating, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
