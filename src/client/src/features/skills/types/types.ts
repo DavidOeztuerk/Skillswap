@@ -52,7 +52,6 @@ export interface SkillDetailContentProps {
   canUpdateOwnSkill: boolean;
   isMatchmakingLoading: boolean;
   onCreateMatch: () => void;
-  onRate: () => void;
   onEndorse: () => void;
   onEdit: () => void;
 }
@@ -73,12 +72,6 @@ export interface SkillDetailSidebarProps {
 export interface SkillReviewsSectionProps {
   reviewCount: number;
   isOwner: boolean;
-}
-
-export interface SkillRatingDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (rating: number, review: string) => void;
 }
 
 export interface SkillEndorseDialogProps {
@@ -113,7 +106,6 @@ export interface UseSkillDetailReturn {
   cameFromMySkills: boolean;
 
   // Dialog states
-  ratingDialogOpen: boolean;
   endorseDialogOpen: boolean;
   matchFormOpen: boolean;
   deleteDialogOpen: boolean;
@@ -129,7 +121,6 @@ export interface UseSkillDetailReturn {
   // Handlers
   handleBookmark: () => void;
   handleShare: () => Promise<void>;
-  handleRateSkill: (rating: number, review: string) => void;
   handleEndorseSkill: (message: string) => void;
   handleDeleteSkill: () => void;
   handleCreateMatch: () => Promise<void>;
@@ -139,7 +130,6 @@ export interface UseSkillDetailReturn {
   getOwnerName: () => string;
 
   // Dialog controls
-  setRatingDialogOpen: (open: boolean) => void;
   setEndorseDialogOpen: (open: boolean) => void;
   setMatchFormOpen: (open: boolean) => void;
   setDeleteDialogOpen: (open: boolean) => void;

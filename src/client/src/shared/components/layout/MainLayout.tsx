@@ -25,8 +25,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onToggleTheme, darkMo
   const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
   const [mobileOpenState, setMobileOpenState] = useState(false);
   const prevLocationRef = useRef<string>(location.pathname);
+  const mainContentRef = useRef<HTMLDivElement>(null);
 
-  // Global navigation logging (development only)
+  // Scroll to top on route change + logging
   useEffect(() => {
     if (prevLocationRef.current !== location.pathname) {
       navLogger.info(`[ROUTE CHANGE] ${prevLocationRef.current} → ${location.pathname}`, {
@@ -35,6 +36,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onToggleTheme, darkMo
         timestamp: new Date().toISOString(),
       });
       prevLocationRef.current = location.pathname;
+
+      // Scroll main content to top on navigation
+      if (mainContentRef.current) {
+        mainContentRef.current.scrollTo({ top: 0, behavior: 'instant' });
+      }
     }
   }, [location.pathname, location.search, location.hash]);
 
@@ -105,6 +111,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onToggleTheme, darkMo
 
       {/* Main content landmark */}
       <Box
+        ref={mainContentRef}
         component="main"
         id="main-content"
         aria-label="Main content"

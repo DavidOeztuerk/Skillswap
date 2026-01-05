@@ -33,6 +33,8 @@ public class UserProfileRepository(UserDbContext userDbContext) : IUserProfileRe
             .Where(u => u.Id == userId && !u.IsDeleted && u.AccountStatus == AccountStatus.Active)
             .Include(u => u.UserRoles.Where(ur => ur.RevokedAt == null && !ur.IsDeleted))
                 .ThenInclude(ur => ur.Role)
+            .Include(u => u.Experiences.Where(e => !e.IsDeleted).OrderBy(e => e.SortOrder))
+            .Include(u => u.Education.Where(e => !e.IsDeleted).OrderBy(e => e.SortOrder))
             .AsNoTracking()
             .AsSplitQuery()
             .FirstOrDefaultAsync(cancellationToken);
@@ -96,8 +98,11 @@ public class UserProfileRepository(UserDbContext userDbContext) : IUserProfileRe
         if (user == null)
             throw new ResourceNotFoundException("User", userId);
 
-        var avatarUrl = $"/avatars/{userId}/{fileName}";
-        user.ProfilePictureUrl = avatarUrl;
+        // Store image as Base64 DataURL (simple MVP solution)
+        var base64 = Convert.ToBase64String(imageData);
+        var dataUrl = $"data:{contentType};base64,{base64}";
+
+        user.ProfilePictureUrl = dataUrl;
         user.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);

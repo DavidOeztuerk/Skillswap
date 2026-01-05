@@ -98,9 +98,11 @@ const authService = {
   },
 
   /**
-   * Upload avatar
+   * Upload avatar - sends as JSON with base64 encoded image data
    */
-  async uploadProfilePicture(file: File): Promise<ApiResponse<User>> {
+  async uploadProfilePicture(
+    file: File
+  ): Promise<ApiResponse<{ userId: string; avatarUrl: string; uploadedAt: string }>> {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       return {
@@ -121,12 +123,28 @@ const authService = {
       };
     }
 
-    const formData = new FormData();
-    formData.append('avatar', file);
+    // Convert file to byte array
+    const imageData = await fileToByteArray(file);
 
-    return apiClient.post<User>(PROFILE_ENDPOINTS.UPLOAD_AVATAR, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return apiClient.post<{ userId: string; avatarUrl: string; uploadedAt: string }>(
+      PROFILE_ENDPOINTS.UPLOAD_AVATAR,
+      {
+        imageData,
+        fileName: file.name,
+        contentType: file.type,
+      }
+    );
+  },
+
+  /**
+   * Delete avatar
+   */
+  async deleteProfilePicture(): Promise<
+    ApiResponse<{ userId: string; success: boolean; message: string }>
+  > {
+    return apiClient.delete<{ userId: string; success: boolean; message: string }>(
+      PROFILE_ENDPOINTS.UPLOAD_AVATAR
+    );
   },
 
   /**
@@ -339,3 +357,24 @@ const authService = {
 };
 
 export default authService;
+
+/**
+ * Convert File to byte array for API transmission
+ */
+async function fileToByteArray(file: File): Promise<number[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.addEventListener('load', () => {
+      const arrayBuffer = reader.result as ArrayBuffer;
+      const byteArray = [...new Uint8Array(arrayBuffer)];
+      resolve(byteArray);
+    });
+
+    reader.addEventListener('error', () => {
+      reject(new Error('Failed to read file'));
+    });
+
+    reader.readAsArrayBuffer(file);
+  });
+}

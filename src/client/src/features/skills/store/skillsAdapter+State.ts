@@ -29,6 +29,7 @@ export interface SkillsEntityState extends EntityState<Skill, EntityId>, Request
   // Pagination
   allSkillsPagination: PaginationState;
   userSkillsPagination: PaginationState;
+  favoriteSkillsPagination: PaginationState;
   searchResultsPagination: PaginationState;
 
   // Additional Data
@@ -59,6 +60,14 @@ export const initialSkillsState: SkillsEntityState = skillsAdapter.getInitialSta
     hasPreviousPage: false,
   },
   userSkillsPagination: {
+    pageNumber: 1,
+    pageSize: 12,
+    totalPages: 0,
+    totalRecords: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  },
+  favoriteSkillsPagination: {
     pageNumber: 1,
     pageSize: 12,
     totalPages: 0,
@@ -119,13 +128,23 @@ export const mapSkillResponseToSkill = (response: SkillSearchResultResponse): Sk
     rank: withDefault(response.proficiencyLevel.rank, 0),
     color: response.proficiencyLevel.color,
   },
-  tagsJson: JSON.stringify(response.tagsJson),
+  // tagsJson is already a JSON string from the backend - pass it directly
+  tagsJson: response.tagsJson,
   averageRating: withDefault(response.averageRating, 0),
   reviewCount: withDefault(response.reviewCount, 0),
   endorsementCount: withDefault(response.endorsementCount, 0),
   estimatedDurationMinutes: withDefault(response.estimatedDurationMinutes, 0),
   createdAt: response.createdAt.toString(),
   lastActiveAt: response.lastActiveAt == null ? undefined : response.lastActiveAt.toString(),
+  // Location fields
+  locationType: response.locationType,
+  locationCity: response.locationCity,
+  locationCountry: response.locationCountry,
+  maxDistanceKm: response.maxDistanceKm,
+  // Owner info
+  ownerUserName: response.ownerUserName,
+  ownerFirstName: response.ownerFirstName,
+  ownerLastName: response.ownerLastName,
 });
 
 export const mapUserSkillsResponseToSkill = (response: GetUserSkillResponse): Skill => ({
@@ -146,7 +165,8 @@ export const mapUserSkillsResponseToSkill = (response: GetUserSkillResponse): Sk
     rank: withDefault(response.proficiencyLevel.rank, 0),
     color: response.proficiencyLevel.color,
   },
-  tagsJson: JSON.stringify(response.tags),
+  // tags is an array, convert to JSON string for consistency
+  tagsJson: Array.isArray(response.tags) ? JSON.stringify(response.tags) : '',
   averageRating: withDefault(response.rating, 0),
   reviewCount: withDefault(response.reviewCount, 0),
   endorsementCount: withDefault(response.endorsementCount, 0),

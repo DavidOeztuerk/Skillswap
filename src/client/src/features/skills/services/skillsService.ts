@@ -1,7 +1,6 @@
 import { apiClient } from '../../../core/api/apiClient';
 import { SKILL_ENDPOINTS, FAVORITE_ENDPOINTS } from '../../../core/config/endpoints';
 import type { PagedResponse, ApiResponse } from '../../../shared/types/api/UnifiedResponse';
-import type { AddFavoriteSkillRequest } from '../types/AddFavoriteSkillRequest';
 import type { CreateSkillRequest } from '../types/CreateSkillRequest';
 import type {
   CreateSkillResponse,
@@ -52,6 +51,7 @@ export const skillService = {
     isOffered?: boolean,
     categoryId?: string,
     proficiencyLevelId?: string,
+    locationType?: string,
     includeInactive = false
   ): Promise<PagedResponse<GetUserSkillResponse>> {
     const params: Record<string, unknown> = {
@@ -62,6 +62,7 @@ export const skillService = {
     if (isOffered !== undefined) params.IsOffered = isOffered;
     if (categoryId) params.CategoryId = categoryId;
     if (proficiencyLevelId) params.ProficiencyLevelId = proficiencyLevelId;
+    if (locationType) params.LocationType = locationType;
     if (includeInactive) params.IncludeInactive = includeInactive;
 
     return apiClient.getPaged<GetUserSkillResponse>(SKILL_ENDPOINTS.GET_USER_SKILLS, params);
@@ -205,33 +206,39 @@ export const skillService = {
     });
   },
 
-  // Favorites
-  async getFavoriteSkills(pageNumber = 1, pageSize = 12): Promise<PagedResponse<string>> {
-    const params = new URLSearchParams();
-    params.append('pageSize', pageSize.toString());
-    params.append('pageNumber', pageNumber.toString());
-    const url = `${FAVORITE_ENDPOINTS.GET_FAVORITES()}?${params.toString()}`;
-    return apiClient.getPaged<string>(url);
+  // Favorites (SkillService endpoints)
+  // Note: Backend returns SkillSearchResultResponse (same format as /skills endpoint)
+  async getFavoriteSkills(
+    pageNumber = 1,
+    pageSize = 12
+  ): Promise<PagedResponse<SkillSearchResultResponse>> {
+    return apiClient.getPaged<SkillSearchResultResponse>(FAVORITE_ENDPOINTS.GET_FAVORITES, {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+    });
   },
 
-  async getFavoriteSkillsWithDetails(
-    pageNumber = 1,
-    pageSize = 20
-  ): Promise<PagedResponse<GetUserSkillResponse>> {
-    const params = new URLSearchParams();
-    params.append('PageNumber', pageNumber.toString());
-    params.append('PageSize', pageSize.toString());
-    return apiClient.getPaged<GetUserSkillResponse>(
-      `/api/users/favorites/details?${params.toString()}`
+  async addFavoriteSkill(
+    skillId: string
+  ): Promise<ApiResponse<{ skillId: string; addedAt: string }>> {
+    return apiClient.post<{ skillId: string; addedAt: string }>(
+      FAVORITE_ENDPOINTS.ADD_FAVORITE(skillId)
     );
   },
 
-  async addFavoriteSkill(skillId: string): Promise<ApiResponse<boolean>> {
-    const request: AddFavoriteSkillRequest = { skillId };
-    return apiClient.post<boolean>(FAVORITE_ENDPOINTS.ADD_FAVORITE(), request);
+  async removeFavoriteSkill(
+    skillId: string
+  ): Promise<ApiResponse<{ skillId: string; removedAt: string }>> {
+    return apiClient.delete<{ skillId: string; removedAt: string }>(
+      FAVORITE_ENDPOINTS.REMOVE_FAVORITE(skillId)
+    );
   },
 
-  async removeFavoriteSkill(skillId: string): Promise<ApiResponse<boolean>> {
-    return apiClient.delete<boolean>(FAVORITE_ENDPOINTS.REMOVE_FAVORITE(skillId));
+  async isFavorite(
+    skillId: string
+  ): Promise<ApiResponse<{ skillId: string; isFavorite: boolean }>> {
+    return apiClient.get<{ skillId: string; isFavorite: boolean }>(
+      FAVORITE_ENDPOINTS.IS_FAVORITE(skillId)
+    );
   },
 };
