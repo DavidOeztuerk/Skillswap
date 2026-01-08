@@ -42,23 +42,8 @@ public class UserReview : AuditableEntity
     [MaxLength(2000)]
     public string? ReviewText { get; private set; }
 
-    /// <summary>
-    /// Cached reviewer name for display
-    /// </summary>
-    [MaxLength(200)]
-    public string? ReviewerName { get; private set; }
-
-    /// <summary>
-    /// Cached reviewer avatar URL
-    /// </summary>
-    [MaxLength(500)]
-    public string? ReviewerAvatarUrl { get; private set; }
-
-    /// <summary>
-    /// Cached skill name for display
-    /// </summary>
-    [MaxLength(200)]
-    public string? SkillName { get; private set; }
+    // Note: Phase 9 - Cached display fields (ReviewerName, ReviewerAvatarUrl, SkillName) removed
+    // Display data should be loaded from UserService/SkillService when needed
 
     // Navigation properties
     public virtual User? Reviewer { get; set; }
@@ -76,10 +61,7 @@ public class UserReview : AuditableEntity
         int rating,
         string? reviewText = null,
         string? sessionId = null,
-        string? skillId = null,
-        string? reviewerName = null,
-        string? reviewerAvatarUrl = null,
-        string? skillName = null)
+        string? skillId = null)
     {
         if (rating < 1 || rating > 5)
             throw new ArgumentOutOfRangeException(nameof(rating), "Rating must be between 1 and 5");
@@ -96,9 +78,6 @@ public class UserReview : AuditableEntity
             ReviewText = reviewText?.Trim(),
             SessionId = sessionId,
             SkillId = skillId,
-            ReviewerName = reviewerName,
-            ReviewerAvatarUrl = reviewerAvatarUrl,
-            SkillName = skillName,
             CreatedAt = DateTime.UtcNow
         };
     }
@@ -116,13 +95,5 @@ public class UserReview : AuditableEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
-    /// <summary>
-    /// Update cached reviewer info
-    /// </summary>
-    public void UpdateReviewerInfo(string? name, string? avatarUrl)
-    {
-        ReviewerName = name;
-        ReviewerAvatarUrl = avatarUrl;
-        UpdatedAt = DateTime.UtcNow;
-    }
+    // Note: UpdateReviewerInfo removed in Phase 9 - cached fields eliminated
 }

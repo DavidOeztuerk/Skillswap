@@ -54,25 +54,26 @@ public class CreateReviewCommandHandler(
             }
         }
 
-        // Get reviewer info for caching
-        var reviewer = await _userRepository.GetUserById(request.ReviewerId, cancellationToken);
-        var reviewerName = reviewer != null ? $"{reviewer.FirstName} {reviewer.LastName}" : "Unbekannt";
-        var reviewerAvatarUrl = reviewer?.ProfilePictureUrl;
-
-        // Create review
+        // Create review (Phase 9: cached fields removed - load on read instead)
         var review = UserReview.Create(
             reviewerId: request.ReviewerId,
             revieweeId: request.RevieweeId,
             rating: request.Rating,
             reviewText: request.ReviewText,
             sessionId: request.SessionId,
-            skillId: request.SkillId,
-            reviewerName: reviewerName,
-            reviewerAvatarUrl: reviewerAvatarUrl);
+            skillId: request.SkillId);
 
         await _reviewRepository.AddReview(review, cancellationToken);
 
         Logger.LogInformation("Review {ReviewId} created successfully", review.Id);
+
+        // Load reviewer info for response (Phase 9: no longer cached)
+        var reviewer = await _userRepository.GetUserById(request.ReviewerId, cancellationToken);
+        var reviewerName = reviewer != null ? $"{reviewer.FirstName} {reviewer.LastName}".Trim() : "Unbekannt";
+        var reviewerAvatarUrl = reviewer?.ProfilePictureUrl;
+
+        // TODO Phase 9: Load skill name from SkillService if needed
+        string? skillName = null;
 
         var response = new UserReviewResponse(
             review.Id,
@@ -82,7 +83,7 @@ public class CreateReviewCommandHandler(
             review.Rating,
             review.ReviewText,
             review.SkillId,
-            review.SkillName,
+            skillName,
             review.CreatedAt);
 
         return Success(response, "Bewertung erfolgreich erstellt");

@@ -24,7 +24,10 @@ public class MatchmakingDbContext(
             entity.HasIndex(e => e.CreatedAt);
             entity.HasIndex(e => new { e.Status, e.CreatedAt });
 
-            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue(MatchStatus.Accepted);
+            entity.Property(e => e.Status)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .HasDefaultValue(MatchmakingService.Domain.Enums.MatchStatus.Accepted);
             entity.Property(e => e.DissolutionReason).HasMaxLength(500);
             entity.Property(e => e.CompletionNotes).HasMaxLength(1000);
 
@@ -48,11 +51,14 @@ public class MatchmakingDbContext(
             // entity.HasIndex(e => new { e.IsOffering, e.Status });
 
             // entity.Property(e => e.SkillName).HasMaxLength(100);
-            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.Property(e => e.Status)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .HasDefaultValue(MatchmakingService.Domain.Enums.MatchRequestStatus.Pending);
 
             entity.Property(e => e.ThreadId).HasMaxLength(450);
             // entity.Property(e => e.ParentRequestId).HasMaxLength(450);
-            entity.Property(e => e.ExchangeSkillId).HasMaxLength(450);
+            // ExchangeSkillId removed in Phase 7 - exchange settings now come from Skill entity
             // entity.Property(e => e.ExchangeSkillName).HasMaxLength(100);
             entity.Property(e => e.Currency).HasMaxLength(3).HasDefaultValue("EUR");
             entity.Property(e => e.OfferedAmount).HasPrecision(18, 2);

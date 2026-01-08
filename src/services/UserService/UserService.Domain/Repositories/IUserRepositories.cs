@@ -123,6 +123,10 @@ public interface IUserEducationRepository
 public interface IUserReviewRepository
 {
     Task<List<UserReview>> GetUserReviews(string revieweeId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Get user reviews with reviewer navigation property loaded (Phase 9: for display data)
+    /// </summary>
+    Task<List<UserReview>> GetUserReviewsWithReviewer(string revieweeId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
     Task<int> GetUserReviewCount(string revieweeId, CancellationToken cancellationToken = default);
     Task<double> GetUserAverageRating(string revieweeId, CancellationToken cancellationToken = default);
     Task<UserReview?> GetReviewById(string reviewId, CancellationToken cancellationToken = default);

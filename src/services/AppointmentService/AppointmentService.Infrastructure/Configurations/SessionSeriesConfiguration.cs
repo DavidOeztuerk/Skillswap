@@ -1,4 +1,5 @@
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -49,6 +50,7 @@ public class SessionSeriesConfiguration : IEntityTypeConfiguration<SessionSeries
             .HasMaxLength(450);
 
         builder.Property(s => s.Status)
+            .HasConversion<string>()
             .IsRequired()
             .HasMaxLength(50)
             .HasDefaultValue(SeriesStatus.Planned);

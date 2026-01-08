@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Domain.Abstractions;
+using MatchmakingService.Domain.Enums;
 
 namespace MatchmakingService.Domain.Entities;
 
@@ -22,29 +23,22 @@ public class MatchRequest : AuditableEntity
     [MaxLength(500)]
     public string? Description { get; set; }
 
-    [MaxLength(50)]
-    public string Status { get; set; } = "Pending";
+    /// <summary>
+    /// Status of the match request (Phase 8 - converted to enum)
+    /// </summary>
+    public MatchRequestStatus Status { get; set; } = MatchRequestStatus.Pending;
 
     [Required]
     [MaxLength(500)]
     public string Message { get; set; } = string.Empty;
 
-    // Tausch-Funktionalität
-    public bool IsSkillExchange { get; set; } = false;
+    // Note: Exchange settings (IsSkillExchange, ExchangeSkillId) now come from the Skill entity
+    // Note: Scheduling (PreferredDays, PreferredTimes, SessionDurationMinutes, TotalSessions) now come from the Skill entity
 
-    [MaxLength(450)]
-    public string? ExchangeSkillId { get; set; }
-
-    // Monetäre Option
+    // Monetäre Option (optional override for payment-based matches)
     public bool IsMonetaryOffer { get; set; } = false;
     public decimal? OfferedAmount { get; set; }
     public string? Currency { get; set; } = "EUR";
-
-    // Zeitplanung
-    public List<string> PreferredDays { get; set; } = [];
-    public List<string> PreferredTimes { get; set; } = [];
-    public int? SessionDurationMinutes { get; set; }
-    public int? TotalSessions { get; set; } = 1;
 
     public DateTime? ExpiresAt { get; set; }
     public int ViewCount { get; set; } = 0;
@@ -67,16 +61,16 @@ public class MatchRequest : AuditableEntity
     public virtual MatchRequest? ParentRequest { get; set; }
     public virtual ICollection<MatchRequest> CounterOffers { get; set; } = [];
 
-    // Helper properties
-    public bool IsPending => Status.ToLower() == "pending";
-    public bool IsAccepted => Status.ToLower() == "accepted";
-    public bool IsRejected => Status.ToLower() == "rejected";
-    public bool IsExpired => Status.ToLower() == "expired";
-    public bool IsCounterOffered => Status.ToLower() == "counteroffered";
+    // Helper properties (Phase 8 - updated for enum)
+    public bool IsPending => Status == MatchRequestStatus.Pending;
+    public bool IsAccepted => Status == MatchRequestStatus.Accepted;
+    public bool IsRejected => Status == MatchRequestStatus.Rejected;
+    public bool IsExpired => Status == MatchRequestStatus.Expired;
+    public bool IsCounterOffered => Status == MatchRequestStatus.CounterOffered;
 
     public void Accept(string? responseMessage = null)
     {
-        Status = "Accepted";
+        Status = MatchRequestStatus.Accepted;
         ResponseMessage = responseMessage;
         RespondedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
@@ -84,7 +78,7 @@ public class MatchRequest : AuditableEntity
 
     public void Reject(string? responseMessage = null)
     {
-        Status = "Rejected";
+        Status = MatchRequestStatus.Rejected;
         ResponseMessage = responseMessage;
         RespondedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
@@ -92,13 +86,13 @@ public class MatchRequest : AuditableEntity
 
     public void MarkAsCounterOffered()
     {
-        Status = "CounterOffered";
+        Status = MatchRequestStatus.CounterOffered;
         UpdatedAt = DateTime.UtcNow;
     }
 
     public void Expire()
     {
-        Status = "Expired";
+        Status = MatchRequestStatus.Expired;
         UpdatedAt = DateTime.UtcNow;
     }
 

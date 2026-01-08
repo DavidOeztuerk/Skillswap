@@ -118,32 +118,17 @@ public class SessionRating : AuditableEntity
     public string? ReliabilityComment { get; set; }
 
     // ============================================================================
-    // Cached Context Data (for display purposes)
+    // Reference Context Data
     // ============================================================================
 
     /// <summary>
-    /// ID of the skill being reviewed (cached from session)
+    /// ID of the skill being reviewed (reference from session)
     /// </summary>
     [MaxLength(450)]
     public string? SkillId { get; set; }
 
-    /// <summary>
-    /// Name of the skill (cached for display)
-    /// </summary>
-    [MaxLength(200)]
-    public string? SkillName { get; set; }
-
-    /// <summary>
-    /// Name of the reviewer (cached for display)
-    /// </summary>
-    [MaxLength(200)]
-    public string? ReviewerName { get; set; }
-
-    /// <summary>
-    /// Avatar URL of the reviewer (cached for display)
-    /// </summary>
-    [MaxLength(500)]
-    public string? ReviewerAvatarUrl { get; set; }
+    // Note: Phase 9 - Cached display fields (SkillName, ReviewerName, ReviewerAvatarUrl) removed
+    // Display data should be loaded from UserService/SkillService when needed
 
     /// <summary>
     /// Response from the ratee (optional)
@@ -205,10 +190,7 @@ public class SessionRating : AuditableEntity
         string? communicationComment = null,
         int? reliabilityRating = null,
         string? reliabilityComment = null,
-        string? skillId = null,
-        string? skillName = null,
-        string? reviewerName = null,
-        string? reviewerAvatarUrl = null)
+        string? skillId = null)
     {
         if (rating < 1 || rating > 5)
             throw new ArgumentException("Rating must be between 1 and 5");
@@ -236,9 +218,6 @@ public class SessionRating : AuditableEntity
             ReliabilityRating = reliabilityRating,
             ReliabilityComment = reliabilityComment,
             SkillId = skillId,
-            SkillName = skillName,
-            ReviewerName = reviewerName,
-            ReviewerAvatarUrl = reviewerAvatarUrl,
             CreatedAt = DateTime.UtcNow
         };
     }

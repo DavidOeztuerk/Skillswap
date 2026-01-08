@@ -9,10 +9,12 @@ namespace UserService.Application.QueryHandlers;
 
 public class GetUserReviewsQueryHandler(
     IUserReviewRepository reviewRepository,
+    IUserRepository userRepository,
     ILogger<GetUserReviewsQueryHandler> logger)
     : BasePagedQueryHandler<GetUserReviewsQuery, UserReviewResponse>(logger)
 {
     private readonly IUserReviewRepository _reviewRepository = reviewRepository;
+    private readonly IUserRepository _userRepository = userRepository;
 
     public override async Task<PagedResponse<UserReviewResponse>> Handle(
         GetUserReviewsQuery request,
@@ -24,7 +26,7 @@ public class GetUserReviewsQueryHandler(
             request.PageNumber,
             request.PageSize);
 
-        var reviews = await _reviewRepository.GetUserReviews(
+        var reviews = await _reviewRepository.GetUserReviewsWithReviewer(
             request.UserId,
             request.PageNumber,
             request.PageSize,
@@ -32,16 +34,25 @@ public class GetUserReviewsQueryHandler(
 
         var totalCount = await _reviewRepository.GetUserReviewCount(request.UserId, cancellationToken);
 
-        var response = reviews.Select(r => new UserReviewResponse(
-            r.Id,
-            r.ReviewerId,
-            r.ReviewerName ?? "Unbekannt",
-            r.ReviewerAvatarUrl,
-            r.Rating,
-            r.ReviewText,
-            r.SkillId,
-            r.SkillName,
-            r.CreatedAt)).ToList();
+        // Phase 9: Load reviewer info from navigation property (no longer cached)
+        var response = reviews.Select(r =>
+        {
+            var reviewerName = r.Reviewer != null
+                ? $"{r.Reviewer.FirstName} {r.Reviewer.LastName}".Trim()
+                : "Unbekannt";
+            var reviewerAvatarUrl = r.Reviewer?.ProfilePictureUrl;
+
+            return new UserReviewResponse(
+                r.Id,
+                r.ReviewerId,
+                reviewerName,
+                reviewerAvatarUrl,
+                r.Rating,
+                r.ReviewText,
+                r.SkillId,
+                null, // SkillName - TODO: Load from SkillService if needed
+                r.CreatedAt);
+        }).ToList();
 
         return Success(response, request.PageNumber, request.PageSize, totalCount);
     }

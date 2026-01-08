@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Domain.Abstractions;
+using AppointmentService.Domain.Enums;
 
 namespace AppointmentService.Domain.Entities;
 
@@ -79,11 +80,9 @@ public class Connection : AuditableEntity
     public int SessionBalanceMinutes { get; set; } = 0;
 
     /// <summary>
-    /// Current status of the connection
+    /// Current status of the connection (Phase 8 - converted to enum)
     /// </summary>
-    [Required]
-    [MaxLength(50)]
-    public string Status { get; set; } = ConnectionStatus.Active;
+    public Enums.ConnectionStatus Status { get; set; } = Enums.ConnectionStatus.Active;
 
     /// <summary>
     /// Reason for pausing or dissolving

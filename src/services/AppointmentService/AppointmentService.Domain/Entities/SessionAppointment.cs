@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Domain.Abstractions;
+using AppointmentService.Domain.Enums;
 
 namespace AppointmentService.Domain.Entities;
 
@@ -68,11 +69,9 @@ public class SessionAppointment : AuditableEntity
     public string ParticipantUserId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Current status of the session
+    /// Current status of the session (Phase 8 - converted to enum)
     /// </summary>
-    [Required]
-    [MaxLength(50)]
-    public string Status { get; set; } = SessionAppointmentStatus.Pending;
+    public SessionAppointmentStatus Status { get; set; } = SessionAppointmentStatus.Pending;
 
     /// <summary>
     /// Type of meeting (VideoCall, InPerson, Hybrid)

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Domain.Abstractions;
+using MatchmakingService.Domain.Enums;
 
 namespace MatchmakingService.Domain.Entities;
 
@@ -28,8 +29,10 @@ public class Match : AuditableEntity
 
     // ==================== Match Status & Timeline ====================
 
-    [MaxLength(50)]
-    public string Status { get; set; } = MatchStatus.Accepted; // Starts as Accepted
+    /// <summary>
+    /// Status of the match (Phase 8 - converted to enum)
+    /// </summary>
+    public MatchStatus Status { get; set; } = MatchStatus.Accepted; // Starts as Accepted
 
     public DateTime? AcceptedAt { get; set; }
     public DateTime? CompletedAt { get; set; }

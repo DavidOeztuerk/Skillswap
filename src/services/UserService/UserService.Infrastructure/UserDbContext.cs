@@ -642,9 +642,7 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.SkillId).HasMaxLength(450);
         e.Property(x => x.Rating).IsRequired();
         e.Property(x => x.ReviewText).HasMaxLength(2000);
-        e.Property(x => x.ReviewerName).HasMaxLength(200);
-        e.Property(x => x.ReviewerAvatarUrl).HasMaxLength(500);
-        e.Property(x => x.SkillName).HasMaxLength(200);
+        // Phase 9: Cached display fields (ReviewerName, ReviewerAvatarUrl, SkillName) removed
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
         e.Property(x => x.IsDeleted).HasDefaultValue(false);
 

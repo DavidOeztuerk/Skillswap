@@ -28,6 +28,23 @@ public class UserReviewRepository(
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<UserReview>> GetUserReviewsWithReviewer(
+        string revieweeId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting reviews with reviewer for user {RevieweeId}, page {PageNumber}", revieweeId, pageNumber);
+
+        return await _context.UserReviews
+            .Include(r => r.Reviewer)
+            .Where(r => r.RevieweeId == revieweeId)
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<int> GetUserReviewCount(string revieweeId, CancellationToken cancellationToken = default)
     {
         return await _context.UserReviews

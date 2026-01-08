@@ -1,4 +1,5 @@
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -58,6 +59,7 @@ public class SessionAppointmentConfiguration : IEntityTypeConfiguration<SessionA
             .HasMaxLength(450);
 
         builder.Property(a => a.Status)
+            .HasConversion<string>()
             .IsRequired()
             .HasMaxLength(50)
             .HasDefaultValue(SessionAppointmentStatus.Pending);

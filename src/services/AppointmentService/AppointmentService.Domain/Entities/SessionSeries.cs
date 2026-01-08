@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Domain.Abstractions;
+using AppointmentService.Domain.Enums;
 
 namespace AppointmentService.Domain.Entities;
 
@@ -75,11 +76,9 @@ public class SessionSeries : AuditableEntity
     public int DefaultDurationMinutes { get; set; } = 60;
 
     /// <summary>
-    /// Current status of the series
+    /// Current status of the series (Phase 8 - converted to enum)
     /// </summary>
-    [Required]
-    [MaxLength(50)]
-    public string Status { get; set; } = SeriesStatus.Planned;
+    public SeriesStatus Status { get; set; } = SeriesStatus.Planned;
 
     /// <summary>
     /// Reason for status change (e.g., cancellation reason)

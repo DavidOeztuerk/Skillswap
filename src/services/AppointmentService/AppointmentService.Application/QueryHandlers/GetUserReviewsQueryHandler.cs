@@ -33,6 +33,8 @@ public class GetUserReviewsQueryHandler(
             request.StarFilter,
             cancellationToken);
 
+        // Phase 9: Cached display fields removed - pass null
+        // TODO: Load from UserService/SkillService via ServiceCommunication if needed
         var reviewResponses = reviews.Select(r => new UserReviewResponse(
             r.Id,
             r.RaterId,
@@ -50,9 +52,9 @@ public class GetUserReviewsQueryHandler(
             r.ReliabilityRating,
             r.ReliabilityComment,
             r.SkillId,
-            r.SkillName,
-            r.ReviewerName,
-            r.ReviewerAvatarUrl,
+            null, // SkillName - removed in Phase 9
+            null, // ReviewerName - removed in Phase 9
+            null, // ReviewerAvatarUrl - removed in Phase 9
             r.RateeResponse,
             r.RateeResponseAt
         )).ToList();

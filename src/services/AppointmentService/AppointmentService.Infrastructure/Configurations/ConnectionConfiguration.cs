@@ -1,4 +1,5 @@
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -55,6 +56,7 @@ public class ConnectionConfiguration : IEntityTypeConfiguration<Connection>
             .HasMaxLength(10);
 
         builder.Property(c => c.Status)
+            .HasConversion<string>()
             .IsRequired()
             .HasMaxLength(50)
             .HasDefaultValue(ConnectionStatus.Active);
