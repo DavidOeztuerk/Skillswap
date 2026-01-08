@@ -24,6 +24,10 @@ public class NotificationDbContext(
     public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<ChatAttachment> ChatAttachments { get; set; }
 
+    // Phase 3: Tables replacing JSON/CSV fields
+    public DbSet<MessageReaction> MessageReactions { get; set; }
+    public DbSet<ReminderTiming> ReminderTimings { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -147,6 +151,12 @@ public class NotificationDbContext(
 
             // Unique constraint on UserId
             entity.HasIndex(e => e.UserId).IsUnique();
+
+            // Phase 3: Navigation to ReminderTimings
+            entity.HasMany(e => e.Timings)
+                  .WithOne(t => t.ReminderSettings)
+                  .HasForeignKey(t => t.ReminderSettingsId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Configure ScheduledReminder entity
@@ -235,6 +245,12 @@ public class NotificationDbContext(
                   .HasPrincipalKey(t => t.ThreadId)
                   .OnDelete(DeleteBehavior.Cascade);
 
+            // Phase 3: Navigation to MessageReactions
+            entity.HasMany(e => e.Reactions)
+                  .WithOne(r => r.Message)
+                  .HasForeignKey(r => r.MessageId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
             // Indexes
             entity.HasIndex(e => e.ThreadId);
             entity.HasIndex(e => e.SenderId);
@@ -279,6 +295,44 @@ public class NotificationDbContext(
             entity.HasIndex(e => e.ContentHash);
         });
 
+        // ============================================================================
+        // PHASE 3: TABLES REPLACING JSON/CSV FIELDS
+        // ============================================================================
+
+        // Configure MessageReaction entity (Phase 3 - replaces ChatMessage.ReactionsJson)
+        modelBuilder.Entity<MessageReaction>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(450);
+            entity.Property(e => e.MessageId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.Emoji).HasMaxLength(50).IsRequired();
+
+            // Indexes
+            entity.HasIndex(e => e.MessageId);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.MessageId, e.UserId, e.Emoji })
+                .IsUnique()
+                .HasDatabaseName("IX_MessageReactions_Unique");
+        });
+
+        // Configure ReminderTiming entity (Phase 3 - replaces ReminderSettings.ReminderMinutesBefore CSV)
+        modelBuilder.Entity<ReminderTiming>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(450);
+            entity.Property(e => e.ReminderSettingsId).HasMaxLength(450).IsRequired();
+            entity.Property(e => e.MinutesBefore).IsRequired();
+            entity.Property(e => e.SortOrder).HasDefaultValue(0);
+            entity.Property(e => e.IsEnabled).HasDefaultValue(true);
+
+            // Indexes
+            entity.HasIndex(e => e.ReminderSettingsId);
+            entity.HasIndex(e => new { e.ReminderSettingsId, e.MinutesBefore })
+                .IsUnique()
+                .HasDatabaseName("IX_ReminderTimings_Unique");
+        });
+
         // Configure soft delete for all entities
         modelBuilder.Entity<Notification>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<NotificationPreferences>().HasQueryFilter(e => !e.IsDeleted);
@@ -290,6 +344,10 @@ public class NotificationDbContext(
         modelBuilder.Entity<ChatThread>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<ChatMessage>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<ChatAttachment>().HasQueryFilter(e => !e.IsDeleted);
+
+        // Phase 3: Soft delete for new entities
+        modelBuilder.Entity<MessageReaction>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ReminderTiming>().HasQueryFilter(e => !e.IsDeleted);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

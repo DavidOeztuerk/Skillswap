@@ -154,6 +154,11 @@ public class Skill : AuditableEntity
     public virtual ICollection<SkillView> Views { get; set; } = new List<SkillView>();
     public virtual ICollection<SkillMatch> Matches { get; set; } = new List<SkillMatch>();
 
+    // Junction table navigation (Phase 3 - replacing JSON fields)
+    public virtual ICollection<SkillPreferredDay> PreferredDayEntities { get; set; } = new List<SkillPreferredDay>();
+    public virtual ICollection<SkillPreferredTime> PreferredTimeEntities { get; set; } = new List<SkillPreferredTime>();
+    public virtual ICollection<SkillTag> TagEntities { get; set; } = new List<SkillTag>();
+
     // =============================================
     // Value Object Accessors (for clean code organization)
     // =============================================

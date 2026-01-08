@@ -45,4 +45,9 @@ public class ReminderSettings : AuditableEntity
     {
         ReminderMinutesBefore = string.Join(",", minutes.OrderBy(m => m));
     }
+
+    /// <summary>
+    /// Navigation property to reminder timings (Phase 3 - replaces ReminderMinutesBefore CSV)
+    /// </summary>
+    public virtual ICollection<ReminderTiming> Timings { get; set; } = [];
 }

@@ -117,6 +117,12 @@ public class User : AuditableEntity
     public virtual ICollection<UserReview> ReviewsGiven { get; set; } = [];
     public virtual ICollection<UserReview> ReviewsReceived { get; set; } = [];
 
+    // Phase 3: Tables replacing JSON fields
+    public virtual ICollection<UserAvailability> Availabilities { get; set; } = [];
+    public virtual ICollection<UserBlockedDate> BlockedDates { get; set; } = [];
+    public virtual UserPreferenceEntity? Preferences { get; set; }
+    public virtual UserNotificationPreference? NotificationPreferences { get; set; };
+
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();
     public bool IsAccountLocked => AccountLockedUntil.HasValue && AccountLockedUntil > DateTime.UtcNow;

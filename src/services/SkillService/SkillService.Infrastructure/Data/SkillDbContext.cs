@@ -14,6 +14,11 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
     public virtual DbSet<SkillResource> SkillResources => base.Set<SkillResource>();
     public virtual DbSet<SkillFavorite> SkillFavorites => base.Set<SkillFavorite>();
 
+    // Phase 3: Junction tables replacing JSON fields
+    public virtual DbSet<SkillPreferredDay> SkillPreferredDays => base.Set<SkillPreferredDay>();
+    public virtual DbSet<SkillPreferredTime> SkillPreferredTimes => base.Set<SkillPreferredTime>();
+    public virtual DbSet<SkillTag> SkillTags => base.Set<SkillTag>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -302,6 +307,83 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             entity.HasOne(f => f.Skill)
                   .WithMany()
                   .HasForeignKey(f => f.SkillId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ============================================================================
+        // SKILL PREFERRED DAY ENTITY CONFIGURATION (Phase 3)
+        // ============================================================================
+        modelBuilder.Entity<SkillPreferredDay>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.SkillId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.DayOfWeek).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.SortOrder).HasDefaultValue(0);
+
+            // Indexes
+            entity.HasIndex(e => e.SkillId);
+            entity.HasIndex(e => new { e.SkillId, e.DayOfWeek })
+                .IsUnique()
+                .HasDatabaseName("IX_SkillPreferredDays_SkillDay");
+
+            // Foreign key relationship
+            entity.HasOne(e => e.Skill)
+                  .WithMany(s => s.PreferredDayEntities)
+                  .HasForeignKey(e => e.SkillId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ============================================================================
+        // SKILL PREFERRED TIME ENTITY CONFIGURATION (Phase 3)
+        // ============================================================================
+        modelBuilder.Entity<SkillPreferredTime>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.SkillId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.TimeSlot).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.StartTime).HasMaxLength(10);
+            entity.Property(e => e.EndTime).HasMaxLength(10);
+            entity.Property(e => e.SortOrder).HasDefaultValue(0);
+
+            // Indexes
+            entity.HasIndex(e => e.SkillId);
+            entity.HasIndex(e => new { e.SkillId, e.TimeSlot })
+                .IsUnique()
+                .HasDatabaseName("IX_SkillPreferredTimes_SkillTime");
+
+            // Foreign key relationship
+            entity.HasOne(e => e.Skill)
+                  .WithMany(s => s.PreferredTimeEntities)
+                  .HasForeignKey(e => e.SkillId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ============================================================================
+        // SKILL TAG ENTITY CONFIGURATION (Phase 3)
+        // ============================================================================
+        modelBuilder.Entity<SkillTag>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.SkillId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.Tag).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.NormalizedTag).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SortOrder).HasDefaultValue(0);
+
+            // Indexes
+            entity.HasIndex(e => e.SkillId);
+            entity.HasIndex(e => e.NormalizedTag)
+                .HasDatabaseName("IX_SkillTags_NormalizedTag");
+            entity.HasIndex(e => new { e.SkillId, e.NormalizedTag })
+                .IsUnique()
+                .HasDatabaseName("IX_SkillTags_SkillTag");
+
+            // Foreign key relationship
+            entity.HasOne(e => e.Skill)
+                  .WithMany(s => s.TagEntities)
+                  .HasForeignKey(e => e.SkillId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
     }

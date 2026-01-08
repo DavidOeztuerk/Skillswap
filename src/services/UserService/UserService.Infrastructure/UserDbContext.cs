@@ -25,6 +25,12 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
     public DbSet<UserEducation> UserEducation => Set<UserEducation>();
     public DbSet<UserReview> UserReviews => Set<UserReview>();
 
+    // Phase 3: Tables replacing JSON fields
+    public DbSet<UserAvailability> UserAvailabilities => Set<UserAvailability>();
+    public DbSet<UserBlockedDate> UserBlockedDates => Set<UserBlockedDate>();
+    public DbSet<UserPreferenceEntity> UserPreferenceEntities => Set<UserPreferenceEntity>();
+    public DbSet<UserNotificationPreference> UserNotificationPreferences => Set<UserNotificationPreference>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -44,6 +50,12 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         ConfigureUserExperience(modelBuilder);
         ConfigureUserEducation(modelBuilder);
         ConfigureUserReview(modelBuilder);
+
+        // Phase 3: Configure tables replacing JSON fields
+        ConfigureUserAvailability(modelBuilder);
+        ConfigureUserBlockedDate(modelBuilder);
+        ConfigureUserPreferenceEntity(modelBuilder);
+        ConfigureUserNotificationPreference(modelBuilder);
 
         Seed(modelBuilder);
     }
@@ -166,6 +178,27 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasMany(x => x.ReviewsReceived)
          .WithOne(x => x.Reviewee)
          .HasForeignKey(x => x.RevieweeId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        // Phase 3: Tables replacing JSON fields
+        e.HasMany(x => x.Availabilities)
+         .WithOne(x => x.User)
+         .HasForeignKey(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasMany(x => x.BlockedDates)
+         .WithOne(x => x.User)
+         .HasForeignKey(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasOne(x => x.Preferences)
+         .WithOne(x => x.User)
+         .HasForeignKey<UserPreferenceEntity>(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasOne(x => x.NotificationPreferences)
+         .WithOne(x => x.User)
+         .HasForeignKey<UserNotificationPreference>(x => x.UserId)
          .OnDelete(DeleteBehavior.Cascade);
     }
 
@@ -599,6 +632,121 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasQueryFilter(x => !x.IsDeleted);
 
         // Relationships are configured in ConfigureUser
+    }
+
+    // ============================================================================
+    // PHASE 3: TABLES REPLACING JSON FIELDS
+    // ============================================================================
+
+    private static void ConfigureUserAvailability(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserAvailability>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.DayOfWeek).IsRequired().HasMaxLength(20);
+        e.Property(x => x.StartTime).IsRequired().HasMaxLength(10);
+        e.Property(x => x.EndTime).IsRequired().HasMaxLength(10);
+        e.Property(x => x.TimeZone).HasMaxLength(100);
+        e.Property(x => x.IsActive).HasDefaultValue(true);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Indexes
+        e.HasIndex(x => x.UserId);
+        e.HasIndex(x => new { x.UserId, x.DayOfWeek })
+            .HasDatabaseName("IX_UserAvailabilities_UserDay");
+        e.HasIndex(x => new { x.UserId, x.IsActive })
+            .HasDatabaseName("IX_UserAvailabilities_UserActive");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    private static void ConfigureUserBlockedDate(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserBlockedDate>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.BlockedDate).IsRequired();
+        e.Property(x => x.StartTime).HasMaxLength(10);
+        e.Property(x => x.EndTime).HasMaxLength(10);
+        e.Property(x => x.Reason).HasMaxLength(200);
+        e.Property(x => x.RecurrencePattern).HasMaxLength(50);
+        e.Property(x => x.IsAllDay).HasDefaultValue(true);
+        e.Property(x => x.IsRecurring).HasDefaultValue(false);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Indexes
+        e.HasIndex(x => x.UserId);
+        e.HasIndex(x => x.BlockedDate);
+        e.HasIndex(x => new { x.UserId, x.BlockedDate })
+            .HasDatabaseName("IX_UserBlockedDates_UserDate");
+        e.HasIndex(x => new { x.UserId, x.BlockedDate, x.EndDate })
+            .HasDatabaseName("IX_UserBlockedDates_UserDateRange");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    private static void ConfigureUserPreferenceEntity(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserPreferenceEntity>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.Language).HasMaxLength(10).HasDefaultValue("en");
+        e.Property(x => x.Theme).HasMaxLength(20).HasDefaultValue("light");
+        e.Property(x => x.DateFormat).HasMaxLength(20).HasDefaultValue("MM/dd/yyyy");
+        e.Property(x => x.TimeFormat).HasMaxLength(10).HasDefaultValue("12h");
+        e.Property(x => x.ShowOnlineStatus).HasDefaultValue(true);
+        e.Property(x => x.PublicProfile).HasDefaultValue(true);
+        e.Property(x => x.ShowLastActive).HasDefaultValue(true);
+        e.Property(x => x.AllowSearchEngineIndexing).HasDefaultValue(false);
+        e.Property(x => x.ShowSkills).HasDefaultValue(true);
+        e.Property(x => x.ShowReviews).HasDefaultValue(true);
+        e.Property(x => x.AllowMessagesFromAnyone).HasDefaultValue(false);
+        e.Property(x => x.AutoAcceptMatches).HasDefaultValue(false);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint on UserId
+        e.HasIndex(x => x.UserId).IsUnique();
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    private static void ConfigureUserNotificationPreference(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserNotificationPreference>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.EmailEnabled).HasDefaultValue(true);
+        e.Property(x => x.PushEnabled).HasDefaultValue(true);
+        e.Property(x => x.SmsEnabled).HasDefaultValue(false);
+        e.Property(x => x.InAppEnabled).HasDefaultValue(true);
+        e.Property(x => x.MessagesEnabled).HasDefaultValue(true);
+        e.Property(x => x.MatchRequestsEnabled).HasDefaultValue(true);
+        e.Property(x => x.AppointmentRemindersEnabled).HasDefaultValue(true);
+        e.Property(x => x.ReviewsEnabled).HasDefaultValue(true);
+        e.Property(x => x.SystemAnnouncementsEnabled).HasDefaultValue(true);
+        e.Property(x => x.MarketingEnabled).HasDefaultValue(false);
+        e.Property(x => x.WeeklyDigestEnabled).HasDefaultValue(true);
+        e.Property(x => x.QuietHoursEnabled).HasDefaultValue(false);
+        e.Property(x => x.QuietHoursStart).HasMaxLength(10);
+        e.Property(x => x.QuietHoursEnd).HasMaxLength(10);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint on UserId
+        e.HasIndex(x => x.UserId).IsUnique();
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
     }
 
     private static void Seed(ModelBuilder mb)

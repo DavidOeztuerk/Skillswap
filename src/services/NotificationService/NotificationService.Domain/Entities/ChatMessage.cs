@@ -255,6 +255,11 @@ public class ChatMessage : AuditableEntity
     public virtual ICollection<ChatAttachment> Attachments { get; set; } = [];
 
     /// <summary>
+    /// Navigation property to reactions (Phase 3 - replaces ReactionsJson)
+    /// </summary>
+    public virtual ICollection<MessageReaction> Reactions { get; set; } = [];
+
+    /// <summary>
     /// Creates a system message
     /// </summary>
     public static ChatMessage CreateSystemMessage(string threadId, string content, string? contextReferenceId = null)
