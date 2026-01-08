@@ -4,7 +4,6 @@ public interface ISkillUnitOfWork : IAsyncDisposable
 {
     ISkillRepository Skills { get; }
     ISkillCategoryRepository SkillCategories { get; }
-    IProficiencyLevelRepository ProficiencyLevels { get; }
     ISkillEndorsementRepository SkillEndorsements { get; }
     ISkillMatchRepository SkillMatches { get; }
     ISkillResourceRepository SkillResources { get; }

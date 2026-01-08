@@ -16,8 +16,6 @@ public record SkillCreatedEvent
     public string Description { get; init; } = string.Empty;
     public string CategoryId { get; init; } = string.Empty;
     public string CategoryName { get; init; } = string.Empty;
-    public string ProficiencyLevelId { get; init; } = string.Empty;
-    public int ProficiencyLevelRank { get; init; }
     public bool IsOffered { get; init; }
 
     // ==========================================================================

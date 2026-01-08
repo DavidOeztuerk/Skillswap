@@ -8,7 +8,6 @@ public record GetUserSkillsQuery(
     string UserId,
     bool? IsOffered = null,
     string? CategoryId = null,
-    string? ProficiencyLevelId = null,
     string? LocationType = null,
     bool IncludeInactive = false,
     int PageNumber = 1,
@@ -18,7 +17,7 @@ public record GetUserSkillsQuery(
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
 
-    public string CacheKey => $"user-skills:{UserId}:{IsOffered}:{CategoryId}:{ProficiencyLevelId}:{LocationType}:{IncludeInactive}:{PageNumber}:{PageSize}";
+    public string CacheKey => $"user-skills:{UserId}:{IsOffered}:{CategoryId}:{LocationType}:{IncludeInactive}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 

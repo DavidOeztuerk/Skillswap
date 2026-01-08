@@ -8,7 +8,6 @@ namespace Contracts.Skill.Requests;
 /// </summary>
 /// <param name="SearchTerm">Free text search term</param>
 /// <param name="CategoryId">Filter by skill category</param>
-/// <param name="ProficiencyLevelId">Filter by proficiency level</param>
 /// <param name="Tags">Filter by skill tags</param>
 /// <param name="IsOffered">Filter by offered skills</param>
 /// <param name="MinRating">Minimum skill rating</param>
@@ -21,8 +20,6 @@ public record SearchSkillsRequest(
     string? SearchTerm = null,
 
     string? CategoryId = null,
-
-    string? ProficiencyLevelId = null,
 
     string[]? Tags = null,
 

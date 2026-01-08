@@ -6,8 +6,7 @@ namespace Contracts.Skill.Responses;
 /// <param name="SkillId">Unique identifier for the created skill</param>
 /// <param name="Name">Name of the skill</param>
 /// <param name="Description">Detailed description of the skill</param>
-/// <param name="CategoryName">Name of the skill category</param>
-/// <param name="ProficiencyLevelName">Name of the proficiency level</param>
+/// <param name="CategoryId">ID of the skill category</param>
 /// <param name="Tags">Associated tags for the skill</param>
 /// <param name="IsOffered">Whether the user offers this skill (true) or seeks to learn it (false)</param>
 /// <param name="Status">Current status of the skill</param>
@@ -17,7 +16,6 @@ public record CreateSkillResponse(
     string Name,
     string Description,
     string CategoryId,
-    string ProficiencyLevelId,
     List<string> Tags,
     bool IsOffered,
     string Status,

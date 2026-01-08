@@ -29,7 +29,6 @@ public class SearchSkillsQueryHandler(
             request.UserId,
             request.SearchTerm,
             request.CategoryId,
-            request.ProficiencyLevelId,
             request.Tags,
             request.IsOffered,
             request.MinRating,
@@ -67,13 +66,6 @@ public class SearchSkillsQueryHandler(
                     s.SkillCategory.Name,
                     s.SkillCategory.IconName,
                     s.SkillCategory.Color,
-                    0 // Count removed to avoid N+1 query
-                ),
-                new ProficiencyLevelResponse(
-                    s.ProficiencyLevel.Id,
-                    s.ProficiencyLevel.Level,
-                    s.ProficiencyLevel.Rank,
-                    s.ProficiencyLevel.Color,
                     0 // Count removed to avoid N+1 query
                 ),
                 s.TagsJson ?? string.Empty,

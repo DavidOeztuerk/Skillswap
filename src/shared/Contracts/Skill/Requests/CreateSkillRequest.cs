@@ -18,9 +18,6 @@ public record CreateSkillRequest(
     [Required(ErrorMessage = "Category ID is required")]
     string CategoryId,
 
-    [Required(ErrorMessage = "Proficiency level ID is required")]
-    string ProficiencyLevelId,
-
     List<string> Tags,
 
     [Required(ErrorMessage = "Must specify if skill is offered")]

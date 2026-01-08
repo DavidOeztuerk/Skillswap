@@ -122,7 +122,6 @@ public static class SkillControllerExtensions
                 userId,
                 request.SearchTerm,
                 request.CategoryId,
-                request.ProficiencyLevelId,
                 request.Tags?.ToList(),
                 request.IsOffered,
                 request.MinRating,
@@ -153,7 +152,7 @@ public static class SkillControllerExtensions
             var userId = user.GetUserId();
             if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-            var query = new GetUserSkillsQuery(userId, request.IsOffered, request.CategoryId, request.ProficiencyLevelId, request.LocationType, request.IncludeInactive, request.PageNumber, request.PageSize);
+            var query = new GetUserSkillsQuery(userId, request.IsOffered, request.CategoryId, request.LocationType, request.IncludeInactive, request.PageNumber, request.PageSize);
 
             return await mediator.SendQuery(query);
         }
@@ -169,7 +168,6 @@ public static class SkillControllerExtensions
                 userId,
                 request.IsOffered,
                 request.CategoryId,
-                request.ProficiencyLevelId,
                 request.LocationType,
                 false, // Always exclude inactive for public profile
                 request.PageNumber,
@@ -195,7 +193,6 @@ public static class SkillControllerExtensions
                 request.Name,
                 request.Description,
                 request.CategoryId,
-                request.ProficiencyLevelId,
                 request.Tags,
                 request.IsOffered,
                 request.AvailableHours,
@@ -235,7 +232,6 @@ public static class SkillControllerExtensions
                 request.Name,
                 request.Description,
                 request.CategoryId,
-                request.ProficiencyLevelId,
                 request.Tags,
                 request.IsOffered,
                 request.AvailableHours,
@@ -354,51 +350,6 @@ public static class SkillControllerExtensions
         //
         //     return await mediator.SendCommand(command);
         // }
-        #endregion
-
-        #region Proficiency Levels
-        RouteGroupBuilder levels = skills.MapGroup("/proficiency-levels");
-
-        levels.MapGet("/", GetProficiencyLevels)
-            .WithName("GetProficiencyLevels")
-            .WithSummary("Get proficiency levels")
-            .WithDescription("Retrieve all proficiency levels with pagination (public endpoint)")
-            .WithTags("ProficiencyLevels")
-            .AllowAnonymous()
-            .Produces<ApiResponse<GetProficiencyLevelsResponse>>(StatusCodes.Status200OK);
-
-        levels.MapPost("/", CreateNewProficiencyLevel)
-            .WithName("CreateProficiencyLevel")
-            .WithSummary("Create a new proficiency level")
-            .WithDescription("Create a new proficiency level with the specified details")
-            .WithTags("ProficiencyLevels")
-            .Produces<ApiResponse<CreateProficiencyLevelResponse>>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .RequireAuthorization(Policies.RequireAdminRole);
-
-        static async Task<IResult> GetProficiencyLevels(
-            IMediator mediator,
-            [FromQuery] bool includeInactive = false,
-            [FromQuery] bool includeSkillCounts = false)
-        {
-            var query = new GetProficiencyLevelsQuery(includeInactive, includeSkillCounts);
-
-            return await mediator.SendQuery(query);
-        }
-
-        static async Task<IResult> CreateNewProficiencyLevel(IMediator mediator, ClaimsPrincipal user, [FromBody] CreateProficiencyLevelRequest request)
-        {
-            var userId = user.GetUserId();
-            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
-
-            var command = new CreateProficiencyLevelCommand(request.Level, request.Description, request.Rank, request.Color, request.IsActive)
-            {
-                UserId = userId
-            };
-
-            return await mediator.SendCommand(command);
-        }
         #endregion
 
         #region Analytics

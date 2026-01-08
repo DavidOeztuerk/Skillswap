@@ -12,7 +12,6 @@ public class SkillUnitOfWork(
 
     private ISkillRepository? _skills;
     private ISkillCategoryRepository? _skillCategories;
-    private IProficiencyLevelRepository? _proficiencyLevels;
     private ISkillEndorsementRepository? _skillEndorsements;
     private ISkillMatchRepository? _skillMatches;
     private ISkillResourceRepository? _skillResources;
@@ -25,9 +24,6 @@ public class SkillUnitOfWork(
 
     public ISkillCategoryRepository SkillCategories =>
         _skillCategories ??= new SkillCategoryRepository(_dbContext);
-
-    public IProficiencyLevelRepository ProficiencyLevels =>
-        _proficiencyLevels ??= new ProficiencyLevelRepository(_dbContext);
 
     public ISkillEndorsementRepository SkillEndorsements =>
         _skillEndorsements ??= new SkillEndorsementRepository(_dbContext);

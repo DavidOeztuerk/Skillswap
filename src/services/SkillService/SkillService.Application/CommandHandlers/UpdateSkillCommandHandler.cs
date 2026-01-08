@@ -70,21 +70,6 @@ public class UpdateSkillCommandHandler(
                 skill.SkillCategoryId = request.CategoryId;
             }
 
-            if (!string.IsNullOrEmpty(request.ProficiencyLevelId) && request.ProficiencyLevelId != skill.ProficiencyLevelId)
-            {
-                // Validate new proficiency level
-                var newLevel = await _unitOfWork.ProficiencyLevels
-                    .GetByIdAsync(request.ProficiencyLevelId, cancellationToken);
-
-                if (newLevel == null || !newLevel.IsActive)
-                {
-                    throw new ResourceNotFoundException("ProficiencyLevel", request.ProficiencyLevelId);
-                }
-
-                changedFields["ProficiencyLevel"] = "Updated";
-                skill.ProficiencyLevelId = request.ProficiencyLevelId;
-            }
-
             if (request.Tags != null)
             {
                 changedFields["Tags"] = "Updated";
@@ -135,7 +120,6 @@ public class UpdateSkillCommandHandler(
                 skill.Name,
                 skill.Description,
                 skill.SkillCategoryId,
-                skill.ProficiencyLevelId,
                 skill.Tags,
                 skill.IsOffered,
                 skill.IsActive,

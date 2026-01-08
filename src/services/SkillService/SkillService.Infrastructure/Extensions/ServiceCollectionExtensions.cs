@@ -34,7 +34,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISkillUnitOfWork, SkillUnitOfWork>();
         services.AddScoped<ISkillRepository, SkillRepository>();
         services.AddScoped<ISkillCategoryRepository, SkillCategoryRepository>();
-        services.AddScoped<IProficiencyLevelRepository, ProficiencyLevelRepository>();
         services.AddScoped<ISkillEndorsementRepository, SkillEndorsementRepository>();
         services.AddScoped<ISkillMatchRepository, SkillMatchRepository>();
         services.AddScoped<ISkillResourceRepository, SkillResourceRepository>();

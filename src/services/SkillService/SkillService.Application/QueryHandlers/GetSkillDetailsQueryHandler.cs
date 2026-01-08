@@ -35,7 +35,6 @@ public class GetSkillDetailsQueryHandler(
 
             // Load related entities
             var category = await _unitOfWork.SkillCategories.GetByIdAsync(skill.SkillCategoryId, cancellationToken);
-            var proficiency = await _unitOfWork.ProficiencyLevels.GetByIdAsync(skill.ProficiencyLevelId, cancellationToken);
 
             // Fetch owner details from UserService
             var ownerProfile = await _userServiceClient.GetUserProfileAsync(skill.UserId, cancellationToken);
@@ -60,12 +59,6 @@ public class GetSkillDetailsQueryHandler(
                     category?.Name ?? "Unknown",
                     category?.IconName ?? "",
                     category?.Color ?? "",
-                    0),
-                new ProficiencyLevelResponse(
-                    proficiency?.Id ?? skill.ProficiencyLevelId,
-                    proficiency?.Level ?? "Unknown",
-                    proficiency?.Rank ?? 0,
-                    proficiency?.Color ?? "",
                     0),
                 skill.Tags,
                 skill.IsOffered,

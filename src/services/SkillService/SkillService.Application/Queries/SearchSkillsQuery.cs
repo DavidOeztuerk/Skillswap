@@ -8,7 +8,6 @@ public record SearchSkillsQuery(
     string UserId,
     string? SearchTerm = null,
     string? CategoryId = null,
-    string? ProficiencyLevelId = null,
     List<string>? Tags = null,
     bool? IsOffered = null,
     decimal? MinRating = null,
@@ -28,7 +27,7 @@ public record SearchSkillsQuery(
 
     // Include UserId in cache key to ensure user-specific results are cached separately
     // This prevents users from getting cached results meant for other users
-    public string CacheKey => $"skills-search:{UserId}:{SearchTerm ?? ""}:{CategoryId ?? ""}:{ProficiencyLevelId ?? ""}:{IsOffered?.ToString() ?? ""}:{(Tags != null && Tags.Count > 0 ? string.Join(",", Tags) : "")}:{LocationType ?? ""}:{MaxDistanceKm?.ToString() ?? ""}:{PageNumber}:{PageSize}";
+    public string CacheKey => $"skills-search:{UserId}:{SearchTerm ?? ""}:{CategoryId ?? ""}:{IsOffered?.ToString() ?? ""}:{(Tags != null && Tags.Count > 0 ? string.Join(",", Tags) : "")}:{LocationType ?? ""}:{MaxDistanceKm?.ToString() ?? ""}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 
@@ -39,7 +38,6 @@ public record SkillSearchResultResponse(
     string Description,
     bool IsOffered,
     SkillCategoryResponse Category,
-    ProficiencyLevelResponse ProficiencyLevel,
     string TagsJson,
     double? AverageRating,
     int ReviewCount,

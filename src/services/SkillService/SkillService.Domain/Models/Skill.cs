@@ -17,10 +17,6 @@ public class Skill : AuditableEntity
     public string SkillCategoryId { get; set; } = string.Empty;
 
     [Required]
-    [MaxLength(450)]
-    public string ProficiencyLevelId { get; set; } = string.Empty;
-
-    [Required]
     [MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
@@ -169,7 +165,6 @@ public class Skill : AuditableEntity
 
     // Navigation properties
     public virtual SkillCategory SkillCategory { get; set; } = null!;
-    public virtual ProficiencyLevel ProficiencyLevel { get; set; } = null!;
     public virtual ICollection<SkillReview> Reviews { get; set; } = new List<SkillReview>();
     public virtual ICollection<SkillEndorsement> Endorsements { get; set; } = new List<SkillEndorsement>();
     public virtual ICollection<SkillView> Views { get; set; } = new List<SkillView>();

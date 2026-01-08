@@ -43,11 +43,6 @@ public class GetUserSkillsQueryHandler(
             filteredSkills = filteredSkills.Where(s => s.SkillCategoryId == request.CategoryId);
         }
 
-        if (!string.IsNullOrEmpty(request.ProficiencyLevelId))
-        {
-            filteredSkills = filteredSkills.Where(s => s.ProficiencyLevelId == request.ProficiencyLevelId);
-        }
-
         if (!string.IsNullOrEmpty(request.LocationType))
         {
             filteredSkills = filteredSkills.Where(s => s.LocationType == request.LocationType);
@@ -73,12 +68,6 @@ public class GetUserSkillsQueryHandler(
                 s.SkillCategory?.Name ?? "Unknown",
                 s.SkillCategory?.IconName ?? "",
                 s.SkillCategory?.Color ?? "",
-                0),
-            new ProficiencyLevelResponse(
-                s.ProficiencyLevel?.Id ?? s.ProficiencyLevelId,
-                s.ProficiencyLevel?.Level ?? "Unknown",
-                s.ProficiencyLevel?.Rank ?? 0,
-                s.ProficiencyLevel?.Color ?? "",
                 0),
             s.Tags,
             s.IsOffered,

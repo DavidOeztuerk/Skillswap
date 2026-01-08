@@ -5,7 +5,6 @@ namespace Contracts.Skill.Requests;
 /// </summary>
 /// <param name="IsOffered">Filter by whether skills are offered (null for all)</param>
 /// <param name="CategoryId">Filter by skill category identifier</param>
-/// <param name="ProficiencyLevelId">Filter by proficiency level identifier</param>
 /// <param name="LocationType">Filter by location type: 'remote', 'in_person', or 'both'</param>
 /// <param name="IncludeInactive">Whether to include inactive skills</param>
 /// <param name="PageNumber">Page number for pagination</param>
@@ -13,7 +12,6 @@ namespace Contracts.Skill.Requests;
 public record GetUserSkillsRequest(
     bool? IsOffered = null,
     string? CategoryId = null,
-    string? ProficiencyLevelId = null,
     string? LocationType = null,
     bool IncludeInactive = false,
     int PageNumber = 1,

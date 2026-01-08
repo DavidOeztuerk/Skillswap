@@ -7,7 +7,6 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
 {
     public virtual DbSet<Skill> Skills => base.Set<Skill>();
     public virtual DbSet<SkillCategory> SkillCategories => base.Set<SkillCategory>();
-    public virtual DbSet<ProficiencyLevel> ProficiencyLevels => base.Set<ProficiencyLevel>();
     public virtual DbSet<SkillEndorsement> SkillEndorsements => base.Set<SkillEndorsement>();
     public virtual DbSet<SkillMatch> SkillMatches => base.Set<SkillMatch>();
     public virtual DbSet<SkillReview> SkillReviews => base.Set<SkillReview>();
@@ -29,7 +28,6 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             // Required properties
             entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
             entity.Property(e => e.SkillCategoryId).IsRequired().HasMaxLength(450);
-            entity.Property(e => e.ProficiencyLevelId).IsRequired().HasMaxLength(450);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).IsRequired().HasMaxLength(2000);
 
@@ -78,7 +76,6 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             // Indexes for performance
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.SkillCategoryId);
-            entity.HasIndex(e => e.ProficiencyLevelId);
             entity.HasIndex(e => e.IsActive);
             entity.HasIndex(e => e.AverageRating);
             entity.HasIndex(e => new { e.IsActive, e.AverageRating });
@@ -107,11 +104,6 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             entity.HasOne(s => s.SkillCategory)
                   .WithMany(sc => sc.Skills)
                   .HasForeignKey(s => s.SkillCategoryId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(s => s.ProficiencyLevel)
-                  .WithMany(pl => pl.Skills)
-                  .HasForeignKey(s => s.ProficiencyLevelId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             // One-to-Many relationships
@@ -148,22 +140,6 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             // Unique constraints
             entity.HasIndex(e => e.Name).IsUnique();
             entity.HasIndex(e => e.Slug).IsUnique();
-        });
-
-        // ============================================================================
-        // PROFICIENCY LEVEL ENTITY CONFIGURATION
-        // ============================================================================
-        modelBuilder.Entity<ProficiencyLevel>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Level).IsRequired().HasMaxLength(30);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.Color).HasMaxLength(7);
-
-            // Unique constraints
-            entity.HasIndex(e => e.Level).IsUnique();
-            entity.HasIndex(e => e.Rank).IsUnique();
         });
 
         // ============================================================================

@@ -35,9 +35,6 @@ public class CreateSkillCommandHandler(
         // Validate category exists
         var category = await _unitOfWork.SkillCategories.GetByIdAsync(request.CategoryId, cancellationToken) ?? throw new ResourceNotFoundException("SkillCategory", request.CategoryId);
 
-        // Validate proficiency level exists
-        var proficiencyLevel = await _unitOfWork.ProficiencyLevels.GetByIdAsync(request.ProficiencyLevelId, cancellationToken) ?? throw new ResourceNotFoundException("ProficiencyLevel", request.ProficiencyLevelId);
-
         // Check for similar skills by the same user
         var existingSkill = await _unitOfWork.Skills.GetByNameAndUserIdAsync(request.Name.Trim(), request.UserId, cancellationToken);
 
@@ -93,7 +90,6 @@ public class CreateSkillCommandHandler(
             Description = request.Description.Trim(),
             IsOffered = request.IsOffered,
             SkillCategoryId = request.CategoryId,
-            ProficiencyLevelId = request.ProficiencyLevelId,
             Tags = request.Tags ?? [],
             IsActive = true,
             SearchKeywords = GenerateSearchKeywords(request.Name, request.Description, request.Tags),
@@ -139,8 +135,6 @@ public class CreateSkillCommandHandler(
             Description = skill.Description,
             CategoryId = category.Id,
             CategoryName = category.Name,
-            ProficiencyLevelId = proficiencyLevel.Id,
-            ProficiencyLevelRank = proficiencyLevel.Rank,
             IsOffered = skill.IsOffered,
             ExchangeType = skill.ExchangeType,
             DesiredSkillCategoryId = skill.DesiredSkillCategoryId,
@@ -169,7 +163,6 @@ public class CreateSkillCommandHandler(
             skill.Name,
             skill.Description,
             category.Id,
-            proficiencyLevel.Id,
             skill.Tags,
             skill.IsOffered,
             "Active",

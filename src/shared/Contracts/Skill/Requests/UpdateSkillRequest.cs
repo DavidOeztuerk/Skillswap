@@ -10,7 +10,6 @@ namespace Contracts.Skill.Requests;
 /// <param name="Name">Updated name of the skill</param>
 /// <param name="Description">Updated description of the skill</param>
 /// <param name="CategoryId">Updated skill category identifier</param>
-/// <param name="ProficiencyLevelId">Updated proficiency level identifier</param>
 /// <param name="Tags">Updated associated tags for the skill</param>
 /// <param name="IsOffered">Whether the user offers this skill (true) or seeks to learn it (false)</param>
 /// <param name="AvailableHours">Updated available hours per week for this skill</param>
@@ -26,8 +25,6 @@ public record UpdateSkillRequest(
     string Description,
 
     string CategoryId,
-
-    string ProficiencyLevelId,
 
     List<string> Tags,
 

@@ -60,7 +60,6 @@ public class SkillRepository : ISkillRepository
     {
         return await _dbContext.Skills
             .Include(s => s.SkillCategory)
-            .Include(s => s.ProficiencyLevel)
             .AsSplitQuery()
             .AsNoTracking()
             .Where(s => s.UserId == userId && !s.IsDeleted)
@@ -117,18 +116,6 @@ public class SkillRepository : ISkillRepository
         return await query.FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<int> CountByProficiencyLevelAsync(string proficiencyLevelId, bool includeDeleted = false, CancellationToken cancellationToken = default)
-    {
-        var query = _dbContext.Skills.Where(s => s.ProficiencyLevelId == proficiencyLevelId);
-
-        if (!includeDeleted)
-        {
-            query = query.Where(s => !s.IsDeleted);
-        }
-
-        return await query.CountAsync(cancellationToken);
-    }
-
     public async Task<int> CountByCategoryAsync(string categoryId, bool includeDeleted = false, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Skills.Where(s => s.SkillCategoryId == categoryId);
@@ -169,7 +156,6 @@ public class SkillRepository : ISkillRepository
         string? userId,
         string? searchTerm,
         string? categoryId,
-        string? proficiencyLevelId,
         List<string>? tags,
         bool? isOffered,
         decimal? minRating,
@@ -187,7 +173,6 @@ public class SkillRepository : ISkillRepository
         var query = _dbContext.Skills
             .AsNoTracking()
             .Include(s => s.SkillCategory)
-            .Include(s => s.ProficiencyLevel)
             .Where(s => s.IsActive && !s.IsDeleted);
 
         // Exclude user's own skills if userId provided
@@ -210,12 +195,6 @@ public class SkillRepository : ISkillRepository
         if (!string.IsNullOrEmpty(categoryId))
         {
             query = query.Where(s => s.SkillCategoryId == categoryId);
-        }
-
-        // Apply proficiency level filter
-        if (!string.IsNullOrEmpty(proficiencyLevelId))
-        {
-            query = query.Where(s => s.ProficiencyLevelId == proficiencyLevelId);
         }
 
         // Apply isOffered filter
@@ -365,7 +344,6 @@ public class SkillRepository : ISkillRepository
         int ActiveSkills,
         double AverageRating,
         Dictionary<string, int> SkillsByCategory,
-        Dictionary<string, int> SkillsByProficiencyLevel,
         List<(string Id, string Name, double Rating, int ReviewCount)> TopRatedSkills,
         List<(string Id, string Name, string CategoryName, int ViewCount)> TrendingSkills,
         Dictionary<string, int> PopularTags
@@ -413,12 +391,6 @@ public class SkillRepository : ISkillRepository
             .GroupBy(s => s.SkillCategory.Name)
             .Select(g => new { Category = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Category, x => x.Count, cancellationToken);
-
-        var skillsByProficiencyLevel = await query
-            .Include(s => s.ProficiencyLevel)
-            .GroupBy(s => s.ProficiencyLevel.Level)
-            .Select(g => new { Level = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Level, x => x.Count, cancellationToken);
 
         var topRatedSkills = await query
             .Where(s => s.AverageRating > 0 && s.ReviewCount > 0)
@@ -490,7 +462,6 @@ public class SkillRepository : ISkillRepository
             activeSkills,
             Math.Round(averageRating, 2),
             skillsByCategory,
-            skillsByProficiencyLevel,
             topRated,
             trending,
             topTags);

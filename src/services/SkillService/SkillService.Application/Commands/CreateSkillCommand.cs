@@ -8,7 +8,6 @@ public record CreateSkillCommand(
     string Name,
     string Description,
     string CategoryId,
-    string ProficiencyLevelId,
     List<string> Tags,
     bool IsOffered,
     int? AvailableHours = null,
@@ -72,9 +71,6 @@ public class CreateSkillCommandValidator : AbstractValidator<CreateSkillCommand>
 
         RuleFor(x => x.CategoryId)
             .NotEmpty().WithMessage("Skill category is required");
-
-        RuleFor(x => x.ProficiencyLevelId)
-            .NotEmpty().WithMessage("Proficiency level is required");
 
         RuleFor(x => x.Tags)
             .Must(tags => tags == null || tags.Count <= 10)

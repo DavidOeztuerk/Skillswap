@@ -15,7 +15,6 @@ namespace Contracts.Skill.Responses;
 /// <param name="Name">Name of the skill</param>
 /// <param name="Description">Detailed description</param>
 /// <param name="Category">Skill category information</param>
-/// <param name="ProficiencyLevel">Proficiency level information</param>
 /// <param name="Tags">Associated tags</param>
 /// <param name="IsOffered">Whether skill is offered</param>
 /// <param name="Rating">Average rating</param>
@@ -52,7 +51,6 @@ public record SkillDetailsResponse(
     string Name,
     string Description,
     SkillCategoryResponse Category,
-    ProficiencyLevelResponse ProficiencyLevel,
     List<string> Tags,
     bool IsOffered,
     decimal? Rating,

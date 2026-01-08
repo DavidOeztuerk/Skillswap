@@ -9,7 +9,6 @@ public record UpdateSkillCommand(
     string Name,
     string Description,
     string CategoryId,
-    string ProficiencyLevelId,
     List<string> Tags,
     bool IsOffered,
     int? AvailableHours = null,
