@@ -134,6 +134,7 @@ public class User : AuditableEntity
     // Phase 12: LinkedIn/Xing integration
     public virtual UserLinkedInConnection? LinkedInConnection { get; set; }
     public virtual UserXingConnection? XingConnection { get; set; }
+    public virtual ICollection<UserImportedSkill> ImportedSkills { get; set; } = [];
 
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();

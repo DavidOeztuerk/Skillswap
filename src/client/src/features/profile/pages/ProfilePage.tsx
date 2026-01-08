@@ -16,6 +16,7 @@ import {
   School as SchoolIcon,
   Person as PersonIcon,
   CloudUpload as CloudUploadIcon,
+  LinkedIn as LinkedInIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -52,6 +53,7 @@ import ProfileAvatar from '../../../shared/components/ui/ProfileAvatar';
 import { isSuccessResponse } from '../../../shared/types/api/UnifiedResponse';
 import useAuth from '../../auth/hooks/useAuth';
 import type { UserExperienceResponse, UserEducationResponse } from '../types';
+import SocialConnectionsTab from '../components/SocialConnectionsTab';
 
 // ============================================================================
 // Schemas
@@ -789,6 +791,7 @@ const ProfilePage: React.FC = () => {
         >
           <Tab icon={<PersonIcon />} label="Persönliche Daten" iconPosition="start" />
           <Tab icon={<WorkIcon />} label="Erfahrung & Ausbildung" iconPosition="start" />
+          <Tab icon={<LinkedInIcon />} label="LinkedIn & Xing" iconPosition="start" />
         </Tabs>
 
         {/* Tab 0: Persönliche Daten */}
@@ -1236,6 +1239,11 @@ const ProfilePage: React.FC = () => {
               </Grid>
             )}
           </Box>
+        </TabPanel>
+
+        {/* Tab 2: LinkedIn & Xing */}
+        <TabPanel value={activeTab} index={2}>
+          <SocialConnectionsTab />
         </TabPanel>
       </Paper>
 

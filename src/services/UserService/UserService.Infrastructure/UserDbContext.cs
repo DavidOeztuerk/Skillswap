@@ -42,6 +42,7 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
     // Phase 12: LinkedIn/Xing integration
     public DbSet<UserLinkedInConnection> UserLinkedInConnections => Set<UserLinkedInConnection>();
     public DbSet<UserXingConnection> UserXingConnections => Set<UserXingConnection>();
+    public DbSet<UserImportedSkill> UserImportedSkills => Set<UserImportedSkill>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -80,6 +81,7 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         // Phase 12: LinkedIn/Xing integration
         ConfigureUserLinkedInConnection(modelBuilder);
         ConfigureUserXingConnection(modelBuilder);
+        ConfigureUserImportedSkill(modelBuilder);
 
         Seed(modelBuilder);
     }
@@ -256,6 +258,11 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasOne(x => x.XingConnection)
          .WithOne(x => x.User)
          .HasForeignKey<UserXingConnection>(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasMany(x => x.ImportedSkills)
+         .WithOne(x => x.User)
+         .HasForeignKey(x => x.UserId)
          .OnDelete(DeleteBehavior.Cascade);
     }
 
@@ -1054,6 +1061,38 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         // Index for auto sync
         e.HasIndex(x => new { x.AutoSyncEnabled, x.IsDeleted })
             .HasDatabaseName("IX_UserXingConnections_AutoSync");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    private static void ConfigureUserImportedSkill(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserImportedSkill>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.Name).IsRequired().HasMaxLength(200);
+        e.Property(x => x.NormalizedName).IsRequired().HasMaxLength(200);
+        e.Property(x => x.Source).HasMaxLength(20).HasDefaultValue("manual");
+        e.Property(x => x.ExternalId).HasMaxLength(100);
+        e.Property(x => x.Category).HasMaxLength(100);
+        e.Property(x => x.EndorsementCount).HasDefaultValue(0);
+        e.Property(x => x.SortOrder).HasDefaultValue(0);
+        e.Property(x => x.IsVisible).HasDefaultValue(true);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Indexes
+        e.HasIndex(x => x.UserId)
+            .HasDatabaseName("IX_UserImportedSkills_UserId");
+        e.HasIndex(x => new { x.UserId, x.NormalizedName })
+            .IsUnique()
+            .HasDatabaseName("IX_UserImportedSkills_UserName");
+        e.HasIndex(x => new { x.UserId, x.Source, x.ExternalId })
+            .HasDatabaseName("IX_UserImportedSkills_SourceExternal");
+        e.HasIndex(x => new { x.UserId, x.IsVisible, x.SortOrder })
+            .HasDatabaseName("IX_UserImportedSkills_VisibleSort");
 
         // Soft delete filter
         e.HasQueryFilter(x => !x.IsDeleted);

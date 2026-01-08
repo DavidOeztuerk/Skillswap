@@ -42,6 +42,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserEducationRepository, UserEducationRepository>();
         services.AddScoped<IUserReviewRepository, UserReviewRepository>();
 
+        // Phase 12: LinkedIn/Xing integration repositories
+        services.AddScoped<IUserLinkedInConnectionRepository, UserLinkedInConnectionRepository>();
+        services.AddScoped<IUserXingConnectionRepository, UserXingConnectionRepository>();
+        services.AddScoped<IUserImportedSkillRepository, UserImportedSkillRepository>();
+
         // Session Management - for concurrent session control
         services.AddScoped<ISessionManager, SessionManager>();
 
