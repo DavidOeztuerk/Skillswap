@@ -15,6 +15,7 @@ using UserService.Application.Services;
 using UserService.Infrastructure.Services;
 using UserService.Infrastructure.Services.Calendar;
 using UserService.Infrastructure.BackgroundServices;
+using UserService.Infrastructure.OAuth;
 
 namespace UserService.Infrastructure.Extensions;
 
@@ -46,6 +47,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserLinkedInConnectionRepository, UserLinkedInConnectionRepository>();
         services.AddScoped<IUserXingConnectionRepository, UserXingConnectionRepository>();
         services.AddScoped<IUserImportedSkillRepository, UserImportedSkillRepository>();
+
+        // Phase 12: OAuth services for LinkedIn/Xing
+        services.Configure<LinkedInOptions>(configuration.GetSection(LinkedInOptions.SectionName));
+        services.Configure<XingOptions>(configuration.GetSection(XingOptions.SectionName));
+        services.AddHttpClient<ILinkedInService, LinkedInService>();
+        services.AddHttpClient<IXingService, XingService>();
 
         // Session Management - for concurrent session control
         services.AddScoped<ISessionManager, SessionManager>();
