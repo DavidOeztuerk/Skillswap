@@ -3,6 +3,7 @@ namespace SkillService.Domain.ValueObjects;
 /// <summary>
 /// Value Object for skill exchange configuration.
 /// Stored as owned entity in Skill table.
+/// Phase 11: Updated to use Topic instead of Category
 /// </summary>
 public class SkillExchangeDetails
 {
@@ -13,9 +14,9 @@ public class SkillExchangeDetails
     public string ExchangeType { get; private set; } = "skill_exchange";
 
     /// <summary>
-    /// For skill_exchange: Category of desired skill in return
+    /// Phase 11: For skill_exchange: Topic of desired skill in return
     /// </summary>
-    public string? DesiredSkillCategoryId { get; private set; }
+    public string? DesiredSkillTopicId { get; private set; }
 
     /// <summary>
     /// For skill_exchange: Description of what skill is desired
@@ -35,14 +36,17 @@ public class SkillExchangeDetails
     // Required for EF Core
     private SkillExchangeDetails() { }
 
+    /// <summary>
+    /// Phase 11: Parameter renamed from desiredCategoryId to desiredTopicId
+    /// </summary>
     public static SkillExchangeDetails CreateSkillExchange(
-        string? desiredCategoryId = null,
+        string? desiredTopicId = null,
         string? desiredDescription = null)
     {
         return new SkillExchangeDetails
         {
             ExchangeType = "skill_exchange",
-            DesiredSkillCategoryId = desiredCategoryId,
+            DesiredSkillTopicId = desiredTopicId,
             DesiredSkillDescription = desiredDescription,
             HourlyRate = null,
             Currency = null
@@ -59,7 +63,7 @@ public class SkillExchangeDetails
         return new SkillExchangeDetails
         {
             ExchangeType = "payment",
-            DesiredSkillCategoryId = null,
+            DesiredSkillTopicId = null,
             DesiredSkillDescription = null,
             HourlyRate = hourlyRate,
             Currency = currency
@@ -74,13 +78,13 @@ public class SkillExchangeDetails
 
     public void Update(
         string exchangeType,
-        string? desiredCategoryId,
+        string? desiredTopicId,
         string? desiredDescription,
         decimal? hourlyRate,
         string? currency)
     {
         ExchangeType = exchangeType;
-        DesiredSkillCategoryId = desiredCategoryId;
+        DesiredSkillTopicId = desiredTopicId;
         DesiredSkillDescription = desiredDescription;
         HourlyRate = hourlyRate;
         Currency = currency;

@@ -4,7 +4,9 @@ using Domain.Abstractions;
 namespace SkillService.Domain.Entities;
 
 /// <summary>
-/// SkillCategory Entity
+/// Top-level category (e.g., "Development", "Business", "Design")
+/// Part of 3-level hierarchy: Category → Subcategory → Topic
+/// Phase 11 - Category Hierarchy Implementation
 /// </summary>
 public class SkillCategory : AuditableEntity
 {
@@ -23,10 +25,17 @@ public class SkillCategory : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// Display order for sorting categories
+    /// </summary>
+    public int DisplayOrder { get; set; } = 0;
+
     // SEO properties
     [MaxLength(100)]
     public string? Slug { get; set; }
 
     // Navigation properties
-    public virtual ICollection<Skill> Skills { get; set; } = [];
+    public virtual ICollection<SkillSubcategory> Subcategories { get; set; } = [];
+
+    // Note: Direct Skill navigation removed in Phase 11 - Skills now link via Topic
 }

@@ -19,6 +19,10 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
     public virtual DbSet<SkillPreferredTime> SkillPreferredTimes => base.Set<SkillPreferredTime>();
     public virtual DbSet<SkillTag> SkillTags => base.Set<SkillTag>();
 
+    // Phase 11: 3-level category hierarchy
+    public virtual DbSet<SkillSubcategory> SkillSubcategories => base.Set<SkillSubcategory>();
+    public virtual DbSet<SkillTopic> SkillTopics => base.Set<SkillTopic>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -32,7 +36,8 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
 
             // Required properties
             entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
-            entity.Property(e => e.SkillCategoryId).IsRequired().HasMaxLength(450);
+            // Phase 11: Skills link to Topic instead of Category
+            entity.Property(e => e.SkillTopicId).IsRequired().HasMaxLength(450);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).IsRequired().HasMaxLength(2000);
 
@@ -43,7 +48,8 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
 
             // Exchange properties
             entity.Property(e => e.ExchangeType).HasMaxLength(20).HasDefaultValue("skill_exchange");
-            entity.Property(e => e.DesiredSkillCategoryId).HasMaxLength(450);
+            // Phase 11: Desired skill links to Topic
+            entity.Property(e => e.DesiredSkillTopicId).HasMaxLength(450);
             entity.Property(e => e.DesiredSkillDescription).HasMaxLength(500);
             entity.Property(e => e.HourlyRate).HasPrecision(10, 2);
             entity.Property(e => e.Currency).HasMaxLength(3);
@@ -77,18 +83,25 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             entity.Ignore(e => e.IsHighlyRated);
             entity.Ignore(e => e.IsPopular);
             entity.Ignore(e => e.IsRecent);
+            // Phase 11: Hierarchy computed properties
+            entity.Ignore(e => e.Subcategory);
+            entity.Ignore(e => e.Category);
+            entity.Ignore(e => e.CategoryName);
+            entity.Ignore(e => e.SubcategoryName);
+            entity.Ignore(e => e.TopicName);
 
             // Indexes for performance
             entity.HasIndex(e => e.UserId);
-            entity.HasIndex(e => e.SkillCategoryId);
+            // Phase 11: Index on Topic instead of Category
+            entity.HasIndex(e => e.SkillTopicId);
             entity.HasIndex(e => e.IsActive);
             entity.HasIndex(e => e.AverageRating);
             entity.HasIndex(e => new { e.IsActive, e.AverageRating });
-            
+
             // Composite index for most common search query
             entity.HasIndex(e => new { e.IsActive, e.IsDeleted, e.UserId })
                 .HasDatabaseName("IX_Skills_ActiveSearch");
-            
+
             // Index for text search
             entity.HasIndex(e => e.Name)
                 .HasDatabaseName("IX_Skills_Name");
@@ -102,13 +115,14 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
                 .HasDatabaseName("IX_Skills_LocationType");
             entity.HasIndex(e => new { e.LocationCity, e.LocationCountry })
                 .HasDatabaseName("IX_Skills_Location");
-            entity.HasIndex(e => new { e.IsActive, e.IsOffered, e.SkillCategoryId })
+            // Phase 11: Matching search index uses Topic
+            entity.HasIndex(e => new { e.IsActive, e.IsOffered, e.SkillTopicId })
                 .HasDatabaseName("IX_Skills_MatchingSearch");
 
-            // Foreign Key Relationships
-            entity.HasOne(s => s.SkillCategory)
-                  .WithMany(sc => sc.Skills)
-                  .HasForeignKey(s => s.SkillCategoryId)
+            // Phase 11: Foreign Key to Topic (not Category)
+            entity.HasOne(s => s.Topic)
+                  .WithMany(t => t.Skills)
+                  .HasForeignKey(s => s.SkillTopicId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             // One-to-Many relationships
@@ -130,7 +144,8 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
         });
 
         // ============================================================================
-        // SKILL CATEGORY ENTITY CONFIGURATION
+        // SKILL CATEGORY ENTITY CONFIGURATION (Top-Level)
+        // Phase 11: 3-level hierarchy - Category → Subcategory → Topic
         // ============================================================================
         modelBuilder.Entity<SkillCategory>(entity =>
         {
@@ -141,10 +156,76 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             entity.Property(e => e.IconName).HasMaxLength(50);
             entity.Property(e => e.Color).HasMaxLength(7);
             entity.Property(e => e.Slug).HasMaxLength(100);
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
 
             // Unique constraints
             entity.HasIndex(e => e.Name).IsUnique();
             entity.HasIndex(e => e.Slug).IsUnique();
+            entity.HasIndex(e => e.DisplayOrder);
+
+            // Navigation to Subcategories
+            entity.HasMany(c => c.Subcategories)
+                  .WithOne(sc => sc.Category)
+                  .HasForeignKey(sc => sc.SkillCategoryId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ============================================================================
+        // SKILL SUBCATEGORY ENTITY CONFIGURATION (Mid-Level)
+        // Phase 11: 3-level hierarchy
+        // ============================================================================
+        modelBuilder.Entity<SkillSubcategory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.SkillCategoryId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.IconName).HasMaxLength(50);
+            entity.Property(e => e.Slug).HasMaxLength(100);
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+
+            // Indexes
+            entity.HasIndex(e => e.SkillCategoryId);
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.Slug);
+            entity.HasIndex(e => new { e.SkillCategoryId, e.Name }).IsUnique();
+            entity.HasIndex(e => new { e.SkillCategoryId, e.DisplayOrder });
+
+            // Navigation to Topics
+            entity.HasMany(sc => sc.Topics)
+                  .WithOne(t => t.Subcategory)
+                  .HasForeignKey(t => t.SkillSubcategoryId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ============================================================================
+        // SKILL TOPIC ENTITY CONFIGURATION (Specific Level)
+        // Phase 11: 3-level hierarchy - Skills link here
+        // ============================================================================
+        modelBuilder.Entity<SkillTopic>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.SkillSubcategoryId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.IconName).HasMaxLength(50);
+            entity.Property(e => e.Slug).HasMaxLength(100);
+            entity.Property(e => e.Keywords).HasMaxLength(500);
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+            entity.Property(e => e.IsFeatured).HasDefaultValue(false);
+
+            // Ignore computed properties
+            entity.Ignore(e => e.FullPath);
+
+            // Indexes
+            entity.HasIndex(e => e.SkillSubcategoryId);
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.Slug);
+            entity.HasIndex(e => e.IsFeatured);
+            entity.HasIndex(e => new { e.SkillSubcategoryId, e.Name }).IsUnique();
+            entity.HasIndex(e => new { e.SkillSubcategoryId, e.DisplayOrder });
         });
 
         // ============================================================================

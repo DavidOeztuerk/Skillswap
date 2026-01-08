@@ -23,9 +23,13 @@ public class Skill : AuditableEntity
     [MaxLength(450)]
     public string UserId { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Phase 11: Skills now link to Topics (lowest level of hierarchy)
+    /// Category → Subcategory → Topic → Skill
+    /// </summary>
     [Required]
     [MaxLength(450)]
-    public string SkillCategoryId { get; set; } = string.Empty;
+    public string SkillTopicId { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(100)]
@@ -88,8 +92,11 @@ public class Skill : AuditableEntity
     [MaxLength(20)]
     public string ExchangeType { get; set; } = "skill_exchange";
 
+    /// <summary>
+    /// Phase 11: Desired skill topic for exchange (links to Topic)
+    /// </summary>
     [MaxLength(450)]
-    public string? DesiredSkillCategoryId { get; set; }
+    public string? DesiredSkillTopicId { get; set; }
 
     [MaxLength(500)]
     public string? DesiredSkillDescription { get; set; }
@@ -148,7 +155,12 @@ public class Skill : AuditableEntity
     // Navigation Properties
     // =============================================
 
-    public virtual SkillCategory SkillCategory { get; set; } = null!;
+    /// <summary>
+    /// Phase 11: Navigation to Topic (lowest level of hierarchy)
+    /// Access Subcategory via Topic.Subcategory, Category via Topic.Subcategory.Category
+    /// </summary>
+    public virtual SkillTopic Topic { get; set; } = null!;
+
     public virtual ICollection<SkillReview> Reviews { get; set; } = new List<SkillReview>();
     public virtual ICollection<SkillEndorsement> Endorsements { get; set; } = new List<SkillEndorsement>();
     public virtual ICollection<SkillView> Views { get; set; } = new List<SkillView>();
@@ -158,6 +170,22 @@ public class Skill : AuditableEntity
     public virtual ICollection<SkillPreferredDay> PreferredDayEntities { get; set; } = new List<SkillPreferredDay>();
     public virtual ICollection<SkillPreferredTime> PreferredTimeEntities { get; set; } = new List<SkillPreferredTime>();
     public virtual ICollection<SkillTag> TagEntities { get; set; } = new List<SkillTag>();
+
+    // Phase 11: Computed properties for hierarchy access
+    [NotMapped]
+    public SkillSubcategory? Subcategory => Topic?.Subcategory;
+
+    [NotMapped]
+    public SkillCategory? Category => Topic?.Subcategory?.Category;
+
+    [NotMapped]
+    public string? CategoryName => Category?.Name;
+
+    [NotMapped]
+    public string? SubcategoryName => Subcategory?.Name;
+
+    [NotMapped]
+    public string? TopicName => Topic?.Name;
 
     // =============================================
     // Value Object Accessors (for clean code organization)
@@ -234,9 +262,12 @@ public class Skill : AuditableEntity
     // Factory Methods
     // =============================================
 
+    /// <summary>
+    /// Phase 11: Create skill linked to Topic (not Category)
+    /// </summary>
     public static Skill Create(
         string userId,
-        string skillCategoryId,
+        string skillTopicId,
         string name,
         string description,
         bool isOffered = true,
@@ -244,12 +275,14 @@ public class Skill : AuditableEntity
     {
         return new Skill
         {
+            Id = Guid.NewGuid().ToString(),
             UserId = userId,
-            SkillCategoryId = skillCategoryId,
+            SkillTopicId = skillTopicId,
             Name = name,
             Description = description,
             IsOffered = isOffered,
-            TagsJson = tags != null ? System.Text.Json.JsonSerializer.Serialize(tags) : null
+            TagsJson = tags != null ? System.Text.Json.JsonSerializer.Serialize(tags) : null,
+            CreatedAt = DateTime.UtcNow
         };
     }
 
@@ -263,7 +296,8 @@ public class Skill : AuditableEntity
         {
             return SkillExchangeDetails.CreatePayment(HourlyRate ?? 0, Currency ?? "EUR");
         }
-        return SkillExchangeDetails.CreateSkillExchange(DesiredSkillCategoryId, DesiredSkillDescription);
+        // Phase 11: Uses DesiredSkillTopicId instead of DesiredSkillCategoryId
+        return SkillExchangeDetails.CreateSkillExchange(DesiredSkillTopicId, DesiredSkillDescription);
     }
 
     private SkillScheduling GetScheduling()
@@ -296,7 +330,8 @@ public class Skill : AuditableEntity
     public void UpdateExchangeDetails(SkillExchangeDetails details)
     {
         ExchangeType = details.ExchangeType;
-        DesiredSkillCategoryId = details.DesiredSkillCategoryId;
+        // Phase 11: Value object also uses DesiredSkillTopicId now
+        DesiredSkillTopicId = details.DesiredSkillTopicId;
         DesiredSkillDescription = details.DesiredSkillDescription;
         HourlyRate = details.HourlyRate;
         Currency = details.Currency;
@@ -381,11 +416,14 @@ public class Skill : AuditableEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void UpdateBasicInfo(string name, string description, string skillCategoryId, List<string>? tags = null)
+    /// <summary>
+    /// Phase 11: Updated to use SkillTopicId instead of SkillCategoryId
+    /// </summary>
+    public void UpdateBasicInfo(string name, string description, string skillTopicId, List<string>? tags = null)
     {
         Name = name;
         Description = description;
-        SkillCategoryId = skillCategoryId;
+        SkillTopicId = skillTopicId;
         if (tags != null)
         {
             Tags = tags;
