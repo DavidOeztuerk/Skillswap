@@ -61,9 +61,14 @@ public interface IUserRepository
     Task<User?> GetUserByEmail(string email, CancellationToken cancellationToken = default);
     Task<User?> GetUserByEmailWithRoles(string email, CancellationToken cancellationToken = default);
     Task<User?> GetUserWithRoles(string userId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Phase 12: Get user with profile data (experiences and educations) for LinkedIn/Xing sync
+    /// </summary>
+    Task<User?> GetByIdWithProfileAsync(string userId, CancellationToken cancellationToken = default);
     IQueryable<User> GetUsers(CancellationToken cancellationToken = default);
     Task<User> AddUser(User user, CancellationToken cancellationToken = default);
     Task<User> UpdateUser(User user, CancellationToken cancellationToken = default);
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     // Email Availability & Validation
     Task<bool> IsEmailTaken(string email, CancellationToken cancellationToken = default);

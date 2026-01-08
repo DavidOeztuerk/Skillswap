@@ -5,6 +5,7 @@ namespace UserService.Domain.Models;
 
 /// <summary>
 /// Represents a user's education entry for their public profile
+/// Phase 12: Added source tracking for LinkedIn/Xing imports
 /// </summary>
 public class UserEducation : AuditableEntity
 {
@@ -19,6 +20,12 @@ public class UserEducation : AuditableEntity
     [MaxLength(200)]
     public string Institution { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// Field of study (e.g., "Computer Science", "Business Administration")
+    /// </summary>
+    [MaxLength(200)]
+    public string? FieldOfStudy { get; private set; }
+
     public int? GraduationYear { get; private set; }
 
     /// <summary>
@@ -26,13 +33,46 @@ public class UserEducation : AuditableEntity
     /// </summary>
     public int? GraduationMonth { get; private set; }
 
+    /// <summary>
+    /// Start year of education
+    /// </summary>
+    public int? StartYear { get; private set; }
+
+    /// <summary>
+    /// Start month of education (1-12)
+    /// </summary>
+    public int? StartMonth { get; private set; }
+
     [MaxLength(1000)]
     public string? Description { get; private set; }
 
     public int SortOrder { get; private set; } = 0;
 
+    /// <summary>
+    /// Phase 12: Source of this education entry
+    /// Values: "manual", "linkedin", "xing"
+    /// </summary>
+    [MaxLength(20)]
+    public string Source { get; private set; } = ProfileDataSource.Manual;
+
+    /// <summary>
+    /// Phase 12: External ID from source (LinkedIn education ID, Xing education ID)
+    /// </summary>
+    [MaxLength(100)]
+    public string? ExternalId { get; private set; }
+
+    /// <summary>
+    /// Phase 12: When this was imported from external source
+    /// </summary>
+    public DateTime? ImportedAt { get; private set; }
+
     // Navigation
     public virtual User? User { get; set; }
+
+    // Phase 12: Helper for checking source
+    public bool IsImported => Source != ProfileDataSource.Manual;
+    public bool IsFromLinkedIn => Source == ProfileDataSource.LinkedIn;
+    public bool IsFromXing => Source == ProfileDataSource.Xing;
 
     // Factory method
     public static UserEducation Create(
@@ -42,6 +82,9 @@ public class UserEducation : AuditableEntity
         int? graduationYear = null,
         int? graduationMonth = null,
         string? description = null,
+        string? fieldOfStudy = null,
+        int? startYear = null,
+        int? startMonth = null,
         int sortOrder = 0)
     {
         return new UserEducation
@@ -52,8 +95,84 @@ public class UserEducation : AuditableEntity
             Institution = institution,
             GraduationYear = graduationYear,
             GraduationMonth = graduationMonth,
+            FieldOfStudy = fieldOfStudy,
+            StartYear = startYear,
+            StartMonth = startMonth,
             Description = description,
             SortOrder = sortOrder,
+            Source = ProfileDataSource.Manual,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    /// <summary>
+    /// Phase 12: Create from LinkedIn import
+    /// </summary>
+    public static UserEducation CreateFromLinkedIn(
+        string userId,
+        string externalId,
+        string degree,
+        string institution,
+        int? graduationYear = null,
+        int? graduationMonth = null,
+        string? description = null,
+        string? fieldOfStudy = null,
+        int? startYear = null,
+        int? startMonth = null,
+        int sortOrder = 0)
+    {
+        return new UserEducation
+        {
+            Id = Guid.NewGuid().ToString(),
+            UserId = userId,
+            Degree = degree,
+            Institution = institution,
+            GraduationYear = graduationYear,
+            GraduationMonth = graduationMonth,
+            FieldOfStudy = fieldOfStudy,
+            StartYear = startYear,
+            StartMonth = startMonth,
+            Description = description,
+            SortOrder = sortOrder,
+            Source = ProfileDataSource.LinkedIn,
+            ExternalId = externalId,
+            ImportedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    /// <summary>
+    /// Phase 12: Create from Xing import
+    /// </summary>
+    public static UserEducation CreateFromXing(
+        string userId,
+        string externalId,
+        string degree,
+        string institution,
+        int? graduationYear = null,
+        int? graduationMonth = null,
+        string? description = null,
+        string? fieldOfStudy = null,
+        int? startYear = null,
+        int? startMonth = null,
+        int sortOrder = 0)
+    {
+        return new UserEducation
+        {
+            Id = Guid.NewGuid().ToString(),
+            UserId = userId,
+            Degree = degree,
+            Institution = institution,
+            GraduationYear = graduationYear,
+            GraduationMonth = graduationMonth,
+            FieldOfStudy = fieldOfStudy,
+            StartYear = startYear,
+            StartMonth = startMonth,
+            Description = description,
+            SortOrder = sortOrder,
+            Source = ProfileDataSource.Xing,
+            ExternalId = externalId,
+            ImportedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
     }
@@ -65,12 +184,18 @@ public class UserEducation : AuditableEntity
         int? graduationYear,
         int? graduationMonth,
         string? description,
+        string? fieldOfStudy,
+        int? startYear,
+        int? startMonth,
         int sortOrder)
     {
         Degree = degree;
         Institution = institution;
         GraduationYear = graduationYear;
         GraduationMonth = graduationMonth;
+        FieldOfStudy = fieldOfStudy;
+        StartYear = startYear;
+        StartMonth = startMonth;
         Description = description;
         SortOrder = sortOrder;
         UpdatedAt = DateTime.UtcNow;

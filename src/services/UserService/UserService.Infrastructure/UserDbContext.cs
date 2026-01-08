@@ -39,6 +39,10 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
     // Phase 5: Denormalized statistics
     public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
 
+    // Phase 12: LinkedIn/Xing integration
+    public DbSet<UserLinkedInConnection> UserLinkedInConnections => Set<UserLinkedInConnection>();
+    public DbSet<UserXingConnection> UserXingConnections => Set<UserXingConnection>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -72,6 +76,10 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
 
         // Phase 5: Configure statistics
         ConfigureUserStatistics(modelBuilder);
+
+        // Phase 12: LinkedIn/Xing integration
+        ConfigureUserLinkedInConnection(modelBuilder);
+        ConfigureUserXingConnection(modelBuilder);
 
         Seed(modelBuilder);
     }
@@ -237,6 +245,17 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasOne(x => x.Statistics)
          .WithOne(x => x.User)
          .HasForeignKey<UserStatistics>(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        // Phase 12: LinkedIn/Xing integration
+        e.HasOne(x => x.LinkedInConnection)
+         .WithOne(x => x.User)
+         .HasForeignKey<UserLinkedInConnection>(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasOne(x => x.XingConnection)
+         .WithOne(x => x.User)
+         .HasForeignKey<UserXingConnection>(x => x.UserId)
          .OnDelete(DeleteBehavior.Cascade);
     }
 
@@ -596,12 +615,20 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.Company).IsRequired().HasMaxLength(200);
         e.Property(x => x.StartDate).IsRequired();
         e.Property(x => x.Description).HasMaxLength(1000);
+        e.Property(x => x.Location).HasMaxLength(200);
         e.Property(x => x.SortOrder).HasDefaultValue(0);
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+
+        // Phase 12: Source tracking for LinkedIn/Xing imports
+        e.Property(x => x.Source).HasMaxLength(20).HasDefaultValue("manual");
+        e.Property(x => x.ExternalId).HasMaxLength(100);
 
         e.HasIndex(x => x.UserId);
         e.HasIndex(x => new { x.UserId, x.SortOrder })
             .HasDatabaseName("IX_UserExperiences_UserSort");
+        // Phase 12: Index for finding imported experiences by source
+        e.HasIndex(x => new { x.UserId, x.Source, x.ExternalId })
+            .HasDatabaseName("IX_UserExperiences_SourceExternal");
 
         e.HasOne(x => x.User)
          .WithMany(u => u.Experiences)
@@ -617,13 +644,21 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
         e.Property(x => x.Degree).IsRequired().HasMaxLength(200);
         e.Property(x => x.Institution).IsRequired().HasMaxLength(200);
+        e.Property(x => x.FieldOfStudy).HasMaxLength(200);
         e.Property(x => x.Description).HasMaxLength(1000);
         e.Property(x => x.SortOrder).HasDefaultValue(0);
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
 
+        // Phase 12: Source tracking for LinkedIn/Xing imports
+        e.Property(x => x.Source).HasMaxLength(20).HasDefaultValue("manual");
+        e.Property(x => x.ExternalId).HasMaxLength(100);
+
         e.HasIndex(x => x.UserId);
         e.HasIndex(x => new { x.UserId, x.SortOrder })
             .HasDatabaseName("IX_UserEducation_UserSort");
+        // Phase 12: Index for finding imported educations by source
+        e.HasIndex(x => new { x.UserId, x.Source, x.ExternalId })
+            .HasDatabaseName("IX_UserEducation_SourceExternal");
 
         e.HasOne(x => x.User)
          .WithMany(u => u.Education)
@@ -947,6 +982,78 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
             .HasDatabaseName("IX_UserStatistics_Rating");
         e.HasIndex(x => new { x.TotalExperienceMonths, x.AverageRating })
             .HasDatabaseName("IX_UserStatistics_ExperienceRating");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    // ============================================================================
+    // PHASE 12: LINKEDIN/XING INTEGRATION
+    // ============================================================================
+
+    private static void ConfigureUserLinkedInConnection(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserLinkedInConnection>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.LinkedInId).IsRequired().HasMaxLength(100);
+        e.Property(x => x.AccessToken).IsRequired().HasColumnType("text");
+        e.Property(x => x.RefreshToken).HasColumnType("text");
+        e.Property(x => x.ProfileUrl).HasMaxLength(500);
+        e.Property(x => x.LinkedInEmail).HasMaxLength(256);
+        e.Property(x => x.IsVerified).HasDefaultValue(false);
+        e.Property(x => x.SyncCount).HasDefaultValue(0);
+        e.Property(x => x.ImportedExperienceCount).HasDefaultValue(0);
+        e.Property(x => x.ImportedEducationCount).HasDefaultValue(0);
+        e.Property(x => x.AutoSyncEnabled).HasDefaultValue(false);
+        e.Property(x => x.LastSyncError).HasMaxLength(1000);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint: one LinkedIn connection per user
+        e.HasIndex(x => x.UserId).IsUnique()
+            .HasDatabaseName("IX_UserLinkedInConnections_UserId");
+        e.HasIndex(x => x.LinkedInId).IsUnique()
+            .HasDatabaseName("IX_UserLinkedInConnections_LinkedInId");
+
+        // Index for finding connections needing refresh
+        e.HasIndex(x => new { x.AutoSyncEnabled, x.TokenExpiresAt, x.IsDeleted })
+            .HasDatabaseName("IX_UserLinkedInConnections_AutoSync");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    private static void ConfigureUserXingConnection(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserXingConnection>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+        e.Property(x => x.XingId).IsRequired().HasMaxLength(100);
+        e.Property(x => x.AccessToken).IsRequired().HasColumnType("text");
+        e.Property(x => x.TokenSecret).IsRequired().HasColumnType("text");
+        e.Property(x => x.ProfileUrl).HasMaxLength(500);
+        e.Property(x => x.XingEmail).HasMaxLength(256);
+        e.Property(x => x.IsVerified).HasDefaultValue(false);
+        e.Property(x => x.SyncCount).HasDefaultValue(0);
+        e.Property(x => x.ImportedExperienceCount).HasDefaultValue(0);
+        e.Property(x => x.ImportedEducationCount).HasDefaultValue(0);
+        e.Property(x => x.AutoSyncEnabled).HasDefaultValue(false);
+        e.Property(x => x.LastSyncError).HasMaxLength(1000);
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint: one Xing connection per user
+        e.HasIndex(x => x.UserId).IsUnique()
+            .HasDatabaseName("IX_UserXingConnections_UserId");
+        e.HasIndex(x => x.XingId).IsUnique()
+            .HasDatabaseName("IX_UserXingConnections_XingId");
+
+        // Index for auto sync
+        e.HasIndex(x => new { x.AutoSyncEnabled, x.IsDeleted })
+            .HasDatabaseName("IX_UserXingConnections_AutoSync");
 
         // Soft delete filter
         e.HasQueryFilter(x => !x.IsDeleted);

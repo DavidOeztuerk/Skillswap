@@ -5,6 +5,7 @@ namespace UserService.Domain.Models;
 
 /// <summary>
 /// Represents a user's work experience entry for their public profile
+/// Phase 12: Added source tracking for LinkedIn/Xing imports
 /// </summary>
 public class UserExperience : AuditableEntity
 {
@@ -19,6 +20,9 @@ public class UserExperience : AuditableEntity
     [MaxLength(200)]
     public string Company { get; private set; } = string.Empty;
 
+    [MaxLength(100)]
+    public string? Location { get; private set; }
+
     public DateTime StartDate { get; private set; }
 
     public DateTime? EndDate { get; private set; }
@@ -28,11 +32,34 @@ public class UserExperience : AuditableEntity
 
     public int SortOrder { get; private set; } = 0;
 
+    /// <summary>
+    /// Phase 12: Source of this experience entry
+    /// Values: "manual", "linkedin", "xing"
+    /// </summary>
+    [MaxLength(20)]
+    public string Source { get; private set; } = ProfileDataSource.Manual;
+
+    /// <summary>
+    /// Phase 12: External ID from source (LinkedIn position ID, Xing experience ID)
+    /// </summary>
+    [MaxLength(100)]
+    public string? ExternalId { get; private set; }
+
+    /// <summary>
+    /// Phase 12: When this was imported from external source
+    /// </summary>
+    public DateTime? ImportedAt { get; private set; }
+
     // Navigation
     public virtual User? User { get; set; }
 
     // Computed property
     public bool IsCurrent => EndDate == null;
+
+    // Phase 12: Helper for checking source
+    public bool IsImported => Source != ProfileDataSource.Manual;
+    public bool IsFromLinkedIn => Source == ProfileDataSource.LinkedIn;
+    public bool IsFromXing => Source == ProfileDataSource.Xing;
 
     // Factory method
     public static UserExperience Create(
@@ -42,6 +69,7 @@ public class UserExperience : AuditableEntity
         DateTime startDate,
         DateTime? endDate = null,
         string? description = null,
+        string? location = null,
         int sortOrder = 0)
     {
         return new UserExperience
@@ -53,7 +81,73 @@ public class UserExperience : AuditableEntity
             StartDate = startDate,
             EndDate = endDate,
             Description = description,
+            Location = location,
             SortOrder = sortOrder,
+            Source = ProfileDataSource.Manual,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    /// <summary>
+    /// Phase 12: Create from LinkedIn import
+    /// </summary>
+    public static UserExperience CreateFromLinkedIn(
+        string userId,
+        string externalId,
+        string title,
+        string company,
+        DateTime startDate,
+        DateTime? endDate = null,
+        string? description = null,
+        string? location = null,
+        int sortOrder = 0)
+    {
+        return new UserExperience
+        {
+            Id = Guid.NewGuid().ToString(),
+            UserId = userId,
+            Title = title,
+            Company = company,
+            StartDate = startDate,
+            EndDate = endDate,
+            Description = description,
+            Location = location,
+            SortOrder = sortOrder,
+            Source = ProfileDataSource.LinkedIn,
+            ExternalId = externalId,
+            ImportedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    /// <summary>
+    /// Phase 12: Create from Xing import
+    /// </summary>
+    public static UserExperience CreateFromXing(
+        string userId,
+        string externalId,
+        string title,
+        string company,
+        DateTime startDate,
+        DateTime? endDate = null,
+        string? description = null,
+        string? location = null,
+        int sortOrder = 0)
+    {
+        return new UserExperience
+        {
+            Id = Guid.NewGuid().ToString(),
+            UserId = userId,
+            Title = title,
+            Company = company,
+            StartDate = startDate,
+            EndDate = endDate,
+            Description = description,
+            Location = location,
+            SortOrder = sortOrder,
+            Source = ProfileDataSource.Xing,
+            ExternalId = externalId,
+            ImportedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
     }
@@ -65,6 +159,7 @@ public class UserExperience : AuditableEntity
         DateTime startDate,
         DateTime? endDate,
         string? description,
+        string? location,
         int sortOrder)
     {
         Title = title;
@@ -72,7 +167,18 @@ public class UserExperience : AuditableEntity
         StartDate = startDate;
         EndDate = endDate;
         Description = description;
+        Location = location;
         SortOrder = sortOrder;
         UpdatedAt = DateTime.UtcNow;
     }
+}
+
+/// <summary>
+/// Phase 12: Constants for profile data sources (Experience, Education)
+/// </summary>
+public static class ProfileDataSource
+{
+    public const string Manual = "manual";
+    public const string LinkedIn = "linkedin";
+    public const string Xing = "xing";
 }

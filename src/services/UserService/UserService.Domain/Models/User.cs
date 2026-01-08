@@ -131,6 +131,10 @@ public class User : AuditableEntity
     // Phase 5: Denormalized statistics for performance
     public virtual UserStatistics? Statistics { get; set; }
 
+    // Phase 12: LinkedIn/Xing integration
+    public virtual UserLinkedInConnection? LinkedInConnection { get; set; }
+    public virtual UserXingConnection? XingConnection { get; set; }
+
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();
     public bool IsAccountLocked => AccountLockedUntil.HasValue && AccountLockedUntil > DateTime.UtcNow;
