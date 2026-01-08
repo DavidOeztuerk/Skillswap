@@ -4,5 +4,4 @@ export interface UpdateSkillResponse {
   description: string;
   isOffered: boolean;
   categoryId: string;
-  proficiencyLevelId: string;
 }

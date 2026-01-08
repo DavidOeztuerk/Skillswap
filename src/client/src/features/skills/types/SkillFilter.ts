@@ -4,7 +4,6 @@
 export interface SkillFilters {
   searchTerm?: string;
   categoryId?: string;
-  proficiencyLevelId?: string;
   isOffered?: boolean;
   minRating?: number;
   locationType?: 'remote' | 'in_person' | 'both';

@@ -12,7 +12,6 @@ export interface UpdateSkillRequest {
   description?: string;
   isOffered?: boolean; // true = offering, false = seeking to learn
   categoryId?: string;
-  proficiencyLevelId?: string;
   tags?: string[];
 
   // Legacy fields

@@ -15,7 +15,6 @@ export interface Skill {
   description: string;
   isOffered: boolean;
   category: SkillCategory;
-  proficiencyLevel: ProficiencyLevel;
   tagsJson: string;
   averageRating?: number;
   reviewCount?: number;
@@ -143,14 +142,6 @@ export interface SkillCategory {
   id: string;
   name: string;
   iconName?: string;
-  color?: string;
-  skillCount?: number;
-}
-
-export interface ProficiencyLevel {
-  id: string;
-  level: string;
-  rank: number;
   color?: string;
   skillCount?: number;
 }
