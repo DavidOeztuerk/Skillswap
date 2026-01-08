@@ -1,26 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Grid,
-  Divider,
-  Chip,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Alert,
-} from '@mui/material';
-import {
   LinkedIn as LinkedInIcon,
   Work as XingIcon,
   Sync as SyncIcon,
@@ -32,8 +11,29 @@ import {
   Link as LinkIcon,
   LinkOff as LinkOffIcon,
 } from '@mui/icons-material';
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  Grid,
+  Divider,
+  Chip,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert,
+} from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../../core/store/hooks';
 import {
+  // Thunks
   fetchSocialConnections,
   initiateLinkedInConnect,
   disconnectLinkedIn,
@@ -44,25 +44,38 @@ import {
   addImportedSkill,
   deleteImportedSkill,
   updateImportedSkill,
-  clearError,
+  // Actions
+  clearSocialConnectionsError,
   clearSyncResult,
-} from '../store/socialConnectionsSlice';
-import type { UserImportedSkillResponse } from '../services/socialConnectionsService';
+  // Selectors
+  selectLinkedInConnection,
+  selectXingConnection,
+  selectImportedSkills,
+  selectSocialConnectionsSummary,
+  selectSocialConnectionsLoading,
+  selectSocialConnectionsSyncing,
+  selectSocialConnectionsSaving,
+  selectSocialConnectionsError,
+  selectSyncResult,
+  selectOAuthState,
+  // Types
+  type ImportedSkill,
+} from '../store';
 
 const SocialConnectionsTab: React.FC = () => {
   const dispatch = useAppDispatch();
-  const {
-    linkedIn,
-    xing,
-    importedSkills,
-    summary,
-    isLoading,
-    isSyncing,
-    isSaving,
-    error,
-    syncResult,
-    oauthState,
-  } = useAppSelector((state) => state.socialConnections);
+
+  // Use selectors for state access
+  const linkedIn = useAppSelector(selectLinkedInConnection);
+  const xing = useAppSelector(selectXingConnection);
+  const importedSkills = useAppSelector(selectImportedSkills);
+  const summary = useAppSelector(selectSocialConnectionsSummary);
+  const isLoading = useAppSelector(selectSocialConnectionsLoading);
+  const isSyncing = useAppSelector(selectSocialConnectionsSyncing);
+  const isSaving = useAppSelector(selectSocialConnectionsSaving);
+  const error = useAppSelector(selectSocialConnectionsError);
+  const syncResult = useAppSelector(selectSyncResult);
+  const oauthState = useAppSelector(selectOAuthState);
 
   // Dialog state
   const [addSkillDialogOpen, setAddSkillDialogOpen] = useState(false);
@@ -84,10 +97,10 @@ const SocialConnectionsTab: React.FC = () => {
 
     // TODO: Implement callback handling when OAuth is set up
     if (code && state) {
-      console.log('LinkedIn callback detected');
+      console.debug('LinkedIn callback detected');
     }
     if (oauthToken && oauthVerifier) {
-      console.log('Xing callback detected');
+      console.debug('Xing callback detected');
     }
   }, []);
 
@@ -137,7 +150,7 @@ const SocialConnectionsTab: React.FC = () => {
     setAddSkillDialogOpen(false);
   };
 
-  const handleToggleSkillVisibility = (skill: UserImportedSkillResponse): void => {
+  const handleToggleSkillVisibility = (skill: ImportedSkill): void => {
     void dispatch(
       updateImportedSkill({
         skillId: skill.id,
@@ -188,13 +201,17 @@ const SocialConnectionsTab: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {error && (
-        <Alert severity="error" onClose={() => dispatch(clearError())} sx={{ mb: 2 }}>
+      {error ? (
+        <Alert
+          severity="error"
+          onClose={() => dispatch(clearSocialConnectionsError())}
+          sx={{ mb: 2 }}
+        >
           {error}
         </Alert>
-      )}
+      ) : null}
 
-      {syncResult && (
+      {syncResult ? (
         <Alert
           severity={syncResult.success ? 'success' : 'error'}
           onClose={() => dispatch(clearSyncResult())}
@@ -202,18 +219,18 @@ const SocialConnectionsTab: React.FC = () => {
         >
           {syncResult.success
             ? `Synchronisiert: ${syncResult.experiencesImported} Erfahrungen, ${syncResult.educationsImported} Ausbildungen importiert`
-            : syncResult.error ?? 'Synchronisierung fehlgeschlagen'}
+            : (syncResult.error ?? 'Synchronisierung fehlgeschlagen')}
         </Alert>
-      )}
+      ) : null}
 
-      <Grid container spacing={3}>
+      <Grid container columns={12} spacing={3}>
         {/* LinkedIn Connection Card */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3 }} elevation={0}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <LinkedInIcon sx={{ color: '#0077B5', fontSize: 28 }} />
               <Typography variant="h6">LinkedIn</Typography>
-              {linkedIn && (
+              {linkedIn ? (
                 <Chip
                   icon={<CheckCircleIcon />}
                   label="Verbunden"
@@ -221,7 +238,7 @@ const SocialConnectionsTab: React.FC = () => {
                   size="small"
                   sx={{ ml: 'auto' }}
                 />
-              )}
+              ) : null}
             </Box>
             <Divider sx={{ mb: 2 }} />
 
@@ -234,11 +251,11 @@ const SocialConnectionsTab: React.FC = () => {
                   <Typography variant="body2" color="text.secondary">
                     Letzte Synchronisierung: {formatDate(linkedIn.lastSyncAt)}
                   </Typography>
-                  {linkedIn.linkedInEmail && (
+                  {linkedIn.linkedInEmail ? (
                     <Typography variant="body2" color="text.secondary">
                       E-Mail: {linkedIn.linkedInEmail}
                     </Typography>
-                  )}
+                  ) : null}
                 </Box>
                 <Box sx={{ mb: 2 }}>
                   <Chip
@@ -246,10 +263,7 @@ const SocialConnectionsTab: React.FC = () => {
                     size="small"
                     sx={{ mr: 1 }}
                   />
-                  <Chip
-                    label={`${linkedIn.importedEducationCount} Ausbildungen`}
-                    size="small"
-                  />
+                  <Chip label={`${linkedIn.importedEducationCount} Ausbildungen`} size="small" />
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
@@ -294,12 +308,12 @@ const SocialConnectionsTab: React.FC = () => {
         </Grid>
 
         {/* Xing Connection Card */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3 }} elevation={0}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <XingIcon sx={{ color: '#006567', fontSize: 28 }} />
               <Typography variant="h6">Xing</Typography>
-              {xing && (
+              {xing ? (
                 <Chip
                   icon={<CheckCircleIcon />}
                   label="Verbunden"
@@ -307,7 +321,7 @@ const SocialConnectionsTab: React.FC = () => {
                   size="small"
                   sx={{ ml: 'auto' }}
                 />
-              )}
+              ) : null}
             </Box>
             <Divider sx={{ mb: 2 }} />
 
@@ -320,11 +334,11 @@ const SocialConnectionsTab: React.FC = () => {
                   <Typography variant="body2" color="text.secondary">
                     Letzte Synchronisierung: {formatDate(xing.lastSyncAt)}
                   </Typography>
-                  {xing.xingEmail && (
+                  {xing.xingEmail ? (
                     <Typography variant="body2" color="text.secondary">
                       E-Mail: {xing.xingEmail}
                     </Typography>
-                  )}
+                  ) : null}
                 </Box>
                 <Box sx={{ mb: 2 }}>
                   <Chip
@@ -377,22 +391,21 @@ const SocialConnectionsTab: React.FC = () => {
         </Grid>
 
         {/* Imported Skills */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Paper sx={{ p: 3 }} elevation={0}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+            >
               <Box>
                 <Typography variant="h6">Berufliche Fähigkeiten</Typography>
-                {summary && (
+                {summary ? (
                   <Typography variant="body2" color="text.secondary">
-                    {summary.totalImportedSkills} Fähigkeiten ({summary.linkedInSkillCount} LinkedIn,{' '}
-                    {summary.xingSkillCount} Xing, {summary.manualSkillCount} Manuell)
+                    {summary.totalImportedSkills} Fähigkeiten ({summary.linkedInSkillCount}{' '}
+                    LinkedIn, {summary.xingSkillCount} Xing, {summary.manualSkillCount} Manuell)
                   </Typography>
-                )}
+                ) : null}
               </Box>
-              <Button
-                startIcon={<AddIcon />}
-                onClick={() => setAddSkillDialogOpen(true)}
-              >
+              <Button startIcon={<AddIcon />} onClick={() => setAddSkillDialogOpen(true)}>
                 Fähigkeit hinzufügen
               </Button>
             </Box>
@@ -405,7 +418,29 @@ const SocialConnectionsTab: React.FC = () => {
             ) : (
               <List>
                 {importedSkills.map((skill) => (
-                  <ListItem key={skill.id} sx={{ px: 0 }}>
+                  <ListItem
+                    key={skill.id}
+                    sx={{ px: 0 }}
+                    secondaryAction={
+                      <>
+                        <IconButton
+                          onClick={() => handleToggleSkillVisibility(skill)}
+                          disabled={isSaving}
+                          title={skill.isVisible ? 'Verstecken' : 'Anzeigen'}
+                        >
+                          {skill.isVisible ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                        </IconButton>
+                        <IconButton
+                          onClick={() => handleDeleteSkill(skill.id)}
+                          disabled={isSaving}
+                          color="error"
+                          title="Löschen"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </>
+                    }
+                  >
                     <ListItemText
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -434,23 +469,6 @@ const SocialConnectionsTab: React.FC = () => {
                       }
                       secondary={skill.category}
                     />
-                    <ListItemSecondaryAction>
-                      <IconButton
-                        onClick={() => handleToggleSkillVisibility(skill)}
-                        disabled={isSaving}
-                        title={skill.isVisible ? 'Verstecken' : 'Anzeigen'}
-                      >
-                        {skill.isVisible ? <VisibilityIcon /> : <VisibilityOffIcon />}
-                      </IconButton>
-                      <IconButton
-                        onClick={() => handleDeleteSkill(skill.id)}
-                        disabled={isSaving}
-                        color="error"
-                        title="Löschen"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </ListItemSecondaryAction>
                   </ListItem>
                 ))}
               </List>
@@ -460,7 +478,12 @@ const SocialConnectionsTab: React.FC = () => {
       </Grid>
 
       {/* Add Skill Dialog */}
-      <Dialog open={addSkillDialogOpen} onClose={() => setAddSkillDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={addSkillDialogOpen}
+        onClose={() => setAddSkillDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Neue Fähigkeit hinzufügen</DialogTitle>
         <DialogContent>
           <TextField

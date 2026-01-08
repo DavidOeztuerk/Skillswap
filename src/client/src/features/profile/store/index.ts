@@ -77,3 +77,88 @@ export type {
   ProfileEntityState,
   PaginationState,
 } from './profileAdapter+State';
+
+// ===== SOCIAL CONNECTIONS =====
+
+// Reducer
+export { default as socialConnectionsReducer } from './socialConnectionsSlice';
+export {
+  clearError as clearSocialConnectionsError,
+  clearSyncResult,
+  resetOAuthState,
+} from './socialConnectionsSlice';
+
+// Thunks
+export {
+  fetchSocialConnections,
+  initiateLinkedInConnect,
+  completeLinkedInConnect,
+  syncLinkedInProfile,
+  disconnectLinkedIn,
+  initiateXingConnect,
+  completeXingConnect,
+  syncXingProfile,
+  disconnectXing,
+  addImportedSkill,
+  updateImportedSkill,
+  deleteImportedSkill,
+  reorderSkills,
+} from './thunks/socialConnectionsThunks';
+
+// Selectors
+export {
+  // Base selectors
+  selectSocialConnectionsState,
+  selectSocialConnectionsLoading,
+  selectSocialConnectionsError,
+  selectSocialConnectionsSyncing,
+  selectSocialConnectionsSaving,
+  // Connection selectors
+  selectLinkedInConnection,
+  selectXingConnection,
+  selectHasLinkedInConnection,
+  selectHasXingConnection,
+  selectHasAnyConnection,
+  // OAuth state selectors
+  selectOAuthState,
+  selectOAuthProvider,
+  selectOAuthAuthorizationUrl,
+  selectOAuthIsInitiating,
+  selectOAuthIsCompleting,
+  // Imported skills selectors
+  selectImportedSkills,
+  selectImportedSkillsCount,
+  selectVisibleImportedSkills,
+  selectImportedSkillsBySource,
+  selectLinkedInSkills,
+  selectXingSkills,
+  selectManualSkills,
+  selectImportedSkillsSorted,
+  selectImportedSkillById,
+  // Summary selectors
+  selectSocialConnectionsSummary,
+  selectTotalImportedSkills,
+  selectLinkedInSkillCount,
+  selectXingSkillCount,
+  selectManualSkillCount,
+  selectTotalImportedExperiences,
+  selectTotalImportedEducations,
+  // Sync result selectors
+  selectSyncResult,
+  selectSyncResultSuccess,
+  // Computed selectors
+  selectSkillsGroupedBySource,
+  selectTopSkillsByEndorsements,
+  selectLinkedInLastSync,
+  selectXingLastSync,
+} from './socialConnectionsSelectors';
+
+// Types
+export type {
+  LinkedInConnection,
+  XingConnection,
+  ImportedSkill,
+  SocialConnectionsSummary,
+  OAuthState,
+  SocialConnectionsState,
+} from './socialConnectionsAdapter+State';
