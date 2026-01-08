@@ -123,6 +123,11 @@ public class User : AuditableEntity
     public virtual UserPreferenceEntity? Preferences { get; set; }
     public virtual UserNotificationPreference? NotificationPreferences { get; set; };
 
+    // Phase 4: Split User entity into focused entities
+    public virtual UserVerification? Verification { get; set; }
+    public virtual UserLoginHistory? LoginHistory { get; set; }
+    public virtual UserPasswordReset? PasswordReset { get; set; }
+
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();
     public bool IsAccountLocked => AccountLockedUntil.HasValue && AccountLockedUntil > DateTime.UtcNow;

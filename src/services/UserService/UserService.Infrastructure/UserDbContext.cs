@@ -31,6 +31,11 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
     public DbSet<UserPreferenceEntity> UserPreferenceEntities => Set<UserPreferenceEntity>();
     public DbSet<UserNotificationPreference> UserNotificationPreferences => Set<UserNotificationPreference>();
 
+    // Phase 4: Split User entity
+    public DbSet<UserVerification> UserVerifications => Set<UserVerification>();
+    public DbSet<UserLoginHistory> UserLoginHistories => Set<UserLoginHistory>();
+    public DbSet<UserPasswordReset> UserPasswordResets => Set<UserPasswordReset>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -56,6 +61,11 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         ConfigureUserBlockedDate(modelBuilder);
         ConfigureUserPreferenceEntity(modelBuilder);
         ConfigureUserNotificationPreference(modelBuilder);
+
+        // Phase 4: Configure split User entities
+        ConfigureUserVerification(modelBuilder);
+        ConfigureUserLoginHistory(modelBuilder);
+        ConfigureUserPasswordReset(modelBuilder);
 
         Seed(modelBuilder);
     }
@@ -199,6 +209,22 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasOne(x => x.NotificationPreferences)
          .WithOne(x => x.User)
          .HasForeignKey<UserNotificationPreference>(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        // Phase 4: Split User entity
+        e.HasOne(x => x.Verification)
+         .WithOne(x => x.User)
+         .HasForeignKey<UserVerification>(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasOne(x => x.LoginHistory)
+         .WithOne(x => x.User)
+         .HasForeignKey<UserLoginHistory>(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasOne(x => x.PasswordReset)
+         .WithOne(x => x.User)
+         .HasForeignKey<UserPasswordReset>(x => x.UserId)
          .OnDelete(DeleteBehavior.Cascade);
     }
 
@@ -744,6 +770,120 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
 
         // Unique constraint on UserId
         e.HasIndex(x => x.UserId).IsUnique();
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    // ============================================================================
+    // PHASE 4: SPLIT USER ENTITY
+    // ============================================================================
+
+    private static void ConfigureUserVerification(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserVerification>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+
+        // 2FA
+        e.Property(x => x.TwoFactorEnabled).HasDefaultValue(false);
+        e.Property(x => x.TwoFactorSecret).HasMaxLength(100);
+        e.Property(x => x.TwoFactorBackupCodesJson).HasColumnType("text");
+
+        // Email verification
+        e.Property(x => x.EmailVerificationToken).HasMaxLength(100);
+        e.Property(x => x.EmailVerificationAttempts).HasDefaultValue(0);
+
+        // Phone verification
+        e.Property(x => x.PhoneVerificationCode).HasMaxLength(100);
+        e.Property(x => x.PhoneVerificationAttempts).HasDefaultValue(0);
+        e.Property(x => x.PhoneVerificationFailedAttempts).HasDefaultValue(0);
+
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint on UserId
+        e.HasIndex(x => x.UserId).IsUnique();
+
+        // Indexes for token lookups
+        e.HasIndex(x => x.EmailVerificationToken)
+            .HasDatabaseName("IX_UserVerifications_EmailToken");
+        e.HasIndex(x => x.PhoneVerificationCode)
+            .HasDatabaseName("IX_UserVerifications_PhoneCode");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    private static void ConfigureUserLoginHistory(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserLoginHistory>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+
+        // Last login info
+        e.Property(x => x.LastLoginIp).HasMaxLength(45);
+        e.Property(x => x.LastLoginUserAgent).HasMaxLength(500);
+        e.Property(x => x.LastLoginLocation).HasMaxLength(100);
+        e.Property(x => x.LastLoginDeviceType).HasMaxLength(50);
+
+        // Failed login tracking
+        e.Property(x => x.FailedLoginAttempts).HasDefaultValue(0);
+        e.Property(x => x.LastFailedLoginIp).HasMaxLength(45);
+
+        // Lockout
+        e.Property(x => x.LockoutReason).HasMaxLength(500);
+        e.Property(x => x.TotalLockoutCount).HasDefaultValue(0);
+
+        // Statistics
+        e.Property(x => x.TotalSuccessfulLogins).HasDefaultValue(0);
+        e.Property(x => x.TotalFailedLogins).HasDefaultValue(0);
+
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint on UserId
+        e.HasIndex(x => x.UserId).IsUnique();
+
+        // Indexes
+        e.HasIndex(x => x.LastLoginAt)
+            .HasDatabaseName("IX_UserLoginHistories_LastLogin");
+        e.HasIndex(x => x.AccountLockedUntil)
+            .HasDatabaseName("IX_UserLoginHistories_Lockout");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    private static void ConfigureUserPasswordReset(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserPasswordReset>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+
+        // Reset token
+        e.Property(x => x.ResetToken).HasMaxLength(100);
+        e.Property(x => x.ResetRequestedFromIp).HasMaxLength(45);
+
+        // Password change tracking
+        e.Property(x => x.PasswordChangedFromIp).HasMaxLength(45);
+        e.Property(x => x.TotalPasswordChanges).HasDefaultValue(0);
+
+        // Rate limiting
+        e.Property(x => x.ResetRequestCount).HasDefaultValue(0);
+
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint on UserId
+        e.HasIndex(x => x.UserId).IsUnique();
+
+        // Index for token lookup
+        e.HasIndex(x => x.ResetToken)
+            .HasDatabaseName("IX_UserPasswordResets_Token");
 
         // Soft delete filter
         e.HasQueryFilter(x => !x.IsDeleted);
