@@ -1,6 +1,7 @@
 using System.Text;
+using Contracts.User.Responses.LinkedIn;
+using CQRS.Handlers;
 using CQRS.Models;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.LinkedIn;
 using UserService.Domain.Models;
@@ -13,88 +14,68 @@ namespace UserService.Application.CommandHandlers.LinkedIn;
 /// Handler for completing LinkedIn OAuth 2.0 connection
 /// Phase 12: LinkedIn/Xing Integration
 /// </summary>
-public class CompleteLinkedInConnectCommandHandler : IRequestHandler<CompleteLinkedInConnectCommand, ApiResponse<LinkedInConnectionResponse>>
+public class CompleteLinkedInConnectCommandHandler(
+    ILinkedInService linkedInService,
+    IUserLinkedInConnectionRepository repository,
+    ITokenEncryptionService encryptionService,
+    ILogger<CompleteLinkedInConnectCommandHandler> logger)
+    : BaseCommandHandler<CompleteLinkedInConnectCommand, LinkedInConnectionResponse>(logger)
 {
-    private readonly ILinkedInService _linkedInService;
-    private readonly IUserLinkedInConnectionRepository _repository;
-    private readonly ITokenEncryptionService _encryptionService;
-    private readonly ILogger<CompleteLinkedInConnectCommandHandler> _logger;
+    private readonly ILinkedInService _linkedInService = linkedInService;
+    private readonly IUserLinkedInConnectionRepository _repository = repository;
+    private readonly ITokenEncryptionService _encryptionService = encryptionService;
 
-    public CompleteLinkedInConnectCommandHandler(
-        ILinkedInService linkedInService,
-        IUserLinkedInConnectionRepository repository,
-        ITokenEncryptionService encryptionService,
-        ILogger<CompleteLinkedInConnectCommandHandler> logger)
-    {
-        _linkedInService = linkedInService;
-        _repository = repository;
-        _encryptionService = encryptionService;
-        _logger = logger;
-    }
-
-    public async Task<ApiResponse<LinkedInConnectionResponse>> Handle(
+    public override async Task<ApiResponse<LinkedInConnectionResponse>> Handle(
         CompleteLinkedInConnectCommand request,
         CancellationToken cancellationToken)
     {
-        try
+        // Parse and validate state token
+        var (userId, isValid) = ParseStateToken(request.State);
+        if (!isValid || string.IsNullOrEmpty(userId))
         {
-            // Parse and validate state token
-            var (userId, isValid) = ParseStateToken(request.State);
-            if (!isValid || string.IsNullOrEmpty(userId))
-            {
-                return ApiResponse<LinkedInConnectionResponse>.ErrorResult("Invalid state token");
-            }
-
-            // Check if already connected
-            var existing = await _repository.GetByUserIdAsync(userId, cancellationToken);
-            if (existing != null)
-            {
-                return ApiResponse<LinkedInConnectionResponse>.ErrorResult(
-                    "LinkedIn is already connected");
-            }
-
-            // Exchange code for tokens
-            var tokenResult = await _linkedInService.ExchangeCodeForTokensAsync(
-                request.Code, request.RedirectUri, cancellationToken);
-
-            if (!tokenResult.Success || string.IsNullOrEmpty(tokenResult.AccessToken))
-            {
-                _logger.LogWarning("LinkedIn token exchange failed for user {UserId}: {Error}",
-                    userId, tokenResult.Error);
-                return ApiResponse<LinkedInConnectionResponse>.ErrorResult(
-                    tokenResult.Error ?? "Failed to exchange authorization code for tokens");
-            }
-
-            // Get profile URL from LinkedIn
-            var profileResult = await _linkedInService.GetBasicProfileAsync(
-                tokenResult.AccessToken, cancellationToken);
-
-            // Create the LinkedIn connection with encrypted tokens
-            var connection = UserLinkedInConnection.Create(
-                userId: userId,
-                linkedInId: tokenResult.LinkedInId ?? "",
-                accessToken: _encryptionService.Encrypt(tokenResult.AccessToken),
-                refreshToken: tokenResult.RefreshToken != null ? _encryptionService.Encrypt(tokenResult.RefreshToken) : null,
-                tokenExpiresAt: tokenResult.ExpiresAt,
-                profileUrl: profileResult.Profile?.ProfileUrl,
-                linkedInEmail: tokenResult.Email ?? profileResult.Profile?.Email
-            );
-
-            await _repository.CreateAsync(connection, cancellationToken);
-            await _repository.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation("LinkedIn connection created for user {UserId} with LinkedIn ID {LinkedInId}",
-                userId, tokenResult.LinkedInId);
-
-            return ApiResponse<LinkedInConnectionResponse>.SuccessResult(
-                MapToResponse(connection),
-                "LinkedIn connected successfully");
+            return Error("Invalid state token");
         }
-        catch (Exception ex)
+
+        // Check if already connected
+        var existing = await _repository.GetByUserIdAsync(userId, cancellationToken);
+        if (existing != null)
         {
-            _logger.LogError(ex, "Error completing LinkedIn connection");
-            return ApiResponse<LinkedInConnectionResponse>.ErrorResult("Failed to complete LinkedIn connection");
+            return Error("LinkedIn is already connected");
         }
+
+        // Exchange code for tokens
+        var tokenResult = await _linkedInService.ExchangeCodeForTokensAsync(
+            request.Code, request.RedirectUri, cancellationToken);
+
+        if (!tokenResult.Success || string.IsNullOrEmpty(tokenResult.AccessToken))
+        {
+            Logger.LogWarning("LinkedIn token exchange failed for user {UserId}: {Error}",
+                userId, tokenResult.Error);
+            return Error(tokenResult.Error ?? "Failed to exchange authorization code for tokens");
+        }
+
+        // Get profile URL from LinkedIn
+        var profileResult = await _linkedInService.GetBasicProfileAsync(
+            tokenResult.AccessToken, cancellationToken);
+
+        // Create the LinkedIn connection with encrypted tokens
+        var connection = UserLinkedInConnection.Create(
+            userId: userId,
+            linkedInId: tokenResult.LinkedInId ?? "",
+            accessToken: _encryptionService.Encrypt(tokenResult.AccessToken),
+            refreshToken: tokenResult.RefreshToken != null ? _encryptionService.Encrypt(tokenResult.RefreshToken) : null,
+            tokenExpiresAt: tokenResult.ExpiresAt,
+            profileUrl: profileResult.Profile?.ProfileUrl,
+            linkedInEmail: tokenResult.Email ?? profileResult.Profile?.Email
+        );
+
+        await _repository.CreateAsync(connection, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        Logger.LogInformation("LinkedIn connection created for user {UserId} with LinkedIn ID {LinkedInId}",
+            userId, tokenResult.LinkedInId);
+
+        return Success(MapToResponse(connection), "LinkedIn connected successfully");
     }
 
     private static (string? userId, bool isValid) ParseStateToken(string state)
@@ -118,21 +99,18 @@ public class CompleteLinkedInConnectCommandHandler : IRequestHandler<CompleteLin
         }
     }
 
-    private static LinkedInConnectionResponse MapToResponse(UserLinkedInConnection connection)
-    {
-        return new LinkedInConnectionResponse
-        {
-            Id = connection.Id,
-            LinkedInId = connection.LinkedInId,
-            ProfileUrl = connection.ProfileUrl,
-            LinkedInEmail = connection.LinkedInEmail,
-            IsVerified = connection.IsVerified,
-            VerifiedAt = connection.VerifiedAt,
-            LastSyncAt = connection.LastSyncAt,
-            ImportedExperienceCount = connection.ImportedExperienceCount,
-            ImportedEducationCount = connection.ImportedEducationCount,
-            AutoSyncEnabled = connection.AutoSyncEnabled,
-            CreatedAt = connection.CreatedAt
-        };
-    }
+    private static LinkedInConnectionResponse MapToResponse(UserLinkedInConnection connection) =>
+        new(
+            Id: connection.Id,
+            LinkedInId: connection.LinkedInId,
+            ProfileUrl: connection.ProfileUrl,
+            LinkedInEmail: connection.LinkedInEmail,
+            IsVerified: connection.IsVerified,
+            VerifiedAt: connection.VerifiedAt,
+            LastSyncAt: connection.LastSyncAt,
+            ImportedExperienceCount: connection.ImportedExperienceCount,
+            ImportedEducationCount: connection.ImportedEducationCount,
+            AutoSyncEnabled: connection.AutoSyncEnabled,
+            CreatedAt: connection.CreatedAt
+        );
 }

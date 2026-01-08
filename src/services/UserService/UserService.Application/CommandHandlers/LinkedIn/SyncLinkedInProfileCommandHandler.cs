@@ -1,5 +1,6 @@
+using Contracts.User.Responses.LinkedIn;
+using CQRS.Handlers;
 using CQRS.Models;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.LinkedIn;
 using UserService.Domain.Models;
@@ -12,107 +13,87 @@ namespace UserService.Application.CommandHandlers.LinkedIn;
 /// Handler for syncing profile data from LinkedIn
 /// Phase 12: LinkedIn/Xing Integration
 /// </summary>
-public class SyncLinkedInProfileCommandHandler : IRequestHandler<SyncLinkedInProfileCommand, ApiResponse<ProfileSyncResultResponse>>
+public class SyncLinkedInProfileCommandHandler(
+    ILinkedInService linkedInService,
+    IUserLinkedInConnectionRepository connectionRepository,
+    IUserRepository userRepository,
+    ITokenEncryptionService encryptionService,
+    ILogger<SyncLinkedInProfileCommandHandler> logger)
+    : BaseCommandHandler<SyncLinkedInProfileCommand, ProfileSyncResultResponse>(logger)
 {
-    private readonly ILinkedInService _linkedInService;
-    private readonly IUserLinkedInConnectionRepository _connectionRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly ITokenEncryptionService _encryptionService;
-    private readonly ILogger<SyncLinkedInProfileCommandHandler> _logger;
+    private readonly ILinkedInService _linkedInService = linkedInService;
+    private readonly IUserLinkedInConnectionRepository _connectionRepository = connectionRepository;
+    private readonly IUserRepository _userRepository = userRepository;
+    private readonly ITokenEncryptionService _encryptionService = encryptionService;
 
-    public SyncLinkedInProfileCommandHandler(
-        ILinkedInService linkedInService,
-        IUserLinkedInConnectionRepository connectionRepository,
-        IUserRepository userRepository,
-        ITokenEncryptionService encryptionService,
-        ILogger<SyncLinkedInProfileCommandHandler> logger)
-    {
-        _linkedInService = linkedInService;
-        _connectionRepository = connectionRepository;
-        _userRepository = userRepository;
-        _encryptionService = encryptionService;
-        _logger = logger;
-    }
-
-    public async Task<ApiResponse<ProfileSyncResultResponse>> Handle(
+    public override async Task<ApiResponse<ProfileSyncResultResponse>> Handle(
         SyncLinkedInProfileCommand request,
         CancellationToken cancellationToken)
     {
-        try
+        // Get LinkedIn connection
+        var connection = await _connectionRepository.GetByUserIdAsync(request.UserId!, cancellationToken);
+        if (connection == null)
         {
-            // Get LinkedIn connection
-            var connection = await _connectionRepository.GetByUserIdAsync(request.UserId, cancellationToken);
-            if (connection == null)
-            {
-                return ApiResponse<ProfileSyncResultResponse>.ErrorResult(
-                    "LinkedIn is not connected. Please connect LinkedIn first.");
-            }
+            return Error("LinkedIn is not connected. Please connect LinkedIn first.");
+        }
 
-            // Check if token needs refresh
-            if (connection.IsTokenExpired())
+        // Check if token needs refresh
+        if (connection.IsTokenExpired())
+        {
+            var refreshResult = await RefreshTokenIfNeededAsync(connection, cancellationToken);
+            if (!refreshResult)
             {
-                var refreshResult = await RefreshTokenIfNeededAsync(connection, cancellationToken);
-                if (!refreshResult)
-                {
-                    connection.MarkSyncError("Token expired and refresh failed");
-                    await _connectionRepository.SaveChangesAsync(cancellationToken);
-                    return ApiResponse<ProfileSyncResultResponse>.ErrorResult(
-                        "LinkedIn token expired. Please reconnect your LinkedIn account.");
-                }
-            }
-
-            // Decrypt access token
-            var accessToken = _encryptionService.Decrypt(connection.AccessToken);
-
-            // Fetch full profile from LinkedIn
-            var profileResult = await _linkedInService.GetFullProfileAsync(accessToken, cancellationToken);
-            if (!profileResult.Success || profileResult.Profile == null)
-            {
-                connection.MarkSyncError(profileResult.Error ?? "Failed to fetch profile");
+                connection.MarkSyncError("Token expired and refresh failed");
                 await _connectionRepository.SaveChangesAsync(cancellationToken);
-                return ApiResponse<ProfileSyncResultResponse>.ErrorResult(
-                    profileResult.Error ?? "Failed to fetch LinkedIn profile");
+                return Error("LinkedIn token expired. Please reconnect your LinkedIn account.");
             }
-
-            // Get user with experiences and educations
-            var user = await _userRepository.GetByIdWithProfileAsync(request.UserId, cancellationToken);
-            if (user == null)
-            {
-                return ApiResponse<ProfileSyncResultResponse>.ErrorResult("User not found");
-            }
-
-            // Transform and sync experiences
-            var (experiencesImported, experiencesUpdated) = await SyncExperiencesAsync(
-                user, profileResult.Profile.Positions, cancellationToken);
-
-            // Transform and sync educations
-            var (educationsImported, educationsUpdated) = await SyncEducationsAsync(
-                user, profileResult.Profile.Educations, cancellationToken);
-
-            // Update connection sync stats
-            connection.MarkSyncSuccess(experiencesImported + experiencesUpdated, educationsImported + educationsUpdated);
-            await _connectionRepository.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "LinkedIn profile synced for user {UserId}: {ExpImported} experiences imported, {ExpUpdated} updated, {EduImported} educations imported, {EduUpdated} updated",
-                request.UserId, experiencesImported, experiencesUpdated, educationsImported, educationsUpdated);
-
-            return ApiResponse<ProfileSyncResultResponse>.SuccessResult(
-                new ProfileSyncResultResponse
-                {
-                    ExperiencesImported = experiencesImported,
-                    ExperiencesUpdated = experiencesUpdated,
-                    EducationsImported = educationsImported,
-                    EducationsUpdated = educationsUpdated,
-                    SyncedAt = DateTime.UtcNow
-                },
-                "Profile synced successfully");
         }
-        catch (Exception ex)
+
+        // Decrypt access token
+        var accessToken = _encryptionService.Decrypt(connection.AccessToken);
+
+        // Fetch full profile from LinkedIn
+        var profileResult = await _linkedInService.GetFullProfileAsync(accessToken, cancellationToken);
+        if (!profileResult.Success || profileResult.Profile == null)
         {
-            _logger.LogError(ex, "Error syncing LinkedIn profile for user {UserId}", request.UserId);
-            return ApiResponse<ProfileSyncResultResponse>.ErrorResult("Failed to sync LinkedIn profile");
+            connection.MarkSyncError(profileResult.Error ?? "Failed to fetch profile");
+            await _connectionRepository.SaveChangesAsync(cancellationToken);
+            return Error(profileResult.Error ?? "Failed to fetch LinkedIn profile");
         }
+
+        // Get user with experiences and educations
+        var user = await _userRepository.GetByIdWithProfileAsync(request.UserId!, cancellationToken);
+        if (user == null)
+        {
+            return Error("User not found");
+        }
+
+        // Transform and sync experiences
+        var (experiencesImported, experiencesUpdated) = SyncExperiences(user, profileResult.Profile.Positions);
+
+        // Transform and sync educations
+        var (educationsImported, educationsUpdated) = SyncEducations(user, profileResult.Profile.Educations);
+
+        // Save user changes
+        await _userRepository.SaveChangesAsync(cancellationToken);
+
+        // Update connection sync stats
+        connection.MarkSyncSuccess(experiencesImported + experiencesUpdated, educationsImported + educationsUpdated);
+        await _connectionRepository.SaveChangesAsync(cancellationToken);
+
+        Logger.LogInformation(
+            "LinkedIn profile synced for user {UserId}: {ExpImported} experiences imported, {ExpUpdated} updated, {EduImported} educations imported, {EduUpdated} updated",
+            request.UserId, experiencesImported, experiencesUpdated, educationsImported, educationsUpdated);
+
+        return Success(
+            new ProfileSyncResultResponse(
+                ExperiencesImported: experiencesImported,
+                ExperiencesUpdated: experiencesUpdated,
+                EducationsImported: educationsImported,
+                EducationsUpdated: educationsUpdated,
+                SyncedAt: DateTime.UtcNow
+            ),
+            "Profile synced successfully");
     }
 
     private async Task<bool> RefreshTokenIfNeededAsync(
@@ -142,16 +123,13 @@ public class SyncLinkedInProfileCommandHandler : IRequestHandler<SyncLinkedInPro
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to refresh LinkedIn token for connection {ConnectionId}", connection.Id);
+            Logger.LogWarning(ex, "Failed to refresh LinkedIn token for connection {ConnectionId}", connection.Id);
         }
 
         return false;
     }
 
-    private Task<(int imported, int updated)> SyncExperiencesAsync(
-        User user,
-        List<LinkedInPosition> positions,
-        CancellationToken cancellationToken)
+    private static (int imported, int updated) SyncExperiences(User user, List<LinkedInPosition> positions)
     {
         var imported = 0;
         var updated = 0;
@@ -195,13 +173,10 @@ public class SyncLinkedInProfileCommandHandler : IRequestHandler<SyncLinkedInPro
             }
         }
 
-        return Task.FromResult((imported, updated));
+        return (imported, updated);
     }
 
-    private Task<(int imported, int updated)> SyncEducationsAsync(
-        User user,
-        List<LinkedInEducation> educations,
-        CancellationToken cancellationToken)
+    private static (int imported, int updated) SyncEducations(User user, List<LinkedInEducation> educations)
     {
         var imported = 0;
         var updated = 0;
@@ -249,6 +224,6 @@ public class SyncLinkedInProfileCommandHandler : IRequestHandler<SyncLinkedInPro
             }
         }
 
-        return Task.FromResult((imported, updated));
+        return (imported, updated);
     }
 }

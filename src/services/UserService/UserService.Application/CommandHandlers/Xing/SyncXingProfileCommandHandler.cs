@@ -1,7 +1,7 @@
+using Contracts.User.Responses.LinkedIn;
+using CQRS.Handlers;
 using CQRS.Models;
-using MediatR;
 using Microsoft.Extensions.Logging;
-using UserService.Application.Commands.LinkedIn;
 using UserService.Application.Commands.Xing;
 using UserService.Domain.Models;
 using UserService.Domain.Repositories;
@@ -13,100 +13,80 @@ namespace UserService.Application.CommandHandlers.Xing;
 /// Handler for syncing profile data from Xing
 /// Phase 12: LinkedIn/Xing Integration
 /// </summary>
-public class SyncXingProfileCommandHandler : IRequestHandler<SyncXingProfileCommand, ApiResponse<ProfileSyncResultResponse>>
+public class SyncXingProfileCommandHandler(
+    IXingService xingService,
+    IUserXingConnectionRepository connectionRepository,
+    IUserRepository userRepository,
+    ITokenEncryptionService encryptionService,
+    ILogger<SyncXingProfileCommandHandler> logger)
+    : BaseCommandHandler<SyncXingProfileCommand, ProfileSyncResultResponse>(logger)
 {
-    private readonly IXingService _xingService;
-    private readonly IUserXingConnectionRepository _connectionRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly ITokenEncryptionService _encryptionService;
-    private readonly ILogger<SyncXingProfileCommandHandler> _logger;
+    private readonly IXingService _xingService = xingService;
+    private readonly IUserXingConnectionRepository _connectionRepository = connectionRepository;
+    private readonly IUserRepository _userRepository = userRepository;
+    private readonly ITokenEncryptionService _encryptionService = encryptionService;
 
-    public SyncXingProfileCommandHandler(
-        IXingService xingService,
-        IUserXingConnectionRepository connectionRepository,
-        IUserRepository userRepository,
-        ITokenEncryptionService encryptionService,
-        ILogger<SyncXingProfileCommandHandler> logger)
-    {
-        _xingService = xingService;
-        _connectionRepository = connectionRepository;
-        _userRepository = userRepository;
-        _encryptionService = encryptionService;
-        _logger = logger;
-    }
-
-    public async Task<ApiResponse<ProfileSyncResultResponse>> Handle(
+    public override async Task<ApiResponse<ProfileSyncResultResponse>> Handle(
         SyncXingProfileCommand request,
         CancellationToken cancellationToken)
     {
-        try
+        // Get Xing connection
+        var connection = await _connectionRepository.GetByUserIdAsync(request.UserId!, cancellationToken);
+        if (connection == null)
         {
-            // Get Xing connection
-            var connection = await _connectionRepository.GetByUserIdAsync(request.UserId, cancellationToken);
-            if (connection == null)
-            {
-                return ApiResponse<ProfileSyncResultResponse>.ErrorResult(
-                    "Xing is not connected. Please connect Xing first.");
-            }
+            return Error("Xing is not connected. Please connect Xing first.");
+        }
 
-            // Decrypt tokens
-            var accessToken = _encryptionService.Decrypt(connection.AccessToken);
-            var tokenSecret = _encryptionService.Decrypt(connection.TokenSecret);
+        // Decrypt tokens
+        var accessToken = _encryptionService.Decrypt(connection.AccessToken);
+        var tokenSecret = _encryptionService.Decrypt(connection.TokenSecret);
 
-            // Fetch full profile from Xing
-            var profileResult = await _xingService.GetFullProfileAsync(
-                accessToken, tokenSecret, cancellationToken);
+        // Fetch full profile from Xing
+        var profileResult = await _xingService.GetFullProfileAsync(
+            accessToken, tokenSecret, cancellationToken);
 
-            if (!profileResult.Success || profileResult.Profile == null)
-            {
-                connection.MarkSyncError(profileResult.Error ?? "Failed to fetch profile");
-                await _connectionRepository.SaveChangesAsync(cancellationToken);
-                return ApiResponse<ProfileSyncResultResponse>.ErrorResult(
-                    profileResult.Error ?? "Failed to fetch Xing profile");
-            }
-
-            // Get user with experiences and educations
-            var user = await _userRepository.GetByIdWithProfileAsync(request.UserId, cancellationToken);
-            if (user == null)
-            {
-                return ApiResponse<ProfileSyncResultResponse>.ErrorResult("User not found");
-            }
-
-            // Transform and sync experiences
-            var (experiencesImported, experiencesUpdated) = SyncExperiences(
-                user, profileResult.Profile.ProfessionalExperience);
-
-            // Transform and sync educations
-            var (educationsImported, educationsUpdated) = SyncEducations(
-                user, profileResult.Profile.EducationalBackground);
-
-            // Save user changes
-            await _userRepository.SaveChangesAsync(cancellationToken);
-
-            // Update connection sync stats
-            connection.MarkSyncSuccess(experiencesImported + experiencesUpdated, educationsImported + educationsUpdated);
+        if (!profileResult.Success || profileResult.Profile == null)
+        {
+            connection.MarkSyncError(profileResult.Error ?? "Failed to fetch profile");
             await _connectionRepository.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Xing profile synced for user {UserId}: {ExpImported} experiences imported, {ExpUpdated} updated, {EduImported} educations imported, {EduUpdated} updated",
-                request.UserId, experiencesImported, experiencesUpdated, educationsImported, educationsUpdated);
-
-            return ApiResponse<ProfileSyncResultResponse>.SuccessResult(
-                new ProfileSyncResultResponse
-                {
-                    ExperiencesImported = experiencesImported,
-                    ExperiencesUpdated = experiencesUpdated,
-                    EducationsImported = educationsImported,
-                    EducationsUpdated = educationsUpdated,
-                    SyncedAt = DateTime.UtcNow
-                },
-                "Profile synced successfully");
+            return Error(profileResult.Error ?? "Failed to fetch Xing profile");
         }
-        catch (Exception ex)
+
+        // Get user with experiences and educations
+        var user = await _userRepository.GetByIdWithProfileAsync(request.UserId!, cancellationToken);
+        if (user == null)
         {
-            _logger.LogError(ex, "Error syncing Xing profile for user {UserId}", request.UserId);
-            return ApiResponse<ProfileSyncResultResponse>.ErrorResult("Failed to sync Xing profile");
+            return Error("User not found");
         }
+
+        // Transform and sync experiences
+        var (experiencesImported, experiencesUpdated) = SyncExperiences(
+            user, profileResult.Profile.ProfessionalExperience);
+
+        // Transform and sync educations
+        var (educationsImported, educationsUpdated) = SyncEducations(
+            user, profileResult.Profile.EducationalBackground);
+
+        // Save user changes
+        await _userRepository.SaveChangesAsync(cancellationToken);
+
+        // Update connection sync stats
+        connection.MarkSyncSuccess(experiencesImported + experiencesUpdated, educationsImported + educationsUpdated);
+        await _connectionRepository.SaveChangesAsync(cancellationToken);
+
+        Logger.LogInformation(
+            "Xing profile synced for user {UserId}: {ExpImported} experiences imported, {ExpUpdated} updated, {EduImported} educations imported, {EduUpdated} updated",
+            request.UserId, experiencesImported, experiencesUpdated, educationsImported, educationsUpdated);
+
+        return Success(
+            new ProfileSyncResultResponse(
+                ExperiencesImported: experiencesImported,
+                ExperiencesUpdated: experiencesUpdated,
+                EducationsImported: educationsImported,
+                EducationsUpdated: educationsUpdated,
+                SyncedAt: DateTime.UtcNow
+            ),
+            "Profile synced successfully");
     }
 
     private static (int imported, int updated) SyncExperiences(

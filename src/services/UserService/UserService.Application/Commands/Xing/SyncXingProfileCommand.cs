@@ -1,6 +1,5 @@
-using CQRS.Models;
-using MediatR;
-using UserService.Application.Commands.LinkedIn;
+using Contracts.User.Responses.LinkedIn;
+using CQRS.Interfaces;
 
 namespace UserService.Application.Commands.Xing;
 
@@ -8,4 +7,16 @@ namespace UserService.Application.Commands.Xing;
 /// Command to sync profile data from Xing (experiences and educations)
 /// Phase 12: LinkedIn/Xing Integration
 /// </summary>
-public record SyncXingProfileCommand(string UserId) : IRequest<ApiResponse<ProfileSyncResultResponse>>;
+public record SyncXingProfileCommand : ICommand<ProfileSyncResultResponse>, IAuditableCommand, ICacheInvalidatingCommand
+{
+    public string? UserId { get; set; }
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    public string[] InvalidationPatterns =>
+    [
+        $"user-profile:{UserId}:*",
+        $"user-experience:{UserId}:*",
+        $"user-education:{UserId}:*",
+        $"xing-connection:{UserId}:*"
+    ];
+}

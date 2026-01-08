@@ -1,6 +1,7 @@
 using System.Text;
+using Contracts.User.Responses.LinkedIn;
+using CQRS.Handlers;
 using CQRS.Models;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Commands.LinkedIn;
 using UserService.Domain.Repositories;
@@ -12,57 +13,37 @@ namespace UserService.Application.CommandHandlers.LinkedIn;
 /// Handler for initiating LinkedIn OAuth 2.0 connection
 /// Phase 12: LinkedIn/Xing Integration
 /// </summary>
-public class InitiateLinkedInConnectCommandHandler : IRequestHandler<InitiateLinkedInConnectCommand, ApiResponse<InitiateLinkedInConnectResponse>>
+public class InitiateLinkedInConnectCommandHandler(
+    ILinkedInService linkedInService,
+    IUserLinkedInConnectionRepository repository,
+    ILogger<InitiateLinkedInConnectCommandHandler> logger)
+    : BaseCommandHandler<InitiateLinkedInConnectCommand, InitiateLinkedInConnectResponse>(logger)
 {
-    private readonly ILinkedInService _linkedInService;
-    private readonly IUserLinkedInConnectionRepository _repository;
-    private readonly ILogger<InitiateLinkedInConnectCommandHandler> _logger;
+    private readonly ILinkedInService _linkedInService = linkedInService;
+    private readonly IUserLinkedInConnectionRepository _repository = repository;
 
-    public InitiateLinkedInConnectCommandHandler(
-        ILinkedInService linkedInService,
-        IUserLinkedInConnectionRepository repository,
-        ILogger<InitiateLinkedInConnectCommandHandler> logger)
-    {
-        _linkedInService = linkedInService;
-        _repository = repository;
-        _logger = logger;
-    }
-
-    public async Task<ApiResponse<InitiateLinkedInConnectResponse>> Handle(
+    public override async Task<ApiResponse<InitiateLinkedInConnectResponse>> Handle(
         InitiateLinkedInConnectCommand request,
         CancellationToken cancellationToken)
     {
-        try
+        // Check if user already has a LinkedIn connection
+        var existing = await _repository.GetByUserIdAsync(request.UserId!, cancellationToken);
+        if (existing != null)
         {
-            // Check if user already has a LinkedIn connection
-            var existing = await _repository.GetByUserIdAsync(request.UserId, cancellationToken);
-            if (existing != null)
-            {
-                return ApiResponse<InitiateLinkedInConnectResponse>.ErrorResult(
-                    "LinkedIn is already connected. Disconnect first to reconnect.");
-            }
-
-            // Generate state token for CSRF protection
-            var state = GenerateStateToken(request.UserId);
-
-            // Generate authorization URL
-            var authUrl = _linkedInService.GetAuthorizationUrl(state, request.RedirectUri);
-
-            _logger.LogInformation("Generated LinkedIn OAuth authorization URL for user {UserId}", request.UserId);
-
-            return ApiResponse<InitiateLinkedInConnectResponse>.SuccessResult(
-                new InitiateLinkedInConnectResponse
-                {
-                    AuthorizationUrl = authUrl,
-                    State = state
-                },
-                "Authorization URL generated successfully");
+            return Error("LinkedIn is already connected. Disconnect first to reconnect.");
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error initiating LinkedIn connect for user {UserId}", request.UserId);
-            return ApiResponse<InitiateLinkedInConnectResponse>.ErrorResult("Failed to initiate LinkedIn connection");
-        }
+
+        // Generate state token for CSRF protection
+        var state = GenerateStateToken(request.UserId!);
+
+        // Generate authorization URL
+        var authUrl = _linkedInService.GetAuthorizationUrl(state, request.RedirectUri);
+
+        Logger.LogInformation("Generated LinkedIn OAuth authorization URL for user {UserId}", request.UserId);
+
+        return Success(
+            new InitiateLinkedInConnectResponse(authUrl, state),
+            "Authorization URL generated successfully");
     }
 
     private static string GenerateStateToken(string userId)
