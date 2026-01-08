@@ -70,7 +70,6 @@ export interface AdminSkill {
     lastName: string;
     email: string;
   };
-  proficiencyLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   status: 'approved' | 'pending' | 'rejected' | 'quarantined';
   createdAt: string;
   updatedAt: string;
@@ -190,11 +189,6 @@ export interface AdminAnalytics {
     skillsPerUser: number;
     topCategories: {
       name: string;
-      count: number;
-      percentage: number;
-    }[];
-    skillDistribution: {
-      proficiencyLevel: string;
       count: number;
       percentage: number;
     }[];

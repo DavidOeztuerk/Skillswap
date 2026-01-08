@@ -513,7 +513,6 @@ const CardHeader: React.FC<CardHeaderProps> = memo(
 
         <Box display="flex" gap={1} flexWrap="wrap" mb={1}>
           <Chip label={skill.category.name} size="small" sx={categoryChipSx} />
-          <Chip label={skill.proficiencyLevel.level} size="small" variant="outlined" />
         </Box>
 
         {/* Owner Name */}

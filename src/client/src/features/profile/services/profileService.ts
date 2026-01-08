@@ -37,7 +37,6 @@ export const profileService = {
       pageSize?: number;
       locationType?: 'remote' | 'in_person' | 'both';
       categoryId?: string;
-      proficiencyLevelId?: string;
     }
   ): Promise<PagedResponse<SkillSearchResultResponse>> {
     const queryParams: Record<string, unknown> = {
@@ -55,10 +54,6 @@ export const profileService = {
 
     if (params?.categoryId) {
       queryParams.CategoryId = params.categoryId;
-    }
-
-    if (params?.proficiencyLevelId) {
-      queryParams.ProficiencyLevelId = params.proficiencyLevelId;
     }
 
     return apiClient.getPaged<SkillSearchResultResponse>(`/api/skills/user/${userId}`, queryParams);

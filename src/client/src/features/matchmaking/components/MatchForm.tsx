@@ -30,10 +30,7 @@ import {
 import { calculateSessions } from '../utils/sessionCalculations';
 import QuickSkillCreate from './QuickSkillCreate';
 import { SessionPlanningSection } from './scheduling';
-import type {
-  SkillCategoryResponse,
-  ProficiencyLevelResponse,
-} from '../../skills/types/CreateSkillResponse';
+import type { SkillCategoryResponse } from '../../skills/types/CreateSkillResponse';
 import type { Skill } from '../../skills/types/Skill';
 import type { GetUserSkillResponse } from '../../skills/types/SkillResponses';
 import type { CreateMatchRequest } from '../types/CreateMatchRequest';
@@ -128,7 +125,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
   const [loadingSkills, setLoadingSkills] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [categories, setCategories] = useState<SkillCategoryResponse[]>([]);
-  const [proficiencyLevels, setProficiencyLevels] = useState<ProficiencyLevelResponse[]>([]);
 
   const loadUserSkills = async (): Promise<void> => {
     try {
@@ -145,16 +141,12 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }
   };
 
-  const loadCategoriesAndLevels = async (): Promise<void> => {
+  const loadCategories = async (): Promise<void> => {
     try {
-      const [catResponse, levelResponse] = await Promise.all([
-        skillService.getCategories(),
-        skillService.getProficiencyLevels(),
-      ]);
+      const catResponse = await skillService.getCategories();
       if (isSuccessResponse(catResponse)) setCategories(catResponse.data);
-      if (isSuccessResponse(levelResponse)) setProficiencyLevels(levelResponse.data);
     } catch (err) {
-      console.error('Error loading categories/levels:', err);
+      console.error('Error loading categories:', err);
     }
   };
 
@@ -166,8 +158,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
       } else {
         void loadUserSkills();
       }
-      // Lade Kategorien und Levels für Quick Create
-      void loadCategoriesAndLevels();
+      // Lade Kategorien für Quick Create
+      void loadCategories();
     }
   }, [open, providedUserSkills]);
 
@@ -468,7 +460,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
         }}
         onSkillCreated={handleQuickSkillCreated}
         categories={categories}
-        proficiencyLevels={proficiencyLevels}
       />
     </FormDialog>
   );

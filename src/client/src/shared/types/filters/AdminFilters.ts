@@ -17,7 +17,6 @@ export interface UserFilters {
 
 export interface SkillFilters {
   categoryId?: string;
-  proficiencyLevelId?: string;
   isOffered?: boolean;
   minRating?: number;
   status?: string;

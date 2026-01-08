@@ -9,7 +9,6 @@ import profile from '../../features/profile/store/profileSlice';
 import search from '../../features/search/store/searchSlice';
 import sessions from '../../features/sessions/store/sessionsSlice';
 import category from '../../features/skills/store/categorySlice';
-import proficiencyLevel from '../../features/skills/store/proficiencyLevelSlice';
 import skills from '../../features/skills/store/skillsSlice';
 import preCall from '../../features/videocall/store/preCallSlice';
 import videoCall from '../../features/videocall/store/videoCallSlice';
@@ -20,7 +19,6 @@ export const store = configureStore({
     auth,
     skills,
     category,
-    proficiencyLevel,
     profile,
     search,
     matchmaking,

@@ -29,7 +29,6 @@ export const SkillDetailHeader: React.FC<SkillDetailHeaderProps> = ({
   const averageRating = skill.averageRating ?? 0;
   const reviewCount = skill.reviewCount ?? 0;
   const categoryId = skill.category.id;
-  const proficiencyLevelId = skill.proficiencyLevel.id;
 
   return (
     <Box
@@ -61,15 +60,12 @@ export const SkillDetailHeader: React.FC<SkillDetailHeaderProps> = ({
           {skill.name}
         </Typography>
 
-        {/* Rating and proficiency */}
+        {/* Rating */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <Rating value={averageRating} readOnly precision={0.5} />
           <Typography variant="body2" color="text.secondary">
             {averageRating.toFixed(1)} ({reviewCount} Bewertungen)
           </Typography>
-          {proficiencyLevelId.length > 0 && (
-            <Chip label={skill.proficiencyLevel.level} size="small" color="primary" />
-          )}
         </Box>
       </Box>
 

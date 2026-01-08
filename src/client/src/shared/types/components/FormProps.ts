@@ -203,8 +203,6 @@ export interface SkillFormProps extends FormDialogProps {
   onSubmit: (data: SkillFormData) => Promise<boolean>;
   /** Available categories */
   categories?: { id: string; name: string }[];
-  /** Available proficiency levels */
-  proficiencyLevels?: { id: number; name: string }[];
 }
 
 /**
@@ -214,7 +212,6 @@ export interface SkillFormData {
   name: string;
   description?: string;
   categoryId: string;
-  proficiencyLevel: number;
   yearsOfExperience?: number;
   tags?: string[];
 }

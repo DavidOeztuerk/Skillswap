@@ -44,12 +44,10 @@ const SkillEditPage: React.FC = () => {
     selectedSkill,
     userSkills,
     categories,
-    proficiencyLevels,
     fetchSkillById,
     fetchUserSkills,
     updateSkill,
     fetchCategories,
-    fetchProficiencyLevels,
     isLoading: skillsLoading,
     isUpdating,
     errorMessage,
@@ -73,15 +71,14 @@ const SkillEditPage: React.FC = () => {
 
       errorService.addBreadcrumb('Loading skill edit page data', 'data', { skillId });
 
-      // Load skill, categories, proficiency levels, and user skills (fire-and-forget - Redux tracks loading)
+      // Load skill, categories, and user skills (fire-and-forget - Redux tracks loading)
       await fetchSkillById(skillId);
       fetchCategories();
-      fetchProficiencyLevels();
       fetchUserSkills(); // Load user skills for exchange selection
     };
 
     loadData().catch(() => {});
-  }, [skillId, fetchSkillById, fetchCategories, fetchProficiencyLevels, fetchUserSkills, navigate]);
+  }, [skillId, fetchSkillById, fetchCategories, fetchUserSkills, navigate]);
 
   // Check ownership after skill is loaded
   useEffect(() => {
@@ -338,7 +335,7 @@ const SkillEditPage: React.FC = () => {
 
       {/* Edit Form */}
       <Paper sx={{ p: 3 }}>
-        {categories.length > 0 && proficiencyLevels.length > 0 ? (
+        {categories.length > 0 ? (
           <SkillForm
             open // Always open since it's embedded in the page
             onClose={handleCancel}
@@ -346,7 +343,6 @@ const SkillEditPage: React.FC = () => {
               handleSubmit(skillData as UpdateSkillFormData);
             }}
             categories={categories}
-            proficiencyLevels={proficiencyLevels}
             loading={isUpdating || isLoading(LoadingKeys.UPDATE_SKILL)}
             skill={selectedSkill}
             title="" // No title needed since we have the page header
@@ -356,7 +352,7 @@ const SkillEditPage: React.FC = () => {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
             <Typography variant="body2" sx={{ ml: 2 }}>
-              Kategorien und Fertigkeitsstufen werden geladen...
+              Kategorien werden geladen...
             </Typography>
           </Box>
         )}

@@ -39,23 +39,6 @@ export const SkillCategorySchema = z.object({
 export type SkillCategory = z.infer<typeof SkillCategorySchema>;
 
 // ============================================
-// PROFICIENCY LEVEL SCHEMAS
-// ============================================
-
-/**
- * Proficiency Level Schema
- */
-export const ProficiencyLevelSchema = z.object({
-  id: UuidSchema,
-  name: NonEmptyStringSchema,
-  description: z.string().nullable().optional(),
-  level: z.number().int().min(1).max(10),
-  color: z.string().nullable().optional(),
-});
-
-export type ProficiencyLevel = z.infer<typeof ProficiencyLevelSchema>;
-
-// ============================================
 // SKILL SCHEMAS
 // ============================================
 
@@ -86,9 +69,6 @@ export const UserSkillSchema = z.object({
   skillName: NonEmptyStringSchema,
   categoryId: UuidSchema.optional(),
   categoryName: z.string().optional(),
-  proficiencyLevelId: UuidSchema,
-  proficiencyLevelName: z.string().optional(),
-  proficiencyLevel: z.number().int().min(1).max(10).optional(),
   yearsOfExperience: z.number().nonnegative().optional(),
   description: z.string().nullable().optional(),
   isOffered: z.boolean(),
@@ -182,7 +162,6 @@ export const CreateSkillRequestSchema = z
       .max(2000, 'Description must be at most 2000 characters'),
     isOffered: z.boolean(),
     categoryId: UuidSchema,
-    proficiencyLevelId: UuidSchema,
     tags: z
       .array(NonEmptyStringSchema.max(50, 'Tag must be at most 50 characters'))
       .max(10, 'Maximum 10 tags allowed')
@@ -281,7 +260,6 @@ export type CreateSkillRequest = z.infer<typeof CreateSkillRequestSchema>;
 export const AddUserSkillRequestSchema = z
   .object({
     skillId: UuidSchema,
-    proficiencyLevelId: UuidSchema,
     isOffered: z.boolean(),
     isWanted: z.boolean(),
     yearsOfExperience: z.number().nonnegative().optional(),

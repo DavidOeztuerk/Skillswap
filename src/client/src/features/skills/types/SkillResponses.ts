@@ -1,4 +1,4 @@
-import type { ProficiencyLevelResponse, SkillCategoryResponse } from './CreateSkillResponse';
+import type { SkillCategoryResponse } from './CreateSkillResponse';
 import type { Skill } from './Skill';
 
 export interface UserSkillResponseData {
@@ -10,13 +10,6 @@ export interface UserSkillResponseData {
     categoryId: string;
     name: string;
     iconName?: string;
-    color?: string;
-    skillCount?: number;
-  };
-  proficiencyLevel: {
-    levelId: string;
-    level: string;
-    rank: number;
     color?: string;
     skillCount?: number;
   };
@@ -40,7 +33,6 @@ export interface SkillDetailsResponse {
   name: string;
   description: string;
   category: SkillCategoryResponse;
-  proficiencyLevel: ProficiencyLevelResponse;
   tags: string[];
   isOffered: boolean;
   rating?: number;
@@ -93,7 +85,6 @@ export interface GetUserSkillResponse {
   name: string;
   description: string;
   category: SkillCategoryResponse;
-  proficiencyLevel: ProficiencyLevelResponse;
   tags: string[];
   isOffered: boolean;
   rating?: number;
@@ -121,7 +112,6 @@ export interface SkillSearchResultResponse {
   description: string;
   isOffered: boolean;
   category: SkillCategoryResponse;
-  proficiencyLevel: ProficiencyLevelResponse;
   tagsJson: string; // JSON string like "[\"tag1\",\"tag2\"]"
   averageRating?: number;
   reviewCount: number;
@@ -143,7 +133,6 @@ export interface SkillSearchResultResponse {
 export interface SkillSearchParams {
   searchTerm?: string;
   categoryId?: string;
-  proficiencyLevelId?: string;
   tags?: string[];
   isOffered?: boolean;
   minRating?: number;
@@ -154,8 +143,7 @@ export interface SkillSearchParams {
     | 'createdAt'
     | 'updatedAt'
     | 'name'
-    | 'category'
-    | 'proficiencyLevel';
+    | 'category';
   sortDirection?: 'asc' | 'desc';
   pageNumber?: number;
   pageSize?: number;

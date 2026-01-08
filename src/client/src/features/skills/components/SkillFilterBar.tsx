@@ -30,11 +30,10 @@ import {
 } from '@mui/material';
 import { useGeolocation } from '../../../shared/hooks/useGeolocation';
 import { type SkillFilters, DISTANCE_OPTIONS, SORT_OPTIONS } from '../types/SkillFilter';
-import type { SkillCategory, ProficiencyLevel } from '../types/Skill';
+import type { SkillCategory } from '../types/Skill';
 
 interface SkillFilterBarProps {
   categories: SkillCategory[];
-  proficiencyLevels: ProficiencyLevel[];
   filters: SkillFilters;
   onFilterChange: (filters: SkillFilters) => void;
   onClearFilters: () => void;
@@ -46,7 +45,6 @@ const countActiveFilters = (filters: SkillFilters): number => {
   let count = 0;
   if (filters.searchTerm) count++;
   if (filters.categoryId) count++;
-  if (filters.proficiencyLevelId) count++;
   if (filters.isOffered === true || filters.isOffered === false) count++;
   if (filters.minRating != null && filters.minRating > 0) count++;
   if (filters.locationType) count++;
@@ -80,7 +78,6 @@ interface FilterHandlers {
   clearFilter: (key: keyof SkillFilters) => void;
   handleSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handleCategoryChange: (event: SelectChangeEvent) => void;
-  handleProficiencyChange: (event: SelectChangeEvent) => void;
   handleIsOfferedChange: (_: React.MouseEvent<HTMLElement>, value: string | null) => void;
   handleRatingChange: (_: React.SyntheticEvent, value: number | null) => void;
   handleLocationTypeChange: (event: SelectChangeEvent) => void;
@@ -126,18 +123,6 @@ const useFilterHandlers = (
         setFilter('categoryId', val);
       } else {
         clearFilter('categoryId');
-      }
-    },
-    [setFilter, clearFilter]
-  );
-
-  const handleProficiencyChange = useCallback(
-    (event: SelectChangeEvent) => {
-      const val = event.target.value;
-      if (val) {
-        setFilter('proficiencyLevelId', val);
-      } else {
-        clearFilter('proficiencyLevelId');
       }
     },
     [setFilter, clearFilter]
@@ -203,7 +188,6 @@ const useFilterHandlers = (
     clearFilter,
     handleSearchChange,
     handleCategoryChange,
-    handleProficiencyChange,
     handleIsOfferedChange,
     handleRatingChange,
     handleLocationTypeChange,
@@ -214,7 +198,7 @@ const useFilterHandlers = (
 
 const SkillFilterBar: React.FC<SkillFilterBarProps> = memo(
   // eslint-disable-next-line sonarjs/cognitive-complexity -- Filter UI requires multiple conditionals
-  ({ categories, proficiencyLevels, filters, onFilterChange, onClearFilters, loading = false }) => {
+  ({ categories, filters, onFilterChange, onClearFilters, loading = false }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [expanded, setExpanded] = useState(!isMobile);
@@ -227,7 +211,6 @@ const SkillFilterBar: React.FC<SkillFilterBarProps> = memo(
       clearFilter,
       handleSearchChange,
       handleCategoryChange,
-      handleProficiencyChange,
       handleIsOfferedChange,
       handleRatingChange,
       handleLocationTypeChange,
@@ -244,11 +227,6 @@ const SkillFilterBar: React.FC<SkillFilterBarProps> = memo(
     const getCategoryName = useCallback(
       (id: string): string => categories.find((c) => c.id === id)?.name ?? '',
       [categories]
-    );
-
-    const getProficiencyName = useCallback(
-      (id: string): string => proficiencyLevels.find((l) => l.id === id)?.level ?? '',
-      [proficiencyLevels]
     );
 
     const isGeoDisabled = geoLoading || !isSupported;
@@ -334,24 +312,6 @@ const SkillFilterBar: React.FC<SkillFilterBarProps> = memo(
                 {categories.map((cat) => (
                   <MenuItem key={cat.id} value={cat.id}>
                     {cat.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" fullWidth>
-              <InputLabel id="proficiency-filter-label">Level</InputLabel>
-              <Select
-                labelId="proficiency-filter-label"
-                value={filters.proficiencyLevelId ?? ''}
-                onChange={handleProficiencyChange}
-                label="Level"
-                disabled={loading}
-              >
-                <MenuItem value="">Alle Level</MenuItem>
-                {proficiencyLevels.map((lvl) => (
-                  <MenuItem key={lvl.id} value={lvl.id}>
-                    {lvl.level}
                   </MenuItem>
                 ))}
               </Select>
@@ -474,13 +434,6 @@ const SkillFilterBar: React.FC<SkillFilterBarProps> = memo(
                 size="small"
                 label={`Kategorie: ${getCategoryName(filters.categoryId)}`}
                 onDelete={() => clearFilter('categoryId')}
-              />
-            ) : null}
-            {filters.proficiencyLevelId ? (
-              <Chip
-                size="small"
-                label={`Level: ${getProficiencyName(filters.proficiencyLevelId)}`}
-                onDelete={() => clearFilter('proficiencyLevelId')}
               />
             ) : null}
             {hasActiveIsOffered ? (

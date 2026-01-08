@@ -79,7 +79,6 @@ export const fetchUserSkills = createAppAsyncThunk<
       pageSize?: number;
       isOffered?: boolean;
       categoryId?: string;
-      proficiencyLevelId?: string;
       locationType?: string;
       includeInactive?: boolean;
     }
@@ -91,7 +90,6 @@ export const fetchUserSkills = createAppAsyncThunk<
       params?.pageSize ?? 12,
       params?.isOffered,
       params?.categoryId,
-      params?.proficiencyLevelId,
       params?.locationType,
       params?.includeInactive ?? false
     );
@@ -172,12 +170,6 @@ export const fetchSkillById = createAppAsyncThunk<Skill, string>(
           iconName: skillData.category.iconName,
           color: skillData.category.color,
         },
-        proficiencyLevel: {
-          id: skillData.proficiencyLevel.levelId || '',
-          level: skillData.proficiencyLevel.level,
-          rank: withDefault(skillData.proficiencyLevel.rank, 0),
-          color: skillData.proficiencyLevel.color,
-        },
         tagsJson: skillData.tags.join(','),
         averageRating: withDefault(skillData.rating, 0),
         reviewCount: withDefault(skillData.reviews?.length, 0),
@@ -227,17 +219,15 @@ export const createSkill = createAppAsyncThunk<Skill, CreateSkillRequest>(
         return rejectWithValue(response);
       }
 
-      // Get category and proficiency level from Redux state
+      // Get category from Redux state
       const state = getState();
       const { categories } = state.category;
-      const { proficiencyLevels } = state.proficiencyLevel;
 
       // Map CreateSkillResponse to Skill - using actual response structure
       const created = response.data;
 
-      // Look up category and proficiency level details from Redux state
+      // Look up category details from Redux state
       const categoryData = categories.find((c) => c.id === created.categoryId);
-      const proficiencyData = proficiencyLevels.find((p) => p.id === created.proficiencyLevelId);
 
       const skill: Skill = {
         id: created.skillId,
@@ -250,12 +240,6 @@ export const createSkill = createAppAsyncThunk<Skill, CreateSkillRequest>(
           name: categoryData?.name ?? '',
           iconName: categoryData?.iconName,
           color: categoryData?.color,
-        },
-        proficiencyLevel: {
-          id: created.proficiencyLevelId || '',
-          level: proficiencyData?.level ?? '',
-          rank: proficiencyData?.rank ?? 0,
-          color: proficiencyData?.color,
         },
         tagsJson: created.tags.join(','),
         averageRating: 0,
@@ -288,17 +272,15 @@ export const updateSkill = createAppAsyncThunk<
       return rejectWithValue(response);
     }
 
-    // Get category and proficiency level from Redux state
+    // Get category from Redux state
     const state = getState();
     const { categories } = state.category;
-    const { proficiencyLevels } = state.proficiencyLevel;
 
     // Map UpdateSkillResponse to Skill - using actual response structure
     const updated = response.data;
 
-    // Look up category and proficiency level details from Redux state
+    // Look up category details from Redux state
     const categoryData = categories.find((c) => c.id === updated.categoryId);
-    const proficiencyData = proficiencyLevels.find((p) => p.id === updated.proficiencyLevelId);
 
     const skill: Skill = {
       id: updated.id,
@@ -311,12 +293,6 @@ export const updateSkill = createAppAsyncThunk<
         name: categoryData?.name ?? '',
         iconName: categoryData?.iconName,
         color: categoryData?.color,
-      },
-      proficiencyLevel: {
-        id: updated.proficiencyLevelId || '',
-        level: proficiencyData?.level ?? '',
-        rank: proficiencyData?.rank ?? 0,
-        color: proficiencyData?.color,
       },
       tagsJson: '', // Not included in UpdateSkillResponse
       averageRating: 0,

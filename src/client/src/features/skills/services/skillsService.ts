@@ -2,12 +2,8 @@ import { apiClient } from '../../../core/api/apiClient';
 import { SKILL_ENDPOINTS, FAVORITE_ENDPOINTS } from '../../../core/config/endpoints';
 import type { PagedResponse, ApiResponse } from '../../../shared/types/api/UnifiedResponse';
 import type { CreateSkillRequest } from '../types/CreateSkillRequest';
-import type {
-  CreateSkillResponse,
-  SkillCategoryResponse,
-  ProficiencyLevelResponse,
-} from '../types/CreateSkillResponse';
-import type { SkillCategory, ProficiencyLevel } from '../types/Skill';
+import type { CreateSkillResponse, SkillCategoryResponse } from '../types/CreateSkillResponse';
+import type { SkillCategory } from '../types/Skill';
 import type {
   SkillSearchParams,
   SkillSearchResultResponse,
@@ -50,7 +46,6 @@ export const skillService = {
     pageSize = 12,
     isOffered?: boolean,
     categoryId?: string,
-    proficiencyLevelId?: string,
     locationType?: string,
     includeInactive = false
   ): Promise<PagedResponse<GetUserSkillResponse>> {
@@ -61,7 +56,6 @@ export const skillService = {
 
     if (isOffered !== undefined) params.IsOffered = isOffered;
     if (categoryId) params.CategoryId = categoryId;
-    if (proficiencyLevelId) params.ProficiencyLevelId = proficiencyLevelId;
     if (locationType) params.LocationType = locationType;
     if (includeInactive) params.IncludeInactive = includeInactive;
 
@@ -152,40 +146,6 @@ export const skillService = {
 
   async deleteCategory(id: string): Promise<ApiResponse<void>> {
     return apiClient.delete(`${SKILL_ENDPOINTS.CATEGORIES}/${id}`);
-  },
-
-  // Proficiency level management
-  async getProficiencyLevels(): Promise<ApiResponse<ProficiencyLevelResponse[]>> {
-    return apiClient.get<ProficiencyLevelResponse[]>(SKILL_ENDPOINTS.PROFICIENCY_LEVELS);
-  },
-
-  async createProficiencyLevel(
-    level: string,
-    rank: number,
-    description?: string
-  ): Promise<ApiResponse<ProficiencyLevel>> {
-    return apiClient.post<ProficiencyLevel>(SKILL_ENDPOINTS.PROFICIENCY_LEVELS, {
-      level,
-      rank,
-      description,
-    });
-  },
-
-  async updateProficiencyLevel(
-    id: string,
-    level: string,
-    rank: number,
-    description?: string
-  ): Promise<ApiResponse<ProficiencyLevel>> {
-    return apiClient.put<ProficiencyLevel>(`${SKILL_ENDPOINTS.PROFICIENCY_LEVELS}/${id}`, {
-      level,
-      rank,
-      description,
-    });
-  },
-
-  async deleteProficiencyLevel(id: string): Promise<ApiResponse<void>> {
-    return apiClient.delete(`${SKILL_ENDPOINTS.PROFICIENCY_LEVELS}/${id}`);
   },
 
   // Analytics

@@ -422,7 +422,7 @@ const DashboardPage: React.FC = memo((): JSX.Element => {
                         </ListItemIcon>
                         <ListItemText
                           primary={userSkill.name}
-                          secondary={`Level: ${userSkill.proficiencyLevel.level}`}
+                          secondary={userSkill.category?.name ?? 'Kategorie'}
                         />
                       </ListItem>
                       <Divider variant="inset" component="li" />
@@ -466,7 +466,7 @@ const DashboardPage: React.FC = memo((): JSX.Element => {
                         </ListItemIcon>
                         <ListItemText
                           primary={userSkill.name}
-                          secondary={`Level: ${userSkill.proficiencyLevel.level}`}
+                          secondary={userSkill.category?.name ?? 'Kategorie'}
                         />
                       </ListItem>
                       <Divider variant="inset" component="li" />

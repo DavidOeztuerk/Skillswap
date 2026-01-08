@@ -321,7 +321,7 @@ const SkillListItem: React.FC<SkillListItemProps> = memo(
             />
           </Box>
 
-          {/* Category + Proficiency */}
+          {/* Category */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Chip
               label={skill.category.name}
@@ -334,9 +334,6 @@ const SkillListItem: React.FC<SkillListItemProps> = memo(
                 fontSize: '0.75rem',
               }}
             />
-            <Typography variant="caption" color="text.secondary">
-              {skill.proficiencyLevel.level}
-            </Typography>
           </Box>
 
           {/* Description */}

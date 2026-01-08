@@ -115,7 +115,6 @@ const OwnerCard: React.FC<{
 const SkillInfoCard: React.FC<{
   skill: SkillDetailSidebarProps['skill'];
 }> = ({ skill }) => {
-  const hasRank = skill.proficiencyLevel.rank > 0;
   const isPayment = skill.exchangeType === 'payment';
 
   return (
@@ -129,22 +128,6 @@ const SkillInfoCard: React.FC<{
           Kategorie
         </Typography>
         <Typography variant="body1">{skill.category.name || 'Keine Kategorie'}</Typography>
-      </Box>
-
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Fertigkeitsstufe
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body1">{skill.proficiencyLevel.level || 'Keine Angabe'}</Typography>
-          {hasRank ? (
-            <Box sx={{ display: 'flex' }}>
-              {Array.from({ length: skill.proficiencyLevel.rank }, (_, i) => (
-                <StarIcon key={i} sx={{ fontSize: 16, color: 'primary.main' }} />
-              ))}
-            </Box>
-          ) : null}
-        </Box>
       </Box>
 
       <Box>

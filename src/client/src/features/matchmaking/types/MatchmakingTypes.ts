@@ -183,7 +183,6 @@ export interface ApiSkillDetails {
   userId?: string;
   description?: string;
   isOffered?: boolean;
-  proficiencyLevel?: { id: string; level: string; rank: number; color?: string };
   tagsJson?: string;
   averageRating?: number;
   reviewCount?: number;

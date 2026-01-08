@@ -84,7 +84,6 @@ export const MatchUserSchema = z.object({
   avatarUrl: AvatarUrlSchema,
   skillId: UuidSchema.optional(),
   skillName: z.string().optional(),
-  proficiencyLevel: z.number().int().min(1).max(10).optional(),
 });
 
 export type MatchUser = z.infer<typeof MatchUserSchema>;
@@ -266,7 +265,6 @@ export const MatchSuggestionSchema = z.object({
 
   offeredSkillId: UuidSchema,
   offeredSkillName: NonEmptyStringSchema,
-  offeredProficiencyLevel: z.number().int().min(1).max(10).optional(),
 
   wantedSkillId: UuidSchema.optional(),
   wantedSkillName: z.string().optional(),

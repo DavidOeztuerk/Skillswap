@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../core/store/store.hooks';
 import { selectAllCategories } from '../store/categoriesSelectors';
-import { selectAllProficiencyLevels } from '../store/proficiencyLevelSelectors';
 import {
   selectAllSkills,
   selectUserSkills,
@@ -25,12 +24,6 @@ import {
   deleteCategory,
 } from '../store/thunks/categoryThunks';
 import {
-  fetchProficiencyLevels,
-  createProficiencyLevel,
-  updateProficiencyLevel,
-  deleteProficiencyLevel,
-} from '../store/thunks/proficiencyLevelThunks';
-import {
   fetchAllSkills,
   fetchUserSkills,
   fetchSkillById,
@@ -47,19 +40,6 @@ import type { SkillSearchParams } from '../types/SkillResponses';
 import type { UpdateSkillRequest } from '../types/UpdateSkillRequest';
 
 // Type definitions for hook parameters (matching thunk signatures)
-interface CreateProficiencyLevelParams {
-  level: string;
-  rank: number;
-  description?: string;
-}
-
-interface UpdateProficiencyLevelParams {
-  id: string;
-  level: string;
-  rank: number;
-  description?: string;
-}
-
 interface CreateCategoryParams {
   name: string;
   description?: string;
@@ -78,7 +58,6 @@ interface UseSkillsReturn {
   allSkills: ReturnType<typeof selectAllSkills>;
   userSkills: ReturnType<typeof selectUserSkills>;
   categories: ReturnType<typeof selectAllCategories>;
-  proficiencyLevels: ReturnType<typeof selectAllProficiencyLevels>;
   favoriteSkills: ReturnType<typeof selectFavoriteSkills>;
   selectedSkill: ReturnType<typeof selectSelectedSkill>;
   searchResults: ReturnType<typeof selectSkillSearchResults>;
@@ -128,7 +107,6 @@ interface UseSkillsReturn {
   isLoadingById: boolean;
   isLoadingFavorites: boolean;
   isLoadingCategories: boolean;
-  isLoadingProficiencyLevels: boolean;
   isCreating: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
@@ -144,13 +122,11 @@ interface UseSkillsReturn {
     pageSize?: number;
     isOffered?: boolean;
     categoryId?: string;
-    proficiencyLevelId?: string;
     locationType?: string;
     includeInactive?: boolean;
   }) => void;
   fetchSkillById: (skillId: string) => Promise<void>;
   fetchCategories: () => void;
-  fetchProficiencyLevels: () => void;
   fetchFavoriteSkills: () => void;
   // === CRUD OPERATIONS ===
   createSkill: (skillData: CreateSkillRequest) => void;
@@ -173,7 +149,6 @@ interface UseSkillsReturn {
       | 'fetchById'
       | 'fetchFavorites'
       | 'fetchCategories'
-      | 'fetchProficiencyLevels'
       | 'create'
       | 'update'
       | 'delete'
@@ -182,9 +157,6 @@ interface UseSkillsReturn {
   clearAllErrors: () => void;
   dismissError: () => void;
   // === ADMIN OPERATIONS ===
-  createProficiencyLevel: (data: CreateProficiencyLevelParams) => void;
-  updateProficiencyLevel: (data: UpdateProficiencyLevelParams) => void;
-  deleteProficiencyLevel: (id: string) => void;
   createCategory: (data: CreateCategoryParams) => void;
   updateCategory: (data: UpdateCategoryParams) => void;
   deleteCategory: (id: string) => void;
@@ -195,15 +167,8 @@ interface UseSkillsReturn {
   getSkillById: (skillId: string) => ReturnType<typeof selectAllSkills>[number] | null;
   isSkillFavorite: (skillId: string) => boolean;
   getCategoryById: (categoryId: string) => ReturnType<typeof selectAllCategories>[number] | null;
-  getProficiencyLevelById: (
-    levelId: string
-  ) => ReturnType<typeof selectAllProficiencyLevels>[number] | null;
   getSkillsByCategory: (
     categoryId: string,
-    from?: 'all' | 'user' | 'favorites'
-  ) => ReturnType<typeof selectAllSkills>;
-  getSkillsByProficiencyLevel: (
-    levelId: string,
     from?: 'all' | 'user' | 'favorites'
   ) => ReturnType<typeof selectAllSkills>;
   searchSkillsByQuery: (
@@ -215,7 +180,6 @@ interface UseSkillsReturn {
     totalUserSkills: number;
     totalFavoriteSkills: number;
     totalCategories: number;
-    totalProficiencyLevels: number;
   };
   isAnyLoading: () => boolean;
   hasAnyError: () => boolean;
@@ -226,7 +190,6 @@ interface UseSkillsReturn {
     pageSize?: number;
     isOffered?: boolean;
     categoryId?: string;
-    proficiencyLevelId?: string;
     locationType?: string;
     includeInactive?: boolean;
   }) => void;
@@ -236,12 +199,10 @@ interface UseSkillsReturn {
     pageSize?: number;
     isOffered?: boolean;
     categoryId?: string;
-    proficiencyLevelId?: string;
     locationType?: string;
     includeInactive?: boolean;
   }) => void;
   loadCategories: () => void;
-  loadProficiencyLevels: () => void;
   loadFavoriteSkills: () => void;
   isFavoriteSkill: (skillId: string) => boolean;
   addFavoriteSkill: (skillId: string) => void;
@@ -260,7 +221,6 @@ export const useSkills = (): UseSkillsReturn => {
   const allSkills = useAppSelector(selectAllSkills);
   const userSkills = useAppSelector(selectUserSkills);
   const categories = useAppSelector(selectAllCategories);
-  const proficiencyLevels = useAppSelector(selectAllProficiencyLevels);
   const favoriteSkills = useAppSelector(selectFavoriteSkills);
   const selectedSkill = useAppSelector(selectSelectedSkill);
   const searchResults = useAppSelector(selectSkillSearchResults);
@@ -282,7 +242,6 @@ export const useSkills = (): UseSkillsReturn => {
         pageSize?: number;
         isOffered?: boolean;
         categoryId?: string;
-        proficiencyLevelId?: string;
         locationType?: string;
         includeInactive?: boolean;
       }) => {
@@ -295,10 +254,6 @@ export const useSkills = (): UseSkillsReturn => {
 
       fetchCategories: () => {
         void dispatch(fetchCategories());
-      },
-
-      fetchProficiencyLevels: () => {
-        void dispatch(fetchProficiencyLevels());
       },
 
       fetchFavoriteSkills: () => {
@@ -356,7 +311,6 @@ export const useSkills = (): UseSkillsReturn => {
           | 'fetchById'
           | 'fetchFavorites'
           | 'fetchCategories'
-          | 'fetchProficiencyLevels'
           | 'create'
           | 'update'
           | 'delete'
@@ -370,18 +324,6 @@ export const useSkills = (): UseSkillsReturn => {
       },
 
       // === ADMIN OPERATIONS ===
-      createProficiencyLevel: (data: CreateProficiencyLevelParams) => {
-        void dispatch(createProficiencyLevel(data));
-      },
-
-      updateProficiencyLevel: (data: UpdateProficiencyLevelParams) => {
-        void dispatch(updateProficiencyLevel(data));
-      },
-
-      deleteProficiencyLevel: (id: string) => {
-        void dispatch(deleteProficiencyLevel(id));
-      },
-
       createCategory: (data: CreateCategoryParams) => {
         void dispatch(createCategory(data));
       },
@@ -427,25 +369,11 @@ export const useSkills = (): UseSkillsReturn => {
       getCategoryById: (categoryId: string) =>
         categories.find((cat) => cat.id === categoryId) ?? null,
 
-      // Get proficiency level by ID
-      getProficiencyLevelById: (levelId: string) =>
-        proficiencyLevels.find((level) => level.id === levelId) ?? null,
-
       // Filter skills by category
       getSkillsByCategory: (categoryId: string, from: 'all' | 'user' | 'favorites' = 'all') => {
         const sourceSkills =
           from === 'all' ? allSkills : from === 'user' ? userSkills : favoriteSkills;
         return sourceSkills.filter((skill) => skill.category.id === categoryId);
-      },
-
-      // Filter skills by proficiency level
-      getSkillsByProficiencyLevel: (
-        levelId: string,
-        from: 'all' | 'user' | 'favorites' = 'all'
-      ) => {
-        const sourceSkills =
-          from === 'all' ? allSkills : from === 'user' ? userSkills : favoriteSkills;
-        return sourceSkills.filter((skill) => skill.proficiencyLevel.id === levelId);
       },
 
       // Search skills by name/description
@@ -468,7 +396,6 @@ export const useSkills = (): UseSkillsReturn => {
         totalUserSkills: userSkills.length,
         totalFavoriteSkills: favoriteSkills.length,
         totalCategories: categories.length,
-        totalProficiencyLevels: proficiencyLevels.length,
       }),
 
       // Check loading states
@@ -486,7 +413,6 @@ export const useSkills = (): UseSkillsReturn => {
       userSkills,
       favoriteSkills,
       categories,
-      proficiencyLevels,
       skillsState.favoriteSkillIds,
       skillsState.isLoading,
       skillsState.errorMessage,
@@ -500,7 +426,6 @@ export const useSkills = (): UseSkillsReturn => {
     allSkills,
     userSkills,
     categories,
-    proficiencyLevels,
     favoriteSkills,
     selectedSkill,
     searchResults,
@@ -523,7 +448,6 @@ export const useSkills = (): UseSkillsReturn => {
     isLoadingById: skillsState.isLoading,
     isLoadingFavorites: skillsState.isLoading,
     isLoadingCategories: skillsState.isLoading,
-    isLoadingProficiencyLevels: skillsState.isLoading,
     isCreating: skillsState.isLoading,
     isUpdating: skillsState.isLoading,
     isDeleting: skillsState.isLoading,
@@ -552,7 +476,6 @@ export const useSkills = (): UseSkillsReturn => {
     loadSkills: actions.fetchAllSkills,
     loadUserSkills: actions.fetchUserSkills,
     loadCategories: actions.fetchCategories,
-    loadProficiencyLevels: actions.fetchProficiencyLevels,
     loadFavoriteSkills: actions.fetchFavoriteSkills,
     isFavoriteSkill: computedValues.isSkillFavorite,
     addFavoriteSkill: actions.addToFavorites,

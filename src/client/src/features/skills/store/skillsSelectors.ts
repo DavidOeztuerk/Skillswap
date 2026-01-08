@@ -120,11 +120,6 @@ export const selectFilteredSkills = createSelector(
   }
 );
 
-export const selectSkillsByProficiencyLevel = createSelector(
-  [selectAllSkills, (_: RootState, levelId: string) => levelId],
-  (skills, levelId) => skills.filter((skill) => skill.proficiencyLevel.id === levelId)
-);
-
 export const selectOfferedSkills = createSelector([selectAllSkills], (skills) =>
   skills.filter((skill) => skill.isOffered)
 );

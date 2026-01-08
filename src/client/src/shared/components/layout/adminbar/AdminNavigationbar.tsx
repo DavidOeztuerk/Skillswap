@@ -72,7 +72,7 @@ export const getAdminMenuItems = (): MenuItem[] => [
         ),
         path: '/admin/skills',
         authRequired: true,
-        permissions: [Permissions.Skills.MANAGE_CATEGORIES, Permissions.Skills.MANAGE_PROFICIENCY],
+        permissions: [Permissions.Skills.MANAGE_CATEGORIES],
         adminRequired: true,
       },
       {
@@ -85,18 +85,6 @@ export const getAdminMenuItems = (): MenuItem[] => [
         path: '/admin/skills/categories',
         authRequired: true,
         permissions: [Permissions.Skills.MANAGE_CATEGORIES],
-        adminRequired: true,
-      },
-      {
-        text: 'Proficiency Levels',
-        icon: (
-          <IconWrapper size="small">
-            <AdminSkillsIcon />
-          </IconWrapper>
-        ),
-        path: '/admin/skills/proficiency',
-        authRequired: true,
-        permissions: [Permissions.Skills.MANAGE_PROFICIENCY],
         adminRequired: true,
       },
       {

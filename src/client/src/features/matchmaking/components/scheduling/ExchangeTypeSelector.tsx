@@ -255,7 +255,7 @@ export const ExchangeTypeSelector: React.FC<ExchangeTypeSelectorProps> = ({
                       <Stack>
                         <Typography variant="body2">{skill.name}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {skill.proficiencyLevel.level || 'Unbekannt'}
+                          {skill.category?.name ?? 'Kategorie'}
                         </Typography>
                       </Stack>
                     </MenuItem>

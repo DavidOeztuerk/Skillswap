@@ -33,11 +33,10 @@ import {
   type SelectChangeEvent,
 } from '@mui/material';
 import { type SkillFilters, DISTANCE_OPTIONS, SORT_OPTIONS } from '../types/SkillFilter';
-import type { SkillCategory, ProficiencyLevel } from '../types/Skill';
+import type { SkillCategory } from '../types/Skill';
 
 interface SkillFilterSidebarProps {
   categories: SkillCategory[];
-  proficiencyLevels: ProficiencyLevel[];
   filters: SkillFilters;
   onFilterChange: (filters: SkillFilters) => void;
   onClearFilters: () => void;
@@ -64,7 +63,6 @@ interface SkillFilterSidebarProps {
 const countActiveFilters = (filters: SkillFilters): number => {
   let count = 0;
   if (filters.categoryId) count++;
-  if (filters.proficiencyLevelId) count++;
   if (filters.isOffered === true || filters.isOffered === false) count++;
   if (filters.minRating != null && filters.minRating > 0) count++;
   if (filters.locationType) count++;
@@ -87,7 +85,6 @@ const useFilterHandlers = (
   onClearLocation?: () => void
 ): {
   handleCategoryChange: (event: SelectChangeEvent) => void;
-  handleProficiencyChange: (event: SelectChangeEvent) => void;
   handleIsOfferedChange: (_: React.MouseEvent<HTMLElement>, value: string | null) => void;
   handleRatingChange: (_: React.SyntheticEvent, value: number | null) => void;
   handleLocationTypeChange: (event: SelectChangeEvent) => void;
@@ -112,14 +109,6 @@ const useFilterHandlers = (
     onFilterChangeRef.current({
       ...filtersRef.current,
       categoryId: val || undefined,
-    });
-  }, []);
-
-  const handleProficiencyChange = useCallback((event: SelectChangeEvent) => {
-    const val = event.target.value;
-    onFilterChangeRef.current({
-      ...filtersRef.current,
-      proficiencyLevelId: val || undefined,
     });
   }, []);
 
@@ -198,7 +187,6 @@ const useFilterHandlers = (
 
   return {
     handleCategoryChange,
-    handleProficiencyChange,
     handleIsOfferedChange,
     handleRatingChange,
     handleLocationTypeChange,
@@ -230,7 +218,6 @@ FilterSection.displayName = 'FilterSection';
 const SkillFilterSidebar: React.FC<SkillFilterSidebarProps> = memo(
   ({
     categories,
-    proficiencyLevels,
     filters,
     onFilterChange,
     onClearFilters,
@@ -258,7 +245,6 @@ const SkillFilterSidebar: React.FC<SkillFilterSidebarProps> = memo(
 
     const {
       handleCategoryChange,
-      handleProficiencyChange,
       handleIsOfferedChange,
       handleRatingChange,
       handleLocationTypeChange,
@@ -364,27 +350,6 @@ const SkillFilterSidebar: React.FC<SkillFilterSidebarProps> = memo(
               {categories.map((cat) => (
                 <MenuItem key={cat.id} value={cat.id}>
                   {cat.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </FilterSection>
-
-        {/* Proficiency Level */}
-        <FilterSection label="Fertigkeitsstufe">
-          <FormControl size="small" fullWidth>
-            <InputLabel id="sidebar-proficiency-label">Level</InputLabel>
-            <Select
-              labelId="sidebar-proficiency-label"
-              value={filters.proficiencyLevelId ?? ''}
-              onChange={handleProficiencyChange}
-              label="Level"
-              disabled={loading}
-            >
-              <MenuItem value="">Alle Level</MenuItem>
-              {proficiencyLevels.map((lvl) => (
-                <MenuItem key={lvl.id} value={lvl.id}>
-                  {lvl.level}
                 </MenuItem>
               ))}
             </Select>

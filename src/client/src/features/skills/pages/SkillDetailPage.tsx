@@ -300,16 +300,8 @@ const SkillDetailPage: React.FC = () => {
       {skill.id ? (
         <SEO
           title={`${skill.name} - ${skill.category.name || 'Skill'}`}
-          description={
-            skill.description ||
-            `Lerne ${skill.name}. ${skill.proficiencyLevel.level || ''} Niveau.`
-          }
-          keywords={[
-            skill.name,
-            skill.category.name || '',
-            skill.proficiencyLevel.level || '',
-            'Skill lernen',
-          ]}
+          description={skill.description || `Lerne ${skill.name}.`}
+          keywords={[skill.name, skill.category.name || '', 'Skill lernen']}
           type="article"
         />
       ) : null}

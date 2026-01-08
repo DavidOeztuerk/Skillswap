@@ -294,12 +294,6 @@ const HomePage: React.FC = () => {
                           color="primary"
                           variant="outlined"
                         />
-                        <Chip
-                          label={skill.proficiencyLevel.level}
-                          size="small"
-                          color="secondary"
-                          variant="outlined"
-                        />
                       </Box>
                     </CardContent>
 

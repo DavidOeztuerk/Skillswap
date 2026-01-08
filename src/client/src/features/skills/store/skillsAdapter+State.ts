@@ -1,8 +1,8 @@
 import { createEntityAdapter, type EntityId, type EntityState } from '@reduxjs/toolkit';
 import { withDefault } from '../../../shared/utils/safeAccess';
 import type { RequestState } from '../../../shared/types/common/RequestState';
-import type { SkillCategoryResponse, ProficiencyLevelResponse } from '../types/CreateSkillResponse';
-import type { Skill, SkillCategory, ProficiencyLevel } from '../types/Skill';
+import type { SkillCategoryResponse } from '../types/CreateSkillResponse';
+import type { Skill, SkillCategory } from '../types/Skill';
 import type {
   SkillStatistics,
   SkillRecommendation,
@@ -122,12 +122,6 @@ export const mapSkillResponseToSkill = (response: SkillSearchResultResponse): Sk
     iconName: response.category.iconName,
     color: response.category.color,
   },
-  proficiencyLevel: {
-    id: response.proficiencyLevel.levelId,
-    level: response.proficiencyLevel.level,
-    rank: withDefault(response.proficiencyLevel.rank, 0),
-    color: response.proficiencyLevel.color,
-  },
   // tagsJson is already a JSON string from the backend - pass it directly
   tagsJson: response.tagsJson,
   averageRating: withDefault(response.averageRating, 0),
@@ -159,12 +153,6 @@ export const mapUserSkillsResponseToSkill = (response: GetUserSkillResponse): Sk
     iconName: response.category.iconName,
     color: response.category.color,
   },
-  proficiencyLevel: {
-    id: response.proficiencyLevel.levelId,
-    level: response.proficiencyLevel.level,
-    rank: withDefault(response.proficiencyLevel.rank, 0),
-    color: response.proficiencyLevel.color,
-  },
   // tags is an array, convert to JSON string for consistency
   tagsJson: Array.isArray(response.tags) ? JSON.stringify(response.tags) : '',
   averageRating: withDefault(response.rating, 0),
@@ -178,14 +166,5 @@ export const mapCategoryResponse = (response: SkillCategoryResponse): SkillCateg
   id: response.categoryId,
   name: response.name,
   iconName: response.iconName,
-  color: response.color,
-});
-
-export const mapProficiencyLevelResponse = (
-  response: ProficiencyLevelResponse
-): ProficiencyLevel => ({
-  id: response.levelId,
-  level: response.level,
-  rank: response.rank,
   color: response.color,
 });

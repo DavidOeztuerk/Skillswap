@@ -86,7 +86,6 @@ export const SKILL_ENDPOINTS = {
   RATE_SKILL: BASE_SKILLS, // + /{skillId}/rate
   ENDORSE_SKILL: `${BASE_SKILLS}/skills`, // + /{skillId}/endorse
   CATEGORIES: `${BASE_SKILLS}/categories`,
-  PROFICIENCY_LEVELS: `${BASE_SKILLS}/proficiency-levels`,
   ANALYTICS_STATS: `${BASE_SKILLS}/analytics/statistics`,
   ANALYTICS_TAGS: `${BASE_SKILLS}/analytics/popular-tags`,
   RECOMMENDATIONS: `${BASE_SKILLS}/recommendations`,

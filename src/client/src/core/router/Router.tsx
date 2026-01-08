@@ -308,16 +308,6 @@ const adminRoutes = {
       loadingMessage: 'Skill-Kategorien werden geladen...',
     }
   ),
-
-  proficiencyLevels: createLazyRoute(
-    () => import('../../features/admin/pages/ProficiencyLevelsManagement'),
-    {
-      permissions: [Permissions.Skills.MANAGE_PROFICIENCY],
-      useSkeleton: true,
-      skeletonVariant: 'list',
-      loadingMessage: 'Proficiency Levels werden geladen...',
-    }
-  ),
 };
 
 // ============================================================================
@@ -576,10 +566,6 @@ const routes: RouteObject[] = [
               {
                 path: 'categories',
                 element: <adminRoutes.skillCategories.component />,
-              },
-              {
-                path: 'proficiency',
-                element: <adminRoutes.proficiencyLevels.component />,
               },
             ],
           },

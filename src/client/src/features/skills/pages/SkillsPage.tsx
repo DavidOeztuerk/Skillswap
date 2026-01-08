@@ -60,13 +60,6 @@ const mapSearchResultToSkill = (result: SkillSearchResultResponse): Skill => ({
     color: result.category.color,
     skillCount: result.category.skillCount,
   },
-  proficiencyLevel: {
-    id: result.proficiencyLevel.levelId,
-    level: result.proficiencyLevel.level,
-    rank: result.proficiencyLevel.rank,
-    color: result.proficiencyLevel.color,
-    skillCount: result.proficiencyLevel.skillCount,
-  },
   tagsJson: result.tagsJson,
   averageRating: result.averageRating,
   reviewCount: result.reviewCount,
@@ -84,7 +77,6 @@ const mapSearchResultToSkill = (result: SkillSearchResultResponse): Skill => ({
 const countActiveFilters = (filters: SkillFilters): number => {
   let count = 0;
   if (filters.categoryId) count++;
-  if (filters.proficiencyLevelId) count++;
   if (filters.isOffered === true || filters.isOffered === false) count++;
   if (filters.minRating != null && filters.minRating > 0) count++;
   if (filters.locationType) count++;
@@ -100,7 +92,6 @@ const parseFiltersFromParams = (searchParams: URLSearchParams): SkillFilters => 
   return {
     searchTerm: searchParams.get('q') ?? undefined,
     categoryId: searchParams.get('category') ?? undefined,
-    proficiencyLevelId: searchParams.get('level') ?? undefined,
     isOffered,
     minRating: searchParams.get('rating') ? Number(searchParams.get('rating')) : undefined,
     locationType: (searchParams.get('location') as SkillFilters['locationType']) ?? undefined,
@@ -119,7 +110,6 @@ const buildFilterParams = (filters: SkillFilters): URLSearchParams => {
   const mappings: [string, string | undefined, boolean][] = [
     ['q', filters.searchTerm, Boolean(filters.searchTerm)],
     ['category', filters.categoryId, Boolean(filters.categoryId)],
-    ['level', filters.proficiencyLevelId, Boolean(filters.proficiencyLevelId)],
     ['type', filters.isOffered ? 'offer' : 'seek', filters.isOffered !== undefined],
     ['rating', String(filters.minRating ?? ''), (filters.minRating ?? 0) > 0],
     ['location', filters.locationType, Boolean(filters.locationType)],
@@ -190,11 +180,10 @@ const getLoadingState = (
     isLoadingFavorites: boolean;
     isLoadingAll: boolean;
     isLoadingCategories: boolean;
-    isLoadingProficiencyLevels: boolean;
   }
 ): boolean => {
-  const { isLoadingCategories, isLoadingProficiencyLevels } = loadingStates;
-  const metadataLoading = isLoadingCategories || isLoadingProficiencyLevels;
+  const { isLoadingCategories } = loadingStates;
+  const metadataLoading = isLoadingCategories;
 
   if (isUserProfileView && showOnly === 'all') {
     return loadingStates.isLoadingUserProfile || metadataLoading;
@@ -384,18 +373,15 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
     userSkills,
     favoriteSkills,
     categories,
-    proficiencyLevels,
     isLoadingAll,
     isLoadingUser,
     isLoadingCategories,
-    isLoadingProficiencyLevels,
     isLoadingFavorites,
     error,
     // Actions (all memoized)
     fetchAllSkills,
     fetchUserSkills,
     fetchCategories,
-    fetchProficiencyLevels,
     fetchFavoriteSkills,
     createSkill,
     updateSkill,
@@ -518,10 +504,9 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
   // Note: These functions return void (fire-and-forget dispatch)
   const loadMetadata = useCallback((): void => {
     fetchCategories();
-    fetchProficiencyLevels();
     // Favorites loading is conditional but we call anyway - service handles auth
     fetchFavoriteSkills();
-  }, [fetchCategories, fetchProficiencyLevels, fetchFavoriteSkills]);
+  }, [fetchCategories, fetchFavoriteSkills]);
 
   // Helper to load user profile skills (extracted to reduce complexity)
   // ⚡ PERFORMANCE: Uses startTransition to keep UI responsive during data updates
@@ -533,7 +518,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
       pageSize: number;
       locationType?: 'remote' | 'in_person' | 'both';
       categoryId?: string;
-      proficiencyLevelId?: string;
     }): void => {
       // Set loading state immediately (high priority)
       setUserProfileState((prev) => ({ ...prev, isLoading: true }));
@@ -545,7 +529,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
           pageSize: params.pageSize,
           locationType: params.locationType,
           categoryId: params.categoryId,
-          proficiencyLevelId: params.proficiencyLevelId,
         })
         .then((response) => {
           // ⚡ CRITICAL: startTransition marks this update as LOW PRIORITY
@@ -595,7 +578,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
         pageSize,
         isOffered: filters.isOffered,
         categoryId: filters.categoryId,
-        proficiencyLevelId: filters.proficiencyLevelId,
         locationType: filters.locationType,
       });
       return;
@@ -616,7 +598,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
         pageSize,
         locationType: filters.locationType,
         categoryId: filters.categoryId,
-        proficiencyLevelId: filters.proficiencyLevelId,
       });
       return;
     }
@@ -642,7 +623,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
     filters.userId, // Only include userId for routing decision
     filters.isOffered,
     filters.categoryId,
-    filters.proficiencyLevelId,
     filters.locationType,
     filters.maxDistanceKm,
     pageNumber,
@@ -808,7 +788,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
       isLoadingFavorites,
       isLoadingAll,
       isLoadingCategories,
-      isLoadingProficiencyLevels,
     });
     // Include isPending from useTransition to show loading during filter changes
     return baseLoading || isPending;
@@ -818,7 +797,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
     isLoadingUser,
     isLoadingFavorites,
     isLoadingCategories,
-    isLoadingProficiencyLevels,
     isUserProfileView,
     isLoadingUserProfile,
     isPending,
@@ -943,7 +921,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
             >
               <SkillFilterSidebar
                 categories={categories}
-                proficiencyLevels={proficiencyLevels}
                 filters={filters}
                 onFilterChange={handleFilterChange}
                 onClearFilters={handleClearFilters}
@@ -1018,7 +995,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
           <Box sx={{ p: 2, overflowY: 'auto' }}>
             <SkillFilterSidebar
               categories={categories}
-              proficiencyLevels={proficiencyLevels}
               filters={filters}
               onFilterChange={handleMobileFilterChange}
               onClearFilters={handleMobileClearFilters}
@@ -1039,7 +1015,6 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
           open={isFormOpen}
           skill={selectedSkill}
           categories={categories}
-          proficiencyLevels={proficiencyLevels}
           loading={isLoading}
           userOfferedSkills={userSkills.filter((s) => s.isOffered)}
           onClose={() => {

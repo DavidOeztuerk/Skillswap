@@ -26,7 +26,6 @@ interface QuickSkillCreateProps {
   onClose: () => void;
   onSkillCreated: (skillId: string, skillName: string) => void;
   categories: { categoryId: string; name: string }[];
-  proficiencyLevels: { levelId: string; level: string }[];
 }
 
 const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
@@ -34,14 +33,12 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
   onClose,
   onSkillCreated,
   categories,
-  proficiencyLevels,
 }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<CreateSkillRequest>>({
     name: '',
     description: '',
     categoryId: '',
-    proficiencyLevelId: '',
     isOffered: true, // Standard: Skill wird angeboten
     tags: [],
   });
@@ -59,9 +56,6 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
     if (!formData.categoryId) {
       newErrors.categoryId = 'Kategorie ist erforderlich';
     }
-    if (!formData.proficiencyLevelId) {
-      newErrors.proficiencyLevelId = 'Kenntnisstand ist erforderlich';
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -73,7 +67,6 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
         name: '',
         description: '',
         categoryId: '',
-        proficiencyLevelId: '',
         isOffered: true,
         tags: [],
       });
@@ -175,30 +168,6 @@ const QuickSkillCreate: React.FC<QuickSkillCreateProps> = ({
               ))}
             </Select>
             {errors.categoryId ? <FormHelperText>{errors.categoryId}</FormHelperText> : null}
-          </FormControl>
-
-          <FormControl fullWidth required error={!!errors.proficiencyLevelId}>
-            <InputLabel>Dein Kenntnisstand</InputLabel>
-            <Select
-              value={formData.proficiencyLevelId}
-              onChange={(e) => {
-                handleChange('proficiencyLevelId', e.target.value);
-              }}
-              label="Dein Kenntnisstand"
-              disabled={loading}
-            >
-              <MenuItem value="">
-                <em>Kenntnisstand wählen</em>
-              </MenuItem>
-              {proficiencyLevels.map((level) => (
-                <MenuItem key={level.levelId} value={level.levelId}>
-                  {level.level}
-                </MenuItem>
-              ))}
-            </Select>
-            {errors.proficiencyLevelId ? (
-              <FormHelperText>{errors.proficiencyLevelId}</FormHelperText>
-            ) : null}
           </FormControl>
 
           <TextField

@@ -25,7 +25,7 @@ import { useAuth } from '../../auth/hooks/useAuth';
 import { SchedulingSection, ExchangeSection, LocationSection } from './SkillFormSections';
 import SkillImageSection, { type ImageOption } from './SkillImageSection';
 import type { CreateSkillRequest } from '../types/CreateSkillRequest';
-import type { ProficiencyLevel, Skill, SkillCategory } from '../types/Skill';
+import type { Skill, SkillCategory } from '../types/Skill';
 
 // =============================================================================
 // TYPES
@@ -36,7 +36,6 @@ interface SkillFormProps {
   onClose: () => void;
   onSubmit: (skillData: CreateSkillRequest, skillId?: string) => void;
   categories: SkillCategory[];
-  proficiencyLevels: ProficiencyLevel[];
   loading: boolean;
   skill?: Skill;
   title?: string;
@@ -53,7 +52,6 @@ const getDefaultFormValues = (): CreateSkillRequest => ({
   name: '',
   description: '',
   categoryId: '',
-  proficiencyLevelId: '',
   isOffered: true,
   tags: [],
   // Image
@@ -105,9 +103,6 @@ const validateBasicFields = (
 
   if (!formValues.categoryId) {
     errors.categoryId = 'Kategorie ist erforderlich';
-  }
-  if (!formValues.proficiencyLevelId) {
-    errors.proficiencyLevelId = 'Fertigkeitsstufe ist erforderlich';
   }
 
   return errors;
@@ -171,7 +166,6 @@ const initializeFormFromSkill = (skill: Skill): CreateSkillRequest => ({
   name: skill.name,
   description: skill.description,
   categoryId: skill.category.id,
-  proficiencyLevelId: skill.proficiencyLevel.id,
   isOffered: skill.isOffered,
   tags: skill.tagsJson ? (JSON.parse(skill.tagsJson) as string[]) : [],
   exchangeType: skill.exchangeType ?? 'skill_exchange',
@@ -201,7 +195,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
   onClose,
   onSubmit,
   categories,
-  proficiencyLevels,
   loading,
   skill,
   title,
@@ -362,7 +355,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
         description: formValues.description.trim(),
         isOffered: formValues.isOffered,
         categoryId: formValues.categoryId,
-        proficiencyLevelId: formValues.proficiencyLevelId,
         tags: formValues.tags,
         // Exchange
         exchangeType: formValues.exchangeType,
@@ -398,7 +390,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
   };
 
   const hasCategories = Array.isArray(categories) && categories.length > 0;
-  const hasProficiencyLevels = Array.isArray(proficiencyLevels) && proficiencyLevels.length > 0;
 
   // Calculate total duration
   const totalDuration = (formValues.sessionDurationMinutes ?? 60) * (formValues.totalSessions ?? 1);
@@ -421,7 +412,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
             type="submit"
             variant="contained"
             color="primary"
-            disabled={loading || !hasCategories || !hasProficiencyLevels}
+            disabled={loading || !hasCategories}
             startIcon={loading ? <CircularProgress size={20} /> : undefined}
             form="skill-form"
           >
@@ -558,38 +549,6 @@ const SkillForm: React.FC<SkillFormProps> = ({
               )}
             </Select>
             {errors.categoryId ? <FormHelperText>{errors.categoryId}</FormHelperText> : null}
-          </FormControl>
-
-          <FormControl
-            fullWidth
-            error={!!errors.proficiencyLevelId}
-            disabled={loading || !hasProficiencyLevels}
-            margin="normal"
-            required
-          >
-            <InputLabel id="proficiency-select-label">Fertigkeitsstufe</InputLabel>
-            <Select
-              labelId="proficiency-select-label"
-              name="proficiencyLevelId"
-              value={formValues.proficiencyLevelId}
-              onChange={handleFieldChange}
-              label="Fertigkeitsstufe"
-            >
-              {hasProficiencyLevels ? (
-                [...proficiencyLevels]
-                  .sort((a, b) => a.rank - b.rank)
-                  .map((level) => (
-                    <MenuItem key={level.id} value={level.id}>
-                      {level.level} {level.rank > 0 ? `(${'★'.repeat(level.rank)})` : ''}
-                    </MenuItem>
-                  ))
-              ) : (
-                <MenuItem disabled>Fertigkeitsstufen werden geladen...</MenuItem>
-              )}
-            </Select>
-            {errors.proficiencyLevelId ? (
-              <FormHelperText>{errors.proficiencyLevelId}</FormHelperText>
-            ) : null}
           </FormControl>
 
           {/* Tags Input */}
