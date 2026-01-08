@@ -52,8 +52,9 @@ import LoadingButton from '../../../shared/components/ui/LoadingButton';
 import ProfileAvatar from '../../../shared/components/ui/ProfileAvatar';
 import { isSuccessResponse } from '../../../shared/types/api/UnifiedResponse';
 import useAuth from '../../auth/hooks/useAuth';
-import type { UserExperienceResponse, UserEducationResponse } from '../types';
+import ProfileCompletenessBar from '../components/ProfileCompletenessBar';
 import SocialConnectionsTab from '../components/SocialConnectionsTab';
+import type { UserExperienceResponse, UserEducationResponse } from '../types';
 
 // ============================================================================
 // Schemas
@@ -773,6 +774,21 @@ const ProfilePage: React.FC = () => {
         title="Mein Profil"
         subtitle="Persönliche Informationen und Qualifikationen verwalten"
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Profil' }]}
+      />
+
+      {/* Profile Completeness Bar (Phase 13) */}
+      <ProfileCompletenessBar
+        onActionClick={(actionUrl) => {
+          // Navigate to the relevant section based on actionUrl
+          const hash = actionUrl.split('#')[1];
+          if (hash === 'experience' || hash === 'education') {
+            setActiveTab(1); // Experience & Education tab
+          } else if (hash === 'connections' || hash === 'skills') {
+            setActiveTab(2); // LinkedIn & Xing tab
+          } else {
+            setActiveTab(0); // Personal data tab
+          }
+        }}
       />
 
       {statusMessage ? (

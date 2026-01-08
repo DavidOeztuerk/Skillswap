@@ -171,6 +171,14 @@ public static class UserProfileControllerExtensions
             .Produces(400)
             .Produces(401);
 
+        // Profile Completeness endpoint (Phase 13)
+        profile.MapGet("/completeness", HandleGetProfileCompleteness)
+            .WithName("GetProfileCompleteness")
+            .WithSummary("Get profile completeness")
+            .WithDescription("Gets the current user's profile completeness score and suggestions for improvement")
+            .Produces<ProfileCompletenessResponse>(200)
+            .Produces(401);
+
         static async Task<IResult> HandleGetUserProfile(IMediator mediator, ClaimsPrincipal user)
         {
             var userId = user.GetUserId();
@@ -384,6 +392,16 @@ public static class UserProfileControllerExtensions
                 ReviewerId = reviewerId
             };
             return await mediator.SendCommand(command);
+        }
+
+        // Profile Completeness handler (Phase 13)
+        static async Task<IResult> HandleGetProfileCompleteness(IMediator mediator, ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+            if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+            var query = new GetProfileCompletenessQuery(Guid.Parse(userId));
+            return await mediator.SendQuery(query);
         }
 
         return profile;

@@ -15,6 +15,38 @@ export interface DeleteAvatarResponse {
   message: string;
 }
 
+// Profile Completeness Types (Phase 13)
+export interface ProfileCompletenessItem {
+  key: string;
+  label: string;
+  isCompleted: boolean;
+  weight: number;
+  points: number;
+  hint?: string;
+  actionUrl?: string;
+  icon?: string;
+}
+
+export type ProfileCompletenessLevel =
+  | 'Beginner'
+  | 'Basic'
+  | 'Intermediate'
+  | 'Advanced'
+  | 'Expert';
+
+export interface ProfileCompletenessResponse {
+  userId: string;
+  percentage: number;
+  totalPoints: number;
+  earnedPoints: number;
+  completedCount: number;
+  totalCount: number;
+  level: ProfileCompletenessLevel;
+  items: ProfileCompletenessItem[];
+  suggestedActions: ProfileCompletenessItem[];
+  calculatedAt: string;
+}
+
 /**
  * Service for public profile operations
  */
@@ -107,6 +139,13 @@ export const profileService = {
    */
   async deleteAvatar(): Promise<ApiResponse<DeleteAvatarResponse>> {
     return apiClient.delete<DeleteAvatarResponse>('/api/users/profile/avatar');
+  },
+
+  /**
+   * Get profile completeness score and suggestions (Phase 13)
+   */
+  async getProfileCompleteness(): Promise<ApiResponse<ProfileCompletenessResponse>> {
+    return apiClient.get<ProfileCompletenessResponse>('/api/users/profile/completeness');
   },
 };
 
