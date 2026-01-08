@@ -36,6 +36,9 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
     public DbSet<UserLoginHistory> UserLoginHistories => Set<UserLoginHistory>();
     public DbSet<UserPasswordReset> UserPasswordResets => Set<UserPasswordReset>();
 
+    // Phase 5: Denormalized statistics
+    public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -66,6 +69,9 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         ConfigureUserVerification(modelBuilder);
         ConfigureUserLoginHistory(modelBuilder);
         ConfigureUserPasswordReset(modelBuilder);
+
+        // Phase 5: Configure statistics
+        ConfigureUserStatistics(modelBuilder);
 
         Seed(modelBuilder);
     }
@@ -225,6 +231,12 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasOne(x => x.PasswordReset)
          .WithOne(x => x.User)
          .HasForeignKey<UserPasswordReset>(x => x.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+        // Phase 5: Statistics
+        e.HasOne(x => x.Statistics)
+         .WithOne(x => x.User)
+         .HasForeignKey<UserStatistics>(x => x.UserId)
          .OnDelete(DeleteBehavior.Cascade);
     }
 
@@ -884,6 +896,59 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         // Index for token lookup
         e.HasIndex(x => x.ResetToken)
             .HasDatabaseName("IX_UserPasswordResets_Token");
+
+        // Soft delete filter
+        e.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    // ============================================================================
+    // PHASE 5: DENORMALIZED STATISTICS
+    // ============================================================================
+
+    private static void ConfigureUserStatistics(ModelBuilder mb)
+    {
+        var e = mb.Entity<UserStatistics>();
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).HasMaxLength(450).ValueGeneratedOnAdd();
+        e.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+
+        // Experience
+        e.Property(x => x.TotalExperienceMonths).HasDefaultValue(0);
+        e.Property(x => x.ExperienceCount).HasDefaultValue(0);
+        e.Property(x => x.PrimaryJobTitle).HasMaxLength(200);
+        e.Property(x => x.PrimaryIndustry).HasMaxLength(200);
+
+        // Skills
+        e.Property(x => x.SkillsOfferedCount).HasDefaultValue(0);
+        e.Property(x => x.SkillsWantedCount).HasDefaultValue(0);
+        e.Property(x => x.TotalEndorsementsReceived).HasDefaultValue(0);
+
+        // Matches & Sessions
+        e.Property(x => x.MatchesCompletedCount).HasDefaultValue(0);
+        e.Property(x => x.SessionsCompletedCount).HasDefaultValue(0);
+        e.Property(x => x.TotalSessionHours).HasPrecision(10, 2).HasDefaultValue(0);
+
+        // Reviews
+        e.Property(x => x.AverageRating).HasPrecision(3, 2);
+        e.Property(x => x.ReviewsReceivedCount).HasDefaultValue(0);
+        e.Property(x => x.ReviewsGivenCount).HasDefaultValue(0);
+
+        // Activity
+        e.Property(x => x.ProfileViewCount).HasDefaultValue(0);
+
+        e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
+        e.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+        // Unique constraint on UserId
+        e.HasIndex(x => x.UserId).IsUnique();
+
+        // Indexes for filtering
+        e.HasIndex(x => x.TotalExperienceMonths)
+            .HasDatabaseName("IX_UserStatistics_Experience");
+        e.HasIndex(x => x.AverageRating)
+            .HasDatabaseName("IX_UserStatistics_Rating");
+        e.HasIndex(x => new { x.TotalExperienceMonths, x.AverageRating })
+            .HasDatabaseName("IX_UserStatistics_ExperienceRating");
 
         // Soft delete filter
         e.HasQueryFilter(x => !x.IsDeleted);

@@ -47,7 +47,14 @@ public record SearchSkillsRequest(
 
     double? UserLatitude = null,
 
-    double? UserLongitude = null)
+    double? UserLongitude = null,
+
+    // Experience filters (Phase 5)
+    [Range(0, 50, ErrorMessage = "Minimum experience must be between 0 and 50 years")]
+    int? MinExperienceYears = null,
+
+    [Range(0, 50, ErrorMessage = "Maximum experience must be between 0 and 50 years")]
+    int? MaxExperienceYears = null)
     : IVersionedContract
 {
     /// <summary>

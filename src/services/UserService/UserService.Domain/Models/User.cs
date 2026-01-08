@@ -128,6 +128,9 @@ public class User : AuditableEntity
     public virtual UserLoginHistory? LoginHistory { get; set; }
     public virtual UserPasswordReset? PasswordReset { get; set; }
 
+    // Phase 5: Denormalized statistics for performance
+    public virtual UserStatistics? Statistics { get; set; }
+
     // Computed properties
     public string FullName => $"{FirstName} {LastName}".Trim();
     public bool IsAccountLocked => AccountLockedUntil.HasValue && AccountLockedUntil > DateTime.UtcNow;

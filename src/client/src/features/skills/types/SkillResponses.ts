@@ -152,6 +152,9 @@ export interface SkillSearchParams {
   maxDistanceKm?: number;
   userLatitude?: number;
   userLongitude?: number;
+  // Experience filters (Phase 5)
+  minExperienceYears?: number;
+  maxExperienceYears?: number;
   // User filter (for viewing another user's skills)
   userId?: string;
 }

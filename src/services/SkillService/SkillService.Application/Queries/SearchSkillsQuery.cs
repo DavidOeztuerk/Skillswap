@@ -19,7 +19,10 @@ public record SearchSkillsQuery(
     string? LocationType = null,
     int? MaxDistanceKm = null,
     double? UserLatitude = null,
-    double? UserLongitude = null)
+    double? UserLongitude = null,
+    // Experience filters (Phase 5)
+    int? MinExperienceYears = null,
+    int? MaxExperienceYears = null)
     : IPagedQuery<SkillSearchResultResponse>, ICacheableQuery
 {
     public int PageNumber { get; set; } = PageNumber;
@@ -27,7 +30,7 @@ public record SearchSkillsQuery(
 
     // Include UserId in cache key to ensure user-specific results are cached separately
     // This prevents users from getting cached results meant for other users
-    public string CacheKey => $"skills-search:{UserId}:{SearchTerm ?? ""}:{CategoryId ?? ""}:{IsOffered?.ToString() ?? ""}:{(Tags != null && Tags.Count > 0 ? string.Join(",", Tags) : "")}:{LocationType ?? ""}:{MaxDistanceKm?.ToString() ?? ""}:{PageNumber}:{PageSize}";
+    public string CacheKey => $"skills-search:{UserId}:{SearchTerm ?? ""}:{CategoryId ?? ""}:{IsOffered?.ToString() ?? ""}:{(Tags != null && Tags.Count > 0 ? string.Join(",", Tags) : "")}:{LocationType ?? ""}:{MaxDistanceKm?.ToString() ?? ""}:{MinExperienceYears?.ToString() ?? ""}:{MaxExperienceYears?.ToString() ?? ""}:{PageNumber}:{PageSize}";
     public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 
@@ -53,7 +56,9 @@ public record SkillSearchResultResponse(
     // Owner info
     string? OwnerUserName,
     string? OwnerFirstName,
-    string? OwnerLastName);
+    string? OwnerLastName,
+    // Owner experience (Phase 5)
+    int? OwnerExperienceYears);
 
 public class SearchSkillsQueryValidator : AbstractValidator<SearchSkillsQuery>
 {
@@ -85,6 +90,20 @@ public class SearchSkillsQueryValidator : AbstractValidator<SearchSkillsQuery>
 
         RuleFor(x => x.PageSize)
             .InclusiveBetween(1, 100).WithMessage("Page size must be between 1 and 100");
+
+        // Experience filter validation (Phase 5)
+        RuleFor(x => x.MinExperienceYears)
+            .InclusiveBetween(0, 50).WithMessage("Minimum experience must be between 0 and 50 years")
+            .When(x => x.MinExperienceYears.HasValue);
+
+        RuleFor(x => x.MaxExperienceYears)
+            .InclusiveBetween(0, 50).WithMessage("Maximum experience must be between 0 and 50 years")
+            .When(x => x.MaxExperienceYears.HasValue);
+
+        RuleFor(x => x)
+            .Must(x => !x.MinExperienceYears.HasValue || !x.MaxExperienceYears.HasValue ||
+                       x.MinExperienceYears <= x.MaxExperienceYears)
+            .WithMessage("Minimum experience cannot be greater than maximum experience");
     }
 
     private static bool BeValidSortField(string? sortBy)

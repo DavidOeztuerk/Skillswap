@@ -32,7 +32,7 @@ import {
   Badge,
   type SelectChangeEvent,
 } from '@mui/material';
-import { type SkillFilters, DISTANCE_OPTIONS, SORT_OPTIONS } from '../types/SkillFilter';
+import { type SkillFilters, DISTANCE_OPTIONS, SORT_OPTIONS, EXPERIENCE_OPTIONS } from '../types/SkillFilter';
 import type { SkillCategory } from '../types/Skill';
 
 interface SkillFilterSidebarProps {
@@ -67,6 +67,9 @@ const countActiveFilters = (filters: SkillFilters): number => {
   if (filters.minRating != null && filters.minRating > 0) count++;
   if (filters.locationType) count++;
   if (filters.maxDistanceKm != null && filters.maxDistanceKm > 0) count++;
+  // Experience filters (Phase 5)
+  if (filters.minExperienceYears != null && filters.minExperienceYears > 0) count++;
+  if (filters.maxExperienceYears != null) count++;
   return count;
 };
 
@@ -90,6 +93,8 @@ const useFilterHandlers = (
   handleLocationTypeChange: (event: SelectChangeEvent) => void;
   handleDistanceChange: (event: SelectChangeEvent) => void;
   handleSortChange: (event: SelectChangeEvent) => void;
+  handleMinExperienceChange: (event: SelectChangeEvent) => void;
+  handleMaxExperienceChange: (event: SelectChangeEvent) => void;
 } => {
   // Use refs to access current values without recreating callbacks
   const filtersRef = React.useRef(filters);
@@ -185,6 +190,25 @@ const useFilterHandlers = (
     });
   }, []);
 
+  // Experience filter handlers (Phase 5)
+  const handleMinExperienceChange = useCallback((event: SelectChangeEvent) => {
+    const val = event.target.value;
+    const minExperienceYears = val && val !== 'none' ? Number(val) : undefined;
+    onFilterChangeRef.current({
+      ...filtersRef.current,
+      minExperienceYears,
+    });
+  }, []);
+
+  const handleMaxExperienceChange = useCallback((event: SelectChangeEvent) => {
+    const val = event.target.value;
+    const maxExperienceYears = val && val !== 'none' ? Number(val) : undefined;
+    onFilterChangeRef.current({
+      ...filtersRef.current,
+      maxExperienceYears,
+    });
+  }, []);
+
   return {
     handleCategoryChange,
     handleIsOfferedChange,
@@ -192,6 +216,8 @@ const useFilterHandlers = (
     handleLocationTypeChange,
     handleDistanceChange,
     handleSortChange,
+    handleMinExperienceChange,
+    handleMaxExperienceChange,
   };
 };
 
@@ -250,6 +276,8 @@ const SkillFilterSidebar: React.FC<SkillFilterSidebarProps> = memo(
       handleLocationTypeChange,
       handleDistanceChange,
       handleSortChange,
+      handleMinExperienceChange,
+      handleMaxExperienceChange,
     } = useFilterHandlers(filters, onFilterChange, onClearLocation);
 
     const isOfferedValue = useMemo(() => {
@@ -427,6 +455,48 @@ const SkillFilterSidebar: React.FC<SkillFilterSidebarProps> = memo(
             )}
           </Box>
         </FilterSection>
+
+        {/* Experience Filter (Phase 5) - Only shown in 'all' view */}
+        {viewMode === 'all' ? (
+          <FilterSection label="Berufserfahrung">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <FormControl size="small" fullWidth>
+                <InputLabel id="sidebar-min-experience-label">Mindestens</InputLabel>
+                <Select
+                  labelId="sidebar-min-experience-label"
+                  value={filters.minExperienceYears?.toString() ?? 'none'}
+                  onChange={handleMinExperienceChange}
+                  label="Mindestens"
+                  disabled={loading}
+                >
+                  <MenuItem value="none">Beliebig</MenuItem>
+                  {EXPERIENCE_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value.toString()}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" fullWidth>
+                <InputLabel id="sidebar-max-experience-label">Höchstens</InputLabel>
+                <Select
+                  labelId="sidebar-max-experience-label"
+                  value={filters.maxExperienceYears?.toString() ?? 'none'}
+                  onChange={handleMaxExperienceChange}
+                  label="Höchstens"
+                  disabled={loading}
+                >
+                  <MenuItem value="none">Beliebig</MenuItem>
+                  {EXPERIENCE_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value.toString()}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </FilterSection>
+        ) : null}
 
         {/* Sort */}
         <FilterSection label="Sortierung">
