@@ -207,8 +207,10 @@ namespace MatchmakingService.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("Pending");
 
                     b.Property<string>("TargetUserId")
                         .IsRequired()
@@ -219,7 +221,7 @@ namespace MatchmakingService.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
 
-                    b.Property<int?>("TotalSessions")
+                    b.Property<int>("TotalSessions")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")

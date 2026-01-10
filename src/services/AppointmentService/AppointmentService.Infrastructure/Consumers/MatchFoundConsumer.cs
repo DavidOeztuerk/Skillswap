@@ -1,4 +1,5 @@
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Infrastructure.Data;
 using Events.Integration.Communication;
 using MassTransit;
@@ -20,7 +21,7 @@ public class MatchFoundConsumer(
             ScheduledDate = DateTime.UtcNow.AddDays(3),
             CreatedBy = context.Message.SkillSearcherId,
             ParticipantUserId = context.Message.SkillCreatorId,
-            Status = "Pending"
+            Status = SessionAppointmentStatus.Pending
         };
 
         _dbContext.SessionAppointments.Add(appointment);

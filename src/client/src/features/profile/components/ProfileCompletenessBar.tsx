@@ -48,16 +48,33 @@ const iconMap: Record<string, React.ReactNode> = {
   Link: <LinkIcon />,
 };
 
-// Level colors and labels
+// Level colors and labels - describes profile completion progress
 const levelConfig: Record<
   ProfileCompletenessLevel,
   { color: 'error' | 'warning' | 'info' | 'success'; label: string }
 > = {
-  Beginner: { color: 'error', label: 'Anfänger' },
-  Basic: { color: 'warning', label: 'Basis' },
-  Intermediate: { color: 'info', label: 'Fortgeschritten' },
-  Advanced: { color: 'success', label: 'Profi' },
-  Expert: { color: 'success', label: 'Experte' },
+  GettingStarted: { color: 'error', label: 'Gerade angefangen' },
+  MakingProgress: { color: 'warning', label: 'Auf gutem Weg' },
+  GoodProgress: { color: 'info', label: 'Guter Fortschritt' },
+  AlmostThere: { color: 'success', label: 'Fast fertig' },
+  Complete: { color: 'success', label: 'Vollständig' },
+};
+
+// Map numeric enum values to string keys (backend sends 0, 1, 2, 3, 4)
+const numericToStringLevel: Record<number, ProfileCompletenessLevel> = {
+  0: 'GettingStarted',
+  1: 'MakingProgress',
+  2: 'GoodProgress',
+  3: 'AlmostThere',
+  4: 'Complete',
+};
+
+// Helper to get level info regardless of numeric or string value
+const getLevelInfo = (
+  level: ProfileCompletenessLevel | number
+): { color: 'error' | 'warning' | 'info' | 'success'; label: string } => {
+  const stringLevel = typeof level === 'number' ? numericToStringLevel[level] : level;
+  return levelConfig[stringLevel];
 };
 
 interface ProfileCompletenessBarProps {
@@ -67,12 +84,15 @@ interface ProfileCompletenessBarProps {
   onActionClick?: (actionUrl: string) => void;
   /** Whether to show only the progress bar (compact mode) */
   compact?: boolean;
+  /** Key to trigger refresh - change this value to reload completeness data */
+  refreshKey?: number;
 }
 
 const ProfileCompletenessBar: React.FC<ProfileCompletenessBarProps> = ({
   defaultExpanded = false,
   onActionClick,
   compact = false,
+  refreshKey = 0,
 }) => {
   const [data, setData] = useState<ProfileCompletenessResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,9 +117,10 @@ const ProfileCompletenessBar: React.FC<ProfileCompletenessBarProps> = ({
     }
   }, []);
 
+  // Reload when refreshKey changes (e.g., after profile update)
   useEffect(() => {
     void fetchCompleteness();
-  }, [fetchCompleteness]);
+  }, [fetchCompleteness, refreshKey]);
 
   const handleItemClick = (item: ProfileCompletenessItem): void => {
     if (!item.isCompleted && item.actionUrl && onActionClick) {
@@ -137,7 +158,7 @@ const ProfileCompletenessBar: React.FC<ProfileCompletenessBarProps> = ({
     return null;
   }
 
-  const levelInfo = levelConfig[data.level];
+  const levelInfo = getLevelInfo(data.level);
 
   // Compact mode - just the progress bar
   if (compact) {

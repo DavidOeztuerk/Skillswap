@@ -5,6 +5,7 @@ import auth from '../../features/auth/store/authSlice';
 import chat from '../../features/chat/store/chatSlice';
 import matchmaking from '../../features/matchmaking/store/matchmakingSlice';
 import notifications from '../../features/notifications/store/notificationSlice';
+import payment from '../../features/payments/store/paymentSlice';
 import profile from '../../features/profile/store/profileSlice';
 import socialConnections from '../../features/profile/store/socialConnectionsSlice';
 import search from '../../features/search/store/searchSlice';
@@ -31,6 +32,7 @@ export const store = configureStore({
     notifications,
     admin,
     chat,
+    payment,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

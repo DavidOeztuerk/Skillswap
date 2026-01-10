@@ -14,9 +14,8 @@ public static class SkillSeedData
         await SeedSkillCategoriesAsync(context);
         await context.SaveChangesAsync();
 
-        // Seed Proficiency Levels
-        await SeedProficiencyLevelsAsync(context);
-        await context.SaveChangesAsync();
+        // Note: ProficiencyLevels seeding removed - ProficiencyLevel entity no longer exists in SkillService
+        // Proficiency is now handled differently in the new skill hierarchy (Category -> Subcategory -> Topic)
     }
 
     private static async Task SeedSkillCategoriesAsync(SkillDbContext context)
@@ -111,119 +110,6 @@ public static class SkillSeedData
         }
     }
 
-    private static async Task SeedProficiencyLevelsAsync(SkillDbContext context)
-    {
-        var levels = new List<(string Level, string Description, int Rank, string Color)>
-        {
-            ("Beginner", 
-             "Just starting to learn this skill. Can handle basic tasks with guidance.", 
-             1, "#4CAF50"),
-            
-            ("Elementary", 
-             "Have basic knowledge and can perform simple tasks independently.", 
-             2, "#8BC34A"),
-            
-            ("Intermediate", 
-             "Comfortable with common tasks and can handle moderate complexity.", 
-             3, "#FFC107"),
-            
-            ("Advanced", 
-             "Strong expertise, can handle complex tasks and teach others.", 
-             4, "#FF9800"),
-            
-            ("Expert", 
-             "Master level expertise with deep knowledge and extensive experience.", 
-             5, "#F44336"),
-            
-            ("Professional", 
-             "Industry professional with proven track record and certifications.", 
-             6, "#9C27B0")
-        };
-
-        foreach (var (level, description, rank, color) in levels)
-        {
-            var exists = await context.ProficiencyLevels.AnyAsync(p => p.Level == level);
-            if (!exists)
-            {
-                context.ProficiencyLevels.Add(new ProficiencyLevel
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    Level = level,
-                    Description = description,
-                    Rank = rank,
-                    Color = color,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
-        }
-    }
-
-    // /// <summary>
-    // /// Seeds sample skills for testing (optional - call only in development)
-    // /// </summary>
-    // public static async Task SeedSampleSkillsAsync(SkillDbContext context, string? testUserId = null)
-    // {
-    //     if (string.IsNullOrEmpty(testUserId))
-    //         return;
-
-    //     // Get some categories and levels for sample data
-    //     var programmingCategory = await context.SkillCategories
-    //         .FirstOrDefaultAsync(c => c.Name == "Programming");
-        
-    //     var webDevCategory = await context.SkillCategories
-    //         .FirstOrDefaultAsync(c => c.Name == "Web Development");
-        
-    //     var intermediateLevel = await context.ProficiencyLevels
-    //         .FirstOrDefaultAsync(p => p.Level == "Intermediate");
-        
-    //     var advancedLevel = await context.ProficiencyLevels
-    //         .FirstOrDefaultAsync(p => p.Level == "Advanced");
-
-    //     if (programmingCategory == null || webDevCategory == null || 
-    //         intermediateLevel == null || advancedLevel == null)
-    //         return;
-
-    //     var sampleSkills = new List<(string Name, string Description, string CategoryId, string LevelId, string Requirements)>
-    //     {
-    //         ("C# Programming", 
-    //          "Experienced in C# development including .NET Core, ASP.NET, and Entity Framework", 
-    //          programmingCategory.Id, 
-    //          advancedLevel.Id,
-    //          "Basic understanding of object-oriented programming"),
-            
-    //         ("React Development", 
-    //          "Building modern web applications with React, Redux, and TypeScript", 
-    //          webDevCategory.Id, 
-    //          intermediateLevel.Id,
-    //          "HTML, CSS, JavaScript fundamentals")
-    //     };
-
-    //     foreach (var (name, description, categoryId, levelId, requirements) in sampleSkills)
-    //     {
-    //         var exists = await context.Skills
-    //             .AnyAsync(s => s.UserId == testUserId && s.Name == name);
-            
-    //         if (!exists)
-    //         {
-    //             context.Skills.Add(new Skill
-    //             {
-    //                 Id = Guid.NewGuid().ToString(),
-    //                 UserId = testUserId,
-    //                 Name = name,
-    //                 Description = description,
-    //                 SkillCategoryId = categoryId,
-    //                 ProficiencyLevelId = levelId,
-    //                 Requirements = requirements,
-    //                 IsActive = true,
-    //                 IsVerified = false,
-    //                 AverageRating = 0,
-    //                 TotalReviews = 0,
-    //                 CreatedAt = DateTime.UtcNow
-    //             });
-    //         }
-    //     }
-
-    //     await context.SaveChangesAsync();
-    // }
+    // Note: SeedProficiencyLevelsAsync method removed - ProficiencyLevel entity no longer exists in SkillService
+    // The new skill hierarchy (Category -> Subcategory -> Topic) replaces the old category + proficiency model
 }

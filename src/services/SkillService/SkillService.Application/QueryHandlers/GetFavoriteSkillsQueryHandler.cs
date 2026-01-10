@@ -37,11 +37,19 @@ public class GetFavoriteSkillsQueryHandler(
         Logger.LogDebug("Fetched {ProfileCount} user profiles for {UserCount} unique users",
             userProfiles.Count, userIds.Count());
 
+        // Fetch boost status for all skills (Phase 15)
+        var skillIds = skills.Select(s => s.Id).ToList();
+        var boostStatusMap = await _unitOfWork.Listings.GetBoostStatusForSkillsAsync(skillIds, cancellationToken);
+
         // Map to response DTOs
         var skillResponses = skills.Select(s =>
         {
             // Get owner profile if available
             userProfiles.TryGetValue(s.UserId, out var ownerProfile);
+
+            // Get boost status (Phase 15)
+            boostStatusMap.TryGetValue(s.Id, out var boostStatus);
+            var (isBoosted, isCurrentlyBoosted) = boostStatus;
 
             return new SkillSearchResultResponse(
                 s.Id,
@@ -50,17 +58,10 @@ public class GetFavoriteSkillsQueryHandler(
                 s.Description,
                 s.IsOffered,
                 new SkillCategoryResponse(
-                    s.SkillCategory.Id,
-                    s.SkillCategory.Name,
-                    s.SkillCategory.IconName,
-                    s.SkillCategory.Color,
-                    0 // Count removed to avoid N+1 query
-                ),
-                new ProficiencyLevelResponse(
-                    s.ProficiencyLevel.Id,
-                    s.ProficiencyLevel.Level,
-                    s.ProficiencyLevel.Rank,
-                    s.ProficiencyLevel.Color,
+                    s.Topic?.Id ?? s.SkillTopicId,
+                    s.Topic?.FullPath ?? "Unknown",
+                    s.Topic?.IconName ?? "",
+                    s.Category?.Color ?? "",
                     0 // Count removed to avoid N+1 query
                 ),
                 s.TagsJson ?? string.Empty,
@@ -78,7 +79,12 @@ public class GetFavoriteSkillsQueryHandler(
                 // Owner info from user profile
                 ownerProfile?.UserName,
                 ownerProfile?.FirstName,
-                ownerProfile?.LastName
+                ownerProfile?.LastName,
+                // Owner experience (Phase 5)
+                null,
+                // Boost info (Phase 15)
+                isBoosted,
+                isCurrentlyBoosted
             );
         }).ToList();
 

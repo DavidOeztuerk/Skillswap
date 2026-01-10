@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { LocalOffer as OfferIcon, Search as SearchIcon } from '@mui/icons-material';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  LocalOffer as OfferIcon,
+  Search as SearchIcon,
+  Star as StarIcon,
+} from '@mui/icons-material';
 import {
   Box,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormHelperText,
   Button,
   Typography,
   CircularProgress,
@@ -25,7 +24,68 @@ import { useAuth } from '../../auth/hooks/useAuth';
 import { SchedulingSection, ExchangeSection, LocationSection } from './SkillFormSections';
 import SkillImageSection, { type ImageOption } from './SkillImageSection';
 import type { CreateSkillRequest } from '../types/CreateSkillRequest';
+import type { FlattenedTopicOption } from '../types/CreateSkillResponse';
 import type { Skill, SkillCategory } from '../types/Skill';
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Builds display path for a topic, skipping duplicate names
+ */
+const buildTopicPath = (
+  categoryName: string,
+  subcategoryName: string,
+  topicName: string
+): string => {
+  const parts: string[] = [categoryName];
+  if (subcategoryName !== categoryName) parts.push(subcategoryName);
+  if (topicName !== subcategoryName && topicName !== categoryName) parts.push(topicName);
+  return parts.join(' > ');
+};
+
+/**
+ * Sort comparator for flattened topics
+ * Sorts by: Category → Subcategory → Featured → Topic Name
+ */
+const compareTopics = (a: FlattenedTopicOption, b: FlattenedTopicOption): number => {
+  // 1. Sort by category name
+  const catCompare = a.categoryName.localeCompare(b.categoryName);
+  if (catCompare !== 0) return catCompare;
+  // 2. Sort by subcategory name within category
+  const subCompare = a.subcategoryName.localeCompare(b.subcategoryName);
+  if (subCompare !== 0) return subCompare;
+  // 3. Featured topics first within subcategory
+  if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
+  // 4. Alphabetically by topic name
+  return a.name.localeCompare(b.name);
+};
+
+/**
+ * Flattens the category hierarchy into a list of topic options for the Autocomplete
+ */
+const flattenCategoriesToTopics = (categories: SkillCategory[]): FlattenedTopicOption[] =>
+  categories
+    .filter((cat) => cat.subcategories && cat.subcategories.length > 0)
+    .flatMap((category) =>
+      (category.subcategories ?? [])
+        .filter((sub) => sub.topics.length > 0)
+        .flatMap((subcategory) =>
+          subcategory.topics.map((topic) => ({
+            id: topic.id,
+            name: topic.name,
+            categoryId: category.id,
+            categoryName: category.name,
+            subcategoryId: subcategory.id,
+            subcategoryName: subcategory.name,
+            fullPath: buildTopicPath(category.name, subcategory.name, topic.name),
+            isFeatured: topic.isFeatured,
+            skillCount: topic.skillCount,
+          }))
+        )
+    )
+    .sort(compareTopics);
 
 // =============================================================================
 // TYPES
@@ -162,12 +222,33 @@ const validateLocationFields = (
 // FORM INITIALIZATION HELPER
 // =============================================================================
 
+/**
+ * Safely parse tags from tagsJson field
+ * Handles: JSON array string '["a","b"]', comma-separated 'a,b', or empty
+ */
+const parseTagsJson = (tagsJson: string | undefined): string[] => {
+  if (!tagsJson) return [];
+  try {
+    const parsed: unknown = JSON.parse(tagsJson);
+    if (Array.isArray(parsed) && parsed.every((item): item is string => typeof item === 'string')) {
+      return parsed;
+    }
+    return [];
+  } catch {
+    // Fallback for comma-separated format (legacy)
+    return tagsJson
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+};
+
 const initializeFormFromSkill = (skill: Skill): CreateSkillRequest => ({
   name: skill.name,
   description: skill.description,
   categoryId: skill.category.id,
   isOffered: skill.isOffered,
-  tags: skill.tagsJson ? (JSON.parse(skill.tagsJson) as string[]) : [],
+  tags: parseTagsJson(skill.tagsJson),
   exchangeType: skill.exchangeType ?? 'skill_exchange',
   desiredSkillCategoryId: skill.desiredSkillCategoryId,
   desiredSkillDescription: skill.desiredSkillDescription,
@@ -206,8 +287,12 @@ const SkillForm: React.FC<SkillFormProps> = ({
   const [errors, setErrors] = useState<Partial<Record<keyof CreateSkillRequest, string>>>({});
   const [expandedSection, setExpandedSection] = useState<string | false>(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<FlattenedTopicOption | null>(null);
 
   const lastCategoryIdRef = useRef<string>('');
+
+  // Flatten category hierarchy to topic options for Autocomplete
+  const flattenedTopics = useMemo(() => flattenCategoriesToTopics(categories), [categories]);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -215,16 +300,24 @@ const SkillForm: React.FC<SkillFormProps> = ({
 
     const timer = setTimeout(() => {
       const initialValues = skill ? initializeFormFromSkill(skill) : getDefaultFormValues();
+
       setFormValues(initialValues);
       setErrors({});
       setExpandedSection(false);
       setImagePreview(null);
       // Track initial category for edit mode
       lastCategoryIdRef.current = initialValues.categoryId;
+      // Find and set the selected topic for edit mode
+      if (initialValues.categoryId && flattenedTopics.length > 0) {
+        const topic = flattenedTopics.find((t) => t.id === initialValues.categoryId);
+        setSelectedTopic(topic ?? null);
+      } else {
+        setSelectedTopic(null);
+      }
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [open, skill]);
+  }, [open, skill, flattenedTopics]);
 
   // Handlers
   const handleFieldChange = (
@@ -237,9 +330,13 @@ const SkillForm: React.FC<SkillFormProps> = ({
     }
   };
 
-  // Handle category change
-  const handleCategoryChange = (e: SelectChangeEvent): void => {
-    const newCategoryId = e.target.value;
+  // Handle topic selection from Autocomplete
+  const handleTopicChange = (
+    _event: React.SyntheticEvent,
+    newValue: FlattenedTopicOption | null
+  ): void => {
+    setSelectedTopic(newValue);
+    const newCategoryId = newValue?.id ?? '';
     setFormValues((prev) => ({ ...prev, categoryId: newCategoryId }));
     lastCategoryIdRef.current = newCategoryId;
 
@@ -390,6 +487,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
   };
 
   const hasCategories = Array.isArray(categories) && categories.length > 0;
+  const hasTopics = flattenedTopics.length > 0;
 
   // Calculate total duration
   const totalDuration = (formValues.sessionDurationMinutes ?? 60) * (formValues.totalSessions ?? 1);
@@ -412,7 +510,7 @@ const SkillForm: React.FC<SkillFormProps> = ({
             type="submit"
             variant="contained"
             color="primary"
-            disabled={loading || !hasCategories}
+            disabled={loading || !hasTopics}
             startIcon={loading ? <CircularProgress size={20} /> : undefined}
             form="skill-form"
           >
@@ -523,33 +621,90 @@ const SkillForm: React.FC<SkillFormProps> = ({
             slotProps={{ htmlInput: { maxLength: 2000 } }}
           />
 
-          <FormControl
+          {/* Topic Selection with Grouped Autocomplete */}
+          <Autocomplete<FlattenedTopicOption>
             fullWidth
-            error={!!errors.categoryId}
-            disabled={loading || !hasCategories}
-            margin="normal"
-            required
-          >
-            <InputLabel id="category-select-label">Kategorie</InputLabel>
-            <Select
-              labelId="category-select-label"
-              name="categoryId"
-              value={formValues.categoryId}
-              onChange={handleCategoryChange}
-              label="Kategorie"
-            >
-              {hasCategories ? (
-                categories.map((category) => (
-                  <MenuItem key={category.id} value={category.id}>
-                    {category.name}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem disabled>Kategorien werden geladen...</MenuItem>
-              )}
-            </Select>
-            {errors.categoryId ? <FormHelperText>{errors.categoryId}</FormHelperText> : null}
-          </FormControl>
+            options={flattenedTopics}
+            value={selectedTopic}
+            onChange={handleTopicChange}
+            groupBy={(option: FlattenedTopicOption) => option.categoryName}
+            getOptionLabel={(option: FlattenedTopicOption) => option.fullPath}
+            isOptionEqualToValue={(option: FlattenedTopicOption, value: FlattenedTopicOption) =>
+              option.id === value.id
+            }
+            disabled={loading || flattenedTopics.length === 0}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Kategorie / Topic"
+                margin="normal"
+                required
+                error={!!errors.categoryId}
+                helperText={errors.categoryId ?? 'Wähle ein passendes Topic für deinen Skill'}
+                placeholder="Suche nach Topic..."
+              />
+            )}
+            renderGroup={(params) => (
+              <li key={params.key}>
+                <Box
+                  sx={{
+                    position: 'sticky',
+                    top: -8,
+                    padding: '8px 10px',
+                    backgroundColor: 'background.paper',
+                    fontWeight: 'bold',
+                    color: 'primary.main',
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  {params.group}
+                </Box>
+                <ul style={{ padding: 0, margin: 0 }}>{params.children}</ul>
+              </li>
+            )}
+            renderOption={(props, option: FlattenedTopicOption) => {
+              const { key, ...otherProps } = props as React.HTMLAttributes<HTMLLIElement> & {
+                key: string;
+              };
+              return (
+                <li key={key} {...otherProps}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      pl: 1,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2">{option.name}</Typography>
+                      {option.subcategoryName !== option.categoryName &&
+                        option.name !== option.subcategoryName && (
+                          <Typography variant="caption" color="text.secondary">
+                            ({option.subcategoryName})
+                          </Typography>
+                        )}
+                    </Box>
+                    {option.isFeatured ? (
+                      <Chip
+                        icon={<StarIcon sx={{ fontSize: 14 }} />}
+                        label="Beliebt"
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                        sx={{ height: 20, '& .MuiChip-label': { px: 0.5, fontSize: 11 } }}
+                      />
+                    ) : null}
+                  </Box>
+                </li>
+              );
+            }}
+            noOptionsText="Keine Topics gefunden"
+            loadingText="Lade Topics..."
+            sx={{ mt: 2 }}
+          />
 
           {/* Tags Input */}
           <Autocomplete

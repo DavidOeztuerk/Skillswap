@@ -24,10 +24,8 @@ import {
   Rating,
   Skeleton,
 } from '@mui/material';
-import { useAppSelector } from '../../../core/store/store.hooks';
 import useAuth from '../../../features/auth/hooks/useAuth';
-import useSkills from '../../../features/skills/hooks/useSkills';
-import { selectFeaturedSkills } from '../../../features/skills/store/skillsSelectors';
+import { useFeaturedListings } from '../../../features/skills/hooks/useFeaturedListings';
 import { mixins } from '../../../styles/mixins';
 import SEO from '../../components/seo/Seo';
 import { useNavigation } from '../../hooks/useNavigation';
@@ -62,6 +60,7 @@ import {
   footerLinksBoxSx,
   footerCopyrightSx,
 } from './homeStyles';
+import type { Listing } from '../../../features/skills/types/Listing';
 
 /**
  * Startseite der Anwendung
@@ -72,12 +71,15 @@ const HomePage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuthenticated } = useAuth();
-  const { fetchAllSkills, isLoading: loadingSkills } = useSkills();
-  const featuredSkills = useAppSelector(selectFeaturedSkills);
+  const {
+    featuredListings,
+    isLoading: loadingListings,
+    fetchFeaturedListings,
+  } = useFeaturedListings();
 
   useEffect(() => {
-    fetchAllSkills();
-  }, [fetchAllSkills]);
+    void fetchFeaturedListings(6);
+  }, [fetchFeaturedListings]);
 
   const handleSkillClick = useCallback(
     async (skillId: string, skillName?: string): Promise<void> => {
@@ -228,7 +230,7 @@ const HomePage: React.FC = () => {
         </Typography>
 
         <Grid container columns={12} spacing={3}>
-          {loadingSkills ? (
+          {loadingListings ? (
             <>
               {Array.from({ length: 6 }).map((_, index) => (
                 // eslint-disable-next-line react/no-array-index-key
@@ -248,52 +250,54 @@ const HomePage: React.FC = () => {
               ))}
             </>
           ) : null}
-          {!loadingSkills && featuredSkills.length > 0 ? (
+          {!loadingListings && featuredListings.length > 0 ? (
             <>
-              {featuredSkills.map((skill) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={skill.id}>
+              {featuredListings.map((listing: Listing) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={listing.id}>
                   <Card
                     elevation={2}
                     sx={skillCardSx}
                     onClick={async () => {
-                      await handleSkillClick(skill.id, skill.name);
+                      await handleSkillClick(listing.skillId, listing.skill?.name);
                     }}
                   >
                     <CardContent sx={skillCardContentSx}>
                       <Typography variant="h5" component="h3" fontWeight="bold" gutterBottom>
-                        {skill.name}
+                        {listing.skill?.name ?? 'Unbekannter Skill'}
                       </Typography>
 
-                      {skill.ownerUserName ? (
+                      {listing.skill?.topicName ? (
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          von {skill.ownerUserName}
+                          {listing.skill.topicName}
                         </Typography>
                       ) : null}
 
                       <Box sx={ratingBoxSx}>
                         <Rating
-                          value={skill.averageRating ?? 0}
+                          value={listing.skill?.averageRating ?? 0}
                           precision={0.5}
                           size="small"
                           readOnly
                         />
                         <Typography variant="body2" color="text.secondary">
-                          ({skill.reviewCount ?? 0})
+                          ({listing.skill?.reviewCount ?? 0})
                         </Typography>
                       </Box>
 
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {skill.description.slice(0, 120)}
-                        {skill.description.length > 120 ? '...' : ''}
+                        {(listing.skill?.description ?? '').slice(0, 120)}
+                        {(listing.skill?.description?.length ?? 0) > 120 ? '...' : ''}
                       </Typography>
 
                       <Box sx={chipContainerSx}>
-                        <Chip
-                          label={skill.category.name}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
+                        {listing.skill?.categoryName ? (
+                          <Chip
+                            label={listing.skill.categoryName}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ) : null}
                       </Box>
                     </CardContent>
 
@@ -303,7 +307,7 @@ const HomePage: React.FC = () => {
                         endIcon={<ArrowForwardIcon />}
                         onClick={async (e) => {
                           e.stopPropagation();
-                          await handleSkillClick(skill.id, skill.name);
+                          await handleSkillClick(listing.skillId, listing.skill?.name);
                         }}
                       >
                         Details ansehen
@@ -314,7 +318,7 @@ const HomePage: React.FC = () => {
               ))}
             </>
           ) : null}
-          {!loadingSkills && featuredSkills.length === 0 ? (
+          {!loadingListings && featuredListings.length === 0 ? (
             <Grid size={12}>
               <Box sx={emptyStateSx}>
                 <Typography variant="h6" color="text.secondary">
@@ -326,7 +330,7 @@ const HomePage: React.FC = () => {
           ) : null}
         </Grid>
 
-        {!isAuthenticated && featuredSkills.length > 0 && (
+        {!isAuthenticated && featuredListings.length > 0 && (
           <Box sx={ctaBoxSx}>
             <Typography variant="h5" gutterBottom fontWeight="bold">
               Bereit, deine Lernreise zu starten?

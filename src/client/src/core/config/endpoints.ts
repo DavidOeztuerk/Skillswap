@@ -24,6 +24,7 @@ export const getVersionedEndpoint = (endpoint: string): string =>
 // ============================================================================
 const BASE_USERS_PROFILE = '/api/users/profile';
 const BASE_SKILLS = '/api/skills';
+const BASE_LISTINGS = '/api/listings';
 const BASE_MATCHES = '/api/matches';
 const BASE_MATCHES_REQUESTS = '/api/matches/requests';
 const BASE_APPOINTMENTS = '/api/appointments';
@@ -99,6 +100,24 @@ export const FAVORITE_ENDPOINTS = {
   ADD_FAVORITE: (skillId: string) => `${BASE_SKILLS}/${skillId}/favorite`,
   REMOVE_FAVORITE: (skillId: string) => `${BASE_SKILLS}/${skillId}/favorite`,
   IS_FAVORITE: (skillId: string) => `${BASE_SKILLS}/${skillId}/is-favorite`,
+};
+
+/**
+ * Listing-Endpunkte (Phase 10: Listing concept with expiration)
+ */
+export const LISTING_ENDPOINTS = {
+  // Public endpoints
+  SEARCH: BASE_LISTINGS,
+  FEATURED: `${BASE_LISTINGS}/featured`,
+  GET_BY_ID: (listingId: string) => `${BASE_LISTINGS}/${listingId}`,
+
+  // Authenticated endpoints
+  MY_LISTINGS: `${BASE_LISTINGS}/my-listings`,
+  CREATE: BASE_LISTINGS,
+  REFRESH: (listingId: string) => `${BASE_LISTINGS}/${listingId}/refresh`,
+  BOOST: (listingId: string) => `${BASE_LISTINGS}/${listingId}/boost`,
+  CLOSE: (listingId: string) => `${BASE_LISTINGS}/${listingId}/close`,
+  DELETE: (listingId: string) => `${BASE_LISTINGS}/${listingId}`,
 };
 
 /**
@@ -332,6 +351,7 @@ export const ADMIN_ENDPOINTS = {
 const BASE_CHAT = '/api/chat';
 const BASE_CHAT_MESSAGES = `${BASE_CHAT}/messages`;
 const BASE_CHAT_ATTACHMENTS = `${BASE_CHAT}/attachments`;
+const BASE_PAYMENTS = '/api/payments';
 
 export const CHAT_ENDPOINTS = {
   // Thread operations
@@ -358,6 +378,18 @@ export const CHAT_ENDPOINTS = {
   // File attachments
   UPLOAD_ATTACHMENT: `${BASE_CHAT_ATTACHMENTS}/upload`,
   DOWNLOAD_ATTACHMENT: BASE_CHAT_ATTACHMENTS, // + /{attachmentId}
+};
+
+/**
+ * Payment-Endpunkte (Phase 11: Kostenpflichtiger Boost)
+ */
+export const PAYMENT_ENDPOINTS = {
+  // Public endpoints
+  GET_PRODUCTS: `${BASE_PAYMENTS}/products`,
+
+  // Authenticated endpoints
+  CREATE_CHECKOUT_SESSION: `${BASE_PAYMENTS}/checkout-session`,
+  GET_PAYMENT_STATUS: (paymentId: string) => `${BASE_PAYMENTS}/${paymentId}/status`,
 };
 
 /**

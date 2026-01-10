@@ -12,9 +12,10 @@ public record CompleteLinkedInConnectCommand(
     string State,
     string RedirectUri) : ICommand<LinkedInConnectionResponse>, ICacheInvalidatingCommand
 {
-    // UserId wird aus dem State-Token extrahiert
+    public string? UserId { get; set; }
+
     public string[] InvalidationPatterns =>
     [
-        "linkedin-connection:*"
+        $"linkedin-connection:{UserId}:*"
     ];
 }

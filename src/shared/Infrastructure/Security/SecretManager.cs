@@ -3,7 +3,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace Infrastructure.Security;

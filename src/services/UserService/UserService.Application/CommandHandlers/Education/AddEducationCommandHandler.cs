@@ -17,15 +17,23 @@ public class AddEducationCommandHandler(
 
     public override async Task<ApiResponse<UserEducationResponse>> Handle(AddEducationCommand request, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(request.UserId))
+        {
+            return Error("User ID is required");
+        }
+
         Logger.LogInformation("Adding education for user {UserId}", request.UserId);
 
         var education = UserEducation.Create(
-            request.UserId,
+            request.UserId!,
             request.Degree,
             request.Institution,
             request.GraduationYear,
             request.GraduationMonth,
             request.Description,
+            fieldOfStudy: null,
+            startYear: null,
+            startMonth: null,
             request.SortOrder);
 
         var result = await _educationRepository.AddEducation(education, cancellationToken);

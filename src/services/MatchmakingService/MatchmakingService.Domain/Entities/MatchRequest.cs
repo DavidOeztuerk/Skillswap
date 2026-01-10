@@ -32,8 +32,39 @@ public class MatchRequest : AuditableEntity
     [MaxLength(500)]
     public string Message { get; set; } = string.Empty;
 
-    // Note: Exchange settings (IsSkillExchange, ExchangeSkillId) now come from the Skill entity
-    // Note: Scheduling (PreferredDays, PreferredTimes, SessionDurationMinutes, TotalSessions) now come from the Skill entity
+    // Exchange and Scheduling settings are denormalized from Skill at creation time
+    // This allows cross-service access without requiring additional service calls
+
+    /// <summary>
+    /// Whether this is a skill exchange (vs payment) - denormalized from Skill
+    /// </summary>
+    public bool IsSkillExchange { get; set; } = true;
+
+    /// <summary>
+    /// Exchange skill ID (if skill exchange) - denormalized from Skill
+    /// </summary>
+    [MaxLength(450)]
+    public string? ExchangeSkillId { get; set; }
+
+    /// <summary>
+    /// Session duration in minutes - denormalized from Skill
+    /// </summary>
+    public int? SessionDurationMinutes { get; set; } = 60;
+
+    /// <summary>
+    /// Total number of sessions planned - denormalized from Skill
+    /// </summary>
+    public int TotalSessions { get; set; } = 1;
+
+    /// <summary>
+    /// Preferred days for sessions - denormalized from Skill
+    /// </summary>
+    public List<string> PreferredDays { get; set; } = [];
+
+    /// <summary>
+    /// Preferred times for sessions - denormalized from Skill
+    /// </summary>
+    public List<string> PreferredTimes { get; set; } = [];
 
     // Monetäre Option (optional override for payment-based matches)
     public bool IsMonetaryOffer { get; set; } = false;

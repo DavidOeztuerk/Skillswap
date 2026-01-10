@@ -33,6 +33,7 @@ public class UpdateExperienceCommandHandler(
             request.StartDate,
             request.EndDate,
             request.Description,
+            location: null,
             request.SortOrder);
 
         var result = await _experienceRepository.UpdateExperience(experience, cancellationToken);

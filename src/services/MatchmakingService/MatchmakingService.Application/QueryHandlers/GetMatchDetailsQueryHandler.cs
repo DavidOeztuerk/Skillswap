@@ -72,7 +72,7 @@ public class GetMatchDetailsQueryHandler(
             SkillId: matchRequest.SkillId,
             SkillName: skillName,
             SkillCategory: skillCategory,
-            Status: match.Status,
+            Status: match.Status.ToString(),
 
             // Partner info
             PartnerId: partnerId,
@@ -101,7 +101,7 @@ public class GetMatchDetailsQueryHandler(
             // Session info
             SessionInfo: new MatchSessionInfo(
                 CompletedSessions: match.CompletedSessions,
-                TotalSessions: matchRequest.TotalSessions ?? 1,
+                TotalSessions: matchRequest.TotalSessions,
                 NextSessionDate: match.NextSessionDate
             ),
 

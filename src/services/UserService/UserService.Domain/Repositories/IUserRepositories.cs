@@ -85,6 +85,11 @@ public interface IUserRepository
     Task<Dictionary<string, int>> GetUsersCountByStatus(CancellationToken cancellationToken = default);
     Task<Dictionary<string, int>> GetUsersCountByRole(CancellationToken cancellationToken = default);
     Task<(List<User> users, int totalCount)> SearchUsers(string? searchTerm, string? role, string? accountStatus, bool? emailVerified, DateTime? createdAfter, DateTime? createdBefore, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Phase 13: Get profile completeness data for a user (optimized projection query)
+    /// </summary>
+    Task<ProfileCompletenessData?> GetProfileCompletenessDataAsync(string userId, CancellationToken cancellationToken = default);
 }
 
 // User Blocking Repository - handles user blocking operations
@@ -140,3 +145,28 @@ public interface IUserReviewRepository
     Task<UserReview> UpdateReview(UserReview review, CancellationToken cancellationToken = default);
     Task DeleteReview(string reviewId, string reviewerId, CancellationToken cancellationToken = default);
 }
+
+// User Statistics Repository - handles user statistics operations (Phase 13: Profile Completeness)
+public interface IUserStatisticsRepository
+{
+    Task<UserStatistics?> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default);
+    Task<UserStatistics> CreateAsync(UserStatistics statistics, CancellationToken cancellationToken = default);
+    Task<UserStatistics> UpdateAsync(UserStatistics statistics, CancellationToken cancellationToken = default);
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// DTO for profile completeness calculation (Phase 13)
+/// Used to fetch only the data needed for completeness calculation without exposing entities
+/// </summary>
+public record ProfileCompletenessData(
+    string UserId,
+    string? Bio,
+    string? ProfilePictureUrl,
+    string? Headline,
+    bool HasExperience,
+    bool HasEducation,
+    bool HasSkill,
+    bool HasLinkedIn,
+    bool HasXing
+);

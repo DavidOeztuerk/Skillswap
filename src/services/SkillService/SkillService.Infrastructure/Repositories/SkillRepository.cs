@@ -59,7 +59,9 @@ public class SkillRepository : ISkillRepository
     public async Task<List<Skill>> GetUserSkillsWithRelationsAsync(string userId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Skills
-            .Include(s => s.SkillCategory)
+            .Include(s => s.Topic)
+                .ThenInclude(t => t.Subcategory)
+                    .ThenInclude(sc => sc.Category)
             .AsSplitQuery()
             .AsNoTracking()
             .Where(s => s.UserId == userId && !s.IsDeleted)
@@ -67,10 +69,10 @@ public class SkillRepository : ISkillRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<Skill>> GetByCategoryAsync(string categoryId, CancellationToken cancellationToken = default)
+    public async Task<List<Skill>> GetByTopicAsync(string topicId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Skills
-            .Where(s => s.SkillCategoryId == categoryId && !s.IsDeleted)
+            .Where(s => s.SkillTopicId == topicId && !s.IsDeleted)
             .ToListAsync(cancellationToken);
     }
 
@@ -116,9 +118,24 @@ public class SkillRepository : ISkillRepository
         return await query.FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<int> CountByTopicAsync(string topicId, bool includeDeleted = false, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Skills.Where(s => s.SkillTopicId == topicId);
+
+        if (!includeDeleted)
+        {
+            query = query.Where(s => !s.IsDeleted);
+        }
+
+        return await query.CountAsync(cancellationToken);
+    }
+
     public async Task<int> CountByCategoryAsync(string categoryId, bool includeDeleted = false, CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.Skills.Where(s => s.SkillCategoryId == categoryId);
+        var query = _dbContext.Skills
+            .Include(s => s.Topic)
+                .ThenInclude(t => t.Subcategory)
+            .Where(s => s.Topic.Subcategory.SkillCategoryId == categoryId);
 
         if (!includeDeleted)
         {
@@ -135,13 +152,13 @@ public class SkillRepository : ISkillRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<Skill>> GetActiveSkillsWithTagsAsync(string? categoryId, CancellationToken cancellationToken = default)
+    public async Task<List<Skill>> GetActiveSkillsWithTagsAsync(string? topicId, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Skills.Where(s => s.IsActive && !s.IsDeleted);
 
-        if (!string.IsNullOrEmpty(categoryId))
+        if (!string.IsNullOrEmpty(topicId))
         {
-            query = query.Where(s => s.SkillCategoryId == categoryId);
+            query = query.Where(s => s.SkillTopicId == topicId);
         }
 
         return await query.ToListAsync(cancellationToken);
@@ -172,7 +189,9 @@ public class SkillRepository : ISkillRepository
     {
         var query = _dbContext.Skills
             .AsNoTracking()
-            .Include(s => s.SkillCategory)
+            .Include(s => s.Topic)
+                .ThenInclude(t => t.Subcategory)
+                    .ThenInclude(sc => sc.Category)
             .Where(s => s.IsActive && !s.IsDeleted);
 
         // Exclude user's own skills if userId provided
@@ -191,10 +210,10 @@ public class SkillRepository : ISkillRepository
                 (s.SearchKeywords != null && s.SearchKeywords.Contains(term)));
         }
 
-        // Apply category filter
+        // Apply category filter (filters through the hierarchy: Topic -> Subcategory -> Category)
         if (!string.IsNullOrEmpty(categoryId))
         {
-            query = query.Where(s => s.SkillCategoryId == categoryId);
+            query = query.Where(s => s.Topic.Subcategory.SkillCategoryId == categoryId);
         }
 
         // Apply isOffered filter
@@ -369,7 +388,7 @@ public class SkillRepository : ISkillRepository
 
         if (!string.IsNullOrEmpty(categoryId))
         {
-            query = query.Where(s => s.SkillCategoryId == categoryId);
+            query = query.Where(s => s.Topic.Subcategory.SkillCategoryId == categoryId);
         }
 
         if (!string.IsNullOrEmpty(userId))
@@ -387,8 +406,10 @@ public class SkillRepository : ISkillRepository
             .AverageAsync(s => (double?)s.AverageRating, cancellationToken) ?? 0.0;
 
         var skillsByCategory = await query
-            .Include(s => s.SkillCategory)
-            .GroupBy(s => s.SkillCategory.Name)
+            .Include(s => s.Topic)
+                .ThenInclude(t => t.Subcategory)
+                    .ThenInclude(sc => sc.Category)
+            .GroupBy(s => s.Topic.Subcategory.Category.Name)
             .Select(g => new { Category = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Category, x => x.Count, cancellationToken);
 
@@ -411,7 +432,9 @@ public class SkillRepository : ISkillRepository
             .ToList();
 
         var trendingSkills = await query
-            .Include(s => s.SkillCategory)
+            .Include(s => s.Topic)
+                .ThenInclude(t => t.Subcategory)
+                    .ThenInclude(sc => sc.Category)
             .Where(s => s.LastViewedAt >= DateTime.UtcNow.AddDays(-7))
             .OrderByDescending(s => s.ViewCount)
             .Take(10)
@@ -419,7 +442,7 @@ public class SkillRepository : ISkillRepository
             {
                 s.Id,
                 s.Name,
-                CategoryName = s.SkillCategory.Name,
+                CategoryName = s.Topic.Subcategory.Category.Name,
                 s.ViewCount
             })
             .ToListAsync(cancellationToken);

@@ -1,5 +1,6 @@
 using AppointmentService.Application.Services;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -64,7 +65,7 @@ public class AvailabilityCheckService : IAvailabilityCheckService
             StartTime = apt.ScheduledDate,
             EndTime = apt.ScheduledDate.AddMinutes(apt.DurationMinutes),
             DurationMinutes = apt.DurationMinutes,
-            Status = apt.Status,
+            Status = apt.Status.ToString(),
             IsConfirmed = apt.IsConfirmed || apt.IsPaymentComplete,
             OtherPartyUserId = apt.OrganizerUserId == userId ? apt.ParticipantUserId : apt.OrganizerUserId,
             Severity = DetermineConflictSeverity(apt.Status)
@@ -227,7 +228,7 @@ public class AvailabilityCheckService : IAvailabilityCheckService
             StartTime = conflictingAppointment.ScheduledDate,
             EndTime = conflictingAppointment.ScheduledDate.AddMinutes(conflictingAppointment.DurationMinutes),
             DurationMinutes = conflictingAppointment.DurationMinutes,
-            Status = conflictingAppointment.Status,
+            Status = conflictingAppointment.Status.ToString(),
             IsConfirmed = conflictingAppointment.IsConfirmed || conflictingAppointment.IsPaymentComplete,
             OtherPartyUserId = conflictingAppointment.OrganizerUserId == userId
                 ? conflictingAppointment.ParticipantUserId
@@ -259,7 +260,7 @@ public class AvailabilityCheckService : IAvailabilityCheckService
     /// <summary>
     /// Determines the severity of a conflict based on appointment status
     /// </summary>
-    private static ConflictSeverity DetermineConflictSeverity(string appointmentStatus)
+    private static ConflictSeverity DetermineConflictSeverity(SessionAppointmentStatus appointmentStatus)
     {
         return appointmentStatus switch
         {

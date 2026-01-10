@@ -510,6 +510,9 @@ const ProfilePage: React.FC = () => {
   const [editingEducation, setEditingEducation] = useState<UserEducationResponse | undefined>();
   const [isDialogLoading, setIsDialogLoading] = useState(false);
 
+  // Completeness refresh key - increment to reload completeness bar
+  const [completenessRefreshKey, setCompletenessRefreshKey] = useState(0);
+
   // Avatar ref for file input
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -630,6 +633,8 @@ const ProfilePage: React.FC = () => {
       updateProfile(updateData);
       setStatusMessage({ text: 'Profil erfolgreich aktualisiert', type: 'success' });
       setIsEditMode(false);
+      // Refresh completeness bar after successful profile update
+      setCompletenessRefreshKey((prev) => prev + 1);
     } catch (error) {
       setStatusMessage({ text: `Fehler: ${String(error)}`, type: 'error' });
     } finally {
@@ -687,6 +692,8 @@ const ProfilePage: React.FC = () => {
       setEditingExperience(undefined);
       await loadExperienceEducation();
       setStatusMessage({ text: 'Erfahrung gespeichert', type: 'success' });
+      // Refresh completeness bar
+      setCompletenessRefreshKey((prev) => prev + 1);
     } catch (error) {
       setStatusMessage({ text: `Fehler: ${String(error)}`, type: 'error' });
     } finally {
@@ -699,6 +706,8 @@ const ProfilePage: React.FC = () => {
       await apiClient.delete(`/api/users/profile/me/experience/${id}`);
       await loadExperienceEducation();
       setStatusMessage({ text: 'Erfahrung gelöscht', type: 'success' });
+      // Refresh completeness bar
+      setCompletenessRefreshKey((prev) => prev + 1);
     } catch (error) {
       setStatusMessage({ text: `Fehler: ${String(error)}`, type: 'error' });
     }
@@ -736,6 +745,8 @@ const ProfilePage: React.FC = () => {
       setEditingEducation(undefined);
       await loadExperienceEducation();
       setStatusMessage({ text: 'Ausbildung gespeichert', type: 'success' });
+      // Refresh completeness bar
+      setCompletenessRefreshKey((prev) => prev + 1);
     } catch (error) {
       setStatusMessage({ text: `Fehler: ${String(error)}`, type: 'error' });
     } finally {
@@ -748,6 +759,8 @@ const ProfilePage: React.FC = () => {
       await apiClient.delete(`/api/users/profile/me/education/${id}`);
       await loadExperienceEducation();
       setStatusMessage({ text: 'Ausbildung gelöscht', type: 'success' });
+      // Refresh completeness bar
+      setCompletenessRefreshKey((prev) => prev + 1);
     } catch (error) {
       setStatusMessage({ text: `Fehler: ${String(error)}`, type: 'error' });
     }
@@ -778,6 +791,7 @@ const ProfilePage: React.FC = () => {
 
       {/* Profile Completeness Bar (Phase 13) */}
       <ProfileCompletenessBar
+        refreshKey={completenessRefreshKey}
         onActionClick={(actionUrl) => {
           // Navigate to the relevant section based on actionUrl
           const hash = actionUrl.split('#')[1];

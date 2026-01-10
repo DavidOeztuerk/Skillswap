@@ -4,6 +4,7 @@ using Contracts.Matchmaking.Responses;
 using Contracts.Skill.Responses;
 using Contracts.User.Responses;
 using MatchmakingService.Application.Queries;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -30,7 +31,7 @@ public class GetIncomingRequestsQueryHandler(
                 request.UserId, request.PageNumber);
 
             var query = _unitOfWork.MatchRequests.Query
-                .Where(mr => mr.TargetUserId == request.UserId && mr.Status == "Pending")
+                .Where(mr => mr.TargetUserId == request.UserId && mr.Status == MatchRequestStatus.Pending)
                 .OrderByDescending(mr => mr.CreatedAt);
 
             var totalCount = await query.CountAsync(cancellationToken);
@@ -64,7 +65,7 @@ public class GetIncomingRequestsQueryHandler(
                     SkillName: skillData?.Name ?? "Unknown Skill",
                     SkillCategory: skillData?.Category ?? "General",
                     Message: mr.Message,
-                    Status: mr.Status.ToLowerInvariant(),
+                    Status: mr.Status.ToString().ToLowerInvariant(),
                     Type: "incoming",
                     OtherUserId: mr.RequesterId,
                     OtherUserName: requesterData?.Name ?? "Unknown User",
@@ -77,7 +78,7 @@ public class GetIncomingRequestsQueryHandler(
                     OfferedAmount: mr.OfferedAmount,
                     Currency: mr.Currency,
                     SessionDurationMinutes: mr.SessionDurationMinutes ?? 60,
-                    TotalSessions: mr.TotalSessions ?? 1,
+                    TotalSessions: mr.TotalSessions,
                     PreferredDays: mr.PreferredDays?.ToArray() ?? [],
                     PreferredTimes: mr.PreferredTimes?.ToArray() ?? [],
                     CreatedAt: mr.CreatedAt,

@@ -23,14 +23,29 @@ namespace SkillService.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("SkillService.Domain.Entities.ProficiencyLevel", b =>
+            modelBuilder.Entity("SkillService.Domain.Entities.Listing", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
-                    b.Property<string>("Color")
-                        .HasMaxLength(7)
-                        .HasColumnType("character varying(7)");
+                    b.Property<int>("BoostCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("BoostType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("BoostedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClosureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -44,23 +59,53 @@ namespace SkillService.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                    b.Property<bool>("ExpiringNotificationSent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsBoosted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Level")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
+                    b.Property<bool>("IsHighlighted")
+                        .HasColumnType("boolean");
 
-                    b.Property<int>("Rank")
-                        .HasColumnType("integer");
+                    b.Property<bool>("IsInGallery")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsTopListing")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("RefreshCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("RefreshedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SkillId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -68,15 +113,45 @@ namespace SkillService.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text");
 
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Level")
-                        .IsUnique();
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("IX_Listings_ExpiresAt");
 
-                    b.HasIndex("Rank")
-                        .IsUnique();
+                    b.HasIndex("IsBoosted")
+                        .HasDatabaseName("IX_Listings_IsBoosted");
 
-                    b.ToTable("ProficiencyLevels");
+                    b.HasIndex("SkillId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Listings_SkillId");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_Listings_Status");
+
+                    b.HasIndex("Type")
+                        .HasDatabaseName("IX_Listings_Type");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_Listings_UserId");
+
+                    b.HasIndex("IsBoosted", "BoostedUntil")
+                        .HasDatabaseName("IX_Listings_BoostExpiration");
+
+                    b.HasIndex("Status", "ExpiresAt")
+                        .HasDatabaseName("IX_Listings_StatusExpiration");
+
+                    b.HasIndex("Status", "Type")
+                        .HasDatabaseName("IX_Listings_StatusType");
+
+                    b.HasIndex("UserId", "Status")
+                        .HasDatabaseName("IX_Listings_UserStatus");
+
+                    b.ToTable("Listings");
                 });
 
             modelBuilder.Entity("SkillService.Domain.Entities.Skill", b =>
@@ -108,13 +183,13 @@ namespace SkillService.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
-                    b.Property<string>("DesiredSkillCategoryId")
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
                     b.Property<string>("DesiredSkillDescription")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("DesiredSkillTopicId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
 
                     b.Property<int>("EndorsementCount")
                         .HasColumnType("integer");
@@ -201,11 +276,6 @@ namespace SkillService.Migrations
                     b.Property<string>("PreferredTimesJson")
                         .HasColumnType("text");
 
-                    b.Property<string>("ProficiencyLevelId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
                     b.Property<string>("Requirements")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -225,7 +295,7 @@ namespace SkillService.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(60);
 
-                    b.Property<string>("SkillCategoryId")
+                    b.Property<string>("SkillTopicId")
                         .IsRequired()
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
@@ -267,12 +337,10 @@ namespace SkillService.Migrations
                     b.HasIndex("Name")
                         .HasDatabaseName("IX_Skills_Name");
 
-                    b.HasIndex("ProficiencyLevelId");
-
                     b.HasIndex("SearchKeywords")
                         .HasDatabaseName("IX_Skills_SearchKeywords");
 
-                    b.HasIndex("SkillCategoryId");
+                    b.HasIndex("SkillTopicId");
 
                     b.HasIndex("UserId");
 
@@ -284,7 +352,7 @@ namespace SkillService.Migrations
                     b.HasIndex("IsActive", "IsDeleted", "UserId")
                         .HasDatabaseName("IX_Skills_ActiveSearch");
 
-                    b.HasIndex("IsActive", "IsOffered", "SkillCategoryId")
+                    b.HasIndex("IsActive", "IsOffered", "SkillTopicId")
                         .HasDatabaseName("IX_Skills_MatchingSearch");
 
                     b.ToTable("Skills");
@@ -315,6 +383,11 @@ namespace SkillService.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("IconName")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -341,6 +414,8 @@ namespace SkillService.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DisplayOrder");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -564,6 +639,118 @@ namespace SkillService.Migrations
                     b.ToTable("SkillMatches");
                 });
 
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillPreferredDay", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DayOfWeek")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SkillId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SkillId");
+
+                    b.HasIndex("SkillId", "DayOfWeek")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SkillPreferredDays_SkillDay");
+
+                    b.ToTable("SkillPreferredDays");
+                });
+
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillPreferredTime", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EndTime")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SkillId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("StartTime")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("TimeSlot")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SkillId");
+
+                    b.HasIndex("SkillId", "TimeSlot")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SkillPreferredTimes_SkillTime");
+
+                    b.ToTable("SkillPreferredTimes");
+                });
+
             modelBuilder.Entity("SkillService.Domain.Entities.SkillResource", b =>
                 {
                     b.Property<string>("Id")
@@ -750,6 +937,221 @@ namespace SkillService.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillSubcategory", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("IconName")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SkillCategoryId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("SkillCategoryId");
+
+                    b.HasIndex("Slug");
+
+                    b.HasIndex("SkillCategoryId", "DisplayOrder");
+
+                    b.HasIndex("SkillCategoryId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("SkillSubcategories");
+                });
+
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillTag", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NormalizedTag")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SkillId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Tag")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedTag")
+                        .HasDatabaseName("IX_SkillTags_NormalizedTag");
+
+                    b.HasIndex("SkillId");
+
+                    b.HasIndex("SkillId", "NormalizedTag")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SkillTags_SkillTag");
+
+                    b.ToTable("SkillTags");
+                });
+
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillTopic", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("IconName")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFeatured")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Keywords")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SkillSubcategoryId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsFeatured");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("SkillSubcategoryId");
+
+                    b.HasIndex("Slug");
+
+                    b.HasIndex("SkillSubcategoryId", "DisplayOrder");
+
+                    b.HasIndex("SkillSubcategoryId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("SkillTopics");
+                });
+
             modelBuilder.Entity("SkillService.Domain.Entities.SkillView", b =>
                 {
                     b.Property<string>("Id")
@@ -818,23 +1220,26 @@ namespace SkillService.Migrations
                     b.ToTable("SkillViews");
                 });
 
+            modelBuilder.Entity("SkillService.Domain.Entities.Listing", b =>
+                {
+                    b.HasOne("SkillService.Domain.Entities.Skill", "Skill")
+                        .WithOne("Listing")
+                        .HasForeignKey("SkillService.Domain.Entities.Listing", "SkillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Skill");
+                });
+
             modelBuilder.Entity("SkillService.Domain.Entities.Skill", b =>
                 {
-                    b.HasOne("SkillService.Domain.Entities.ProficiencyLevel", "ProficiencyLevel")
+                    b.HasOne("SkillService.Domain.Entities.SkillTopic", "Topic")
                         .WithMany("Skills")
-                        .HasForeignKey("ProficiencyLevelId")
+                        .HasForeignKey("SkillTopicId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("SkillService.Domain.Entities.SkillCategory", "SkillCategory")
-                        .WithMany("Skills")
-                        .HasForeignKey("SkillCategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ProficiencyLevel");
-
-                    b.Navigation("SkillCategory");
+                    b.Navigation("Topic");
                 });
 
             modelBuilder.Entity("SkillService.Domain.Entities.SkillEndorsement", b =>
@@ -878,6 +1283,28 @@ namespace SkillService.Migrations
                     b.Navigation("RequestedSkill");
                 });
 
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillPreferredDay", b =>
+                {
+                    b.HasOne("SkillService.Domain.Entities.Skill", "Skill")
+                        .WithMany("PreferredDayEntities")
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Skill");
+                });
+
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillPreferredTime", b =>
+                {
+                    b.HasOne("SkillService.Domain.Entities.Skill", "Skill")
+                        .WithMany("PreferredTimeEntities")
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Skill");
+                });
+
             modelBuilder.Entity("SkillService.Domain.Entities.SkillResource", b =>
                 {
                     b.HasOne("SkillService.Domain.Entities.Skill", "Skill")
@@ -900,6 +1327,39 @@ namespace SkillService.Migrations
                     b.Navigation("Skill");
                 });
 
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillSubcategory", b =>
+                {
+                    b.HasOne("SkillService.Domain.Entities.SkillCategory", "Category")
+                        .WithMany("Subcategories")
+                        .HasForeignKey("SkillCategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillTag", b =>
+                {
+                    b.HasOne("SkillService.Domain.Entities.Skill", "Skill")
+                        .WithMany("TagEntities")
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Skill");
+                });
+
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillTopic", b =>
+                {
+                    b.HasOne("SkillService.Domain.Entities.SkillSubcategory", "Subcategory")
+                        .WithMany("Topics")
+                        .HasForeignKey("SkillSubcategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subcategory");
+                });
+
             modelBuilder.Entity("SkillService.Domain.Entities.SkillView", b =>
                 {
                     b.HasOne("SkillService.Domain.Entities.Skill", "Skill")
@@ -911,23 +1371,36 @@ namespace SkillService.Migrations
                     b.Navigation("Skill");
                 });
 
-            modelBuilder.Entity("SkillService.Domain.Entities.ProficiencyLevel", b =>
-                {
-                    b.Navigation("Skills");
-                });
-
             modelBuilder.Entity("SkillService.Domain.Entities.Skill", b =>
                 {
                     b.Navigation("Endorsements");
 
+                    b.Navigation("Listing");
+
                     b.Navigation("Matches");
 
+                    b.Navigation("PreferredDayEntities");
+
+                    b.Navigation("PreferredTimeEntities");
+
                     b.Navigation("Reviews");
+
+                    b.Navigation("TagEntities");
 
                     b.Navigation("Views");
                 });
 
             modelBuilder.Entity("SkillService.Domain.Entities.SkillCategory", b =>
+                {
+                    b.Navigation("Subcategories");
+                });
+
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillSubcategory", b =>
+                {
+                    b.Navigation("Topics");
+                });
+
+            modelBuilder.Entity("SkillService.Domain.Entities.SkillTopic", b =>
                 {
                     b.Navigation("Skills");
                 });

@@ -23,7 +23,7 @@ public class GetSkillRecommendationsQueryHandler(
         // Get user's existing skills to find similar ones
         var userSkills = await _unitOfWork.Skills.GetUserSkillsAsync(request.UserId, cancellationToken);
 
-        var userCategories = userSkills.Select(s => s.SkillCategoryId).Distinct().ToList();
+        var userTopicIds = userSkills.Select(s => s.SkillTopicId).Distinct().ToList();
         var userTags = new List<string>();
 
         foreach (var skill in userSkills)
@@ -45,7 +45,6 @@ public class GetSkillRecommendationsQueryHandler(
             request.UserId, // Exclude user's own skills
             null, // No search term
             null, // All categories
-            null, // All proficiency levels
             null, // No tag filter
             true, // Only offered skills
             null, // No rating filter
@@ -67,8 +66,8 @@ public class GetSkillRecommendationsQueryHandler(
             var compatibilityScore = 0.0;
             var reason = "New skill discovery";
 
-            // Category match bonus
-            if (userCategories.Contains(skill.SkillCategoryId))
+            // Topic match bonus
+            if (userTopicIds.Contains(skill.SkillTopicId))
             {
                 compatibilityScore += 0.4;
                 reason = "Similar to your existing skills";
@@ -103,18 +102,11 @@ public class GetSkillRecommendationsQueryHandler(
                     skill.Name,
                     skill.Description,
                     new SkillCategoryResponse(
-                        skill.SkillCategory.Id,
-                        skill.SkillCategory.Name,
-                        skill.SkillCategory.IconName,
-                        skill.SkillCategory.Color,
+                        skill.Topic?.Id ?? skill.SkillTopicId,
+                        skill.Topic?.FullPath ?? "Unknown",
+                        skill.Topic?.IconName ?? "",
+                        skill.Category?.Color ?? "",
                         0),
-                    new ProficiencyLevelResponse(
-                        skill.ProficiencyLevel.Id,
-                        skill.ProficiencyLevel.Level,
-                        skill.ProficiencyLevel.Rank,
-                        skill.ProficiencyLevel.Color,
-                        0
-                    ),
                     skill.AverageRating,
                     reason,
                     Math.Round(compatibilityScore, 2)));

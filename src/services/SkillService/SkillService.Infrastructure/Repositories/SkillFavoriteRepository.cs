@@ -45,9 +45,9 @@ public class SkillFavoriteRepository : ISkillFavoriteRepository
         var query = _dbContext.SkillFavorites
             .Where(f => f.UserId == userId && !f.IsDeleted)
             .Include(f => f.Skill)
-                .ThenInclude(s => s.SkillCategory)
-            .Include(f => f.Skill)
-                .ThenInclude(s => s.ProficiencyLevel)
+                .ThenInclude(s => s.Topic)
+                    .ThenInclude(t => t.Subcategory)
+                        .ThenInclude(sc => sc.Category)
             .Select(f => f.Skill)
             .Where(s => s.IsActive && !s.IsDeleted);
 

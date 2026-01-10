@@ -36,7 +36,6 @@ public record SkillRecommendationResponse(
     string Name,
     string Description,
     SkillCategoryResponse Category,
-    ProficiencyLevelResponse ProficiencyLevel,
     double? AverageRating,
     string RecommendationReason,
     double CompatibilityScore);

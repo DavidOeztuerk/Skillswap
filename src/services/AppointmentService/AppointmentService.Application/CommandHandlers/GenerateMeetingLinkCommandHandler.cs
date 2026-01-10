@@ -1,6 +1,7 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Services;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Repositories;
 using CQRS.Handlers;
 using CQRS.Models;

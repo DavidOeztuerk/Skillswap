@@ -24,7 +24,7 @@ public class GetSkillStatisticsQueryHandler(
             request.FromDate, request.ToDate, request.CategoryId, request.UserId);
 
         var (totalSkills, offeredSkills, requestedSkills, activeSkills, averageRating,
-             skillsByCategory, skillsByProficiencyLevel, topRatedSkills, trendingSkills, popularTags) =
+             skillsByCategory, topRatedSkills, trendingSkills, popularTags) =
             await _unitOfWork.Skills.GetStatisticsAsync(
                 request.FromDate,
                 request.ToDate,
@@ -32,8 +32,10 @@ public class GetSkillStatisticsQueryHandler(
                 request.UserId,
                 cancellationToken);
 
+        // SkillsByProficiencyLevel not returned by repository, use empty dictionary
+        var skillsByProficiencyLevel = new Dictionary<string, int>();
         var topRated = topRatedSkills.Select(s => new TopSkillResponse(s.Id, s.Name, s.Rating, s.ReviewCount)).ToList();
-        var trending = trendingSkills.Select(s => new TrendingSkillResponse(s.Id, s.Name, s.CategoryName, s.ViewCount, 25)).ToList();
+        var trending = trendingSkills.Select(s => new TrendingSkillResponse(s.Id, s.Name, s.CategoryName, s.ViewCount, s.ViewCount > 0 ? 25 : 0)).ToList();
 
         var response = new SkillStatisticsResponse(
             totalSkills,

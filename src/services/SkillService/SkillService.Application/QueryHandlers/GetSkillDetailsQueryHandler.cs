@@ -33,8 +33,8 @@ public class GetSkillDetailsQueryHandler(
                 return NotFound("Skill not found");
             }
 
-            // Load related entities
-            var category = await _unitOfWork.SkillCategories.GetByIdAsync(skill.SkillCategoryId, cancellationToken);
+            // Load related entities - Topic and hierarchy
+            var topic = await _unitOfWork.SkillTopics.GetByIdAsync(skill.SkillTopicId, cancellationToken);
 
             // Fetch owner details from UserService
             var ownerProfile = await _userServiceClient.GetUserProfileAsync(skill.UserId, cancellationToken);
@@ -55,10 +55,10 @@ public class GetSkillDetailsQueryHandler(
                 skill.Name,
                 skill.Description,
                 new SkillCategoryResponse(
-                    category?.Id ?? skill.SkillCategoryId,
-                    category?.Name ?? "Unknown",
-                    category?.IconName ?? "",
-                    category?.Color ?? "",
+                    topic?.Id ?? skill.SkillTopicId,
+                    topic?.FullPath ?? "Unknown",
+                    topic?.IconName ?? "",
+                    topic?.Subcategory?.Category?.Color ?? "",
                     0),
                 skill.Tags,
                 skill.IsOffered,
@@ -72,7 +72,7 @@ public class GetSkillDetailsQueryHandler(
                 skill.UpdatedAt ?? skill.CreatedAt,
                 // Exchange options
                 skill.ExchangeType,
-                skill.DesiredSkillCategoryId,
+                skill.DesiredSkillTopicId,
                 skill.DesiredSkillDescription,
                 skill.HourlyRate,
                 skill.Currency,

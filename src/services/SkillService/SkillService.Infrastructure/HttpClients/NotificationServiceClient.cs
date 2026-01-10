@@ -228,4 +228,89 @@ public class NotificationServiceClient : INotificationServiceClient
             return false;
         }
     }
+
+    // =============================================
+    // Phase 10: Listing Notification Methods
+    // =============================================
+
+    public async Task<bool> SendListingExpiringNotificationAsync(
+        string userId,
+        string listingId,
+        string skillName,
+        int daysRemaining,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Sending listing expiring notification to user {UserId} for listing {ListingId}", userId, listingId);
+
+            var request = new SendNotificationRequest(
+                Type: "Email",
+                Template: "ListingExpiring",
+                Recipient: userId,
+                Variables: new Dictionary<string, string>
+                {
+                    ["listingId"] = listingId,
+                    ["skillName"] = skillName,
+                    ["daysRemaining"] = daysRemaining.ToString(),
+                    ["title"] = "Dein Listing läuft bald ab",
+                    ["message"] = $"Dein Skill-Listing '{skillName}' läuft in {daysRemaining} Tagen ab. Klicke hier um es zu verlängern."
+                });
+
+            var response = await _serviceCommunication.SendRequestAsync<SendNotificationRequest, SendNotificationResponse>(
+                "notificationservice",
+                "api/notifications/send",
+                request,
+                cancellationToken);
+
+            var success = response != null;
+            _logger.LogDebug("Listing expiring notification sent: {Success}", success);
+            return success;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending listing expiring notification for listing {ListingId}", listingId);
+            return false;
+        }
+    }
+
+    public async Task<bool> SendListingExpiredNotificationAsync(
+        string userId,
+        string listingId,
+        string skillName,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Sending listing expired notification to user {UserId} for listing {ListingId}", userId, listingId);
+
+            var request = new SendNotificationRequest(
+                Type: "Email",
+                Template: "ListingExpired",
+                Recipient: userId,
+                Variables: new Dictionary<string, string>
+                {
+                    ["listingId"] = listingId,
+                    ["skillName"] = skillName,
+                    ["expiredAt"] = DateTime.UtcNow.ToString("O"),
+                    ["title"] = "Dein Listing ist abgelaufen",
+                    ["message"] = $"Dein Skill-Listing '{skillName}' ist abgelaufen und nicht mehr sichtbar. Erstelle ein neues Listing um weiter gefunden zu werden."
+                });
+
+            var response = await _serviceCommunication.SendRequestAsync<SendNotificationRequest, SendNotificationResponse>(
+                "notificationservice",
+                "api/notifications/send",
+                request,
+                cancellationToken);
+
+            var success = response != null;
+            _logger.LogDebug("Listing expired notification sent: {Success}", success);
+            return success;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending listing expired notification for listing {ListingId}", listingId);
+            return false;
+        }
+    }
 }

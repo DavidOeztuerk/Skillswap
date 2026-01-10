@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MatchmakingService.Domain.Entities;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Infrastructure.Data;
 
@@ -55,7 +56,7 @@ public class MatchRequestRepository : IMatchRequestRepository
         return await _dbContext.MatchRequests
             .Where(mr => !mr.IsDeleted &&
                 (mr.RequesterId == userId || mr.TargetUserId == userId) &&
-                mr.Status == "Accepted")
+                mr.Status == MatchRequestStatus.Accepted)
             .ToListAsync(cancellationToken);
     }
 
@@ -77,7 +78,7 @@ public class MatchRequestRepository : IMatchRequestRepository
     public async Task<List<MatchRequest>> GetRequestsByStatusAsync(string status, CancellationToken cancellationToken = default)
     {
         return await _dbContext.MatchRequests
-            .Where(mr => !mr.IsDeleted && mr.Status == status)
+            .Where(mr => !mr.IsDeleted && mr.Status.ToString() == status)
             .ToListAsync(cancellationToken);
     }
 
@@ -86,7 +87,7 @@ public class MatchRequestRepository : IMatchRequestRepository
         return await _dbContext.MatchRequests
             .Where(mr => !mr.IsDeleted &&
                 (mr.RequesterId == userId || mr.TargetUserId == userId) &&
-                mr.Status == "Pending")
+                mr.Status == MatchRequestStatus.Pending)
             .ToListAsync(cancellationToken);
     }
 
@@ -97,7 +98,7 @@ public class MatchRequestRepository : IMatchRequestRepository
                 ((mr.RequesterId == userId1 && mr.TargetUserId == userId2) ||
                  (mr.RequesterId == userId2 && mr.TargetUserId == userId1)) &&
                 mr.SkillId == skillId &&
-                mr.Status == "Pending", cancellationToken);
+                mr.Status == MatchRequestStatus.Pending, cancellationToken);
     }
 
     public async Task<MatchRequest> CreateAsync(MatchRequest matchRequest, CancellationToken cancellationToken = default)

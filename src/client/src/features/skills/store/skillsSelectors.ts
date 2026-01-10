@@ -46,18 +46,11 @@ export const selectSelectedSkillId = createSelector(
 );
 
 export const selectSelectedSkill = createSelector(
-  [selectSkillsState, selectSkillEntities, selectAllSkills, selectUserSkills],
-  (skillsState, entities, allSkills, userSkills) => {
+  [selectSkillsState, selectSkillEntities],
+  (skillsState, entities) => {
     if (skillsState.selectedSkillId === null) return null;
-
-    // First check in allSkills and userSkills (from ID arrays)
-    const fromLists = [...allSkills, ...userSkills].find(
-      (skill) => skill.id === skillsState.selectedSkillId
-    );
-    if (fromLists) return fromLists;
-
-    // Fallback: check directly in entities (for skills loaded via fetchSkillById)
-    // This handles the case when navigating directly to /skills/:skillId
+    // Always return from entities - fetchSkillById stores full skill data here
+    // This ensures all fields (scheduling, exchange, location) are available
     return entities[skillsState.selectedSkillId] ?? null;
   }
 );

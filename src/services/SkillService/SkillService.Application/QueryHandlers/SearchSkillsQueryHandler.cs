@@ -50,6 +50,10 @@ public class SearchSkillsQueryHandler(
         Logger.LogDebug("Fetched {ProfileCount} user profiles for {UserCount} unique users",
             userProfiles.Count, userIds.Count());
 
+        // Fetch boost status for all skills (Phase 15)
+        var skillIds = skills.Select(s => s.Id).ToList();
+        var boostStatusMap = await _unitOfWork.Listings.GetBoostStatusForSkillsAsync(skillIds, cancellationToken);
+
         // Calculate experience years once for filtering and response mapping (Phase 5)
         var userExperienceMap = CalculateUserExperienceYears(userProfiles);
 
@@ -88,6 +92,10 @@ public class SearchSkillsQueryHandler(
             userProfiles.TryGetValue(s.UserId, out var ownerProfile);
             userExperienceMap.TryGetValue(s.UserId, out var ownerExperienceYears);
 
+            // Get boost status (Phase 15)
+            boostStatusMap.TryGetValue(s.Id, out var boostStatus);
+            var (isBoosted, isCurrentlyBoosted) = boostStatus;
+
             return new SkillSearchResultResponse(
                 s.Id,
                 s.UserId,
@@ -95,10 +103,10 @@ public class SearchSkillsQueryHandler(
                 s.Description,
                 s.IsOffered,
                 new SkillCategoryResponse(
-                    s.SkillCategory.Id,
-                    s.SkillCategory.Name,
-                    s.SkillCategory.IconName,
-                    s.SkillCategory.Color,
+                    s.Topic?.Id ?? s.SkillTopicId,
+                    s.Topic?.FullPath ?? "Unknown",
+                    s.Topic?.IconName ?? "",
+                    s.Category?.Color ?? "",
                     0 // Count removed to avoid N+1 query
                 ),
                 s.TagsJson ?? string.Empty,
@@ -118,7 +126,10 @@ public class SearchSkillsQueryHandler(
                 ownerProfile?.FirstName,
                 ownerProfile?.LastName,
                 // Owner experience (Phase 5)
-                ownerExperienceYears
+                ownerExperienceYears,
+                // Boost info (Phase 15)
+                isBoosted,
+                isCurrentlyBoosted
             );
         }).ToList();
 

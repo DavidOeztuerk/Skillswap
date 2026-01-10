@@ -28,11 +28,11 @@ export interface ProfileCompletenessItem {
 }
 
 export type ProfileCompletenessLevel =
-  | 'Beginner'
-  | 'Basic'
-  | 'Intermediate'
-  | 'Advanced'
-  | 'Expert';
+  | 'GettingStarted'
+  | 'MakingProgress'
+  | 'GoodProgress'
+  | 'AlmostThere'
+  | 'Complete';
 
 export interface ProfileCompletenessResponse {
   userId: string;

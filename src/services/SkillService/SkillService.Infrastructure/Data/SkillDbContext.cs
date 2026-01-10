@@ -23,6 +23,9 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
     public virtual DbSet<SkillSubcategory> SkillSubcategories => base.Set<SkillSubcategory>();
     public virtual DbSet<SkillTopic> SkillTopics => base.Set<SkillTopic>();
 
+    // Phase 10: Skill Listings with expiration
+    public virtual DbSet<Listing> Listings => base.Set<Listing>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -465,6 +468,81 @@ public class SkillDbContext(DbContextOptions<SkillDbContext> options) : DbContex
             entity.HasOne(e => e.Skill)
                   .WithMany(s => s.TagEntities)
                   .HasForeignKey(e => e.SkillId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ============================================================================
+        // LISTING ENTITY CONFIGURATION (Phase 10)
+        // Represents a published listing of a skill with expiration
+        // ============================================================================
+        modelBuilder.Entity<Listing>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            // Required properties
+            entity.Property(e => e.SkillId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.Type).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.ExpiresAt).IsRequired();
+
+            // Refresh properties
+            entity.Property(e => e.RefreshCount).HasDefaultValue(0);
+            entity.Property(e => e.ExpiringNotificationSent).HasDefaultValue(false);
+
+            // Boost properties
+            entity.Property(e => e.IsBoosted).HasDefaultValue(false);
+            entity.Property(e => e.BoostCount).HasDefaultValue(0);
+
+            // Closure properties
+            entity.Property(e => e.ClosureReason).HasMaxLength(500);
+
+            // Ignore computed properties (not mapped to DB)
+            entity.Ignore(e => e.IsVisible);
+            entity.Ignore(e => e.CanRefresh);
+            entity.Ignore(e => e.RefreshesRemaining);
+            entity.Ignore(e => e.DaysUntilExpiration);
+            entity.Ignore(e => e.IsCurrentlyBoosted);
+            entity.Ignore(e => e.IsOffer);
+            entity.Ignore(e => e.IsRequest);
+
+            // Indexes for performance
+            entity.HasIndex(e => e.SkillId)
+                .IsUnique()  // 1:1 relationship - one listing per skill
+                .HasDatabaseName("IX_Listings_SkillId");
+
+            entity.HasIndex(e => e.UserId)
+                .HasDatabaseName("IX_Listings_UserId");
+
+            entity.HasIndex(e => e.Status)
+                .HasDatabaseName("IX_Listings_Status");
+
+            entity.HasIndex(e => e.Type)
+                .HasDatabaseName("IX_Listings_Type");
+
+            entity.HasIndex(e => e.ExpiresAt)
+                .HasDatabaseName("IX_Listings_ExpiresAt");
+
+            entity.HasIndex(e => e.IsBoosted)
+                .HasDatabaseName("IX_Listings_IsBoosted");
+
+            // Composite indexes for common queries
+            entity.HasIndex(e => new { e.Status, e.ExpiresAt })
+                .HasDatabaseName("IX_Listings_StatusExpiration");
+
+            entity.HasIndex(e => new { e.Status, e.Type })
+                .HasDatabaseName("IX_Listings_StatusType");
+
+            entity.HasIndex(e => new { e.UserId, e.Status })
+                .HasDatabaseName("IX_Listings_UserStatus");
+
+            entity.HasIndex(e => new { e.IsBoosted, e.BoostedUntil })
+                .HasDatabaseName("IX_Listings_BoostExpiration");
+
+            // Foreign key relationship to Skill (1:1)
+            entity.HasOne(l => l.Skill)
+                  .WithOne(s => s.Listing)
+                  .HasForeignKey<Listing>(l => l.SkillId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
     }

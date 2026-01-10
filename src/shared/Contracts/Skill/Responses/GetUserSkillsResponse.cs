@@ -30,16 +30,44 @@ public record UserSkillResponse(
     DateTime UpdatedAt);
 
 /// <summary>
-/// Skill category response
+/// Skill category response with optional hierarchy
 /// </summary>
 /// <param name="CategoryId">Unique identifier for the category</param>
 /// <param name="Name">Name of the category</param>
 /// <param name="IconName">Icon name for the category</param>
 /// <param name="Color">Color associated with the category</param>
 /// <param name="SkillCount">Number of skills in the category</param>
+/// <param name="Subcategories">Optional list of subcategories (when hierarchy is requested)</param>
 public record SkillCategoryResponse(
     string CategoryId,
     string Name,
     string? IconName,
     string? Color,
-    int? SkillCount);
+    int? SkillCount,
+    List<SkillSubcategoryResponse>? Subcategories = null);
+
+/// <summary>
+/// Skill subcategory response
+/// </summary>
+/// <param name="Id">Unique identifier for the subcategory</param>
+/// <param name="Name">Name of the subcategory</param>
+/// <param name="IconName">Icon name for the subcategory</param>
+/// <param name="Topics">List of topics in this subcategory</param>
+public record SkillSubcategoryResponse(
+    string Id,
+    string Name,
+    string? IconName,
+    List<SkillTopicResponse> Topics);
+
+/// <summary>
+/// Skill topic response
+/// </summary>
+/// <param name="Id">Unique identifier for the topic</param>
+/// <param name="Name">Name of the topic</param>
+/// <param name="IsFeatured">Whether this topic is featured/popular</param>
+/// <param name="SkillCount">Number of skills with this topic</param>
+public record SkillTopicResponse(
+    string Id,
+    string Name,
+    bool IsFeatured,
+    int SkillCount);

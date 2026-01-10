@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http.Json;
 using StackExchange.Redis;
 using System.Reflection;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Memory;
 using Infrastructure.Security;
 using Infrastructure.Resilience;
 using Infrastructure.Security.Encryption;
@@ -60,8 +61,17 @@ public static class ServiceCollectionExtensions
         // Token Revocation Service - Redis-backed or In-Memory fallback
         // Note: This replaces the old AddTokenRevocation() method from SecurityExtensions
         // which created duplicate ConnectionMultiplexer instances
-        var redisConnectionString = configuration.GetConnectionString("Redis")
-            ?? configuration["Redis:ConnectionString"];
+        // Phase 14: Also check environment variable directly
+        // Phase 14: Check all sources for Redis connection string
+        // IMPORTANT: Use string.IsNullOrEmpty() because appsettings may have empty string ""
+        var redisFromConfig = configuration.GetConnectionString("Redis");
+        var redisFromConfigAlt = configuration["Redis:ConnectionString"];
+        var redisFromEnv = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
+
+        // Use first non-null AND non-empty value
+        var redisConnectionString = !string.IsNullOrEmpty(redisFromConfig) ? redisFromConfig
+            : !string.IsNullOrEmpty(redisFromConfigAlt) ? redisFromConfigAlt
+            : redisFromEnv;
             
         if (!string.IsNullOrEmpty(redisConnectionString))
         {
@@ -125,12 +135,12 @@ public static class ServiceCollectionExtensions
         services.AddHttpResponseCaching(configuration);
 
         // Add Caching Services
+        var cachePrefix = serviceName.ToLowerInvariant();
         if (!string.IsNullOrEmpty(redisConnectionString))
         {
             // CRITICAL FIX: Use same prefix as IDistributedCache for cache invalidation to work
             // IDistributedCache uses GetCurrentServiceName() which returns lowercase (line 297)
             // so we must use the same lowercase format!
-            var cachePrefix = serviceName.ToLowerInvariant();
             services.AddSingleton<IDistributedCacheService>(sp =>
                 new RedisDistributedCacheService(
                     sp.GetRequiredService<IConnectionMultiplexer>(),
@@ -143,6 +153,14 @@ public static class ServiceCollectionExtensions
         }
         else
         {
+            // Fallback to in-memory cache service when Redis is unavailable
+            services.AddSingleton<IDistributedCacheService>(sp =>
+                new InMemoryDistributedCacheService(
+                    sp.GetRequiredService<IMemoryCache>(),
+                    sp.GetRequiredService<ILogger<InMemoryDistributedCacheService>>(),
+                    keyPrefix: $"{cachePrefix}:"
+                )
+            );
             services.AddSingleton<IDistributedRateLimitStore, InMemoryRateLimitStore>();
         }
         // Skip CacheInvalidationService for Gateway (doesn't need cache invalidation)
@@ -187,10 +205,27 @@ public static class ServiceCollectionExtensions
                 var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
                     ?? new[] { "http://localhost:3000" };
 
+                // Phase 14.4: CORS Hardening - restrict to actual needed methods/headers
                 policy.WithOrigins(allowedOrigins)
-                      .AllowAnyMethod()
-                      .AllowAnyHeader()
-                      .AllowCredentials();
+                      .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+                      .WithHeaders(
+                          "Content-Type",
+                          "Authorization",
+                          "X-Request-ID",
+                          "X-Correlation-ID",
+                          "Accept",
+                          "Accept-Language",
+                          "Cache-Control",
+                          "Pragma"  // Browser sends this with Cache-Control
+                      )
+                      .WithExposedHeaders(
+                          "X-Request-ID",
+                          "X-Correlation-ID",
+                          "X-Pagination",
+                          "Content-Disposition"
+                      )
+                      .AllowCredentials()
+                      .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
             });
         });
 
@@ -321,17 +356,16 @@ public static class ServiceCollectionExtensions
                         tags: new[] { "ready", "cache" },
                         timeout: TimeSpan.FromSeconds(2));
 
-                Console.WriteLine($"[DEBUG] Redis cache configured successfully");
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"[DEBUG] Redis configuration failed: {ex.Message}, using MemoryCache");
+                // Redis failed, fallback to memory cache
                 services.AddSingleton<IDistributedCache, MemoryDistributedCache>();
             }
         }
         else
         {
-            Console.WriteLine("[DEBUG] No Redis connection string found, using MemoryDistributedCache");
+            // No Redis configured, use memory cache
             services.AddSingleton<IDistributedCache, MemoryDistributedCache>();
         }
 
@@ -417,7 +451,9 @@ public static class ServiceCollectionExtensions
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(opts =>
             {
-                opts.RequireHttpsMetadata = false;
+                // In development, allow HTTP for local testing
+                // In production/staging, require HTTPS for security
+                opts.RequireHttpsMetadata = !environment.IsDevelopment();
                 opts.SaveToken = true;
                 opts.MapInboundClaims = false;
 

@@ -1,5 +1,6 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Repositories;
 using AppointmentService.Domain.Services;
 using Contracts.Appointment.Responses;
@@ -179,7 +180,7 @@ public class CreateAppointmentCommandHandler(
                 sessionAppointment.Id,
                 sessionAppointment.Title,
                 sessionAppointment.ScheduledDate,
-                sessionAppointment.Status,
+                sessionAppointment.Status.ToString(),
                 sessionAppointment.CreatedAt);
 
             _logger.LogInformation(

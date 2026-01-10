@@ -554,6 +554,64 @@ namespace NotificationService.Migrations
                     b.ToTable("EmailTemplates");
                 });
 
+            modelBuilder.Entity("NotificationService.Domain.Entities.MessageReaction", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Emoji")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MessageId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime>("ReactedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MessageId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("MessageId", "UserId", "Emoji")
+                        .IsUnique()
+                        .HasDatabaseName("IX_MessageReactions_Unique");
+
+                    b.ToTable("MessageReactions");
+                });
+
             modelBuilder.Entity("NotificationService.Domain.Entities.Notification", b =>
                 {
                     b.Property<string>("Id")
@@ -1031,6 +1089,62 @@ namespace NotificationService.Migrations
                     b.ToTable("ReminderSettings");
                 });
 
+            modelBuilder.Entity("NotificationService.Domain.Entities.ReminderTiming", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("MinutesBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReminderSettingsId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReminderSettingsId");
+
+                    b.HasIndex("ReminderSettingsId", "MinutesBefore")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ReminderTimings_Unique");
+
+                    b.ToTable("ReminderTimings");
+                });
+
             modelBuilder.Entity("NotificationService.Domain.Entities.ScheduledReminder", b =>
                 {
                     b.Property<string>("Id")
@@ -1144,6 +1258,17 @@ namespace NotificationService.Migrations
                     b.Navigation("Thread");
                 });
 
+            modelBuilder.Entity("NotificationService.Domain.Entities.MessageReaction", b =>
+                {
+                    b.HasOne("NotificationService.Domain.Entities.ChatMessage", "Message")
+                        .WithMany("Reactions")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+                });
+
             modelBuilder.Entity("NotificationService.Domain.Entities.NotificationEvent", b =>
                 {
                     b.HasOne("NotificationService.Domain.Entities.Notification", "Notification")
@@ -1155,9 +1280,22 @@ namespace NotificationService.Migrations
                     b.Navigation("Notification");
                 });
 
+            modelBuilder.Entity("NotificationService.Domain.Entities.ReminderTiming", b =>
+                {
+                    b.HasOne("NotificationService.Domain.Entities.ReminderSettings", "ReminderSettings")
+                        .WithMany("Timings")
+                        .HasForeignKey("ReminderSettingsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReminderSettings");
+                });
+
             modelBuilder.Entity("NotificationService.Domain.Entities.ChatMessage", b =>
                 {
                     b.Navigation("Attachments");
+
+                    b.Navigation("Reactions");
                 });
 
             modelBuilder.Entity("NotificationService.Domain.Entities.ChatThread", b =>
@@ -1168,6 +1306,11 @@ namespace NotificationService.Migrations
             modelBuilder.Entity("NotificationService.Domain.Entities.Notification", b =>
                 {
                     b.Navigation("Events");
+                });
+
+            modelBuilder.Entity("NotificationService.Domain.Entities.ReminderSettings", b =>
+                {
+                    b.Navigation("Timings");
                 });
 #pragma warning restore 612, 618
         }

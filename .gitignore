@@ -18,16 +18,23 @@ start-all.sh
 .env.test.local
 .env.production.local
 
-# Secrets and Configuration
+# Secrets and Configuration - ALL appsettings files (contain connection strings, API keys, etc.)
+**/appsettings.json
+**/appsettings.*.json
+appsettings.json
 appsettings.Development.json
 appsettings.Production.json
 appsettings.Staging.json
+appsettings.Docker.json
 secrets.json
 config.json
 azure-config.env
 *.pem
 *.key
 *.pfx
+
+# Visual Studio Launch Settings (contain environment variables)
+**/Properties/launchSettings.json
 
 # ============================================================================
 # .NET Core / C#

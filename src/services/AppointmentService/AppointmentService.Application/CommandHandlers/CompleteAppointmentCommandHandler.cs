@@ -1,5 +1,6 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Repositories;
 using CQRS.Handlers;
 using CQRS.Models;
@@ -60,7 +61,7 @@ public class CompleteAppointmentCommandHandler(
 
         var resp = new CompleteAppointmentResponse(
             appt.Id,
-            appt.Status,
+            appt.Status.ToString(),
             appt.CompletedAt ?? DateTime.UtcNow);
 
         Logger.LogInformation(

@@ -2,6 +2,7 @@ using CQRS.Handlers;
 using Microsoft.EntityFrameworkCore;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Domain.Services;
 using EventSourcing;

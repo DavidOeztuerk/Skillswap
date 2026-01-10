@@ -29,11 +29,13 @@ import { useGeolocation } from '../../../shared/hooks/useGeolocation';
 import { isPagedResponse } from '../../../shared/types/api/UnifiedResponse';
 import { Permissions } from '../../auth/components/permissions.constants';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { usePayment } from '../../payments';
 import { profileService } from '../../profile/services/profileService';
 import SkillFilterSidebar from '../components/SkillFilterSidebar';
 import SkillForm from '../components/SkillForm';
 import SkillList from '../components/SkillList';
 import useSkills from '../hooks/useSkills';
+import useUserListings from '../hooks/useUserListings';
 import type { CreateSkillRequest } from '../types/CreateSkillRequest';
 import type { Skill } from '../types/Skill';
 import type { SkillFilters } from '../types/SkillFilter';
@@ -381,6 +383,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
     // Actions (all memoized)
     fetchAllSkills,
     fetchUserSkills,
+    fetchSkillById,
     fetchCategories,
     fetchFavoriteSkills,
     createSkill,
@@ -391,11 +394,17 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
     isFavoriteSkill,
     allSkillsPagination,
     userSkillsPagination,
+    getSkillById,
   } = useSkills();
+
+  // Payment/Boost functionality
+  const { openModal: openBoostModal } = usePayment();
+  const { getOrCreateListingForSkill, isSkillBoosted } = useUserListings(showOnly === 'mine');
 
   // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<Skill | undefined>();
+  const [isLoadingEditSkill, setIsLoadingEditSkill] = useState(false);
 
   // ⚡ PERFORMANCE: Single state object for user profile view
   // This reduces re-renders from 3 to 1 (loading + skills + pagination → single update)
@@ -661,11 +670,27 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
   }, [isOwnerView]);
 
   const handleEditSkill = useCallback(
-    (skill: Skill): void => {
+    async (skill: Skill): Promise<void> => {
       if (isOwnerView) {
         errorService.addBreadcrumb('Opening skill edit form', 'ui', { skillId: skill.id });
-        setSelectedSkill(skill);
-        setIsFormOpen(true);
+
+        // Fetch full skill details to get exchange/scheduling/location fields
+        // The userSkills list doesn't include these fields
+        setIsLoadingEditSkill(true);
+        try {
+          await fetchSkillById(skill.id);
+          // Get the updated skill from the store (fetchSkillById updates the entity)
+          const fullSkill = getSkillById(skill.id);
+          setSelectedSkill(fullSkill ?? skill);
+          setIsFormOpen(true);
+        } catch (err) {
+          errorService.addBreadcrumb('Failed to fetch skill details for edit', 'error', { err });
+          // Fallback to partial skill data
+          setSelectedSkill(skill);
+          setIsFormOpen(true);
+        } finally {
+          setIsLoadingEditSkill(false);
+        }
       } else {
         errorService.addBreadcrumb('Navigating to skill detail', 'navigation', {
           skillId: skill.id,
@@ -673,7 +698,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
         void navigate(`/skills/${skill.id}`);
       }
     },
-    [isOwnerView, navigate]
+    [isOwnerView, navigate, fetchSkillById, getSkillById]
   );
 
   // Note: Hook functions return void (fire-and-forget dispatch), so we close the form immediately
@@ -734,6 +759,35 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
       handleDelete(skillId);
     },
     [handleDelete]
+  );
+
+  // Handle boost skill - get or create listing for skill and open boost modal
+  // Uses getOrCreateListingForSkill which handles 409 gracefully
+  const handleBoostSkill = useCallback(
+    async (skill: Skill): Promise<void> => {
+      // Check if already boosted
+      if (isSkillBoosted(skill.id)) {
+        errorService.addBreadcrumb('Skill is already boosted', 'info', { skillId: skill.id });
+        return;
+      }
+
+      // Get existing listing or create new one (handles 409 gracefully)
+      const listing = await getOrCreateListingForSkill(
+        skill.id,
+        skill.isOffered ? 'Offer' : 'Request'
+      );
+
+      if (!listing) {
+        errorService.addBreadcrumb('Could not get or create listing for skill', 'error', {
+          skillId: skill.id,
+        });
+        return;
+      }
+
+      // Open boost modal with the listing
+      openBoostModal(listing.id, skill.name);
+    },
+    [getOrCreateListingForSkill, isSkillBoosted, openBoostModal]
   );
 
   const handleRefresh = useCallback((): void => {
@@ -942,8 +996,10 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
               loading={isLoading}
               onEditSkill={canUpdateOwnSkill ? handleEditSkill : undefined}
               onDeleteSkill={canDeleteOwnSkill ? handleDeleteForList : undefined}
+              onBoostSkill={isOwnerView ? handleBoostSkill : undefined}
               onToggleFavorite={handleToggleFavoriteForList}
               isFavorite={isFavoriteSkill}
+              isSkillBoosted={isOwnerView ? isSkillBoosted : undefined}
               isOwnerView={isOwnerView}
             />
 
@@ -1015,7 +1071,7 @@ const SkillsPage: React.FC<SkillsPageProps> = ({ showOnly = 'all' }) => {
           open={isFormOpen}
           skill={selectedSkill}
           categories={categories}
-          loading={isLoading}
+          loading={isLoading || isLoadingEditSkill}
           userOfferedSkills={userSkills.filter((s) => s.isOffered)}
           onClose={() => {
             setIsFormOpen(false);

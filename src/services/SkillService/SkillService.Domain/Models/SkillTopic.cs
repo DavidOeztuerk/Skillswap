@@ -58,10 +58,32 @@ public class SkillTopic : AuditableEntity
     public virtual ICollection<Skill> Skills { get; set; } = [];
 
     // Computed property to get full hierarchy path
+    // Smart path generation: skips duplicate names in hierarchy
     [NotMapped]
-    public string FullPath => Subcategory != null && Subcategory.Category != null
-        ? $"{Subcategory.Category.Name} > {Subcategory.Name} > {Name}"
-        : Name;
+    public string FullPath
+    {
+        get
+        {
+            if (Subcategory?.Category == null)
+                return Name;
+
+            var categoryName = Subcategory.Category.Name;
+            var subcategoryName = Subcategory.Name;
+            var topicName = Name;
+
+            // Build path, skipping duplicates
+            var parts = new List<string> { categoryName };
+
+            if (!string.Equals(subcategoryName, categoryName, StringComparison.OrdinalIgnoreCase))
+                parts.Add(subcategoryName);
+
+            if (!string.Equals(topicName, subcategoryName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(topicName, categoryName, StringComparison.OrdinalIgnoreCase))
+                parts.Add(topicName);
+
+            return string.Join(" > ", parts);
+        }
+    }
 
     // Factory method
     public static SkillTopic Create(

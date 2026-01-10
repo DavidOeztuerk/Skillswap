@@ -1,5 +1,6 @@
 using AppointmentService.Application.Queries;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Services;
 using AppointmentService.Domain.Repositories;
 using Contracts.Appointment.Responses;
@@ -69,7 +70,7 @@ public class GetUserAppointmentsQueryHandler(
                 Description: a.Description,
                 ScheduledDate: a.ScheduledDate,
                 DurationMinutes: a.DurationMinutes,
-                Status: a.Status,
+                Status: a.Status.ToString(),
                 OtherPartyUserId: otherPartyUserId,
                 OtherPartyName: otherPartyName,
                 MeetingType: a.MeetingType ?? "VideoCall",
@@ -80,7 +81,7 @@ public class GetUserAppointmentsQueryHandler(
                 // Connection data
                 ConnectionId: connection?.Id,
                 ConnectionType: connectionType,
-                ConnectionStatus: connection?.Status ?? "Active",
+                ConnectionStatus: connection?.Status.ToString() ?? "Active",
                 // Series data
                 SessionSeriesId: series?.Id,
                 SessionSeriesTitle: series?.Title,

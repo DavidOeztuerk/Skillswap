@@ -7,8 +7,8 @@ import {
   updateCategory,
   deleteCategory,
 } from './thunks/categoryThunks';
-import type { SkillCategoryResponse } from '../types/CreateSkillResponse';
-import type { SkillCategory } from '../types/Skill';
+import type { SkillCategoryResponse, SkillSubcategoryResponse } from '../types/CreateSkillResponse';
+import type { SkillCategory, SkillSubcategory, SkillTopic } from '../types/Skill';
 
 const categoriesSlice = createSlice({
   name: 'categories',
@@ -106,12 +106,32 @@ const categoriesSlice = createSlice({
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.isLoading = false;
 
+        const mapTopicResponse = (topic: {
+          id: string;
+          name: string;
+          isFeatured: boolean;
+          skillCount: number;
+        }): SkillTopic => ({
+          id: topic.id,
+          name: topic.name,
+          isFeatured: topic.isFeatured,
+          skillCount: topic.skillCount,
+        });
+
+        const mapSubcategoryResponse = (sub: SkillSubcategoryResponse): SkillSubcategory => ({
+          id: sub.id,
+          name: sub.name,
+          iconName: sub.iconName,
+          topics: sub.topics.map(mapTopicResponse),
+        });
+
         const mapSkillResponseToSkill = (response: SkillCategoryResponse): SkillCategory => ({
           id: response.categoryId,
           name: response.name,
           iconName: response.iconName,
           color: response.color,
           skillCount: response.skillCount,
+          subcategories: response.subcategories?.map(mapSubcategoryResponse),
         });
 
         if (isDefined(action.payload.data)) {

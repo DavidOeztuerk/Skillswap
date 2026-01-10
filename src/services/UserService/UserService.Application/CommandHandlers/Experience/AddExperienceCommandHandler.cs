@@ -17,15 +17,21 @@ public class AddExperienceCommandHandler(
 
     public override async Task<ApiResponse<UserExperienceResponse>> Handle(AddExperienceCommand request, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(request.UserId))
+        {
+            return Error("User ID is required");
+        }
+
         Logger.LogInformation("Adding experience for user {UserId}", request.UserId);
 
         var experience = UserExperience.Create(
-            request.UserId,
+            request.UserId!,
             request.Title,
             request.Company,
             request.StartDate,
             request.EndDate,
             request.Description,
+            location: null,
             request.SortOrder);
 
         var result = await _experienceRepository.AddExperience(experience, cancellationToken);

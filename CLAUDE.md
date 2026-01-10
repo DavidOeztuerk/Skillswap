@@ -323,7 +323,141 @@ public class SkillCreatedConsumer : IConsumer<SkillCreatedEvent>
 }
 ```
 
-### 6. Frontend Service Pattern
+### 6. Frontend Feature Structure (MANDATORY)
+
+**CRITICAL**: Every frontend feature MUST follow this structure! Components NEVER call services directly.
+
+```
+features/
+├── [feature-name]/
+│   ├── components/          # UI Components (presentational)
+│   │   ├── FeatureCard.tsx
+│   │   └── FeatureList.tsx
+│   ├── hooks/               # Custom hooks for data access
+│   │   ├── useFeature.ts    # Main feature hook (uses Redux)
+│   │   └── useFeatureLocal.ts  # Local state hooks if needed
+│   ├── pages/               # Page components (containers)
+│   │   └── FeaturePage.tsx
+│   ├── services/            # API service layer
+│   │   └── featureService.ts
+│   ├── store/               # Redux state management
+│   │   ├── featureAdapter+State.ts  # Entity adapter + initial state
+│   │   ├── featureSelectors.ts      # Memoized selectors
+│   │   ├── featureSlice.ts          # Reducers + actions
+│   │   └── thunks/
+│   │       └── featureThunks.ts     # Async thunks
+│   ├── types/               # TypeScript types
+│   │   └── Feature.ts
+│   └── index.ts             # Public exports
+```
+
+#### Data Flow (STRICT ORDER)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. Component calls HOOK (useFeature, usePayment, etc.)          │
+│    └─► NEVER calls service directly!                            │
+│                                                                 │
+│ 2. Hook dispatches THUNK or uses SELECTOR                       │
+│    └─► fetchFeatureData(), selectAllFeatures()                  │
+│                                                                 │
+│ 3. Thunk calls SERVICE                                          │
+│    └─► featureService.getAll()                                  │
+│                                                                 │
+│ 4. Service calls apiClient                                      │
+│    └─► apiClient.get<T>('/api/features')                        │
+│                                                                 │
+│ 5. Response flows back: apiClient → Service → Thunk → Slice     │
+│    └─► State updated, selector notifies component               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### File Responsibilities
+
+| File | Responsibility | Calls |
+|------|---------------|-------|
+| `Component.tsx` | UI rendering only | hooks |
+| `useFeature.ts` | Data access for components | dispatch(thunks), selectors |
+| `featureThunks.ts` | Async operations | services |
+| `featureService.ts` | API communication | apiClient |
+| `featureSlice.ts` | State mutations | nothing (pure reducers) |
+| `featureSelectors.ts` | Memoized state derivation | nothing (pure selectors) |
+| `featureAdapter+State.ts` | Entity normalization | nothing (config only) |
+
+#### Example: Complete Feature Implementation
+
+```typescript
+// 1. featureAdapter+State.ts
+import { createEntityAdapter, EntityState } from '@reduxjs/toolkit';
+import type { Feature } from '../types/Feature';
+
+export const featureAdapter = createEntityAdapter<Feature>();
+export interface FeatureState extends EntityState<Feature, string> {
+  loading: boolean;
+  error: string | null;
+}
+export const initialState: FeatureState = featureAdapter.getInitialState({
+  loading: false,
+  error: null,
+});
+
+// 2. featureThunks.ts
+export const fetchFeatures = createAsyncThunk(
+  'features/fetchAll',
+  async (_, { rejectWithValue }) => {
+    const response = await featureService.getAll();
+    if (isSuccessResponse(response)) return response.data;
+    return rejectWithValue(response.errors[0]);
+  }
+);
+
+// 3. featureSlice.ts
+const featureSlice = createSlice({
+  name: 'features',
+  initialState,
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchFeatures.pending, (state) => { state.loading = true; })
+      .addCase(fetchFeatures.fulfilled, (state, action) => {
+        featureAdapter.setAll(state, action.payload);
+        state.loading = false;
+      })
+      .addCase(fetchFeatures.rejected, (state, action) => {
+        state.error = action.payload as string;
+        state.loading = false;
+      });
+  },
+});
+
+// 4. featureSelectors.ts
+const selectFeatureState = (state: RootState) => state.features;
+export const { selectAll: selectAllFeatures } = featureAdapter.getSelectors(selectFeatureState);
+export const selectFeaturesLoading = (state: RootState) => state.features.loading;
+
+// 5. useFeature.ts (HOOK - components use THIS)
+export const useFeature = () => {
+  const dispatch = useAppDispatch();
+  const features = useAppSelector(selectAllFeatures);
+  const loading = useAppSelector(selectFeaturesLoading);
+
+  const fetchAll = useCallback(() => {
+    void dispatch(fetchFeatures());
+  }, [dispatch]);
+
+  return { features, loading, fetchAll };
+};
+
+// 6. FeaturePage.tsx (COMPONENT - uses HOOK only)
+const FeaturePage = () => {
+  const { features, loading, fetchAll } = useFeature();
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  return <FeatureList items={features} loading={loading} />;
+};
+```
+
+### 7. API Service Pattern
 
 #### ✅ API Service with apiClient
 ```typescript
@@ -407,6 +541,66 @@ const skillSlice = createSlice({
     }
 });
 ```
+
+#### 🚫 NEVER Use Services Directly in Components
+**CRITICAL**: React components must NEVER call service methods directly!
+
+```typescript
+// ❌ WRONG: Service call directly in component
+const MyComponent = () => {
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    // BAD! Direct service call in component
+    listingService.getMyListings()
+      .then(response => {
+        if (response.success && response.data) {
+          setData(response.data);
+        }
+      });
+  }, []);
+};
+
+// ✅ CORRECT: Use a custom hook that encapsulates the service call
+const MyComponent = () => {
+  const { listings, isLoading, error } = useUserListings();
+  // Component only uses hook, never calls service directly
+};
+
+// The hook encapsulates the service call properly
+export const useUserListings = () => {
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchListings = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await listingService.getMyListings();
+      if (isSuccessResponse(response)) {
+        setListings(response.data);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchListings(); }, [fetchListings]);
+
+  return { listings, isLoading, refreshListings: fetchListings };
+};
+```
+
+**Why?**
+1. **Separation of Concerns**: Components handle UI, hooks handle data fetching
+2. **Reusability**: Hooks can be reused across multiple components
+3. **Testability**: Hooks are easier to test in isolation
+4. **Type Safety**: Hooks can properly type-guard API responses
+5. **Error Handling**: Centralized error handling in hooks
+
+**Pattern Hierarchy:**
+1. **Redux Thunks + Selectors** - For global state (skills, categories, auth)
+2. **Custom Hooks** - For local/component-specific data (useUserListings, usePayment)
+3. **NEVER**: Direct service calls in components
 
 ## 🚀 Performance & Optimization
 
@@ -713,6 +907,8 @@ npm run build              # Production build
 - **ALWAYS handle unauthenticated users** properly in frontend
 - **ALWAYS configure public endpoints** in PermissionMiddleware
 - **ALWAYS check for null/undefined** in TypeScript
+- **ALWAYS follow Feature Structure** - adapter+state, thunks, slices, selectors, hooks
+- **ALWAYS use hooks in components** - Components call hooks, hooks dispatch thunks
 - Use dependency injection everywhere
 - Use pagination for list endpoints
 - Log important business operations
@@ -726,6 +922,7 @@ npm run build              # Production build
 - **NEVER create complex validation services** - Use FluentValidation + Handler logic
 - **NEVER attempt token refresh without checking if tokens exist**
 - **NEVER wrap params in objects** when passing to apiClient (use `params` not `{ params }`)
+- **NEVER call services directly in React components** - Always use hooks or Redux thunks
 - Don't expose internal exceptions to users
 - Don't use Entity classes as DTOs
 - Don't store sensitive data in frontend state
@@ -784,6 +981,26 @@ if (status === 401 && !originalRequest._retry) {
     return this.handleTokenRefresh(originalRequest);
   }
 }
+```
+
+#### ❌ Direct Service Calls in React Components
+```typescript
+// ❌ WRONG: Service call directly in component useEffect
+const SkillsPage = () => {
+  const [listings, setListings] = useState([]);
+
+  useEffect(() => {
+    // BAD! Direct service call bypasses hook patterns
+    listingService.getMyListings()
+      .then(response => setListings(response.data));
+  }, []);
+};
+
+// ✅ CORRECT: Use a custom hook
+const SkillsPage = () => {
+  const { listings, findListingBySkillId } = useUserListings(showOnly === 'mine');
+  // Clean separation: component handles UI, hook handles data
+};
 ```
 
 ## 🔍 Debugging Guide

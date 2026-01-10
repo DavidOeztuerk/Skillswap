@@ -2,10 +2,9 @@ using CQRS.Handlers;
 using CQRS.Models;
 using Contracts.User.Responses;
 using Core.Common.Exceptions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using UserService.Application.Queries;
-using UserService.Infrastructure.Data;
+using UserService.Domain.Repositories;
 
 namespace UserService.Application.QueryHandlers;
 
@@ -13,27 +12,26 @@ namespace UserService.Application.QueryHandlers;
 /// Handler for GetProfileCompletenessQuery
 /// Phase 13: Profile Completeness
 ///
-/// Completeness calculation:
-/// - Bio vorhanden: 15%
+/// Completeness calculation (6 items, 100% total):
+/// - Bio vorhanden: 20%
 /// - Profilbild: 15%
-/// - Headline: 10%
-/// - Mind. 1 Experience: 20%
+/// - Mind. 1 Experience: 25%
 /// - Mind. 1 Education: 15%
 /// - Mind. 1 Skill: 15%
 /// - LinkedIn/Xing verknüpft: 10%
 /// </summary>
 public class GetProfileCompletenessQueryHandler(
-    UserDbContext dbContext,
+    IUserRepository userRepository,
     ILogger<GetProfileCompletenessQueryHandler> logger)
     : BaseQueryHandler<GetProfileCompletenessQuery, ProfileCompletenessResponse>(logger)
 {
-    private readonly UserDbContext _dbContext = dbContext;
+    private readonly IUserRepository _userRepository = userRepository;
 
     // Weight constants matching the requirements
-    private const int WeightBio = 15;
+    // Headline removed - can be derived from latest experience
+    private const int WeightBio = 20;
     private const int WeightProfilePicture = 15;
-    private const int WeightHeadline = 10;
-    private const int WeightExperience = 20;
+    private const int WeightExperience = 25;
     private const int WeightEducation = 15;
     private const int WeightSkill = 15;
     private const int WeightSocialConnection = 10;
@@ -42,29 +40,15 @@ public class GetProfileCompletenessQueryHandler(
         GetProfileCompletenessQuery request,
         CancellationToken cancellationToken)
     {
-        Logger.LogInformation("Calculating profile completeness for user {UserId}", request.UserId);
+        var userId = request.UserId.ToString();
+        Logger.LogInformation("Calculating profile completeness for user {UserId}", userId);
 
-        // Fetch user with related data in a single query
-        var user = await _dbContext.Users
-            .AsNoTracking()
-            .Where(u => u.Id == request.UserId && !u.IsDeleted)
-            .Select(u => new
-            {
-                u.Id,
-                u.Bio,
-                u.ProfilePictureUrl,
-                u.Headline,
-                HasExperience = u.Experiences.Any(e => !e.IsDeleted),
-                HasEducation = u.Education.Any(e => !e.IsDeleted),
-                HasSkill = u.ImportedSkills.Any(s => !s.IsDeleted),
-                HasLinkedIn = u.LinkedInConnection != null && !u.LinkedInConnection.IsDeleted,
-                HasXing = u.XingConnection != null && !u.XingConnection.IsDeleted
-            })
-            .FirstOrDefaultAsync(cancellationToken);
+        // Fetch user profile completeness data via repository
+        var user = await _userRepository.GetProfileCompletenessDataAsync(userId, cancellationToken);
 
         if (user == null)
         {
-            throw new ResourceNotFoundException("User", request.UserId);
+            throw new ResourceNotFoundException("User", userId);
         }
 
         // Calculate completeness items
@@ -89,16 +73,6 @@ public class GetProfileCompletenessQueryHandler(
                 Hint = "Ein Foto macht dein Profil persönlicher",
                 ActionUrl = "/profile#avatar",
                 Icon = "AccountCircle"
-            },
-            new()
-            {
-                Key = "headline",
-                Label = "Headline hinzufügen",
-                IsCompleted = !string.IsNullOrWhiteSpace(user.Headline),
-                Weight = WeightHeadline,
-                Hint = "Beschreibe dich in einem Satz",
-                ActionUrl = "/profile#headline",
-                Icon = "Title"
             },
             new()
             {
@@ -148,19 +122,19 @@ public class GetProfileCompletenessQueryHandler(
         var percentage = totalPoints > 0 ? (int)Math.Round((double)earnedPoints / totalPoints * 100) : 0;
         var completedCount = items.Count(i => i.IsCompleted);
 
-        // Determine level
+        // Determine level based on profile completion percentage
         var level = percentage switch
         {
-            >= 90 => ProfileCompletenessLevel.Expert,
-            >= 75 => ProfileCompletenessLevel.Advanced,
-            >= 50 => ProfileCompletenessLevel.Intermediate,
-            >= 25 => ProfileCompletenessLevel.Basic,
-            _ => ProfileCompletenessLevel.Beginner
+            >= 90 => ProfileCompletenessLevel.Complete,
+            >= 75 => ProfileCompletenessLevel.AlmostThere,
+            >= 50 => ProfileCompletenessLevel.GoodProgress,
+            >= 25 => ProfileCompletenessLevel.MakingProgress,
+            _ => ProfileCompletenessLevel.GettingStarted
         };
 
         var response = new ProfileCompletenessResponse
         {
-            UserId = user.Id,
+            UserId = request.UserId,
             Percentage = percentage,
             TotalPoints = totalPoints,
             EarnedPoints = earnedPoints,
@@ -173,7 +147,7 @@ public class GetProfileCompletenessQueryHandler(
 
         Logger.LogInformation(
             "Profile completeness for user {UserId}: {Percentage}% ({CompletedCount}/{TotalCount} items)",
-            request.UserId, percentage, completedCount, items.Count);
+            userId, percentage, completedCount, items.Count);
 
         return Success(response);
     }

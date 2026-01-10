@@ -611,6 +611,8 @@ public class InputSanitizationMiddleware
             path.Contains("/auth/login") ||     // Skip auth - passwords may contain special chars
             path.Contains("/hub") ||             // Skip SignalR hubs - JWT tokens in query string
             path.Contains("/hubs/") ||           // Skip SignalR hubs - JWT tokens in query string
+            path.Contains("/webhook") ||         // Skip webhooks - signature validation requires raw body
+            path.Contains("/payments/webhook") || // Skip Stripe webhooks specifically
             path.EndsWith(".css") ||
             path.EndsWith(".js") ||
             path.EndsWith(".png") ||

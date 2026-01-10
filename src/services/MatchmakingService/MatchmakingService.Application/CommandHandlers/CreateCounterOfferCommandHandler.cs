@@ -4,6 +4,7 @@ using CQRS.Models;
 using EventSourcing;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Domain.Services;
 using Contracts.Matchmaking.Responses;
@@ -129,7 +130,7 @@ public class CreateCounterOfferCommandHandler(
                 SkillId = originalRequest.SkillId,
                 Description = "Counter-Offer: " + (originalRequest.Description ?? ""),
                 Message = request.Message,
-                Status = "Pending",
+                Status = MatchRequestStatus.Pending,
                 ThreadId = originalRequest.ThreadId ?? Guid.NewGuid().ToString(),
                 
                 // Counter offer specific data
@@ -161,7 +162,7 @@ public class CreateCounterOfferCommandHandler(
 
             var response = new CreateMatchRequestResponse(
                 RequestId: counterOffer.Id,
-                Status: counterOffer.Status,
+                Status: counterOffer.Status.ToString(),
                 CreatedAt: counterOffer.CreatedAt,
                 ThreadId: counterOffer.ThreadId ?? ""
             );

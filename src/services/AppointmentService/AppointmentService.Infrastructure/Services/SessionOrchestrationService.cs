@@ -1,5 +1,6 @@
 using AppointmentService.Application.Services;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Services;
 using AppointmentService.Domain.StateMachines;
 using Core.Common.Exceptions;

@@ -1,5 +1,7 @@
 using CQRS.Handlers;
 using MatchmakingService.Application.Commands;
+using MatchmakingService.Domain.Enums;
+using MatchmakingService.Domain.Repositories;
 using EventSourcing;
 using Events.Domain.Matchmaking;
 using CQRS.Models;
@@ -10,7 +12,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 
 namespace MatchmakingService.Application.CommandHandlers;
-using MatchmakingService.Domain.Repositories;
 
 public class DissolveMatchCommandHandler(
     IMatchmakingUnitOfWork unitOfWork,
@@ -72,7 +73,7 @@ public class DissolveMatchCommandHandler(
 
             return Success(new DissolveMatchResponse(
                 match.Id,
-                match.Status,
+                match.Status.ToString(),
                 match.DissolvedAt!.Value));
         }
     }

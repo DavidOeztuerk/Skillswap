@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserExperienceRepository, UserExperienceRepository>();
         services.AddScoped<IUserEducationRepository, UserEducationRepository>();
         services.AddScoped<IUserReviewRepository, UserReviewRepository>();
+        services.AddScoped<IUserStatisticsRepository, UserStatisticsRepository>();
 
         // Phase 12: LinkedIn/Xing integration repositories
         services.AddScoped<IUserLinkedInConnectionRepository, UserLinkedInConnectionRepository>();

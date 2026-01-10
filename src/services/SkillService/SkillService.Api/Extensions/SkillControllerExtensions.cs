@@ -118,11 +118,16 @@ public static class SkillControllerExtensions
         {
             var userId = user.GetUserId() ?? string.Empty;
 
+            // Parse comma-separated tags
+            var tags = string.IsNullOrWhiteSpace(request.Tags)
+                ? null
+                : request.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
             var query = new SearchSkillsQuery(
                 userId,
                 request.SearchTerm,
                 request.CategoryId,
-                request.Tags?.ToList(),
+                tags,
                 request.IsOffered,
                 request.MinRating,
                 request.SortBy,
@@ -235,7 +240,26 @@ public static class SkillControllerExtensions
                 request.Tags,
                 request.IsOffered,
                 request.AvailableHours,
-                request.PreferredSessionDuration)
+                request.PreferredSessionDuration,
+                null, // IsActive - not exposed via update endpoint
+                // Exchange options
+                request.ExchangeType,
+                request.DesiredSkillCategoryId,
+                request.DesiredSkillDescription,
+                request.HourlyRate,
+                request.Currency,
+                // Scheduling
+                request.PreferredDays,
+                request.PreferredTimes,
+                request.SessionDurationMinutes,
+                request.TotalSessions,
+                // Location
+                request.LocationType,
+                request.LocationAddress,
+                request.LocationCity,
+                request.LocationPostalCode,
+                request.LocationCountry,
+                request.MaxDistanceKm)
             {
                 UserId = userId
             };

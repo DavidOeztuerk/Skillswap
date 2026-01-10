@@ -7,7 +7,6 @@
 import React, { useCallback } from 'react';
 import {
   Person as PersonIcon,
-  Star as StarIcon,
   Message as MessageIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,

@@ -544,6 +544,94 @@
       },
       "AddQueriesToRequest": true
     },
+
+    {
+      "Comment": "========== LISTING ENDPOINTS (Phase 10) ==========",
+      "DownstreamPathTemplate": "/listings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/listings/my-listings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/my-listings",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "Comment": "Phase 15: Featured listings for homepage (public)",
+      "DownstreamPathTemplate": "/listings/featured",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/featured",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}",
+      "UpstreamHttpMethod": ["GET"]
+    },
+    {
+      "DownstreamPathTemplate": "/listings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}/refresh",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}/refresh",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}/boost",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}/boost",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}/close",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}/close",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "skillservice", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}",
+      "UpstreamHttpMethod": ["DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+
     {
       "DownstreamPathTemplate": "/matches/find",
       "DownstreamScheme": "http",
@@ -1620,6 +1708,58 @@
         "AllowedScopes": []
       },
       "AddQueriesToRequest": true
+    },
+    {
+      "Comment": "========== PAYMENT SERVICE (Phase 11) =========="
+    },
+    {
+      "Comment": "Get payment products (public)",
+      "DownstreamPathTemplate": "/payments/products",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "paymentservice", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/products",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "Comment": "Create checkout session (authenticated)",
+      "DownstreamPathTemplate": "/payments/checkout-session",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "paymentservice", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/checkout-session",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "Comment": "Get payment status (authenticated)",
+      "DownstreamPathTemplate": "/payments/{paymentId}/status",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "paymentservice", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/{paymentId}/status",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "Comment": "Stripe webhook (no auth - Stripe calls this)",
+      "DownstreamPathTemplate": "/payments/webhook",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "paymentservice", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/webhook",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"]
+    },
+    {
+      "Comment": "Health check (public)",
+      "DownstreamPathTemplate": "/health",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "paymentservice", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/health",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"]
     }
   ],
   "GlobalConfiguration": {

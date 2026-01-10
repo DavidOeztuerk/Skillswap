@@ -1,6 +1,7 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Services;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Repositories;
 using Contracts.Appointment.Responses;
 using Core.Common.Exceptions;
@@ -46,7 +47,7 @@ public class RescheduleAppointmentCommandHandler(
 
             if (appointment.Status == SessionAppointmentStatus.Cancelled || appointment.Status == SessionAppointmentStatus.Completed)
             {
-                return Error($"Cannot reschedule a {appointment.Status.ToLower()} appointment", ErrorCodes.InvalidOperation);
+                return Error($"Cannot reschedule a {appointment.Status.ToString().ToLowerInvariant()} appointment", ErrorCodes.InvalidOperation);
             }
 
             // Check for scheduling conflicts

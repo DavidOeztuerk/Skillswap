@@ -1,4 +1,5 @@
 using AppointmentService.Application.Queries;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Services;
 using AppointmentService.Domain.Repositories;
 using Contracts.Appointment.Responses;
@@ -54,7 +55,7 @@ public class GetAppointmentDetailsQueryHandler(
             OrganizerName: $"{enrichedData.Organizer.FirstName} {enrichedData.Organizer.LastName}",
             ParticipantUserId: appointment.ParticipantUserId,
             ParticipantName: $"{enrichedData.Participant.FirstName} {enrichedData.Participant.LastName}",
-            Status: appointment.Status,
+            Status: appointment.Status.ToString(),
             SkillId: series?.SkillId,
             SkillName: enrichedData.Skill?.Name,
             MatchId: connection?.MatchRequestId, // MatchRequestId is on Connection level
@@ -69,7 +70,7 @@ public class GetAppointmentDetailsQueryHandler(
             // Connection data
             ConnectionId: connection?.Id,
             ConnectionType: connectionType,
-            ConnectionStatus: connection?.Status ?? "Active",
+            ConnectionStatus: connection?.Status.ToString() ?? "Active",
             // Chat/Thread info - ThreadId from MatchRequest for Chat integration
             ThreadId: connection?.ThreadId,
             // Match/Connection Rollen - KONSTANT durch die gesamte Kette

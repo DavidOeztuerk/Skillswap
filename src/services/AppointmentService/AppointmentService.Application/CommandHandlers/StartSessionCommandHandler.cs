@@ -1,5 +1,6 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Repositories;
 using CQRS.Handlers;
 using CQRS.Models;
@@ -125,7 +126,7 @@ public class StartSessionCommandHandler(
 
             return Success(new SessionStatusResponse(
                 appointment.Id,
-                appointment.Status,
+                appointment.Status.ToString(),
                 appointment.StartedAt,
                 appointment.MeetingLink),
                 "Session started successfully");

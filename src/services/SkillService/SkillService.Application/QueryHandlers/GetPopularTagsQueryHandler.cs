@@ -25,15 +25,15 @@ public class GetPopularTagsQueryHandler(
             var skillsWithTags = await _unitOfWork.Skills
                 .GetActiveSkillsWithTagsAsync(request.CategoryId, cancellationToken);
 
-            var skillTagData = new List<(string TagsJson, string CategoryId, string CategoryName)>();
+            var skillTagData = new List<(string TagsJson, string TopicId, string TopicPath)>();
 
             foreach (var skill in skillsWithTags)
             {
-                var category = await _unitOfWork.SkillCategories.GetByIdAsync(skill.SkillCategoryId, cancellationToken);
-                skillTagData.Add((skill.TagsJson ?? "", skill.SkillCategoryId, category?.Name ?? "Unknown"));
+                var topic = await _unitOfWork.SkillTopics.GetByIdAsync(skill.SkillTopicId, cancellationToken);
+                skillTagData.Add((skill.TagsJson ?? "", skill.SkillTopicId, topic?.FullPath ?? "Unknown"));
             }
 
-            var tagUsage = new Dictionary<string, (int count, string? categoryId, string? categoryName)>();
+            var tagUsage = new Dictionary<string, (int count, string? topicId, string? topicPath)>();
 
             foreach (var skill in skillTagData)
             {
@@ -47,11 +47,11 @@ public class GetPopularTagsQueryHandler(
                             var key = tag.ToLowerInvariant().Trim();
                             if (tagUsage.ContainsKey(key))
                             {
-                                tagUsage[key] = (tagUsage[key].count + 1, skill.CategoryId, skill.CategoryName);
+                                tagUsage[key] = (tagUsage[key].count + 1, skill.TopicId, skill.TopicPath);
                             }
                             else
                             {
-                                tagUsage[key] = (1, skill.CategoryId, skill.CategoryName);
+                                tagUsage[key] = (1, skill.TopicId, skill.TopicPath);
                             }
                         }
                     }
@@ -65,8 +65,8 @@ public class GetPopularTagsQueryHandler(
                 .Select(x => new PopularTagResponse(
                     x.Key,
                     x.Value.count,
-                    x.Value.categoryId,
-                    x.Value.categoryName,
+                    x.Value.topicId,
+                    x.Value.topicPath,
                     0.0)) // TODO: Calculate growth rate
                 .ToList();
 

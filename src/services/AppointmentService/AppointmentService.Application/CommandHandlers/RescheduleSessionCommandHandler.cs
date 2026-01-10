@@ -1,5 +1,6 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Repositories;
 using CQRS.Handlers;
 using CQRS.Models;
@@ -67,7 +68,7 @@ public class RescheduleSessionCommandHandler(
 
             return Success(new SessionStatusResponse(
                 appointment.Id,
-                appointment.Status,
+                appointment.Status.ToString(),
                 appointment.UpdatedAt,
                 appointment.MeetingLink),
                 "Reschedule request sent to other party");

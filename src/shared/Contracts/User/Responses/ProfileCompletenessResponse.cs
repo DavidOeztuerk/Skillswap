@@ -106,32 +106,32 @@ public record ProfileCompletenessResponse
 }
 
 /// <summary>
-/// Profile completeness level enum
+/// Profile completeness level enum - describes how complete a user's profile is
 /// </summary>
 public enum ProfileCompletenessLevel
 {
     /// <summary>
-    /// 0-24% - Profile needs attention
+    /// 0-24% - Just getting started
     /// </summary>
-    Beginner = 0,
+    GettingStarted = 0,
 
     /// <summary>
-    /// 25-49% - Profile is getting started
+    /// 25-49% - Making progress
     /// </summary>
-    Basic = 1,
+    MakingProgress = 1,
 
     /// <summary>
-    /// 50-74% - Profile is good
+    /// 50-74% - Good progress
     /// </summary>
-    Intermediate = 2,
+    GoodProgress = 2,
 
     /// <summary>
-    /// 75-89% - Profile is very good
+    /// 75-89% - Almost there
     /// </summary>
-    Advanced = 3,
+    AlmostThere = 3,
 
     /// <summary>
     /// 90-100% - Profile is complete
     /// </summary>
-    Expert = 4
+    Complete = 4
 }

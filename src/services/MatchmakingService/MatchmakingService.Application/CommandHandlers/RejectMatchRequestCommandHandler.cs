@@ -2,6 +2,7 @@ using CQRS.Handlers;
 using CQRS.Models;
 using EventSourcing;
 using MatchmakingService.Application.Commands;
+using MatchmakingService.Domain.Enums;
 using MassTransit;
 using Events.Integration.Matchmaking;
 using Core.Common.Exceptions;
@@ -43,7 +44,7 @@ public class RejectMatchRequestCommandHandler(
                 return Error("Match request not found", ErrorCodes.ResourceNotFound);
             }
 
-            if (matchRequest.Status.ToLower() != "pending")
+            if (matchRequest.Status != MatchRequestStatus.Pending)
             {
                 return Error("Match request is no longer pending", ErrorCodes.InvalidOperation);
             }

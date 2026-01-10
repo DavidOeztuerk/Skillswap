@@ -1,5 +1,6 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Repositories;
 using AppointmentService.Domain.Services;
 using Contracts.Appointment.Responses;
@@ -109,7 +110,7 @@ public class AcceptAppointmentCommandHandler(
 
         var response = new AcceptAppointmentResponse(
             appointment.Id,
-            appointment.Status,
+            appointment.Status.ToString(),
             DateTime.UtcNow); // Use current time since SessionAppointment doesn't have AcceptedAt
 
         Logger.LogInformation("🎉 [AcceptAppointment] Appointment acceptance completed successfully for {AppointmentId}", request.AppointmentId);

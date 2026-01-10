@@ -21,7 +21,10 @@ public record SearchSkillsRequest(
 
     string? CategoryId = null,
 
-    string[]? Tags = null,
+    /// <summary>
+    /// Filter by tags (comma-separated)
+    /// </summary>
+    string? Tags = null,
 
     bool? IsOffered = null,
 

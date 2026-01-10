@@ -3,12 +3,14 @@ using SkillService.Application.Commands;
 using SkillService.Application.Services;
 using SkillService.Domain.Entities;
 using SkillService.Domain.Repositories;
+using SkillService.Domain.Configuration;
 using Contracts.Skill.Responses;
 using CQRS.Models;
 using Core.Common.Exceptions;
 using Events.Integration.SkillManagement;
 using MassTransit;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace SkillService.Application.CommandHandlers;
 
@@ -16,12 +18,14 @@ public class CreateSkillCommandHandler(
     ISkillUnitOfWork unitOfWork,
     ILocationService locationService,
     IPublishEndpoint publishEndpoint,
+    IOptions<ListingSettings> listingOptions,
     ILogger<CreateSkillCommandHandler> logger)
     : BaseCommandHandler<CreateSkillCommand, CreateSkillResponse>(logger)
 {
     private readonly ISkillUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILocationService _locationService = locationService;
     private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
+    private readonly ListingSettings _listingSettings = listingOptions.Value;
 
     public override async Task<ApiResponse<CreateSkillResponse>> Handle(
         CreateSkillCommand request,
@@ -32,8 +36,9 @@ public class CreateSkillCommandHandler(
             throw new ArgumentNullException(nameof(request), "UserId cannot be null when creating a skill.");
         }
 
-        // Validate category exists
-        var category = await _unitOfWork.SkillCategories.GetByIdAsync(request.CategoryId, cancellationToken) ?? throw new ResourceNotFoundException("SkillCategory", request.CategoryId);
+        // Validate topic exists (CategoryId in the command refers to TopicId in the 3-layer hierarchy)
+        var topic = await _unitOfWork.SkillTopics.GetByIdAsync(request.CategoryId, cancellationToken)
+            ?? throw new ResourceNotFoundException("SkillTopic", request.CategoryId);
 
         // Check for similar skills by the same user
         var existingSkill = await _unitOfWork.Skills.GetByNameAndUserIdAsync(request.Name.Trim(), request.UserId, cancellationToken);
@@ -89,7 +94,7 @@ public class CreateSkillCommandHandler(
             Name = request.Name.Trim(),
             Description = request.Description.Trim(),
             IsOffered = request.IsOffered,
-            SkillCategoryId = request.CategoryId,
+            SkillTopicId = request.CategoryId,
             Tags = request.Tags ?? [],
             IsActive = true,
             SearchKeywords = GenerateSearchKeywords(request.Name, request.Description, request.Tags),
@@ -97,7 +102,7 @@ public class CreateSkillCommandHandler(
 
             // Exchange options
             ExchangeType = request.ExchangeType?.ToLowerInvariant() ?? "skill_exchange",
-            DesiredSkillCategoryId = request.DesiredSkillCategoryId,
+            DesiredSkillTopicId = request.DesiredSkillCategoryId,
             DesiredSkillDescription = request.DesiredSkillDescription?.Trim(),
             HourlyRate = request.HourlyRate,
             Currency = request.Currency?.ToUpperInvariant(),
@@ -121,10 +126,14 @@ public class CreateSkillCommandHandler(
 
         await _unitOfWork.Skills.CreateAsync(skill, cancellationToken);
 
+        // Phase 10: Auto-create listing for the skill
+        var listing = SkillService.Domain.Entities.Listing.CreateFromSkill(skill, _listingSettings.DefaultExpirationMinutes);
+        await _unitOfWork.Listings.CreateAsync(listing, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        Logger.LogInformation("Skill {SkillName} created successfully by user {UserId}",
-            skill.Name, request.UserId);
+        Logger.LogInformation("Skill {SkillName} created successfully by user {UserId} with listing {ListingId}",
+            skill.Name, request.UserId, listing.Id);
 
         // Publish integration event for automatic matchmaking
         var integrationEvent = new SkillCreatedEvent
@@ -133,11 +142,11 @@ public class CreateSkillCommandHandler(
             UserId = skill.UserId,
             Name = skill.Name,
             Description = skill.Description,
-            CategoryId = category.Id,
-            CategoryName = category.Name,
+            CategoryId = topic.Id,
+            CategoryName = topic.FullPath,
             IsOffered = skill.IsOffered,
             ExchangeType = skill.ExchangeType,
-            DesiredSkillCategoryId = skill.DesiredSkillCategoryId,
+            DesiredSkillCategoryId = skill.DesiredSkillTopicId,
             DesiredSkillDescription = skill.DesiredSkillDescription,
             HourlyRate = skill.HourlyRate,
             Currency = skill.Currency,
@@ -162,7 +171,7 @@ public class CreateSkillCommandHandler(
             skill.Id,
             skill.Name,
             skill.Description,
-            category.Id,
+            topic.Id,
             skill.Tags,
             skill.IsOffered,
             "Active",

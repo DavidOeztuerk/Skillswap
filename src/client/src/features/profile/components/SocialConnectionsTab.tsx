@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   LinkedIn as LinkedInIcon,
   Work as XingIcon,
@@ -31,166 +31,264 @@ import {
   TextField,
   Alert,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '../../../core/store/hooks';
-import {
-  // Thunks
-  fetchSocialConnections,
-  initiateLinkedInConnect,
-  disconnectLinkedIn,
-  syncLinkedInProfile,
-  initiateXingConnect,
-  disconnectXing,
-  syncXingProfile,
-  addImportedSkill,
-  deleteImportedSkill,
-  updateImportedSkill,
-  // Actions
-  clearSocialConnectionsError,
-  clearSyncResult,
-  // Selectors
-  selectLinkedInConnection,
-  selectXingConnection,
-  selectImportedSkills,
-  selectSocialConnectionsSummary,
-  selectSocialConnectionsLoading,
-  selectSocialConnectionsSyncing,
-  selectSocialConnectionsSaving,
-  selectSocialConnectionsError,
-  selectSyncResult,
-  selectOAuthState,
-  // Types
-  type ImportedSkill,
-} from '../store';
+import { useSocialConnections } from '../hooks';
+import type { ImportedSkill, LinkedInConnection, XingConnection } from '../store';
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+const formatDate = (dateString?: string): string => {
+  if (!dateString) return 'Nie';
+  return new Date(dateString).toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const getSourceColor = (source: string): 'primary' | 'secondary' | 'default' => {
+  if (source === 'linkedin') return 'primary';
+  if (source === 'xing') return 'secondary';
+  return 'default';
+};
+
+const getSourceLabel = (source: string): string => {
+  if (source === 'linkedin') return 'LinkedIn';
+  if (source === 'xing') return 'Xing';
+  return 'Manuell';
+};
+
+// =============================================================================
+// Sub-Components
+// =============================================================================
+
+interface ConnectionCardProps {
+  provider: 'linkedin' | 'xing';
+  connection: LinkedInConnection | XingConnection | null;
+  isLoading: boolean;
+  isSyncing: boolean;
+  isOAuthInitiating: boolean;
+  oauthProvider: string | null;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  onSync: () => void;
+}
+
+const ConnectionCard: React.FC<ConnectionCardProps> = ({
+  provider,
+  connection,
+  isLoading,
+  isSyncing,
+  isOAuthInitiating,
+  oauthProvider,
+  onConnect,
+  onDisconnect,
+  onSync,
+}) => {
+  const isLinkedIn = provider === 'linkedin';
+  const Icon = isLinkedIn ? LinkedInIcon : XingIcon;
+  const title = isLinkedIn ? 'LinkedIn' : 'Xing';
+  const color = isLinkedIn ? '#0077B5' : '#006567';
+  const hoverColor = isLinkedIn ? '#005885' : '#004849';
+
+  const email = connection
+    ? isLinkedIn
+      ? (connection as LinkedInConnection).linkedInEmail
+      : (connection as XingConnection).xingEmail
+    : null;
+
+  const renderConnectedState = (): React.ReactNode => (
+    <>
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          Verbunden seit: {formatDate(connection?.createdAt)}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Letzte Synchronisierung: {formatDate(connection?.lastSyncAt)}
+        </Typography>
+        {email ? (
+          <Typography variant="body2" color="text.secondary">
+            E-Mail: {email}
+          </Typography>
+        ) : null}
+      </Box>
+      <Box sx={{ mb: 2 }}>
+        <Chip
+          label={`${connection?.importedExperienceCount ?? 0} Erfahrungen`}
+          size="small"
+          sx={{ mr: 1 }}
+        />
+        <Chip label={`${connection?.importedEducationCount ?? 0} Ausbildungen`} size="small" />
+      </Box>
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <Button variant="outlined" startIcon={<SyncIcon />} onClick={onSync} disabled={isSyncing}>
+          {isSyncing ? 'Synchronisiere...' : 'Synchronisieren'}
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<LinkOffIcon />}
+          onClick={onDisconnect}
+          disabled={isLoading}
+        >
+          Trennen
+        </Button>
+      </Box>
+    </>
+  );
+
+  const renderDisconnectedState = (): React.ReactNode => (
+    <>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Verbinde dein {title}-Konto um Berufserfahrung, Ausbildung und Fähigkeiten zu importieren.
+      </Typography>
+      <Button
+        variant="contained"
+        startIcon={<LinkIcon />}
+        onClick={onConnect}
+        disabled={isOAuthInitiating}
+        sx={{ backgroundColor: color, '&:hover': { backgroundColor: hoverColor } }}
+      >
+        {isOAuthInitiating && oauthProvider === provider ? 'Verbinde...' : `Mit ${title} verbinden`}
+      </Button>
+    </>
+  );
+
+  return (
+    <Paper sx={{ p: 3 }} elevation={0}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Icon sx={{ color, fontSize: 28 }} />
+        <Typography variant="h6">{title}</Typography>
+        {connection ? (
+          <Chip
+            icon={<CheckCircleIcon />}
+            label="Verbunden"
+            color="success"
+            size="small"
+            sx={{ ml: 'auto' }}
+          />
+        ) : null}
+      </Box>
+      <Divider sx={{ mb: 2 }} />
+      {connection ? renderConnectedState() : renderDisconnectedState()}
+    </Paper>
+  );
+};
+
+interface ImportedSkillItemProps {
+  skill: ImportedSkill;
+  isSaving: boolean;
+  onToggleVisibility: (skill: ImportedSkill) => void;
+  onDelete: (skillId: string) => void;
+}
+
+const ImportedSkillItem: React.FC<ImportedSkillItemProps> = ({
+  skill,
+  isSaving,
+  onToggleVisibility,
+  onDelete,
+}) => (
+  <ListItem
+    sx={{ px: 0 }}
+    secondaryAction={
+      <>
+        <IconButton
+          onClick={() => onToggleVisibility(skill)}
+          disabled={isSaving}
+          title={skill.isVisible ? 'Verstecken' : 'Anzeigen'}
+        >
+          {skill.isVisible ? <VisibilityIcon /> : <VisibilityOffIcon />}
+        </IconButton>
+        <IconButton
+          onClick={() => onDelete(skill.id)}
+          disabled={isSaving}
+          color="error"
+          title="Löschen"
+        >
+          <DeleteIcon />
+        </IconButton>
+      </>
+    }
+  >
+    <ListItemText
+      primary={
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography
+            sx={{
+              textDecoration: skill.isVisible ? 'none' : 'line-through',
+              color: skill.isVisible ? 'inherit' : 'text.disabled',
+            }}
+          >
+            {skill.name}
+          </Typography>
+          <Chip
+            label={getSourceLabel(skill.source)}
+            size="small"
+            color={getSourceColor(skill.source)}
+            variant="outlined"
+          />
+          {skill.endorsementCount > 0 && (
+            <Chip
+              label={`${skill.endorsementCount} Endorsements`}
+              size="small"
+              variant="outlined"
+            />
+          )}
+        </Box>
+      }
+      secondary={skill.category}
+    />
+  </ListItem>
+);
+
+// =============================================================================
+// Main Component
+// =============================================================================
 
 const SocialConnectionsTab: React.FC = () => {
-  const dispatch = useAppDispatch();
-
-  // Use selectors for state access
-  const linkedIn = useAppSelector(selectLinkedInConnection);
-  const xing = useAppSelector(selectXingConnection);
-  const importedSkills = useAppSelector(selectImportedSkills);
-  const summary = useAppSelector(selectSocialConnectionsSummary);
-  const isLoading = useAppSelector(selectSocialConnectionsLoading);
-  const isSyncing = useAppSelector(selectSocialConnectionsSyncing);
-  const isSaving = useAppSelector(selectSocialConnectionsSaving);
-  const error = useAppSelector(selectSocialConnectionsError);
-  const syncResult = useAppSelector(selectSyncResult);
-  const oauthState = useAppSelector(selectOAuthState);
+  // Use custom hook for all state and actions
+  const {
+    linkedIn,
+    xing,
+    importedSkills,
+    summary,
+    isLoading,
+    isSyncing,
+    isSaving,
+    error,
+    syncResult,
+    oauthState,
+    connectLinkedIn,
+    disconnectLinkedIn,
+    syncLinkedIn,
+    connectXing,
+    disconnectXing,
+    syncXing,
+    addSkill,
+    toggleSkillVisibility,
+    deleteSkill,
+    clearError,
+    dismissSyncResult,
+  } = useSocialConnections();
 
   // Dialog state
   const [addSkillDialogOpen, setAddSkillDialogOpen] = useState(false);
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillCategory, setNewSkillCategory] = useState('');
 
-  // Load data on mount
-  useEffect(() => {
-    void dispatch(fetchSocialConnections());
-  }, [dispatch]);
-
-  // Handle OAuth redirect (when returning from LinkedIn/Xing)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
-    const oauthToken = urlParams.get('oauth_token');
-    const oauthVerifier = urlParams.get('oauth_verifier');
-
-    // TODO: Implement callback handling when OAuth is set up
-    if (code && state) {
-      console.debug('LinkedIn callback detected');
-    }
-    if (oauthToken && oauthVerifier) {
-      console.debug('Xing callback detected');
-    }
-  }, []);
-
-  // Handle OAuth initiation result
-  useEffect(() => {
-    if (oauthState.authorizationUrl) {
-      window.location.href = oauthState.authorizationUrl;
-    }
-  }, [oauthState.authorizationUrl]);
-
-  const handleConnectLinkedIn = (): void => {
-    const redirectUri = `${window.location.origin}/profile?tab=connections`;
-    void dispatch(initiateLinkedInConnect(redirectUri));
-  };
-
-  const handleConnectXing = (): void => {
-    const redirectUri = `${window.location.origin}/profile?tab=connections`;
-    void dispatch(initiateXingConnect(redirectUri));
-  };
-
-  const handleSyncLinkedIn = (): void => {
-    void dispatch(syncLinkedInProfile());
-  };
-
-  const handleSyncXing = (): void => {
-    void dispatch(syncXingProfile());
-  };
-
-  const handleDisconnectLinkedIn = (): void => {
-    void dispatch(disconnectLinkedIn());
-  };
-
-  const handleDisconnectXing = (): void => {
-    void dispatch(disconnectXing());
-  };
-
-  const handleAddSkill = (): void => {
+  // Handlers
+  const handleAddSkill = async (): Promise<void> => {
     if (!newSkillName.trim()) return;
-    void dispatch(
-      addImportedSkill({
-        name: newSkillName.trim(),
-        category: newSkillCategory.trim() || undefined,
-      })
-    );
+    await addSkill(newSkillName.trim(), newSkillCategory.trim() || undefined);
     setNewSkillName('');
     setNewSkillCategory('');
     setAddSkillDialogOpen(false);
   };
 
-  const handleToggleSkillVisibility = (skill: ImportedSkill): void => {
-    void dispatch(
-      updateImportedSkill({
-        skillId: skill.id,
-        request: {
-          name: skill.name,
-          category: skill.category ?? undefined,
-          sortOrder: skill.sortOrder,
-          isVisible: !skill.isVisible,
-        },
-      })
-    );
-  };
-
-  const handleDeleteSkill = (skillId: string): void => {
-    void dispatch(deleteImportedSkill(skillId));
-  };
-
-  const formatDate = (dateString?: string): string => {
-    if (!dateString) return 'Nie';
-    return new Date(dateString).toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getSourceColor = (source: string): 'primary' | 'secondary' | 'default' => {
-    if (source === 'linkedin') return 'primary';
-    if (source === 'xing') return 'secondary';
-    return 'default';
-  };
-
-  const getSourceLabel = (source: string): string => {
-    if (source === 'linkedin') return 'LinkedIn';
-    if (source === 'xing') return 'Xing';
-    return 'Manuell';
-  };
-
+  // Loading state
   if (isLoading && !linkedIn && !xing) {
     return (
       <Box display="flex" justifyContent="center" py={4}>
@@ -202,11 +300,7 @@ const SocialConnectionsTab: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {error ? (
-        <Alert
-          severity="error"
-          onClose={() => dispatch(clearSocialConnectionsError())}
-          sx={{ mb: 2 }}
-        >
+        <Alert severity="error" onClose={clearError} sx={{ mb: 2 }}>
           {error}
         </Alert>
       ) : null}
@@ -214,7 +308,7 @@ const SocialConnectionsTab: React.FC = () => {
       {syncResult ? (
         <Alert
           severity={syncResult.success ? 'success' : 'error'}
-          onClose={() => dispatch(clearSyncResult())}
+          onClose={dismissSyncResult}
           sx={{ mb: 2 }}
         >
           {syncResult.success
@@ -226,168 +320,32 @@ const SocialConnectionsTab: React.FC = () => {
       <Grid container columns={12} spacing={3}>
         {/* LinkedIn Connection Card */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: 3 }} elevation={0}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <LinkedInIcon sx={{ color: '#0077B5', fontSize: 28 }} />
-              <Typography variant="h6">LinkedIn</Typography>
-              {linkedIn ? (
-                <Chip
-                  icon={<CheckCircleIcon />}
-                  label="Verbunden"
-                  color="success"
-                  size="small"
-                  sx={{ ml: 'auto' }}
-                />
-              ) : null}
-            </Box>
-            <Divider sx={{ mb: 2 }} />
-
-            {linkedIn ? (
-              <>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Verbunden seit: {formatDate(linkedIn.createdAt)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Letzte Synchronisierung: {formatDate(linkedIn.lastSyncAt)}
-                  </Typography>
-                  {linkedIn.linkedInEmail ? (
-                    <Typography variant="body2" color="text.secondary">
-                      E-Mail: {linkedIn.linkedInEmail}
-                    </Typography>
-                  ) : null}
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Chip
-                    label={`${linkedIn.importedExperienceCount} Erfahrungen`}
-                    size="small"
-                    sx={{ mr: 1 }}
-                  />
-                  <Chip label={`${linkedIn.importedEducationCount} Ausbildungen`} size="small" />
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<SyncIcon />}
-                    onClick={handleSyncLinkedIn}
-                    disabled={isSyncing}
-                  >
-                    {isSyncing ? 'Synchronisiere...' : 'Synchronisieren'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<LinkOffIcon />}
-                    onClick={handleDisconnectLinkedIn}
-                    disabled={isLoading}
-                  >
-                    Trennen
-                  </Button>
-                </Box>
-              </>
-            ) : (
-              <>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Verbinde dein LinkedIn-Konto um Berufserfahrung, Ausbildung und Fähigkeiten zu
-                  importieren.
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<LinkIcon />}
-                  onClick={handleConnectLinkedIn}
-                  disabled={oauthState.isInitiating}
-                  sx={{ backgroundColor: '#0077B5', '&:hover': { backgroundColor: '#005885' } }}
-                >
-                  {oauthState.isInitiating && oauthState.provider === 'linkedin'
-                    ? 'Verbinde...'
-                    : 'Mit LinkedIn verbinden'}
-                </Button>
-              </>
-            )}
-          </Paper>
+          <ConnectionCard
+            provider="linkedin"
+            connection={linkedIn}
+            isLoading={isLoading}
+            isSyncing={isSyncing}
+            isOAuthInitiating={oauthState.isInitiating}
+            oauthProvider={oauthState.provider}
+            onConnect={connectLinkedIn}
+            onDisconnect={disconnectLinkedIn}
+            onSync={syncLinkedIn}
+          />
         </Grid>
 
         {/* Xing Connection Card */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: 3 }} elevation={0}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <XingIcon sx={{ color: '#006567', fontSize: 28 }} />
-              <Typography variant="h6">Xing</Typography>
-              {xing ? (
-                <Chip
-                  icon={<CheckCircleIcon />}
-                  label="Verbunden"
-                  color="success"
-                  size="small"
-                  sx={{ ml: 'auto' }}
-                />
-              ) : null}
-            </Box>
-            <Divider sx={{ mb: 2 }} />
-
-            {xing ? (
-              <>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Verbunden seit: {formatDate(xing.createdAt)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Letzte Synchronisierung: {formatDate(xing.lastSyncAt)}
-                  </Typography>
-                  {xing.xingEmail ? (
-                    <Typography variant="body2" color="text.secondary">
-                      E-Mail: {xing.xingEmail}
-                    </Typography>
-                  ) : null}
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Chip
-                    label={`${xing.importedExperienceCount} Erfahrungen`}
-                    size="small"
-                    sx={{ mr: 1 }}
-                  />
-                  <Chip label={`${xing.importedEducationCount} Ausbildungen`} size="small" />
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<SyncIcon />}
-                    onClick={handleSyncXing}
-                    disabled={isSyncing}
-                  >
-                    {isSyncing ? 'Synchronisiere...' : 'Synchronisieren'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<LinkOffIcon />}
-                    onClick={handleDisconnectXing}
-                    disabled={isLoading}
-                  >
-                    Trennen
-                  </Button>
-                </Box>
-              </>
-            ) : (
-              <>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Verbinde dein Xing-Konto um Berufserfahrung, Ausbildung und Fähigkeiten zu
-                  importieren.
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<LinkIcon />}
-                  onClick={handleConnectXing}
-                  disabled={oauthState.isInitiating}
-                  sx={{ backgroundColor: '#006567', '&:hover': { backgroundColor: '#004849' } }}
-                >
-                  {oauthState.isInitiating && oauthState.provider === 'xing'
-                    ? 'Verbinde...'
-                    : 'Mit Xing verbinden'}
-                </Button>
-              </>
-            )}
-          </Paper>
+          <ConnectionCard
+            provider="xing"
+            connection={xing}
+            isLoading={isLoading}
+            isSyncing={isSyncing}
+            isOAuthInitiating={oauthState.isInitiating}
+            oauthProvider={oauthState.provider}
+            onConnect={connectXing}
+            onDisconnect={disconnectXing}
+            onSync={syncXing}
+          />
         </Grid>
 
         {/* Imported Skills */}
@@ -418,58 +376,13 @@ const SocialConnectionsTab: React.FC = () => {
             ) : (
               <List>
                 {importedSkills.map((skill) => (
-                  <ListItem
+                  <ImportedSkillItem
                     key={skill.id}
-                    sx={{ px: 0 }}
-                    secondaryAction={
-                      <>
-                        <IconButton
-                          onClick={() => handleToggleSkillVisibility(skill)}
-                          disabled={isSaving}
-                          title={skill.isVisible ? 'Verstecken' : 'Anzeigen'}
-                        >
-                          {skill.isVisible ? <VisibilityIcon /> : <VisibilityOffIcon />}
-                        </IconButton>
-                        <IconButton
-                          onClick={() => handleDeleteSkill(skill.id)}
-                          disabled={isSaving}
-                          color="error"
-                          title="Löschen"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </>
-                    }
-                  >
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography
-                            sx={{
-                              textDecoration: skill.isVisible ? 'none' : 'line-through',
-                              color: skill.isVisible ? 'inherit' : 'text.disabled',
-                            }}
-                          >
-                            {skill.name}
-                          </Typography>
-                          <Chip
-                            label={getSourceLabel(skill.source)}
-                            size="small"
-                            color={getSourceColor(skill.source)}
-                            variant="outlined"
-                          />
-                          {skill.endorsementCount > 0 && (
-                            <Chip
-                              label={`${skill.endorsementCount} Endorsements`}
-                              size="small"
-                              variant="outlined"
-                            />
-                          )}
-                        </Box>
-                      }
-                      secondary={skill.category}
-                    />
-                  </ListItem>
+                    skill={skill}
+                    isSaving={isSaving}
+                    onToggleVisibility={toggleSkillVisibility}
+                    onDelete={deleteSkill}
+                  />
                 ))}
               </List>
             )}

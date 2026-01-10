@@ -111,6 +111,7 @@ interface SkillCardProps {
   isOwner?: boolean;
   onEdit?: (skill: Skill) => void;
   onDelete?: (skillId: string) => void;
+  onBoost?: (skill: Skill) => void;
   onMatch?: (skill: Skill) => void;
   onToggleFavorite?: (skill: Skill) => void;
   isFavorite?: boolean;
@@ -396,35 +397,52 @@ interface OwnerButtonsProps {
   isMobile: boolean;
   onEdit: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
+  onBoost?: (e: React.MouseEvent) => void;
 }
 
-const OwnerButtons: React.FC<OwnerButtonsProps> = memo(({ isMobile, onEdit, onDelete }) => (
-  <Grid container spacing={1} width="100%">
-    <Grid size={{ xs: 6 }}>
-      <Button
-        fullWidth
-        variant="outlined"
-        startIcon={<EditIcon />}
-        onClick={onEdit}
-        size={isMobile ? 'small' : 'medium'}
-      >
-        {isMobile ? 'Edit' : 'Bearbeiten'}
-      </Button>
+const OwnerButtons: React.FC<OwnerButtonsProps> = memo(
+  ({ isMobile, onEdit, onDelete, onBoost }) => (
+    <Grid container spacing={1} width="100%">
+      <Grid size={{ xs: onBoost ? 4 : 6 }}>
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<EditIcon />}
+          onClick={onEdit}
+          size={isMobile ? 'small' : 'medium'}
+        >
+          {isMobile ? 'Edit' : 'Bearbeiten'}
+        </Button>
+      </Grid>
+      {onBoost ? (
+        <Grid size={{ xs: 4 }}>
+          <Button
+            fullWidth
+            variant="outlined"
+            color="primary"
+            startIcon={<TrendingIcon />}
+            onClick={onBoost}
+            size={isMobile ? 'small' : 'medium'}
+          >
+            Boost
+          </Button>
+        </Grid>
+      ) : null}
+      <Grid size={{ xs: onBoost ? 4 : 6 }}>
+        <Button
+          fullWidth
+          variant="outlined"
+          color="error"
+          startIcon={<DeleteIcon />}
+          onClick={onDelete}
+          size={isMobile ? 'small' : 'medium'}
+        >
+          Löschen
+        </Button>
+      </Grid>
     </Grid>
-    <Grid size={{ xs: 6 }}>
-      <Button
-        fullWidth
-        variant="outlined"
-        color="error"
-        startIcon={<DeleteIcon />}
-        onClick={onDelete}
-        size={isMobile ? 'small' : 'medium'}
-      >
-        Löschen
-      </Button>
-    </Grid>
-  </Grid>
-));
+  )
+);
 
 OwnerButtons.displayName = 'OwnerButtons';
 
@@ -436,16 +454,19 @@ interface CardActionButtonsProps {
   onMatch: (e: React.MouseEvent) => void;
   onEdit: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
+  onBoost?: (e: React.MouseEvent) => void;
 }
 
 const CardActionButtons: React.FC<CardActionButtonsProps> = memo(
-  ({ isOwner, showMatchButton, isOffered, isMobile, onMatch, onEdit, onDelete }) => {
+  ({ isOwner, showMatchButton, isOffered, isMobile, onMatch, onEdit, onDelete, onBoost }) => {
     if (!isOwner && showMatchButton) {
       return <MatchButton isOffered={isOffered} isMobile={isMobile} onMatch={onMatch} />;
     }
 
     if (isOwner) {
-      return <OwnerButtons isMobile={isMobile} onEdit={onEdit} onDelete={onDelete} />;
+      return (
+        <OwnerButtons isMobile={isMobile} onEdit={onEdit} onDelete={onDelete} onBoost={onBoost} />
+      );
     }
 
     return null;
@@ -558,6 +579,7 @@ const SkillCard: React.FC<SkillCardProps> = memo(
     isOwner = false,
     onEdit,
     onDelete,
+    onBoost,
     onMatch,
     onToggleFavorite,
     isFavorite = false,
@@ -708,6 +730,14 @@ const SkillCard: React.FC<SkillCardProps> = memo(
       [onDelete, skill.id]
     );
 
+    const handleCardBoost = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onBoost?.(skill);
+      },
+      [onBoost, skill]
+    );
+
     return (
       <Card sx={cardBaseSx} onClick={handleCardClick}>
         <StatusBadge isOffered={skill.isOffered} />
@@ -799,6 +829,7 @@ const SkillCard: React.FC<SkillCardProps> = memo(
             onMatch={handleMatch}
             onEdit={handleCardEdit}
             onDelete={handleCardDelete}
+            onBoost={onBoost ? handleCardBoost : undefined}
           />
           <ExpandButton
             showDetailedInfo={responsiveConfig.showDetailedInfo}

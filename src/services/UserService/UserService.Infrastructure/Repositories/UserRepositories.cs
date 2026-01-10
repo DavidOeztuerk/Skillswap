@@ -51,6 +51,19 @@ public class UserRepository(UserDbContext userDbContext) : IUserRepository
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
     }
 
+    // Phase 12: Get user with profile data for LinkedIn/Xing sync
+    public async Task<User?> GetByIdWithProfileAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Users
+            .Include(u => u.Experiences.Where(e => !e.IsDeleted))
+            .Include(u => u.Education.Where(e => !e.IsDeleted))
+            .Include(u => u.ImportedSkills.Where(s => !s.IsDeleted))
+            .Include(u => u.LinkedInConnection)
+            .Include(u => u.XingConnection)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, cancellationToken);
+    }
+
     public async Task<User> AddUser(User user, CancellationToken cancellationToken = default)
     {
         _dbContext.Users.Add(user);
@@ -220,5 +233,30 @@ public class UserRepository(UserDbContext userDbContext) : IUserRepository
             .ToListAsync(cancellationToken);
 
         return (users, totalCount);
+    }
+
+    // ---------- Profile Completeness (Phase 13) ----------
+    public async Task<ProfileCompletenessData?> GetProfileCompletenessDataAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId && !u.IsDeleted)
+            .Select(u => new ProfileCompletenessData(
+                u.Id,
+                u.Bio,
+                u.ProfilePictureUrl,
+                u.Headline,
+                u.Experiences.Any(e => !e.IsDeleted),
+                u.Education.Any(e => !e.IsDeleted),
+                u.ImportedSkills.Any(s => !s.IsDeleted),
+                u.LinkedInConnection != null && !u.LinkedInConnection.IsDeleted,
+                u.XingConnection != null && !u.XingConnection.IsDeleted
+            ))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

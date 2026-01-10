@@ -1,5 +1,6 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Repositories;
 using CQRS.Handlers;
 using CQRS.Models;
@@ -61,7 +62,7 @@ public class RateSessionCommandHandler(
                 : appointment.OrganizerUserId;
 
             // Create rating with section data
-            // Note: SkillId is in SessionSeries, so we pass null for now (can be enhanced later)
+            // Note: SkillId is in SessionSeries, so we get it from there
             var rating = SessionRating.Create(
                 request.SessionAppointmentId,
                 request.RaterId,
@@ -79,8 +80,7 @@ public class RateSessionCommandHandler(
                 request.CommunicationComment,
                 request.ReliabilityRating,
                 request.ReliabilityComment,
-                appointment.SessionSeries?.SkillId,
-                null);
+                appointment.SessionSeries?.SkillId);
 
             await _unitOfWork.SessionRatings.CreateAsync(rating, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

@@ -362,7 +362,174 @@ The SkillSwap Team",
             CreatedAt = DateTime.UtcNow
         });
 
+        // Phase 10: Listing Expiring Template
+        templates.Add(new EmailTemplate
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "listing-expiring",
+            Language = "en",
+            Subject = "Your SkillSwap listing expires in {{DaysRemaining}} days",
+            HtmlContent = GetDefaultListingExpiringHtml(),
+            TextContent = @"Hi {{FirstName}},
+
+Your skill listing is about to expire!
+
+Skill: {{SkillName}}
+Expires at: {{ExpiresAt}}
+
+Don't let your listing expire - refresh it now to keep it active and visible to others.
+
+Refresh your listing here: {{RefreshUrl}}
+
+Best regards,
+The SkillSwap Team",
+            IsActive = true,
+            Version = "1.0",
+            Description = "Notification when a listing is about to expire",
+            VariablesSchema = JsonSerializer.Serialize(new
+            {
+                FirstName = "string",
+                SkillName = "string",
+                DaysRemaining = "number",
+                ExpiresAt = "string",
+                RefreshUrl = "string",
+                AppUrl = "string"
+            }),
+            CreatedAt = DateTime.UtcNow
+        });
+
+        // Phase 10: Listing Expired Template
+        templates.Add(new EmailTemplate
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "listing-expired",
+            Language = "en",
+            Subject = "Your SkillSwap listing has expired",
+            HtmlContent = GetDefaultListingExpiredHtml(),
+            TextContent = @"Hi {{FirstName}},
+
+Your skill listing has expired.
+
+Skill: {{SkillName}}
+Expired at: {{ExpiredAt}}
+
+Your skill is no longer visible to other users. Don't worry - you can create a new listing anytime!
+
+Create a new listing here: {{CreateListingUrl}}
+
+Best regards,
+The SkillSwap Team",
+            IsActive = true,
+            Version = "1.0",
+            Description = "Notification when a listing has expired",
+            VariablesSchema = JsonSerializer.Serialize(new
+            {
+                FirstName = "string",
+                SkillName = "string",
+                ExpiredAt = "string",
+                CreateListingUrl = "string",
+                AppUrl = "string"
+            }),
+            CreatedAt = DateTime.UtcNow
+        });
+
         return templates;
+    }
+
+    private string GetDefaultListingExpiringHtml()
+    {
+        return @"<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: white; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 10px 10px; }
+        .countdown { font-size: 24px; color: #ff9800; font-weight: bold; text-align: center; padding: 15px; background: #fff3e0; border-radius: 5px; margin: 20px 0; }
+        .button { display: inline-block; padding: 15px 40px; background: #ff9800; color: white; text-decoration: none; border-radius: 5px; font-size: 18px; }
+        .details { background: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>⏰ Listing Expiring Soon!</h1>
+        </div>
+        <div class='content'>
+            <p>Hi {{FirstName}},</p>
+
+            <div class='countdown'>
+                {{DaysRemaining}} days remaining!
+            </div>
+
+            <p>Your skill listing is about to expire:</p>
+
+            <div class='details'>
+                <p><strong>📚 Skill:</strong> {{SkillName}}</p>
+                <p><strong>📅 Expires:</strong> {{ExpiresAt}}</p>
+            </div>
+
+            <p>Don't let your listing expire - refresh it now to keep it visible to other users!</p>
+
+            <div style='text-align: center; margin: 30px 0;'>
+                <a href='{{RefreshUrl}}' class='button'>Refresh Listing</a>
+            </div>
+
+            <p style='text-align: center; color: #666; font-size: 14px;'>
+                You can refresh your listing up to 5 times. Each refresh extends it for another 60 days.
+            </p>
+        </div>
+    </div>
+</body>
+</html>";
+    }
+
+    private string GetDefaultListingExpiredHtml()
+    {
+        return @"<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #607d8b 0%, #455a64 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: white; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 10px 10px; }
+        .button { display: inline-block; padding: 15px 40px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; font-size: 18px; }
+        .details { background: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .info { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>Listing Expired</h1>
+        </div>
+        <div class='content'>
+            <p>Hi {{FirstName}},</p>
+
+            <p>Your skill listing has expired and is no longer visible to other users.</p>
+
+            <div class='details'>
+                <p><strong>📚 Skill:</strong> {{SkillName}}</p>
+                <p><strong>📅 Expired:</strong> {{ExpiredAt}}</p>
+            </div>
+
+            <div class='info'>
+                <strong>💡 Good news:</strong> Your skill profile is still saved! You can create a new listing anytime to make it visible again.
+            </div>
+
+            <div style='text-align: center; margin: 30px 0;'>
+                <a href='{{CreateListingUrl}}' class='button'>Create New Listing</a>
+            </div>
+
+            <p style='text-align: center; color: #666; font-size: 14px;'>
+                Creating a new listing is quick and easy - just a few clicks!
+            </p>
+        </div>
+    </div>
+</body>
+</html>";
     }
 
     private string GetDefaultAppointmentReminderHtml()

@@ -41,7 +41,6 @@ public record GetSkillDetailsResponse(
     string Description,
     bool IsOffered,
     SkillCategoryResponse Category,
-    ProficiencyLevelResponse ProficiencyLevel,
     List<string> Tags,
     string? Requirements,
     int? EstimatedDurationMinutes,

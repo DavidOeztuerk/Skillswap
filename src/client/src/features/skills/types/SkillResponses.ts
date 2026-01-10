@@ -128,6 +128,9 @@ export interface SkillSearchResultResponse {
   ownerUserName?: string;
   ownerFirstName?: string;
   ownerLastName?: string;
+  // Boost info (Phase 15)
+  isBoosted?: boolean;
+  isCurrentlyBoosted?: boolean;
 }
 
 export interface SkillSearchParams {
@@ -136,14 +139,7 @@ export interface SkillSearchParams {
   tags?: string[];
   isOffered?: boolean;
   minRating?: number;
-  sortBy?:
-    | 'relevance'
-    | 'popularity'
-    | 'rating'
-    | 'createdAt'
-    | 'updatedAt'
-    | 'name'
-    | 'category';
+  sortBy?: 'relevance' | 'popularity' | 'rating' | 'createdAt' | 'updatedAt' | 'name' | 'category';
   sortDirection?: 'asc' | 'desc';
   pageNumber?: number;
   pageSize?: number;

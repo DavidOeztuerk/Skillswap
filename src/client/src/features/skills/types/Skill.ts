@@ -29,6 +29,20 @@ export interface Skill {
   isFavorite?: boolean;
 
   // ==========================================================================
+  // BOOST INFO (Phase 15)
+  // ==========================================================================
+
+  /**
+   * Whether the skill has a boosted listing
+   */
+  isBoosted?: boolean;
+
+  /**
+   * Whether the boost is currently active (not expired)
+   */
+  isCurrentlyBoosted?: boolean;
+
+  // ==========================================================================
   // EXCHANGE OPTIONS
   // ==========================================================================
 
@@ -144,6 +158,21 @@ export interface SkillCategory {
   iconName?: string;
   color?: string;
   skillCount?: number;
+  subcategories?: SkillSubcategory[];
+}
+
+export interface SkillSubcategory {
+  id: string;
+  name: string;
+  iconName?: string;
+  topics: SkillTopic[];
+}
+
+export interface SkillTopic {
+  id: string;
+  name: string;
+  isFeatured: boolean;
+  skillCount: number;
 }
 
 // =============================================================================

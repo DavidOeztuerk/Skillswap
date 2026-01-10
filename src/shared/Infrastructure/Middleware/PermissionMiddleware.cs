@@ -130,6 +130,7 @@ public class PermissionMiddleware
             "/api/users/reset-password",
             "/api/users/verify-email", // Email verification endpoint
             "/api/skills",     // Public skill browsing (Udemy-style)
+            "/api/listings",   // Public listing browsing (Phase 10)
             "/api/categories", // Public skill categories
             "/api/proficiency-levels", // Public proficiency levels
             "/api/users/public", // Public user profiles (anonymous access)
@@ -143,7 +144,11 @@ public class PermissionMiddleware
             // The Hub itself has [Authorize] attribute for actual authentication
             "/api/videocall/hub",
             "/hub/videocall",
-            "/hubs/"
+            "/hubs/",
+
+            // Stripe Webhook - MUST be public (Stripe doesn't send JWT tokens)
+            // Webhook validation is done via Stripe signature verification
+            "/api/payments/webhook"
         };
 
         return publicPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));

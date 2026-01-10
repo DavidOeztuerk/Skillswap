@@ -21,20 +21,35 @@ public class GetSkillCategoriesQueryHandler(
         GetSkillCategoriesQuery request,
         CancellationToken cancellationToken)
     {
-        {
-            var allCategories = await _unitOfWork.SkillCategories.GetAllAsync(cancellationToken);
+        // Load full hierarchy: Category -> Subcategory -> Topic
+        var allCategories = await _unitOfWork.SkillCategories.GetAllWithHierarchyAsync(cancellationToken);
 
-            var categories = allCategories
-                .OrderBy(c => c.Name)
-                .Select(c => new SkillCategoryResponse(
-                    c.Id,
-                    c.Name,
-                    c.IconName,
-                    c.Color,
-                    0)) // Count wird in Infrastructure mit Join berechnet
-                .ToList();
+        var categories = allCategories
+            .Select(c => new SkillCategoryResponse(
+                c.Id,
+                c.Name,
+                c.IconName,
+                c.Color,
+                c.Subcategories.Sum(s => s.Topics.Sum(t => t.Skills.Count)),
+                c.Subcategories
+                    .OrderBy(s => s.DisplayOrder)
+                    .ThenBy(s => s.Name)
+                    .Select(s => new SkillSubcategoryResponse(
+                        s.Id,
+                        s.Name,
+                        s.IconName,
+                        s.Topics
+                            .OrderBy(t => t.DisplayOrder)
+                            .ThenBy(t => t.Name)
+                            .Select(t => new SkillTopicResponse(
+                                t.Id,
+                                t.Name,
+                                t.IsFeatured,
+                                t.Skills.Count))
+                            .ToList()))
+                    .ToList()))
+            .ToList();
 
-            return Success(categories);
-        }
+        return Success(categories);
     }
 }

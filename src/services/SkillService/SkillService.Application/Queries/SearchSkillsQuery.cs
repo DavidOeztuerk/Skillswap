@@ -58,7 +58,10 @@ public record SkillSearchResultResponse(
     string? OwnerFirstName,
     string? OwnerLastName,
     // Owner experience (Phase 5)
-    int? OwnerExperienceYears);
+    int? OwnerExperienceYears,
+    // Boost info (Phase 15 - for highlighting boosted skills)
+    bool IsBoosted = false,
+    bool IsCurrentlyBoosted = false);
 
 public class SearchSkillsQueryValidator : AbstractValidator<SearchSkillsQuery>
 {

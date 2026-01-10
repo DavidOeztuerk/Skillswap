@@ -50,8 +50,8 @@ const skillsSlice = createSlice({
     });
     builder.addCase(fetchAllSkills.fulfilled, (state, action) => {
       state.isLoading = false;
-      // Use EntityAdapter's setMany to add/update skills
-      skillsAdapter.setMany(state, action.payload.skills);
+      // Use upsertMany to merge with existing entities (preserves detailed fields from fetchSkillById)
+      skillsAdapter.upsertMany(state, action.payload.skills);
       // Track which skills belong to "all skills" collection
       state.allSkillIds = action.payload.skills.map((s) => s.id);
       state.allSkillsPagination = action.payload.pagination;
@@ -70,8 +70,8 @@ const skillsSlice = createSlice({
     });
     builder.addCase(fetchUserSkills.fulfilled, (state, action) => {
       state.isLoading = false;
-      // Use EntityAdapter's setMany to add/update skills
-      skillsAdapter.setMany(state, action.payload.skills);
+      // Use upsertMany to merge with existing entities (preserves detailed fields from fetchSkillById)
+      skillsAdapter.upsertMany(state, action.payload.skills);
       // Track which skills belong to user's collection
       state.userSkillIds = action.payload.skills.map((s) => s.id);
       state.userSkillsPagination = action.payload.pagination;
@@ -170,8 +170,8 @@ const skillsSlice = createSlice({
     });
     builder.addCase(fetchFavoriteSkills.fulfilled, (state, action) => {
       state.isLoading = false;
-      // Add skills to entity adapter
-      skillsAdapter.setMany(state, action.payload.skills);
+      // Use upsertMany to merge with existing entities (preserves detailed fields from fetchSkillById)
+      skillsAdapter.upsertMany(state, action.payload.skills);
       // Store favorite skill IDs
       state.favoriteSkillIds = action.payload.skillIds;
       // Store pagination

@@ -2,6 +2,7 @@ using CQRS.Handlers;
 using EventSourcing;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Domain.Services;
 using Contracts.Matchmaking.Responses;
@@ -100,7 +101,7 @@ public class CreateMatchRequestCommandHandler(
                 SkillId = request.SkillId,
                 ThreadId = threadIdGuid,
                 Description = request.Description ?? request.Message,
-                Status = "pending",
+                Status = MatchRequestStatus.Pending,
                 Message = request.Message,
                 IsSkillExchange = request.IsSkillExchange,
                 ExchangeSkillId = request.ExchangeSkillId,
@@ -191,7 +192,7 @@ public class CreateMatchRequestCommandHandler(
                 offeredAmount: matchRequest.OfferedAmount,
                 currency: matchRequest.Currency,
                 sessionDurationMinutes: matchRequest.SessionDurationMinutes ?? 60,
-                totalSessions: matchRequest.TotalSessions ?? 1,
+                totalSessions: matchRequest.TotalSessions,
                 preferredDays: matchRequest.PreferredDays?.ToArray() ?? Array.Empty<string>(),
                 preferredTimes: matchRequest.PreferredTimes?.ToArray() ?? Array.Empty<string>(),
                 threadId: matchRequest.ThreadId ?? "",
@@ -204,7 +205,7 @@ public class CreateMatchRequestCommandHandler(
             // Return simple response - frontend will refresh to get display data
             var response = new CreateMatchRequestResponse(
                 RequestId: matchRequest.Id,
-                Status: matchRequest.Status,
+                Status: matchRequest.Status.ToString(),
                 CreatedAt: matchRequest.CreatedAt,
                 ThreadId: matchRequest.ThreadId ?? ""
             );

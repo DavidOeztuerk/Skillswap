@@ -9,18 +9,36 @@ interface SkillListProps {
   errors?: string[];
   isOwnerView?: boolean;
   isFavorite?: (skillId: string) => boolean;
+  isSkillBoosted?: (skillId: string) => boolean;
   onToggleFavorite?: (skill: Skill) => void;
   onEditSkill?: (skill: Skill) => void;
   onDeleteSkill?: (skillId: string) => void;
+  onBoostSkill?: (skill: Skill) => void;
 }
 
 const SkillList: React.FC<SkillListProps> = memo(
-  ({ skills, loading, errors, isOwnerView = false, isFavorite, onToggleFavorite }) => {
+  ({
+    skills,
+    loading,
+    errors,
+    isOwnerView = false,
+    isFavorite,
+    isSkillBoosted,
+    onToggleFavorite,
+    onBoostSkill,
+  }) => {
     const handleToggleFavorite = useCallback(
       (skill: Skill) => {
         onToggleFavorite?.(skill);
       },
       [onToggleFavorite]
+    );
+
+    const handleBoost = useCallback(
+      (skill: Skill) => {
+        onBoostSkill?.(skill);
+      },
+      [onBoostSkill]
     );
 
     const validSkills = useMemo(() => skills ?? [], [skills]);
@@ -81,7 +99,11 @@ const SkillList: React.FC<SkillListProps> = memo(
             skill={skill}
             isOwner={isOwnerView}
             isFavorite={isFavorite?.(skill.id) ?? false}
+            isBoosted={isSkillBoosted?.(skill.id) ?? skill.isCurrentlyBoosted ?? false}
             onToggleFavorite={handleToggleFavorite}
+            onBoost={
+              isOwnerView && onBoostSkill && !isSkillBoosted?.(skill.id) ? handleBoost : undefined
+            }
           />
         ))}
       </Stack>

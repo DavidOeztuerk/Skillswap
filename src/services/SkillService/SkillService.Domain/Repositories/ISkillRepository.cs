@@ -8,7 +8,7 @@ public interface ISkillRepository
     Task<Skill?> GetByIdAndUserIdAsync(string skillId, string userId, bool includeDeleted = false, CancellationToken cancellationToken = default);
     Task<List<Skill>> GetUserSkillsAsync(string userId, CancellationToken cancellationToken = default);
     Task<List<Skill>> GetUserSkillsWithRelationsAsync(string userId, CancellationToken cancellationToken = default);
-    Task<List<Skill>> GetByCategoryAsync(string categoryId, CancellationToken cancellationToken = default);
+    Task<List<Skill>> GetByTopicAsync(string topicId, CancellationToken cancellationToken = default);
     Task<List<Skill>> SearchSkillsAsync(string searchTerm, CancellationToken cancellationToken = default);
     Task<Skill> CreateAsync(Skill skill, CancellationToken cancellationToken = default);
     Task<Skill> UpdateAsync(Skill skill, CancellationToken cancellationToken = default);
@@ -16,9 +16,10 @@ public interface ISkillRepository
     Task DeleteByUserIdAsync(string userId, CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task<Skill?> GetByNameAndUserIdAsync(string name, string? userId, CancellationToken cancellationToken);
+    Task<int> CountByTopicAsync(string topicId, bool includeDeleted = false, CancellationToken cancellationToken = default);
     Task<int> CountByCategoryAsync(string categoryId, bool includeDeleted = false, CancellationToken cancellationToken = default);
     Task<List<Skill>> GetByIdsAsync(IEnumerable<string> skillIds, CancellationToken cancellationToken = default);
-    Task<List<Skill>> GetActiveSkillsWithTagsAsync(string? categoryId, CancellationToken cancellationToken = default);
+    Task<List<Skill>> GetActiveSkillsWithTagsAsync(string? topicId, CancellationToken cancellationToken = default);
     void RemoveRange(IEnumerable<Skill> skills);
 
     Task<(List<Skill> Skills, int TotalCount)> SearchSkillsPagedAsync(

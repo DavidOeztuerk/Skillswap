@@ -27,6 +27,19 @@ public class SkillCategoryRepository : ISkillCategoryRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<SkillCategory>> GetAllWithHierarchyAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.SkillCategories
+            .Where(c => !c.IsDeleted && c.IsActive)
+            .Include(c => c.Subcategories.Where(s => s.IsActive))
+                .ThenInclude(s => s.Topics.Where(t => t.IsActive))
+                    .ThenInclude(t => t.Skills.Where(sk => !sk.IsDeleted))
+            .OrderBy(c => c.DisplayOrder)
+            .ThenBy(c => c.Name)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<SkillCategory> CreateAsync(SkillCategory entity, CancellationToken cancellationToken = default)
     {
         await _dbContext.SkillCategories.AddAsync(entity, cancellationToken);

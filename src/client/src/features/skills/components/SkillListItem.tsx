@@ -11,6 +11,7 @@ import {
   LocationOn as LocationIcon,
   Videocam as VideocamIcon,
   LocalOffer as TagIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -30,7 +31,9 @@ interface SkillListItemProps {
   skill: Skill;
   isOwner?: boolean;
   isFavorite?: boolean;
+  isBoosted?: boolean;
   onToggleFavorite?: (skill: Skill) => void;
+  onBoost?: (skill: Skill) => void;
   onClick?: (skill: Skill) => void;
 }
 
@@ -111,34 +114,73 @@ const RatingSection: React.FC<{
   reviewCount: number;
   isFavorite: boolean;
   isOwner: boolean;
+  isBoosted: boolean;
   isMobile: boolean;
   onToggleFavorite: (e: React.MouseEvent) => void;
-}> = memo(({ rating, reviewCount, isFavorite, isOwner, isMobile, onToggleFavorite }) => (
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-    <Rating
-      value={rating}
-      readOnly
-      size="small"
-      precision={0.5}
-      sx={{ fontSize: isMobile ? '0.9rem' : '1rem' }}
-    />
-    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 45 }}>
-      {rating.toFixed(1)} ({reviewCount})
-    </Typography>
-    {!isOwner && (
-      <IconButton
+  onBoost?: (e: React.MouseEvent) => void;
+}> = memo(
+  ({
+    rating,
+    reviewCount,
+    isFavorite,
+    isOwner,
+    isBoosted,
+    isMobile,
+    onToggleFavorite,
+    onBoost,
+  }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+      <Rating
+        value={rating}
+        readOnly
         size="small"
-        onClick={onToggleFavorite}
-        sx={{
-          ml: 0.5,
-          color: isFavorite ? 'primary.main' : 'text.secondary',
-        }}
-      >
-        {isFavorite ? <BookmarkIcon fontSize="small" /> : <BookmarkBorderIcon fontSize="small" />}
-      </IconButton>
-    )}
-  </Box>
-));
+        precision={0.5}
+        sx={{ fontSize: isMobile ? '0.9rem' : '1rem' }}
+      />
+      <Typography variant="caption" color="text.secondary" sx={{ minWidth: 45 }}>
+        {rating.toFixed(1)} ({reviewCount})
+      </Typography>
+      {/* Show "Boosted" badge if skill is currently boosted */}
+      {isOwner && isBoosted ? (
+        <Chip
+          icon={<TrendingUpIcon sx={{ fontSize: 14 }} />}
+          label="Geboostet"
+          size="small"
+          color="success"
+          sx={{
+            ml: 0.5,
+            height: 22,
+            fontSize: '0.7rem',
+            '& .MuiChip-icon': { ml: 0.5 },
+          }}
+        />
+      ) : null}
+      {/* Show boost button if owner, not boosted, and onBoost provided */}
+      {isOwner && !isBoosted && onBoost ? (
+        <IconButton
+          size="small"
+          onClick={onBoost}
+          sx={{ ml: 0.5, color: 'primary.main' }}
+          title="Skill boosten"
+        >
+          <TrendingUpIcon fontSize="small" />
+        </IconButton>
+      ) : null}
+      {!isOwner && (
+        <IconButton
+          size="small"
+          onClick={onToggleFavorite}
+          sx={{
+            ml: 0.5,
+            color: isFavorite ? 'primary.main' : 'text.secondary',
+          }}
+        >
+          {isFavorite ? <BookmarkIcon fontSize="small" /> : <BookmarkBorderIcon fontSize="small" />}
+        </IconButton>
+      )}
+    </Box>
+  )
+);
 
 RatingSection.displayName = 'RatingSection';
 
@@ -148,8 +190,11 @@ const MetaInfo: React.FC<{
   locationType: SkillLocationType | undefined;
   isMobile: boolean;
 }> = memo(({ ownerName, locationType, isMobile }) => {
-  const isRemote = locationType === 'remote' || !locationType;
   const locationLabel = getLocationTypeLabel(locationType ?? 'remote');
+
+  // Determine which icons to show based on location type
+  const showRemoteIcon = locationType === 'remote' || locationType === 'both' || !locationType;
+  const showInPersonIcon = locationType === 'in_person' || locationType === 'both';
 
   return (
     <Box
@@ -168,11 +213,8 @@ const MetaInfo: React.FC<{
         </Box>
       ) : null}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {isRemote ? (
-          <VideocamIcon sx={{ fontSize: 14, color: 'info.main' }} />
-        ) : (
-          <LocationIcon sx={{ fontSize: 14, color: 'error.main' }} />
-        )}
+        {showRemoteIcon ? <VideocamIcon sx={{ fontSize: 14, color: 'info.main' }} /> : null}
+        {showInPersonIcon ? <LocationIcon sx={{ fontSize: 14, color: 'error.main' }} /> : null}
         <Typography variant="caption">{locationLabel}</Typography>
       </Box>
     </Box>
@@ -209,7 +251,15 @@ TagsDisplay.displayName = 'TagsDisplay';
 
 // Main component
 const SkillListItem: React.FC<SkillListItemProps> = memo(
-  ({ skill, isOwner = false, isFavorite = false, onToggleFavorite, onClick }) => {
+  ({
+    skill,
+    isOwner = false,
+    isFavorite = false,
+    isBoosted = false,
+    onToggleFavorite,
+    onBoost,
+    onClick,
+  }) => {
     const theme = useTheme();
     const { navigateToSkill } = useNavigation();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -246,6 +296,14 @@ const SkillListItem: React.FC<SkillListItemProps> = memo(
       [onToggleFavorite, skill]
     );
 
+    const handleBoost = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onBoost?.(skill);
+      },
+      [onBoost, skill]
+    );
+
     const handleKeyDown = useCallback(
       async (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -278,6 +336,13 @@ const SkillListItem: React.FC<SkillListItemProps> = memo(
             outlineOffset: 2,
           },
           borderRadius: 1,
+          // Boost highlighting for ALL users (Phase 15)
+          ...(isBoosted && {
+            border: `2px solid ${theme.palette.success.main}`,
+            boxShadow: `0 0 8px ${theme.palette.success.light}`,
+            bgcolor:
+              theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.08)' : 'rgba(46, 125, 50, 0.04)',
+          }),
         }}
       >
         {/* Thumbnail */}
@@ -316,8 +381,10 @@ const SkillListItem: React.FC<SkillListItemProps> = memo(
               reviewCount={reviewCount}
               isFavorite={isFavorite}
               isOwner={isOwner}
+              isBoosted={isBoosted}
               isMobile={isMobile}
               onToggleFavorite={handleToggleFavorite}
+              onBoost={onBoost ? handleBoost : undefined}
             />
           </Box>
 

@@ -4,6 +4,7 @@ using CQRS.Models;
 using EventSourcing;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Domain.Services;
 using Events.Domain.Matchmaking;
@@ -42,7 +43,7 @@ public class AcceptMatchRequestCommandHandler(
                 return Error("Match request not found", ErrorCodes.ResourceNotFound);
             }
 
-            if (matchRequest.Status.ToLower() != "pending")
+            if (matchRequest.Status != MatchRequestStatus.Pending)
             {
                 return Error("Match request is no longer pending", ErrorCodes.InvalidOperation);
             }
@@ -95,7 +96,7 @@ public class AcceptMatchRequestCommandHandler(
                 agreedAmount: matchRequest.OfferedAmount,
                 currency: matchRequest.Currency,
                 sessionDurationMinutes: matchRequest.SessionDurationMinutes ?? 60,
-                totalSessions: matchRequest.TotalSessions ?? 1,
+                totalSessions: matchRequest.TotalSessions,
                 preferredDays: matchRequest.PreferredDays?.ToArray() ?? Array.Empty<string>(),
                 preferredTimes: matchRequest.PreferredTimes?.ToArray() ?? Array.Empty<string>(),
                 threadId: matchRequest.ThreadId ?? "",

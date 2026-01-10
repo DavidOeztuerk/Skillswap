@@ -40,7 +40,7 @@ public class GetUserSkillsQueryHandler(
 
         if (!string.IsNullOrEmpty(request.CategoryId))
         {
-            filteredSkills = filteredSkills.Where(s => s.SkillCategoryId == request.CategoryId);
+            filteredSkills = filteredSkills.Where(s => s.SkillTopicId == request.CategoryId);
         }
 
         if (!string.IsNullOrEmpty(request.LocationType))
@@ -64,10 +64,10 @@ public class GetUserSkillsQueryHandler(
             s.Name,
             s.Description,
             new SkillCategoryResponse(
-                s.SkillCategory?.Id ?? s.SkillCategoryId,
-                s.SkillCategory?.Name ?? "Unknown",
-                s.SkillCategory?.IconName ?? "",
-                s.SkillCategory?.Color ?? "",
+                s.Topic?.Id ?? s.SkillTopicId,
+                s.Topic?.FullPath ?? "Unknown",
+                s.Topic?.IconName ?? "",
+                s.Category?.Color ?? "",
                 0),
             s.Tags,
             s.IsOffered,

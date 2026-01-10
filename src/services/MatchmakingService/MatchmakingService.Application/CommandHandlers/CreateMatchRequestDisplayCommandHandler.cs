@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using EventSourcing;
 using MatchmakingService.Application.Commands;
 using MatchmakingService.Domain.Entities;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Domain.Services;
 using Contracts.Matchmaking.Responses;
@@ -53,7 +54,7 @@ public class CreateMatchRequestDisplayCommandHandler(
                 SkillId = request.SkillId,
                 ThreadId = threadIdGuid,
                 Description = request.Description ?? request.Message,
-                Status = "Pending",
+                Status = MatchRequestStatus.Pending,
                 Message = request.Message,
                 IsSkillExchange = request.IsSkillExchange,
                 ExchangeSkillId = request.ExchangeSkillId,
@@ -79,7 +80,7 @@ public class CreateMatchRequestDisplayCommandHandler(
             // Return simple response - UI will refresh to get full data
             var response = new CreateMatchRequestResponse(
                 RequestId: matchRequest.Id,
-                Status: matchRequest.Status,
+                Status: matchRequest.Status.ToString(),
                 CreatedAt: matchRequest.CreatedAt,
                 ThreadId: matchRequest.ThreadId ?? ""
             );

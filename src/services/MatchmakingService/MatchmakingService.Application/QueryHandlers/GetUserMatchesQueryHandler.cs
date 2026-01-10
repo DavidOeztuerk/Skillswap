@@ -2,6 +2,7 @@ using CQRS.Handlers;
 using CQRS.Models;
 using MatchmakingService.Application.Queries;
 using MatchmakingService.Domain.Entities;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Domain.Services;
 using Microsoft.Extensions.Logging;
@@ -35,7 +36,10 @@ public class GetUserMatchesQueryHandler(
 
             if (!string.IsNullOrEmpty(request.Status))
             {
-                query = query.Where(m => m.Status == request.Status);
+                if (Enum.TryParse<MatchStatus>(request.Status, ignoreCase: true, out var statusEnum))
+                {
+                    query = query.Where(m => m.Status == statusEnum);
+                }
             }
 
             if (!request.IncludeCompleted)
@@ -141,7 +145,7 @@ public class GetUserMatchesQueryHandler(
                     SkillId: matchRequest.SkillId,
                     SkillName: skillName,
                     SkillCategory: skillCategory,
-                    Status: match.Status,
+                    Status: match.Status.ToString(),
                     PartnerId: partnerId,
                     PartnerName: partnerName,
                     PartnerRating: partnerRating,
@@ -164,7 +168,7 @@ public class GetUserMatchesQueryHandler(
                     PreferredTimes: matchRequest.PreferredTimes?.ToArray() ?? Array.Empty<string>(),
                     SessionInfo: new SessionInfoResponse(
                         CompletedSessions: match.CompletedSessions,
-                        TotalSessions: matchRequest.TotalSessions ?? 1,
+                        TotalSessions: matchRequest.TotalSessions,
                         NextSessionDate: match.NextSessionDate
                     ),
                     AdditionalNotes: matchRequest.AdditionalNotes,

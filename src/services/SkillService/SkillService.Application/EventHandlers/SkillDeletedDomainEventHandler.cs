@@ -20,11 +20,11 @@ public class SkillDeletedDomainEventHandler(
 
         if (skill != null)
         {
-            // Update the category's UpdatedAt timestamp
-            var category = await _unitOfWork.SkillCategories.GetByIdAsync(skill.SkillCategoryId, cancellationToken);
-            if (category != null)
+            // Update the topic's UpdatedAt timestamp
+            var topic = await _unitOfWork.SkillTopics.GetByIdAsync(skill.SkillTopicId, cancellationToken);
+            if (topic != null)
             {
-                category.UpdatedAt = DateTime.UtcNow;
+                topic.UpdatedAt = DateTime.UtcNow;
             }
         }
 

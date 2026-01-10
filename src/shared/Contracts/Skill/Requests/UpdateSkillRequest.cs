@@ -4,16 +4,9 @@ using Contracts.Common;
 namespace Contracts.Skill.Requests;
 
 /// <summary>
-/// API request for updating an existing skill
+/// API request for updating an existing skill.
+/// Includes Exchange, Scheduling, and Location options.
 /// </summary>
-/// <param name="SkillId">ID of the skill to update</param>
-/// <param name="Name">Updated name of the skill</param>
-/// <param name="Description">Updated description of the skill</param>
-/// <param name="CategoryId">Updated skill category identifier</param>
-/// <param name="Tags">Updated associated tags for the skill</param>
-/// <param name="IsOffered">Whether the user offers this skill (true) or seeks to learn it (false)</param>
-/// <param name="AvailableHours">Updated available hours per week for this skill</param>
-/// <param name="PreferredSessionDuration">Updated preferred session duration in minutes</param>
 public record UpdateSkillRequest(
     [Required(ErrorMessage = "Skill ID is required")]
     string SkillId,
@@ -34,7 +27,64 @@ public record UpdateSkillRequest(
     int? AvailableHours = null,
 
     [Range(15, 480, ErrorMessage = "Session duration must be between 15 and 480 minutes")]
-    int? PreferredSessionDuration = null)
+    int? PreferredSessionDuration = null,
+
+    // ========================================
+    // EXCHANGE OPTIONS
+    // ========================================
+
+    /// <summary>Exchange type: skill_exchange or payment</summary>
+    string? ExchangeType = null,
+
+    /// <summary>Desired skill category/topic ID for exchange</summary>
+    string? DesiredSkillCategoryId = null,
+
+    /// <summary>Description of desired skill for exchange</summary>
+    string? DesiredSkillDescription = null,
+
+    /// <summary>Hourly rate for payment exchange type</summary>
+    decimal? HourlyRate = null,
+
+    /// <summary>Currency code (EUR, USD, CHF, GBP)</summary>
+    string? Currency = null,
+
+    // ========================================
+    // SCHEDULING
+    // ========================================
+
+    /// <summary>Preferred days of the week</summary>
+    List<string>? PreferredDays = null,
+
+    /// <summary>Preferred times of day (morning, afternoon, evening)</summary>
+    List<string>? PreferredTimes = null,
+
+    /// <summary>Duration of each session in minutes</summary>
+    int? SessionDurationMinutes = null,
+
+    /// <summary>Total number of sessions</summary>
+    int? TotalSessions = null,
+
+    // ========================================
+    // LOCATION
+    // ========================================
+
+    /// <summary>Location type: remote, in_person, or both</summary>
+    string? LocationType = null,
+
+    /// <summary>Street address</summary>
+    string? LocationAddress = null,
+
+    /// <summary>City name</summary>
+    string? LocationCity = null,
+
+    /// <summary>Postal code</summary>
+    string? LocationPostalCode = null,
+
+    /// <summary>Country code (ISO 3166-1 alpha-2)</summary>
+    string? LocationCountry = null,
+
+    /// <summary>Maximum distance in km for in-person meetings</summary>
+    int? MaxDistanceKm = null)
     : IVersionedContract
 {
     /// <summary>

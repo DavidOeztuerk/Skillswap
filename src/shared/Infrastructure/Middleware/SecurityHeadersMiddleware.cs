@@ -67,10 +67,12 @@ public class SecurityHeadersMiddleware
         var csp = BuildContentSecurityPolicy(context);
         response.Headers.TryAdd("Content-Security-Policy", csp);
 
-        // Report-Only mode for testing (optional)
-        if (_environment.IsDevelopment())
+        // Report-Only mode: Test stricter CSP without breaking the app
+        // In Staging/Production: Add stricter CSP as Report-Only for monitoring
+        // This allows us to see what would break before enforcing
+        if (!_environment.IsDevelopment())
         {
-            var cspReportOnly = BuildContentSecurityPolicyReportOnly();
+            var cspReportOnly = BuildStrictCspReportOnly(context);
             response.Headers.TryAdd("Content-Security-Policy-Report-Only", cspReportOnly);
         }
 
@@ -188,11 +190,64 @@ public class SecurityHeadersMiddleware
     }
 
     /// <summary>
-    /// Build CSP Report-Only for testing new policies
+    /// Build stricter CSP for Report-Only mode (for testing before enforcement)
+    /// This CSP removes 'unsafe-inline' and 'unsafe-eval' to test what would break
+    /// Violations will be logged but not enforced
     /// </summary>
-    private string BuildContentSecurityPolicyReportOnly()
+    private string BuildStrictCspReportOnly(HttpContext context)
     {
-        return "default-src 'self'; report-uri /api/csp-report";
+        var gatewayUrl = _configuration["ServiceCommunication:GatewayBaseUrl"] ?? "http://localhost:8080";
+
+        // Stricter CSP without unsafe-inline/unsafe-eval
+        // In the future, this can be enhanced with nonces for inline scripts
+        var csp = new List<string>
+        {
+            // Default: Only allow resources from same origin
+            "default-src 'self'",
+
+            // Scripts: Only self (no inline) - will flag React/Vite inline scripts
+            // TODO: Add nonce support for inline scripts
+            "script-src 'self'",
+
+            // Styles: Self + Google Fonts (no inline) - will flag Material-UI inline styles
+            // TODO: Add nonce support for inline styles
+            "style-src 'self' https://fonts.googleapis.com",
+
+            // Images: Allow self + data URIs + HTTPS
+            "img-src 'self' data: https: blob:",
+
+            // Fonts: Allow self + Google Fonts
+            "font-src 'self' https://fonts.gstatic.com data:",
+
+            // Connect: API calls, WebSocket, SignalR
+            $"connect-src 'self' {gatewayUrl} ws://localhost:* wss://* https:",
+
+            // Media: WebRTC media streams
+            "media-src 'self' blob: mediastream:",
+
+            // Workers: Web Workers for E2EE
+            "worker-src 'self' blob:",
+
+            // Child/Frame: Allow same-origin iframes
+            "frame-src 'self'",
+
+            // Object/Embed: Block Flash, Java, etc.
+            "object-src 'none'",
+
+            // Base URI: Restrict <base> tag
+            "base-uri 'self'",
+
+            // Form actions: Restrict form submissions
+            "form-action 'self'",
+
+            // Frame ancestors: Who can embed this site
+            "frame-ancestors 'none'",
+
+            // Report violations to endpoint (can be configured later)
+            "report-uri /api/csp-report"
+        };
+
+        return string.Join("; ", csp.Where(d => !string.IsNullOrEmpty(d)));
     }
 
     /// <summary>

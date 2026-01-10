@@ -4,6 +4,7 @@ using CQRS.Extensions;
 using System.Reflection;
 using Infrastructure.Security;
 using Infrastructure.Authorization;
+using SkillService.Domain.Configuration;
 using SkillService.Infrastructure.HttpClients;
 using SkillService.Infrastructure.Repositories;
 using SkillService.Infrastructure.Services;
@@ -39,6 +40,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISkillResourceRepository, SkillResourceRepository>();
         services.AddScoped<ISkillReviewRepository, SkillReviewRepository>();
         services.AddScoped<ISkillViewRepository, SkillViewRepository>();
+        // Phase 10: Listing repository
+        services.AddScoped<IListingRepository, ListingRepository>();
 
         // Register service clients that use IServiceCommunicationManager
         services.AddScoped<IUserServiceClient, UserServiceClient>();
@@ -46,6 +49,10 @@ public static class ServiceCollectionExtensions
 
         // Register Location Service for geocoding and distance calculations
         services.AddHttpClient<ILocationService, LocationService>();
+
+        // Phase 10: Listing expiration background service
+        services.Configure<ListingSettings>(configuration.GetSection(ListingSettings.SectionName));
+        services.AddHostedService<ListingExpirationService>();
 
         services.AddSharedInfrastructure(configuration, environment, serviceName);
 
@@ -62,10 +69,14 @@ public static class ServiceCollectionExtensions
         var applicationAssembly = Assembly.Load("SkillService.Application");
         services.AddCQRS(applicationAssembly);
 
-        // CRITICAL FIX: Use Application assembly for messaging as well
+        // Infrastructure assembly for consumers (Phase 11: PaymentSucceededConsumer)
+        var infrastructureAssembly = typeof(ServiceCollectionExtensions).Assembly;
+
+        // Add messaging with both assemblies for handlers and consumers
         services.AddMessaging(
             configuration,
-            applicationAssembly);
+            applicationAssembly,
+            infrastructureAssembly);
 
         services.AddEventBus();
 

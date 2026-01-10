@@ -54,6 +54,8 @@ using (var scope = app.Services.CreateScope())
 app.UseSharedInfrastructure(app.Environment, serviceName);
 
 app.MapSkillController();
+// Phase 10: Listing endpoints
+app.MapListingController();
 
 app.Logger.LogInformation("Starting {ServiceName} with comprehensive skill management capabilities", serviceName);
 

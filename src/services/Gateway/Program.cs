@@ -4,7 +4,7 @@ using Infrastructure.Extensions;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
 
-// Load .env file before anything else
+// Load .env file from repo root
 Env.Load();
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -24,6 +24,15 @@ var ocelotConfigFile = environment == "Production" || environment == "Staging"
 builder.Configuration
     .AddJsonFile(ocelotConfigFile, optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
+
+// Load credentials from environment variables (Phase 14 security)
+var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
+if (!string.IsNullOrEmpty(redisConnectionString))
+{
+    builder.Configuration["ConnectionStrings:Redis"] = redisConnectionString;
+    builder.Configuration["DistributedRateLimiting:Redis:ConnectionString"] = redisConnectionString;
+    Console.WriteLine("[DEBUG] Redis cache configured successfully");
+}
 
 // Add shared infrastructure (includes JWT, Swagger, Health Checks, etc.)
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment, serviceName);

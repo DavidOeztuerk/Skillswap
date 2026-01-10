@@ -1,4 +1,3 @@
-using System.Text;
 using Contracts.User.Responses.Xing;
 using CQRS.Handlers;
 using CQRS.Models;
@@ -32,17 +31,11 @@ public class CompleteXingConnectCommandHandler(
         CompleteXingConnectCommand request,
         CancellationToken cancellationToken)
     {
-        // Parse and validate state token
-        var (userId, requestToken, isValid) = ParseStateToken(request.State);
-        if (!isValid || string.IsNullOrEmpty(userId))
+        // Use UserId from authenticated context
+        var userId = request.UserId;
+        if (string.IsNullOrEmpty(userId))
         {
-            return Error("Invalid state token");
-        }
-
-        // Verify request token matches
-        if (requestToken != request.OAuthToken)
-        {
-            return Error("OAuth token mismatch");
+            return Error("User authentication required");
         }
 
         // Check if already connected
@@ -102,27 +95,6 @@ public class CompleteXingConnectCommandHandler(
             userId, tokenResult.XingId);
 
         return Success(MapToResponse(connection), "Xing connected successfully");
-    }
-
-    private static (string? userId, string? requestToken, bool isValid) ParseStateToken(string state)
-    {
-        try
-        {
-            var stateBytes = Convert.FromBase64String(state);
-            var stateData = Encoding.UTF8.GetString(stateBytes);
-            var parts = stateData.Split('|');
-
-            if (parts.Length >= 3 && parts[1] == "xing")
-            {
-                return (parts[0], parts[2], true);
-            }
-
-            return (null, null, false);
-        }
-        catch
-        {
-            return (null, null, false);
-        }
     }
 
     private static XingConnectionResponse MapToResponse(UserXingConnection connection) =>

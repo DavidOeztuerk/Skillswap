@@ -15,9 +15,14 @@ public class DeleteEducationCommandHandler(
 
     public override async Task<ApiResponse<bool>> Handle(DeleteEducationCommand request, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(request.UserId))
+        {
+            return Error("User ID is required");
+        }
+
         Logger.LogInformation("Deleting education {EducationId} for user {UserId}", request.EducationId, request.UserId);
 
-        await _educationRepository.DeleteEducation(request.EducationId, request.UserId, cancellationToken);
+        await _educationRepository.DeleteEducation(request.EducationId, request.UserId!, cancellationToken);
 
         return Success(true, "Education deleted successfully");
     }

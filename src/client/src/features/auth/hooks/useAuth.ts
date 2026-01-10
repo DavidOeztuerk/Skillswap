@@ -67,8 +67,8 @@ export const useAuth = (): {
   forceLogout: () => void;
   silentLogin: () => void;
   // Profile Operations
-  loadProfile: () => void;
   updateProfile: (profileData: UpdateProfileRequest) => void;
+  loadProfile: () => void;
   uploadProfilePicture: (file: File) => void;
   deleteProfilePicture: () => void;
   changePassword: (passwordData: ChangePasswordRequest) => void;
@@ -165,7 +165,7 @@ export const useAuth = (): {
       /**
        * Update user profile
        */
-      updateProfile: (profileData: UpdateProfileRequest) =>
+      updateProfile: async (profileData: UpdateProfileRequest) =>
         dispatch(updateProfileAction(profileData)),
 
       /**

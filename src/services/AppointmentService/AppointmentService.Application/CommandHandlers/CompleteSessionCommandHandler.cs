@@ -1,5 +1,6 @@
 using AppointmentService.Application.Commands;
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Repositories;
 using CQRS.Handlers;
 using CQRS.Models;
@@ -133,7 +134,7 @@ public class CompleteSessionCommandHandler(
 
             return Success(new SessionStatusResponse(
                 appointment.Id,
-                appointment.Status,
+                appointment.Status.ToString(),
                 appointment.CompletedAt,
                 appointment.MeetingLink),
                 request.IsNoShow ? "Session marked as no-show" : "Session completed successfully");

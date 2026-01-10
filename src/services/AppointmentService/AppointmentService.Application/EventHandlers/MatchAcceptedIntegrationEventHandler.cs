@@ -1,3 +1,4 @@
+using AppointmentService.Domain.Enums;
 using AppointmentService.Domain.Services;
 using Events.Integration.Matchmaking;
 using Events.Integration.Appointment;
@@ -123,7 +124,7 @@ public class MatchAcceptedIntegrationEventHandler : IConsumer<MatchAcceptedInteg
                         appointment.SessionNumber,
                         series.TotalSessions,
                         appointment.MeetingLink ?? string.Empty,
-                        appointment.Status,
+                        appointment.Status.ToString(),
                         teacherRole));
                 }
             }

@@ -1,4 +1,5 @@
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 
 namespace AppointmentService.Domain.StateMachines;
 
@@ -12,10 +13,10 @@ public class SessionAppointmentStateMachine
     /// Defines all valid state transitions
     /// Key: Current state, Value: List of allowed next states
     /// </summary>
-    private static readonly Dictionary<string, List<string>> StateTransitions = new()
+    private static readonly Dictionary<SessionAppointmentStatus, List<SessionAppointmentStatus>> StateTransitions = new()
     {
         // From Pending
-        [SessionAppointmentStatus.Pending] = new List<string>
+        [SessionAppointmentStatus.Pending] = new List<SessionAppointmentStatus>
         {
             SessionAppointmentStatus.Confirmed,
             SessionAppointmentStatus.WaitingForPayment,
@@ -24,7 +25,7 @@ public class SessionAppointmentStateMachine
         },
 
         // From Confirmed
-        [SessionAppointmentStatus.Confirmed] = new List<string>
+        [SessionAppointmentStatus.Confirmed] = new List<SessionAppointmentStatus>
         {
             SessionAppointmentStatus.RescheduleRequested,
             SessionAppointmentStatus.InProgress,
@@ -34,28 +35,28 @@ public class SessionAppointmentStateMachine
         },
 
         // From RescheduleRequested
-        [SessionAppointmentStatus.RescheduleRequested] = new List<string>
+        [SessionAppointmentStatus.RescheduleRequested] = new List<SessionAppointmentStatus>
         {
             SessionAppointmentStatus.Confirmed, // Approved or rejected
             SessionAppointmentStatus.Cancelled
         },
 
         // From InProgress
-        [SessionAppointmentStatus.InProgress] = new List<string>
+        [SessionAppointmentStatus.InProgress] = new List<SessionAppointmentStatus>
         {
             SessionAppointmentStatus.Completed,
             SessionAppointmentStatus.Cancelled // Emergency cancellation
         },
 
         // From WaitingForPayment
-        [SessionAppointmentStatus.WaitingForPayment] = new List<string>
+        [SessionAppointmentStatus.WaitingForPayment] = new List<SessionAppointmentStatus>
         {
             SessionAppointmentStatus.PaymentCompleted,
             SessionAppointmentStatus.Cancelled
         },
 
         // From PaymentCompleted
-        [SessionAppointmentStatus.PaymentCompleted] = new List<string>
+        [SessionAppointmentStatus.PaymentCompleted] = new List<SessionAppointmentStatus>
         {
             SessionAppointmentStatus.Confirmed,
             SessionAppointmentStatus.InProgress,
@@ -65,9 +66,9 @@ public class SessionAppointmentStateMachine
         },
 
         // Terminal states (no transitions allowed)
-        [SessionAppointmentStatus.Completed] = new List<string>(),
-        [SessionAppointmentStatus.Cancelled] = new List<string>(),
-        [SessionAppointmentStatus.NoShow] = new List<string>()
+        [SessionAppointmentStatus.Completed] = new List<SessionAppointmentStatus>(),
+        [SessionAppointmentStatus.Cancelled] = new List<SessionAppointmentStatus>(),
+        [SessionAppointmentStatus.NoShow] = new List<SessionAppointmentStatus>()
     };
 
     /// <summary>
@@ -76,7 +77,7 @@ public class SessionAppointmentStateMachine
     /// <param name="currentState">Current state</param>
     /// <param name="newState">Proposed new state</param>
     /// <returns>True if transition is valid, false otherwise</returns>
-    public static bool IsValidTransition(string currentState, string newState)
+    public static bool IsValidTransition(SessionAppointmentStatus currentState, SessionAppointmentStatus newState)
     {
         // Same state is always allowed (no-op)
         if (currentState == newState)
@@ -95,11 +96,11 @@ public class SessionAppointmentStateMachine
     /// </summary>
     /// <param name="currentState">Current state</param>
     /// <returns>List of allowed next states</returns>
-    public static List<string> GetAllowedTransitions(string currentState)
+    public static List<SessionAppointmentStatus> GetAllowedTransitions(SessionAppointmentStatus currentState)
     {
-        return StateTransitions.ContainsKey(currentState)
-            ? StateTransitions[currentState]
-            : new List<string>();
+        return StateTransitions.TryGetValue(currentState, out var transitions)
+            ? transitions
+            : new List<SessionAppointmentStatus>();
     }
 
     /// <summary>
@@ -107,7 +108,7 @@ public class SessionAppointmentStateMachine
     /// </summary>
     /// <param name="state">State to check</param>
     /// <returns>True if terminal state</returns>
-    public static bool IsTerminalState(string state)
+    public static bool IsTerminalState(SessionAppointmentStatus state)
     {
         return state == SessionAppointmentStatus.Completed ||
                state == SessionAppointmentStatus.Cancelled ||
@@ -119,10 +120,10 @@ public class SessionAppointmentStateMachine
     /// </summary>
     /// <param name="state">State to check</param>
     /// <returns>True if cancellation is allowed from this state</returns>
-    public static bool CanBeCancelled(string state)
+    public static bool CanBeCancelled(SessionAppointmentStatus state)
     {
-        return StateTransitions.ContainsKey(state) &&
-               StateTransitions[state].Contains(SessionAppointmentStatus.Cancelled);
+        return StateTransitions.TryGetValue(state, out var transitions) &&
+               transitions.Contains(SessionAppointmentStatus.Cancelled);
     }
 
     /// <summary>
@@ -130,7 +131,7 @@ public class SessionAppointmentStateMachine
     /// </summary>
     /// <param name="state">State to check</param>
     /// <returns>True if reschedule request is allowed from this state</returns>
-    public static bool CanBeRescheduled(string state)
+    public static bool CanBeRescheduled(SessionAppointmentStatus state)
     {
         return state == SessionAppointmentStatus.Confirmed ||
                state == SessionAppointmentStatus.PaymentCompleted;
@@ -141,10 +142,10 @@ public class SessionAppointmentStateMachine
     /// </summary>
     /// <param name="state">Current state</param>
     /// <returns>True if can start</returns>
-    public static bool CanStart(string state)
+    public static bool CanStart(SessionAppointmentStatus state)
     {
-        return StateTransitions.ContainsKey(state) &&
-               StateTransitions[state].Contains(SessionAppointmentStatus.InProgress);
+        return StateTransitions.TryGetValue(state, out var transitions) &&
+               transitions.Contains(SessionAppointmentStatus.InProgress);
     }
 
     /// <summary>
@@ -152,10 +153,10 @@ public class SessionAppointmentStateMachine
     /// </summary>
     /// <param name="state">Current state</param>
     /// <returns>True if can be completed</returns>
-    public static bool CanComplete(string state)
+    public static bool CanComplete(SessionAppointmentStatus state)
     {
-        return StateTransitions.ContainsKey(state) &&
-               StateTransitions[state].Contains(SessionAppointmentStatus.Completed);
+        return StateTransitions.TryGetValue(state, out var transitions) &&
+               transitions.Contains(SessionAppointmentStatus.Completed);
     }
 
     /// <summary>
@@ -164,7 +165,7 @@ public class SessionAppointmentStateMachine
     /// <param name="currentState">Current state</param>
     /// <param name="newState">Proposed new state</param>
     /// <exception cref="InvalidOperationException">Thrown when transition is not allowed</exception>
-    public static void ValidateTransitionOrThrow(string currentState, string newState)
+    public static void ValidateTransitionOrThrow(SessionAppointmentStatus currentState, SessionAppointmentStatus newState)
     {
         if (!IsValidTransition(currentState, newState))
         {
@@ -181,7 +182,7 @@ public class SessionAppointmentStateMachine
     /// <param name="isMonetary">Whether the session is payment-based</param>
     /// <param name="isPaymentCompleted">Whether payment has been completed</param>
     /// <returns>Next appropriate state</returns>
-    public static string GetInitialState(bool isMonetary, bool isPaymentCompleted)
+    public static SessionAppointmentStatus GetInitialState(bool isMonetary, bool isPaymentCompleted)
     {
         if (isMonetary && !isPaymentCompleted)
             return SessionAppointmentStatus.WaitingForPayment;
@@ -194,7 +195,7 @@ public class SessionAppointmentStateMachine
     /// </summary>
     /// <param name="state">State to describe</param>
     /// <returns>Description</returns>
-    public static string GetStateDescription(string state)
+    public static string GetStateDescription(SessionAppointmentStatus state)
     {
         return state switch
         {
@@ -217,7 +218,7 @@ public class SessionAppointmentStateMachine
     /// <param name="appointment">The appointment to validate</param>
     /// <param name="newState">Proposed new state</param>
     /// <exception cref="InvalidOperationException">Thrown when business rules are violated</exception>
-    public static void ValidateBusinessRules(SessionAppointment appointment, string newState)
+    public static void ValidateBusinessRules(SessionAppointment appointment, SessionAppointmentStatus newState)
     {
         // Validate state machine transition
         ValidateTransitionOrThrow(appointment.Status, newState);

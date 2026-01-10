@@ -139,6 +139,9 @@ export const mapSkillResponseToSkill = (response: SkillSearchResultResponse): Sk
   ownerUserName: response.ownerUserName,
   ownerFirstName: response.ownerFirstName,
   ownerLastName: response.ownerLastName,
+  // Boost info (Phase 15)
+  isBoosted: response.isBoosted ?? false,
+  isCurrentlyBoosted: response.isCurrentlyBoosted ?? false,
 });
 
 export const mapUserSkillsResponseToSkill = (response: GetUserSkillResponse): Skill => ({

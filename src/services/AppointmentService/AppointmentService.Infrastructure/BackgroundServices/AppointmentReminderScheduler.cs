@@ -1,4 +1,5 @@
 using AppointmentService.Domain.Entities;
+using AppointmentService.Domain.Enums;
 using AppointmentService.Infrastructure.Data;
 using Infrastructure.Communication;
 using Contracts.Notification.Requests;
@@ -64,7 +65,7 @@ public class AppointmentReminderScheduler : BackgroundService
         // 2. Start within the next 5 minutes
         // 3. Haven't been reminded yet (or reminder was sent more than 6 minutes ago to avoid duplicates)
         var upcomingAppointments = await dbContext.SessionAppointments
-            .Where(a => a.Status == AppointmentStatus.Accepted)
+            .Where(a => a.Status == SessionAppointmentStatus.Confirmed)
             .Where(a => a.ScheduledDate > now && a.ScheduledDate <= reminderTime)
             .Where(a => a.ReminderSentAt == null || a.ReminderSentAt < now.AddMinutes(-6))
             .ToListAsync(cancellationToken);

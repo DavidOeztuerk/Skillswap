@@ -2,7 +2,6 @@ using CQRS.Handlers;
 using CQRS.Models;
 using Core.Common.Exceptions;
 using Contracts.User.Responses;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using UserService.Api.Application.Queries;
 using UserService.Application.Services;
@@ -14,14 +13,14 @@ public class GetPublicUserProfileQueryHandler(
     IUserProfileRepository userProfileRepository,
     IUserBlockingRepository userBlockingRepository,
     ISkillServiceClient skillServiceClient,
-    UserDbContext dbContext,
+    IUserStatisticsRepository userStatisticsRepository,
     ILogger<GetPublicUserProfileQueryHandler> logger)
     : BaseQueryHandler<GetPublicUserProfileQuery, PublicUserProfileResponse>(logger)
 {
     private readonly IUserProfileRepository _userProfileRepository = userProfileRepository;
     private readonly IUserBlockingRepository _userBlockingRepository = userBlockingRepository;
     private readonly ISkillServiceClient _skillServiceClient = skillServiceClient;
-    private readonly UserDbContext _dbContext = dbContext;
+    private readonly IUserStatisticsRepository _userStatisticsRepository = userStatisticsRepository;
 
     public override async Task<ApiResponse<PublicUserProfileResponse>> Handle(GetPublicUserProfileQuery request, CancellationToken cancellationToken)
     {
@@ -47,9 +46,7 @@ public class GetPublicUserProfileQueryHandler(
         }
 
         // Get statistics from local UserStatistics table (Phase 6)
-        var statistics = await _dbContext.UserStatistics
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.UserId == request.UserId, cancellationToken);
+        var statistics = await _userStatisticsRepository.GetByUserIdAsync(request.UserId, cancellationToken);
 
         int skillsOffered;
         int skillsLearned;

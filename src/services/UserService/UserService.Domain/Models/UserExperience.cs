@@ -172,13 +172,3 @@ public class UserExperience : AuditableEntity
         UpdatedAt = DateTime.UtcNow;
     }
 }
-
-/// <summary>
-/// Phase 12: Constants for profile data sources (Experience, Education)
-/// </summary>
-public static class ProfileDataSource
-{
-    public const string Manual = "manual";
-    public const string LinkedIn = "linkedin";
-    public const string Xing = "xing";
-}

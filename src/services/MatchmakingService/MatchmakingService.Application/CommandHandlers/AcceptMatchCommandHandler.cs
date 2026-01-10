@@ -77,7 +77,7 @@ public class AcceptMatchCommandHandler(
             agreedAmount: matchRequest.OfferedAmount,
             currency: matchRequest.Currency,
             sessionDurationMinutes: matchRequest.SessionDurationMinutes ?? 60,
-            totalSessions: matchRequest.TotalSessions ?? 1,
+            totalSessions: matchRequest.TotalSessions,
             preferredDays: matchRequest.PreferredDays?.ToArray() ?? Array.Empty<string>(),
             preferredTimes: matchRequest.PreferredTimes?.ToArray() ?? Array.Empty<string>(),
             threadId: matchRequest.ThreadId ?? "",
@@ -88,7 +88,7 @@ public class AcceptMatchCommandHandler(
 
         return Success(new AcceptMatchResponse(
             match.Id,
-            match.Status,
+            match.Status.ToString(),
             match.AcceptedAt!.Value));
     }
 }

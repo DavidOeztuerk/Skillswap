@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MatchmakingService.Domain.Entities;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Infrastructure.Data;
 
@@ -88,7 +89,7 @@ public class MatchRepository : IMatchRepository
     {
         return await _dbContext.Matches
             .Include(m => m.AcceptedMatchRequest)
-            .Where(m => !m.IsDeleted && m.Status == status)
+            .Where(m => !m.IsDeleted && m.Status.ToString() == status)
             .ToListAsync(cancellationToken);
     }
 

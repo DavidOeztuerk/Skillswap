@@ -1,6 +1,7 @@
 import React, { useState, memo, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Box, useMediaQuery, type Theme } from '@mui/material';
+import { BoostModal, usePayment } from '../../../features/payments';
 import { createLogger } from '../../utils/logger';
 import NavigationProgress from '../ui/NavigationProgress';
 import Header from './Header';
@@ -26,6 +27,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onToggleTheme, darkMo
   const [mobileOpenState, setMobileOpenState] = useState(false);
   const prevLocationRef = useRef<string>(location.pathname);
   const mainContentRef = useRef<HTMLDivElement>(null);
+
+  // Boost modal state from payment store
+  const { isBoostModalOpen, currentListingId, currentSkillName, closeModal } = usePayment();
 
   // Scroll to top on route change + logging
   useEffect(() => {
@@ -140,6 +144,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onToggleTheme, darkMo
       >
         {children}
       </Box>
+
+      {/* Global Boost Modal */}
+      <BoostModal
+        open={isBoostModalOpen}
+        onClose={closeModal}
+        listingId={currentListingId ?? ''}
+        skillName={currentSkillName ?? ''}
+      />
     </Box>
   );
 };

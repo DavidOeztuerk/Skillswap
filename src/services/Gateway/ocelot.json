@@ -445,6 +445,151 @@
       }
     },
     {
+      "Comment": "========== SOCIAL CONNECTIONS & PROFILE COMPLETENESS ROUTES (Phase 12-13) ==========",
+      "DownstreamPathTemplate": "/api/users/profile/completeness",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/completeness",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/connections",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/connections",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "Comment": "LinkedIn Integration",
+      "DownstreamPathTemplate": "/api/users/profile/linkedin",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/linkedin",
+      "UpstreamHttpMethod": ["GET", "DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/linkedin/connect",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/linkedin/connect",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/linkedin/callback",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/linkedin/callback",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/linkedin/sync",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/linkedin/sync",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "Comment": "Xing Integration",
+      "DownstreamPathTemplate": "/api/users/profile/xing",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/xing",
+      "UpstreamHttpMethod": ["GET", "DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/xing/connect",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/xing/connect",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/xing/callback",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/xing/callback",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/xing/sync",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/xing/sync",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "Comment": "Imported Skills",
+      "DownstreamPathTemplate": "/api/users/profile/skills",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/skills",
+      "UpstreamHttpMethod": ["GET", "POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/skills/{skillId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/skills/{skillId}",
+      "UpstreamHttpMethod": ["PUT", "DELETE", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/skills/{skillId}/visibility",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/skills/{skillId}/visibility",
+      "UpstreamHttpMethod": ["PATCH", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/users/profile/skills/reorder",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
+      "UpstreamPathTemplate": "/api/users/profile/skills/reorder",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "Comment": "Generic Profile by UserId (MUST come AFTER specific profile routes)",
       "DownstreamPathTemplate": "/api/users/profile/user/{userId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5001 }],
@@ -590,6 +735,94 @@
         "AuthenticationProviderKey": "Bearer"
       }
     },
+
+    {
+      "_comment": "Phase 10: Listing Endpoints",
+      "DownstreamPathTemplate": "/listings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/listings/my-listings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/my-listings",
+      "UpstreamHttpMethod": ["GET"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "AddQueriesToRequest": true
+    },
+    {
+      "_comment": "Phase 15: Featured listings for homepage (public)",
+      "DownstreamPathTemplate": "/listings/featured",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/featured",
+      "UpstreamHttpMethod": ["GET"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}",
+      "UpstreamHttpMethod": ["GET"]
+    },
+    {
+      "DownstreamPathTemplate": "/listings",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}/refresh",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}/refresh",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}/boost",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}/boost",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}/close",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}/close",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/listings/{listingId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5002 }],
+      "UpstreamPathTemplate": "/api/listings/{listingId}",
+      "UpstreamHttpMethod": ["DELETE"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      }
+    },
+
     {
       "DownstreamPathTemplate": "/users/permissions/my",
       "DownstreamScheme": "http",
@@ -2412,6 +2645,55 @@
         "AllowedScopes": []
       },
       "AddQueriesToRequest": true
+    },
+    {
+      "Comment": "========== PAYMENT SERVICE (Phase 11) ========== Get payment products (public)",
+      "DownstreamPathTemplate": "/payments/products",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/products",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"],
+      "AddQueriesToRequest": true
+    },
+    {
+      "Comment": "Create checkout session (authenticated)",
+      "DownstreamPathTemplate": "/payments/checkout-session",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/checkout-session",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "Comment": "Get payment status (authenticated)",
+      "DownstreamPathTemplate": "/payments/{paymentId}/status",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/{paymentId}/status",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "Comment": "Stripe webhook (no auth - Stripe calls this)",
+      "DownstreamPathTemplate": "/payments/webhook",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/webhook",
+      "UpstreamHttpMethod": ["POST", "OPTIONS"]
+    },
+    {
+      "Comment": "Health check (public)",
+      "DownstreamPathTemplate": "/health",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5007 }],
+      "UpstreamPathTemplate": "/api/payments/health",
+      "UpstreamHttpMethod": ["GET", "OPTIONS"]
     }
   ],
   "GlobalConfiguration": {

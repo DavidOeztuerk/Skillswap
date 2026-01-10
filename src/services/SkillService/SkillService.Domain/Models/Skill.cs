@@ -171,6 +171,12 @@ public class Skill : AuditableEntity
     public virtual ICollection<SkillPreferredTime> PreferredTimeEntities { get; set; } = new List<SkillPreferredTime>();
     public virtual ICollection<SkillTag> TagEntities { get; set; } = new List<SkillTag>();
 
+    /// <summary>
+    /// Phase 10: Listing navigation (1:1 relationship)
+    /// A skill has one active listing at a time
+    /// </summary>
+    public virtual Listing? Listing { get; set; }
+
     // Phase 11: Computed properties for hierarchy access
     [NotMapped]
     public SkillSubcategory? Subcategory => Topic?.Subcategory;

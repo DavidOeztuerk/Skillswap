@@ -559,14 +559,6 @@ namespace AppointmentService.Infrastructure.Migrations
                     b.Property<int?>("ReliabilityRating")
                         .HasColumnType("integer");
 
-                    b.Property<string>("ReviewerAvatarUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("ReviewerName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.Property<string>("SessionAppointmentId")
                         .IsRequired()
                         .HasMaxLength(450)
@@ -575,10 +567,6 @@ namespace AppointmentService.Infrastructure.Migrations
                     b.Property<string>("SkillId")
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
-
-                    b.Property<string>("SkillName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Tags")
                         .HasMaxLength(500)

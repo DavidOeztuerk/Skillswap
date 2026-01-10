@@ -2,11 +2,12 @@ using CQRS.Handlers;
 using Microsoft.EntityFrameworkCore;
 using Contracts.Matchmaking.Responses;
 using MatchmakingService.Application.Queries;
+using MatchmakingService.Domain.Enums;
+using MatchmakingService.Domain.Repositories;
 using CQRS.Models;
 using Microsoft.Extensions.Logging;
 
 namespace MatchmakingService.Application.QueryHandlers;
-using MatchmakingService.Domain.Repositories;
 
 public class GetAcceptedMatchRequestsQueryHandler(
     IMatchmakingUnitOfWork unitOfWork,
@@ -29,7 +30,7 @@ public class GetAcceptedMatchRequestsQueryHandler(
 
             var requests = await _unitOfWork.MatchRequests.Query
                 .Where(mr => (mr.RequesterId == request.UserId || mr.TargetUserId == request.UserId)
-                           && mr.Status == "Accepted")
+                           && mr.Status == MatchRequestStatus.Accepted)
                 .OrderByDescending(mr => mr.UpdatedAt ?? mr.CreatedAt)
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -37,7 +38,7 @@ public class GetAcceptedMatchRequestsQueryHandler(
 
             var totalCount = await _unitOfWork.MatchRequests.Query
                 .CountAsync(mr => (mr.RequesterId == request.UserId || mr.TargetUserId == request.UserId)
-                                && mr.Status == "Accepted", cancellationToken);
+                                && mr.Status == MatchRequestStatus.Accepted, cancellationToken);
 
             var responses = requests.Select(r =>
             {
@@ -52,7 +53,7 @@ public class GetAcceptedMatchRequestsQueryHandler(
                     SkillName: r.Description ?? "Unknown Skill", // Placeholder
                     SkillCategory: "General", // Placeholder
                     Message: r.Message,
-                    Status: r.Status.ToLowerInvariant(),
+                    Status: r.Status.ToString().ToLowerInvariant(),
                     Type: type,
                     OtherUserId: otherUserId,
                     OtherUserName: "Other User", // Placeholder
@@ -65,7 +66,7 @@ public class GetAcceptedMatchRequestsQueryHandler(
                     OfferedAmount: r.OfferedAmount,
                     Currency: r.Currency ?? "EUR",
                     SessionDurationMinutes: r.SessionDurationMinutes ?? 60,
-                    TotalSessions: r.TotalSessions ?? 1,
+                    TotalSessions: r.TotalSessions,
                     PreferredDays: r.PreferredDays?.ToArray() ?? Array.Empty<string>(),
                     PreferredTimes: r.PreferredTimes?.ToArray() ?? Array.Empty<string>(),
                     CreatedAt: r.CreatedAt,

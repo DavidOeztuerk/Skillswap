@@ -112,7 +112,6 @@ const SkillEditPage: React.FC = () => {
     }
 
     errorService.addBreadcrumb('Updating skill', 'form', { skillId, skillName: skillData.name });
-    console.debug('📝 Updating skill:', skillId, skillData);
 
     // Fire-and-forget - Redux handles loading state and error via isUpdating/errorMessage
     updateSkill(skillId, skillData);

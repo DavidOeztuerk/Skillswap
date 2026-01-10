@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using CQRS.Models;
 using MatchmakingService.Application.Queries;
 using MatchmakingService.Domain.Entities;
+using MatchmakingService.Domain.Enums;
 using MatchmakingService.Domain.Repositories;
 using MatchmakingService.Domain.Services;
 using Microsoft.Extensions.Logging;

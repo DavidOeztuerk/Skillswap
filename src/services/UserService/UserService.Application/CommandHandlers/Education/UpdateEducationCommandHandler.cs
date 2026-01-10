@@ -33,6 +33,9 @@ public class UpdateEducationCommandHandler(
             request.GraduationYear,
             request.GraduationMonth,
             request.Description,
+            fieldOfStudy: null,
+            startYear: null,
+            startMonth: null,
             request.SortOrder);
 
         var result = await _educationRepository.UpdateEducation(education, cancellationToken);

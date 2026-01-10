@@ -11,11 +11,12 @@ namespace UserService.Application.Commands.Xing;
 public record CompleteXingConnectCommand(
     string OAuthToken,
     string OAuthVerifier,
-    string State) : ICommand<XingConnectionResponse>, ICacheInvalidatingCommand
+    string RedirectUri) : ICommand<XingConnectionResponse>, ICacheInvalidatingCommand
 {
-    // UserId wird aus dem State-Token extrahiert
+    public string? UserId { get; set; }
+
     public string[] InvalidationPatterns =>
     [
-        "xing-connection:*"
+        $"xing-connection:{UserId}:*"
     ];
 }

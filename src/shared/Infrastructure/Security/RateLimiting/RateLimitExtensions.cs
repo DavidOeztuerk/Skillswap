@@ -18,8 +18,11 @@ public static class RateLimitExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var redisConnectionString = configuration.GetConnectionString("Redis");
-        
+        // Phase 14: Check environment variable as fallback
+        var redisConnectionString = configuration.GetConnectionString("Redis")
+            ?? configuration["Redis:ConnectionString"]
+            ?? Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
+
         if (!string.IsNullOrEmpty(redisConnectionString))
         {
             // Redis-based rate limiting

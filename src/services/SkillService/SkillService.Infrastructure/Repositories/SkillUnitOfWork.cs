@@ -12,18 +12,23 @@ public class SkillUnitOfWork(
 
     private ISkillRepository? _skills;
     private ISkillCategoryRepository? _skillCategories;
+    private ISkillTopicRepository? _skillTopics;
     private ISkillEndorsementRepository? _skillEndorsements;
     private ISkillMatchRepository? _skillMatches;
     private ISkillResourceRepository? _skillResources;
     private ISkillReviewRepository? _skillReviews;
     private ISkillViewRepository? _skillViews;
     private ISkillFavoriteRepository? _skillFavorites;
+    private IListingRepository? _listings;
 
     public ISkillRepository Skills =>
         _skills ??= new SkillRepository(_dbContext);
 
     public ISkillCategoryRepository SkillCategories =>
         _skillCategories ??= new SkillCategoryRepository(_dbContext);
+
+    public ISkillTopicRepository SkillTopics =>
+        _skillTopics ??= new SkillTopicRepository(_dbContext);
 
     public ISkillEndorsementRepository SkillEndorsements =>
         _skillEndorsements ??= new SkillEndorsementRepository(_dbContext);
@@ -42,6 +47,12 @@ public class SkillUnitOfWork(
 
     public ISkillFavoriteRepository SkillFavorites =>
         _skillFavorites ??= new SkillFavoriteRepository(_dbContext);
+
+    /// <summary>
+    /// Phase 10: Listing repository for skill listings
+    /// </summary>
+    public IListingRepository Listings =>
+        _listings ??= new ListingRepository(_dbContext);
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

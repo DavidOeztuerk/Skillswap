@@ -41,7 +41,7 @@ public class AppointmentDataEnrichmentService : IAppointmentDataEnrichmentServic
             ScheduledDate = appointment.ScheduledDate,
             DurationMinutes = appointment.DurationMinutes,
             MeetingLink = appointment.MeetingLink,
-            Status = appointment.Status
+            Status = appointment.Status.ToString()
         };
 
         _logger.LogDebug("📋 [EnrichmentService] Appointment basic data - OrganizerUserId: {OrganizerUserId}, ParticipantUserId: {ParticipantUserId}, MeetingLink: {MeetingLink}",

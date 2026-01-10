@@ -121,7 +121,7 @@ public class User : AuditableEntity
     public virtual ICollection<UserAvailability> Availabilities { get; set; } = [];
     public virtual ICollection<UserBlockedDate> BlockedDates { get; set; } = [];
     public virtual UserPreferenceEntity? Preferences { get; set; }
-    public virtual UserNotificationPreference? NotificationPreferences { get; set; };
+    public virtual UserNotificationPreference? NotificationPreferences { get; set; }
 
     // Phase 4: Split User entity into focused entities
     public virtual UserVerification? Verification { get; set; }

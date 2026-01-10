@@ -15,9 +15,14 @@ public class DeleteExperienceCommandHandler(
 
     public override async Task<ApiResponse<bool>> Handle(DeleteExperienceCommand request, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(request.UserId))
+        {
+            return Error("User ID is required");
+        }
+
         Logger.LogInformation("Deleting experience {ExperienceId} for user {UserId}", request.ExperienceId, request.UserId);
 
-        await _experienceRepository.DeleteExperience(request.ExperienceId, request.UserId, cancellationToken);
+        await _experienceRepository.DeleteExperience(request.ExperienceId, request.UserId!, cancellationToken);
 
         return Success(true, "Experience deleted successfully");
     }

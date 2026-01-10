@@ -3,6 +3,7 @@ using CQRS.Handlers;
 using Microsoft.EntityFrameworkCore;
 using CQRS.Models;
 using MatchmakingService.Application.Queries;
+using MatchmakingService.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using MatchmakingService.Domain.Services;
 using MatchmakingService.Domain.Repositories;
@@ -32,7 +33,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
 
             // Query outgoing requests where current user is the requester
             var query = _unitOfWork.MatchRequests.Query
-                .Where(mr => mr.RequesterId == request.UserId && mr.Status.ToLower() == "pending")
+                .Where(mr => mr.RequesterId == request.UserId && mr.Status == MatchRequestStatus.Pending)
                 .OrderByDescending(mr => mr.CreatedAt);
 
             var totalCount = await query.CountAsync(cancellationToken);
@@ -66,7 +67,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
                     SkillName: skillData?.Name ?? "Unknown Skill",
                     SkillCategory: skillData?.Category ?? "General",
                     Message: mr.Message,
-                    Status: mr.Status.ToLowerInvariant(),
+                    Status: mr.Status.ToString().ToLowerInvariant(),
                     Type: "outgoing",
                     OtherUserId: mr.TargetUserId ?? string.Empty,
                     OtherUserName: targetUserData?.Name ?? "Unknown User",
@@ -79,7 +80,7 @@ public class GetOutgoingMatchRequestsQueryHandler(
                     OfferedAmount: mr.OfferedAmount,
                     Currency: mr.Currency ?? "EUR",
                     SessionDurationMinutes: mr.SessionDurationMinutes ?? 60,
-                    TotalSessions: mr.TotalSessions ?? 1,
+                    TotalSessions: mr.TotalSessions,
                     PreferredDays: mr.PreferredDays?.ToArray() ?? Array.Empty<string>(),
                     PreferredTimes: mr.PreferredTimes?.ToArray() ?? Array.Empty<string>(),
                     CreatedAt: mr.CreatedAt,
