@@ -2,7 +2,6 @@ namespace Contracts.User.Requests;
 
 /// <summary>
 /// Request to add a manual imported skill
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public record AddImportedSkillRequest(
     string Name,

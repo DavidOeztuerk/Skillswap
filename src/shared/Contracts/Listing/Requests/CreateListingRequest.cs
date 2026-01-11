@@ -5,7 +5,6 @@ namespace Contracts.Listing.Requests;
 
 /// <summary>
 /// API request for creating a new listing
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record CreateListingRequest(
     [Required(ErrorMessage = "Skill ID is required")]
@@ -16,5 +15,5 @@ public record CreateListingRequest(
     string Type)
     : IVersionedContract
 {
-    public string ApiVersion => "v1";
+  public string ApiVersion => "v1";
 }

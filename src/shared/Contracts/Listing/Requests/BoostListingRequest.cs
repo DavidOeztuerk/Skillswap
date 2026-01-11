@@ -5,7 +5,6 @@ namespace Contracts.Listing.Requests;
 
 /// <summary>
 /// API request for boosting a listing (premium visibility)
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record BoostListingRequest(
     [Required(ErrorMessage = "Listing ID is required")]
@@ -18,5 +17,5 @@ public record BoostListingRequest(
     int? DurationDays = null)
     : IVersionedContract
 {
-    public string ApiVersion => "v1";
+  public string ApiVersion => "v1";
 }

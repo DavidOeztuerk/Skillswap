@@ -2,7 +2,6 @@ namespace Contracts.Listing.Responses;
 
 /// <summary>
 /// API response for a listing
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record ListingResponse(
     string Id,
@@ -26,7 +25,7 @@ public record ListingResponse(
     // Nested skill summary
     ListingSkillSummary? Skill = null)
 {
-    public string ApiVersion => "v1";
+  public string ApiVersion => "v1";
 }
 
 /// <summary>

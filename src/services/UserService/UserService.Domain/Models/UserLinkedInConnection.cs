@@ -5,7 +5,6 @@ namespace UserService.Domain.Models;
 
 /// <summary>
 /// Represents a user's connection to LinkedIn for profile import and verification
-/// Phase 12 - LinkedIn/Xing Integration
 /// </summary>
 public class UserLinkedInConnection : AuditableEntity
 {

@@ -9,8 +9,13 @@ using MediatR;
 using SkillService.Application.EventHandlers;
 using Events.Integration.UserManagement;
 
-// Load .env file before anything else
-Env.Load();
+// Load environment-specific .env file
+var envName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+var envFile = $".env.{envName.ToLower()}";
+if (File.Exists(envFile))
+    Env.Load(envFile);
+else if (File.Exists(".env"))
+    Env.Load(".env");
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,7 +59,6 @@ using (var scope = app.Services.CreateScope())
 app.UseSharedInfrastructure(app.Environment, serviceName);
 
 app.MapSkillController();
-// Phase 10: Listing endpoints
 app.MapListingController();
 
 app.Logger.LogInformation("Starting {ServiceName} with comprehensive skill management capabilities", serviceName);

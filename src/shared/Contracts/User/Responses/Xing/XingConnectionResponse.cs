@@ -2,7 +2,6 @@ namespace Contracts.User.Responses.Xing;
 
 /// <summary>
 /// Response for Xing connection details
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public record XingConnectionResponse(
     string Id,

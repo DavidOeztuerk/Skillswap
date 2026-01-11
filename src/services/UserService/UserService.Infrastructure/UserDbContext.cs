@@ -25,21 +25,17 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
     public DbSet<UserEducation> UserEducation => Set<UserEducation>();
     public DbSet<UserReview> UserReviews => Set<UserReview>();
 
-    // Phase 3: Tables replacing JSON fields
     public DbSet<UserAvailability> UserAvailabilities => Set<UserAvailability>();
     public DbSet<UserBlockedDate> UserBlockedDates => Set<UserBlockedDate>();
     public DbSet<UserPreferenceEntity> UserPreferenceEntities => Set<UserPreferenceEntity>();
     public DbSet<UserNotificationPreference> UserNotificationPreferences => Set<UserNotificationPreference>();
 
-    // Phase 4: Split User entity
     public DbSet<UserVerification> UserVerifications => Set<UserVerification>();
     public DbSet<UserLoginHistory> UserLoginHistories => Set<UserLoginHistory>();
     public DbSet<UserPasswordReset> UserPasswordResets => Set<UserPasswordReset>();
 
-    // Phase 5: Denormalized statistics
     public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
 
-    // Phase 12: LinkedIn/Xing integration
     public DbSet<UserLinkedInConnection> UserLinkedInConnections => Set<UserLinkedInConnection>();
     public DbSet<UserXingConnection> UserXingConnections => Set<UserXingConnection>();
     public DbSet<UserImportedSkill> UserImportedSkills => Set<UserImportedSkill>();
@@ -64,21 +60,17 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         ConfigureUserEducation(modelBuilder);
         ConfigureUserReview(modelBuilder);
 
-        // Phase 3: Configure tables replacing JSON fields
         ConfigureUserAvailability(modelBuilder);
         ConfigureUserBlockedDate(modelBuilder);
         ConfigureUserPreferenceEntity(modelBuilder);
         ConfigureUserNotificationPreference(modelBuilder);
 
-        // Phase 4: Configure split User entities
         ConfigureUserVerification(modelBuilder);
         ConfigureUserLoginHistory(modelBuilder);
         ConfigureUserPasswordReset(modelBuilder);
 
-        // Phase 5: Configure statistics
         ConfigureUserStatistics(modelBuilder);
 
-        // Phase 12: LinkedIn/Xing integration
         ConfigureUserLinkedInConnection(modelBuilder);
         ConfigureUserXingConnection(modelBuilder);
         ConfigureUserImportedSkill(modelBuilder);
@@ -206,7 +198,6 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
          .HasForeignKey(x => x.RevieweeId)
          .OnDelete(DeleteBehavior.Cascade);
 
-        // Phase 3: Tables replacing JSON fields
         e.HasMany(x => x.Availabilities)
          .WithOne(x => x.User)
          .HasForeignKey(x => x.UserId)
@@ -227,7 +218,6 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
          .HasForeignKey<UserNotificationPreference>(x => x.UserId)
          .OnDelete(DeleteBehavior.Cascade);
 
-        // Phase 4: Split User entity
         e.HasOne(x => x.Verification)
          .WithOne(x => x.User)
          .HasForeignKey<UserVerification>(x => x.UserId)
@@ -243,13 +233,11 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
          .HasForeignKey<UserPasswordReset>(x => x.UserId)
          .OnDelete(DeleteBehavior.Cascade);
 
-        // Phase 5: Statistics
         e.HasOne(x => x.Statistics)
          .WithOne(x => x.User)
          .HasForeignKey<UserStatistics>(x => x.UserId)
          .OnDelete(DeleteBehavior.Cascade);
-
-        // Phase 12: LinkedIn/Xing integration
+        
         e.HasOne(x => x.LinkedInConnection)
          .WithOne(x => x.User)
          .HasForeignKey<UserLinkedInConnection>(x => x.UserId)
@@ -626,14 +614,12 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.SortOrder).HasDefaultValue(0);
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
 
-        // Phase 12: Source tracking for LinkedIn/Xing imports
         e.Property(x => x.Source).HasMaxLength(20).HasDefaultValue("manual");
         e.Property(x => x.ExternalId).HasMaxLength(100);
 
         e.HasIndex(x => x.UserId);
         e.HasIndex(x => new { x.UserId, x.SortOrder })
             .HasDatabaseName("IX_UserExperiences_UserSort");
-        // Phase 12: Index for finding imported experiences by source
         e.HasIndex(x => new { x.UserId, x.Source, x.ExternalId })
             .HasDatabaseName("IX_UserExperiences_SourceExternal");
 
@@ -656,14 +642,12 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.SortOrder).HasDefaultValue(0);
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
 
-        // Phase 12: Source tracking for LinkedIn/Xing imports
         e.Property(x => x.Source).HasMaxLength(20).HasDefaultValue("manual");
         e.Property(x => x.ExternalId).HasMaxLength(100);
 
         e.HasIndex(x => x.UserId);
         e.HasIndex(x => new { x.UserId, x.SortOrder })
             .HasDatabaseName("IX_UserEducation_UserSort");
-        // Phase 12: Index for finding imported educations by source
         e.HasIndex(x => new { x.UserId, x.Source, x.ExternalId })
             .HasDatabaseName("IX_UserEducation_SourceExternal");
 
@@ -684,7 +668,6 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.Property(x => x.SkillId).HasMaxLength(450);
         e.Property(x => x.Rating).IsRequired();
         e.Property(x => x.ReviewText).HasMaxLength(2000);
-        // Phase 9: Cached display fields (ReviewerName, ReviewerAvatarUrl, SkillName) removed
         e.Property(x => x.CreatedAt).HasDefaultValueSql("NOW()");
         e.Property(x => x.IsDeleted).HasDefaultValue(false);
 
@@ -711,10 +694,6 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
 
         // Relationships are configured in ConfigureUser
     }
-
-    // ============================================================================
-    // PHASE 3: TABLES REPLACING JSON FIELDS
-    // ============================================================================
 
     private static void ConfigureUserAvailability(ModelBuilder mb)
     {
@@ -827,10 +806,6 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasQueryFilter(x => !x.IsDeleted);
     }
 
-    // ============================================================================
-    // PHASE 4: SPLIT USER ENTITY
-    // ============================================================================
-
     private static void ConfigureUserVerification(ModelBuilder mb)
     {
         var e = mb.Entity<UserVerification>();
@@ -941,10 +916,6 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         e.HasQueryFilter(x => !x.IsDeleted);
     }
 
-    // ============================================================================
-    // PHASE 5: DENORMALIZED STATISTICS
-    // ============================================================================
-
     private static void ConfigureUserStatistics(ModelBuilder mb)
     {
         var e = mb.Entity<UserStatistics>();
@@ -993,10 +964,6 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
         // Soft delete filter
         e.HasQueryFilter(x => !x.IsDeleted);
     }
-
-    // ============================================================================
-    // PHASE 12: LINKEDIN/XING INTEGRATION
-    // ============================================================================
 
     private static void ConfigureUserLinkedInConnection(ModelBuilder mb)
     {

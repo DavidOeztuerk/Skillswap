@@ -2,7 +2,6 @@ namespace Contracts.User.Responses;
 
 /// <summary>
 /// Response for a user's imported skill (professional competency)
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public record UserImportedSkillResponse(
     string Id,

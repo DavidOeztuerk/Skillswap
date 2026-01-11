@@ -5,7 +5,6 @@ namespace Contracts.Listing.Requests;
 
 /// <summary>
 /// API request for searching listings
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record SearchListingsRequest(
     /// <summary>
@@ -89,5 +88,5 @@ public record SearchListingsRequest(
     int PageSize = 20)
     : IVersionedContract
 {
-    public string ApiVersion => "v1";
+  public string ApiVersion => "v1";
 }

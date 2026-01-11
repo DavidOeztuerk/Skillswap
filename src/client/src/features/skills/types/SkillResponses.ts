@@ -93,6 +93,15 @@ export interface GetUserSkillResponse {
   status: string;
   createdAt: Date;
   updatedAt: Date;
+  // Location fields
+  locationType?: 'remote' | 'in_person' | 'both';
+  locationCity?: string;
+  locationCountry?: string;
+  maxDistanceKm?: number;
+  // Owner info
+  ownerUserName?: string;
+  ownerFirstName?: string;
+  ownerLastName?: string;
   // Optional properties for favorites/extended views
   matchCount?: number;
   addedToFavoritesAt?: string;

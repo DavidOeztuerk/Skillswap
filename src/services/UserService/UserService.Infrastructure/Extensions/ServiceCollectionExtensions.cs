@@ -21,87 +21,85 @@ namespace UserService.Infrastructure.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddInfrastructure(
-        this IServiceCollection services,
-        IConfiguration configuration,
-        IWebHostEnvironment environment,
-        string serviceName)
-    {
-        // Repository registration
-        services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IAuthRepository, AuthRepository>();
-        services.AddScoped<ITwoFactorRepository, TwoFactorRepository>();
-        services.AddScoped<IUserProfileRepository, UserProfileRepository>();
-        services.AddScoped<IUserBlockingRepository, UserBlockingRepository>();
-        services.AddScoped<IUserActivityRepository, UserActivityRepository>();
-        services.AddScoped<IPermissionRepository, PermissionRepository>();
-        services.AddScoped<IUserCalendarConnectionRepository, UserCalendarConnectionRepository>();
-        services.AddScoped<IAppointmentCalendarEventRepository, AppointmentCalendarEventRepository>();
+  public static IServiceCollection AddInfrastructure(
+      this IServiceCollection services,
+      IConfiguration configuration,
+      IWebHostEnvironment environment,
+      string serviceName)
+  {
+    // Repository registration
+    services.AddScoped<IUserRepository, UserRepository>();
+    services.AddScoped<IAuthRepository, AuthRepository>();
+    services.AddScoped<ITwoFactorRepository, TwoFactorRepository>();
+    services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+    services.AddScoped<IUserBlockingRepository, UserBlockingRepository>();
+    services.AddScoped<IUserActivityRepository, UserActivityRepository>();
+    services.AddScoped<IPermissionRepository, PermissionRepository>();
+    services.AddScoped<IUserCalendarConnectionRepository, UserCalendarConnectionRepository>();
+    services.AddScoped<IAppointmentCalendarEventRepository, AppointmentCalendarEventRepository>();
 
-        // Profile extension repositories
-        services.AddScoped<IUserExperienceRepository, UserExperienceRepository>();
-        services.AddScoped<IUserEducationRepository, UserEducationRepository>();
-        services.AddScoped<IUserReviewRepository, UserReviewRepository>();
-        services.AddScoped<IUserStatisticsRepository, UserStatisticsRepository>();
+    // Profile extension repositories
+    services.AddScoped<IUserExperienceRepository, UserExperienceRepository>();
+    services.AddScoped<IUserEducationRepository, UserEducationRepository>();
+    services.AddScoped<IUserReviewRepository, UserReviewRepository>();
+    services.AddScoped<IUserStatisticsRepository, UserStatisticsRepository>();
 
-        // Phase 12: LinkedIn/Xing integration repositories
-        services.AddScoped<IUserLinkedInConnectionRepository, UserLinkedInConnectionRepository>();
-        services.AddScoped<IUserXingConnectionRepository, UserXingConnectionRepository>();
-        services.AddScoped<IUserImportedSkillRepository, UserImportedSkillRepository>();
+    services.AddScoped<IUserLinkedInConnectionRepository, UserLinkedInConnectionRepository>();
+    services.AddScoped<IUserXingConnectionRepository, UserXingConnectionRepository>();
+    services.AddScoped<IUserImportedSkillRepository, UserImportedSkillRepository>();
 
-        // Phase 12: OAuth services for LinkedIn/Xing
-        services.Configure<LinkedInOptions>(configuration.GetSection(LinkedInOptions.SectionName));
-        services.Configure<XingOptions>(configuration.GetSection(XingOptions.SectionName));
-        services.AddHttpClient<ILinkedInService, LinkedInService>();
-        services.AddHttpClient<IXingService, XingService>();
+    services.Configure<LinkedInOptions>(configuration.GetSection(LinkedInOptions.SectionName));
+    services.Configure<XingOptions>(configuration.GetSection(XingOptions.SectionName));
+    services.AddHttpClient<ILinkedInService, LinkedInService>();
+    services.AddHttpClient<IXingService, XingService>();
 
-        // Session Management - for concurrent session control
-        services.AddScoped<ISessionManager, SessionManager>();
+    // Session Management - for concurrent session control
+    services.AddScoped<ISessionManager, SessionManager>();
 
-        // Calendar Integration Services
-        services.AddSingleton<ITokenEncryptionService, TokenEncryptionService>();
-        services.AddScoped<ICalendarServiceFactory, CalendarServiceFactory>();
-        services.AddHttpClient<GoogleCalendarService>();
-        services.AddHttpClient<MicrosoftCalendarService>();
-        services.AddHttpClient<AppleCalendarService>();
+    // Calendar Integration Services
+    services.AddSingleton<ITokenEncryptionService, TokenEncryptionService>();
+    services.AddScoped<ICalendarServiceFactory, CalendarServiceFactory>();
+    services.AddHttpClient<GoogleCalendarService>();
+    services.AddHttpClient<MicrosoftCalendarService>();
+    services.AddHttpClient<AppleCalendarService>();
 
-        // Register service clients that use IServiceCommunicationManager
-        services.AddScoped<ISkillServiceClient, SkillServiceClient>();
-        services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
+    // Register service clients that use IServiceCommunicationManager
+    services.AddScoped<ISkillServiceClient, SkillServiceClient>();
+    services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
 
-        // Register orchestration services
-        // services.AddScoped<UserService.Application.Services.Orchestration.IUserDataEnrichmentService, UserService.Application.Services.Orchestration.UserDataEnrichmentService>();
+    // Register orchestration services
+    // services.AddScoped<UserService.Application.Services.Orchestration.IUserDataEnrichmentService, UserService.Application.Services.Orchestration.UserDataEnrichmentService>();
 
-        services.AddSharedInfrastructure(configuration, environment, serviceName);
+    services.AddSharedInfrastructure(configuration, environment, serviceName);
 
-        services.AddJwtAuthentication(configuration, environment);
+    services.AddJwtAuthentication(configuration, environment);
 
-        services.AddDatabaseContext<UserDbContext>(
-            configuration,
-            serviceName,
-            "UserService.Infrastructure");
+    services.AddDatabaseContext<UserDbContext>(
+        configuration,
+        serviceName,
+        "UserService.Infrastructure");
 
-        services.AddEventSourcing("UserServiceEventStore");
+    services.AddEventSourcing("UserServiceEventStore");
 
-        var applicationAssembly = Assembly.Load("UserService.Application");
-        services.AddCQRS(applicationAssembly);
+    var applicationAssembly = Assembly.Load("UserService.Application");
+    services.AddCQRS(applicationAssembly);
 
-        services.AddMessaging(
-            configuration,
-            Assembly.GetExecutingAssembly());
+    services.AddMessaging(
+        configuration,
+        Assembly.GetExecutingAssembly());
 
-        services.AddEventBus();
+    services.AddEventBus();
 
-        services.AddSkillSwapAuthorization();
-        services.AddPermissionAuthorization();
-        services.AddAuthorization(options => options.AddPermissionPolicies());
+    services.AddSkillSwapAuthorization();
+    services.AddPermissionAuthorization();
+    services.AddAuthorization(options => options.AddPermissionPolicies());
 
-        // Background Services for cleanup tasks
-        services.AddHostedService<SessionCleanupBackgroundService>();
-        services.AddHostedService<TokenCleanupBackgroundService>();
-        // NOTE: LoginAttemptsCleanupBackgroundService removed - rate limiting is now handled
-        // by DistributedRateLimitingMiddleware in Gateway with Redis-backed storage
+    // Background Services for cleanup tasks
+    services.AddHostedService<SessionCleanupBackgroundService>();
+    services.AddHostedService<TokenCleanupBackgroundService>();
+    // NOTE: LoginAttemptsCleanupBackgroundService removed - rate limiting is now handled
+    // by DistributedRateLimitingMiddleware in Gateway with Redis-backed storage
 
-        return services;
-    }
+    return services;
+  }
 }

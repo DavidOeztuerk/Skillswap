@@ -5,7 +5,6 @@ namespace Contracts.User.Responses;
 
 /// <summary>
 /// Combined response for all social connections and imported data
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public record SocialConnectionsResponse(
     LinkedInConnectionResponse? LinkedIn,

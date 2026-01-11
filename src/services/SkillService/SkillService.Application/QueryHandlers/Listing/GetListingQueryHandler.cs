@@ -11,22 +11,21 @@ namespace SkillService.Application.QueryHandlers.Listing;
 
 /// <summary>
 /// Handler for getting a listing by ID
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public class GetListingQueryHandler(
     ISkillUnitOfWork unitOfWork,
     ILogger<GetListingQueryHandler> logger)
     : BaseQueryHandler<GetListingQuery, ListingResponse>(logger)
 {
-    private readonly ISkillUnitOfWork _unitOfWork = unitOfWork;
+  private readonly ISkillUnitOfWork _unitOfWork = unitOfWork;
 
-    public override async Task<ApiResponse<ListingResponse>> Handle(
-        GetListingQuery request,
-        CancellationToken cancellationToken)
-    {
-        var listing = await _unitOfWork.Listings.GetByIdWithSkillAsync(request.ListingId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Listing", request.ListingId);
+  public override async Task<ApiResponse<ListingResponse>> Handle(
+      GetListingQuery request,
+      CancellationToken cancellationToken)
+  {
+    var listing = await _unitOfWork.Listings.GetByIdWithSkillAsync(request.ListingId, cancellationToken)
+        ?? throw new ResourceNotFoundException("Listing", request.ListingId);
 
-        return Success(ListingMapper.MapToResponse(listing));
-    }
+    return Success(ListingMapper.MapToResponse(listing));
+  }
 }

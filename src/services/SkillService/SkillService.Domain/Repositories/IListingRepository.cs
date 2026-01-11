@@ -4,7 +4,6 @@ namespace SkillService.Domain.Repositories;
 
 /// <summary>
 /// Repository interface for Listing operations
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public interface IListingRepository
 {

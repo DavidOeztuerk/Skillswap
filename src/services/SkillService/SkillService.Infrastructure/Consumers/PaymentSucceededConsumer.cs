@@ -1,4 +1,6 @@
 using Contracts.Events;
+using Infrastructure.Caching;
+using Infrastructure.Caching.Http;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using SkillService.Domain.Repositories;
@@ -12,14 +14,36 @@ namespace SkillService.Infrastructure.Consumers;
 public class PaymentSucceededConsumer : IConsumer<PaymentSucceededIntegrationEvent>
 {
     private readonly ISkillUnitOfWork _unitOfWork;
+    private readonly IDistributedCacheService? _cacheService;
+    private readonly IETagGenerator? _etagGenerator;
     private readonly ILogger<PaymentSucceededConsumer> _logger;
+
+    // Cache invalidation patterns for boost activation
+    private static readonly string[] ListingCachePatterns =
+    [
+        "listings:featured:*",
+        "listings:search:*",
+        "listings:my-listings:*"
+    ];
+
+    private static readonly string[] ListingETagPatterns =
+    [
+        "/api/skills*",
+        "/skills*",
+        "/api/listings*",
+        "/listings*"
+    ];
 
     public PaymentSucceededConsumer(
         ISkillUnitOfWork unitOfWork,
-        ILogger<PaymentSucceededConsumer> logger)
+        ILogger<PaymentSucceededConsumer> logger,
+        IDistributedCacheService? cacheService = null,
+        IETagGenerator? etagGenerator = null)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _cacheService = cacheService;
+        _etagGenerator = etagGenerator;
     }
 
     public async Task Consume(ConsumeContext<PaymentSucceededIntegrationEvent> context)
@@ -83,6 +107,9 @@ public class PaymentSucceededConsumer : IConsumer<PaymentSucceededIntegrationEve
             _logger.LogInformation(
                 "Boost activated for listing {ListingId}: Type={BoostType}, Duration={Days} days, Until={BoostedUntil}",
                 listing.Id, message.BoostType, message.DurationDays, listing.BoostedUntil);
+
+            // Invalidate cache so the boost is visible immediately
+            await InvalidateCacheAsync(listing.Id, listing.UserId, context.CancellationToken);
         }
         catch (Exception ex)
         {
@@ -90,6 +117,50 @@ public class PaymentSucceededConsumer : IConsumer<PaymentSucceededIntegrationEve
                 "Error activating boost for listing {ListingId} (Payment: {PaymentId})",
                 message.ReferenceId, message.PaymentId);
             throw; // Re-throw to trigger retry policy
+        }
+    }
+
+    /// <summary>
+    /// Invalidate listing-related caches after boost activation
+    /// </summary>
+    private async Task InvalidateCacheAsync(string listingId, string userId, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Invalidating cache after boost activation for listing {ListingId}", listingId);
+
+        try
+        {
+            // Invalidate CQRS cache patterns
+            if (_cacheService != null)
+            {
+                var cacheTasks = new List<Task>();
+
+                foreach (var pattern in ListingCachePatterns)
+                {
+                    cacheTasks.Add(_cacheService.RemoveByPatternAsync(pattern, cancellationToken));
+                }
+
+                // Also invalidate specific listing cache
+                cacheTasks.Add(_cacheService.RemoveAsync($"listings:{listingId}", cancellationToken));
+
+                await Task.WhenAll(cacheTasks);
+                _logger.LogDebug("Invalidated {Count} cache patterns for boost", ListingCachePatterns.Length + 1);
+            }
+
+            // Invalidate ETags to prevent 304 Not Modified with stale data
+            if (_etagGenerator != null)
+            {
+                var etagTasks = ListingETagPatterns
+                    .Select(pattern => _etagGenerator.InvalidateETagsByPatternAsync(pattern, cancellationToken));
+                await Task.WhenAll(etagTasks);
+                _logger.LogDebug("Invalidated {Count} ETag patterns for boost", ListingETagPatterns.Length);
+            }
+
+            _logger.LogInformation("Cache invalidation completed for boost activation");
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail - cache invalidation is not critical
+            _logger.LogWarning(ex, "Cache invalidation failed for boost, stale data may be served temporarily");
         }
     }
 }

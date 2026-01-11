@@ -11,10 +11,14 @@ public record GetFavoriteSkillsQuery(
     string UserId,
     int PageNumber = 1,
     int PageSize = 20)
-    : IPagedQuery<SkillSearchResultResponse>
+    : IPagedQuery<SkillSearchResultResponse>, ICacheableQuery
 {
     public int PageNumber { get; set; } = PageNumber;
     public int PageSize { get; set; } = PageSize;
+
+    // ICacheableQuery implementation
+    public string CacheKey => $"favorite-skills:{UserId}:{PageNumber}:{PageSize}";
+    public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }
 
 public class GetFavoriteSkillsQueryValidator : AbstractValidator<GetFavoriteSkillsQuery>

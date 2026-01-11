@@ -5,7 +5,6 @@ namespace UserService.Application.Commands.Xing;
 
 /// <summary>
 /// Command to complete Xing connection - exchanges OAuth 1.0a verifier for tokens
-/// Phase 12: LinkedIn/Xing Integration
 /// Note: OAuth 1.0a uses oauth_verifier instead of code
 /// </summary>
 public record CompleteXingConnectCommand(
@@ -13,10 +12,11 @@ public record CompleteXingConnectCommand(
     string OAuthVerifier,
     string RedirectUri) : ICommand<XingConnectionResponse>, ICacheInvalidatingCommand
 {
-    public string? UserId { get; set; }
+  public string? UserId { get; set; }
 
-    public string[] InvalidationPatterns =>
-    [
-        $"xing-connection:{UserId}:*"
-    ];
+  public string[] InvalidationPatterns =>
+  [
+      $"xing-connection:{UserId}:*",
+        $"social-connections:{UserId}"
+  ];
 }

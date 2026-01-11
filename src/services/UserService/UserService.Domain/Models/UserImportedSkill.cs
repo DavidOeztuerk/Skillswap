@@ -7,7 +7,6 @@ namespace UserService.Domain.Models;
 /// Represents a professional skill imported from LinkedIn/Xing or manually added by the user.
 /// These are "competencies" (e.g., JavaScript, Project Management) - distinct from
 /// Skills in SkillService which are teaching/learning offers.
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public class UserImportedSkill : AuditableEntity
 {

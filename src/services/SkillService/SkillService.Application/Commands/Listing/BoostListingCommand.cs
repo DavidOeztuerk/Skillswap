@@ -6,15 +6,24 @@ namespace SkillService.Application.Commands.Listing;
 
 /// <summary>
 /// Command to boost a listing for higher visibility
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record BoostListingCommand(
     string ListingId,
     int? DurationDays = null)
-    : ICommand<ListingResponse>, IAuditableCommand
+    : ICommand<ListingResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    // ICacheInvalidatingCommand implementation
+    // Invalidate featured listings cache when a listing is boosted
+    public string[] InvalidationPatterns =>
+    [
+        "listings:featured:*",  // Featured listings for homepage
+        "listings:search:*",    // Search results may change due to boost
+        "listings:my-listings:*", // User's listings may change
+        $"listings:{ListingId}" // This specific listing
+    ];
 }
 
 public class BoostListingCommandValidator : AbstractValidator<BoostListingCommand>

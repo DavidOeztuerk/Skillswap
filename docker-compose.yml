@@ -28,6 +28,8 @@ services:
   rabbitmq:
     image: "rabbitmq:3-management-alpine"
     container_name: "skillswap-rabbitmq"
+    env_file:
+      - .env.infrastructure
     networks:
       - skillswap-network
     volumes:
@@ -90,19 +92,20 @@ services:
         condition: service_started
     networks:
       - skillswap-network
+    env_file:
+      - ./src/services/Gateway/.env.docker
     environment:
+      # Docker-specific overrides (container networking)
+      - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:8080
-      - RABBITMQ_HOST=rabbitmq
-      - USERSERVICE_URL=http://userservice:5001
-      - SKILLSERVICE_URL=http://skillservice:5002
-      - MATCHMAKINGSERVICE_URL=http://matchmakingservice:5003
-      - APPOINTMENTSERVICE_URL=http://appointmentservice:5004
-      - VIDEOCALLSERVICE_URL=http://videocallservice:5005
-      - NOTIFICATIONSERVICE_URL=http://notificationservice:5006
-      - PAYMENTSERVICE_URL=http://paymentservice:5007
-      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
-      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
-      - ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      - RabbitMQ__Host=rabbitmq
+      - ServiceEndpoints__UserService=http://userservice:5001
+      - ServiceEndpoints__SkillService=http://skillservice:5002
+      - ServiceEndpoints__MatchmakingService=http://matchmakingservice:5003
+      - ServiceEndpoints__AppointmentService=http://appointmentservice:5004
+      - ServiceEndpoints__VideocallService=http://videocallservice:5005
+      - ServiceEndpoints__NotificationService=http://notificationservice:5006
+      - ServiceEndpoints__PaymentService=http://paymentservice:5007
     restart: unless-stopped
     deploy:
       resources:
@@ -125,22 +128,17 @@ services:
         condition: service_healthy
     networks:
       - skillswap-network
+    env_file:
+      - ./src/services/UserService/UserService.Api/.env.docker
     environment:
+      # Docker-specific overrides (container networking)
+      - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:5001
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - RABBITMQ_HOST=rabbitmq
-      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
-      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
-      - JWT_EXPIRE=${JWT_EXPIRE:-60}
-      - REDIS_CONNECTION_STRING=redis:6379
-      - SERVICE_SERVICE_USERSERVICE_PASSWORD=${SERVICE_SERVICE_USERSERVICE_PASSWORD}
-      - SERVICE_SERVICE_MATCHMAKING_PASSWORD=${SERVICE_SERVICE_MATCHMAKING_PASSWORD}
-      - SERVICE_SERVICE_APPOINTMENT_PASSWORD=${SERVICE_SERVICE_APPOINTMENT_PASSWORD}
-      - SERVICE_SERVICE_SKILL_PASSWORD=${SERVICE_SERVICE_SKILL_PASSWORD}
-      - SERVICE_SERVICE_NOTIFICATION_PASSWORD=${SERVICE_SERVICE_NOTIFICATION_PASSWORD}
-      - SERVICE_SERVICE_VIDEOCALL_PASSWORD=${SERVICE_SERVICE_VIDEOCALL_PASSWORD}
-      - ServiceCommunication__UseGateway=true
-      - ServiceEndpoints__Gateway=http://gateway:8080
+      - RabbitMQ__Host=rabbitmq
+      - ConnectionStrings__Redis=redis:6379,defaultDatabase=0
+      - ConnectionStrings__DefaultConnection=Host=postgres_userservice;Database=userservice;Username=skillswap;Password=${POSTGRES_PASSWORD};Port=5432
+      - ServiceCommunication__GatewayBaseUrl=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health/live"]
       interval: 30s
@@ -168,16 +166,17 @@ services:
         condition: service_healthy
     networks:
       - skillswap-network
+    env_file:
+      - ./src/services/SkillService/SkillService.Api/.env.docker
     environment:
+      # Docker-specific overrides (container networking)
+      - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:5002
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - RABBITMQ_HOST=rabbitmq
-      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
-      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
-      - JWT_EXPIRE=${JWT_EXPIRE:-60}
-      - REDIS_CONNECTION_STRING=redis:6379
-      - ServiceCommunication__UseGateway=true
-      - ServiceEndpoints__Gateway=http://gateway:8080
+      - RabbitMQ__Host=rabbitmq
+      - ConnectionStrings__Redis=redis:6379,defaultDatabase=1
+      - ConnectionStrings__DefaultConnection=Host=postgres_skillservice;Database=skillservice;Username=skillswap;Password=${POSTGRES_PASSWORD};Port=5432
+      - ServiceCommunication__GatewayBaseUrl=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health/live"]
       interval: 30s
@@ -199,20 +198,23 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       postgres_matchmakingservice:
         condition: service_healthy
     networks:
       - skillswap-network
+    env_file:
+      - ./src/services/MatchmakingService/MatchmakingService.Api/.env.docker
     environment:
+      # Docker-specific overrides (container networking)
+      - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:5003
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - RABBITMQ_HOST=rabbitmq
-      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
-      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
-      - JWT_EXPIRE=${JWT_EXPIRE:-60}
-      - REDIS_CONNECTION_STRING=redis:6379
-      - ServiceCommunication__UseGateway=true
-      - ServiceEndpoints__Gateway=http://gateway:8080
+      - RabbitMQ__Host=rabbitmq
+      - ConnectionStrings__Redis=redis:6379,defaultDatabase=2
+      - ConnectionStrings__DefaultConnection=Host=postgres_matchmakingservice;Database=matchmakingservice;Username=skillswap;Password=${POSTGRES_PASSWORD};Port=5432
+      - ServiceCommunication__GatewayBaseUrl=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5003/health/live"]
       interval: 30s
@@ -234,20 +236,23 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       postgres_appointmentservice:
         condition: service_healthy
     networks:
       - skillswap-network
+    env_file:
+      - ./src/services/AppointmentService/AppointmentService.Api/.env.docker
     environment:
+      # Docker-specific overrides (container networking)
+      - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:5004
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - RABBITMQ_HOST=rabbitmq
-      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
-      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
-      - JWT_EXPIRE=${JWT_EXPIRE:-60}
-      - REDIS_CONNECTION_STRING=redis:6379
-      - ServiceCommunication__UseGateway=true
-      - ServiceEndpoints__Gateway=http://gateway:8080
+      - RabbitMQ__Host=rabbitmq
+      - ConnectionStrings__Redis=redis:6379,defaultDatabase=3
+      - ConnectionStrings__DefaultConnection=Host=postgres_appointmentservice;Database=appointmentservice;Username=skillswap;Password=${POSTGRES_PASSWORD};Port=5432
+      - ServiceCommunication__GatewayBaseUrl=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health/live"]
       interval: 30s
@@ -269,20 +274,23 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       postgres_videocallservice:
         condition: service_healthy
     networks:
       - skillswap-network
+    env_file:
+      - ./src/services/VideocallService/VideocallService.Api/.env.docker
     environment:
+      # Docker-specific overrides (container networking)
+      - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:5005
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - RABBITMQ_HOST=rabbitmq
-      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
-      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
-      - JWT_EXPIRE=${JWT_EXPIRE:-60}
-      - REDIS_CONNECTION_STRING=redis:6379
-      - ServiceCommunication__UseGateway=true
-      - ServiceEndpoints__Gateway=http://gateway:8080
+      - RabbitMQ__Host=rabbitmq
+      - ConnectionStrings__Redis=redis:6379,defaultDatabase=4
+      - ConnectionStrings__DefaultConnection=Host=postgres_videocallservice;Database=videocallservice;Username=skillswap;Password=${POSTGRES_PASSWORD};Port=5432
+      - ServiceCommunication__GatewayBaseUrl=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5005/health/live"]
       interval: 30s
@@ -310,21 +318,17 @@ services:
         condition: service_healthy
     networks:
       - skillswap-network
+    env_file:
+      - ./src/services/NotificationService/NotificationService.Api/.env.docker
     environment:
+      # Docker-specific overrides (container networking)
+      - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:5006
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - RABBITMQ_HOST=rabbitmq
-      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
-      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
-      - JWT_EXPIRE=${JWT_EXPIRE:-60}
-      - REDIS_CONNECTION_STRING=redis:6379
-      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USE_SSL=${SMTP_USE_SSL:-true}
-      - SMS_PROVIDER=${SMS_PROVIDER:-twilio}
-      - AppSettings__BaseUrl=${APP_BASE_URL:-http://localhost:3000}
-      - ServiceCommunication__UseGateway=true
-      - ServiceEndpoints__Gateway=http://gateway:8080
+      - RabbitMQ__Host=rabbitmq
+      - ConnectionStrings__Redis=redis:6379,defaultDatabase=5
+      - ConnectionStrings__DefaultConnection=Host=postgres_notificationservice;Database=notificationservice;Username=skillswap;Password=${POSTGRES_PASSWORD};Port=5432
+      - ServiceCommunication__GatewayBaseUrl=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5006/health/live"]
       interval: 30s
@@ -352,19 +356,17 @@ services:
         condition: service_healthy
     networks:
       - skillswap-network
+    env_file:
+      - ./src/services/PaymentService/PaymentService.Api/.env.docker
     environment:
+      # Docker-specific overrides (container networking)
+      - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:5007
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - RABBITMQ_HOST=rabbitmq
-      - JWT_ISSUER=${JWT_ISSUER:-SkillSwap}
-      - JWT_AUDIENCE=${JWT_AUDIENCE:-SkillSwap}
-      - JWT_EXPIRE=${JWT_EXPIRE:-60}
-      - REDIS_CONNECTION_STRING=redis:6379
-      - Stripe__SecretKey=${STRIPE_SECRET_KEY}
-      - Stripe__PublishableKey=${STRIPE_PUBLISHABLE_KEY}
-      - Stripe__WebhookSecret=${STRIPE_WEBHOOK_SECRET}
-      - ServiceCommunication__UseGateway=true
-      - ServiceEndpoints__Gateway=http://gateway:8080
+      - RabbitMQ__Host=rabbitmq
+      - ConnectionStrings__Redis=redis:6379,defaultDatabase=6
+      - ConnectionStrings__DefaultConnection=Host=postgres_paymentservice;Database=paymentservice;Username=skillswap;Password=${POSTGRES_PASSWORD};Port=5432
+      - ServiceCommunication__GatewayBaseUrl=http://gateway:8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5007/health/live"]
       interval: 30s
@@ -384,6 +386,8 @@ services:
     container_name: "skillswap-postgres-userservice"
     networks:
       - skillswap-network
+    env_file:
+      - .env.infrastructure
     environment:
       POSTGRES_DB: userservice
     volumes:
@@ -405,6 +409,8 @@ services:
     container_name: "skillswap-postgres-skillservice"
     networks:
       - skillswap-network
+    env_file:
+      - .env.infrastructure
     environment:
       POSTGRES_DB: skillservice
     volumes:
@@ -426,6 +432,8 @@ services:
     container_name: "skillswap-postgres-matchmakingservice"
     networks:
       - skillswap-network
+    env_file:
+      - .env.infrastructure
     environment:
       POSTGRES_DB: matchmakingservice
     volumes:
@@ -447,6 +455,8 @@ services:
     container_name: "skillswap-postgres-appointmentservice"
     networks:
       - skillswap-network
+    env_file:
+      - .env.infrastructure
     environment:
       POSTGRES_DB: appointmentservice
     volumes:
@@ -468,6 +478,8 @@ services:
     container_name: "skillswap-postgres-videocallservice"
     networks:
       - skillswap-network
+    env_file:
+      - .env.infrastructure
     environment:
       POSTGRES_DB: videocallservice
     volumes:
@@ -489,6 +501,8 @@ services:
     container_name: "skillswap-postgres-notificationservice"
     networks:
       - skillswap-network
+    env_file:
+      - .env.infrastructure
     environment:
       POSTGRES_DB: notificationservice
     volumes:
@@ -510,6 +524,8 @@ services:
     container_name: "skillswap-postgres-paymentservice"
     networks:
       - skillswap-network
+    env_file:
+      - .env.infrastructure
     environment:
       POSTGRES_DB: paymentservice
     volumes:

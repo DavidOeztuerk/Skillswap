@@ -16,7 +16,6 @@ namespace UserService.Api.Extensions;
 
 /// <summary>
 /// API endpoints for social connections (LinkedIn/Xing) and imported skills
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public static class SocialConnectionsControllerExtensions
 {

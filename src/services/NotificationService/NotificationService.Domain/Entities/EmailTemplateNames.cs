@@ -16,7 +16,6 @@ public static class EmailTemplateNames
     public const string AppointmentReminder = "appointment-reminder";
     public const string AppointmentConfirmation = "appointment-confirmation";
 
-    // Phase 10: Listing notifications
     public const string ListingExpiring = "listing-expiring";
     public const string ListingExpired = "listing-expired";
 }

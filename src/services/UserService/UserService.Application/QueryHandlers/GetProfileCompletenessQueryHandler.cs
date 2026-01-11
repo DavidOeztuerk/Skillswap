@@ -10,7 +10,6 @@ namespace UserService.Application.QueryHandlers;
 
 /// <summary>
 /// Handler for GetProfileCompletenessQuery
-/// Phase 13: Profile Completeness
 ///
 /// Completeness calculation (6 items, 100% total):
 /// - Bio vorhanden: 20%
@@ -25,34 +24,34 @@ public class GetProfileCompletenessQueryHandler(
     ILogger<GetProfileCompletenessQueryHandler> logger)
     : BaseQueryHandler<GetProfileCompletenessQuery, ProfileCompletenessResponse>(logger)
 {
-    private readonly IUserRepository _userRepository = userRepository;
+  private readonly IUserRepository _userRepository = userRepository;
 
-    // Weight constants matching the requirements
-    // Headline removed - can be derived from latest experience
-    private const int WeightBio = 20;
-    private const int WeightProfilePicture = 15;
-    private const int WeightExperience = 25;
-    private const int WeightEducation = 15;
-    private const int WeightSkill = 15;
-    private const int WeightSocialConnection = 10;
+  // Weight constants matching the requirements
+  // Headline removed - can be derived from latest experience
+  private const int WeightBio = 20;
+  private const int WeightProfilePicture = 15;
+  private const int WeightExperience = 25;
+  private const int WeightEducation = 15;
+  private const int WeightSkill = 15;
+  private const int WeightSocialConnection = 10;
 
-    public override async Task<ApiResponse<ProfileCompletenessResponse>> Handle(
-        GetProfileCompletenessQuery request,
-        CancellationToken cancellationToken)
+  public override async Task<ApiResponse<ProfileCompletenessResponse>> Handle(
+      GetProfileCompletenessQuery request,
+      CancellationToken cancellationToken)
+  {
+    var userId = request.UserId.ToString();
+    Logger.LogInformation("Calculating profile completeness for user {UserId}", userId);
+
+    // Fetch user profile completeness data via repository
+    var user = await _userRepository.GetProfileCompletenessDataAsync(userId, cancellationToken);
+
+    if (user == null)
     {
-        var userId = request.UserId.ToString();
-        Logger.LogInformation("Calculating profile completeness for user {UserId}", userId);
+      throw new ResourceNotFoundException("User", userId);
+    }
 
-        // Fetch user profile completeness data via repository
-        var user = await _userRepository.GetProfileCompletenessDataAsync(userId, cancellationToken);
-
-        if (user == null)
-        {
-            throw new ResourceNotFoundException("User", userId);
-        }
-
-        // Calculate completeness items
-        var items = new List<ProfileCompletenessItem>
+    // Calculate completeness items
+    var items = new List<ProfileCompletenessItem>
         {
             new()
             {
@@ -116,39 +115,39 @@ public class GetProfileCompletenessQueryHandler(
             }
         };
 
-        // Calculate totals
-        var totalPoints = items.Sum(i => i.Weight);
-        var earnedPoints = items.Sum(i => i.Points);
-        var percentage = totalPoints > 0 ? (int)Math.Round((double)earnedPoints / totalPoints * 100) : 0;
-        var completedCount = items.Count(i => i.IsCompleted);
+    // Calculate totals
+    var totalPoints = items.Sum(i => i.Weight);
+    var earnedPoints = items.Sum(i => i.Points);
+    var percentage = totalPoints > 0 ? (int)Math.Round((double)earnedPoints / totalPoints * 100) : 0;
+    var completedCount = items.Count(i => i.IsCompleted);
 
-        // Determine level based on profile completion percentage
-        var level = percentage switch
-        {
-            >= 90 => ProfileCompletenessLevel.Complete,
-            >= 75 => ProfileCompletenessLevel.AlmostThere,
-            >= 50 => ProfileCompletenessLevel.GoodProgress,
-            >= 25 => ProfileCompletenessLevel.MakingProgress,
-            _ => ProfileCompletenessLevel.GettingStarted
-        };
+    // Determine level based on profile completion percentage
+    var level = percentage switch
+    {
+      >= 90 => ProfileCompletenessLevel.Complete,
+      >= 75 => ProfileCompletenessLevel.AlmostThere,
+      >= 50 => ProfileCompletenessLevel.GoodProgress,
+      >= 25 => ProfileCompletenessLevel.MakingProgress,
+      _ => ProfileCompletenessLevel.GettingStarted
+    };
 
-        var response = new ProfileCompletenessResponse
-        {
-            UserId = request.UserId,
-            Percentage = percentage,
-            TotalPoints = totalPoints,
-            EarnedPoints = earnedPoints,
-            CompletedCount = completedCount,
-            TotalCount = items.Count,
-            Level = level,
-            Items = items,
-            CalculatedAt = DateTime.UtcNow
-        };
+    var response = new ProfileCompletenessResponse
+    {
+      UserId = request.UserId,
+      Percentage = percentage,
+      TotalPoints = totalPoints,
+      EarnedPoints = earnedPoints,
+      CompletedCount = completedCount,
+      TotalCount = items.Count,
+      Level = level,
+      Items = items,
+      CalculatedAt = DateTime.UtcNow
+    };
 
-        Logger.LogInformation(
-            "Profile completeness for user {UserId}: {Percentage}% ({CompletedCount}/{TotalCount} items)",
-            userId, percentage, completedCount, items.Count);
+    Logger.LogInformation(
+        "Profile completeness for user {UserId}: {Percentage}% ({CompletedCount}/{TotalCount} items)",
+        userId, percentage, completedCount, items.Count);
 
-        return Success(response);
-    }
+    return Success(response);
+  }
 }

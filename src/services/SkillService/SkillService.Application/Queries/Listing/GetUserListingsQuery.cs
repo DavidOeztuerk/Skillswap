@@ -5,11 +5,13 @@ namespace SkillService.Application.Queries.Listing;
 
 /// <summary>
 /// Query to get all listings for the current user
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record GetUserListingsQuery(bool IncludeExpired = false)
-    : IQuery<List<ListingResponse>>, IAuditableCommand
+    : IQuery<List<ListingResponse>>, ICacheableQuery
 {
-    public string? UserId { get; set; }
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+  public string? UserId { get; set; }
+
+  // ICacheableQuery implementation
+  public string CacheKey => $"listings:my-listings:{UserId}:{IncludeExpired}";
+  public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
 }

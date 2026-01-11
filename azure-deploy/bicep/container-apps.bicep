@@ -9,7 +9,6 @@
 // Diese Dateien werden für eine mögliche spätere Azure-Migration aufbewahrt.
 // =============================================================================
 
-// Phase 2: Container Apps (After Docker images are built)
 // This deploys after images exist in ACR
 
 @description('Container Registry Login Server')

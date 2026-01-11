@@ -13,7 +13,6 @@ namespace SkillService.Extensions;
 
 /// <summary>
 /// Listing endpoints using Minimal API
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public static class ListingControllerExtensions
 {

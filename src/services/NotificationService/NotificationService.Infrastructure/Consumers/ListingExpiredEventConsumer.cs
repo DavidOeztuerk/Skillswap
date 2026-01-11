@@ -11,7 +11,6 @@ namespace NotificationService.Infrastructure.Consumers;
 
 /// <summary>
 /// Consumer for ListingExpiredIntegrationEvent
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public class ListingExpiredEventConsumer(
     IMediator mediator,

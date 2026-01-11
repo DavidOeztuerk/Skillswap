@@ -5,7 +5,6 @@ namespace UserService.Application.Queries.SocialConnections;
 
 /// <summary>
 /// Query to get all imported skills for a user
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public record GetUserImportedSkillsQuery : IQuery<List<UserImportedSkillResponse>>
 {

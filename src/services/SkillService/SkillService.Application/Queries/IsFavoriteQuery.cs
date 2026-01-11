@@ -8,7 +8,12 @@ namespace SkillService.Application.Queries;
 /// Query to check if a skill is favorited by the current user.
 /// </summary>
 public record IsFavoriteQuery(string UserId, string SkillId)
-    : IQuery<IsFavoriteResponse>;
+    : IQuery<IsFavoriteResponse>, ICacheableQuery
+{
+    // ICacheableQuery implementation
+    public string CacheKey => $"is-favorite:{UserId}:{SkillId}";
+    public TimeSpan CacheDuration => TimeSpan.FromMinutes(10);
+}
 
 public class IsFavoriteQueryValidator : AbstractValidator<IsFavoriteQuery>
 {

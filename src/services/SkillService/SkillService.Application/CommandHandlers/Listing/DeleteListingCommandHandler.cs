@@ -9,7 +9,6 @@ namespace SkillService.Application.CommandHandlers.Listing;
 
 /// <summary>
 /// Handler for deleting a listing
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public class DeleteListingCommandHandler(
     ISkillUnitOfWork unitOfWork,

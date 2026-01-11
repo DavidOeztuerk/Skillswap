@@ -3,7 +3,6 @@ namespace SkillService.Domain.ValueObjects;
 /// <summary>
 /// Value Object for skill exchange configuration.
 /// Stored as owned entity in Skill table.
-/// Phase 11: Updated to use Topic instead of Category
 /// </summary>
 public class SkillExchangeDetails
 {
@@ -14,7 +13,7 @@ public class SkillExchangeDetails
     public string ExchangeType { get; private set; } = "skill_exchange";
 
     /// <summary>
-    /// Phase 11: For skill_exchange: Topic of desired skill in return
+    /// For skill_exchange: Topic of desired skill in return
     /// </summary>
     public string? DesiredSkillTopicId { get; private set; }
 
@@ -37,7 +36,7 @@ public class SkillExchangeDetails
     private SkillExchangeDetails() { }
 
     /// <summary>
-    /// Phase 11: Parameter renamed from desiredCategoryId to desiredTopicId
+    /// Parameter renamed from desiredCategoryId to desiredTopicId
     /// </summary>
     public static SkillExchangeDetails CreateSkillExchange(
         string? desiredTopicId = null,

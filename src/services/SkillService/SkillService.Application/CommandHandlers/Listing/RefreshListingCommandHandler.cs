@@ -13,7 +13,6 @@ namespace SkillService.Application.CommandHandlers.Listing;
 
 /// <summary>
 /// Handler for refreshing a listing (extending expiration)
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public class RefreshListingCommandHandler(
     ISkillUnitOfWork unitOfWork,

@@ -11,7 +11,6 @@ namespace UserService.Application.CommandHandlers.LinkedIn;
 
 /// <summary>
 /// Handler for initiating LinkedIn OAuth 2.0 connection
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public class InitiateLinkedInConnectCommandHandler(
     ILinkedInService linkedInService,
@@ -19,40 +18,40 @@ public class InitiateLinkedInConnectCommandHandler(
     ILogger<InitiateLinkedInConnectCommandHandler> logger)
     : BaseCommandHandler<InitiateLinkedInConnectCommand, InitiateLinkedInConnectResponse>(logger)
 {
-    private readonly ILinkedInService _linkedInService = linkedInService;
-    private readonly IUserLinkedInConnectionRepository _repository = repository;
+  private readonly ILinkedInService _linkedInService = linkedInService;
+  private readonly IUserLinkedInConnectionRepository _repository = repository;
 
-    public override async Task<ApiResponse<InitiateLinkedInConnectResponse>> Handle(
-        InitiateLinkedInConnectCommand request,
-        CancellationToken cancellationToken)
+  public override async Task<ApiResponse<InitiateLinkedInConnectResponse>> Handle(
+      InitiateLinkedInConnectCommand request,
+      CancellationToken cancellationToken)
+  {
+    // Check if user already has a LinkedIn connection
+    var existing = await _repository.GetByUserIdAsync(request.UserId!, cancellationToken);
+    if (existing != null)
     {
-        // Check if user already has a LinkedIn connection
-        var existing = await _repository.GetByUserIdAsync(request.UserId!, cancellationToken);
-        if (existing != null)
-        {
-            return Error("LinkedIn is already connected. Disconnect first to reconnect.");
-        }
-
-        // Generate state token for CSRF protection
-        var state = GenerateStateToken(request.UserId!);
-
-        // Generate authorization URL
-        var authUrl = _linkedInService.GetAuthorizationUrl(state, request.RedirectUri);
-
-        Logger.LogInformation("Generated LinkedIn OAuth authorization URL for user {UserId}", request.UserId);
-
-        return Success(
-            new InitiateLinkedInConnectResponse(authUrl, state),
-            "Authorization URL generated successfully");
+      return Error("LinkedIn is already connected. Disconnect first to reconnect.");
     }
 
-    private static string GenerateStateToken(string userId)
-    {
-        var randomBytes = new byte[16];
-        System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
-        var random = Convert.ToBase64String(randomBytes);
+    // Generate state token for CSRF protection
+    var state = GenerateStateToken(request.UserId!);
 
-        var stateData = $"{userId}|linkedin|{random}";
-        return Convert.ToBase64String(Encoding.UTF8.GetBytes(stateData));
-    }
+    // Generate authorization URL
+    var authUrl = _linkedInService.GetAuthorizationUrl(state, request.RedirectUri);
+
+    Logger.LogInformation("Generated LinkedIn OAuth authorization URL for user {UserId}", request.UserId);
+
+    return Success(
+        new InitiateLinkedInConnectResponse(authUrl, state),
+        "Authorization URL generated successfully");
+  }
+
+  private static string GenerateStateToken(string userId)
+  {
+    var randomBytes = new byte[16];
+    System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
+    var random = Convert.ToBase64String(randomBytes);
+
+    var stateData = $"{userId}|linkedin|{random}";
+    return Convert.ToBase64String(Encoding.UTF8.GetBytes(stateData));
+  }
 }

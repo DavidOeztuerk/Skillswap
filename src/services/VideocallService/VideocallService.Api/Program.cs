@@ -7,8 +7,13 @@ using VideocallService.Infrastructure.Extensions;
 using VideocallService;
 using VideocallService.Infrastructure.Data;
 
-// Load .env file before anything else
-Env.Load();
+// Load environment-specific .env file
+var envName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+var envFile = $".env.{envName.ToLower()}";
+if (File.Exists(envFile))
+    Env.Load(envFile);
+else if (File.Exists(".env"))
+    Env.Load(".env");
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -5,7 +5,6 @@ using Core.Common.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SkillService.Application.Commands.Listing;
-using SkillService.Domain.Entities;
 using SkillService.Domain.Repositories;
 using SkillService.Domain.Configuration;
 
@@ -13,7 +12,6 @@ namespace SkillService.Application.CommandHandlers.Listing;
 
 /// <summary>
 /// Handler for boosting a listing for higher visibility
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public class BoostListingCommandHandler(
     ISkillUnitOfWork unitOfWork,

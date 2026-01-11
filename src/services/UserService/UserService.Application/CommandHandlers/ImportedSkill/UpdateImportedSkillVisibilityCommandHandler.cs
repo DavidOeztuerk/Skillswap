@@ -10,48 +10,47 @@ namespace UserService.Application.CommandHandlers.ImportedSkill;
 
 /// <summary>
 /// Handler for updating skill visibility
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public class UpdateImportedSkillVisibilityCommandHandler(
     IUserImportedSkillRepository repository,
     ILogger<UpdateImportedSkillVisibilityCommandHandler> logger)
     : BaseCommandHandler<UpdateImportedSkillVisibilityCommand, UserImportedSkillResponse>(logger)
 {
-    private readonly IUserImportedSkillRepository _repository = repository;
+  private readonly IUserImportedSkillRepository _repository = repository;
 
-    public override async Task<ApiResponse<UserImportedSkillResponse>> Handle(
-        UpdateImportedSkillVisibilityCommand request,
-        CancellationToken cancellationToken)
+  public override async Task<ApiResponse<UserImportedSkillResponse>> Handle(
+      UpdateImportedSkillVisibilityCommand request,
+      CancellationToken cancellationToken)
+  {
+    Logger.LogInformation("Updating visibility for skill {SkillId} to {IsVisible}",
+        request.SkillId, request.IsVisible);
+
+    var skill = await _repository.GetByIdAsync(request.SkillId, cancellationToken);
+    if (skill == null || skill.UserId != request.UserId)
     {
-        Logger.LogInformation("Updating visibility for skill {SkillId} to {IsVisible}",
-            request.SkillId, request.IsVisible);
-
-        var skill = await _repository.GetByIdAsync(request.SkillId, cancellationToken);
-        if (skill == null || skill.UserId != request.UserId)
-        {
-            return Error("Skill not found");
-        }
-
-        skill.SetVisibility(request.IsVisible);
-        await _repository.UpdateAsync(skill, cancellationToken);
-
-        var response = MapToResponse(skill);
-        return Success(response, "Visibility updated successfully");
+      return Error("Skill not found");
     }
 
-    private static UserImportedSkillResponse MapToResponse(UserImportedSkill skill)
-    {
-        return new UserImportedSkillResponse(
-            skill.Id,
-            skill.Name,
-            skill.Source,
-            skill.ExternalId,
-            skill.EndorsementCount,
-            skill.Category,
-            skill.SortOrder,
-            skill.IsVisible,
-            skill.ImportedAt,
-            skill.LastSyncAt,
-            skill.CreatedAt);
-    }
+    skill.SetVisibility(request.IsVisible);
+    await _repository.UpdateAsync(skill, cancellationToken);
+
+    var response = MapToResponse(skill);
+    return Success(response, "Visibility updated successfully");
+  }
+
+  private static UserImportedSkillResponse MapToResponse(UserImportedSkill skill)
+  {
+    return new UserImportedSkillResponse(
+        skill.Id,
+        skill.Name,
+        skill.Source,
+        skill.ExternalId,
+        skill.EndorsementCount,
+        skill.Category,
+        skill.SortOrder,
+        skill.IsVisible,
+        skill.ImportedAt,
+        skill.LastSyncAt,
+        skill.CreatedAt);
+  }
 }

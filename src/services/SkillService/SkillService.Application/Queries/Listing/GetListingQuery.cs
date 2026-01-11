@@ -5,6 +5,10 @@ namespace SkillService.Application.Queries.Listing;
 
 /// <summary>
 /// Query to get a listing by ID
-/// Phase 10: Listing concept with expiration
 /// </summary>
-public record GetListingQuery(string ListingId) : IQuery<ListingResponse>;
+public record GetListingQuery(string ListingId) : IQuery<ListingResponse>, ICacheableQuery
+{
+  // ICacheableQuery implementation
+  public string CacheKey => $"listings:{ListingId}";
+  public TimeSpan CacheDuration => TimeSpan.FromMinutes(10);
+}

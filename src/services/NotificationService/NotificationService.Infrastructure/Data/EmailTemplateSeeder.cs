@@ -362,7 +362,6 @@ The SkillSwap Team",
             CreatedAt = DateTime.UtcNow
         });
 
-        // Phase 10: Listing Expiring Template
         templates.Add(new EmailTemplate
         {
             Id = Guid.NewGuid().ToString(),
@@ -398,7 +397,6 @@ The SkillSwap Team",
             CreatedAt = DateTime.UtcNow
         });
 
-        // Phase 10: Listing Expired Template
         templates.Add(new EmailTemplate
         {
             Id = Guid.NewGuid().ToString(),

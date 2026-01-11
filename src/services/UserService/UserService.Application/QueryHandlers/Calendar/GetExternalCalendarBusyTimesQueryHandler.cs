@@ -53,82 +53,84 @@ public class GetExternalCalendarBusyTimesQueryHandler(
             var allBusySlots = new List<BusyTimeSlot>();
             var errors = new List<CalendarError>();
 
-            // Fetch busy times from each connected calendar in parallel
-            var tasks = connections
-                .Where(c => c.SyncEnabled)
-                .Select(async connection =>
+            // NOTE: EF Core DbContext is NOT thread-safe, so we process connections sequentially
+            // Token refresh operations (line ~86) update the database, which cannot run in parallel
+            var enabledConnections = connections.Where(c => c.SyncEnabled).ToList();
+            var results = new List<(string Provider, List<BusyTimeSlot> BusySlots, string? Error)>();
+
+            foreach (var connection in enabledConnections)
+            {
+                try
                 {
-                    try
+                    var calendarService = _calendarServiceFactory.GetService(connection.Provider);
+
+                    // Decrypt access token
+                    var accessToken = _tokenEncryptionService.Decrypt(connection.AccessToken);
+
+                    // Check if token needs refresh
+                    if (connection.NeedsRefresh() && calendarService.UsesOAuth)
                     {
-                        var calendarService = _calendarServiceFactory.GetService(connection.Provider);
+                        var refreshToken = _tokenEncryptionService.Decrypt(connection.RefreshToken);
+                        var refreshResult = await calendarService.RefreshAccessTokenAsync(refreshToken, cancellationToken);
 
-                        // Decrypt access token
-                        var accessToken = _tokenEncryptionService.Decrypt(connection.AccessToken);
-
-                        // Check if token needs refresh
-                        if (connection.NeedsRefresh() && calendarService.UsesOAuth)
+                        if (refreshResult.Success && refreshResult.AccessToken != null)
                         {
-                            var refreshToken = _tokenEncryptionService.Decrypt(connection.RefreshToken);
-                            var refreshResult = await calendarService.RefreshAccessTokenAsync(refreshToken, cancellationToken);
+                            accessToken = refreshResult.AccessToken;
 
-                            if (refreshResult.Success && refreshResult.AccessToken != null)
-                            {
-                                accessToken = refreshResult.AccessToken;
+                            // Update the stored tokens
+                            connection.UpdateTokens(
+                                _tokenEncryptionService.Encrypt(refreshResult.AccessToken),
+                                refreshResult.RefreshToken != null
+                                    ? _tokenEncryptionService.Encrypt(refreshResult.RefreshToken)
+                                    : connection.RefreshToken,
+                                refreshResult.ExpiresAt);
 
-                                // Update the stored tokens
-                                connection.UpdateTokens(
-                                    _tokenEncryptionService.Encrypt(refreshResult.AccessToken),
-                                    refreshResult.RefreshToken != null
-                                        ? _tokenEncryptionService.Encrypt(refreshResult.RefreshToken)
-                                        : connection.RefreshToken,
-                                    refreshResult.ExpiresAt);
-
-                                await _calendarConnectionRepository.UpdateAsync(connection, cancellationToken);
-                            }
-                            else
-                            {
-                                _logger.LogWarning(
-                                    "Failed to refresh token for {Provider} calendar of user {UserId}: {Error}",
-                                    connection.Provider, request.UserId, refreshResult.Error);
-                                return (connection.Provider, BusySlots: new List<BusyTimeSlot>(),
-                                    Error: $"Token refresh failed: {refreshResult.Error}");
-                            }
+                            await _calendarConnectionRepository.UpdateAsync(connection, cancellationToken);
                         }
-
-                        // Get busy times
-                        var result = await calendarService.GetBusyTimesAsync(
-                            accessToken,
-                            request.StartTime,
-                            request.EndTime,
-                            connection.CalendarId,
-                            cancellationToken);
-
-                        if (!result.Success)
+                        else
                         {
-                            return (connection.Provider, BusySlots: new List<BusyTimeSlot>(),
-                                Error: result.Error ?? "Unknown error");
+                            _logger.LogWarning(
+                                "Failed to refresh token for {Provider} calendar of user {UserId}: {Error}",
+                                connection.Provider, request.UserId, refreshResult.Error);
+                            results.Add((connection.Provider, new List<BusyTimeSlot>(),
+                                $"Token refresh failed: {refreshResult.Error}"));
+                            continue;
                         }
-
-                        var busySlots = result.BusySlots.Select(slot => new BusyTimeSlot
-                        {
-                            Start = slot.Start,
-                            End = slot.End,
-                            Title = slot.Title,
-                            Provider = connection.Provider
-                        }).ToList();
-
-                        return (connection.Provider, BusySlots: busySlots, Error: (string?)null);
                     }
-                    catch (Exception ex)
+
+                    // Get busy times
+                    var result = await calendarService.GetBusyTimesAsync(
+                        accessToken,
+                        request.StartTime,
+                        request.EndTime,
+                        connection.CalendarId,
+                        cancellationToken);
+
+                    if (!result.Success)
                     {
-                        _logger.LogError(ex,
-                            "Error fetching busy times from {Provider} calendar for user {UserId}",
-                            connection.Provider, request.UserId);
-                        return (connection.Provider, BusySlots: new List<BusyTimeSlot>(), Error: ex.Message);
+                        results.Add((connection.Provider, new List<BusyTimeSlot>(),
+                            result.Error ?? "Unknown error"));
+                        continue;
                     }
-                });
 
-            var results = await Task.WhenAll(tasks);
+                    var busySlots = result.BusySlots.Select(slot => new BusyTimeSlot
+                    {
+                        Start = slot.Start,
+                        End = slot.End,
+                        Title = slot.Title,
+                        Provider = connection.Provider
+                    }).ToList();
+
+                    results.Add((connection.Provider, busySlots, null));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Error fetching busy times from {Provider} calendar for user {UserId}",
+                        connection.Provider, request.UserId);
+                    results.Add((connection.Provider, new List<BusyTimeSlot>(), ex.Message));
+                }
+            }
 
             foreach (var (provider, busySlots, error) in results)
             {

@@ -2,7 +2,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Distributed;
 using Infrastructure.Security.Monitoring;
-using System.Text.Json;
 
 namespace Infrastructure.BackgroundServices;
 

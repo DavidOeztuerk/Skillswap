@@ -5,8 +5,13 @@ using UserService.Api.Extensions;
 using UserService.Infrastructure.Data;
 using UserService.Infrastructure.Extensions;
 
-// Load .env file before anything else
-Env.Load();
+// Load environment-specific .env file
+var envName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+var envFile = $".env.{envName.ToLower()}";
+if (File.Exists(envFile))
+    Env.Load(envFile);
+else if (File.Exists(".env"))
+    Env.Load(".env");
 
 ThreadPool.SetMinThreads(200, 200);
 ThreadPool.SetMaxThreads(1000, 1000);

@@ -5,7 +5,6 @@ using Core.Common.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SkillService.Application.Commands.Listing;
-using SkillService.Domain.Entities;
 using SkillService.Domain.Repositories;
 using SkillService.Domain.Configuration;
 
@@ -13,7 +12,6 @@ namespace SkillService.Application.CommandHandlers.Listing;
 
 /// <summary>
 /// Handler for creating a new listing
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public class CreateListingCommandHandler(
     ISkillUnitOfWork unitOfWork,
@@ -45,7 +43,7 @@ public class CreateListingCommandHandler(
         }
 
         // Create listing with configured expiration time
-        var listing = SkillService.Domain.Entities.Listing.Create(
+        var listing = Domain.Entities.Listing.Create(
             request.SkillId,
             request.UserId!,
             request.Type,
@@ -64,7 +62,7 @@ public class CreateListingCommandHandler(
         return Success(MapToResponse(createdListing!), "Listing created successfully");
     }
 
-    private static ListingResponse MapToResponse(SkillService.Domain.Entities.Listing listing)
+    private static ListingResponse MapToResponse(Domain.Entities.Listing listing)
     {
         ListingSkillSummary? skillSummary = null;
 

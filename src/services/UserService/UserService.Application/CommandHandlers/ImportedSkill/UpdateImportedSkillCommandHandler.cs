@@ -10,7 +10,6 @@ namespace UserService.Application.CommandHandlers.ImportedSkill;
 
 /// <summary>
 /// Handler for updating an imported skill
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public class UpdateImportedSkillCommandHandler(
     IUserImportedSkillRepository repository,

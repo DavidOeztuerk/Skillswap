@@ -163,6 +163,15 @@ export const mapUserSkillsResponseToSkill = (response: GetUserSkillResponse): Sk
   endorsementCount: withDefault(response.endorsementCount, 0),
   createdAt: response.createdAt.toString(),
   lastActiveAt: response.updatedAt.toString(),
+  // Location fields
+  locationType: response.locationType,
+  locationCity: response.locationCity,
+  locationCountry: response.locationCountry,
+  maxDistanceKm: response.maxDistanceKm,
+  // Owner info
+  ownerUserName: response.ownerUserName,
+  ownerFirstName: response.ownerFirstName,
+  ownerLastName: response.ownerLastName,
 });
 
 export const mapCategoryResponse = (response: SkillCategoryResponse): SkillCategory => ({

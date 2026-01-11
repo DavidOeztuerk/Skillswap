@@ -75,7 +75,12 @@ public class GetUserSkillsQueryHandler(
             s.ReviewCount,
             s.EndorsementCount,
             s.CreatedAt,
-            s.UpdatedAt ?? s.CreatedAt)).ToList();
+            s.UpdatedAt ?? s.CreatedAt,
+            // Location fields
+            s.LocationType,
+            s.LocationCity,
+            s.LocationCountry,
+            s.MaxDistanceKm)).ToList();
 
         return Success(skills, request.PageNumber, request.PageSize, totalRecords);
     }

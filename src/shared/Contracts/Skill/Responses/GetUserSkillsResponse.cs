@@ -15,6 +15,13 @@ namespace Contracts.Skill.Responses;
 /// <param name="EndorsementCount">Number of endorsements for the skill</param>
 /// <param name="CreatedAt">When the skill was created</param>
 /// <param name="UpdatedAt">When the skill was last updated</param>
+/// <param name="LocationType">Location type (remote, in_person, both)</param>
+/// <param name="LocationCity">City for in-person meetings</param>
+/// <param name="LocationCountry">Country for in-person meetings</param>
+/// <param name="MaxDistanceKm">Maximum distance for in-person meetings</param>
+/// <param name="OwnerUserName">Owner's username</param>
+/// <param name="OwnerFirstName">Owner's first name</param>
+/// <param name="OwnerLastName">Owner's last name</param>
 public record UserSkillResponse(
     string UserId,
     string SkillId,
@@ -27,7 +34,16 @@ public record UserSkillResponse(
     int ReviewCount,
     int EndorsementCount,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    // Location fields
+    string? LocationType = null,
+    string? LocationCity = null,
+    string? LocationCountry = null,
+    int? MaxDistanceKm = null,
+    // Owner info
+    string? OwnerUserName = null,
+    string? OwnerFirstName = null,
+    string? OwnerLastName = null);
 
 /// <summary>
 /// Skill category response with optional hierarchy

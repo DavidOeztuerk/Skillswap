@@ -9,7 +9,6 @@
 // Diese Dateien werden für eine mögliche spätere Azure-Migration aufbewahrt.
 // =============================================================================
 
-// Phase 1: Infrastructure Only (No Container Apps)
 // This deploys first, before Docker images exist
 
 @description('Azure region for resources')

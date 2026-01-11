@@ -1,4 +1,5 @@
 using Contracts.Listing.Responses;
+using CQRS.Interfaces;
 using CQRS.Models;
 using MediatR;
 
@@ -6,7 +7,6 @@ namespace SkillService.Application.Queries.Listing;
 
 /// <summary>
 /// Query to search listings with filters and pagination
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record SearchListingsQuery(
     string? SearchTerm = null,
@@ -24,4 +24,10 @@ public record SearchListingsQuery(
     string? SortDirection = "desc",
     int PageNumber = 1,
     int PageSize = 20)
-    : IRequest<PagedResponse<ListingResponse>>;
+    : IRequest<PagedResponse<ListingResponse>>, ICacheableQuery
+{
+  // ICacheableQuery implementation
+  // Note: Cache key includes all filter parameters for unique caching per search
+  public string CacheKey => $"listings:search:{SearchTerm}:{CategoryId}:{TopicId}:{ListingType}:{MinRating}:{LocationType}:{BoostedOnly}:{SortBy}:{SortDirection}:{PageNumber}:{PageSize}";
+  public TimeSpan CacheDuration => TimeSpan.FromMinutes(2); // Short cache for search results
+}

@@ -22,180 +22,179 @@ public class CreateSkillCommandHandler(
     ILogger<CreateSkillCommandHandler> logger)
     : BaseCommandHandler<CreateSkillCommand, CreateSkillResponse>(logger)
 {
-    private readonly ISkillUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ILocationService _locationService = locationService;
-    private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
-    private readonly ListingSettings _listingSettings = listingOptions.Value;
+  private readonly ISkillUnitOfWork _unitOfWork = unitOfWork;
+  private readonly ILocationService _locationService = locationService;
+  private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
+  private readonly ListingSettings _listingSettings = listingOptions.Value;
 
-    public override async Task<ApiResponse<CreateSkillResponse>> Handle(
-        CreateSkillCommand request,
-        CancellationToken cancellationToken)
+  public override async Task<ApiResponse<CreateSkillResponse>> Handle(
+      CreateSkillCommand request,
+      CancellationToken cancellationToken)
+  {
+    if (request.UserId == null)
     {
-        if (request.UserId == null)
-        {
-            throw new ArgumentNullException(nameof(request), "UserId cannot be null when creating a skill.");
-        }
-
-        // Validate topic exists (CategoryId in the command refers to TopicId in the 3-layer hierarchy)
-        var topic = await _unitOfWork.SkillTopics.GetByIdAsync(request.CategoryId, cancellationToken)
-            ?? throw new ResourceNotFoundException("SkillTopic", request.CategoryId);
-
-        // Check for similar skills by the same user
-        var existingSkill = await _unitOfWork.Skills.GetByNameAndUserIdAsync(request.Name.Trim(), request.UserId, cancellationToken);
-
-        if (existingSkill != null)
-        {
-            throw new ResourceAlreadyExistsException(
-                "Skill", 
-                "Name", 
-                request.Name, 
-                "You already have a similar skill. Consider updating your existing skill instead.");
-        }
-
-        // Geocode location if in_person or both (async, during skill creation - NOT during matching!)
-        double? latitude = null;
-        double? longitude = null;
-
-        var locationType = request.LocationType?.ToLowerInvariant() ?? "remote";
-        if (locationType is "in_person" or "both" &&
-            (!string.IsNullOrEmpty(request.LocationCity) || !string.IsNullOrEmpty(request.LocationPostalCode)))
-        {
-            try
-            {
-                var geoResult = await _locationService.GeocodeAddressAsync(
-                    request.LocationPostalCode,
-                    request.LocationCity,
-                    request.LocationCountry,
-                    cancellationToken);
-
-                if (geoResult != null)
-                {
-                    latitude = geoResult.Latitude;
-                    longitude = geoResult.Longitude;
-                    Logger.LogInformation("Geocoded location for skill: ({Lat}, {Lng})", latitude, longitude);
-                }
-                else
-                {
-                    Logger.LogWarning("Could not geocode location for skill: {City}, {PostalCode}, {Country}",
-                        request.LocationCity, request.LocationPostalCode, request.LocationCountry);
-                }
-            }
-            catch (Exception ex)
-            {
-                // Don't fail skill creation if geocoding fails
-                Logger.LogError(ex, "Geocoding failed, continuing without coordinates");
-            }
-        }
-
-        // Create new skill with all fields
-        var skill = new Skill
-        {
-            UserId = request.UserId,
-            Name = request.Name.Trim(),
-            Description = request.Description.Trim(),
-            IsOffered = request.IsOffered,
-            SkillTopicId = request.CategoryId,
-            Tags = request.Tags ?? [],
-            IsActive = true,
-            SearchKeywords = GenerateSearchKeywords(request.Name, request.Description, request.Tags),
-            CreatedBy = request.UserId,
-
-            // Exchange options
-            ExchangeType = request.ExchangeType?.ToLowerInvariant() ?? "skill_exchange",
-            DesiredSkillTopicId = request.DesiredSkillCategoryId,
-            DesiredSkillDescription = request.DesiredSkillDescription?.Trim(),
-            HourlyRate = request.HourlyRate,
-            Currency = request.Currency?.ToUpperInvariant(),
-
-            // Scheduling
-            PreferredDays = request.PreferredDays ?? [],
-            PreferredTimes = request.PreferredTimes ?? [],
-            SessionDurationMinutes = request.SessionDurationMinutes,
-            TotalSessions = request.TotalSessions,
-
-            // Location
-            LocationType = locationType,
-            LocationAddress = request.LocationAddress?.Trim(),
-            LocationCity = request.LocationCity?.Trim(),
-            LocationPostalCode = request.LocationPostalCode?.Trim(),
-            LocationCountry = request.LocationCountry?.ToUpperInvariant(),
-            MaxDistanceKm = request.MaxDistanceKm,
-            LocationLatitude = latitude,
-            LocationLongitude = longitude
-        };
-
-        await _unitOfWork.Skills.CreateAsync(skill, cancellationToken);
-
-        // Phase 10: Auto-create listing for the skill
-        var listing = SkillService.Domain.Entities.Listing.CreateFromSkill(skill, _listingSettings.DefaultExpirationMinutes);
-        await _unitOfWork.Listings.CreateAsync(listing, cancellationToken);
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        Logger.LogInformation("Skill {SkillName} created successfully by user {UserId} with listing {ListingId}",
-            skill.Name, request.UserId, listing.Id);
-
-        // Publish integration event for automatic matchmaking
-        var integrationEvent = new SkillCreatedEvent
-        {
-            SkillId = skill.Id,
-            UserId = skill.UserId,
-            Name = skill.Name,
-            Description = skill.Description,
-            CategoryId = topic.Id,
-            CategoryName = topic.FullPath,
-            IsOffered = skill.IsOffered,
-            ExchangeType = skill.ExchangeType,
-            DesiredSkillCategoryId = skill.DesiredSkillTopicId,
-            DesiredSkillDescription = skill.DesiredSkillDescription,
-            HourlyRate = skill.HourlyRate,
-            Currency = skill.Currency,
-            PreferredDays = skill.PreferredDays.ToArray(),
-            PreferredTimes = skill.PreferredTimes.ToArray(),
-            SessionDurationMinutes = skill.SessionDurationMinutes,
-            TotalSessions = skill.TotalSessions,
-            LocationType = skill.LocationType,
-            LocationCity = skill.LocationCity,
-            LocationPostalCode = skill.LocationPostalCode,
-            LocationCountry = skill.LocationCountry,
-            MaxDistanceKm = skill.MaxDistanceKm,
-            LocationLatitude = skill.LocationLatitude,
-            LocationLongitude = skill.LocationLongitude,
-            CreatedAt = skill.CreatedAt
-        };
-
-        await _publishEndpoint.Publish(integrationEvent, cancellationToken);
-        Logger.LogInformation("Published SkillCreatedEvent for SkillId: {SkillId}", skill.Id);
-
-        var response = new CreateSkillResponse(
-            skill.Id,
-            skill.Name,
-            skill.Description,
-            topic.Id,
-            skill.Tags,
-            skill.IsOffered,
-            "Active",
-            skill.CreatedAt);
-
-        return Success(response, "Skill created successfully");
+      throw new ArgumentNullException(nameof(request), "UserId cannot be null when creating a skill.");
     }
 
-    private static string GenerateSearchKeywords(string name, string description, List<string>? tags)
+    // Validate topic exists (CategoryId in the command refers to TopicId in the 3-layer hierarchy)
+    var topic = await _unitOfWork.SkillTopics.GetByIdAsync(request.CategoryId, cancellationToken)
+        ?? throw new ResourceNotFoundException("SkillTopic", request.CategoryId);
+
+    // Check for similar skills by the same user
+    var existingSkill = await _unitOfWork.Skills.GetByNameAndUserIdAsync(request.Name.Trim(), request.UserId, cancellationToken);
+
+    if (existingSkill != null)
     {
-        var keywords = new List<string> { name };
-
-        // Add significant words from description
-        var descriptionWords = description.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Where(w => w.Length > 3)
-            .Take(10);
-        keywords.AddRange(descriptionWords);
-
-        // Add tags
-        if (tags != null)
-        {
-            keywords.AddRange(tags);
-        }
-
-        return string.Join(" ", keywords.Distinct()).ToLowerInvariant();
+      throw new ResourceAlreadyExistsException(
+          "Skill",
+          "Name",
+          request.Name,
+          "You already have a similar skill. Consider updating your existing skill instead.");
     }
+
+    // Geocode location if in_person or both (async, during skill creation - NOT during matching!)
+    double? latitude = null;
+    double? longitude = null;
+
+    var locationType = request.LocationType?.ToLowerInvariant() ?? "remote";
+    if (locationType is "in_person" or "both" &&
+        (!string.IsNullOrEmpty(request.LocationCity) || !string.IsNullOrEmpty(request.LocationPostalCode)))
+    {
+      try
+      {
+        var geoResult = await _locationService.GeocodeAddressAsync(
+            request.LocationPostalCode,
+            request.LocationCity,
+            request.LocationCountry,
+            cancellationToken);
+
+        if (geoResult != null)
+        {
+          latitude = geoResult.Latitude;
+          longitude = geoResult.Longitude;
+          Logger.LogInformation("Geocoded location for skill: ({Lat}, {Lng})", latitude, longitude);
+        }
+        else
+        {
+          Logger.LogWarning("Could not geocode location for skill: {City}, {PostalCode}, {Country}",
+              request.LocationCity, request.LocationPostalCode, request.LocationCountry);
+        }
+      }
+      catch (Exception ex)
+      {
+        // Don't fail skill creation if geocoding fails
+        Logger.LogError(ex, "Geocoding failed, continuing without coordinates");
+      }
+    }
+
+    // Create new skill with all fields
+    var skill = new Skill
+    {
+      UserId = request.UserId,
+      Name = request.Name.Trim(),
+      Description = request.Description.Trim(),
+      IsOffered = request.IsOffered,
+      SkillTopicId = request.CategoryId,
+      Tags = request.Tags ?? [],
+      IsActive = true,
+      SearchKeywords = GenerateSearchKeywords(request.Name, request.Description, request.Tags),
+      CreatedBy = request.UserId,
+
+      // Exchange options
+      ExchangeType = request.ExchangeType?.ToLowerInvariant() ?? "skill_exchange",
+      DesiredSkillTopicId = request.DesiredSkillCategoryId,
+      DesiredSkillDescription = request.DesiredSkillDescription?.Trim(),
+      HourlyRate = request.HourlyRate,
+      Currency = request.Currency?.ToUpperInvariant(),
+
+      // Scheduling
+      PreferredDays = request.PreferredDays ?? [],
+      PreferredTimes = request.PreferredTimes ?? [],
+      SessionDurationMinutes = request.SessionDurationMinutes,
+      TotalSessions = request.TotalSessions,
+
+      // Location
+      LocationType = locationType,
+      LocationAddress = request.LocationAddress?.Trim(),
+      LocationCity = request.LocationCity?.Trim(),
+      LocationPostalCode = request.LocationPostalCode?.Trim(),
+      LocationCountry = request.LocationCountry?.ToUpperInvariant(),
+      MaxDistanceKm = request.MaxDistanceKm,
+      LocationLatitude = latitude,
+      LocationLongitude = longitude
+    };
+
+    await _unitOfWork.Skills.CreateAsync(skill, cancellationToken);
+
+    var listing = SkillService.Domain.Entities.Listing.CreateFromSkill(skill, _listingSettings.DefaultExpirationMinutes);
+    await _unitOfWork.Listings.CreateAsync(listing, cancellationToken);
+
+    await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+    Logger.LogInformation("Skill {SkillName} created successfully by user {UserId} with listing {ListingId}",
+        skill.Name, request.UserId, listing.Id);
+
+    // Publish integration event for automatic matchmaking
+    var integrationEvent = new SkillCreatedEvent
+    {
+      SkillId = skill.Id,
+      UserId = skill.UserId,
+      Name = skill.Name,
+      Description = skill.Description,
+      CategoryId = topic.Id,
+      CategoryName = topic.FullPath,
+      IsOffered = skill.IsOffered,
+      ExchangeType = skill.ExchangeType,
+      DesiredSkillCategoryId = skill.DesiredSkillTopicId,
+      DesiredSkillDescription = skill.DesiredSkillDescription,
+      HourlyRate = skill.HourlyRate,
+      Currency = skill.Currency,
+      PreferredDays = skill.PreferredDays.ToArray(),
+      PreferredTimes = skill.PreferredTimes.ToArray(),
+      SessionDurationMinutes = skill.SessionDurationMinutes,
+      TotalSessions = skill.TotalSessions,
+      LocationType = skill.LocationType,
+      LocationCity = skill.LocationCity,
+      LocationPostalCode = skill.LocationPostalCode,
+      LocationCountry = skill.LocationCountry,
+      MaxDistanceKm = skill.MaxDistanceKm,
+      LocationLatitude = skill.LocationLatitude,
+      LocationLongitude = skill.LocationLongitude,
+      CreatedAt = skill.CreatedAt
+    };
+
+    await _publishEndpoint.Publish(integrationEvent, cancellationToken);
+    Logger.LogInformation("Published SkillCreatedEvent for SkillId: {SkillId}", skill.Id);
+
+    var response = new CreateSkillResponse(
+        skill.Id,
+        skill.Name,
+        skill.Description,
+        topic.Id,
+        skill.Tags,
+        skill.IsOffered,
+        "Active",
+        skill.CreatedAt);
+
+    return Success(response, "Skill created successfully");
+  }
+
+  private static string GenerateSearchKeywords(string name, string description, List<string>? tags)
+  {
+    var keywords = new List<string> { name };
+
+    // Add significant words from description
+    var descriptionWords = description.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Where(w => w.Length > 3)
+        .Take(10);
+    keywords.AddRange(descriptionWords);
+
+    // Add tags
+    if (tags != null)
+    {
+      keywords.AddRange(tags);
+    }
+
+    return string.Join(" ", keywords.Distinct()).ToLowerInvariant();
+  }
 }

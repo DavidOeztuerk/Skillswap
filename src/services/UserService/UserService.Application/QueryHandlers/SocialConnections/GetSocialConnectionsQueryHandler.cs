@@ -12,7 +12,6 @@ namespace UserService.Application.QueryHandlers.SocialConnections;
 
 /// <summary>
 /// Handler for getting all social connections and imported data
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public class GetSocialConnectionsQueryHandler(
     IUserLinkedInConnectionRepository linkedInRepository,
@@ -23,113 +22,106 @@ public class GetSocialConnectionsQueryHandler(
     ILogger<GetSocialConnectionsQueryHandler> logger)
     : BaseQueryHandler<GetSocialConnectionsQuery, SocialConnectionsResponse>(logger)
 {
-    private readonly IUserLinkedInConnectionRepository _linkedInRepository = linkedInRepository;
-    private readonly IUserXingConnectionRepository _xingRepository = xingRepository;
-    private readonly IUserImportedSkillRepository _skillRepository = skillRepository;
-    private readonly IUserExperienceRepository _experienceRepository = experienceRepository;
-    private readonly IUserEducationRepository _educationRepository = educationRepository;
+  private readonly IUserLinkedInConnectionRepository _linkedInRepository = linkedInRepository;
+  private readonly IUserXingConnectionRepository _xingRepository = xingRepository;
+  private readonly IUserImportedSkillRepository _skillRepository = skillRepository;
+  private readonly IUserExperienceRepository _experienceRepository = experienceRepository;
+  private readonly IUserEducationRepository _educationRepository = educationRepository;
 
-    public override async Task<ApiResponse<SocialConnectionsResponse>> Handle(
-        GetSocialConnectionsQuery request,
-        CancellationToken cancellationToken)
-    {
-        Logger.LogDebug("Getting social connections for user {UserId}", request.UserId);
+  public override async Task<ApiResponse<SocialConnectionsResponse>> Handle(
+      GetSocialConnectionsQuery request,
+      CancellationToken cancellationToken)
+  {
+    Logger.LogDebug("Getting social connections for user {UserId}", request.UserId);
 
-        // Get all data in parallel
-        var linkedInTask = _linkedInRepository.GetByUserIdAsync(request.UserId, cancellationToken);
-        var xingTask = _xingRepository.GetByUserIdAsync(request.UserId, cancellationToken);
-        var skillsTask = _skillRepository.GetByUserIdAsync(request.UserId, cancellationToken);
-        var experiencesTask = _experienceRepository.GetUserExperiences(request.UserId, cancellationToken);
-        var educationsTask = _educationRepository.GetUserEducation(request.UserId, cancellationToken);
+    // NOTE: EF Core DbContext is NOT thread-safe, so we must execute sequentially
+    // All repositories share the same scoped DbContext instance
+    var linkedIn = await _linkedInRepository.GetByUserIdAsync(request.UserId, cancellationToken);
+    var xing = await _xingRepository.GetByUserIdAsync(request.UserId, cancellationToken);
+    var skills = await _skillRepository.GetByUserIdAsync(request.UserId, cancellationToken);
+    var experiences = await _experienceRepository.GetUserExperiences(request.UserId, cancellationToken);
+    var educations = await _educationRepository.GetUserEducation(request.UserId, cancellationToken);
 
-        await Task.WhenAll(linkedInTask, xingTask, skillsTask, experiencesTask, educationsTask);
+    // Map responses
+    var linkedInResponse = linkedIn != null ? MapLinkedInConnection(linkedIn) : null;
+    var xingResponse = xing != null ? MapXingConnection(xing) : null;
+    var skillResponses = skills.Select(MapSkill).ToList();
 
-        var linkedIn = await linkedInTask;
-        var xing = await xingTask;
-        var skills = await skillsTask;
-        var experiences = await experiencesTask;
-        var educations = await educationsTask;
+    // Calculate summary
+    var linkedInSkillCount = skills.Count(s => s.Source == ProfileDataSource.LinkedIn);
+    var xingSkillCount = skills.Count(s => s.Source == ProfileDataSource.Xing);
+    var manualSkillCount = skills.Count(s => s.Source == ProfileDataSource.Manual);
 
-        // Map responses
-        var linkedInResponse = linkedIn != null ? MapLinkedInConnection(linkedIn) : null;
-        var xingResponse = xing != null ? MapXingConnection(xing) : null;
-        var skillResponses = skills.Select(MapSkill).ToList();
+    var linkedInExpCount = experiences.Count(e => e.Source == ProfileDataSource.LinkedIn);
+    var xingExpCount = experiences.Count(e => e.Source == ProfileDataSource.Xing);
 
-        // Calculate summary
-        var linkedInSkillCount = skills.Count(s => s.Source == ProfileDataSource.LinkedIn);
-        var xingSkillCount = skills.Count(s => s.Source == ProfileDataSource.Xing);
-        var manualSkillCount = skills.Count(s => s.Source == ProfileDataSource.Manual);
+    var linkedInEduCount = educations.Count(e => e.Source == ProfileDataSource.LinkedIn);
+    var xingEduCount = educations.Count(e => e.Source == ProfileDataSource.Xing);
 
-        var linkedInExpCount = experiences.Count(e => e.Source == ProfileDataSource.LinkedIn);
-        var xingExpCount = experiences.Count(e => e.Source == ProfileDataSource.Xing);
+    var summary = new SocialConnectionsSummary(
+        TotalImportedSkills: skills.Count,
+        LinkedInSkillCount: linkedInSkillCount,
+        XingSkillCount: xingSkillCount,
+        ManualSkillCount: manualSkillCount,
+        TotalImportedExperiences: linkedInExpCount + xingExpCount,
+        TotalImportedEducations: linkedInEduCount + xingEduCount,
+        HasLinkedInConnection: linkedIn != null,
+        HasXingConnection: xing != null);
 
-        var linkedInEduCount = educations.Count(e => e.Source == ProfileDataSource.LinkedIn);
-        var xingEduCount = educations.Count(e => e.Source == ProfileDataSource.Xing);
+    var response = new SocialConnectionsResponse(
+        linkedInResponse,
+        xingResponse,
+        skillResponses,
+        summary);
 
-        var summary = new SocialConnectionsSummary(
-            TotalImportedSkills: skills.Count,
-            LinkedInSkillCount: linkedInSkillCount,
-            XingSkillCount: xingSkillCount,
-            ManualSkillCount: manualSkillCount,
-            TotalImportedExperiences: linkedInExpCount + xingExpCount,
-            TotalImportedEducations: linkedInEduCount + xingEduCount,
-            HasLinkedInConnection: linkedIn != null,
-            HasXingConnection: xing != null);
+    return Success(response);
+  }
 
-        var response = new SocialConnectionsResponse(
-            linkedInResponse,
-            xingResponse,
-            skillResponses,
-            summary);
+  private static LinkedInConnectionResponse MapLinkedInConnection(UserLinkedInConnection connection)
+  {
+    return new LinkedInConnectionResponse(
+        connection.Id,
+        connection.LinkedInId,
+        connection.ProfileUrl,
+        connection.LinkedInEmail,
+        connection.IsVerified,
+        connection.VerifiedAt,
+        connection.LastSyncAt,
+        connection.ImportedExperienceCount,
+        connection.ImportedEducationCount,
+        connection.AutoSyncEnabled,
+        connection.CreatedAt);
+  }
 
-        return Success(response);
-    }
+  private static XingConnectionResponse MapXingConnection(UserXingConnection connection)
+  {
+    return new XingConnectionResponse(
+        connection.Id,
+        connection.XingId,
+        connection.ProfileUrl,
+        connection.XingEmail,
+        connection.IsVerified,
+        connection.VerifiedAt,
+        connection.LastSyncAt,
+        connection.ImportedExperienceCount,
+        connection.ImportedEducationCount,
+        connection.AutoSyncEnabled,
+        connection.CreatedAt);
+  }
 
-    private static LinkedInConnectionResponse MapLinkedInConnection(UserLinkedInConnection connection)
-    {
-        return new LinkedInConnectionResponse(
-            connection.Id,
-            connection.LinkedInId,
-            connection.ProfileUrl,
-            connection.LinkedInEmail,
-            connection.IsVerified,
-            connection.VerifiedAt,
-            connection.LastSyncAt,
-            connection.ImportedExperienceCount,
-            connection.ImportedEducationCount,
-            connection.AutoSyncEnabled,
-            connection.CreatedAt);
-    }
-
-    private static XingConnectionResponse MapXingConnection(UserXingConnection connection)
-    {
-        return new XingConnectionResponse(
-            connection.Id,
-            connection.XingId,
-            connection.ProfileUrl,
-            connection.XingEmail,
-            connection.IsVerified,
-            connection.VerifiedAt,
-            connection.LastSyncAt,
-            connection.ImportedExperienceCount,
-            connection.ImportedEducationCount,
-            connection.AutoSyncEnabled,
-            connection.CreatedAt);
-    }
-
-    private static UserImportedSkillResponse MapSkill(UserImportedSkill skill)
-    {
-        return new UserImportedSkillResponse(
-            skill.Id,
-            skill.Name,
-            skill.Source,
-            skill.ExternalId,
-            skill.EndorsementCount,
-            skill.Category,
-            skill.SortOrder,
-            skill.IsVisible,
-            skill.ImportedAt,
-            skill.LastSyncAt,
-            skill.CreatedAt);
-    }
+  private static UserImportedSkillResponse MapSkill(UserImportedSkill skill)
+  {
+    return new UserImportedSkillResponse(
+        skill.Id,
+        skill.Name,
+        skill.Source,
+        skill.ExternalId,
+        skill.EndorsementCount,
+        skill.Category,
+        skill.SortOrder,
+        skill.IsVisible,
+        skill.ImportedAt,
+        skill.LastSyncAt,
+        skill.CreatedAt);
+  }
 }

@@ -6,15 +6,22 @@ namespace SkillService.Application.Commands.Listing;
 
 /// <summary>
 /// Command to create a new listing for a skill
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record CreateListingCommand(
     string SkillId,
     string Type)
-    : ICommand<ListingResponse>, IAuditableCommand
+    : ICommand<ListingResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    // ICacheInvalidatingCommand implementation
+    public string[] InvalidationPatterns =>
+    [
+        "listings:featured:*",
+        "listings:search:*",
+        "listings:my-listings:*"
+    ];
 }
 
 public class CreateListingCommandValidator : AbstractValidator<CreateListingCommand>

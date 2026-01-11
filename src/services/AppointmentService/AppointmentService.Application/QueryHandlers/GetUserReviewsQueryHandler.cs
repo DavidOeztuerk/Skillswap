@@ -33,7 +33,6 @@ public class GetUserReviewsQueryHandler(
             request.StarFilter,
             cancellationToken);
 
-        // Phase 9: Cached display fields removed - pass null
         // TODO: Load from UserService/SkillService via ServiceCommunication if needed
         var reviewResponses = reviews.Select(r => new UserReviewResponse(
             r.Id,

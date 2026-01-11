@@ -5,7 +5,6 @@ namespace UserService.Application.Commands.LinkedIn;
 
 /// <summary>
 /// Command to sync profile data from LinkedIn (experiences and educations)
-/// Phase 12: LinkedIn/Xing Integration
 /// </summary>
 public record SyncLinkedInProfileCommand : ICommand<ProfileSyncResultResponse>, IAuditableCommand, ICacheInvalidatingCommand
 {
@@ -17,6 +16,7 @@ public record SyncLinkedInProfileCommand : ICommand<ProfileSyncResultResponse>, 
         $"user-profile:{UserId}:*",
         $"user-experience:{UserId}:*",
         $"user-education:{UserId}:*",
-        $"linkedin-connection:{UserId}:*"
+        $"linkedin-connection:{UserId}:*",
+        $"social-connections:{UserId}"
     ];
 }

@@ -11,7 +11,6 @@ namespace SkillService.Application.CommandHandlers.Listing;
 
 /// <summary>
 /// Handler for closing a listing manually
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public class CloseListingCommandHandler(
     ISkillUnitOfWork unitOfWork,

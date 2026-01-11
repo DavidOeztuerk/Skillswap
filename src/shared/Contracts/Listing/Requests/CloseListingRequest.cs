@@ -5,7 +5,6 @@ namespace Contracts.Listing.Requests;
 
 /// <summary>
 /// API request for closing a listing manually
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record CloseListingRequest(
     [Required(ErrorMessage = "Listing ID is required")]
@@ -18,5 +17,5 @@ public record CloseListingRequest(
     string? Reason = null)
     : IVersionedContract
 {
-    public string ApiVersion => "v1";
+  public string ApiVersion => "v1";
 }

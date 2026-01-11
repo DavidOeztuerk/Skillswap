@@ -22,68 +22,67 @@ namespace SkillService.Infrastructure.Extensions;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
-    /// <summary>
-    /// Adds SkillService-specific dependencies to the DI container
-    /// </summary>
-    public static IServiceCollection AddInfrastructure(
-        this IServiceCollection services,
-        IConfiguration configuration,
-        IWebHostEnvironment environment,
-        string serviceName)
-    {
-        // Register Unit of Work and Repositories
-        services.AddScoped<ISkillUnitOfWork, SkillUnitOfWork>();
-        services.AddScoped<ISkillRepository, SkillRepository>();
-        services.AddScoped<ISkillCategoryRepository, SkillCategoryRepository>();
-        services.AddScoped<ISkillEndorsementRepository, SkillEndorsementRepository>();
-        services.AddScoped<ISkillMatchRepository, SkillMatchRepository>();
-        services.AddScoped<ISkillResourceRepository, SkillResourceRepository>();
-        services.AddScoped<ISkillReviewRepository, SkillReviewRepository>();
-        services.AddScoped<ISkillViewRepository, SkillViewRepository>();
-        // Phase 10: Listing repository
-        services.AddScoped<IListingRepository, ListingRepository>();
+  /// <summary>
+  /// Adds SkillService-specific dependencies to the DI container
+  /// </summary>
+  public static IServiceCollection AddInfrastructure(
+      this IServiceCollection services,
+      IConfiguration configuration,
+      IWebHostEnvironment environment,
+      string serviceName)
+  {
+    // Register Unit of Work and Repositories
+    services.AddScoped<ISkillUnitOfWork, SkillUnitOfWork>();
+    services.AddScoped<ISkillRepository, SkillRepository>();
+    services.AddScoped<ISkillCategoryRepository, SkillCategoryRepository>();
+    services.AddScoped<ISkillEndorsementRepository, SkillEndorsementRepository>();
+    services.AddScoped<ISkillMatchRepository, SkillMatchRepository>();
+    services.AddScoped<ISkillResourceRepository, SkillResourceRepository>();
+    services.AddScoped<ISkillReviewRepository, SkillReviewRepository>();
+    services.AddScoped<ISkillViewRepository, SkillViewRepository>();
+    services.AddScoped<IListingRepository, ListingRepository>();
 
-        // Register service clients that use IServiceCommunicationManager
-        services.AddScoped<IUserServiceClient, UserServiceClient>();
-        services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
+    // Register service clients that use IServiceCommunicationManager
+    services.AddScoped<IUserServiceClient, UserServiceClient>();
+    services.AddScoped<INotificationServiceClient, NotificationServiceClient>();
 
-        // Register Location Service for geocoding and distance calculations
-        services.AddHttpClient<ILocationService, LocationService>();
+    // Register Location Service for geocoding and distance calculations
+    services.AddHttpClient<ILocationService, LocationService>();
 
-        // Phase 10: Listing expiration background service
-        services.Configure<ListingSettings>(configuration.GetSection(ListingSettings.SectionName));
-        services.AddHostedService<ListingExpirationService>();
+    // Listing expiration background service
+    services.Configure<ListingSettings>(configuration.GetSection(ListingSettings.SectionName));
+    services.AddHostedService<ListingExpirationService>();
 
-        services.AddSharedInfrastructure(configuration, environment, serviceName);
+    services.AddSharedInfrastructure(configuration, environment, serviceName);
 
-        services.AddJwtAuthentication(configuration, environment);
+    services.AddJwtAuthentication(configuration, environment);
 
-        services.AddDatabaseContext<SkillDbContext>(
-            configuration,
-            serviceName,
-            "SkillService.Infrastructure");
+    services.AddDatabaseContext<SkillDbContext>(
+        configuration,
+        serviceName,
+        "SkillService.Infrastructure");
 
-        services.AddEventSourcing("SkillServiceEventStore");
+    services.AddEventSourcing("SkillServiceEventStore");
 
-        // Load Application assembly for CQRS handlers
-        var applicationAssembly = Assembly.Load("SkillService.Application");
-        services.AddCQRS(applicationAssembly);
+    // Load Application assembly for CQRS handlers
+    var applicationAssembly = Assembly.Load("SkillService.Application");
+    services.AddCQRS(applicationAssembly);
 
-        // Infrastructure assembly for consumers (Phase 11: PaymentSucceededConsumer)
-        var infrastructureAssembly = typeof(ServiceCollectionExtensions).Assembly;
+    // Infrastructure assembly for consumers (Phase 11: PaymentSucceededConsumer)
+    var infrastructureAssembly = typeof(ServiceCollectionExtensions).Assembly;
 
-        // Add messaging with both assemblies for handlers and consumers
-        services.AddMessaging(
-            configuration,
-            applicationAssembly,
-            infrastructureAssembly);
+    // Add messaging with both assemblies for handlers and consumers
+    services.AddMessaging(
+        configuration,
+        applicationAssembly,
+        infrastructureAssembly);
 
-        services.AddEventBus();
+    services.AddEventBus();
 
-        services.AddSkillSwapAuthorization();
-        services.AddPermissionAuthorization();
-        services.AddAuthorization(options => options.AddPermissionPolicies());
+    services.AddSkillSwapAuthorization();
+    services.AddPermissionAuthorization();
+    services.AddAuthorization(options => options.AddPermissionPolicies());
 
-        return services;
-    }
+    return services;
+  }
 }

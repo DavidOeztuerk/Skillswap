@@ -6,8 +6,13 @@ using PaymentService.Infrastructure.Data;
 using PaymentService.Infrastructure.Extensions;
 using PaymentService.Infrastructure.Services;
 
-// Load .env file from project root - traverse up to find it
-Env.Load();
+// Load environment-specific .env file
+var envName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+var envFile = $".env.{envName.ToLower()}";
+if (File.Exists(envFile))
+    Env.Load(envFile);
+else if (File.Exists(".env"))
+    Env.Load(".env");
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -5,13 +5,21 @@ namespace SkillService.Application.Commands.Listing;
 
 /// <summary>
 /// Command to delete a listing
-/// Phase 10: Listing concept with expiration
 /// </summary>
 public record DeleteListingCommand(string ListingId)
-    : ICommand<bool>, IAuditableCommand
+    : ICommand<bool>, IAuditableCommand, ICacheInvalidatingCommand
 {
     public string? UserId { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    // ICacheInvalidatingCommand implementation
+    public string[] InvalidationPatterns =>
+    [
+        "listings:featured:*",
+        "listings:search:*",
+        "listings:my-listings:*",
+        $"listings:{ListingId}"
+    ];
 }
 
 public class DeleteListingCommandValidator : AbstractValidator<DeleteListingCommand>
