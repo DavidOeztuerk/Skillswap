@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -42,55 +42,75 @@ jobs:
             echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create backmerge branch
-        id: create-branch
+      - name: Check for existing backmerge PR
+        id: check-pr
         if: steps.diff-check.outputs.has_changes == 'true'
         run: |
-          BRANCH_NAME="backmerge/main-to-develop-$(date +%Y%m%d-%H%M%S)"
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-          git checkout -b $BRANCH_NAME origin/main
-          git push origin $BRANCH_NAME
+          EXISTING_PR=$(gh pr list --base develop --head main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Existing backmerge PR found: #$EXISTING_PR"
+            echo "pr_exists=true" >> $GITHUB_OUTPUT
+            echo "pr_number=$EXISTING_PR" >> $GITHUB_OUTPUT
+          else
+            echo "No existing backmerge PR found"
+            echo "pr_exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Pull Request
-        if: steps.diff-check.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@v8
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ steps.create-branch.outputs.branch_name }}
-          base: develop
-          title: "🔄 Backmerge: main → develop"
-          body: |
-            ## Automatic Backmerge
+        id: create-pr
+        if: steps.diff-check.outputs.has_changes == 'true' && steps.check-pr.outputs.pr_exists == 'false'
+        run: |
+          PR_URL=$(gh pr create \
+            --base develop \
+            --head main \
+            --title "🔄 Backmerge: main → develop" \
+            --body "$(cat <<'EOF'
+          ## Automatic Backmerge
 
-            This PR was automatically created to sync changes from `main` back to `develop`.
+          This PR was automatically created to sync changes from `main` back to `develop`.
 
-            ### Why is this needed?
-            - Production hotfixes need to be in develop
-            - Release fixes must be synced back
-            - `main` is the source of truth for production
+          ### Why is this needed?
+          - Production hotfixes need to be in develop
+          - Release fixes must be synced back
+          - `main` is the source of truth for production
 
-            ### Changes included
-            - All commits that were merged to `main` since last sync
-            - Includes: hotfixes, release fixes, any direct main commits
+          ### Changes included
+          - All commits that were merged to `main` since last sync
+          - Includes: hotfixes, release fixes, any direct main commits
 
-            ### Action required
-            - Review the changes
-            - Resolve any merge conflicts if present
-            - Merge this PR to keep `develop` in sync
+          ### Action required
+          - Review the changes
+          - Resolve any merge conflicts if present
+          - Merge this PR to keep `develop` in sync
 
-            ---
-            🤖 Generated with [Claude Code](https://claude.com/claude-code)
-          labels: |
-            backmerge
-            automated
-          draft: false
+          ---
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          EOF
+          )" \
+            --label "backmerge" \
+            --label "automated")
+
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "Created PR: $PR_URL"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Summary
         run: |
           if [ "${{ steps.diff-check.outputs.has_changes }}" == "true" ]; then
-            echo "## 🔄 Backmerge PR Created" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "A pull request has been created to merge \`main\` into \`develop\`." >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.check-pr.outputs.pr_exists }}" == "true" ]; then
+              echo "## 🔄 Backmerge PR Already Exists" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "PR #${{ steps.check-pr.outputs.pr_number }} is already open for backmerging \`main\` into \`develop\`." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "## 🔄 Backmerge PR Created" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "A pull request has been created to merge \`main\` into \`develop\`." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**PR URL:** ${{ steps.create-pr.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
+            fi
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Please review and merge the PR to keep branches in sync.**" >> $GITHUB_STEP_SUMMARY
           else
